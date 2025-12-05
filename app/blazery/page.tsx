@@ -501,7 +501,7 @@ export default function BlazeryPage() {
               )}>
                 {blazeProfitLoss.isProfitable ? (
                   <>
-                    💰 Profitable blaze! You'll receive ${blazeProfitLoss.wethValueInUsd.toFixed(2)} in WETH for ${blazeProfitLoss.lpValueInUsd.toFixed(2)} in LP
+                    💰 Profitable Burn! You'll receive ${blazeProfitLoss.wethValueInUsd.toFixed(2)} in WETH for ${blazeProfitLoss.lpValueInUsd.toFixed(2)} in LP
                     ({blazeProfitLoss.profitLoss >= 0 ? '+' : ''}${blazeProfitLoss.profitLoss.toFixed(2)})
                   </>
                 ) : (
@@ -515,6 +515,19 @@ export default function BlazeryPage() {
           </div>
         </div>
       </div>
+      
+      <div className="mt-1 -mx-2 w-[calc(100%+1rem)] overflow-hidden relative">
+  <video
+    ref={videoRef}
+    className="w-full object-contain"
+    autoPlay
+    loop
+    muted
+    playsInline
+    preload="auto"
+    src="/media/donut-loop.mp4"
+  />
+</div>
       <NavBar />
     </main>
   );
