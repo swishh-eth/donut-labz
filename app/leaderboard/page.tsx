@@ -47,6 +47,7 @@ export default function LeaderboardPage() {
   const readyRef = useRef(false);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [timeUntilDistribution, setTimeUntilDistribution] = useState("");
+  const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +77,22 @@ export default function LeaderboardPage() {
       }
     }, 1200);
     return () => clearTimeout(timeout);
+  }, []);
+
+    useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+        const data = await res.json();
+        setEthUsdPrice(data.ethereum.usd);
+      } catch {
+        console.error('Failed to fetch ETH price');
+      }
+    };
+
+    fetchPrice();
+    const interval = setInterval(fetchPrice, 60_000);
+    return () => clearInterval(interval);
   }, []);
 
   // Fetch leaderboard data
@@ -242,15 +259,18 @@ export default function LeaderboardPage() {
               <div className="text-2xl font-bold text-white">#{weekNumber}</div>
             </div>
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Coins className="w-4 h-4 text-green-400" />
-                <span className="text-xs text-gray-400 uppercase">Prize Pool</span>
-              </div>
-              <div className="text-2xl font-bold text-green-400">
-                Ξ{prizePoolBalance.toFixed(4)}
-              </div>
-            </div>
+<div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+  <div className="flex items-center gap-2 mb-1">
+    <Coins className="w-4 h-4 text-green-400" />
+    <span className="text-xs text-gray-400 uppercase">Prize Pool</span>
+  </div>
+  <div className="text-2xl font-bold text-green-400">
+    Ξ{prizePoolBalance.toFixed(4)}
+  </div>
+  <div className="text-xs text-gray-400">
+    (${(prizePoolBalance * ethUsdPrice).toFixed(2)})
+  </div>
+</div>
           </div>
 
           {/* Countdown */}
