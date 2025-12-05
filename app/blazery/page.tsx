@@ -120,6 +120,7 @@ export default function BlazeryPage() {
     };
   }, []);
 
+  // Fetch ETH price on mount and every minute
   useEffect(() => {
     const fetchPrice = async () => {
       const price = await getEthPrice();
@@ -127,7 +128,7 @@ export default function BlazeryPage() {
     };
 
     fetchPrice();
-    const interval = setInterval(fetchPrice, 60_000);
+    const interval = setInterval(fetchPrice, 60_000); // Update every minute
 
     return () => clearInterval(interval);
   }, []);
@@ -246,6 +247,7 @@ export default function BlazeryPage() {
       );
       const maxPaymentTokenAmount = price;
 
+      // If we're in idle or approval failed, start with approval
       if (txStep === "idle") {
         setTxStep("approving");
         await writeContract({
@@ -259,6 +261,7 @@ export default function BlazeryPage() {
         return;
       }
 
+      // If approval succeeded, now call buy
       if (txStep === "buying") {
         await writeContract({
           account: targetAddress as Address,
@@ -300,12 +303,14 @@ export default function BlazeryPage() {
         return () => clearTimeout(resetTimer);
       }
 
+      // If approval succeeded, now call buy
       if (txStep === "approving") {
         resetWrite();
         setTxStep("buying");
         return;
       }
 
+      // If buy succeeded
       if (txStep === "buying") {
         showBlazeResult("success");
         setTxStep("idle");
@@ -319,6 +324,7 @@ export default function BlazeryPage() {
     return;
   }, [receipt, refetchAuctionState, resetWrite, showBlazeResult, txStep]);
 
+  // Auto-trigger buy after approval
   useEffect(() => {
     if (txStep === "buying" && !isWriting && !isConfirming && !txHash) {
       handleBlaze();
@@ -347,12 +353,15 @@ export default function BlazeryPage() {
 
   const hasInsufficientLP = auctionState && auctionState.paymentTokenBalance < auctionState.price;
 
+  // Calculate profit/loss for blazing
   const blazeProfitLoss = useMemo(() => {
     if (!auctionState) return null;
 
+    // LP token value in USD
     const lpValueInEth = Number(formatEther(auctionState.price)) * Number(formatEther(auctionState.paymentTokenPrice));
     const lpValueInUsd = lpValueInEth * ethUsdPrice;
 
+    // WETH value in USD
     const wethReceivedInEth = Number(formatEther(auctionState.wethAccumulated));
     const wethValueInUsd = wethReceivedInEth * ethUsdPrice;
 
@@ -414,12 +423,12 @@ export default function BlazeryPage() {
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <Card className="border-white bg-black">
+            <Card className="border-pink-500 bg-black">
               <CardContent className="grid gap-1.5 p-2.5">
                 <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-gray-400">
                   PAY
                 </div>
-                <div className="text-2xl font-semibold text-white">
+                <div className="text-2xl font-semibold text-pink-400">
                   {auctionPriceDisplay} LP
                 </div>
                 <div className="text-xs text-gray-400">
@@ -457,7 +466,7 @@ export default function BlazeryPage() {
 
           <div className="mt-4 flex flex-col gap-2">
             <Button
-              className="w-full rounded-2xl bg-white py-3 text-base font-bold text-black shadow-lg transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:bg-white/40"
+              className="w-full rounded-2xl bg-pink-500 py-3 text-base font-bold text-black shadow-lg transition-colors hover:bg-pink-400 disabled:cursor-not-allowed disabled:bg-pink-500/40"
               onClick={handleBlaze}
               disabled={isBlazeDisabled}
             >
@@ -474,16 +483,17 @@ export default function BlazeryPage() {
                 </span>{" "}
                 DONUT-ETH LP
               </div>
-              
+              <a
                 href="https://app.uniswap.org/explore/pools/base/0xD1DbB2E56533C55C3A637D13C53aeEf65c5D5703"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-white hover:text-gray-200 font-semibold transition-colors"
+                className="text-xs text-pink-400 hover:text-pink-300 font-semibold transition-colors"
               >
-                Get LP
+                Get LP →
               </a>
             </div>
 
+            {/* Profit/Loss Warning Message */}
             {blazeProfitLoss && (
               <div className={cn(
                 "text-center text-sm font-semibold px-2 py-1.5 rounded",
