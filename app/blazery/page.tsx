@@ -120,7 +120,6 @@ export default function BlazeryPage() {
     };
   }, []);
 
-  // Fetch ETH price on mount and every minute
   useEffect(() => {
     const fetchPrice = async () => {
       const price = await getEthPrice();
@@ -128,7 +127,7 @@ export default function BlazeryPage() {
     };
 
     fetchPrice();
-    const interval = setInterval(fetchPrice, 60_000); // Update every minute
+    const interval = setInterval(fetchPrice, 60_000);
 
     return () => clearInterval(interval);
   }, []);
@@ -247,7 +246,6 @@ export default function BlazeryPage() {
       );
       const maxPaymentTokenAmount = price;
 
-      // If we're in idle or approval failed, start with approval
       if (txStep === "idle") {
         setTxStep("approving");
         await writeContract({
@@ -261,7 +259,6 @@ export default function BlazeryPage() {
         return;
       }
 
-      // If approval succeeded, now call buy
       if (txStep === "buying") {
         await writeContract({
           account: targetAddress as Address,
@@ -303,14 +300,12 @@ export default function BlazeryPage() {
         return () => clearTimeout(resetTimer);
       }
 
-      // If approval succeeded, now call buy
       if (txStep === "approving") {
         resetWrite();
         setTxStep("buying");
         return;
       }
 
-      // If buy succeeded
       if (txStep === "buying") {
         showBlazeResult("success");
         setTxStep("idle");
@@ -324,7 +319,6 @@ export default function BlazeryPage() {
     return;
   }, [receipt, refetchAuctionState, resetWrite, showBlazeResult, txStep]);
 
-  // Auto-trigger buy after approval
   useEffect(() => {
     if (txStep === "buying" && !isWriting && !isConfirming && !txHash) {
       handleBlaze();
@@ -353,15 +347,12 @@ export default function BlazeryPage() {
 
   const hasInsufficientLP = auctionState && auctionState.paymentTokenBalance < auctionState.price;
 
-  // Calculate profit/loss for blazing
   const blazeProfitLoss = useMemo(() => {
     if (!auctionState) return null;
 
-    // LP token value in USD
     const lpValueInEth = Number(formatEther(auctionState.price)) * Number(formatEther(auctionState.paymentTokenPrice));
     const lpValueInUsd = lpValueInEth * ethUsdPrice;
 
-    // WETH value in USD
     const wethReceivedInEth = Number(formatEther(auctionState.wethAccumulated));
     const wethValueInUsd = wethReceivedInEth * ethUsdPrice;
 
@@ -493,7 +484,6 @@ export default function BlazeryPage() {
               </a>
             </div>
 
-            {/* Profit/Loss Warning Message */}
             {blazeProfitLoss && (
               <div className={cn(
                 "text-center text-sm font-semibold px-2 py-1.5 rounded",
