@@ -68,7 +68,7 @@ const initialsFrom = (label?: string) => {
 export default function BlazeryPage() {
   const readyRef = useRef(false);
   const autoConnectAttempted = useRef(false);
-  const [context, setContext] = useState<MiniAppContext | null>(null);S
+  const [context, setContext] = useState<MiniAppContext | null>(null);
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
   const [blazeResult, setBlazeResult] = useState<"success" | "failure" | null>(
     null,
