@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Trophy, Clock, Coins } from "lucide-react";
+import { Trophy, Clock, Coins, HelpCircle, X } from "lucide-react";
 import { formatEther } from "viem";
 
 type MiniAppContext = {
@@ -48,6 +48,7 @@ export default function LeaderboardPage() {
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [timeUntilDistribution, setTimeUntilDistribution] = useState("");
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
+  const [showHelpDialog, setShowHelpDialog] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -273,20 +274,103 @@ export default function LeaderboardPage() {
 </div>
           </div>
 
-          {/* Countdown */}
-          <div className="bg-gradient-to-r from-zinc-900 to-zinc-800 border border-zinc-700 rounded-lg p-3 mb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-white" />
-                <span className="text-sm font-semibold text-white">
-                  Next Distribution
-                </span>
-              </div>
-              <div className="text-sm font-bold text-white">
-                {timeUntilDistribution}
-              </div>
+{/* Countdown */}
+<div className="bg-gradient-to-r from-zinc-900 to-zinc-800 border border-zinc-700 rounded-lg p-3 mb-4">
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-2">
+      <Clock className="w-5 h-5 text-white" />
+      <span className="text-sm font-semibold text-white">
+        Next Distribution
+      </span>
+      <button
+        onClick={() => setShowHelpDialog(true)}
+        className="ml-1 text-gray-400 hover:text-white transition-colors"
+      >
+        <HelpCircle className="w-4 h-4" />
+      </button>
+    </div>
+    <div className="text-sm font-bold text-white">
+      {timeUntilDistribution}
+    </div>
+  </div>
+</div>
+
+{/* Help Dialog */}
+{showHelpDialog && (
+  <>
+    <div 
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm animate-in fade-in-0"
+      onClick={() => setShowHelpDialog(false)}
+    />
+    <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 animate-in fade-in-0 zoom-in-95">
+      <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-black p-6 shadow-2xl">
+        <button
+          onClick={() => setShowHelpDialog(false)}
+          className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 transition-colors hover:bg-zinc-800 hover:text-white"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-white mb-2">
+            How to Get on the Leaderboard
+          </h2>
+        </div>
+
+        <div className="space-y-3 text-sm text-gray-300">
+          <div className="flex gap-3">
+            <span className="text-white font-bold flex-shrink-0">1.</span>
+            <p>
+              <span className="text-white font-semibold">Glaze the Factory</span> - Every time you successfully win the auction by clicking "GLAZE" on the main page, you earn 1 point.
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <span className="text-white font-bold flex-shrink-0">2.</span>
+            <p>
+              <span className="text-white font-semibold">Compete Weekly</span> - The leaderboard resets every Friday at 12pm UTC. Your points only count for the current week.
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <span className="text-white font-bold flex-shrink-0">3.</span>
+            <p>
+              <span className="text-white font-semibold">Win Prizes</span> - Top 3 at the end of the week split the prize pool:
+            </p>
+          </div>
+
+          <div className="ml-8 space-y-1 text-xs">
+            <div className="flex justify-between">
+              <span className="text-yellow-400">🥇 1st Place:</span>
+              <span className="text-white font-semibold">50% of pool</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">🥈 2nd Place:</span>
+              <span className="text-white font-semibold">30% of pool</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-amber-600">🥉 3rd Place:</span>
+              <span className="text-white font-semibold">20% of pool</span>
             </div>
           </div>
+
+          <div className="pt-3 border-t border-zinc-800">
+            <p className="text-xs text-gray-400 italic">
+              Prize pool grows from 2.5% of all glazing fees collected during the week.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setShowHelpDialog(false)}
+          className="mt-6 w-full rounded-xl bg-white py-3 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
+        >
+          Got it!
+        </button>
+      </div>
+    </div>
+  </>
+)}
 
           {/* Leaderboard List */}
           <div className="flex-1 overflow-y-auto space-y-2 pb-2 scrollbar-hide">
