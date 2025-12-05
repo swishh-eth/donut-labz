@@ -280,7 +280,7 @@ export default function ChatPage() {
           <div className="grid grid-cols-2 gap-2 mb-4">
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
               <div className="flex items-center gap-1 mb-1">
-                <Star className="w-3 h-3 text-white" />
+                <Star className="w-3 h-3 text-yellow-400" />
                 <span className="text-[10px] text-gray-400 uppercase">Your Points</span>
               </div>
               <div className="text-xl font-bold text-white">
@@ -291,7 +291,7 @@ export default function ChatPage() {
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
               <div className="flex items-center gap-1 mb-1">
                 <Users className="w-3 h-3 text-white" />
-                <span className="text-[10px] text-gray-400 uppercase">Chatters</span>
+                <span className="text-[10px] text-gray-400 uppercase">Unique Chatters</span>
               </div>
               <div className="text-xl font-bold text-white">{totalUsers}</div>
             </div>
@@ -301,7 +301,7 @@ export default function ChatPage() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Star className="w-5 h-5 text-white" />
+                <Star className="w-5 h-5 text-yellow-400" />
                 <span className="text-sm font-semibold text-white">Earn Points</span>
                 <button
                   onClick={() => setShowHelpDialog(true)}
