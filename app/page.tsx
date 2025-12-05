@@ -621,7 +621,7 @@ export default function HomePage() {
       >
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold tracking-wide">GLOBAL GLAZERY AUCTION</h1>
+            <h1 className="text-2xl font-bold tracking-wide">GLAZERY AUCTION</h1>
             {context?.user ? (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
                 <Avatar className="h-8 w-8 border border-zinc-800">
@@ -714,15 +714,31 @@ export default function HomePage() {
                   </AvatarFallback>
                 </Avatar>
                 <div className="leading-tight text-left min-w-0 flex-1">
-                  <div className="flex items-center gap-1 text-[11px] font-semibold text-white truncate">
-                    <span className="truncate">{occupantDisplay.primary}</span>
-                  </div>
-                  {occupantDisplay.secondary ? (
-                    <div className="text-[9px] text-gray-400 truncate">
-                      {occupantDisplay.secondary}
-                    </div>
-                  ) : null}
-                </div>
+  <div className="flex items-center gap-1 text-[11px] font-semibold text-white truncate">
+    <span className="truncate">{occupantDisplay.primary}</span>
+  </div>
+  {occupantDisplay.secondary ? (
+    <div className="text-[9px] text-gray-400 truncate">
+      {occupantDisplay.secondary}
+    </div>
+  ) : null}
+  
+  {/* Purchased For */}
+  {minerState && minerState.initPrice > 0n && (
+    <div className="flex items-center gap-0.5 mt-0.5">
+      <div className="text-[7px] font-bold uppercase tracking-[0.08em] text-gray-500 whitespace-nowrap">
+        BOUGHT FOR:
+      </div>
+      <div className="text-[8px] text-gray-400 whitespace-nowrap">
+        Ξ{parseFloat(formatEther(minerState.initPrice / 2n)).toFixed(5)}
+      </div>
+      <div className="text-[7px] text-gray-500 whitespace-nowrap">
+        ($
+        {(Number(formatEther(minerState.initPrice / 2n)) * ethUsdPrice).toFixed(2)})
+      </div>
+    </div>
+  )}
+</div>
                 </div>
               </div>
 

@@ -7,7 +7,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Get current week number (resets Friday 12pm UTC)
 export function getCurrentWeek(): number {
-  const epochStart = new Date('2024-12-13T12:00:00Z'); // First distribution Friday 12pm UTC
+  const epochStart = new Date('2025-12-13T12:00:00Z'); // First distribution Friday 12pm UTC
   const now = new Date();
   const secondsElapsed = Math.floor((now.getTime() - epochStart.getTime()) / 1000);
   
