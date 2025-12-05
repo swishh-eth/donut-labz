@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Flame, Info } from "lucide-react";
+import { Flame, Info, Trophy } from "lucide-react";
 
 export function NavBar() {
   const pathname = usePathname();
@@ -17,6 +17,18 @@ export function NavBar() {
       }}
     >
       <div className="flex justify-around items-center max-w-[520px] mx-auto px-4">
+        <Link
+          href="/leaderboard"
+          className={cn(
+            "flex items-center justify-center p-3 transition-colors",
+            pathname === "/leaderboard"
+              ? "text-pink-400"
+              : "text-gray-400 hover:text-gray-300"
+          )}
+        >
+          <Trophy className="w-6 h-6" />
+        </Link>
+
         <Link
           href="/blazery"
           className={cn(

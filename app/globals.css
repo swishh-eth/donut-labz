@@ -17,10 +17,10 @@ body {
 @keyframes glow-pulse {
   0%,
   100% {
-    box-shadow: inset 0 0 18px rgba(53, 53, 53, 0.35);
+    box-shadow: inset 0 0 18px rgba(48, 48, 48, 0.35);
   }
   50% {
-    box-shadow: inset 0 0 28px rgb(255, 255, 255);
+    box-shadow: inset 0 0 28px rgb(0, 0, 0);
   }
 }
 
@@ -38,7 +38,7 @@ body {
 }
 
 .animate-scroll {
-  animation: scroll-text 60s linear infinite;
+  animation: scroll-text 30s linear infinite;
   will-change: transform;
 }
 
