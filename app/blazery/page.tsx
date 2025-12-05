@@ -518,7 +518,6 @@ export default function BlazeryPage() {
       
       <div className="mt-1 -mx-2 w-[calc(100%+1rem)] overflow-hidden relative">
   <video
-    ref={videoRef}
     className="w-full object-contain"
     autoPlay
     loop
