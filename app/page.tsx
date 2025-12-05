@@ -248,6 +248,19 @@ export default function HomePage() {
       showGlazeResult(
         receipt.status === "success" ? "success" : "failure",
       );
+
+          // Record the glaze for leaderboard
+    if (receipt.status === "success" && address) {
+      fetch('/api/record-glaze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: address,
+          txHash: receipt.transactionHash,
+        }),
+      }).catch(console.error);
+    }
+
       refetchMinerState();
       const resetTimer = setTimeout(() => {
         resetWrite();
