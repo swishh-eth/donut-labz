@@ -60,7 +60,7 @@ const timeAgo = (timestamp: bigint) => {
 // Create a dedicated public client for Base
 const basePublicClient = createPublicClient({
   chain: base,
-  transport: http("https://mainnet.base.org"),
+  transport: http("https://base.publicnode.com"),
 });
 
 export default function ChatPage() {
@@ -105,60 +105,58 @@ export default function ChatPage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Fetch messages from blockchain events
-  const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
-    queryKey: ["chat-messages-onchain"],
-    queryFn: async () => {
-      // Use wagmi client if available, otherwise fall back to our dedicated client
-      const client = wagmiPublicClient || basePublicClient;
+// Fetch messages from blockchain events
+const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
+  queryKey: ["chat-messages-onchain"],
+  queryFn: async () => {
+    const client = wagmiPublicClient || basePublicClient;
+    
+    try {
+      const DEPLOYMENT_BLOCK = 39080208n;
+      const BLOCKS_PER_HOUR = 1800n; // ~1 hour on Base (2 sec/block)
       
-      try {
-        const DEPLOYMENT_BLOCK = 39080208n;
-        const BLOCKS_PER_DAY = 43200n;
-        
-        const currentBlock = await client.getBlockNumber();
-        console.log("Current block:", currentBlock);
-        
-        // Calculate from block - last 24 hours or from deployment
-        const blocksSinceDeployment = currentBlock - DEPLOYMENT_BLOCK;
-        let fromBlock = DEPLOYMENT_BLOCK;
-        
-        if (blocksSinceDeployment > BLOCKS_PER_DAY) {
-          fromBlock = currentBlock - BLOCKS_PER_DAY;
-        }
-        
-        console.log("Fetching logs from block:", fromBlock.toString(), "to:", currentBlock.toString());
-        console.log("Contract address:", GLAZERY_CHAT_ADDRESS);
-        
-        const logs = await client.getLogs({
-          address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
-          event: parseAbiItem("event MessageSent(address indexed sender, string message, uint256 timestamp)"),
-          fromBlock,
-          toBlock: currentBlock,
-        });
-
-        console.log("Found logs:", logs.length);
-
-        const parsedMessages: ChatMessage[] = logs.map((log) => ({
-          sender: log.args.sender as string,
-          message: log.args.message as string,
-          timestamp: log.args.timestamp as bigint,
-          transactionHash: log.transactionHash,
-          blockNumber: log.blockNumber,
-        }));
-
-        return parsedMessages
-          .sort((a, b) => Number(b.timestamp - a.timestamp))
-          .slice(0, 20);
-      } catch (e) {
-        console.error("Failed to fetch messages:", e);
-        return [];
+      const currentBlock = await client.getBlockNumber();
+      console.log("Current block:", currentBlock.toString());
+      
+      // Only fetch last 1 hour of blocks
+      let fromBlock = currentBlock - BLOCKS_PER_HOUR;
+      
+      // Make sure we don't go before deployment
+      if (fromBlock < DEPLOYMENT_BLOCK) {
+        fromBlock = DEPLOYMENT_BLOCK;
       }
-    },
-    refetchInterval: 10000,
-    staleTime: 5000,
-    gcTime: 30000,
-  });
+      
+      console.log("Fetching from:", fromBlock.toString(), "to:", currentBlock.toString());
+      
+      const logs = await client.getLogs({
+        address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
+        event: parseAbiItem("event MessageSent(address indexed sender, string message, uint256 timestamp)"),
+        fromBlock,
+        toBlock: currentBlock,
+      });
+
+      console.log("Logs found:", logs.length);
+
+      const parsedMessages: ChatMessage[] = logs.map((log) => ({
+        sender: log.args.sender as string,
+        message: log.args.message as string,
+        timestamp: log.args.timestamp as bigint,
+        transactionHash: log.transactionHash,
+        blockNumber: log.blockNumber,
+      }));
+
+      return parsedMessages
+        .sort((a, b) => Number(b.timestamp - a.timestamp))
+        .slice(0, 20);
+    } catch (e) {
+      console.error("Failed to fetch messages:", e);
+      return [];
+    }
+  },
+  refetchInterval: 15000, // Every 15 seconds instead of 10
+  staleTime: 10000,
+  gcTime: 30000,
+});
 
   // Fetch chat stats from database
   const { data: statsData } = useQuery({
