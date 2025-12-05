@@ -101,6 +101,7 @@ export default function HomePage() {
   const [glazeResult, setGlazeResult] = useState<"success" | "failure" | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const glazeResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetGlazeResult = useCallback(() => {
@@ -613,278 +614,298 @@ export default function HomePage() {
         }}
       >
         <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-xl font-bold tracking-wide">GLAZE AUCTION</h1>
+          {/* Header - Original Size */}
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold tracking-wide">GLAZE AUCTION</h1>
             {context?.user && (
-              <div className="flex items-center gap-2 rounded-full bg-black px-2 py-0.5">
-                <Avatar className="h-6 w-6 border border-zinc-800">
+              <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
+                <Avatar className="h-8 w-8 border border-zinc-800">
                   <AvatarImage
                     src={userAvatarUrl || undefined}
                     alt={userDisplayName}
                     className="object-cover"
                   />
-                  <AvatarFallback className="bg-zinc-800 text-white text-xs">
+                  <AvatarFallback className="bg-zinc-800 text-white">
                     {initialsFrom(userDisplayName)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="leading-tight text-left">
-                  <div className="text-xs font-bold">{userDisplayName}</div>
+                  <div className="text-sm font-bold">{userDisplayName}</div>
+                  {userHandle && (
+                    <div className="text-xs text-gray-400">{userHandle}</div>
+                  )}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Scrolling Global Message */}
-          <div className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-lg mb-2">
-            <div className="flex animate-scroll whitespace-nowrap py-1.5 text-xs font-bold text-white">
-              {Array.from({ length: 100 }).map((_, i) => (
-                <span key={i} className="inline-block px-6">
-                  {minerState?.uri && minerState.uri.trim() !== ""
-                    ? minerState.uri
-                    : "We Glaze The World"}
-                </span>
-              ))}
-            </div>
+          {/* Video Player */}
+          <div className="-mx-2 w-[calc(100%+1rem)] overflow-hidden flex-1">
+            <video
+              ref={videoRef}
+              className="w-full h-full object-contain"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              src="/media/donut-loop.mp4"
+            />
           </div>
 
-          {/* King Glazer Card - Compact */}
-          <div
-            className={cn(
-              "bg-zinc-900 border rounded-lg p-2 mb-2",
-              occupantDisplay.isYou
-                ? "border-white shadow-[inset_0_0_16px_rgba(255,255,255,0.2)]"
-                : "border-zinc-800"
-            )}
-          >
-            <div className="flex items-center gap-2">
-              {/* Avatar */}
-              <div
-                className={cn(
-                  "flex-shrink-0",
-                  neynarUser?.user?.fid && "cursor-pointer hover:opacity-80 transition-opacity"
-                )}
-                onClick={neynarUser?.user?.fid ? handleViewKingGlazerProfile : undefined}
-              >
-                <Avatar className="h-10 w-10 border border-zinc-700">
-                  <AvatarImage
-                    src={occupantDisplay.avatarUrl || undefined}
-                    alt={occupantDisplay.primary}
-                    className="object-cover"
-                  />
-                  <AvatarFallback className="bg-zinc-800 text-white text-sm">
-                    {minerState ? (
-                      occupantFallbackInitials
-                    ) : (
-                      <CircleUserRound className="h-4 w-4" />
-                    )}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-
-              {/* Profile Info */}
-              <div className="flex-1 min-w-0">
-                <div className="text-[8px] text-gray-500 uppercase tracking-wider">King Glazer</div>
-                <div className="font-bold text-white text-sm truncate">{occupantDisplay.primary}</div>
-                {minerState && minerState.initPrice > 0n && (
-                  <div className="text-[9px] text-gray-500">
-                    Paid Ξ{parseFloat(formatEther(minerState.initPrice / 2n)).toFixed(4)}
-                  </div>
-                )}
-              </div>
-
-              {/* Stats - Compact 2x2 Grid */}
-              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-right flex-shrink-0">
-                <div>
-                  <div className="text-[8px] text-gray-500">TIME</div>
-                  <div className="text-xs font-bold text-white">{glazeTimeDisplay}</div>
-                </div>
-                <div>
-                  <div className="text-[8px] text-gray-500">EARNED</div>
-                  <div className="text-xs font-bold text-white">🍩{glazedDisplay}</div>
-                </div>
-                <div>
-                  <div className="text-[8px] text-gray-500">PNL</div>
-                  <div className={cn("text-xs font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
-                    {pnlData.eth}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[8px] text-gray-500">TOTAL</div>
-                  <div className={cn("text-xs font-bold", totalPnl.isPositive ? "text-green-400" : "text-red-400")}>
-                    {totalPnl.value}
-                  </div>
-                </div>
+          {/* Bottom Content - Pushed to bottom */}
+          <div className="mt-auto flex flex-col gap-2">
+            {/* Scrolling Global Message */}
+            <div className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-lg">
+              <div className="flex animate-scroll whitespace-nowrap py-1.5 text-xs font-bold text-white">
+                {Array.from({ length: 100 }).map((_, i) => (
+                  <span key={i} className="inline-block px-6">
+                    {minerState?.uri && minerState.uri.trim() !== ""
+                      ? minerState.uri
+                      : "We Glaze The World"}
+                  </span>
+                ))}
               </div>
             </div>
-          </div>
 
-          {/* Stats Cards - Compact */}
-          <div className="grid grid-cols-2 gap-2 mb-2">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-              <div className="flex items-center gap-1 mb-0.5">
-                <TrendingUp className="w-3 h-3 text-white" />
-                <span className="text-[9px] text-gray-400 uppercase">Glaze Rate</span>
-              </div>
-              <div className="text-lg font-bold text-white">
-                🍩{glazeRateDisplay}<span className="text-xs text-gray-400">/s</span>
-              </div>
-              <div className="text-[10px] text-gray-400">${glazeRateUsdValue}/s</div>
-            </div>
-
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-              <div className="flex items-center gap-1 mb-0.5">
-                <Coins className="w-3 h-3 text-white" />
-                <span className="text-[9px] text-gray-400 uppercase">Glaze Price</span>
-              </div>
-              <div className="text-lg font-bold text-white">Ξ{glazePriceDisplay}</div>
-              <div className="text-[10px] text-gray-400">
-                ${minerState ? (Number(formatEther(minerState.price)) * ethUsdPrice).toFixed(2) : "0.00"}
-              </div>
-            </div>
-          </div>
-
-          {/* Dutch Auction Info - Compact */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5 mb-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <Timer className="w-4 h-4 text-white" />
-                <span className="text-xs font-semibold text-white">Dutch Auction</span>
-                <button
-                  onClick={() => setShowHelpDialog(true)}
-                  className="text-gray-400 hover:text-white transition-colors"
+            {/* King Glazer Card - Compact */}
+            <div
+              className={cn(
+                "bg-zinc-900 border rounded-lg p-2",
+                occupantDisplay.isYou
+                  ? "border-white shadow-[inset_0_0_16px_rgba(255,255,255,0.2)]"
+                  : "border-zinc-800"
+              )}
+            >
+              <div className="flex items-center gap-2">
+                {/* Avatar */}
+                <div
+                  className={cn(
+                    "flex-shrink-0",
+                    neynarUser?.user?.fid && "cursor-pointer hover:opacity-80 transition-opacity"
+                  )}
+                  onClick={neynarUser?.user?.fid ? handleViewKingGlazerProfile : undefined}
                 >
-                  <HelpCircle className="w-3 h-3" />
-                </button>
-              </div>
-              <div className="text-[10px] text-gray-400">Price drops over time</div>
-            </div>
-          </div>
+                  <Avatar className="h-10 w-10 border border-zinc-700">
+                    <AvatarImage
+                      src={occupantDisplay.avatarUrl || undefined}
+                      alt={occupantDisplay.primary}
+                      className="object-cover"
+                    />
+                    <AvatarFallback className="bg-zinc-800 text-white text-sm">
+                      {minerState ? (
+                        occupantFallbackInitials
+                      ) : (
+                        <CircleUserRound className="h-4 w-4" />
+                      )}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
 
-          {/* Help Dialog */}
-          {showHelpDialog && (
-            <div className="fixed inset-0 z-50">
-              <div
-                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-                onClick={() => setShowHelpDialog(false)}
-              />
-              <div className="absolute left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2">
-                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-black p-6 shadow-2xl">
-                  <button
-                    onClick={() => setShowHelpDialog(false)}
-                    className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 transition-colors hover:bg-zinc-800 hover:text-white"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
+                {/* Profile Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="text-[8px] text-gray-500 uppercase tracking-wider">King Glazer</div>
+                  <div className="font-bold text-white text-sm truncate">{occupantDisplay.primary}</div>
+                  {minerState && minerState.initPrice > 0n && (
+                    <div className="text-[9px] text-gray-500">
+                      Paid Ξ{parseFloat(formatEther(minerState.initPrice / 2n)).toFixed(4)}
+                    </div>
+                  )}
+                </div>
 
-                  <div className="mb-4">
-                    <h2 className="text-xl font-bold text-white mb-2">How Glazing Works</h2>
+                {/* Stats - Compact 2x2 Grid */}
+                <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-right flex-shrink-0">
+                  <div>
+                    <div className="text-[8px] text-gray-500">TIME</div>
+                    <div className="text-xs font-bold text-white">{glazeTimeDisplay}</div>
                   </div>
-
-                  <div className="space-y-3 text-sm text-gray-300">
-                    <div className="flex gap-3">
-                      <span className="text-white font-bold flex-shrink-0">1.</span>
-                      <p>
-                        <span className="text-white font-semibold">Become King Glazer</span> - Pay the current glaze price to take control of the donut mine.
-                      </p>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <span className="text-white font-bold flex-shrink-0">2.</span>
-                      <p>
-                        <span className="text-white font-semibold">Earn $DONUT</span> - While you are King Glazer, you earn $DONUT tokens every second.
-                      </p>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <span className="text-white font-bold flex-shrink-0">3.</span>
-                      <p>
-                        <span className="text-white font-semibold">Dutch Auction</span> - The glaze price starts high and decreases over time until someone glazes.
-                      </p>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <span className="text-white font-bold flex-shrink-0">4.</span>
-                      <p>
-                        <span className="text-white font-semibold">Get Refunded</span> - When someone else glazes, you get 80% of their payment back.
-                      </p>
-                    </div>
-
-                    <div className="pt-3 border-t border-zinc-800">
-                      <p className="text-xs text-gray-400 italic">
-                        Compete on the leaderboard by glazing to earn points and win weekly ETH prizes!
-                      </p>
+                  <div>
+                    <div className="text-[8px] text-gray-500">EARNED</div>
+                    <div className="text-xs font-bold text-white">🍩{glazedDisplay}</div>
+                  </div>
+                  <div>
+                    <div className="text-[8px] text-gray-500">PNL</div>
+                    <div className={cn("text-xs font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
+                      {pnlData.eth}
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => setShowHelpDialog(false)}
-                    className="mt-6 w-full rounded-xl bg-white py-3 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
-                  >
-                    Got it!
-                  </button>
+                  <div>
+                    <div className="text-[8px] text-gray-500">TOTAL</div>
+                    <div className={cn("text-xs font-bold", totalPnl.isPositive ? "text-green-400" : "text-red-400")}>
+                      {totalPnl.value}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          )}
 
-          {/* Message Input - Compact */}
-          <input
-            type="text"
-            value={customMessage}
-            onChange={(e) => setCustomMessage(e.target.value)}
-            placeholder="Add a GLOBAL message (optional)"
-            maxLength={100}
-            className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 mb-2"
-            disabled={isGlazeDisabled}
-          />
+            {/* Stats Cards - Compact */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <TrendingUp className="w-3 h-3 text-white" />
+                  <span className="text-[9px] text-gray-400 uppercase">Glaze Rate</span>
+                </div>
+                <div className="text-lg font-bold text-white">
+                  🍩{glazeRateDisplay}<span className="text-xs text-gray-400">/s</span>
+                </div>
+                <div className="text-[10px] text-gray-400">${glazeRateUsdValue}/s</div>
+              </div>
 
-          {/* Glaze Button - Pulsing */}
-          <button
-            className={cn(
-              "w-full rounded-xl py-4 text-lg font-bold transition-all duration-300 mb-2",
-              glazeResult === "success"
-                ? "bg-green-500 text-white"
-                : glazeResult === "failure"
-                  ? "bg-red-500 text-white"
-                  : isGlazeDisabled
-                    ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
-                    : "bg-white text-black hover:bg-gray-200",
-              isPulsing && !isGlazeDisabled && !glazeResult && "scale-[1.03] shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <Coins className="w-3 h-3 text-white" />
+                  <span className="text-[9px] text-gray-400 uppercase">Glaze Price</span>
+                </div>
+                <div className="text-lg font-bold text-white">Ξ{glazePriceDisplay}</div>
+                <div className="text-[10px] text-gray-400">
+                  ${minerState ? (Number(formatEther(minerState.price)) * ethUsdPrice).toFixed(2) : "0.00"}
+                </div>
+              </div>
+            </div>
+
+            {/* Dutch Auction Info - Compact */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Timer className="w-4 h-4 text-white" />
+                  <span className="text-xs font-semibold text-white">Dutch Auction</span>
+                  <button
+                    onClick={() => setShowHelpDialog(true)}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <HelpCircle className="w-3 h-3" />
+                  </button>
+                </div>
+                <div className="text-[10px] text-gray-400">Price drops over time</div>
+              </div>
+            </div>
+
+            {/* Help Dialog */}
+            {showHelpDialog && (
+              <div className="fixed inset-0 z-50">
+                <div
+                  className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                  onClick={() => setShowHelpDialog(false)}
+                />
+                <div className="absolute left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2">
+                  <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-black p-6 shadow-2xl">
+                    <button
+                      onClick={() => setShowHelpDialog(false)}
+                      className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 transition-colors hover:bg-zinc-800 hover:text-white"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+
+                    <div className="mb-4">
+                      <h2 className="text-xl font-bold text-white mb-2">How Glazing Works</h2>
+                    </div>
+
+                    <div className="space-y-3 text-sm text-gray-300">
+                      <div className="flex gap-3">
+                        <span className="text-white font-bold flex-shrink-0">1.</span>
+                        <p>
+                          <span className="text-white font-semibold">Become King Glazer</span> - Pay the current glaze price to take control of the donut mine.
+                        </p>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <span className="text-white font-bold flex-shrink-0">2.</span>
+                        <p>
+                          <span className="text-white font-semibold">Earn $DONUT</span> - While you are King Glazer, you earn $DONUT tokens every second.
+                        </p>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <span className="text-white font-bold flex-shrink-0">3.</span>
+                        <p>
+                          <span className="text-white font-semibold">Dutch Auction</span> - The glaze price starts high and decreases over time until someone glazes.
+                        </p>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <span className="text-white font-bold flex-shrink-0">4.</span>
+                        <p>
+                          <span className="text-white font-semibold">Get Refunded</span> - When someone else glazes, you get 80% of their payment back.
+                        </p>
+                      </div>
+
+                      <div className="pt-3 border-t border-zinc-800">
+                        <p className="text-xs text-gray-400 italic">
+                          Compete on the leaderboard by glazing to earn points and win weekly ETH prizes!
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setShowHelpDialog(false)}
+                      className="mt-6 w-full rounded-xl bg-white py-3 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
+                    >
+                      Got it!
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
-            onClick={handleGlaze}
-            disabled={isGlazeDisabled}
-          >
-            {buttonLabel}
-          </button>
 
-          {/* Your Balances - Compact */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-            <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-1.5">
-              Your Balances
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div>
-                <div className="text-sm font-bold text-white">🍩{donutBalanceDisplay}</div>
-                <div className="text-[8px] text-gray-500">Mined: 🍩{address && accountData?.mined
-                  ? Number(accountData.mined).toLocaleString(undefined, { maximumFractionDigits: 0 })
-                  : "0"}</div>
+            {/* Message Input - Compact */}
+            <input
+              type="text"
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              placeholder="Add a GLOBAL message (optional)"
+              maxLength={100}
+              className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={isGlazeDisabled}
+            />
+
+            {/* Glaze Button - Pulsing */}
+            <button
+              className={cn(
+                "w-full rounded-xl py-4 text-lg font-bold transition-all duration-300",
+                glazeResult === "success"
+                  ? "bg-green-500 text-white"
+                  : glazeResult === "failure"
+                    ? "bg-red-500 text-white"
+                    : isGlazeDisabled
+                      ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
+                      : "bg-white text-black hover:bg-gray-200",
+                isPulsing && !isGlazeDisabled && !glazeResult && "scale-[1.03] shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+              )}
+              onClick={handleGlaze}
+              disabled={isGlazeDisabled}
+            >
+              {buttonLabel}
+            </button>
+
+            {/* Your Balances - Compact */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+              <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-1.5">
+                Your Balances
               </div>
-              <div>
-                <div className="text-sm font-bold text-white">Ξ{ethBalanceDisplay}</div>
-                <div className="text-[8px] text-gray-500">Spent: Ξ{address && accountData?.spent
-                  ? Number(accountData.spent).toLocaleString(undefined, { maximumFractionDigits: 2 })
-                  : "0"}</div>
-              </div>
-              <div>
-                <div className="text-sm font-bold text-white">
-                  wΞ{minerState && minerState.wethBalance !== undefined
-                    ? formatEth(minerState.wethBalance, 4)
-                    : "—"}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <div className="text-sm font-bold text-white">🍩{donutBalanceDisplay}</div>
+                  <div className="text-[8px] text-gray-500">Mined: 🍩{address && accountData?.mined
+                    ? Number(accountData.mined).toLocaleString(undefined, { maximumFractionDigits: 0 })
+                    : "0"}</div>
                 </div>
-                <div className="text-[8px] text-gray-500">Earned: wΞ{address && accountData?.earned
-                  ? Number(accountData.earned).toLocaleString(undefined, { maximumFractionDigits: 2 })
-                  : "0"}</div>
+                <div>
+                  <div className="text-sm font-bold text-white">Ξ{ethBalanceDisplay}</div>
+                  <div className="text-[8px] text-gray-500">Spent: Ξ{address && accountData?.spent
+                    ? Number(accountData.spent).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                    : "0"}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-white">
+                    wΞ{minerState && minerState.wethBalance !== undefined
+                      ? formatEth(minerState.wethBalance, 4)
+                      : "—"}
+                  </div>
+                  <div className="text-[8px] text-gray-500">Earned: wΞ{address && accountData?.earned
+                    ? Number(accountData.earned).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                    : "0"}</div>
+                </div>
               </div>
             </div>
           </div>
