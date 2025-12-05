@@ -1,23 +1,23 @@
 {
   "accountAssociation": {
-    "header": "eyJmaWQiOjI3MjEwOSwidHlwZSI6ImF1dGgiLCJrZXkiOiIweDQ5REI1QTFjOWZlRjBFMkY5OTVCNDZiMEI3MWJFQmJEOTEyQkYwZTMifQ",
-    "payload": "eyJkb21haW4iOiJnbGF6ZWNvcnAudmVyY2VsLmFwcCJ9",
-    "signature": "Xun297i8tZiQWxuVqo5bKPxSOs1CFDa1lFzDY4dJgOYJ7l16eBnWCJSxwqrgKnR0t74OmCHW7eg5HtIHMz+NZBs="
+    "header": "eyJmaWQiOjIwOTk1MSwidHlwZSI6ImF1dGgiLCJrZXkiOiIweEZkNjRmNjMyYzdiNzk1NDgzNkExOWM1QzA2RTY1QjM5QTE4NzZCNjgifQ",
+    "payload": "eyJkb21haW4iOiJkb251dGxhYnMudmVyY2VsLmFwcCJ9",
+    "signature": "QOOntjforRYpPPXl+gXgCGLqJPcAkAKxkp99XxD9VwR9Dw2IojDRUECMuhc/DmP9drdPFKU92yRRu75jNyBptBw="
   },
   "miniapp": {
     "version": "1",
-    "name": "GlazeCorp",
-    "tagline": "Together we glaze the world",
-    "description": "Command GlazeCorp's donut mine, compete for control, and keep the rewards flowing on Base.",
-    "iconUrl": "https://glazecorp.vercel.app/media/icon.png",
-    "homeUrl": "https://glazecorp.vercel.app/",
-    "splashImageUrl": "https://glazecorp.vercel.app/media/splash.png",
+    "name": "DonutLabs",
+    "tagline": "Premium Donut Finance On Base",
+    "description": "Command GlazeCorp's donut mine, compete for weekly leaderboard rewards, and chat with fellow glazers on Base.",
+    "iconUrl": "https://donutlabs.vercel.app/media/icon.png",
+    "homeUrl": "https://donutlabs.vercel.app/",
+    "splashImageUrl": "https://donutlabs.vercel.app/media/splash.png",
     "splashBackgroundColor": "#FEE7EC",
-    "heroImageUrl": "https://glazecorp.vercel.app/media/hero.png",
-    "buttonTitle": "We Glaze The World",
+    "heroImageUrl": "https://donutlabs.vercel.app/media/hero.png",
+    "buttonTitle": "Open Donut Labs",
     "ogTitle": "We Glaze The World",
     "ogDescription": "Race the rink to seize the donut mine and keep the glaze flowing.",
-    "ogImageUrl": "https://glazecorp.vercel.app/media/hero.png",
+    "ogImageUrl": "https://donutlabs.vercel.app/media/hero.png",
     "requiredChains": [
       "eip155:8453"
     ],
