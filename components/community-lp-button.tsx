@@ -1,26 +1,22 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Users } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type CommunityLPButtonProps = {
+type LearnMoreButtonProps = {
   className?: string;
   variant?: "default" | "outline" | "ghost";
   size?: "default" | "sm" | "lg" | "icon";
 };
 
-export function CommunityLPButton({
+export function LearnMoreButton({
   className,
   variant = "default",
   size = "default",
-}: CommunityLPButtonProps) {
+}: LearnMoreButtonProps) {
   const handleClick = () => {
-    window.open(
-      "https://farcaster.xyz/miniapps/OBSXNsOaGYv1/peeples-donuts",
-      "_blank",
-      "noopener,noreferrer"
-    );
+    window.location.href = "https://warpcast.com/~/miniapps/OBSXNsOaGYv1/peeples-donuts";
   };
 
   return (
@@ -30,8 +26,8 @@ export function CommunityLPButton({
       size={size}
       className={cn("gap-2 transition-all", className)}
     >
-      <Users className="h-4 w-4" />
-      <span>Community LP Pool</span>
+      <BookOpen className="h-4 w-4" />
+      <span>Learn More</span>
     </Button>
   );
 }

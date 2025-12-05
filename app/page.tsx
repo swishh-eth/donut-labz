@@ -663,7 +663,7 @@ export default function HomePage() {
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold tracking-wide">GLAZE AUCTION</h1>
+            <h1 className="text-2xl font-bold tracking-wide">AUCTION</h1>
             {context?.user && (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
                 <Avatar className="h-8 w-8 border border-zinc-800">
@@ -920,69 +920,73 @@ export default function HomePage() {
             </button>
 
             {/* Tappable Balances Card */}
-            <button
-              onClick={() => setShowStats(!showStats)}
-              className={cn(
-                "w-full border rounded-lg p-2 transition-colors text-left",
-                showStats
-                  ? "bg-zinc-950 border-zinc-700"
-                  : "bg-zinc-900 border-zinc-800"
-              )}
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="text-[9px] text-gray-400 uppercase tracking-wider">
-                  {showStats ? "Your Stats" : "Your Balances"}
-                </div>
-                <div className="text-[8px] text-gray-500">Tap to switch</div>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-2 text-center">
-                {!showStats ? (
-                  <>
-                    <div>
-                      <div className="text-xs font-bold text-white">🍩 {donutBalanceDisplay}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-white">Ξ {ethBalanceDisplay}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-white">
-                        wΞ {minerState && minerState.wethBalance !== undefined
-                          ? formatEth(minerState.wethBalance, 4)
-                          : "—"}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div>
-                      <div className="text-[8px] text-gray-500 mb-0.5">Mined</div>
-                      <div className="text-xs font-bold text-white">
-                        🍩 {address && accountData?.mined
-                          ? Number(accountData.mined).toLocaleString(undefined, { maximumFractionDigits: 0 })
-                          : "0"}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[8px] text-gray-500 mb-0.5">Spent</div>
-                      <div className="text-xs font-bold text-white">
-                        Ξ {address && accountData?.spent
-                          ? Number(accountData.spent).toLocaleString(undefined, { maximumFractionDigits: 2 })
-                          : "0"}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[8px] text-gray-500 mb-0.5">Earned</div>
-                      <div className="text-xs font-bold text-white">
-                        wΞ {address && accountData?.earned
-                          ? Number(accountData.earned).toLocaleString(undefined, { maximumFractionDigits: 2 })
-                          : "0"}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </button>
+{/* Tappable Balances Card - Fixed Height */}
+<button
+  onClick={() => setShowStats(!showStats)}
+  className={cn(
+    "w-full border rounded-lg p-2 transition-colors text-left",
+    showStats
+      ? "bg-zinc-950 border-zinc-700"
+      : "bg-zinc-900 border-zinc-800"
+  )}
+>
+  <div className="flex items-center justify-between mb-1.5">
+    <div className="text-[9px] text-gray-400 uppercase tracking-wider">
+      {showStats ? "Your Stats" : "Your Balances"}
+    </div>
+    <div className="text-[8px] text-gray-500">Tap to switch</div>
+  </div>
+  
+  <div className="grid grid-cols-3 gap-2 text-center">
+    {!showStats ? (
+      <>
+        <div>
+          <div className="text-[8px] text-gray-500 mb-0.5">DONUT</div>
+          <div className="text-xs font-bold text-white">🍩 {donutBalanceDisplay}</div>
+        </div>
+        <div>
+          <div className="text-[8px] text-gray-500 mb-0.5">ETH</div>
+          <div className="text-xs font-bold text-white">Ξ {ethBalanceDisplay}</div>
+        </div>
+        <div>
+          <div className="text-[8px] text-gray-500 mb-0.5">WETH</div>
+          <div className="text-xs font-bold text-white">
+            wΞ {minerState && minerState.wethBalance !== undefined
+              ? formatEth(minerState.wethBalance, 4)
+              : "—"}
+          </div>
+        </div>
+      </>
+    ) : (
+      <>
+        <div>
+          <div className="text-[8px] text-gray-500 mb-0.5">Mined</div>
+          <div className="text-xs font-bold text-white">
+            🍩 {address && accountData?.mined
+              ? Number(accountData.mined).toLocaleString(undefined, { maximumFractionDigits: 0 })
+              : "0"}
+          </div>
+        </div>
+        <div>
+          <div className="text-[8px] text-gray-500 mb-0.5">Spent</div>
+          <div className="text-xs font-bold text-white">
+            Ξ {address && accountData?.spent
+              ? Number(accountData.spent).toLocaleString(undefined, { maximumFractionDigits: 2 })
+              : "0"}
+          </div>
+        </div>
+        <div>
+          <div className="text-[8px] text-gray-500 mb-0.5">Earned</div>
+          <div className="text-xs font-bold text-white">
+            wΞ {address && accountData?.earned
+              ? Number(accountData.earned).toLocaleString(undefined, { maximumFractionDigits: 2 })
+              : "0"}
+          </div>
+        </div>
+      </>
+    )}
+  </div>
+</button>
           </div>
         </div>
       </div>
