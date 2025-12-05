@@ -106,8 +106,8 @@ export default function ChatPage() {
 
       try {
         const currentBlock = await publicClient.getBlockNumber();
-        // Fetch last ~10000 blocks worth of messages (adjust as needed)
-        const fromBlock = currentBlock > 10000n ? currentBlock - 10000n : 0n;
+        // Fetch last ~21600 blocks (~12 hours on Base)
+        const fromBlock = currentBlock > 21600n ? currentBlock - 21600n : 0n;
 
         const logs = await publicClient.getLogs({
           address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
@@ -124,10 +124,10 @@ export default function ChatPage() {
           blockNumber: log.blockNumber,
         }));
 
-        // Sort by timestamp descending, take last 50
+        // Sort by timestamp descending, take last 10 only
         return parsedMessages
           .sort((a, b) => Number(b.timestamp - a.timestamp))
-          .slice(0, 50);
+          .slice(0, 10);
       } catch (e) {
         console.error("Failed to fetch messages:", e);
         return [];
@@ -135,6 +135,8 @@ export default function ChatPage() {
     },
     refetchInterval: 10000,
     enabled: !!publicClient,
+    staleTime: 5000,
+    gcTime: 30000,
   });
 
   // Fetch chat stats from database
