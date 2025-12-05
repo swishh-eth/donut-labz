@@ -32,6 +32,21 @@ type FarcasterProfile = {
   pfpUrl: string | null;
 };
 
+// Anonymous PFP options - deterministically select based on address
+const ANON_PFPS = [
+  "/media/anonpfp1.png",
+  "/media/anonpfp2.png",
+  "/media/anonpfp3.png",
+];
+
+const getAnonPfp = (address: string): string => {
+  // Use the last character of the address to deterministically select a PFP
+  const lastChar = address.slice(-1).toLowerCase();
+  const charCode = lastChar.charCodeAt(0);
+  const index = charCode % ANON_PFPS.length;
+  return ANON_PFPS[index];
+};
+
 const initialsFrom = (label?: string) => {
   if (!label) return "";
   const stripped = label.replace(/[^a-zA-Z0-9]/g, "");
@@ -80,7 +95,7 @@ export default function LeaderboardPage() {
     return () => clearTimeout(timeout);
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     const fetchPrice = async () => {
       try {
         const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
@@ -104,7 +119,7 @@ export default function LeaderboardPage() {
       if (!res.ok) throw new Error("Failed to fetch leaderboard");
       return res.json();
     },
-    refetchInterval: 10_000, // Refresh every 10 seconds
+    refetchInterval: 30_000, // Refresh every 30 seconds
   });
 
   // Fetch prize pool balance
@@ -228,7 +243,7 @@ export default function LeaderboardPage() {
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold tracking-wide">LEADERBOARD</h1>
-            {context?.user ? (
+            {context?.user && (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
                 <Avatar className="h-8 w-8 border border-zinc-800">
                   <AvatarImage
@@ -242,12 +257,12 @@ export default function LeaderboardPage() {
                 </Avatar>
                 <div className="leading-tight text-left">
                   <div className="text-sm font-bold">{userDisplayName}</div>
-                  {userHandle ? (
+                  {userHandle && (
                     <div className="text-xs text-gray-400">{userHandle}</div>
-                  ) : null}
+                  )}
                 </div>
               </div>
-            ) : null}
+            )}
           </div>
 
           {/* Stats Cards */}
@@ -260,117 +275,117 @@ export default function LeaderboardPage() {
               <div className="text-2xl font-bold text-white">#{weekNumber}</div>
             </div>
 
-<div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-  <div className="flex items-center gap-2 mb-1">
-    <Coins className="w-4 h-4 text-green-400" />
-    <span className="text-xs text-gray-400 uppercase">Prize Pool</span>
-  </div>
-  <div className="text-2xl font-bold text-green-400">
-    Ξ{prizePoolBalance.toFixed(4)}
-  </div>
-  <div className="text-xs text-gray-400">
-    (${(prizePoolBalance * ethUsdPrice).toFixed(2)})
-  </div>
-</div>
-          </div>
-
-{/* Countdown */}
-<div className="bg-gradient-to-r from-zinc-900 to-zinc-800 border border-zinc-700 rounded-lg p-3 mb-4">
-  <div className="flex items-center justify-between">
-    <div className="flex items-center gap-2">
-      <Clock className="w-5 h-5 text-white" />
-      <span className="text-sm font-semibold text-white">
-        Next Distribution
-      </span>
-      <button
-        onClick={() => setShowHelpDialog(true)}
-        className="ml-1 text-gray-400 hover:text-white transition-colors"
-      >
-        <HelpCircle className="w-4 h-4" />
-      </button>
-    </div>
-    <div className="text-sm font-bold text-white">
-      {timeUntilDistribution}
-    </div>
-  </div>
-</div>
-
-{/* Help Dialog */}
-{showHelpDialog && (
-  <>
-    <div 
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm animate-in fade-in-0"
-      onClick={() => setShowHelpDialog(false)}
-    />
-    <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 animate-in fade-in-0 zoom-in-95">
-      <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-black p-6 shadow-2xl">
-        <button
-          onClick={() => setShowHelpDialog(false)}
-          className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 transition-colors hover:bg-zinc-800 hover:text-white"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
-        <div className="mb-4">
-          <h2 className="text-xl font-bold text-white mb-2">
-            How to Get on the Leaderboard
-          </h2>
-        </div>
-
-        <div className="space-y-3 text-sm text-gray-300">
-          <div className="flex gap-3">
-            <span className="text-white font-bold flex-shrink-0">1.</span>
-            <p>
-              <span className="text-white font-semibold">Glaze the Factory</span> - Every time you successfully win the auction by clicking "GLAZE" on the main page, you earn 1 point.
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <span className="text-white font-bold flex-shrink-0">2.</span>
-            <p>
-              <span className="text-white font-semibold">Compete Weekly</span> - The leaderboard resets every Friday at 12pm UTC. Your points only count for the current week.
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <span className="text-white font-bold flex-shrink-0">3.</span>
-            <p>
-              <span className="text-white font-semibold">Win Prizes</span> - Top 3 at the end of the week split the prize pool:
-            </p>
-          </div>
-
-          <div className="ml-8 space-y-1 text-xs">
-            <div className="flex justify-between">
-              <span className="text-yellow-400">🥇 1st Place:</span>
-              <span className="text-white font-semibold">50% of pool</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">🥈 2nd Place:</span>
-              <span className="text-white font-semibold">30% of pool</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-amber-600">🥉 3rd Place:</span>
-              <span className="text-white font-semibold">20% of pool</span>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Coins className="w-4 h-4 text-green-400" />
+                <span className="text-xs text-gray-400 uppercase">Prize Pool</span>
+              </div>
+              <div className="text-2xl font-bold text-green-400">
+                Ξ{prizePoolBalance.toFixed(4)}
+              </div>
+              <div className="text-xs text-gray-400">
+                (${(prizePoolBalance * ethUsdPrice).toFixed(2)})
+              </div>
             </div>
           </div>
 
-          <div className="pt-3 border-t border-zinc-800">
-            <p className="text-xs text-gray-400 italic">
-              Prize pool grows from 2.5% of all glazing fees collected during the week.
-            </p>
+          {/* Countdown */}
+          <div className="bg-gradient-to-r from-zinc-900 to-zinc-800 border border-zinc-700 rounded-lg p-3 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-white" />
+                <span className="text-sm font-semibold text-white">
+                  Next Distribution
+                </span>
+                <button
+                  onClick={() => setShowHelpDialog(true)}
+                  className="ml-1 text-gray-400 hover:text-white transition-colors"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="text-sm font-bold text-white">
+                {timeUntilDistribution}
+              </div>
+            </div>
           </div>
-        </div>
 
-        <button
-          onClick={() => setShowHelpDialog(false)}
-          className="mt-6 w-full rounded-xl bg-white py-3 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
-        >
-          Got it!
-        </button>
-      </div>
-    </div>
-  </>
-)}
+          {/* Help Dialog */}
+          {showHelpDialog && (
+            <div className="fixed inset-0 z-50">
+              <div
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                onClick={() => setShowHelpDialog(false)}
+              />
+              <div className="absolute left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2">
+                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-black p-6 shadow-2xl">
+                  <button
+                    onClick={() => setShowHelpDialog(false)}
+                    className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 transition-colors hover:bg-zinc-800 hover:text-white"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+
+                  <div className="mb-4">
+                    <h2 className="text-xl font-bold text-white mb-2">
+                      How to Get on the Leaderboard
+                    </h2>
+                  </div>
+
+                  <div className="space-y-3 text-sm text-gray-300">
+                    <div className="flex gap-3">
+                      <span className="text-white font-bold flex-shrink-0">1.</span>
+                      <p>
+                        <span className="text-white font-semibold">Glaze the Factory</span> - Every time you successfully win the auction by clicking "GLAZE" on the main page, you earn 1 point.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <span className="text-white font-bold flex-shrink-0">2.</span>
+                      <p>
+                        <span className="text-white font-semibold">Compete Weekly</span> - The leaderboard resets every Friday at 12pm UTC. Your points only count for the current week.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <span className="text-white font-bold flex-shrink-0">3.</span>
+                      <p>
+                        <span className="text-white font-semibold">Win Prizes</span> - Top 3 at the end of the week split the prize pool:
+                      </p>
+                    </div>
+
+                    <div className="ml-8 space-y-1 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-yellow-400">🥇 1st Place:</span>
+                        <span className="text-white font-semibold">50% of pool</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">🥈 2nd Place:</span>
+                        <span className="text-white font-semibold">30% of pool</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-amber-600">🥉 3rd Place:</span>
+                        <span className="text-white font-semibold">20% of pool</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-zinc-800">
+                      <p className="text-xs text-gray-400 italic">
+                        Prize pool grows from 2.5% of all glazing fees collected during the week.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setShowHelpDialog(false)}
+                    className="mt-6 w-full rounded-xl bg-white py-3 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
+                  >
+                    Got it!
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Leaderboard List */}
           <div className="flex-1 overflow-y-auto space-y-2 pb-2 scrollbar-hide">
@@ -384,17 +399,32 @@ export default function LeaderboardPage() {
                   const isWinner = rank <= 3;
 
                   return (
-                    <div key={rank} className={`flex items-center justify-between bg-zinc-900 border rounded-lg p-3 ${isWinner ? 'border-zinc-700 opacity-50' : 'border-zinc-800 opacity-30'}`}>
+                    <div
+                      key={rank}
+                      className={`flex items-center justify-between bg-zinc-900 border rounded-lg p-3 ${
+                        isWinner ? "border-zinc-700 opacity-50" : "border-zinc-800 opacity-30"
+                      }`}
+                    >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <span className={`text-xl font-bold w-10 flex-shrink-0 ${rank === 1 ? 'text-yellow-400' : rank === 2 ? 'text-gray-300' : rank === 3 ? 'text-amber-600' : 'text-gray-500'}`}>
-                          {rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`}
+                        <span
+                          className={`text-xl font-bold w-10 flex-shrink-0 ${
+                            rank === 1
+                              ? "text-yellow-400"
+                              : rank === 2
+                                ? "text-gray-300"
+                                : rank === 3
+                                  ? "text-amber-600"
+                                  : "text-gray-500"
+                          }`}
+                        >
+                          {rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`}
                         </span>
 
                         <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
-                          <AvatarImage 
-                            src={`https://api.dicebear.com/7.x/shapes/svg?seed=empty${rank}`}
-                            alt="Empty spot" 
-                            className="object-cover" 
+                          <AvatarImage
+                            src={ANON_PFPS[rank % ANON_PFPS.length]}
+                            alt="Empty spot"
+                            className="object-cover"
                           />
                           <AvatarFallback className="bg-zinc-800 text-white text-xs">
                             --
@@ -404,7 +434,7 @@ export default function LeaderboardPage() {
                         <div className="min-w-0 flex-1">
                           <div className="font-semibold text-gray-500 truncate">No one yet</div>
                           <div className="text-xs text-gray-600 truncate">
-                            {isWinner ? 'Be the first!' : 'So close!'}
+                            {isWinner ? "Be the first!" : "So close!"}
                           </div>
                         </div>
                       </div>
@@ -436,35 +466,32 @@ export default function LeaderboardPage() {
                 const profile = profiles?.[entry.address];
                 const displayName = profile?.displayName || formatAddress(entry.address);
                 const username = profile?.username ? `@${profile.username}` : "";
-                const avatarUrl =
-                  profile?.pfpUrl ||
-                  `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(
-                    entry.address.toLowerCase()
-                  )}`;
+                const avatarUrl = profile?.pfpUrl || getAnonPfp(entry.address);
 
                 return (
-                  <div 
-                    key={entry.address} 
+                  <div
+                    key={entry.address}
                     className={`flex items-center justify-between bg-zinc-900 border rounded-lg p-3 hover:bg-zinc-800 transition-colors ${
-                      isWinner ? 'border-zinc-700' : 'border-zinc-800 opacity-60'
+                      isWinner ? "border-zinc-700" : "border-zinc-800 opacity-60"
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span className={`text-xl font-bold w-10 flex-shrink-0 ${
-                        rank === 1 ? 'text-yellow-400' : 
-                        rank === 2 ? 'text-gray-300' : 
-                        rank === 3 ? 'text-amber-600' : 
-                        'text-gray-500'
-                      }`}>
-                        {rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`}
+                      <span
+                        className={`text-xl font-bold w-10 flex-shrink-0 ${
+                          rank === 1
+                            ? "text-yellow-400"
+                            : rank === 2
+                              ? "text-gray-300"
+                              : rank === 3
+                                ? "text-amber-600"
+                                : "text-gray-500"
+                        }`}
+                      >
+                        {rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`}
                       </span>
 
                       <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
-                        <AvatarImage 
-                          src={avatarUrl}
-                          alt={displayName} 
-                          className="object-cover" 
-                        />
+                        <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
                         <AvatarFallback className="bg-zinc-800 text-white text-xs">
                           {initialsFrom(displayName)}
                         </AvatarFallback>
@@ -472,9 +499,7 @@ export default function LeaderboardPage() {
 
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-white truncate">{displayName}</div>
-                        {username && (
-                          <div className="text-xs text-gray-400 truncate">{username}</div>
-                        )}
+                        {username && <div className="text-xs text-gray-400 truncate">{username}</div>}
                       </div>
                     </div>
 
@@ -483,11 +508,11 @@ export default function LeaderboardPage() {
                         <span className="text-lg font-bold text-white">{entry.points}</span>
                         <span className="text-xs text-gray-400">pts</span>
                       </div>
-{prizeAmount && (
-  <div className="text-xs text-green-400 font-semibold">
-    +Ξ{prizeAmount} (${(parseFloat(prizeAmount) * ethUsdPrice).toFixed(2)})
-  </div>
-)}
+                      {prizeAmount && (
+                        <div className="text-xs text-green-400 font-semibold">
+                          +Ξ{prizeAmount} (${(parseFloat(prizeAmount) * ethUsdPrice).toFixed(2)})
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

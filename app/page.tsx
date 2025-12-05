@@ -49,6 +49,21 @@ type MinerState = {
 const DONUT_DECIMALS = 18;
 const DEADLINE_BUFFER_SECONDS = 15 * 60;
 
+// Anonymous PFP options - deterministically select based on address
+const ANON_PFPS = [
+  "/media/anonpfp1.png",
+  "/media/anonpfp2.png",
+  "/media/anonpfp3.png",
+];
+
+const getAnonPfp = (address: string): string => {
+  // Use the last character of the address to deterministically select a PFP
+  const lastChar = address.slice(-1).toLowerCase();
+  const charCode = lastChar.charCodeAt(0);
+  const index = charCode % ANON_PFPS.length;
+  return ANON_PFPS[index];
+};
+
 const toBigInt = (value: bigint | number) =>
   typeof value === "bigint" ? value : BigInt(value);
 
@@ -101,7 +116,7 @@ export default function HomePage() {
   const [glazeResult, setGlazeResult] = useState<"success" | "failure" | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
-  const [showStats, setShowStats] = useState(false); // false = balances, true = stats
+  const [showStats, setShowStats] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const glazeResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -193,7 +208,6 @@ export default function HomePage() {
     if (!video) return;
 
     const handleTimeUpdate = () => {
-      // Reset slightly before the end to prevent any gap
       if (video.duration - video.currentTime < 0.1) {
         video.currentTime = 0;
       }
@@ -210,16 +224,16 @@ export default function HomePage() {
 
     let animationId: number;
     let position = 0;
-    const speed = 0.5; // pixels per frame
+    const speed = 0.5;
 
     const animate = () => {
       position += speed;
       const halfWidth = scrollContainer.scrollWidth / 2;
-      
+
       if (position >= halfWidth) {
         position = 0;
       }
-      
+
       scrollContainer.style.transform = `translateX(-${position}px)`;
       animationId = requestAnimationFrame(animate);
     };
@@ -458,9 +472,8 @@ export default function HomePage() {
     const isYou =
       !!address && minerAddr.toLowerCase() === (address as string).toLowerCase();
 
-    const fallbackAvatarUrl = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(
-      minerAddr.toLowerCase()
-    )}`;
+    // Use anonymous PFP instead of dicebear
+    const fallbackAvatarUrl = getAnonPfp(minerAddr);
 
     const profile = neynarUser?.user ?? null;
     const profileUsername = profile?.username ? `@${profile.username}` : null;
@@ -645,9 +658,10 @@ export default function HomePage() {
       : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
-  const scrollMessage = minerState?.uri && minerState.uri.trim() !== ""
-    ? minerState.uri
-    : "We Glaze The World";
+  const scrollMessage =
+    minerState?.uri && minerState.uri.trim() !== ""
+      ? minerState.uri
+      : "We Glaze The World";
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -702,7 +716,7 @@ export default function HomePage() {
 
           {/* Bottom Content */}
           <div className="mt-auto flex flex-col gap-2">
-            {/* Scrolling Global Message - JS-based smooth scroll */}
+            {/* Scrolling Global Message */}
             <div className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-lg">
               <div
                 ref={scrollRef}
@@ -729,9 +743,12 @@ export default function HomePage() {
                 <div
                   className={cn(
                     "flex-shrink-0",
-                    neynarUser?.user?.fid && "cursor-pointer hover:opacity-80 transition-opacity"
+                    neynarUser?.user?.fid &&
+                      "cursor-pointer hover:opacity-80 transition-opacity"
                   )}
-                  onClick={neynarUser?.user?.fid ? handleViewKingGlazerProfile : undefined}
+                  onClick={
+                    neynarUser?.user?.fid ? handleViewKingGlazerProfile : undefined
+                  }
                 >
                   <Avatar className="h-10 w-10 border border-zinc-700">
                     <AvatarImage
@@ -750,8 +767,12 @@ export default function HomePage() {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <div className="text-[8px] text-gray-500 uppercase tracking-wider">King Glazer</div>
-                  <div className="font-bold text-white text-sm truncate">{occupantDisplay.primary}</div>
+                  <div className="text-[8px] text-gray-500 uppercase tracking-wider">
+                    King Glazer
+                  </div>
+                  <div className="font-bold text-white text-sm truncate">
+                    {occupantDisplay.primary}
+                  </div>
                   {minerState && minerState.initPrice > 0n && (
                     <div className="text-[9px] text-gray-500">
                       Paid Ξ{parseFloat(formatEther(minerState.initPrice / 2n)).toFixed(4)}
@@ -762,21 +783,35 @@ export default function HomePage() {
                 <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-right flex-shrink-0">
                   <div>
                     <div className="text-[8px] text-gray-500">TIME</div>
-                    <div className="text-xs font-bold text-white">{glazeTimeDisplay}</div>
+                    <div className="text-xs font-bold text-white">
+                      {glazeTimeDisplay}
+                    </div>
                   </div>
                   <div>
                     <div className="text-[8px] text-gray-500">EARNED</div>
-                    <div className="text-xs font-bold text-white">🍩{glazedDisplay}</div>
+                    <div className="text-xs font-bold text-white">
+                      🍩{glazedDisplay}
+                    </div>
                   </div>
                   <div>
                     <div className="text-[8px] text-gray-500">PNL</div>
-                    <div className={cn("text-xs font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
+                    <div
+                      className={cn(
+                        "text-xs font-bold",
+                        pnlData.isPositive ? "text-green-400" : "text-red-400"
+                      )}
+                    >
                       {pnlData.eth}
                     </div>
                   </div>
                   <div>
                     <div className="text-[8px] text-gray-500">TOTAL</div>
-                    <div className={cn("text-xs font-bold", totalPnl.isPositive ? "text-green-400" : "text-red-400")}>
+                    <div
+                      className={cn(
+                        "text-xs font-bold",
+                        totalPnl.isPositive ? "text-green-400" : "text-red-400"
+                      )}
+                    >
                       {totalPnl.value}
                     </div>
                   </div>
@@ -789,22 +824,34 @@ export default function HomePage() {
               <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
                 <div className="flex items-center gap-1 mb-0.5">
                   <TrendingUp className="w-3 h-3 text-white" />
-                  <span className="text-[9px] text-gray-400 uppercase">Glaze Rate</span>
+                  <span className="text-[9px] text-gray-400 uppercase">
+                    Glaze Rate
+                  </span>
                 </div>
                 <div className="text-lg font-bold text-white">
-                  🍩{glazeRateDisplay}<span className="text-xs text-gray-400">/s</span>
+                  🍩{glazeRateDisplay}
+                  <span className="text-xs text-gray-400">/s</span>
                 </div>
-                <div className="text-[10px] text-gray-400">${glazeRateUsdValue}/s</div>
+                <div className="text-[10px] text-gray-400">
+                  ${glazeRateUsdValue}/s
+                </div>
               </div>
 
               <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
                 <div className="flex items-center gap-1 mb-0.5">
                   <Coins className="w-3 h-3 text-white" />
-                  <span className="text-[9px] text-gray-400 uppercase">Glaze Price</span>
+                  <span className="text-[9px] text-gray-400 uppercase">
+                    Glaze Price
+                  </span>
                 </div>
-                <div className="text-lg font-bold text-white">Ξ{glazePriceDisplay}</div>
+                <div className="text-lg font-bold text-white">
+                  Ξ{glazePriceDisplay}
+                </div>
                 <div className="text-[10px] text-gray-400">
-                  ${minerState ? (Number(formatEther(minerState.price)) * ethUsdPrice).toFixed(2) : "0.00"}
+                  $
+                  {minerState
+                    ? (Number(formatEther(minerState.price)) * ethUsdPrice).toFixed(2)
+                    : "0.00"}
                 </div>
               </div>
             </div>
@@ -814,7 +861,9 @@ export default function HomePage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Timer className="w-4 h-4 text-white" />
-                  <span className="text-xs font-semibold text-white">Dutch Auction</span>
+                  <span className="text-xs font-semibold text-white">
+                    Dutch Auction
+                  </span>
                   <button
                     onClick={() => setShowHelpDialog(true)}
                     className="text-gray-400 hover:text-white transition-colors"
@@ -822,7 +871,9 @@ export default function HomePage() {
                     <HelpCircle className="w-3 h-3" />
                   </button>
                 </div>
-                <div className="text-[10px] text-gray-400">Price drops over time</div>
+                <div className="text-[10px] text-gray-400">
+                  Price drops over time
+                </div>
               </div>
             </div>
 
@@ -843,37 +894,56 @@ export default function HomePage() {
                     </button>
 
                     <div className="mb-4">
-                      <h2 className="text-xl font-bold text-white mb-2">How Glazing Works</h2>
+                      <h2 className="text-xl font-bold text-white mb-2">
+                        How Glazing Works
+                      </h2>
                     </div>
 
                     <div className="space-y-3 text-sm text-gray-300">
                       <div className="flex gap-3">
                         <span className="text-white font-bold flex-shrink-0">1.</span>
                         <p>
-                          <span className="text-white font-semibold">Become King Glazer</span> - Pay the current glaze price to take control of the donut mine.
+                          <span className="text-white font-semibold">
+                            Become King Glazer
+                          </span>{" "}
+                          - Pay the current glaze price to take control of the donut
+                          mine.
                         </p>
                       </div>
                       <div className="flex gap-3">
                         <span className="text-white font-bold flex-shrink-0">2.</span>
                         <p>
-                          <span className="text-white font-semibold">Earn $DONUT</span> - While you are King Glazer, you earn $DONUT tokens every second.
+                          <span className="text-white font-semibold">
+                            Earn $DONUT
+                          </span>{" "}
+                          - While you are King Glazer, you earn $DONUT tokens every
+                          second.
                         </p>
                       </div>
                       <div className="flex gap-3">
                         <span className="text-white font-bold flex-shrink-0">3.</span>
                         <p>
-                          <span className="text-white font-semibold">Dutch Auction</span> - The glaze price starts high and decreases over time until someone glazes.
+                          <span className="text-white font-semibold">
+                            Dutch Auction
+                          </span>{" "}
+                          - The glaze price starts high and decreases over time until
+                          someone glazes.
                         </p>
                       </div>
                       <div className="flex gap-3">
                         <span className="text-white font-bold flex-shrink-0">4.</span>
                         <p>
-                          <span className="text-white font-semibold">Get Refunded</span> - When someone else glazes, you get 80% of their payment back.
+                          <span className="text-white font-semibold">
+                            Get Refunded
+                          </span>{" "}
+                          - When someone else glazes, you get 80% of their payment
+                          back.
                         </p>
                       </div>
                       <div className="pt-3 border-t border-zinc-800">
                         <p className="text-xs text-gray-400 italic">
-                          Compete on the leaderboard by glazing to earn points and win weekly ETH prizes!
+                          Compete on the leaderboard by glazing to earn points and win
+                          weekly ETH prizes!
                         </p>
                       </div>
                     </div>
@@ -919,74 +989,85 @@ export default function HomePage() {
               {buttonLabel}
             </button>
 
-            {/* Tappable Balances Card */}
-{/* Tappable Balances Card - Fixed Height */}
-<button
-  onClick={() => setShowStats(!showStats)}
-  className={cn(
-    "w-full border rounded-lg p-2 transition-colors text-left",
-    showStats
-      ? "bg-zinc-950 border-zinc-700"
-      : "bg-zinc-900 border-zinc-800"
-  )}
->
-  <div className="flex items-center justify-between mb-1.5">
-    <div className="text-[9px] text-gray-400 uppercase tracking-wider">
-      {showStats ? "Your Stats" : "Your Balances"}
-    </div>
-    <div className="text-[8px] text-gray-500">Tap to switch</div>
-  </div>
-  
-  <div className="grid grid-cols-3 gap-2 text-center">
-    {!showStats ? (
-      <>
-        <div>
-          <div className="text-[8px] text-gray-500 mb-0.5">DONUT</div>
-          <div className="text-xs font-bold text-white">🍩 {donutBalanceDisplay}</div>
-        </div>
-        <div>
-          <div className="text-[8px] text-gray-500 mb-0.5">ETH</div>
-          <div className="text-xs font-bold text-white">Ξ {ethBalanceDisplay}</div>
-        </div>
-        <div>
-          <div className="text-[8px] text-gray-500 mb-0.5">WETH</div>
-          <div className="text-xs font-bold text-white">
-            wΞ {minerState && minerState.wethBalance !== undefined
-              ? formatEth(minerState.wethBalance, 4)
-              : "—"}
-          </div>
-        </div>
-      </>
-    ) : (
-      <>
-        <div>
-          <div className="text-[8px] text-gray-500 mb-0.5">Mined</div>
-          <div className="text-xs font-bold text-white">
-            🍩 {address && accountData?.mined
-              ? Number(accountData.mined).toLocaleString(undefined, { maximumFractionDigits: 0 })
-              : "0"}
-          </div>
-        </div>
-        <div>
-          <div className="text-[8px] text-gray-500 mb-0.5">Spent</div>
-          <div className="text-xs font-bold text-white">
-            Ξ {address && accountData?.spent
-              ? Number(accountData.spent).toLocaleString(undefined, { maximumFractionDigits: 2 })
-              : "0"}
-          </div>
-        </div>
-        <div>
-          <div className="text-[8px] text-gray-500 mb-0.5">Earned</div>
-          <div className="text-xs font-bold text-white">
-            wΞ {address && accountData?.earned
-              ? Number(accountData.earned).toLocaleString(undefined, { maximumFractionDigits: 2 })
-              : "0"}
-          </div>
-        </div>
-      </>
-    )}
-  </div>
-</button>
+            {/* Tappable Balances Card - Fixed Height */}
+            <button
+              onClick={() => setShowStats(!showStats)}
+              className={cn(
+                "w-full border rounded-lg p-2 transition-colors text-left",
+                showStats ? "bg-zinc-950 border-zinc-700" : "bg-zinc-900 border-zinc-800"
+              )}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[9px] text-gray-400 uppercase tracking-wider">
+                  {showStats ? "Your Stats" : "Your Balances"}
+                </div>
+                <div className="text-[8px] text-gray-500">Tap to switch</div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {!showStats ? (
+                  <>
+                    <div>
+                      <div className="text-[8px] text-gray-500 mb-0.5">DONUT</div>
+                      <div className="text-xs font-bold text-white">
+                        🍩 {donutBalanceDisplay}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[8px] text-gray-500 mb-0.5">ETH</div>
+                      <div className="text-xs font-bold text-white">
+                        Ξ {ethBalanceDisplay}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[8px] text-gray-500 mb-0.5">WETH</div>
+                      <div className="text-xs font-bold text-white">
+                        wΞ{" "}
+                        {minerState && minerState.wethBalance !== undefined
+                          ? formatEth(minerState.wethBalance, 4)
+                          : "—"}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <div className="text-[8px] text-gray-500 mb-0.5">Mined</div>
+                      <div className="text-xs font-bold text-white">
+                        🍩{" "}
+                        {address && accountData?.mined
+                          ? Number(accountData.mined).toLocaleString(undefined, {
+                              maximumFractionDigits: 0,
+                            })
+                          : "0"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[8px] text-gray-500 mb-0.5">Spent</div>
+                      <div className="text-xs font-bold text-white">
+                        Ξ{" "}
+                        {address && accountData?.spent
+                          ? Number(accountData.spent).toLocaleString(undefined, {
+                              maximumFractionDigits: 2,
+                            })
+                          : "0"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[8px] text-gray-500 mb-0.5">Earned</div>
+                      <div className="text-xs font-bold text-white">
+                        wΞ{" "}
+                        {address && accountData?.earned
+                          ? Number(accountData.earned).toLocaleString(undefined, {
+                              maximumFractionDigits: 2,
+                            })
+                          : "0"}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </button>
           </div>
         </div>
       </div>
