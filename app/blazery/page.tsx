@@ -378,6 +378,8 @@ export default function BlazeryPage() {
       : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
+  const lpLink = "https://app.uniswap.org/explore/pools/base/0xD1DbB2E56533C55C3A637D13C53aeEf65c5D5703";
+
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <div
@@ -513,7 +515,7 @@ export default function BlazeryPage() {
                     <div className="flex gap-3">
                       <span className="text-white font-bold flex-shrink-0">3.</span>
                       <p>
-                        <span className="text-white font-semibold">Profit Indicator</span> - Green means you&apos;ll receive more WETH than your LP is worth. Red means the opposite.
+                        <span className="text-white font-semibold">Profit Indicator</span> - Green means you will receive more WETH than your LP is worth. Red means the opposite.
                       </p>
                     </div>
 
@@ -562,8 +564,7 @@ export default function BlazeryPage() {
                   : `⚠️ Unprofitable: $${blazeProfitLoss.profitLoss.toFixed(2)}`}
               </div>
               <div className="text-xs text-gray-400 mt-1">
-                ${blazeProfitLoss.lpValueInUsd.toFixed(2)} LP →{" "}
-                ${blazeProfitLoss.wethValueInUsd.toFixed(2)} WETH
+                ${blazeProfitLoss.lpValueInUsd.toFixed(2)} LP → ${blazeProfitLoss.wethValueInUsd.toFixed(2)} WETH
               </div>
             </div>
           )}
@@ -598,13 +599,14 @@ export default function BlazeryPage() {
                   <span className="text-sm text-gray-400">DONUT-ETH</span>
                 </div>
               </div>
-              
-                href="https://app.uniswap.org/explore/pools/base/0xD1DbB2E56533C55C3A637D13C53aeEf65c5D5703"
+              <a
+                href={lpLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 bg-white text-black px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
               >
-                Get LP <ArrowRight className="w-4 h-4" />
+                Get LP
+                <ArrowRight className="w-4 h-4" />
               </a>
             </div>
             {hasInsufficientLP && (
