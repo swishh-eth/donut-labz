@@ -144,11 +144,10 @@ export function AddToFarcasterDialog({
           {/* Content */}
           <div className="mb-6 text-center">
             <h2 className="mb-2 text-2xl font-bold text-white">
-              Add GlazeCorp
+              Install Donut-Labs OS
             </h2>
             <p className="text-sm text-gray-400">
-              Install this Mini App to your Farcaster profile for quick access.
-              Keep the glaze flowing wherever you go!
+              The premium De-fi "Donut-finance" experience.
             </p>
           </div>
 
@@ -176,25 +175,25 @@ export function AddToFarcasterDialog({
               {status === "adding" && (
                 <>
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  <span>Adding to Farcaster...</span>
+                  <span>Installing to Farcaster...</span>
                 </>
               )}
               {status === "success" && (
                 <>
                   <Check className="h-5 w-5" />
-                  <span>Added Successfully!</span>
+                  <span>OS Installed Successfully!</span>
                 </>
               )}
               {status === "error" && (
                 <>
                   <AlertCircle className="h-5 w-5" />
-                  <span>Try Again</span>
+                  <span>Try Again Anon</span>
                 </>
               )}
               {status === "idle" && (
                 <>
                   <Plus className="h-5 w-5" />
-                  <span>Add to Farcaster</span>
+                  <span>Install OS to Farcaster</span>
                 </>
               )}
             </Button>
@@ -205,7 +204,7 @@ export function AddToFarcasterDialog({
               variant="ghost"
               className="w-full text-gray-400 hover:text-white hover:bg-zinc-800"
             >
-              Maybe Later
+              Next Time
             </Button>
           </div>
 
@@ -217,7 +216,7 @@ export function AddToFarcasterDialog({
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <div className="h-1.5 w-1.5 rounded-full bg-pink-500" />
-              <span>Receive notifications about glaze activity</span>
+              <span>Compete In Weekly Reward Pools</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <div className="h-1.5 w-1.5 rounded-full bg-pink-500" />
