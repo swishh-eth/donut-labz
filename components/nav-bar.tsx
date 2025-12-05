@@ -20,31 +20,37 @@ export function NavBar() {
         <Link
           href="/leaderboard"
           className={cn(
-            "flex items-center justify-center p-3 transition-colors",
+            "flex items-center justify-center p-3 transition-all",
             pathname === "/leaderboard"
               ? "text-white"
               : "text-gray-400 hover:text-gray-300"
           )}
         >
-          <Trophy className="w-6 h-6" />
+          <Trophy className={cn(
+            "transition-all",
+            pathname === "/leaderboard" ? "w-7 h-7" : "w-5 h-5"
+          )} />
         </Link>
 
         <Link
           href="/blazery"
           className={cn(
-            "flex items-center justify-center p-3 transition-colors",
+            "flex items-center justify-center p-3 transition-all",
             pathname === "/blazery"
               ? "text-white"
               : "text-gray-400 hover:text-gray-300"
           )}
         >
-          <Flame className="w-6 h-6" />
+          <Flame className={cn(
+            "transition-all",
+            pathname === "/blazery" ? "w-7 h-7" : "w-5 h-5"
+          )} />
         </Link>
 
         <Link
           href="/"
           className={cn(
-            "flex items-center justify-center p-3 transition-colors",
+            "flex items-center justify-center p-3 transition-all",
             pathname === "/"
               ? "text-white"
               : "text-gray-400 hover:text-gray-300"
@@ -52,8 +58,10 @@ export function NavBar() {
         >
           <div
             className={cn(
-              "w-7 h-7 rounded-full border-[5px]",
-              pathname === "/" ? "border-white" : "border-gray-400"
+              "rounded-full border-[5px] transition-all",
+              pathname === "/" 
+                ? "border-white w-7 h-7" 
+                : "border-gray-400 w-5 h-5 border-[3px]"
             )}
           />
         </Link>
@@ -61,13 +69,16 @@ export function NavBar() {
         <Link
           href="/about"
           className={cn(
-            "flex items-center justify-center p-3 transition-colors",
+            "flex items-center justify-center p-3 transition-all",
             pathname === "/about"
               ? "text-white"
               : "text-gray-400 hover:text-gray-300"
           )}
         >
-          <Info className="w-6 h-6" />
+          <Info className={cn(
+            "transition-all",
+            pathname === "/about" ? "w-7 h-7" : "w-5 h-5"
+          )} />
         </Link>
       </div>
     </nav>
