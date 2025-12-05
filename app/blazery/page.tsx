@@ -399,7 +399,7 @@ export default function BlazeryPage() {
       >
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold tracking-wide">THE LAB</h1>
+            <h1 className="text-2xl font-bold tracking-wide">BURN POOL</h1>
             {context?.user ? (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
                 <Avatar className="h-8 w-8 border border-zinc-800">
@@ -506,7 +506,7 @@ export default function BlazeryPage() {
                   </>
                 ) : (
                   <>
-                    ⚠️ Unprofitable blaze! You'll receive ${blazeProfitLoss.wethValueInUsd.toFixed(2)} in WETH for ${blazeProfitLoss.lpValueInUsd.toFixed(2)} in LP
+                    ⚠️ Unprofitable Burn! You'll receive ${blazeProfitLoss.wethValueInUsd.toFixed(2)} in WETH for ${blazeProfitLoss.lpValueInUsd.toFixed(2)} in LP
                     (${blazeProfitLoss.profitLoss.toFixed(2)})
                   </>
                 )}

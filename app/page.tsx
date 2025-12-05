@@ -635,7 +635,7 @@ export default function HomePage() {
             className={cn(
               "mt-1 border-zinc-800 bg-gradient-to-br from-zinc-950 to-black transition-shadow rounded-xl",
               occupantDisplay.isYou &&
-                "border-pink-500 shadow-[inset_0_0_24px_rgba(236,72,153,0.55)] animate-glow",
+                "border-white shadow-[inset_0_0_24px_rgba(255,255,255,0.55)] animate-glow",
             )}
           >
             <div className="px-2 py-1.5 flex items-center justify-between gap-2">
@@ -646,7 +646,7 @@ export default function HomePage() {
                   className={cn(
                     "text-[9px] font-bold uppercase tracking-[0.1em]",
                     occupantDisplay.isYou
-                      ? "text-pink-400"
+                      ? "text-white"
                       : "text-gray-400",
                   )}
                 >
@@ -768,7 +768,7 @@ export default function HomePage() {
           </Card>
 
           <div className="relative mt-1 overflow-hidden bg-black">
-            <div className="flex animate-scroll whitespace-nowrap py-1 text-sm font-bold text-pink-500">
+            <div className="flex animate-scroll whitespace-nowrap py-1 text-sm font-bold text-white">
               {Array.from({ length: 1000 }).map((_, i) => (
                 <span key={i} className="inline-block px-8">
                   {minerState?.uri && minerState.uri.trim() !== ""
@@ -827,7 +827,7 @@ export default function HomePage() {
                     GLAZE PRICE
                   </div>
                   <div className="flex items-baseline">
-                    <span className="text-xl font-semibold text-pink-400">{glazePriceDisplay}</span>
+                    <span className="text-xl font-semibold text-white">{glazePriceDisplay}</span>
                   </div>
                   <div className="text-[10px] text-gray-400">
                     $
@@ -852,7 +852,7 @@ export default function HomePage() {
             />
 
             <Button
-              className="w-full rounded-2xl bg-pink-500 py-2 text-sm font-bold text-black shadow-lg transition-colors hover:bg-pink-400 disabled:cursor-not-allowed disabled:bg-pink-500/40"
+              className="w-full rounded-2xl bg-white py-2 text-sm font-bold text-black shadow-lg transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:bg-white/40"
               onClick={handleGlaze}
               disabled={isGlazeDisabled}
             >
