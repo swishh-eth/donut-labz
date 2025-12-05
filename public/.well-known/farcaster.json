@@ -6,16 +6,16 @@
   },
   "miniapp": {
     "version": "1",
-    "name": "DonutLabs",
+    "name": "Donut Labs",
     "tagline": "Premium Donut Finance On Base",
-    "description": "Command GlazeCorp's donut mine, compete for weekly leaderboard rewards, and chat with fellow glazers on Base.",
+    "description": "Command GlazeCorp's donut mine, compete for weekly Donut Lab leaderboard rewards, and chat with fellow glazers on Base.",
     "iconUrl": "https://donutlabs.vercel.app/media/icon.png",
     "homeUrl": "https://donutlabs.vercel.app/",
     "splashImageUrl": "https://donutlabs.vercel.app/media/splash.png",
     "splashBackgroundColor": "#FEE7EC",
     "heroImageUrl": "https://donutlabs.vercel.app/media/hero.png",
     "buttonTitle": "Open Donut Labs",
-    "ogTitle": "We Glaze The World",
+    "ogTitle": "Where Glaze Meets Science!",
     "ogDescription": "Race the rink to seize the donut mine and keep the glaze flowing.",
     "ogImageUrl": "https://donutlabs.vercel.app/media/hero.png",
     "requiredChains": [
@@ -25,6 +25,7 @@
     "tags": [
       "gaming",
       "base",
+      "mining",
       "rewards"
     ],
     "actions": [

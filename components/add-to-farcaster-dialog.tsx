@@ -135,7 +135,7 @@ export function AddToFarcasterDialog({
             <div className="rounded-2xl bg-gradient-to-br from-zinc-700 to-zinc-800 p-4">
               <img
                 src="/media/icon.png"
-                alt="GlazeCorp"
+                alt="DonutLabs"
                 className="h-16 w-16"
               />
             </div>
@@ -144,10 +144,10 @@ export function AddToFarcasterDialog({
           {/* Content */}
           <div className="mb-6 text-center">
             <h2 className="mb-2 text-2xl font-bold text-white">
-              Add Donut Labs
+              Install Donut Labs
             </h2>
             <p className="text-sm text-gray-400">
-              a premium De-Fi "Donut-Finance" glazeing experience. 
+              a premium De-Fi "Donut-Finance" glazeing experience on base. 
             </p>
           </div>
 
@@ -204,7 +204,7 @@ export function AddToFarcasterDialog({
               variant="ghost"
               className="w-full text-gray-400 hover:text-white hover:bg-zinc-800"
             >
-              Maybe Later
+              Not Right Now
             </Button>
           </div>
 
@@ -216,11 +216,11 @@ export function AddToFarcasterDialog({
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <div className="h-1.5 w-1.5 rounded-full bg-white" />
-              <span>Compete on the weekly rewards leaderboard</span>
+              <span>Compete in a weekly eth rewards leaderboard powered by glazes.</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <div className="h-1.5 w-1.5 rounded-full bg-white" />
-              <span>Talk with fellow donut enjoyers</span>
+              <span>Talk with fellow $DONUT enjoyers in the onchain glazery chat!</span>
             </div>
           </div>
         </div>
