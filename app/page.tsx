@@ -602,9 +602,29 @@ export default function HomePage() {
       : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
+  // Get the scrolling message text
+  const scrollMessage = minerState?.uri && minerState.uri.trim() !== ""
+    ? minerState.uri
+    : "We Glaze The World";
+
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <AddToFarcasterDialog showOnFirstVisit={true} />
+
+      {/* Smooth scroll animation styles */}
+      <style jsx>{`
+        @keyframes smoothScroll {
+          0% {
+            transform: translateX(0);
+          }
+          100% {
+            transform: translateX(-50%);
+          }
+        }
+        .smooth-scroll {
+          animation: smoothScroll 20s linear infinite;
+        }
+      `}</style>
 
       <div
         className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 pb-4 shadow-inner"
@@ -616,7 +636,7 @@ export default function HomePage() {
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Header - Original Size */}
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold tracking-wide">GLAZE AUCTION</h1>
+            <h1 className="text-2xl font-bold tracking-wide">AUCTION</h1>
             {context?.user && (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
                 <Avatar className="h-8 w-8 border border-zinc-800">
@@ -655,14 +675,18 @@ export default function HomePage() {
 
           {/* Bottom Content - Pushed to bottom */}
           <div className="mt-auto flex flex-col gap-2">
-            {/* Scrolling Global Message */}
+            {/* Scrolling Global Message - Smooth infinite loop */}
             <div className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-lg">
-              <div className="flex animate-scroll whitespace-nowrap py-1.5 text-xs font-bold text-white">
-                {Array.from({ length: 100 }).map((_, i) => (
-                  <span key={i} className="inline-block px-6">
-                    {minerState?.uri && minerState.uri.trim() !== ""
-                      ? minerState.uri
-                      : "We Glaze The World"}
+              <div className="smooth-scroll flex whitespace-nowrap py-1.5 text-xs font-bold text-white">
+                {/* Duplicate content for seamless loop */}
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <span key={`a-${i}`} className="inline-block px-8">
+                    {scrollMessage}
+                  </span>
+                ))}
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <span key={`b-${i}`} className="inline-block px-8">
+                    {scrollMessage}
                   </span>
                 ))}
               </div>
@@ -878,33 +902,47 @@ export default function HomePage() {
               {buttonLabel}
             </button>
 
-            {/* Your Balances - Compact */}
+            {/* Your Balances - Fixed Layout */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-              <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-1.5">
+              <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-2">
                 Your Balances
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div>
-                  <div className="text-sm font-bold text-white">🍩{donutBalanceDisplay}</div>
-                  <div className="text-[8px] text-gray-500">Mined: 🍩{address && accountData?.mined
-                    ? Number(accountData.mined).toLocaleString(undefined, { maximumFractionDigits: 0 })
-                    : "0"}</div>
+              <div className="grid grid-cols-3 gap-2">
+                {/* DONUT Column */}
+                <div className="text-center">
+                  <div className="text-sm font-bold text-white">🍩 {donutBalanceDisplay}</div>
+                  <div className="text-[9px] text-gray-500 mt-1">Mined</div>
+                  <div className="text-xs font-semibold text-white">
+                    🍩 {address && accountData?.mined
+                      ? Number(accountData.mined).toLocaleString(undefined, { maximumFractionDigits: 0 })
+                      : "0"}
+                  </div>
                 </div>
-                <div>
-                  <div className="text-sm font-bold text-white">Ξ{ethBalanceDisplay}</div>
-                  <div className="text-[8px] text-gray-500">Spent: Ξ{address && accountData?.spent
-                    ? Number(accountData.spent).toLocaleString(undefined, { maximumFractionDigits: 2 })
-                    : "0"}</div>
+
+                {/* ETH Column */}
+                <div className="text-center">
+                  <div className="text-sm font-bold text-white">Ξ {ethBalanceDisplay}</div>
+                  <div className="text-[9px] text-gray-500 mt-1">Spent</div>
+                  <div className="text-xs font-semibold text-white">
+                    Ξ {address && accountData?.spent
+                      ? Number(accountData.spent).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                      : "0"}
+                  </div>
                 </div>
-                <div>
+
+                {/* WETH Column */}
+                <div className="text-center">
                   <div className="text-sm font-bold text-white">
-                    wΞ{minerState && minerState.wethBalance !== undefined
+                    wΞ {minerState && minerState.wethBalance !== undefined
                       ? formatEth(minerState.wethBalance, 4)
                       : "—"}
                   </div>
-                  <div className="text-[8px] text-gray-500">Earned: wΞ{address && accountData?.earned
-                    ? Number(accountData.earned).toLocaleString(undefined, { maximumFractionDigits: 2 })
-                    : "0"}</div>
+                  <div className="text-[9px] text-gray-500 mt-1">Earned</div>
+                  <div className="text-xs font-semibold text-white">
+                    wΞ {address && accountData?.earned
+                      ? Number(accountData.earned).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                      : "0"}
+                  </div>
                 </div>
               </div>
             </div>
