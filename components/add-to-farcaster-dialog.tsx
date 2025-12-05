@@ -132,7 +132,7 @@ export function AddToFarcasterDialog({
 
           {/* Icon */}
           <div className="mb-4 flex justify-center">
-            <div className="rounded-2xl bg-gradient-to-br from-pink-500 to-pink-600 p-4">
+            <div className="rounded-2xl bg-gradient-to-br from-zinc-700 to-zinc-800 p-4">
               <img
                 src="/media/icon.png"
                 alt="GlazeCorp"
@@ -166,7 +166,7 @@ export function AddToFarcasterDialog({
               className={cn(
                 "w-full gap-2 rounded-xl py-6 text-base font-bold transition-all",
                 status === "idle" &&
-                  "bg-pink-500 hover:bg-pink-400 text-black",
+                  "bg-white hover:bg-gray-200 text-black",
                 status === "success" &&
                   "bg-green-600 hover:bg-green-600 text-white",
                 status === "error" && "bg-red-600 hover:bg-red-600 text-white"
@@ -211,16 +211,16 @@ export function AddToFarcasterDialog({
           {/* Benefits list */}
           <div className="mt-6 space-y-2 border-t border-zinc-800 pt-4">
             <div className="flex items-center gap-2 text-sm text-gray-400">
-              <div className="h-1.5 w-1.5 rounded-full bg-pink-500" />
-              <span>Quick access from your Farcaster apps page</span>
+              <div className="h-1.5 w-1.5 rounded-full bg-white" />
+              <span>Quick access from your Farcaster apps</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-400">
-              <div className="h-1.5 w-1.5 rounded-full bg-pink-500" />
-              <span>Compete for weekly rewards from bidding in the lab</span>
+              <div className="h-1.5 w-1.5 rounded-full bg-white" />
+              <span>Compete on the weekly rewards leaderboard</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-400">
-              <div className="h-1.5 w-1.5 rounded-full bg-pink-500" />
-              <span>Talk with fellow donut enjoyers in app</span>
+              <div className="h-1.5 w-1.5 rounded-full bg-white" />
+              <span>Talk with fellow donut enjoyers</span>
             </div>
           </div>
         </div>
