@@ -631,6 +631,42 @@ export default function HomePage() {
             ) : null}
           </div>
 
+          <div className="mt-1 -mx-2 w-[calc(100%+1rem)] overflow-hidden relative">
+            <video
+              ref={videoRef}
+              className="w-full object-contain"
+              autoPlay
+              loop
+              muted={isMuted}
+              playsInline
+              preload="auto"
+              src="/media/donut-loop.mp4"
+            />
+            <button
+              onClick={() => setIsMuted(!isMuted)}
+              className="absolute bottom-3 right-3 p-2 rounded-full bg-black/60 hover:bg-black/80 transition-colors"
+              aria-label={isMuted ? "Unmute" : "Mute"}
+            >
+              {isMuted ? (
+                <VolumeOff className="w-5 h-5 text-white" />
+              ) : (
+                <Volume2 className="w-5 h-5 text-white" />
+              )}
+            </button>
+          </div>
+
+          <div className="relative mt-2 overflow-hidden bg-black">
+            <div className="flex animate-scroll whitespace-nowrap py-1 text-sm font-bold text-white">
+              {Array.from({ length: 1000 }).map((_, i) => (
+                <span key={i} className="inline-block px-8">
+                  {minerState?.uri && minerState.uri.trim() !== ""
+                    ? minerState.uri
+                    : "We Glaze The World"}
+                </span>
+              ))}
+            </div>
+          </div>
+
           <Card
             className={cn(
               "mt-1 border-zinc-800 bg-gradient-to-br from-zinc-950 to-black transition-shadow rounded-xl",
@@ -650,7 +686,7 @@ export default function HomePage() {
                       : "text-gray-400",
                   )}
                 >
-                  KING GLAZER
+                  KING GLAZER "MINER"
                 </div>
 
                 {/* Profile Section */}
@@ -703,7 +739,7 @@ export default function HomePage() {
                 {/* Glazed Row */}
                 <div className="flex items-center gap-1">
                   <div className="text-[7px] font-bold uppercase tracking-[0.08em] text-gray-400 w-9 text-right">
-                    GLAZED
+                    
                   </div>
                   <div className="text-[10px] font-semibold text-white">
                     +{glazedDisplay}
@@ -766,42 +802,6 @@ export default function HomePage() {
               </div>
             </div>
           </Card>
-
-          <div className="mt-1 -mx-2 w-[calc(100%+1rem)] overflow-hidden relative">
-            <video
-              ref={videoRef}
-              className="w-full object-contain"
-              autoPlay
-              loop
-              muted={isMuted}
-              playsInline
-              preload="auto"
-              src="/media/donut-loop.mp4"
-            />
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              className="absolute bottom-3 right-3 p-2 rounded-full bg-black/60 hover:bg-black/80 transition-colors"
-              aria-label={isMuted ? "Unmute" : "Mute"}
-            >
-              {isMuted ? (
-                <VolumeOff className="w-5 h-5 text-white" />
-              ) : (
-                <Volume2 className="w-5 h-5 text-white" />
-              )}
-            </button>
-          </div>
-
-          <div className="relative mt-1 overflow-hidden bg-black">
-            <div className="flex animate-scroll whitespace-nowrap py-1 text-sm font-bold text-white">
-              {Array.from({ length: 1000 }).map((_, i) => (
-                <span key={i} className="inline-block px-8">
-                  {minerState?.uri && minerState.uri.trim() !== ""
-                    ? minerState.uri
-                    : "We Glaze The World"}
-                </span>
-              ))}
-            </div>
-          </div>
 
           <div className="mt-1 flex flex-col gap-1.5 pb-1">
             <div className="grid grid-cols-2 gap-1.5">
