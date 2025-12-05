@@ -16,7 +16,7 @@ const miniAppEmbed = {
       name: "Donut Labs",
       url: appDomain,
       splashImageUrl,
-      splashBackgroundColor: "#000000ff",
+      splashBackgroundColor: "#090909ff",
     },
   },
 };
