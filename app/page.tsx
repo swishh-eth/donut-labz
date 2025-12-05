@@ -622,7 +622,7 @@ export default function HomePage() {
           }
         }
         .smooth-scroll {
-          animation: smoothScroll 10s linear infinite;
+          animation: smoothScroll 20s linear infinite;
         }
       `}</style>
 
@@ -883,24 +883,24 @@ export default function HomePage() {
               disabled={isGlazeDisabled}
             />
 
-            {/* Glaze Button - Pulsing */}
-            <button
-              className={cn(
-                "w-full rounded-xl py-4 text-lg font-bold transition-all duration-300",
-                glazeResult === "success"
-                  ? "bg-green-500 text-white"
-                  : glazeResult === "failure"
-                    ? "bg-red-500 text-white"
-                    : isGlazeDisabled
-                      ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
-                      : "bg-white text-black hover:bg-gray-200",
-                isPulsing && !isGlazeDisabled && !glazeResult && "scale-[1.03] shadow-[0_0_20px_rgba(255,255,255,0.3)]"
-              )}
-              onClick={handleGlaze}
-              disabled={isGlazeDisabled}
-            >
-              {buttonLabel}
-            </button>
+           {/* Glaze Button - Pulsing (shrinks inward) */}
+<button
+  className={cn(
+    "w-full rounded-xl py-4 text-lg font-bold transition-all duration-300",
+    glazeResult === "success"
+      ? "bg-green-500 text-white"
+      : glazeResult === "failure"
+        ? "bg-red-500 text-white"
+        : isGlazeDisabled
+          ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
+          : "bg-white text-black hover:bg-gray-200",
+    isPulsing && !isGlazeDisabled && !glazeResult && "scale-[0.95]"
+  )}
+  onClick={handleGlaze}
+  disabled={isGlazeDisabled}
+>
+  {buttonLabel}
+</button>
 
             {/* Your Balances - Fixed Layout */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
