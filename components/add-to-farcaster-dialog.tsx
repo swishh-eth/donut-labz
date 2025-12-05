@@ -7,46 +7,51 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 type AddToFarcasterDialogProps = {
-  /**
-   * Whether to show the dialog automatically on first visit
-   * Uses localStorage to track if user has seen it
-   */
   showOnFirstVisit?: boolean;
-  /**
-   * Key for localStorage to track if dialog has been shown
-   */
   storageKey?: string;
 };
 
 export function AddToFarcasterDialog({
   showOnFirstVisit = true,
-  storageKey = "glazecorp-add-miniapp-prompt-shown",
+  storageKey = "donutlabs-add-miniapp-prompt-shown",
 }: AddToFarcasterDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [status, setStatus] = useState<"idle" | "adding" | "success" | "error">(
-    "idle"
-  );
+  const [status, setStatus] = useState<"idle" | "adding" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
 
   // Check if we should show the dialog on mount
   useEffect(() => {
     if (!showOnFirstVisit) return;
 
-    try {
-      const hasSeenPrompt = localStorage.getItem(storageKey);
-      if (!hasSeenPrompt) {
+    const checkAndShowDialog = async () => {
+      try {
+        // First check if app is already added via SDK
+        const context = await sdk.context;
+        
+        // If already added, don't show the dialog
+        if (context?.client?.added) {
+          console.log("App already added, skipping prompt");
+          return;
+        }
+
+        // Check localStorage to avoid showing repeatedly in same session
+        const hasSeenPrompt = localStorage.getItem(storageKey);
+        if (hasSeenPrompt) {
+          return;
+        }
+
         // Show dialog after a short delay for better UX
         const timer = setTimeout(() => {
           setIsOpen(true);
-          localStorage.setItem(storageKey, "true");
         }, 2000);
 
         return () => clearTimeout(timer);
+      } catch (error) {
+        console.warn("Could not check app status:", error);
       }
-    } catch (error) {
-      // localStorage might not be available
-      console.warn("Could not access localStorage:", error);
-    }
+    };
+
+    checkAndShowDialog();
   }, [showOnFirstVisit, storageKey]);
 
   const handleAddToFarcaster = useCallback(async () => {
@@ -54,14 +59,12 @@ export function AddToFarcasterDialog({
       setStatus("adding");
       setErrorMessage("");
 
-      // Call the addMiniApp SDK action
-      // If successful, returns { notificationDetails?: ... }
-      // If rejected by user, throws RejectedByUser error
       await sdk.actions.addMiniApp();
 
-      // If we get here, the app was successfully added
       setStatus("success");
-      // Close dialog after success animation
+      // Mark as shown so we don't prompt again
+      localStorage.setItem(storageKey, "true");
+      
       setTimeout(() => {
         setIsOpen(false);
         setStatus("idle");
@@ -69,43 +72,42 @@ export function AddToFarcasterDialog({
     } catch (error) {
       console.error("Failed to add Mini App:", error);
 
-      // Check if user cancelled (this is expected behavior)
       const errorName = error instanceof Error ? error.name : "";
       if (errorName === "AddMiniApp.RejectedByUser") {
-        // User cancelled - just reset to idle without showing error
         setStatus("idle");
+        // Still mark as shown so we don't nag them
+        localStorage.setItem(storageKey, "true");
+        setIsOpen(false);
         return;
       }
 
       setStatus("error");
 
-      const errorMsg =
-        error instanceof Error ? error.message : "Failed to add app";
+      const errorMsg = error instanceof Error ? error.message : "Failed to add app";
 
       if (errorName === "AddMiniApp.InvalidDomainManifest" || errorMsg.includes("domain")) {
         setErrorMessage("App must be on production domain with valid manifest");
       } else if (errorMsg.includes("not supported")) {
-        setErrorMessage(
-          "This feature is not available in your current environment"
-        );
+        setErrorMessage("This feature is not available in your current environment");
       } else {
         setErrorMessage("Unable to add app. Please try again.");
       }
 
-      // Reset error state after 5 seconds
       setTimeout(() => {
         setStatus("idle");
         setErrorMessage("");
       }, 5000);
     }
-  }, []);
+  }, [storageKey]);
 
   const handleClose = useCallback(() => {
-    if (status === "adding") return; // Don't allow closing while adding
+    if (status === "adding") return;
     setIsOpen(false);
     setStatus("idle");
     setErrorMessage("");
-  }, [status]);
+    // Mark as shown when they dismiss
+    localStorage.setItem(storageKey, "true");
+  }, [status, storageKey]);
 
   if (!isOpen) return null;
 
@@ -147,7 +149,7 @@ export function AddToFarcasterDialog({
               Install Donut Labs
             </h2>
             <p className="text-sm text-gray-400">
-              a premium De-Fi "Donut-Finance" glazeing experience on base. 
+              a premium De-Fi &quot;Donut-Finance&quot; glazeing experience on base.
             </p>
           </div>
 
@@ -165,10 +167,8 @@ export function AddToFarcasterDialog({
               disabled={status === "adding" || status === "success"}
               className={cn(
                 "w-full gap-2 rounded-xl py-6 text-base font-bold transition-all",
-                status === "idle" &&
-                  "bg-white hover:bg-gray-200 text-black",
-                status === "success" &&
-                  "bg-green-600 hover:bg-green-600 text-white",
+                status === "idle" && "bg-white hover:bg-gray-200 text-black",
+                status === "success" && "bg-green-600 hover:bg-green-600 text-white",
                 status === "error" && "bg-red-600 hover:bg-red-600 text-white"
               )}
             >
@@ -212,15 +212,15 @@ export function AddToFarcasterDialog({
           <div className="mt-6 space-y-2 border-t border-zinc-800 pt-4">
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <div className="h-1.5 w-1.5 rounded-full bg-white" />
-              <span>Quick access from your Farcaster apps</span>
+              <span>Quick access to the Global $Donut Auction</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <div className="h-1.5 w-1.5 rounded-full bg-white" />
-              <span>Compete in a weekly eth rewards leaderboard powered by glazes.</span>
+              <span>Compete in weekly eth reward leaderboards powered by in app glazes.</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <div className="h-1.5 w-1.5 rounded-full bg-white" />
-              <span>Talk with fellow $DONUT enjoyers in the onchain glazery chat!</span>
+              <span>Talk with fellow $Donut enjoyers in the onchain glazery chat!</span>
             </div>
           </div>
         </div>
@@ -229,9 +229,6 @@ export function AddToFarcasterDialog({
   );
 }
 
-/**
- * Hook to manually trigger the Add to Farcaster dialog
- */
 export function useAddToFarcasterDialog() {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -242,8 +239,6 @@ export function useAddToFarcasterDialog() {
     isOpen,
     open,
     close,
-    Dialog: () => (
-      <AddToFarcasterDialog showOnFirstVisit={false} />
-    ),
+    Dialog: () => <AddToFarcasterDialog showOnFirstVisit={false} />,
   };
 }
