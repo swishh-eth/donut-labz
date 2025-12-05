@@ -101,7 +101,9 @@ export default function HomePage() {
   const [glazeResult, setGlazeResult] = useState<"success" | "failure" | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
+  const [showStats, setShowStats] = useState(false); // false = balances, true = stats
   const videoRef = useRef<HTMLVideoElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const glazeResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetGlazeResult = useCallback(() => {
@@ -183,6 +185,47 @@ export default function HomePage() {
     const interval = setInterval(fetchPrice, 60_000);
 
     return () => clearInterval(interval);
+  }, []);
+
+  // Seamless video loop
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleTimeUpdate = () => {
+      // Reset slightly before the end to prevent any gap
+      if (video.duration - video.currentTime < 0.1) {
+        video.currentTime = 0;
+      }
+    };
+
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    return () => video.removeEventListener("timeupdate", handleTimeUpdate);
+  }, []);
+
+  // Manual scroll animation for perfect loop
+  useEffect(() => {
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer) return;
+
+    let animationId: number;
+    let position = 0;
+    const speed = 0.5; // pixels per frame
+
+    const animate = () => {
+      position += speed;
+      const halfWidth = scrollContainer.scrollWidth / 2;
+      
+      if (position >= halfWidth) {
+        position = 0;
+      }
+      
+      scrollContainer.style.transform = `translateX(-${position}px)`;
+      animationId = requestAnimationFrame(animate);
+    };
+
+    animationId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationId);
   }, []);
 
   const { address, isConnected } = useAccount();
@@ -602,7 +645,6 @@ export default function HomePage() {
       : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
-  // Get the scrolling message text
   const scrollMessage = minerState?.uri && minerState.uri.trim() !== ""
     ? minerState.uri
     : "We Glaze The World";
@@ -610,21 +652,6 @@ export default function HomePage() {
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <AddToFarcasterDialog showOnFirstVisit={true} />
-
-      {/* Smooth scroll animation styles */}
-      <style jsx>{`
-        @keyframes smoothScroll {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-        .smooth-scroll {
-          animation: smoothScroll 20s linear infinite;
-        }
-      `}</style>
 
       <div
         className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 pb-4 shadow-inner"
@@ -634,9 +661,9 @@ export default function HomePage() {
         }}
       >
         <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Header - Original Size */}
+          {/* Header */}
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold tracking-wide">AUCTION</h1>
+            <h1 className="text-2xl font-bold tracking-wide">GLAZE AUCTION</h1>
             {context?.user && (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
                 <Avatar className="h-8 w-8 border border-zinc-800">
@@ -659,7 +686,7 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Video Player */}
+          {/* Video Player - Seamless Loop */}
           <div className="-mx-2 w-[calc(100%+1rem)] overflow-hidden flex-1">
             <video
               ref={videoRef}
@@ -673,26 +700,23 @@ export default function HomePage() {
             />
           </div>
 
-          {/* Bottom Content - Pushed to bottom */}
+          {/* Bottom Content */}
           <div className="mt-auto flex flex-col gap-2">
-            {/* Scrolling Global Message - Smooth infinite loop */}
+            {/* Scrolling Global Message - JS-based smooth scroll */}
             <div className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-lg">
-              <div className="smooth-scroll flex whitespace-nowrap py-1.5 text-xs font-bold text-white">
-                {/* Duplicate content for seamless loop */}
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <span key={`a-${i}`} className="inline-block px-8">
-                    {scrollMessage}
-                  </span>
-                ))}
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <span key={`b-${i}`} className="inline-block px-8">
+              <div
+                ref={scrollRef}
+                className="flex whitespace-nowrap py-1.5 text-xs font-bold text-white"
+              >
+                {Array.from({ length: 20 }).map((_, i) => (
+                  <span key={i} className="inline-block px-8">
                     {scrollMessage}
                   </span>
                 ))}
               </div>
             </div>
 
-            {/* King Glazer Card - Compact */}
+            {/* King Glazer Card */}
             <div
               className={cn(
                 "bg-zinc-900 border rounded-lg p-2",
@@ -702,7 +726,6 @@ export default function HomePage() {
               )}
             >
               <div className="flex items-center gap-2">
-                {/* Avatar */}
                 <div
                   className={cn(
                     "flex-shrink-0",
@@ -726,7 +749,6 @@ export default function HomePage() {
                   </Avatar>
                 </div>
 
-                {/* Profile Info */}
                 <div className="flex-1 min-w-0">
                   <div className="text-[8px] text-gray-500 uppercase tracking-wider">King Glazer</div>
                   <div className="font-bold text-white text-sm truncate">{occupantDisplay.primary}</div>
@@ -737,7 +759,6 @@ export default function HomePage() {
                   )}
                 </div>
 
-                {/* Stats - Compact 2x2 Grid */}
                 <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-right flex-shrink-0">
                   <div>
                     <div className="text-[8px] text-gray-500">TIME</div>
@@ -763,7 +784,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Stats Cards - Compact */}
+            {/* Stats Cards */}
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
                 <div className="flex items-center gap-1 mb-0.5">
@@ -788,7 +809,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Dutch Auction Info - Compact */}
+            {/* Dutch Auction Info */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
@@ -832,28 +853,24 @@ export default function HomePage() {
                           <span className="text-white font-semibold">Become King Glazer</span> - Pay the current glaze price to take control of the donut mine.
                         </p>
                       </div>
-
                       <div className="flex gap-3">
                         <span className="text-white font-bold flex-shrink-0">2.</span>
                         <p>
                           <span className="text-white font-semibold">Earn $DONUT</span> - While you are King Glazer, you earn $DONUT tokens every second.
                         </p>
                       </div>
-
                       <div className="flex gap-3">
                         <span className="text-white font-bold flex-shrink-0">3.</span>
                         <p>
                           <span className="text-white font-semibold">Dutch Auction</span> - The glaze price starts high and decreases over time until someone glazes.
                         </p>
                       </div>
-
                       <div className="flex gap-3">
                         <span className="text-white font-bold flex-shrink-0">4.</span>
                         <p>
                           <span className="text-white font-semibold">Get Refunded</span> - When someone else glazes, you get 80% of their payment back.
                         </p>
                       </div>
-
                       <div className="pt-3 border-t border-zinc-800">
                         <p className="text-xs text-gray-400 italic">
                           Compete on the leaderboard by glazing to earn points and win weekly ETH prizes!
@@ -872,7 +889,7 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Message Input - Compact */}
+            {/* Message Input */}
             <input
               type="text"
               value={customMessage}
@@ -883,69 +900,89 @@ export default function HomePage() {
               disabled={isGlazeDisabled}
             />
 
-           {/* Glaze Button - Pulsing (shrinks inward) */}
-<button
-  className={cn(
-    "w-full rounded-xl py-4 text-lg font-bold transition-all duration-300",
-    glazeResult === "success"
-      ? "bg-green-500 text-white"
-      : glazeResult === "failure"
-        ? "bg-red-500 text-white"
-        : isGlazeDisabled
-          ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
-          : "bg-white text-black hover:bg-gray-200",
-    isPulsing && !isGlazeDisabled && !glazeResult && "scale-[0.95]"
-  )}
-  onClick={handleGlaze}
-  disabled={isGlazeDisabled}
->
-  {buttonLabel}
-</button>
+            {/* Glaze Button - Shrink Pulse */}
+            <button
+              className={cn(
+                "w-full rounded-xl py-4 text-lg font-bold transition-all duration-300",
+                glazeResult === "success"
+                  ? "bg-green-500 text-white"
+                  : glazeResult === "failure"
+                    ? "bg-red-500 text-white"
+                    : isGlazeDisabled
+                      ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
+                      : "bg-white text-black hover:bg-gray-200",
+                isPulsing && !isGlazeDisabled && !glazeResult && "scale-[0.95]"
+              )}
+              onClick={handleGlaze}
+              disabled={isGlazeDisabled}
+            >
+              {buttonLabel}
+            </button>
 
-            {/* Your Balances - Fixed Layout */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-              <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-2">
-                Your Balances
+            {/* Tappable Balances Card */}
+            <button
+              onClick={() => setShowStats(!showStats)}
+              className={cn(
+                "w-full border rounded-lg p-2 transition-colors text-left",
+                showStats
+                  ? "bg-zinc-950 border-zinc-700"
+                  : "bg-zinc-900 border-zinc-800"
+              )}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[9px] text-gray-400 uppercase tracking-wider">
+                  {showStats ? "Your Stats" : "Your Balances"}
+                </div>
+                <div className="text-[8px] text-gray-500">Tap to switch</div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {/* DONUT Column */}
-                <div className="text-center">
-                  <div className="text-sm font-bold text-white">🍩 {donutBalanceDisplay}</div>
-                  <div className="text-[9px] text-gray-500 mt-1">Mined</div>
-                  <div className="text-xs font-semibold text-white">
-                    🍩 {address && accountData?.mined
-                      ? Number(accountData.mined).toLocaleString(undefined, { maximumFractionDigits: 0 })
-                      : "0"}
-                  </div>
-                </div>
-
-                {/* ETH Column */}
-                <div className="text-center">
-                  <div className="text-sm font-bold text-white">Ξ {ethBalanceDisplay}</div>
-                  <div className="text-[9px] text-gray-500 mt-1">Spent</div>
-                  <div className="text-xs font-semibold text-white">
-                    Ξ {address && accountData?.spent
-                      ? Number(accountData.spent).toLocaleString(undefined, { maximumFractionDigits: 2 })
-                      : "0"}
-                  </div>
-                </div>
-
-                {/* WETH Column */}
-                <div className="text-center">
-                  <div className="text-sm font-bold text-white">
-                    wΞ {minerState && minerState.wethBalance !== undefined
-                      ? formatEth(minerState.wethBalance, 4)
-                      : "—"}
-                  </div>
-                  <div className="text-[9px] text-gray-500 mt-1">Earned</div>
-                  <div className="text-xs font-semibold text-white">
-                    wΞ {address && accountData?.earned
-                      ? Number(accountData.earned).toLocaleString(undefined, { maximumFractionDigits: 2 })
-                      : "0"}
-                  </div>
-                </div>
+              
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {!showStats ? (
+                  <>
+                    <div>
+                      <div className="text-xs font-bold text-white">🍩 {donutBalanceDisplay}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Ξ {ethBalanceDisplay}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">
+                        wΞ {minerState && minerState.wethBalance !== undefined
+                          ? formatEth(minerState.wethBalance, 4)
+                          : "—"}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <div className="text-[8px] text-gray-500 mb-0.5">Mined</div>
+                      <div className="text-xs font-bold text-white">
+                        🍩 {address && accountData?.mined
+                          ? Number(accountData.mined).toLocaleString(undefined, { maximumFractionDigits: 0 })
+                          : "0"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[8px] text-gray-500 mb-0.5">Spent</div>
+                      <div className="text-xs font-bold text-white">
+                        Ξ {address && accountData?.spent
+                          ? Number(accountData.spent).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                          : "0"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[8px] text-gray-500 mb-0.5">Earned</div>
+                      <div className="text-xs font-bold text-white">
+                        wΞ {address && accountData?.earned
+                          ? Number(accountData.earned).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                          : "0"}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
+            </button>
           </div>
         </div>
       </div>
