@@ -608,7 +608,7 @@ export default function HomePage() {
       >
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold tracking-wide">GLAZERY</h1>
+            <h1 className="text-2xl font-bold tracking-wide">GLAZERY AUCTION</h1>
             {context?.user ? (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
                 <Avatar className="h-8 w-8 border border-zinc-800">
@@ -767,18 +767,6 @@ export default function HomePage() {
             </div>
           </Card>
 
-          <div className="relative mt-1 overflow-hidden bg-black">
-            <div className="flex animate-scroll whitespace-nowrap py-1 text-sm font-bold text-white">
-              {Array.from({ length: 1000 }).map((_, i) => (
-                <span key={i} className="inline-block px-8">
-                  {minerState?.uri && minerState.uri.trim() !== ""
-                    ? minerState.uri
-                    : "We Glaze The World"}
-                </span>
-              ))}
-            </div>
-          </div>
-
           <div className="mt-1 -mx-2 w-[calc(100%+1rem)] overflow-hidden relative">
             <video
               ref={videoRef}
@@ -801,6 +789,18 @@ export default function HomePage() {
                 <Volume2 className="w-5 h-5 text-white" />
               )}
             </button>
+          </div>
+
+          <div className="relative mt-1 overflow-hidden bg-black">
+            <div className="flex animate-scroll whitespace-nowrap py-1 text-sm font-bold text-white">
+              {Array.from({ length: 1000 }).map((_, i) => (
+                <span key={i} className="inline-block px-8">
+                  {minerState?.uri && minerState.uri.trim() !== ""
+                    ? minerState.uri
+                    : "We Glaze The World"}
+                </span>
+              ))}
+            </div>
           </div>
 
           <div className="mt-1 flex flex-col gap-1.5 pb-1">
