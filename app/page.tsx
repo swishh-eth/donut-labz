@@ -622,7 +622,7 @@ export default function HomePage() {
           }
         }
         .smooth-scroll {
-          animation: smoothScroll 20s linear infinite;
+          animation: smoothScroll 10s linear infinite;
         }
       `}</style>
 
