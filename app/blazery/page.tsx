@@ -8,17 +8,15 @@ import {
   useReadContract,
   useWaitForTransactionReceipt,
   useWriteContract,
-  useSimulateContract,
 } from "wagmi";
 import { base } from "wagmi/chains";
-import { formatEther, formatUnits, zeroAddress, type Address, maxUint256 } from "viem";
+import { formatEther, zeroAddress, type Address } from "viem";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { cn, getEthPrice } from "@/lib/utils";
 import { NavBar } from "@/components/nav-bar";
+import { Flame, Coins, ArrowRight, HelpCircle, X } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -65,18 +63,28 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
+const ERC20_ABI = [
+  {
+    inputs: [
+      { internalType: "address", name: "spender", type: "address" },
+      { internalType: "uint256", name: "amount", type: "uint256" },
+    ],
+    name: "approve",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
+
 export default function BlazeryPage() {
   const readyRef = useRef(false);
   const autoConnectAttempted = useRef(false);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
-  const [blazeResult, setBlazeResult] = useState<"success" | "failure" | null>(
-    null,
-  );
+  const [showHelpDialog, setShowHelpDialog] = useState(false);
+  const [blazeResult, setBlazeResult] = useState<"success" | "failure" | null>(null);
   const [txStep, setTxStep] = useState<"idle" | "approving" | "buying">("idle");
-  const blazeResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const blazeResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetBlazeResult = useCallback(() => {
     if (blazeResultTimeoutRef.current) {
@@ -86,19 +94,16 @@ export default function BlazeryPage() {
     setBlazeResult(null);
   }, []);
 
-  const showBlazeResult = useCallback(
-    (result: "success" | "failure") => {
-      if (blazeResultTimeoutRef.current) {
-        clearTimeout(blazeResultTimeoutRef.current);
-      }
-      setBlazeResult(result);
-      blazeResultTimeoutRef.current = setTimeout(() => {
-        setBlazeResult(null);
-        blazeResultTimeoutRef.current = null;
-      }, 3000);
-    },
-    [],
-  );
+  const showBlazeResultFn = useCallback((result: "success" | "failure") => {
+    if (blazeResultTimeoutRef.current) {
+      clearTimeout(blazeResultTimeoutRef.current);
+    }
+    setBlazeResult(result);
+    blazeResultTimeoutRef.current = setTimeout(() => {
+      setBlazeResult(null);
+      blazeResultTimeoutRef.current = null;
+    }, 3000);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,7 +125,6 @@ export default function BlazeryPage() {
     };
   }, []);
 
-  // Fetch ETH price on mount and every minute
   useEffect(() => {
     const fetchPrice = async () => {
       const price = await getEthPrice();
@@ -128,7 +132,7 @@ export default function BlazeryPage() {
     };
 
     fetchPrice();
-    const interval = setInterval(fetchPrice, 60_000); // Update every minute
+    const interval = setInterval(fetchPrice, 60_000);
 
     return () => clearInterval(interval);
   }, []);
@@ -188,19 +192,6 @@ export default function BlazeryPage() {
     return rawAuctionState as unknown as AuctionState;
   }, [rawAuctionState]);
 
-  const ERC20_ABI = [
-    {
-      inputs: [
-        { internalType: "address", name: "spender", type: "address" },
-        { internalType: "uint256", name: "amount", type: "uint256" },
-      ],
-      name: "approve",
-      outputs: [{ internalType: "bool", name: "", type: "bool" }],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-  ] as const;
-
   useEffect(() => {
     if (!readyRef.current && auctionState) {
       readyRef.current = true;
@@ -243,11 +234,10 @@ export default function BlazeryPage() {
       const price = auctionState.price;
       const epochId = toBigInt(auctionState.epochId);
       const deadline = BigInt(
-        Math.floor(Date.now() / 1000) + DEADLINE_BUFFER_SECONDS,
+        Math.floor(Date.now() / 1000) + DEADLINE_BUFFER_SECONDS
       );
       const maxPaymentTokenAmount = price;
 
-      // If we're in idle or approval failed, start with approval
       if (txStep === "idle") {
         setTxStep("approving");
         await writeContract({
@@ -261,7 +251,6 @@ export default function BlazeryPage() {
         return;
       }
 
-      // If approval succeeded, now call buy
       if (txStep === "buying") {
         await writeContract({
           account: targetAddress as Address,
@@ -274,7 +263,7 @@ export default function BlazeryPage() {
       }
     } catch (error) {
       console.error("Failed to blaze:", error);
-      showBlazeResult("failure");
+      showBlazeResultFn("failure");
       setTxStep("idle");
       resetWrite();
     }
@@ -285,7 +274,7 @@ export default function BlazeryPage() {
     primaryConnector,
     resetBlazeResult,
     resetWrite,
-    showBlazeResult,
+    showBlazeResultFn,
     writeContract,
     txStep,
   ]);
@@ -294,7 +283,7 @@ export default function BlazeryPage() {
     if (!receipt) return;
     if (receipt.status === "success" || receipt.status === "reverted") {
       if (receipt.status === "reverted") {
-        showBlazeResult("failure");
+        showBlazeResultFn("failure");
         setTxStep("idle");
         refetchAuctionState();
         const resetTimer = setTimeout(() => {
@@ -303,16 +292,14 @@ export default function BlazeryPage() {
         return () => clearTimeout(resetTimer);
       }
 
-      // If approval succeeded, now call buy
       if (txStep === "approving") {
         resetWrite();
         setTxStep("buying");
         return;
       }
 
-      // If buy succeeded
       if (txStep === "buying") {
-        showBlazeResult("success");
+        showBlazeResultFn("success");
         setTxStep("idle");
         refetchAuctionState();
         const resetTimer = setTimeout(() => {
@@ -322,9 +309,8 @@ export default function BlazeryPage() {
       }
     }
     return;
-  }, [receipt, refetchAuctionState, resetWrite, showBlazeResult, txStep]);
+  }, [receipt, refetchAuctionState, resetWrite, showBlazeResultFn, txStep]);
 
-  // Auto-trigger buy after approval
   useEffect(() => {
     if (txStep === "buying" && !isWriting && !isConfirming && !txHash) {
       handleBlaze();
@@ -351,17 +337,17 @@ export default function BlazeryPage() {
     return "BLAZE";
   }, [blazeResult, isConfirming, isWriting, auctionState, txStep]);
 
-  const hasInsufficientLP = auctionState && auctionState.paymentTokenBalance < auctionState.price;
+  const hasInsufficientLP =
+    auctionState && auctionState.paymentTokenBalance < auctionState.price;
 
-  // Calculate profit/loss for blazing
   const blazeProfitLoss = useMemo(() => {
     if (!auctionState) return null;
 
-    // LP token value in USD
-    const lpValueInEth = Number(formatEther(auctionState.price)) * Number(formatEther(auctionState.paymentTokenPrice));
+    const lpValueInEth =
+      Number(formatEther(auctionState.price)) *
+      Number(formatEther(auctionState.paymentTokenPrice));
     const lpValueInUsd = lpValueInEth * ethUsdPrice;
 
-    // WETH value in USD
     const wethReceivedInEth = Number(formatEther(auctionState.wethAccumulated));
     const wethValueInUsd = wethReceivedInEth * ethUsdPrice;
 
@@ -377,7 +363,11 @@ export default function BlazeryPage() {
   }, [auctionState, ethUsdPrice]);
 
   const isBlazeDisabled =
-    !auctionState || isWriting || isConfirming || blazeResult !== null || hasInsufficientLP;
+    !auctionState ||
+    isWriting ||
+    isConfirming ||
+    blazeResult !== null ||
+    hasInsufficientLP;
 
   const userDisplayName =
     context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
@@ -398,9 +388,9 @@ export default function BlazeryPage() {
         }}
       >
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold tracking-wide">GLOBAL BURN POOL</h1>
-            {context?.user ? (
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold tracking-wide">BLAZERY</h1>
+            {context?.user && (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
                 <Avatar className="h-8 w-8 border border-zinc-800">
                   <AvatarImage
@@ -414,102 +404,212 @@ export default function BlazeryPage() {
                 </Avatar>
                 <div className="leading-tight text-left">
                   <div className="text-sm font-bold">{userDisplayName}</div>
-                  {userHandle ? (
+                  {userHandle && (
                     <div className="text-xs text-gray-400">{userHandle}</div>
-                  ) : null}
+                  )}
                 </div>
               </div>
-            ) : null}
+            )}
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <Card className="border-white bg-black">
-              <CardContent className="grid gap-1.5 p-2.5">
-                <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-gray-400">
-                  PAY
-                </div>
-                <div className="text-2xl font-semibold text-white">
-                  {auctionPriceDisplay} LP
-                </div>
-                <div className="text-xs text-gray-400">
-                  $
-                  {auctionState
-                    ? (
-                        Number(formatEther(auctionState.price)) *
-                        Number(formatEther(auctionState.paymentTokenPrice)) *
-                        ethUsdPrice
-                      ).toFixed(2)
-                    : "0.00"}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-zinc-800 bg-black">
-              <CardContent className="grid gap-1.5 p-2.5">
-                <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-gray-400">
-                  GET
-                </div>
-                <div className="text-2xl font-semibold text-white">
-                  Ξ{claimableDisplay}
-                </div>
-                <div className="text-xs text-gray-400">
-                  $
-                  {auctionState
-                    ? (
-                        Number(formatEther(auctionState.wethAccumulated)) * ethUsdPrice
-                      ).toFixed(2)
-                    : "0.00"}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="mt-4 flex flex-col gap-2">
-            <Button
-              className="w-full rounded-2xl bg-white py-3 text-base font-bold text-black shadow-lg transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:bg-white/40"
-              onClick={handleBlaze}
-              disabled={isBlazeDisabled}
-            >
-              {buttonLabel}
-            </Button>
-
-            <div className="flex items-center justify-between px-1">
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Coins className="w-4 h-4 text-white" />
+                <span className="text-xs text-gray-400 uppercase">Pay</span>
+              </div>
+              <div className="text-2xl font-bold text-white">
+                {auctionPriceDisplay}
+              </div>
               <div className="text-xs text-gray-400">
-                Available:{" "}
-                <span className="text-white font-semibold">
+                LP ($
+                {auctionState
+                  ? (
+                      Number(formatEther(auctionState.price)) *
+                      Number(formatEther(auctionState.paymentTokenPrice)) *
+                      ethUsdPrice
+                    ).toFixed(2)
+                  : "0.00"}
+                )
+              </div>
+            </div>
+
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Flame className="w-4 h-4 text-white" />
+                <span className="text-xs text-gray-400 uppercase">Get</span>
+              </div>
+              <div className="text-2xl font-bold text-white">
+                Ξ{claimableDisplay}
+              </div>
+              <div className="text-xs text-gray-400">
+                $
+                {auctionState
+                  ? (
+                      Number(formatEther(auctionState.wethAccumulated)) *
+                      ethUsdPrice
+                    ).toFixed(2)
+                  : "0.00"}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Flame className="w-5 h-5 text-white" />
+                <span className="text-sm font-semibold text-white">
+                  Global Burn Pool
+                </span>
+                <button
+                  onClick={() => setShowHelpDialog(true)}
+                  className="ml-1 text-gray-400 hover:text-white transition-colors"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="text-xs font-medium text-gray-400">
+                Burn LP → Get WETH
+              </div>
+            </div>
+          </div>
+
+          {showHelpDialog && (
+            <div className="fixed inset-0 z-50">
+              <div
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                onClick={() => setShowHelpDialog(false)}
+              />
+              <div className="absolute left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2">
+                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-black p-6 shadow-2xl">
+                  <button
+                    onClick={() => setShowHelpDialog(false)}
+                    className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 transition-colors hover:bg-zinc-800 hover:text-white"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+
+                  <div className="mb-4">
+                    <h2 className="text-xl font-bold text-white mb-2">
+                      How Blazery Works
+                    </h2>
+                  </div>
+
+                  <div className="space-y-3 text-sm text-gray-300">
+                    <div className="flex gap-3">
+                      <span className="text-white font-bold flex-shrink-0">1.</span>
+                      <p>
+                        <span className="text-white font-semibold">Burn LP Tokens</span> - Exchange your DONUT-ETH LP tokens for WETH from the global burn pool.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <span className="text-white font-bold flex-shrink-0">2.</span>
+                      <p>
+                        <span className="text-white font-semibold">Dutch Auction</span> - The price starts high and decreases over time until someone blazes.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <span className="text-white font-bold flex-shrink-0">3.</span>
+                      <p>
+                        <span className="text-white font-semibold">Profit Indicator</span> - Green means you&apos;ll receive more WETH than your LP is worth. Red means the opposite.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <span className="text-white font-bold flex-shrink-0">4.</span>
+                      <p>
+                        <span className="text-white font-semibold">Get LP</span> - You can get DONUT-ETH LP tokens from Uniswap.
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-zinc-800">
+                      <p className="text-xs text-gray-400 italic">
+                        LP tokens are permanently burned. This process is irreversible.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setShowHelpDialog(false)}
+                    className="mt-6 w-full rounded-xl bg-white py-3 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
+                  >
+                    Got it!
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {blazeProfitLoss && (
+            <div
+              className={cn(
+                "bg-zinc-900 border rounded-lg p-3 mb-4 text-center",
+                blazeProfitLoss.isProfitable
+                  ? "border-green-800"
+                  : "border-red-800"
+              )}
+            >
+              <div
+                className={cn(
+                  "text-sm font-semibold",
+                  blazeProfitLoss.isProfitable ? "text-green-400" : "text-red-400"
+                )}
+              >
+                {blazeProfitLoss.isProfitable
+                  ? `💰 Profitable! +$${blazeProfitLoss.profitLoss.toFixed(2)}`
+                  : `⚠️ Unprofitable: $${blazeProfitLoss.profitLoss.toFixed(2)}`}
+              </div>
+              <div className="text-xs text-gray-400 mt-1">
+                ${blazeProfitLoss.lpValueInUsd.toFixed(2)} LP →{" "}
+                ${blazeProfitLoss.wethValueInUsd.toFixed(2)} WETH
+              </div>
+            </div>
+          )}
+
+          <button
+            className={cn(
+              "w-full rounded-xl py-4 text-lg font-bold transition-colors mb-4",
+              blazeResult === "success"
+                ? "bg-green-500 text-white"
+                : blazeResult === "failure"
+                  ? "bg-red-500 text-white"
+                  : isBlazeDisabled
+                    ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
+                    : "bg-white text-black hover:bg-gray-200"
+            )}
+            onClick={handleBlaze}
+            disabled={isBlazeDisabled}
+          >
+            {buttonLabel}
+          </button>
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs text-gray-400 uppercase mb-1">
+                  Your LP Balance
+                </div>
+                <div className="text-lg font-bold text-white">
                   {address && auctionState?.paymentTokenBalance
                     ? formatEth(auctionState.paymentTokenBalance, 4)
-                    : "0"}
-                </span>{" "}
-                DONUT-ETH LP
+                    : "0"}{" "}
+                  <span className="text-sm text-gray-400">DONUT-ETH</span>
+                </div>
               </div>
-              <a
+              
                 href="https://app.uniswap.org/explore/pools/base/0xD1DbB2E56533C55C3A637D13C53aeEf65c5D5703"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-white hover:text-gray-200 font-semibold transition-colors"
+                className="flex items-center gap-1 bg-white text-black px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
               >
-                Get LP →
+                Get LP <ArrowRight className="w-4 h-4" />
               </a>
             </div>
-
-            {/* Profit/Loss Warning Message */}
-            {blazeProfitLoss && (
-              <div className={cn(
-                "text-center text-sm font-semibold px-2 py-1.5 rounded",
-                blazeProfitLoss.isProfitable ? "text-green-400" : "text-red-400"
-              )}>
-                {blazeProfitLoss.isProfitable ? (
-                  <>
-                    💰 Profitable Burn! You'll receive ${blazeProfitLoss.wethValueInUsd.toFixed(2)} in WETH for ${blazeProfitLoss.lpValueInUsd.toFixed(2)} in LP
-                    ({blazeProfitLoss.profitLoss >= 0 ? '+' : ''}${blazeProfitLoss.profitLoss.toFixed(2)})
-                  </>
-                ) : (
-                  <>
-                    ⚠️ Unprofitable Burn! You'll receive ${blazeProfitLoss.wethValueInUsd.toFixed(2)} in WETH for ${blazeProfitLoss.lpValueInUsd.toFixed(2)} in LP
-                    (${blazeProfitLoss.profitLoss.toFixed(2)})
-                  </>
-                )}
+            {hasInsufficientLP && (
+              <div className="text-xs text-red-400 mt-2">
+                Insufficient LP balance to blaze
               </div>
             )}
           </div>
