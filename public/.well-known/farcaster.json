@@ -12,7 +12,7 @@
     "iconUrl": "https://donutlabs.vercel.app/media/icon.png",
     "homeUrl": "https://donutlabs.vercel.app/",
     "splashImageUrl": "https://donutlabs.vercel.app/media/splash.png",
-    "splashBackgroundColor": "#FEE7EC",
+    "splashBackgroundColor": "#000000ff",
     "heroImageUrl": "https://donutlabs.vercel.app/media/hero.png",
     "buttonTitle": "Open Donut Labs",
     "ogTitle": "Where Glaze Meets Science!",
