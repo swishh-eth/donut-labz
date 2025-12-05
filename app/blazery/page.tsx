@@ -68,7 +68,7 @@ const initialsFrom = (label?: string) => {
 export default function BlazeryPage() {
   const readyRef = useRef(false);
   const autoConnectAttempted = useRef(false);
-  const [context, setContext] = useState<MiniAppContext | null>(null);
+  const [context, setContext] = useState<MiniAppContext | null>(null);S
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
   const [blazeResult, setBlazeResult] = useState<"success" | "failure" | null>(
     null,
@@ -399,7 +399,7 @@ export default function BlazeryPage() {
       >
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold tracking-wide">BLAZERY</h1>
+            <h1 className="text-2xl font-bold tracking-wide">THE LAB</h1>
             {context?.user ? (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
                 <Avatar className="h-8 w-8 border border-zinc-800">
@@ -423,12 +423,12 @@ export default function BlazeryPage() {
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <Card className="border-pink-500 bg-black">
+            <Card className="border-white bg-black">
               <CardContent className="grid gap-1.5 p-2.5">
                 <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-gray-400">
                   PAY
                 </div>
-                <div className="text-2xl font-semibold text-pink-400">
+                <div className="text-2xl font-semibold text-white">
                   {auctionPriceDisplay} LP
                 </div>
                 <div className="text-xs text-gray-400">
@@ -466,7 +466,7 @@ export default function BlazeryPage() {
 
           <div className="mt-4 flex flex-col gap-2">
             <Button
-              className="w-full rounded-2xl bg-pink-500 py-3 text-base font-bold text-black shadow-lg transition-colors hover:bg-pink-400 disabled:cursor-not-allowed disabled:bg-pink-500/40"
+              className="w-full rounded-2xl bg-white py-3 text-base font-bold text-black shadow-lg transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:bg-white/40"
               onClick={handleBlaze}
               disabled={isBlazeDisabled}
             >
@@ -487,7 +487,7 @@ export default function BlazeryPage() {
                 href="https://app.uniswap.org/explore/pools/base/0xD1DbB2E56533C55C3A637D13C53aeEf65c5D5703"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-pink-400 hover:text-pink-300 font-semibold transition-colors"
+                className="text-xs text-white hover:text-gray-200 font-semibold transition-colors"
               >
                 Get LP →
               </a>
