@@ -6,8 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { AddToFarcasterButton } from "@/components/add-to-farcaster-button";
 import { DuneDashboardButton } from "@/components/dune-dashboard-button";
-import { Button } from "@/components/ui/button";
-import { ExternalLink } from "lucide-react";
+import { CommunityLPButton } from "@/components/community-lp-button";
+import { LearnMoreButton } from "@/components/learn-more-button";
 
 type MiniAppContext = {
   user?: {
@@ -106,26 +106,8 @@ export default function AboutPage() {
             <div className="grid grid-cols-2 gap-2">
               <AddToFarcasterButton variant="default" />
               <DuneDashboardButton variant="default" />
-              
-              <Button
-                onClick={() => window.open("https://farcaster.xyz/miniapps/OBSXNsOaGYv1/peeples-donuts", "_blank", "noopener,noreferrer")}
-                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 font-semibold text-xs py-2 h-auto"
-              >
-                <span className="flex items-center gap-1.5">
-                  Community LP Pool
-                  <ExternalLink className="w-3 h-3" />
-                </span>
-              </Button>
-
-              <Button
-                onClick={() => window.open("https://www.glazed.world/", "_blank", "noopener,noreferrer")}
-                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 font-semibold text-xs py-2 h-auto"
-              >
-                <span className="flex items-center gap-1.5">
-                  Learn More
-                  <ExternalLink className="w-3 h-3" />
-                </span>
-              </Button>
+              <CommunityLPButton variant="default" />
+              <LearnMoreButton variant="default" />
             </div>
 
             <section>
@@ -196,13 +178,13 @@ export default function AboutPage() {
               </ul>
             </section>
 
-                        <section>
+                                    <section>
               <h2 className="text-lg font-bold text-white mb-2">
                 What is Donut Labs?
               </h2>
               <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
                 <li>Donut labs is an independent donut shop experimenting with the $DONUT economy.  </li>
-                <li>Weekly Leaderboard Rewards : Funded from 2.5% of the 5% builder fee Donut labs receives. King Glazers who win the auction through Donut Labs are entered.</li>
+                <li>Weekly Leaderboard Rewards : Funded from half of the 5% builder fee Donut labs receives, King Glazers who win the auction through Donut Labs are entered with each auction.</li>
                 <li>MORE FEATURES SOON?</li>
               </ul>
             </section>
