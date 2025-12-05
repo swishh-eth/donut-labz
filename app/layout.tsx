@@ -10,10 +10,10 @@ const miniAppEmbed = {
   version: "1",
   imageUrl: heroImageUrl,
   button: {
-    title: "Launch Donut Labz OS",
+    title: "Launch Donut Labs",
     action: {
       type: "launch_miniapp" as const,
-      name: "Donut Labz",
+      name: "Donut Labs",
       url: appDomain,
       splashImageUrl,
       splashBackgroundColor: "#000000ff",
@@ -22,11 +22,11 @@ const miniAppEmbed = {
 };
 
 export const metadata: Metadata = {
-  title: "Donut Labz Incorporated",
-  description: "Claim the glaze factory and earn $donuts on Base. Powered by the Glaze Co.",
+  title: "Donut Labs",
+  description: "Mine $DONUT and compete in weekly leaderboard rewards",
   openGraph: {
-    title: "Donut Labz",
-    description: "The premium De-Fi (Donut Finance) experience on base .",
+    title: "Donut Labs",
+    description: "The premium De-Fi (Donut-Finance) experience on base .",
     url: appDomain,
     images: [
       {
