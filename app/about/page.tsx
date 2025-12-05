@@ -6,6 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { AddToFarcasterButton } from "@/components/add-to-farcaster-button";
 import { DuneDashboardButton } from "@/components/dune-dashboard-button";
+import { Button } from "@/components/ui/button";
+import { ExternalLink } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -102,16 +104,32 @@ export default function AboutPage() {
 
           <div className="space-y-6 px-2 overflow-y-auto scrollbar-hide flex-1">
             <div className="grid grid-cols-2 gap-2">
-              <AddToFarcasterButton
-                variant="default"
-              />
-              <DuneDashboardButton
-                variant="default"
-              />
+              <AddToFarcasterButton variant="default" />
+              <DuneDashboardButton variant="default" />
+              
+              <Button
+                onClick={() => window.open("https://farcaster.xyz/miniapps/OBSXNsOaGYv1/peeples-donuts", "_blank", "noopener,noreferrer")}
+                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 font-semibold text-xs py-2 h-auto"
+              >
+                <span className="flex items-center gap-1.5">
+                  Community LP Pool
+                  <ExternalLink className="w-3 h-3" />
+                </span>
+              </Button>
+
+              <Button
+                onClick={() => window.open("https://www.glazed.world/", "_blank", "noopener,noreferrer")}
+                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 font-semibold text-xs py-2 h-auto"
+              >
+                <span className="flex items-center gap-1.5">
+                  Learn More
+                  <ExternalLink className="w-3 h-3" />
+                </span>
+              </Button>
             </div>
 
             <section>
-              <h2 className="text-lg font-bold text-pink-400 mb-2">
+              <h2 className="text-lg font-bold text-white mb-2">
                 What Is $DONUT
               </h2>
               <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
@@ -122,7 +140,7 @@ export default function AboutPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-pink-400 mb-2">
+              <h2 className="text-lg font-bold text-white mb-2">
                 How Mining Works
               </h2>
               <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
@@ -135,7 +153,7 @@ export default function AboutPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-pink-400 mb-2">
+              <h2 className="text-lg font-bold text-white mb-2">
                 Revenue Split
               </h2>
               <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
@@ -146,7 +164,7 @@ export default function AboutPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-pink-400 mb-2">
+              <h2 className="text-lg font-bold text-white mb-2">
                 Emission Schedule
               </h2>
               <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
@@ -157,7 +175,7 @@ export default function AboutPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-pink-400 mb-2">
+              <h2 className="text-lg font-bold text-white mb-2">
                 Proof of Just-In-Time Stake
               </h2>
               <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
@@ -169,7 +187,7 @@ export default function AboutPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-pink-400 mb-2">
+              <h2 className="text-lg font-bold text-white mb-2">
                 Treasury
               </h2>
               <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
@@ -178,8 +196,19 @@ export default function AboutPage() {
               </ul>
             </section>
 
+                        <section>
+              <h2 className="text-lg font-bold text-white mb-2">
+                What is Donut Labs?
+              </h2>
+              <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
+                <li>Donut labs is an independent donut shop experimenting with the $DONUT economy.  </li>
+                <li>Weekly Leaderboard Rewards : Funded from 2.5% of the 5% builder fee Donut labs receives. King Glazers who win the auction through Donut Labs are entered.</li>
+                <li>MORE FEATURES SOON?</li>
+              </ul>
+            </section>
+
             <section className="pb-4">
-              <h2 className="text-lg font-bold text-pink-400 mb-2">
+              <h2 className="text-lg font-bold text-white mb-2">
                 Builder Codes
               </h2>
               <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
