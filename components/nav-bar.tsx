@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Flame, Info, Trophy } from "lucide-react";
+import { Flame, Info, Trophy, MessageCircle } from "lucide-react";
 
 export function NavBar() {
   const pathname = usePathname();
@@ -16,7 +16,24 @@ export function NavBar() {
         paddingTop: "8px",
       }}
     >
-      <div className="flex justify-around items-center max-w-[520px] mx-auto px-4">
+      <div className="flex justify-around items-center max-w-[520px] mx-auto px-4 relative">
+        {/* Chat - Onchain Messages */}
+        <Link
+          href="/chat"
+          className={cn(
+            "flex items-center justify-center p-3 transition-all",
+            pathname === "/chat"
+              ? "text-white"
+              : "text-gray-400 hover:text-gray-300"
+          )}
+        >
+          <MessageCircle className={cn(
+            "transition-all",
+            pathname === "/chat" ? "w-7 h-7" : "w-5 h-5"
+          )} />
+        </Link>
+
+        {/* Leaderboard */}
         <Link
           href="/leaderboard"
           className={cn(
@@ -32,21 +49,7 @@ export function NavBar() {
           )} />
         </Link>
 
-        <Link
-          href="/blazery"
-          className={cn(
-            "flex items-center justify-center p-3 transition-all",
-            pathname === "/blazery"
-              ? "text-white"
-              : "text-gray-400 hover:text-gray-300"
-          )}
-        >
-          <Flame className={cn(
-            "transition-all",
-            pathname === "/blazery" ? "w-7 h-7" : "w-5 h-5"
-          )} />
-        </Link>
-
+        {/* Main Glazery Page */}
         <Link
           href="/"
           className={cn(
@@ -66,6 +69,23 @@ export function NavBar() {
           />
         </Link>
 
+        {/* Blazery */}
+        <Link
+          href="/blazery"
+          className={cn(
+            "flex items-center justify-center p-3 transition-all",
+            pathname === "/blazery"
+              ? "text-white"
+              : "text-gray-400 hover:text-gray-300"
+          )}
+        >
+          <Flame className={cn(
+            "transition-all",
+            pathname === "/blazery" ? "w-7 h-7" : "w-5 h-5"
+          )} />
+        </Link>
+
+        {/* About */}
         <Link
           href="/about"
           className={cn(
