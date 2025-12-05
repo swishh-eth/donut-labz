@@ -183,9 +183,9 @@ export default function AboutPage() {
                 What is Donut Labs?
               </h2>
               <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
-                <li>Donut labs is an independent donut shop experimenting with the $DONUT economy.  </li>
-                <li>Weekly Leaderboard Rewards : Funded from half of the 5% builder fee Donut labs receives, King Glazers who win the auction through Donut Labs are entered with each auction.</li>
-                <li>MORE FEATURES SOON?</li>
+                <li>Donut Labs is an independent donut shop within the $Donut ecosytem offering more community focused tools & experiences.    </li>
+                <li>Weekly Leaderboard Rewards : Funded from half of the 5% frontend fee Donut labs receives, King Glazers who win the auction through the Donut Labs miniapp are entered with each auction. Only the top 3 weekly glazers earn the pool!</li>
+                <li>Onchain Glazery chat to rack up some sweet LABS points</li>
               </ul>
             </section>
 

@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Send, MessageCircle, HelpCircle, X, Wallet, Users, Star } from "lucide-react";
+import { Send, MessageCircle, HelpCircle, X, Users, Star } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
 import { parseAbiItem } from "viem";
@@ -98,66 +98,70 @@ export default function ChatPage() {
     return () => clearTimeout(timeout);
   }, []);
 
-// Fetch messages from blockchain events
-const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
-  queryKey: ["chat-messages-onchain"],
-  queryFn: async () => {
-    if (!publicClient) return [];
+  // Fetch messages from blockchain events
+  const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
+    queryKey: ["chat-messages-onchain"],
+    queryFn: async () => {
+      if (!publicClient) return [];
 
-    try {
-      const DEPLOYMENT_BLOCK = 39080208n;
-      const BLOCKS_PER_DAY = 43200n; // ~2 sec per block on Base
-      
-      const currentBlock = await publicClient.getBlockNumber();
-      const blocksSinceDeployment = currentBlock - DEPLOYMENT_BLOCK;
-      const daysSinceDeployment = blocksSinceDeployment / BLOCKS_PER_DAY;
-      
-      // Start from deployment, then move forward 1 day at a time (keeping last 24h of messages)
-      let fromBlock = DEPLOYMENT_BLOCK;
-      if (daysSinceDeployment > 1n) {
-        fromBlock = currentBlock - BLOCKS_PER_DAY; // Last 24 hours
+      try {
+        const DEPLOYMENT_BLOCK = 39080208n;
+        const BLOCKS_PER_DAY = 43200n;
+        
+        const currentBlock = await publicClient.getBlockNumber();
+        const blocksSinceDeployment = currentBlock - DEPLOYMENT_BLOCK;
+        const daysSinceDeployment = blocksSinceDeployment / BLOCKS_PER_DAY;
+        
+        let fromBlock = DEPLOYMENT_BLOCK;
+        if (daysSinceDeployment > 1n) {
+          fromBlock = currentBlock - BLOCKS_PER_DAY;
+        }
+        
+        const logs = await publicClient.getLogs({
+          address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
+          event: parseAbiItem("event MessageSent(address indexed sender, string message, uint256 timestamp)"),
+          fromBlock,
+          toBlock: "latest",
+        });
+
+        const parsedMessages: ChatMessage[] = logs.map((log) => ({
+          sender: log.args.sender as string,
+          message: log.args.message as string,
+          timestamp: log.args.timestamp as bigint,
+          transactionHash: log.transactionHash,
+          blockNumber: log.blockNumber,
+        }));
+
+        return parsedMessages
+          .sort((a, b) => Number(b.timestamp - a.timestamp))
+          .slice(0, 10);
+      } catch (e) {
+        console.error("Failed to fetch messages:", e);
+        return [];
       }
-      
-      const logs = await publicClient.getLogs({
-        address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
-        event: parseAbiItem("event MessageSent(address indexed sender, string message, uint256 timestamp)"),
-        fromBlock,
-        toBlock: "latest",
-      });
-
-      const parsedMessages: ChatMessage[] = logs.map((log) => ({
-        sender: log.args.sender as string,
-        message: log.args.message as string,
-        timestamp: log.args.timestamp as bigint,
-        transactionHash: log.transactionHash,
-        blockNumber: log.blockNumber,
-      }));
-
-      // Sort by timestamp descending, take last 10 only
-      return parsedMessages
-        .sort((a, b) => Number(b.timestamp - a.timestamp))
-        .slice(0, 10);
-    } catch (e) {
-      console.error("Failed to fetch messages:", e);
-      return [];
-    }
-  },
-  refetchInterval: 10000,
-  enabled: !!publicClient,
-  staleTime: 5000,
-  gcTime: 30000,
-});
+    },
+    refetchInterval: 10000,
+    enabled: !!publicClient,
+    staleTime: 5000,
+    gcTime: 30000,
+  });
 
   // Fetch chat stats from database
   const { data: statsData } = useQuery({
     queryKey: ["chat-stats"],
     queryFn: async () => {
-      const res = await fetch("/api/chat/leaderboard?limit=5");
+      const res = await fetch("/api/chat/leaderboard?limit=50");
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
     refetchInterval: 30000,
   });
+
+  // Get current user's points
+  const userPoints = statsData?.leaderboard?.find(
+    (entry: { address: string; total_points: number }) => 
+      entry.address.toLowerCase() === address?.toLowerCase()
+  )?.total_points || 0;
 
   // Fetch profiles for message senders
   const senderAddresses = [...new Set(messages?.map((m) => m.sender.toLowerCase()) || [])];
@@ -210,7 +214,6 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
       recordPoints();
       setPendingMessage("");
       setMessage("");
-      // Refetch messages after a short delay to allow indexing
       setTimeout(() => {
         refetchMessages();
       }, 2000);
@@ -241,7 +244,6 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
   }, [messages]);
 
   const totalUsers = statsData?.stats?.total_users || 0;
-  const totalMessages = statsData?.stats?.total_messages || 0;
 
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userHandle = context?.user?.username ? `@${context.user.username}` : context?.user?.fid ? `fid ${context.user.fid}` : "";
@@ -259,7 +261,7 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold tracking-wide">ONCHAIN CHAT</h1>
+            <h1 className="text-2xl font-bold tracking-wide">GLAZERY CHAT</h1>
             {context?.user ? (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
                 <Avatar className="h-8 w-8 border border-zinc-800">
@@ -274,38 +276,32 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
             ) : null}
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-3 gap-2 mb-4">
+          {/* Stats Cards - 2 columns only */}
+          <div className="grid grid-cols-2 gap-2 mb-4">
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
               <div className="flex items-center gap-1 mb-1">
-                <MessageCircle className="w-3 h-3 text-blue-400" />
-                <span className="text-[10px] text-gray-400 uppercase">Messages</span>
+                <Star className="w-3 h-3 text-white" />
+                <span className="text-[10px] text-gray-400 uppercase">Your Points</span>
               </div>
-              <div className="text-xl font-bold text-white">{totalMessages}</div>
+              <div className="text-xl font-bold text-white">
+                {typeof userPoints === 'number' ? userPoints.toFixed(2) : '0.00'}
+              </div>
             </div>
 
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
               <div className="flex items-center gap-1 mb-1">
-                <Users className="w-3 h-3 text-green-400" />
+                <Users className="w-3 h-3 text-white" />
                 <span className="text-[10px] text-gray-400 uppercase">Chatters</span>
               </div>
               <div className="text-xl font-bold text-white">{totalUsers}</div>
             </div>
-
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-              <div className="flex items-center gap-1 mb-1">
-                <Wallet className="w-3 h-3 text-purple-400" />
-                <span className="text-[10px] text-gray-400 uppercase">Network</span>
-              </div>
-              <div className="text-xl font-bold text-purple-400">Base</div>
-            </div>
           </div>
 
           {/* Info Banner */}
-          <div className="bg-gradient-to-r from-zinc-900 to-zinc-800 border border-zinc-700 rounded-lg p-3 mb-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Star className="w-5 h-5 text-yellow-400" />
+                <Star className="w-5 h-5 text-white" />
                 <span className="text-sm font-semibold text-white">Earn Points</span>
                 <button
                   onClick={() => setShowHelpDialog(true)}
@@ -416,7 +412,7 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
                     <div
                       key={`${msg.transactionHash}-${index}`}
                       className={`flex gap-3 p-3 rounded-lg ${
-                        isOwnMessage ? "bg-blue-900/20 border border-blue-800/30" : "bg-zinc-900 border border-zinc-800"
+                        isOwnMessage ? "bg-zinc-800 border border-zinc-700" : "bg-zinc-900 border border-zinc-800"
                       }`}
                     >
                       <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
@@ -440,7 +436,7 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
 
                 {/* Pending message */}
                 {pendingMessage && (
-                  <div className="flex gap-3 p-3 rounded-lg bg-blue-900/10 border border-blue-800/20 opacity-60">
+                  <div className="flex gap-3 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 opacity-60">
                     <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
                       <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
                       <AvatarFallback className="bg-zinc-800 text-white text-xs">
@@ -451,7 +447,7 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-semibold text-white text-sm truncate">{userDisplayName}</span>
-                        <span className="text-xs text-blue-400 ml-auto flex-shrink-0">Sending...</span>
+                        <span className="text-xs text-gray-400 ml-auto flex-shrink-0">Sending...</span>
                       </div>
                       <p className="text-sm text-gray-300 break-words">{pendingMessage}</p>
                     </div>
@@ -485,13 +481,13 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
                   <button
                     onClick={handleSendMessage}
                     disabled={!message.trim() || isPending || isConfirming}
-                    className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500 transition-colors"
+                    className="flex items-center justify-center w-10 h-10 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
                   >
                     <Send className="w-5 h-5" />
                   </button>
                 </div>
                 {(isPending || isConfirming) && (
-                  <p className="text-xs text-blue-400 text-center mt-2">
+                  <p className="text-xs text-gray-400 text-center mt-2">
                     {isPending ? "Confirm in wallet..." : "Confirming transaction..."}
                   </p>
                 )}
