@@ -98,46 +98,55 @@ export default function ChatPage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Fetch messages from blockchain events
-  const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
-    queryKey: ["chat-messages-onchain"],
-    queryFn: async () => {
-      if (!publicClient) return [];
+// Fetch messages from blockchain events
+const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
+  queryKey: ["chat-messages-onchain"],
+  queryFn: async () => {
+    if (!publicClient) return [];
 
-      try {
-        const currentBlock = await publicClient.getBlockNumber();
-        // Fetch last ~21600 blocks (~12 hours on Base)
-        const fromBlock = currentBlock > 21600n ? currentBlock - 21600n : 0n;
-
-        const logs = await publicClient.getLogs({
-          address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
-          event: parseAbiItem("event MessageSent(address indexed sender, string message, uint256 timestamp)"),
-          fromBlock,
-          toBlock: "latest",
-        });
-
-        const parsedMessages: ChatMessage[] = logs.map((log) => ({
-          sender: log.args.sender as string,
-          message: log.args.message as string,
-          timestamp: log.args.timestamp as bigint,
-          transactionHash: log.transactionHash,
-          blockNumber: log.blockNumber,
-        }));
-
-        // Sort by timestamp descending, take last 10 only
-        return parsedMessages
-          .sort((a, b) => Number(b.timestamp - a.timestamp))
-          .slice(0, 10);
-      } catch (e) {
-        console.error("Failed to fetch messages:", e);
-        return [];
+    try {
+      const DEPLOYMENT_BLOCK = 39080208n;
+      const BLOCKS_PER_DAY = 43200n; // ~2 sec per block on Base
+      
+      const currentBlock = await publicClient.getBlockNumber();
+      const blocksSinceDeployment = currentBlock - DEPLOYMENT_BLOCK;
+      const daysSinceDeployment = blocksSinceDeployment / BLOCKS_PER_DAY;
+      
+      // Start from deployment, then move forward 1 day at a time (keeping last 24h of messages)
+      let fromBlock = DEPLOYMENT_BLOCK;
+      if (daysSinceDeployment > 1n) {
+        fromBlock = currentBlock - BLOCKS_PER_DAY; // Last 24 hours
       }
-    },
-    refetchInterval: 10000,
-    enabled: !!publicClient,
-    staleTime: 5000,
-    gcTime: 30000,
-  });
+      
+      const logs = await publicClient.getLogs({
+        address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
+        event: parseAbiItem("event MessageSent(address indexed sender, string message, uint256 timestamp)"),
+        fromBlock,
+        toBlock: "latest",
+      });
+
+      const parsedMessages: ChatMessage[] = logs.map((log) => ({
+        sender: log.args.sender as string,
+        message: log.args.message as string,
+        timestamp: log.args.timestamp as bigint,
+        transactionHash: log.transactionHash,
+        blockNumber: log.blockNumber,
+      }));
+
+      // Sort by timestamp descending, take last 10 only
+      return parsedMessages
+        .sort((a, b) => Number(b.timestamp - a.timestamp))
+        .slice(0, 10);
+    } catch (e) {
+      console.error("Failed to fetch messages:", e);
+      return [];
+    }
+  },
+  refetchInterval: 10000,
+  enabled: !!publicClient,
+  staleTime: 5000,
+  gcTime: 30000,
+});
 
   // Fetch chat stats from database
   const { data: statsData } = useQuery({
