@@ -326,7 +326,7 @@ export default function HomePage() {
           epochId,
           deadline,
           maxPrice,
-          customMessage.trim() || "We Glaze The World",
+          customMessage.trim() || "DONUT LABS - RESEARCH DEPARTMENT",
         ],
         value: price,
         chainId: base.id,
@@ -631,31 +631,20 @@ export default function HomePage() {
             ) : null}
           </div>
 
-          <div className="mt-1 -mx-2 w-[calc(100%+1rem)] overflow-hidden relative">
-            <video
-              ref={videoRef}
-              className="w-full object-contain"
-              autoPlay
-              loop
-              muted={isMuted}
-              playsInline
-              preload="auto"
-              src="/media/donut-loop.mp4"
-            />
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              className="absolute bottom-3 right-3 p-2 rounded-full bg-black/60 hover:bg-black/80 transition-colors"
-              aria-label={isMuted ? "Unmute" : "Mute"}
-            >
-              {isMuted ? (
-                <VolumeOff className="w-5 h-5 text-white" />
-              ) : (
-                <Volume2 className="w-5 h-5 text-white" />
-              )}
-            </button>
-          </div>
+<div className="mt-1 -mx-2 w-[calc(100%+1rem)] overflow-hidden relative">
+  <video
+    ref={videoRef}
+    className="w-full object-contain"
+    autoPlay
+    loop
+    muted
+    playsInline
+    preload="auto"
+    src="/media/donut-loop.mp4"
+  />
+</div>
 
-          <div className="relative mt-2 overflow-hidden bg-black">
+          <div className="relative mt-1 overflow-hidden bg-black">
             <div className="flex animate-scroll whitespace-nowrap py-1 text-sm font-bold text-white">
               {Array.from({ length: 1000 }).map((_, i) => (
                 <span key={i} className="inline-block px-8">
@@ -739,7 +728,7 @@ export default function HomePage() {
                 {/* Glazed Row */}
                 <div className="flex items-center gap-1">
                   <div className="text-[7px] font-bold uppercase tracking-[0.08em] text-gray-400 w-9 text-right">
-                    
+                    EARNED
                   </div>
                   <div className="text-[10px] font-semibold text-white">
                     +{glazedDisplay}
@@ -845,7 +834,7 @@ export default function HomePage() {
               type="text"
               value={customMessage}
               onChange={(e) => setCustomMessage(e.target.value)}
-              placeholder="Add a message (optional)"
+              placeholder="Add a GLOBAL message (optional)"
               maxLength={100}
               className="w-full rounded-lg border border-zinc-800 bg-black px-2.5 py-1.5 text-xs font-mono text-white placeholder-gray-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
               disabled={isGlazeDisabled}
