@@ -7,8 +7,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { Send, MessageCircle, HelpCircle, X, Users, Star } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
+import { base } from "wagmi/chains";
+import { createPublicClient, http, parseAbiItem } from "viem";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
-import { parseAbiItem } from "viem";
 
 type MiniAppContext = {
   user?: {
@@ -56,11 +57,17 @@ const timeAgo = (timestamp: bigint) => {
   return `${Math.floor(diff / 86400)}d ago`;
 };
 
+// Create a dedicated public client for Base
+const basePublicClient = createPublicClient({
+  chain: base,
+  transport: http("https://mainnet.base.org"),
+});
+
 export default function ChatPage() {
   const readyRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
-  const publicClient = usePublicClient();
+  const wagmiPublicClient = usePublicClient({ chainId: base.id });
 
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
@@ -102,27 +109,35 @@ export default function ChatPage() {
   const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
     queryKey: ["chat-messages-onchain"],
     queryFn: async () => {
-      if (!publicClient) return [];
-
+      // Use wagmi client if available, otherwise fall back to our dedicated client
+      const client = wagmiPublicClient || basePublicClient;
+      
       try {
         const DEPLOYMENT_BLOCK = 39080208n;
         const BLOCKS_PER_DAY = 43200n;
         
-        const currentBlock = await publicClient.getBlockNumber();
-        const blocksSinceDeployment = currentBlock - DEPLOYMENT_BLOCK;
-        const daysSinceDeployment = blocksSinceDeployment / BLOCKS_PER_DAY;
+        const currentBlock = await client.getBlockNumber();
+        console.log("Current block:", currentBlock);
         
+        // Calculate from block - last 24 hours or from deployment
+        const blocksSinceDeployment = currentBlock - DEPLOYMENT_BLOCK;
         let fromBlock = DEPLOYMENT_BLOCK;
-        if (daysSinceDeployment > 1n) {
+        
+        if (blocksSinceDeployment > BLOCKS_PER_DAY) {
           fromBlock = currentBlock - BLOCKS_PER_DAY;
         }
         
-        const logs = await publicClient.getLogs({
+        console.log("Fetching logs from block:", fromBlock.toString(), "to:", currentBlock.toString());
+        console.log("Contract address:", GLAZERY_CHAT_ADDRESS);
+        
+        const logs = await client.getLogs({
           address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
           event: parseAbiItem("event MessageSent(address indexed sender, string message, uint256 timestamp)"),
           fromBlock,
-          toBlock: "latest",
+          toBlock: currentBlock,
         });
+
+        console.log("Found logs:", logs.length);
 
         const parsedMessages: ChatMessage[] = logs.map((log) => ({
           sender: log.args.sender as string,
@@ -134,14 +149,13 @@ export default function ChatPage() {
 
         return parsedMessages
           .sort((a, b) => Number(b.timestamp - a.timestamp))
-          .slice(0, 10);
+          .slice(0, 20);
       } catch (e) {
         console.error("Failed to fetch messages:", e);
         return [];
       }
     },
     refetchInterval: 10000,
-    enabled: !!publicClient,
     staleTime: 5000,
     gcTime: 30000,
   });
@@ -262,7 +276,7 @@ export default function ChatPage() {
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold tracking-wide">CHAT</h1>
-            {context?.user ? (
+            {context?.user && (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
                 <Avatar className="h-8 w-8 border border-zinc-800">
                   <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
@@ -270,13 +284,13 @@ export default function ChatPage() {
                 </Avatar>
                 <div className="leading-tight text-left">
                   <div className="text-sm font-bold">{userDisplayName}</div>
-                  {userHandle ? <div className="text-xs text-gray-400">{userHandle}</div> : null}
+                  {userHandle && <div className="text-xs text-gray-400">{userHandle}</div>}
                 </div>
               </div>
-            ) : null}
+            )}
           </div>
 
-          {/* Stats Cards - 2 columns only */}
+          {/* Stats Cards */}
           <div className="grid grid-cols-2 gap-2 mb-4">
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
               <div className="flex items-center gap-1 mb-1">
@@ -318,12 +332,12 @@ export default function ChatPage() {
 
           {/* Help Dialog */}
           {showHelpDialog && (
-            <>
+            <div className="fixed inset-0 z-50">
               <div
-                className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm animate-in fade-in-0"
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
                 onClick={() => setShowHelpDialog(false)}
               />
-              <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 animate-in fade-in-0 zoom-in-95">
+              <div className="absolute left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2">
                 <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-black p-6 shadow-2xl">
                   <button
                     onClick={() => setShowHelpDialog(false)}
@@ -343,28 +357,24 @@ export default function ChatPage() {
                         <span className="text-white font-semibold">Send Messages</span> - Every message you send onchain earns you points based on your Neynar score.
                       </p>
                     </div>
-
                     <div className="flex gap-3">
                       <span className="text-white font-bold flex-shrink-0">2.</span>
                       <p>
                         <span className="text-white font-semibold">Neynar Score</span> - Your Farcaster reputation score (0-1) determines how many points each message earns.
                       </p>
                     </div>
-
                     <div className="flex gap-3">
                       <span className="text-white font-bold flex-shrink-0">3.</span>
                       <p>
                         <span className="text-white font-semibold">Example</span> - A user with 0.7 Neynar score earns 0.7 points per message sent.
                       </p>
                     </div>
-
                     <div className="flex gap-3">
                       <span className="text-white font-bold flex-shrink-0">4.</span>
                       <p>
                         <span className="text-white font-semibold">Future Rewards</span> - Points may be used for future airdrops and rewards!
                       </p>
                     </div>
-
                     <div className="pt-3 border-t border-zinc-800">
                       <p className="text-xs text-gray-400 italic">
                         Messages are permanently stored on Base. Gas fees apply.
@@ -380,7 +390,7 @@ export default function ChatPage() {
                   </button>
                 </div>
               </div>
-            </>
+            </div>
           )}
 
           {/* Chat Messages Area */}
