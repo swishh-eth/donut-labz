@@ -17,22 +17,6 @@ export function NavBar() {
       }}
     >
       <div className="flex justify-around items-center max-w-[520px] mx-auto px-4 relative">
-        {/* Chat - Onchain Messages */}
-        <Link
-          href="/chat"
-          className={cn(
-            "flex items-center justify-center p-3 transition-all",
-            pathname === "/chat"
-              ? "text-white"
-              : "text-gray-400 hover:text-gray-300"
-          )}
-        >
-          <MessageCircle className={cn(
-            "transition-all",
-            pathname === "/chat" ? "w-7 h-7" : "w-5 h-5"
-          )} />
-        </Link>
-
         {/* Leaderboard */}
         <Link
           href="/leaderboard"
@@ -46,6 +30,22 @@ export function NavBar() {
           <Trophy className={cn(
             "transition-all",
             pathname === "/leaderboard" ? "w-7 h-7" : "w-5 h-5"
+          )} />
+        </Link>
+
+        {/* Chat - Onchain Messages */}
+        <Link
+          href="/chat"
+          className={cn(
+            "flex items-center justify-center p-3 transition-all",
+            pathname === "/chat"
+              ? "text-white"
+              : "text-gray-400 hover:text-gray-300"
+          )}
+        >
+          <MessageCircle className={cn(
+            "transition-all",
+            pathname === "/chat" ? "w-7 h-7" : "w-5 h-5"
           )} />
         </Link>
 
