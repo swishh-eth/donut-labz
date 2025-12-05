@@ -226,7 +226,7 @@ export default function LeaderboardPage() {
       >
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold tracking-wide">LEADERBOARD</h1>
+            <h1 className="text-2xl font-bold tracking-wide">LABS LEADERBOARD</h1>
             {context?.user ? (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
                 <Avatar className="h-8 w-8 border border-zinc-800">
@@ -289,7 +289,7 @@ export default function LeaderboardPage() {
           </div>
 
           {/* Leaderboard List */}
-          <div className="flex-1 overflow-y-auto space-y-2 pb-2">
+          <div className="flex-1 overflow-y-auto space-y-2 pb-2 scrollbar-hide">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-gray-400">Loading leaderboard...</div>
@@ -399,11 +399,11 @@ export default function LeaderboardPage() {
                         <span className="text-lg font-bold text-white">{entry.points}</span>
                         <span className="text-xs text-gray-400">pts</span>
                       </div>
-                      {prizeAmount && (
-                        <div className="text-xs text-green-400 font-semibold">
-                          +Ξ{prizeAmount}
-                        </div>
-                      )}
+{prizeAmount && (
+  <div className="text-xs text-green-400 font-semibold">
+    +Ξ{prizeAmount} (${(parseFloat(prizeAmount) * ethUsdPrice).toFixed(2)})
+  </div>
+)}
                     </div>
                   </div>
                 );
