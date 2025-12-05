@@ -489,7 +489,7 @@ export default function BlazeryPage() {
                 rel="noopener noreferrer"
                 className="text-xs text-white hover:text-gray-200 font-semibold transition-colors"
               >
-                Get LP →
+                Get LP &rarr;
               </a>
             </div>
 
