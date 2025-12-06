@@ -5,11 +5,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Send, MessageCircle, HelpCircle, X, Users, Sparkles } from "lucide-react";
+import { Send, MessageCircle, HelpCircle, X, Sparkles } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
 import { base } from "wagmi/chains";
 import { createPublicClient, http, parseAbiItem } from "viem";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
+import { ShareRewardButton } from "@/components/share-reward-button";
 
 type MiniAppContext = {
   user?: {
@@ -313,7 +314,7 @@ export default function ChatPage() {
           <div className="grid grid-cols-2 gap-2 mb-3 flex-shrink-0">
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
               <div className="flex items-center gap-1 mb-0.5">
-                <Sparkles className="w-3 h-3 text-pink-400" />
+                <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
                 <span className="text-[9px] text-gray-400 uppercase">Your Sprinkles</span>
               </div>
               <div className="text-lg font-bold text-white">
@@ -321,20 +322,15 @@ export default function ChatPage() {
               </div>
             </div>
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-              <div className="flex items-center gap-1 mb-0.5">
-                <Users className="w-3 h-3 text-white" />
-                <span className="text-[9px] text-gray-400 uppercase">Unique Chatters</span>
-              </div>
-              <div className="text-lg font-bold text-white">{totalUsers}</div>
-            </div>
+            {/* Share Reward Button */}
+            <ShareRewardButton userFid={context?.user?.fid} compact />
           </div>
 
           {/* Info Banner */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-3 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-pink-400" />
+                <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                 <span className="text-xs font-semibold text-white">Earn Sprinkles</span>
                 <button
                   onClick={() => setShowHelpDialog(true)}

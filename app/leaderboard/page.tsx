@@ -59,36 +59,12 @@ const formatAddress = (addr: string) => {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 };
 
-// Rank styles - 1st brightest, 5th darkest (solid colors)
-const getRankStyles = (rank: number) => {
-  switch (rank) {
-    case 1:
-      return {
-        bg: "bg-zinc-600",
-        border: "border-zinc-500",
-      };
-    case 2:
-      return {
-        bg: "bg-zinc-700",
-        border: "border-zinc-600",
-      };
-    case 3:
-      return {
-        bg: "bg-zinc-800",
-        border: "border-zinc-700",
-      };
-    case 4:
-      return {
-        bg: "bg-zinc-900",
-        border: "border-zinc-800",
-      };
-    case 5:
-    default:
-      return {
-        bg: "bg-zinc-950",
-        border: "border-zinc-900",
-      };
-  }
+// Rank styles - all same color like chat page
+const getRankStyles = () => {
+  return {
+    bg: "bg-zinc-900",
+    border: "border-zinc-800",
+  };
 };
 
 export default function LeaderboardPage() {
@@ -303,12 +279,16 @@ export default function LeaderboardPage() {
       >
         {/* Floating Trophies */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <Trophy className="absolute top-32 left-4 w-8 h-8 text-white/10 floating-trophy-1" />
-          <Trophy className="absolute top-48 right-6 w-7 h-7 text-white/8 floating-trophy-2" />
-          <Trophy className="absolute top-64 left-8 w-6 h-6 text-white/6 floating-trophy-3" />
-          <Trophy className="absolute top-40 right-12 w-7 h-7 text-white/10 floating-trophy-4" />
-          <Trophy className="absolute top-56 left-16 w-6 h-6 text-white/8 floating-trophy-1" style={{ animationDelay: '2s' }} />
-          <Trophy className="absolute top-72 right-4 w-8 h-8 text-white/6 floating-trophy-2" style={{ animationDelay: '1s' }} />
+          <Trophy className="absolute top-28 left-4 w-8 h-8 text-white/10 floating-trophy-1" />
+          <Trophy className="absolute top-44 right-6 w-7 h-7 text-white/8 floating-trophy-2" />
+          <Trophy className="absolute top-60 left-10 w-6 h-6 text-white/6 floating-trophy-3" />
+          <Trophy className="absolute top-36 right-14 w-7 h-7 text-white/10 floating-trophy-4" />
+          <Trophy className="absolute top-52 left-20 w-6 h-6 text-white/8 floating-trophy-1" style={{ animationDelay: '2s' }} />
+          <Trophy className="absolute top-68 right-8 w-8 h-8 text-white/6 floating-trophy-2" style={{ animationDelay: '1s' }} />
+          <Trophy className="absolute top-80 left-6 w-7 h-7 text-white/10 floating-trophy-3" style={{ animationDelay: '3s' }} />
+          <Trophy className="absolute top-40 left-1/2 w-6 h-6 text-white/8 floating-trophy-4" style={{ animationDelay: '1.5s' }} />
+          <Trophy className="absolute top-96 right-16 w-8 h-8 text-white/6 floating-trophy-1" style={{ animationDelay: '2.5s' }} />
+          <Trophy className="absolute top-24 right-1/3 w-5 h-5 text-white/10 floating-trophy-2" style={{ animationDelay: '0.5s' }} />
         </div>
 
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
@@ -486,12 +466,12 @@ export default function LeaderboardPage() {
               <>
                 {[1, 2, 3, 4, 5].map((rank) => {
                   const isWinner = rank <= 3;
-                  const styles = getRankStyles(rank);
+                  const styles = getRankStyles();
 
                   return (
                     <div
                       key={rank}
-                      className={`flex items-center justify-between rounded-xl p-3 border ${styles.bg} ${styles.border} transition-all`}
+                      className={`flex items-center justify-between rounded-xl p-3 border ${styles.bg} ${styles.border}`}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <span
@@ -502,17 +482,17 @@ export default function LeaderboardPage() {
                                 ? "text-gray-300"
                                 : rank === 3
                                   ? "text-amber-600"
-                                  : "text-gray-600"
+                                  : "text-gray-500"
                           }`}
                         >
                           {rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`}
                         </span>
 
-                        <Avatar className="h-10 w-10 border border-zinc-600 flex-shrink-0">
+                        <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
                           <AvatarImage
                             src={ANON_PFPS[rank % ANON_PFPS.length]}
                             alt="Empty spot"
-                            className="object-cover opacity-50"
+                            className="object-cover"
                           />
                           <AvatarFallback className="bg-zinc-800 text-white text-xs">
                             --
@@ -520,19 +500,19 @@ export default function LeaderboardPage() {
                         </Avatar>
 
                         <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-gray-500 truncate">No one yet</div>
-                          <div className="text-xs text-gray-600 truncate">
+                          <div className="font-semibold text-white truncate">No one yet</div>
+                          <div className="text-xs text-gray-400 truncate">
                             {isWinner ? "Be the first!" : "Keep grinding"}
                           </div>
                         </div>
                       </div>
 
                       <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                        <div className="text-sm font-bold text-gray-600">
-                          0 <span className="text-xs font-normal">glazes</span>
+                        <div className="text-sm font-bold text-white">
+                          0 <span className="text-xs font-normal text-gray-400">glazes</span>
                         </div>
                         {isWinner && (
-                          <div className="text-[10px] text-gray-600">
+                          <div className="text-[10px] text-green-400">
                             +Ξ{rank === 1 ? firstPlacePrize : rank === 2 ? secondPlacePrize : thirdPlacePrize}
                           </div>
                         )}
@@ -554,12 +534,12 @@ export default function LeaderboardPage() {
                 const displayName = profile?.displayName || formatAddress(entry.address);
                 const username = profile?.username ? `@${profile.username}` : "";
                 const avatarUrl = profile?.pfpUrl || getAnonPfp(entry.address);
-                const styles = getRankStyles(rank);
+                const styles = getRankStyles();
 
                 return (
                   <div
                     key={entry.address}
-                    className={`flex items-center justify-between rounded-xl p-3 border ${styles.bg} ${styles.border} hover:brightness-110 transition-all`}
+                    className={`flex items-center justify-between rounded-xl p-3 border ${styles.bg} ${styles.border}`}
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <span
@@ -576,7 +556,7 @@ export default function LeaderboardPage() {
                         {rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`}
                       </span>
 
-                      <Avatar className="h-10 w-10 border border-zinc-600 flex-shrink-0">
+                      <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
                         <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
                         <AvatarFallback className="bg-zinc-800 text-white text-xs">
                           {initialsFrom(displayName)}
