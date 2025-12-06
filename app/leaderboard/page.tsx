@@ -378,7 +378,7 @@ export default function LeaderboardPage() {
                   </button>
 
                   <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-yellow-400" />
+                    <Trophy className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                     How to Earn Glazes
                   </h2>
 
@@ -426,15 +426,15 @@ export default function LeaderboardPage() {
                     <div className="bg-zinc-900/50 rounded-lg p-3 mt-3">
                       <div className="grid grid-cols-3 gap-2 text-center">
                         <div>
-                          <div className="text-yellow-400 text-lg">🥇</div>
+                          <div className="text-xl font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]">1</div>
                           <div className="text-white font-bold text-sm">50%</div>
                         </div>
                         <div>
-                          <div className="text-gray-300 text-lg">🥈</div>
+                          <div className="text-xl font-bold text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]">2</div>
                           <div className="text-white font-bold text-sm">30%</div>
                         </div>
                         <div>
-                          <div className="text-amber-600 text-lg">🥉</div>
+                          <div className="text-xl font-bold text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]">3</div>
                           <div className="text-white font-bold text-sm">20%</div>
                         </div>
                       </div>

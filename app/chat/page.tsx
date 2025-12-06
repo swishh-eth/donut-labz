@@ -326,24 +326,22 @@ export default function ChatPage() {
             <ShareRewardButton userFid={context?.user?.fid} compact />
           </div>
 
-          {/* Info Banner */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-3 flex-shrink-0">
+          {/* Info Banner - Tap to open help */}
+          <button
+            onClick={() => setShowHelpDialog(true)}
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-3 flex-shrink-0 hover:bg-zinc-800 transition-colors"
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                 <span className="text-xs font-semibold text-white">Earn Sprinkles</span>
-                <button
-                  onClick={() => setShowHelpDialog(true)}
-                  className="ml-1 text-gray-400 hover:text-white transition-colors"
-                >
-                  <HelpCircle className="w-3 h-3" />
-                </button>
+                <HelpCircle className="w-3 h-3 text-gray-400" />
               </div>
               <div className="text-[10px] font-medium text-gray-400">
                 Neynar Score × Messages
               </div>
             </div>
-          </div>
+          </button>
 
           {/* Help Dialog */}
           {showHelpDialog && (
