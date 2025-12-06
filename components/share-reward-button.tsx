@@ -466,21 +466,17 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
 
     return (
       <button
-        onClick={handleVerifyAndClaim}
-        disabled={isVerifying || !userFid}
+        onClick={handleShareToQualify}
+        disabled={!userFid}
         className={cn(
           "bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded-lg p-2 flex items-center justify-center gap-1.5 transition-all",
           isPulsing && "scale-[0.97]",
-          (isVerifying || !userFid) && "opacity-50 cursor-not-allowed"
+          !userFid && "opacity-50 cursor-not-allowed"
         )}
       >
-        {isVerifying ? (
-          <Loader2 className="w-3 h-3 animate-spin text-amber-400" />
-        ) : (
-          <Gift className="w-3 h-3 text-amber-400" />
-        )}
+        <Share2 className="w-3 h-3 text-amber-400" />
         <span className="font-bold text-xs text-amber-400">
-          {isVerifying ? "Checking..." : `${claimsRemaining} left`}
+          Share 🍩
         </span>
       </button>
     );
