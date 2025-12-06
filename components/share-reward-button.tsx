@@ -219,7 +219,18 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
   }, [claimedAmount, tokenSymbol]);
 
   const handleVerifyAndClaim = async () => {
-    if (!address || !userFid) return;
+    if (!userFid) return;
+
+    // If no address, try to connect wallet first
+    if (!address) {
+      try {
+        // Trigger wallet connection via Farcaster SDK
+        await sdk.actions.openUrl("https://warpcast.com");
+      } catch (e) {
+        setVerifyError("Please connect your wallet first");
+      }
+      return;
+    }
 
     setIsVerifying(true);
     setVerifyError(null);
@@ -239,7 +250,7 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
       }
 
       setClaimData({
-        neynarScore: data.neynarScore,
+        neynarScore: data.scoreBps || data.neynarScore,
         castHash: data.castHash,
         signature: data.signature,
       });
@@ -431,6 +442,21 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
 
   // Active campaign - main UI
   if (compact) {
+    // Show error state if there's an error
+    if (verifyError) {
+      return (
+        <button
+          onClick={() => setVerifyError(null)}
+          className="bg-red-500/20 border border-red-500/40 rounded-lg p-2 flex items-center justify-center gap-1.5"
+        >
+          <XCircle className="w-3 h-3 text-red-400" />
+          <span className="font-bold text-xs text-red-400 truncate max-w-[100px]">
+            {verifyError.length > 15 ? "Error - Tap" : verifyError}
+          </span>
+        </button>
+      );
+    }
+
     return (
       <button
         onClick={handleVerifyAndClaim}
@@ -447,7 +473,7 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
           <Gift className="w-3 h-3 text-amber-400" />
         )}
         <span className="font-bold text-xs text-amber-400">
-          {isVerifying ? "..." : `${claimsRemaining} left`}
+          {isVerifying ? "Checking..." : `${claimsRemaining} left`}
         </span>
       </button>
     );

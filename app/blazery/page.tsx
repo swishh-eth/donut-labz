@@ -16,7 +16,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { cn, getEthPrice } from "@/lib/utils";
 import { NavBar } from "@/components/nav-bar";
-import { ShareRewardButton } from "@/components/share-reward-button";
 import { Flame, Coins, ArrowRight, HelpCircle, X } from "lucide-react";
 
 type MiniAppContext = {
@@ -332,10 +331,10 @@ export default function BlazeryPage() {
     if (blazeResult === "failure") return "FAILURE";
     if (isWriting || isConfirming) {
       if (txStep === "approving") return "APPROVING…";
-      if (txStep === "buying") return "BLAZING…";
+      if (txStep === "buying") return "BURNING…";
       return "PROCESSING…";
     }
-    return "BLAZE";
+    return "BURN";
   }, [blazeResult, isConfirming, isWriting, auctionState, txStep]);
 
   const hasInsufficientLP =
@@ -378,7 +377,6 @@ export default function BlazeryPage() {
       ? `fid ${context.user.fid}`
       : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
-  const userFid = context?.user?.fid;
 
   const lpLink = "https://app.uniswap.org/explore/pools/base/0xD1DbB2E56533C55C3A637D13C53aeEf65c5D5703";
 
@@ -460,140 +458,6 @@ export default function BlazeryPage() {
             </div>
           </div>
 
-          {/* Global Burn Pool Info */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Flame className="w-5 h-5 text-white" />
-                <span className="text-sm font-semibold text-white">
-                  Global Burn Pool
-                </span>
-                <button
-                  onClick={() => setShowHelpDialog(true)}
-                  className="ml-1 text-gray-400 hover:text-white transition-colors"
-                >
-                  <HelpCircle className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="text-xs font-medium text-gray-400">
-                Burn LP → Get WETH
-              </div>
-            </div>
-          </div>
-
-          {/* Help Dialog */}
-          {showHelpDialog && (
-            <div className="fixed inset-0 z-50">
-              <div
-                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-                onClick={() => setShowHelpDialog(false)}
-              />
-              <div className="absolute left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2">
-                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-black p-6 shadow-2xl">
-                  <button
-                    onClick={() => setShowHelpDialog(false)}
-                    className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 transition-colors hover:bg-zinc-800 hover:text-white"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-
-                  <div className="mb-4">
-                    <h2 className="text-xl font-bold text-white mb-2">
-                      How The Burn Pool Works
-                    </h2>
-                  </div>
-
-                  <div className="space-y-3 text-sm text-gray-300">
-                    <div className="flex gap-3">
-                      <span className="text-white font-bold flex-shrink-0">1.</span>
-                      <p>
-                        <span className="text-white font-semibold">Burn LP Tokens</span> - Exchange your DONUT-ETH LP tokens for WETH from the global burn pool.
-                      </p>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <span className="text-white font-bold flex-shrink-0">2.</span>
-                      <p>
-                        <span className="text-white font-semibold">Dutch Auction</span> - The price starts high and decreases over time until someone blazes.
-                      </p>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <span className="text-white font-bold flex-shrink-0">3.</span>
-                      <p>
-                        <span className="text-white font-semibold">Profit Indicator</span> - Green means you will receive more WETH than your LP is worth. Red means the opposite.
-                      </p>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <span className="text-white font-bold flex-shrink-0">4.</span>
-                      <p>
-                        <span className="text-white font-semibold">Get LP</span> - You can get DONUT-ETH LP tokens from Uniswap.
-                      </p>
-                    </div>
-
-                    <div className="pt-3 border-t border-zinc-800">
-                      <p className="text-xs text-gray-400 italic">
-                        LP tokens are permanently burned. This process is irreversible.
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setShowHelpDialog(false)}
-                    className="mt-6 w-full rounded-xl bg-white py-3 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
-                  >
-                    Got it!
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Profit/Loss Indicator */}
-          {blazeProfitLoss && (
-            <div
-              className={cn(
-                "bg-zinc-900 border rounded-lg p-3 mb-4 text-center",
-                blazeProfitLoss.isProfitable
-                  ? "border-green-800"
-                  : "border-red-800"
-              )}
-            >
-              <div
-                className={cn(
-                  "text-sm font-semibold",
-                  blazeProfitLoss.isProfitable ? "text-green-400" : "text-red-400"
-                )}
-              >
-                {blazeProfitLoss.isProfitable
-                  ? `💰 Profitable! +$${blazeProfitLoss.profitLoss.toFixed(2)}`
-                  : `⚠️ Unprofitable: $${blazeProfitLoss.profitLoss.toFixed(2)}`}
-              </div>
-              <div className="text-xs text-gray-400 mt-1">
-                ${blazeProfitLoss.lpValueInUsd.toFixed(2)} LP → ${blazeProfitLoss.wethValueInUsd.toFixed(2)} WETH
-              </div>
-            </div>
-          )}
-
-          {/* Blaze Button */}
-          <button
-            className={cn(
-              "w-full rounded-xl py-4 text-lg font-bold transition-colors mb-4",
-              blazeResult === "success"
-                ? "bg-green-500 text-white"
-                : blazeResult === "failure"
-                  ? "bg-red-500 text-white"
-                  : isBlazeDisabled
-                    ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
-                    : "bg-white text-black hover:bg-gray-200"
-            )}
-            onClick={handleBlaze}
-            disabled={isBlazeDisabled}
-          >
-            {buttonLabel}
-          </button>
-
           {/* LP Balance */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4">
             <div className="flex items-center justify-between">
@@ -620,13 +484,163 @@ export default function BlazeryPage() {
             </div>
             {hasInsufficientLP && (
               <div className="text-xs text-red-400 mt-2">
-                Insufficient LP balance to blaze
+                Insufficient LP balance to burn
               </div>
             )}
           </div>
 
-          {/* Share Reward Button */}
-          <ShareRewardButton userFid={userFid} />
+          {/* Profit/Loss Indicator */}
+          {blazeProfitLoss && (
+            <div
+              className={cn(
+                "bg-zinc-900 border rounded-lg p-3 mb-4 text-center",
+                blazeProfitLoss.isProfitable
+                  ? "border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]"
+                  : "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]"
+              )}
+            >
+              <div
+                className={cn(
+                  "text-sm font-semibold",
+                  blazeProfitLoss.isProfitable ? "text-green-400" : "text-red-400"
+                )}
+              >
+                {blazeProfitLoss.isProfitable
+                  ? `Profitable! +$${blazeProfitLoss.profitLoss.toFixed(2)}`
+                  : `Unprofitable: $${blazeProfitLoss.profitLoss.toFixed(2)}`}
+              </div>
+              <div className="text-xs text-gray-400 mt-1">
+                ${blazeProfitLoss.lpValueInUsd.toFixed(2)} LP → ${blazeProfitLoss.wethValueInUsd.toFixed(2)} WETH
+              </div>
+            </div>
+          )}
+
+          {/* Burn Pool Info - Tappable */}
+          <button
+            onClick={() => setShowHelpDialog(true)}
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4 hover:bg-zinc-800 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Flame className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <span className="text-sm font-semibold text-white">
+                  Burn Pool
+                </span>
+                <HelpCircle className="w-4 h-4 text-gray-400" />
+              </div>
+              <div className="text-xs font-medium text-gray-400">
+                Burn LP → Get WETH
+              </div>
+            </div>
+          </button>
+
+          {/* Help Dialog */}
+          {showHelpDialog && (
+            <div className="fixed inset-0 z-50">
+              <div
+                className="absolute inset-0 bg-black/90 backdrop-blur-md"
+                onClick={() => setShowHelpDialog(false)}
+              />
+              <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
+                  <button
+                    onClick={() => setShowHelpDialog(false)}
+                    className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+
+                  <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Flame className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                    How The Burn Pool Works
+                  </h2>
+
+                  <div className="space-y-4">
+                    {/* Step 1 */}
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
+                        1
+                      </div>
+                      <div>
+                        <div className="font-semibold text-white text-sm">Burn LP Tokens</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          Exchange your DONUT-ETH LP tokens for WETH from the burn pool.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
+                        2
+                      </div>
+                      <div>
+                        <div className="font-semibold text-white text-sm">Dutch Auction</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          Price starts high and decreases until someone burns.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
+                        3
+                      </div>
+                      <div>
+                        <div className="font-semibold text-white text-sm">Profit Indicator</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          Green = profit, Red = loss based on current prices.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 4 */}
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
+                        4
+                      </div>
+                      <div>
+                        <div className="font-semibold text-white text-sm">Get LP</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          Get DONUT-ETH LP tokens from Uniswap.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-gray-500 text-center mt-4">
+                    LP tokens are permanently burned. This is irreversible.
+                  </p>
+
+                  <button
+                    onClick={() => setShowHelpDialog(false)}
+                    className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
+                  >
+                    Got it
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Burn Button */}
+          <button
+            className={cn(
+              "w-full rounded-xl py-4 text-lg font-bold transition-colors",
+              blazeResult === "success"
+                ? "bg-green-500 text-white"
+                : blazeResult === "failure"
+                  ? "bg-red-500 text-white"
+                  : isBlazeDisabled
+                    ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
+                    : "bg-white text-black hover:bg-gray-200"
+            )}
+            onClick={handleBlaze}
+            disabled={isBlazeDisabled}
+          >
+            {buttonLabel}
+          </button>
         </div>
       </div>
 
