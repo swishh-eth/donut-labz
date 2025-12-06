@@ -1,7 +1,7 @@
 // components/share-reward-button.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   useAccount,
   useReadContract,
@@ -45,6 +45,8 @@ export function ShareRewardButton({ userFid }: ShareRewardButtonProps) {
   const [tokenSymbol, setTokenSymbol] = useState<string>("TOKEN");
   const [tokenDecimals, setTokenDecimals] = useState<number>(18);
   const [isPulsing, setIsPulsing] = useState(false);
+  const [claimedAmount, setClaimedAmount] = useState<string | null>(null);
+  const [showClaimSuccess, setShowClaimSuccess] = useState(false);
 
   // Pulsing effect for active campaign
   useEffect(() => {
@@ -131,36 +133,89 @@ export function ShareRewardButton({ userFid }: ShareRewardButtonProps) {
     hash: txHash,
   });
 
-  // Handle successful claim
+  // Handle successful claim - calculate and store the claimed amount
   useEffect(() => {
-    if (isSuccess) {
+    if (isSuccess && claimData && estimatedReward) {
+      // Calculate what they actually claimed
+      const amount = (estimatedReward * BigInt(claimData.neynarScore)) / 10000n;
+      const formattedAmount = formatUnits(amount, tokenDecimals);
+      // Round to reasonable decimals
+      const roundedAmount = parseFloat(formattedAmount).toFixed(
+        tokenDecimals > 4 ? 4 : 2
+      );
+      setClaimedAmount(roundedAmount);
+      setShowClaimSuccess(true);
       refetchCampaign();
       refetchClaimed();
       setClaimData(null);
     }
-  }, [isSuccess, refetchCampaign, refetchClaimed]);
+  }, [isSuccess, claimData, estimatedReward, tokenDecimals, refetchCampaign, refetchClaimed]);
 
-  const handleShare = async () => {
+  // Calculate estimated amount for share message (same as displayed in UI)
+  const getEstimatedAmount = useCallback(() => {
+    if (!estimatedReward) return "some";
+    const amount = formatUnits(estimatedReward, tokenDecimals);
+    // Show same precision as UI - don't over-round
+    const num = parseFloat(amount);
+    if (num >= 1) {
+      return num.toFixed(2);
+    } else if (num >= 0.01) {
+      return num.toFixed(4);
+    } else {
+      return num.toFixed(6);
+    }
+  }, [estimatedReward, tokenDecimals]);
+
+  // Share before claiming (to qualify)
+  const handleShareToQualify = async () => {
+    const estimatedAmount = getEstimatedAmount();
+    const shareText = `I just got some free glaze at the Donut Lab! 🍩🍩🍩\n\n${estimatedAmount} $${tokenSymbol} claimed! 🎉\n\nGet your free tokens too 👇`;
+    
     try {
-      // Use composeCast for proper miniapp sharing with embed
       await sdk.actions.composeCast({
-        text: "Check out Donut Labs 🍩",
+        text: shareText,
         embeds: ["https://donutlabs.vercel.app"],
       });
     } catch (e) {
-      // Fallback to openUrl if composeCast fails
       try {
+        const encodedText = encodeURIComponent(shareText);
         await sdk.actions.openUrl({
-          url: "https://warpcast.com/~/compose?text=Check%20out%20Donut%20Labs%20%F0%9F%8D%A9&embeds[]=https://donutlabs.vercel.app",
+          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
         });
       } catch {
+        const encodedText = encodeURIComponent(shareText);
         window.open(
-          "https://warpcast.com/~/compose?text=Check%20out%20Donut%20Labs%20%F0%9F%8D%A9&embeds[]=https://donutlabs.vercel.app",
+          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
           "_blank"
         );
       }
     }
   };
+
+  // Share after claiming (brag about it!)
+  const handleShareSuccess = useCallback(async () => {
+    const shareText = `I just got some free glaze at the Donut Lab! 🍩🍩🍩\n\n${claimedAmount} $${tokenSymbol} claimed! 🎉\n\nGet your free tokens too 👇`;
+    
+    try {
+      await sdk.actions.composeCast({
+        text: shareText,
+        embeds: ["https://donutlabs.vercel.app"],
+      });
+    } catch (e) {
+      try {
+        const encodedText = encodeURIComponent(shareText);
+        await sdk.actions.openUrl({
+          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
+        });
+      } catch {
+        const encodedText = encodeURIComponent(shareText);
+        window.open(
+          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
+          "_blank"
+        );
+      }
+    }
+  }, [claimedAmount, tokenSymbol]);
 
   const handleVerifyAndClaim = async () => {
     if (!address || !userFid) return;
@@ -214,7 +269,35 @@ export function ShareRewardButton({ userFid }: ShareRewardButtonProps) {
     }
   };
 
-  // Already claimed state
+  // Just claimed success - show share button
+  if (showClaimSuccess && claimedAmount) {
+    return (
+      <div className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-500/40 rounded-lg p-3">
+        <div className="flex items-center justify-center gap-2 text-green-400 mb-2">
+          <CheckCircle className="w-5 h-5" />
+          <span className="font-bold">Claimed {claimedAmount} ${tokenSymbol}!</span>
+        </div>
+        <button
+          onClick={handleShareSuccess}
+          className={cn(
+            "w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-400 text-black font-bold py-2.5 px-3 rounded-lg transition-all text-sm",
+            isPulsing && "scale-[0.97]"
+          )}
+        >
+          <Share2 className="w-4 h-4" />
+          Share Your Glaze! 🍩
+        </button>
+        <button
+          onClick={() => setShowClaimSuccess(false)}
+          className="w-full text-xs text-gray-500 hover:text-gray-400 mt-2"
+        >
+          Dismiss
+        </button>
+      </div>
+    );
+  }
+
+  // Already claimed state (from previous session)
   if (hasClaimed && isActive) {
     return (
       <div className="bg-zinc-900 border border-green-500/30 rounded-lg p-3">
@@ -324,7 +407,7 @@ export function ShareRewardButton({ userFid }: ShareRewardButtonProps) {
       <div className="flex gap-2">
         {/* Share Button - Pulsing */}
         <button
-          onClick={handleShare}
+          onClick={handleShareToQualify}
           className={cn(
             "flex-1 flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold py-2.5 px-3 rounded-lg transition-all text-sm",
             isPulsing && "scale-[0.97]"
