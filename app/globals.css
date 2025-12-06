@@ -54,7 +54,7 @@ html, body {
 }
 
 .page-transition {
-  animation: pageIn 0.4s ease-in-out;
+  animation: pageIn 0.7s ease-in-out;
 }
 
 @keyframes glow-pulse {
