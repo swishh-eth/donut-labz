@@ -75,6 +75,9 @@ export default function ChatPage() {
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [message, setMessage] = useState("");
   const [pendingMessage, setPendingMessage] = useState("");
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+
+  const COOLDOWN_SECONDS = 30;
 
   const { address, isConnected } = useAccount();
   const { data: hash, writeContract, isPending } = useWriteContract();
@@ -248,15 +251,36 @@ export default function ChatPage() {
       recordPoints();
       setPendingMessage("");
       setMessage("");
+      
+      // Start cooldown timer
+      setCooldownRemaining(COOLDOWN_SECONDS);
+      
       setTimeout(() => {
         refetchMessages();
       }, 2000);
     }
   }, [isSuccess, hash, recordPoints, refetchMessages]);
 
+  // Cooldown countdown timer
+  useEffect(() => {
+    if (cooldownRemaining <= 0) return;
+    
+    const timer = setInterval(() => {
+      setCooldownRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [cooldownRemaining]);
+
   // Send message
   const handleSendMessage = async () => {
-    if (!message.trim() || !isConnected || isPending || isConfirming) return;
+    if (!message.trim() || !isConnected || isPending || isConfirming || cooldownRemaining > 0) return;
 
     setPendingMessage(message.trim());
     try {
@@ -284,7 +308,7 @@ export default function ChatPage() {
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
   return (
-    <main className="page-transition flex h-[100dvh] w-screen justify-center overflow-hidden bg-black font-mono text-white">
+    <main className="flex h-[100dvh] w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <div
         className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 shadow-inner"
         style={{
@@ -526,18 +550,22 @@ export default function ChatPage() {
                     value={message}
                     onChange={(e) => setMessage(e.target.value.slice(0, 280))}
                     onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                    placeholder="Type a message..."
-                    disabled={isPending || isConfirming}
+                    placeholder={cooldownRemaining > 0 ? `Wait ${cooldownRemaining}s...` : "Type a message..."}
+                    disabled={isPending || isConfirming || cooldownRemaining > 0}
                     className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-2 py-1.5 outline-none disabled:opacity-50"
                     style={{ fontSize: '16px' }} // Prevents iOS zoom
                   />
                   <span className="text-[10px] text-gray-500 mr-1">{message.length}/280</span>
                   <button
                     onClick={handleSendMessage}
-                    disabled={!message.trim() || isPending || isConfirming}
+                    disabled={!message.trim() || isPending || isConfirming || cooldownRemaining > 0}
                     className="flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
                   >
-                    <Send className="w-4 h-4" />
+                    {cooldownRemaining > 0 ? (
+                      <span className="text-xs font-bold">{cooldownRemaining}</span>
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
                 {(isPending || isConfirming) && (
