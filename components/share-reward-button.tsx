@@ -90,12 +90,12 @@ export function ShareRewardButton({ userFid }: ShareRewardButtonProps) {
     chainId: base.id,
   });
 
-  // Get estimated reward (using a default score of 5000 = 0.5)
+  // Get estimated reward (using 10000 = 1.0x base reward for display)
   const { data: estimatedReward } = useReadContract({
     address: SHARE_REWARDS_ADDRESS as `0x${string}`,
     abi: SHARE_REWARDS_ABI,
     functionName: "calculateReward",
-    args: [BigInt(5000)],
+    args: [BigInt(10000)], // 10000 = 1.0x multiplier (neutral/base reward)
     chainId: base.id,
   });
 
@@ -247,11 +247,11 @@ export function ShareRewardButton({ userFid }: ShareRewardButtonProps) {
       <div className="bg-gradient-to-r from-amber-900/20 to-orange-900/20 border border-amber-500/30 rounded-lg p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="text-xs text-gray-400">
-            Score: {(claimData.neynarScore / 10000).toFixed(4)}
+            Score: {(claimData.neynarScore / 10000).toFixed(2)}x
           </div>
           <div className="text-xs text-amber-400 font-semibold">
             ~{estimatedReward
-              ? formatUnits((estimatedReward * BigInt(claimData.neynarScore)) / 5000n, tokenDecimals)
+              ? formatUnits((estimatedReward * BigInt(claimData.neynarScore)) / 10000n, tokenDecimals)
               : "..."} {tokenSymbol}
           </div>
         </div>
@@ -308,11 +308,10 @@ export function ShareRewardButton({ userFid }: ShareRewardButtonProps) {
       </div>
 
       <div className="text-xs text-gray-400 mb-3">
-        Earn up to{" "}
-        <span className="text-amber-400 font-semibold">
-          {estimatedReward ? formatUnits(estimatedReward * 3n, tokenDecimals) : "..."} {tokenSymbol}
+        Earn ~<span className="text-amber-400 font-semibold">
+          {estimatedReward ? formatUnits(estimatedReward, tokenDecimals) : "..."} {tokenSymbol}
         </span>{" "}
-        based on your Neynar score
+        (±10% based on Neynar score)
       </div>
 
       {verifyError && (
