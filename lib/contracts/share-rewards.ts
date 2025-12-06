@@ -1,0 +1,147 @@
+// lib/contracts/share-rewards.ts
+export const SHARE_REWARDS_ADDRESS = "0x9fb5D51390b4666262Eb6ac533696E101a778725";
+
+export const SHARE_REWARDS_ABI = [
+  {
+    inputs: [{ internalType: "address", name: "verifierAddress", type: "address" }],
+    stateMutability: "nonpayable",
+    type: "constructor",
+  },
+  {
+    inputs: [],
+    name: "getCampaignInfo",
+    outputs: [
+      { internalType: "address", name: "token", type: "address" },
+      { internalType: "uint256", name: "totalAmount", type: "uint256" },
+      { internalType: "uint256", name: "remainingAmount", type: "uint256" },
+      { internalType: "uint256", name: "maxClaims", type: "uint256" },
+      { internalType: "uint256", name: "claimCount", type: "uint256" },
+      { internalType: "bool", name: "active", type: "bool" },
+      { internalType: "uint256", name: "startTime", type: "uint256" },
+      { internalType: "uint256", name: "endTime", type: "uint256" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "user", type: "address" }],
+    name: "hasUserClaimed",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "neynarScore", type: "uint256" }],
+    name: "calculateReward",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "neynarScore", type: "uint256" },
+      { internalType: "bytes32", name: "castHash", type: "bytes32" },
+      { internalType: "bytes", name: "signature", type: "bytes" },
+    ],
+    name: "claimReward",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "campaignId",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "isNativeETH",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "verifier",
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "owner",
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "token", type: "address" },
+      { internalType: "uint256", name: "totalAmount", type: "uint256" },
+      { internalType: "uint256", name: "maxClaims", type: "uint256" },
+      { internalType: "uint256", name: "duration", type: "uint256" },
+    ],
+    name: "startCampaignERC20",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "maxClaims", type: "uint256" },
+      { internalType: "uint256", name: "duration", type: "uint256" },
+    ],
+    name: "startCampaignETH",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "endCampaign",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "newVerifier", type: "address" }],
+    name: "setVerifier",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "uint256", name: "campaignId", type: "uint256" },
+      { indexed: false, internalType: "address", name: "token", type: "address" },
+      { indexed: false, internalType: "uint256", name: "totalAmount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "maxClaims", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "endTime", type: "uint256" },
+    ],
+    name: "CampaignStarted",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "uint256", name: "campaignId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "remainingAmount", type: "uint256" },
+    ],
+    name: "CampaignEnded",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "uint256", name: "campaignId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "user", type: "address" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "neynarScore", type: "uint256" },
+    ],
+    name: "RewardClaimed",
+    type: "event",
+  },
+] as const;

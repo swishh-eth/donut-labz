@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { cn, getEthPrice } from "@/lib/utils";
 import { NavBar } from "@/components/nav-bar";
+import { ShareRewardButton } from "@/components/share-reward-button";
 import { Flame, Coins, ArrowRight, HelpCircle, X } from "lucide-react";
 
 type MiniAppContext = {
@@ -377,6 +378,7 @@ export default function BlazeryPage() {
       ? `fid ${context.user.fid}`
       : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
+  const userFid = context?.user?.fid;
 
   const lpLink = "https://app.uniswap.org/explore/pools/base/0xD1DbB2E56533C55C3A637D13C53aeEf65c5D5703";
 
@@ -390,6 +392,7 @@ export default function BlazeryPage() {
         }}
       >
         <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold tracking-wide">BURN</h1>
             {context?.user && (
@@ -414,6 +417,7 @@ export default function BlazeryPage() {
             )}
           </div>
 
+          {/* Pay / Get Cards */}
           <div className="grid grid-cols-2 gap-2 mb-4">
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
@@ -456,6 +460,7 @@ export default function BlazeryPage() {
             </div>
           </div>
 
+          {/* Global Burn Pool Info */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -476,6 +481,7 @@ export default function BlazeryPage() {
             </div>
           </div>
 
+          {/* Help Dialog */}
           {showHelpDialog && (
             <div className="fixed inset-0 z-50">
               <div
@@ -544,6 +550,7 @@ export default function BlazeryPage() {
             </div>
           )}
 
+          {/* Profit/Loss Indicator */}
           {blazeProfitLoss && (
             <div
               className={cn(
@@ -569,6 +576,7 @@ export default function BlazeryPage() {
             </div>
           )}
 
+          {/* Blaze Button */}
           <button
             className={cn(
               "w-full rounded-xl py-4 text-lg font-bold transition-colors mb-4",
@@ -586,7 +594,8 @@ export default function BlazeryPage() {
             {buttonLabel}
           </button>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+          {/* LP Balance */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-xs text-gray-400 uppercase mb-1">
@@ -615,6 +624,9 @@ export default function BlazeryPage() {
               </div>
             )}
           </div>
+
+          {/* Share Reward Button */}
+          <ShareRewardButton userFid={userFid} />
         </div>
       </div>
 
