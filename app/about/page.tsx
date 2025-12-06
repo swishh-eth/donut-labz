@@ -189,8 +189,7 @@ export default function AboutPage() {
                 <li>More Glazes = More Entries = Higher Rank</li>
 
                 <li>Donut Labs also offers an Onchain Glazery Chat</li>
-                <li>Rack up LABS Points for simply talking to other glazers.</li>
-                <li>May lead to something later</li>
+                <li>May lead to something later...</li>
               </ul>
             </section>
 
