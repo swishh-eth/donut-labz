@@ -66,6 +66,7 @@ const basePublicClient = createPublicClient({
 export default function ChatPage() {
   const readyRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const wagmiPublicClient = usePublicClient({ chainId: base.id });
 
@@ -77,6 +78,28 @@ export default function ChatPage() {
   const { address, isConnected } = useAccount();
   const { data: hash, writeContract, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  // Prevent iOS zoom on input focus
+  useEffect(() => {
+    const handleFocus = () => {
+      // Prevent zoom by ensuring viewport is set correctly
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
+      }
+    };
+
+    const inputs = document.querySelectorAll('input, textarea');
+    inputs.forEach(input => {
+      input.addEventListener('focus', handleFocus);
+    });
+
+    return () => {
+      inputs.forEach(input => {
+        input.removeEventListener('focus', handleFocus);
+      });
+    };
+  }, []);
 
   // Farcaster SDK context
   useEffect(() => {
@@ -105,58 +128,56 @@ export default function ChatPage() {
     return () => clearTimeout(timeout);
   }, []);
 
-// Fetch messages from blockchain events
-const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
-  queryKey: ["chat-messages-onchain"],
-  queryFn: async () => {
-    const client = wagmiPublicClient || basePublicClient;
-    
-    try {
-      const DEPLOYMENT_BLOCK = 39080208n;
-      const BLOCKS_PER_HOUR = 1800n; // ~1 hour on Base (2 sec/block)
+  // Fetch messages from blockchain events
+  const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
+    queryKey: ["chat-messages-onchain"],
+    queryFn: async () => {
+      const client = wagmiPublicClient || basePublicClient;
       
-      const currentBlock = await client.getBlockNumber();
-      console.log("Current block:", currentBlock.toString());
-      
-      // Only fetch last 1 hour of blocks
-      let fromBlock = currentBlock - BLOCKS_PER_HOUR;
-      
-      // Make sure we don't go before deployment
-      if (fromBlock < DEPLOYMENT_BLOCK) {
-        fromBlock = DEPLOYMENT_BLOCK;
+      try {
+        const DEPLOYMENT_BLOCK = 39080208n;
+        const BLOCKS_PER_HOUR = 1800n;
+        
+        const currentBlock = await client.getBlockNumber();
+        console.log("Current block:", currentBlock.toString());
+        
+        let fromBlock = currentBlock - BLOCKS_PER_HOUR;
+        
+        if (fromBlock < DEPLOYMENT_BLOCK) {
+          fromBlock = DEPLOYMENT_BLOCK;
+        }
+        
+        console.log("Fetching from:", fromBlock.toString(), "to:", currentBlock.toString());
+        
+        const logs = await client.getLogs({
+          address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
+          event: parseAbiItem("event MessageSent(address indexed sender, string message, uint256 timestamp)"),
+          fromBlock,
+          toBlock: currentBlock,
+        });
+
+        console.log("Logs found:", logs.length);
+
+        const parsedMessages: ChatMessage[] = logs.map((log) => ({
+          sender: log.args.sender as string,
+          message: log.args.message as string,
+          timestamp: log.args.timestamp as bigint,
+          transactionHash: log.transactionHash,
+          blockNumber: log.blockNumber,
+        }));
+
+        return parsedMessages
+          .sort((a, b) => Number(b.timestamp - a.timestamp))
+          .slice(0, 20);
+      } catch (e) {
+        console.error("Failed to fetch messages:", e);
+        return [];
       }
-      
-      console.log("Fetching from:", fromBlock.toString(), "to:", currentBlock.toString());
-      
-      const logs = await client.getLogs({
-        address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
-        event: parseAbiItem("event MessageSent(address indexed sender, string message, uint256 timestamp)"),
-        fromBlock,
-        toBlock: currentBlock,
-      });
-
-      console.log("Logs found:", logs.length);
-
-      const parsedMessages: ChatMessage[] = logs.map((log) => ({
-        sender: log.args.sender as string,
-        message: log.args.message as string,
-        timestamp: log.args.timestamp as bigint,
-        transactionHash: log.transactionHash,
-        blockNumber: log.blockNumber,
-      }));
-
-      return parsedMessages
-        .sort((a, b) => Number(b.timestamp - a.timestamp))
-        .slice(0, 20);
-    } catch (e) {
-      console.error("Failed to fetch messages:", e);
-      return [];
-    }
-  },
-  refetchInterval: 15000, // Every 15 seconds instead of 10
-  staleTime: 10000,
-  gcTime: 30000,
-});
+    },
+    refetchInterval: 15000,
+    staleTime: 10000,
+    gcTime: 30000,
+  });
 
   // Fetch chat stats from database
   const { data: statsData } = useQuery({
@@ -262,9 +283,9 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
   return (
-    <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
+    <main className="flex h-[100dvh] w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <div
-        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 pb-4 shadow-inner"
+        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 shadow-inner"
         style={{
           paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
@@ -272,7 +293,7 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
       >
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3 flex-shrink-0">
             <h1 className="text-2xl font-bold tracking-wide">CHAT</h1>
             {context?.user && (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
@@ -289,40 +310,40 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-              <div className="flex items-center gap-1 mb-1">
+          <div className="grid grid-cols-2 gap-2 mb-3 flex-shrink-0">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+              <div className="flex items-center gap-1 mb-0.5">
                 <Star className="w-3 h-3 text-yellow-400" />
-                <span className="text-[10px] text-gray-400 uppercase">Your Points</span>
+                <span className="text-[9px] text-gray-400 uppercase">Your Points</span>
               </div>
-              <div className="text-xl font-bold text-white">
+              <div className="text-lg font-bold text-white">
                 {typeof userPoints === 'number' ? userPoints.toFixed(2) : '0.00'}
               </div>
             </div>
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-              <div className="flex items-center gap-1 mb-1">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+              <div className="flex items-center gap-1 mb-0.5">
                 <Users className="w-3 h-3 text-white" />
-                <span className="text-[10px] text-gray-400 uppercase">Unique Chatters</span>
+                <span className="text-[9px] text-gray-400 uppercase">Unique Chatters</span>
               </div>
-              <div className="text-xl font-bold text-white">{totalUsers}</div>
+              <div className="text-lg font-bold text-white">{totalUsers}</div>
             </div>
           </div>
 
           {/* Info Banner */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-3 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Star className="w-5 h-5 text-yellow-400" />
-                <span className="text-sm font-semibold text-white">Earn Points</span>
+                <Star className="w-4 h-4 text-yellow-400" />
+                <span className="text-xs font-semibold text-white">Earn Points</span>
                 <button
                   onClick={() => setShowHelpDialog(true)}
                   className="ml-1 text-gray-400 hover:text-white transition-colors"
                 >
-                  <HelpCircle className="w-4 h-4" />
+                  <HelpCircle className="w-3 h-3" />
                 </button>
               </div>
-              <div className="text-xs font-medium text-gray-400">
+              <div className="text-[10px] font-medium text-gray-400">
                 Neynar Score × Messages
               </div>
             </div>
@@ -392,7 +413,10 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
           )}
 
           {/* Chat Messages Area */}
-          <div className="flex-1 overflow-y-auto space-y-2 pb-2 scrollbar-hide">
+          <div 
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto space-y-2 pb-2 min-h-0"
+          >
             {messagesLoading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-gray-400">Loading messages...</div>
@@ -419,11 +443,11 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
                   return (
                     <div
                       key={`${msg.transactionHash}-${index}`}
-                      className={`flex gap-3 p-3 rounded-lg ${
+                      className={`flex gap-2 p-2 rounded-lg ${
                         isOwnMessage ? "bg-zinc-800 border border-zinc-700" : "bg-zinc-900 border border-zinc-800"
                       }`}
                     >
-                      <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
+                      <Avatar className="h-8 w-8 border border-zinc-700 flex-shrink-0">
                         <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
                         <AvatarFallback className="bg-zinc-800 text-white text-xs">
                           {initialsFrom(displayName)}
@@ -431,12 +455,12 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
                       </Avatar>
 
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-white text-sm truncate">{displayName}</span>
-                          {username && <span className="text-xs text-gray-500 truncate">{username}</span>}
-                          <span className="text-xs text-gray-600 ml-auto flex-shrink-0">{timeAgo(msg.timestamp)}</span>
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="font-semibold text-white text-xs truncate">{displayName}</span>
+                          {username && <span className="text-[10px] text-gray-500 truncate">{username}</span>}
+                          <span className="text-[10px] text-gray-600 ml-auto flex-shrink-0">{timeAgo(msg.timestamp)}</span>
                         </div>
-                        <p className="text-sm text-gray-300 break-words">{msg.message}</p>
+                        <p className="text-xs text-gray-300 break-words">{msg.message}</p>
                       </div>
                     </div>
                   );
@@ -444,8 +468,8 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
 
                 {/* Pending message */}
                 {pendingMessage && (
-                  <div className="flex gap-3 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 opacity-60">
-                    <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
+                  <div className="flex gap-2 p-2 rounded-lg bg-zinc-800/50 border border-zinc-700/50 opacity-60">
+                    <Avatar className="h-8 w-8 border border-zinc-700 flex-shrink-0">
                       <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
                       <AvatarFallback className="bg-zinc-800 text-white text-xs">
                         {initialsFrom(userDisplayName)}
@@ -453,11 +477,11 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
                     </Avatar>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-white text-sm truncate">{userDisplayName}</span>
-                        <span className="text-xs text-gray-400 ml-auto flex-shrink-0">Sending...</span>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-semibold text-white text-xs truncate">{userDisplayName}</span>
+                        <span className="text-[10px] text-gray-400 ml-auto flex-shrink-0">Sending...</span>
                       </div>
-                      <p className="text-sm text-gray-300 break-words">{pendingMessage}</p>
+                      <p className="text-xs text-gray-300 break-words">{pendingMessage}</p>
                     </div>
                   </div>
                 )}
@@ -467,10 +491,10 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
             )}
           </div>
 
-          {/* Message Input */}
-          <div className="mt-auto pt-2">
+          {/* Message Input - Fixed at bottom */}
+          <div className="flex-shrink-0 pt-2 pb-2">
             {!isConnected ? (
-              <div className="flex items-center justify-center bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+              <div className="flex items-center justify-center bg-zinc-900 border border-zinc-800 rounded-xl p-3">
                 <p className="text-sm text-gray-400">Connect wallet to send messages</p>
               </div>
             ) : (
@@ -483,19 +507,20 @@ const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } =
                     onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
                     placeholder="Type a message..."
                     disabled={isPending || isConfirming}
-                    className="flex-1 bg-transparent text-white placeholder-gray-500 text-sm px-3 py-2 outline-none disabled:opacity-50"
+                    className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-2 py-1.5 outline-none disabled:opacity-50"
+                    style={{ fontSize: '16px' }} // Prevents iOS zoom
                   />
-                  <span className="text-xs text-gray-500 mr-2">{message.length}/280</span>
+                  <span className="text-[10px] text-gray-500 mr-1">{message.length}/280</span>
                   <button
                     onClick={handleSendMessage}
                     disabled={!message.trim() || isPending || isConfirming}
-                    className="flex items-center justify-center w-10 h-10 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                    className="flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
                   >
-                    <Send className="w-5 h-5" />
+                    <Send className="w-4 h-4" />
                   </button>
                 </div>
                 {(isPending || isConfirming) && (
-                  <p className="text-xs text-gray-400 text-center mt-2">
+                  <p className="text-[10px] text-gray-400 text-center mt-1">
                     {isPending ? "Confirm in wallet..." : "Confirming transaction..."}
                   </p>
                 )}
