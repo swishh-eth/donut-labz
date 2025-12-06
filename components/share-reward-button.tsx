@@ -445,15 +445,22 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
     // Show error state if there's an error
     if (verifyError) {
       return (
-        <button
-          onClick={() => setVerifyError(null)}
-          className="bg-red-500/20 border border-red-500/40 rounded-lg p-2 flex items-center justify-center gap-1.5"
-        >
-          <XCircle className="w-3 h-3 text-red-400" />
-          <span className="font-bold text-xs text-red-400 truncate max-w-[100px]">
-            {verifyError.length > 15 ? "Error - Tap" : verifyError}
-          </span>
-        </button>
+        <div className="bg-red-500/20 border border-red-500/40 rounded-lg p-2">
+          <div className="flex items-center justify-between gap-1">
+            <div className="flex items-center gap-1 min-w-0">
+              <XCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
+              <span className="font-bold text-[10px] text-red-400 truncate">
+                {verifyError}
+              </span>
+            </div>
+            <button
+              onClick={() => setVerifyError(null)}
+              className="text-[9px] text-red-300 underline flex-shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
       );
     }
 
