@@ -9,7 +9,7 @@ const VERIFIER_PRIVATE_KEY = process.env.SHARE_VERIFIER_PRIVATE_KEY as `0x${stri
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY!;
 
 // Minimum requirements
-const MIN_NEYNAR_SCORE = 0.72;
+const MIN_NEYNAR_SCORE = 0.7;
 const MIN_FOLLOWERS = 500;
 
 // The EXACT miniapp URL that must be in the cast
@@ -60,9 +60,17 @@ export async function POST(req: NextRequest) {
     const userData = await userRes.json();
     const user = userData.users?.[0];
     const neynarScore = user?.experimental?.neynar_user_score || 0;
-    const followerCount = user?.follower_count || 0;
+    // Neynar v2 API: follower_count is directly on user object
+    const followerCount = user?.follower_count ?? 0;
 
-    // Check minimum follower requirement
+    console.log("Share verify - User check:", { 
+      fid, 
+      neynarScore, 
+      followerCount,
+      hasUser: !!user 
+    });
+
+    // Check minimum follower requirement FIRST
     if (followerCount < MIN_FOLLOWERS) {
       return NextResponse.json(
         {
