@@ -13,7 +13,7 @@ const MIN_NEYNAR_SCORE = 0.7;
 const MIN_FOLLOWERS = 500;
 
 // swishh.eth FID - users must follow this account
-const SWISHH_FID = 270504;
+const SWISHH_FID = 209951;
 
 // The EXACT miniapp URL that must be in the cast
 const REQUIRED_EMBED_URLS = [
