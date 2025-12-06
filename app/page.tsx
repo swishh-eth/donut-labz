@@ -332,35 +332,32 @@ export default function HomePage() {
 
   const claimedHandleParam = (minerState?.uri ?? "").trim();
 
-  const { data: neynarUser } = useQuery<{
-    user: {
+  const { data: profileData } = useQuery<{
+    profiles: Record<string, {
       fid: number | null;
       username: string | null;
       displayName: string | null;
       pfpUrl: string | null;
-    } | null;
+    } | null>;
   }>({
-    queryKey: ["neynar-user", minerAddress],
+    queryKey: ["cached-profile", minerAddress],
     queryFn: async () => {
       const res = await fetch(
-        `/api/neynar/user?address=${encodeURIComponent(minerAddress)}`
+        `/api/profiles?addresses=${encodeURIComponent(minerAddress)}`
       );
       if (!res.ok) {
         throw new Error("Failed to load Farcaster profile.");
       }
-      return (await res.json()) as {
-        user: {
-          fid: number | null;
-          username: string | null;
-          displayName: string | null;
-          pfpUrl: string | null;
-        } | null;
-      };
+      return res.json();
     },
     enabled: hasMiner,
-    staleTime: 60_000,
+    staleTime: 30 * 60 * 1000, // 30 minutes client-side
     retry: false,
   });
+
+  const neynarUser = profileData?.profiles?.[minerAddress.toLowerCase()]
+    ? { user: profileData.profiles[minerAddress.toLowerCase()] }
+    : { user: null };
 
   const handleGlaze = useCallback(async () => {
     if (!minerState) return;

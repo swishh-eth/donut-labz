@@ -77,7 +77,7 @@ export default function ChatPage() {
   const [pendingMessage, setPendingMessage] = useState("");
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
 
-  const COOLDOWN_SECONDS = 60;
+  const COOLDOWN_SECONDS = 30;
 
   const { address, isConnected } = useAccount();
   const { data: hash, writeContract, isPending } = useWriteContract();
@@ -203,28 +203,22 @@ export default function ChatPage() {
   // Fetch profiles for message senders
   const senderAddresses = [...new Set(messages?.map((m) => m.sender.toLowerCase()) || [])];
 
-  const { data: profiles } = useQuery<Record<string, FarcasterProfile | null>>({
-    queryKey: ["chat-profiles", senderAddresses],
+  const { data: profilesData } = useQuery<{ profiles: Record<string, FarcasterProfile | null> }>({
+    queryKey: ["chat-profiles-batch", senderAddresses.join(",")],
     queryFn: async () => {
-      if (senderAddresses.length === 0) return {};
-
-      const profilePromises = senderAddresses.map(async (addr: string) => {
-        try {
-          const res = await fetch(`/api/neynar/user?address=${encodeURIComponent(addr)}`);
-          if (!res.ok) return [addr, null];
-          const data = await res.json();
-          return [addr, data.user];
-        } catch {
-          return [addr, null];
-        }
-      });
-
-      const results = await Promise.all(profilePromises);
-      return Object.fromEntries(results);
+      if (senderAddresses.length === 0) return { profiles: {} };
+      
+      const res = await fetch(
+        `/api/profiles?addresses=${encodeURIComponent(senderAddresses.join(","))}`
+      );
+      if (!res.ok) return { profiles: {} };
+      return res.json();
     },
     enabled: senderAddresses.length > 0,
-    staleTime: 300_000,
+    staleTime: 30 * 60 * 1000, // 30 minutes
   });
+
+  const profiles = profilesData?.profiles || {};
 
   // Record points after successful transaction
   const recordPoints = useCallback(async () => {

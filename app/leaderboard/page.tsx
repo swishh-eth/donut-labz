@@ -19,10 +19,10 @@ type MiniAppContext = {
 
 type LeaderboardEntry = {
   address: string;
-  points: number;
-  total_glazes: number;
-  week_number: number;
-  last_glaze_timestamp: string;
+  total_points: number;
+  total_glazes?: number;
+  week_number?: number;
+  last_glaze_timestamp?: string;
 };
 
 type FarcasterProfile = {
@@ -30,6 +30,15 @@ type FarcasterProfile = {
   username: string | null;
   displayName: string | null;
   pfpUrl: string | null;
+};
+
+type LeaderboardResponse = {
+  leaderboard: LeaderboardEntry[];
+  weekNumber: number;
+};
+
+type PrizePoolResponse = {
+  balance: string;
 };
 
 const ANON_PFPS = [
@@ -59,7 +68,6 @@ const formatAddress = (addr: string) => {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 };
 
-// Rank styles - all same color like chat page
 const getRankStyles = () => {
   return {
     bg: "bg-zinc-900",
@@ -120,7 +128,7 @@ export default function LeaderboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const { data: leaderboardData, isLoading } = useQuery({
+  const { data: leaderboardData, isLoading } = useQuery<LeaderboardResponse>({
     queryKey: ["leaderboard"],
     queryFn: async () => {
       const res = await fetch("/api/leaderboard?limit=5");
@@ -130,7 +138,7 @@ export default function LeaderboardPage() {
     refetchInterval: 30_000,
   });
 
-  const { data: prizePoolData } = useQuery({
+  const { data: prizePoolData } = useQuery<PrizePoolResponse>({
     queryKey: ["prize-pool"],
     queryFn: async () => {
       const contractAddress = "0xC8826f73206215CaE1327D1262A4bC5128b0973B";
@@ -155,32 +163,24 @@ export default function LeaderboardPage() {
     refetchInterval: 30_000,
   });
 
-  const addresses = leaderboardData?.leaderboard?.map((entry: LeaderboardEntry) => entry.address) || [];
+  const addresses: string[] = leaderboardData?.leaderboard?.map((entry) => entry.address) || [];
   
-  const { data: profiles } = useQuery<Record<string, FarcasterProfile | null>>({
-    queryKey: ["farcaster-profiles", addresses],
+  const { data: profilesData } = useQuery<{ profiles: Record<string, FarcasterProfile | null> }>({
+    queryKey: ["farcaster-profiles-batch", addresses.join(",")],
     queryFn: async () => {
-      if (addresses.length === 0) return {};
+      if (addresses.length === 0) return { profiles: {} };
       
-      const profilePromises = addresses.map(async (address: string) => {
-        try {
-          const res = await fetch(
-            `/api/neynar/user?address=${encodeURIComponent(address)}`
-          );
-          if (!res.ok) return [address, null];
-          const data = await res.json();
-          return [address, data.user];
-        } catch {
-          return [address, null];
-        }
-      });
-
-      const results = await Promise.all(profilePromises);
-      return Object.fromEntries(results);
+      const res = await fetch(
+        `/api/profiles?addresses=${encodeURIComponent(addresses.join(","))}`
+      );
+      if (!res.ok) return { profiles: {} };
+      return res.json();
     },
     enabled: addresses.length > 0,
-    staleTime: 300_000,
+    staleTime: 30 * 60 * 1000, // 30 minutes
   });
+
+  const profiles = profilesData?.profiles || {};
 
   useEffect(() => {
     const updateCountdown = () => {
@@ -216,7 +216,7 @@ export default function LeaderboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const leaderboard = leaderboardData?.leaderboard || [];
+  const leaderboard: LeaderboardEntry[] = leaderboardData?.leaderboard || [];
   const weekNumber = leaderboardData?.weekNumber || 0;
   
   const prizePoolBalance = prizePoolData?.balance
@@ -361,7 +361,7 @@ export default function LeaderboardPage() {
             </div>
           </div>
 
-          {/* Help Dialog - Clean & Aligned */}
+          {/* Help Dialog */}
           {showHelpDialog && (
             <div className="fixed inset-0 z-50">
               <div
@@ -383,7 +383,6 @@ export default function LeaderboardPage() {
                   </h2>
 
                   <div className="space-y-4">
-                    {/* Step 1 */}
                     <div className="flex gap-3">
                       <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
                         1
@@ -396,7 +395,6 @@ export default function LeaderboardPage() {
                       </div>
                     </div>
 
-                    {/* Step 2 */}
                     <div className="flex gap-3">
                       <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
                         2
@@ -409,7 +407,6 @@ export default function LeaderboardPage() {
                       </div>
                     </div>
 
-                    {/* Step 3 */}
                     <div className="flex gap-3">
                       <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
                         3
@@ -422,7 +419,6 @@ export default function LeaderboardPage() {
                       </div>
                     </div>
 
-                    {/* Prize Distribution */}
                     <div className="bg-zinc-900/50 rounded-lg p-3 mt-3">
                       <div className="grid grid-cols-3 gap-2 text-center">
                         <div>
@@ -462,15 +458,21 @@ export default function LeaderboardPage() {
               <div className="flex items-center justify-center py-12">
                 <div className="text-gray-400">Loading leaderboard...</div>
               </div>
-            ) : leaderboard.length === 0 ? (
-              <>
-                {[1, 2, 3, 4, 5].map((rank) => {
-                  const isWinner = rank <= 3;
-                  const styles = getRankStyles();
+            ) : (
+              [0, 1, 2, 3, 4].map((index) => {
+                const rank = index + 1;
+                const entry = leaderboard[index];
+                const isWinner = rank <= 3;
+                let prizeAmount: string | null = null;
+                if (rank === 1) prizeAmount = firstPlacePrize;
+                if (rank === 2) prizeAmount = secondPlacePrize;
+                if (rank === 3) prizeAmount = thirdPlacePrize;
+                const styles = getRankStyles();
 
+                if (!entry) {
                   return (
                     <div
-                      key={rank}
+                      key={`empty-${rank}`}
                       className={`flex items-center justify-between rounded-xl p-3 border ${styles.bg} ${styles.border}`}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -502,7 +504,7 @@ export default function LeaderboardPage() {
                         <div className="min-w-0 flex-1">
                           <div className="font-semibold text-white truncate">No one yet</div>
                           <div className="text-xs text-gray-400 truncate">
-                            {isWinner ? "Be the first!" : "Keep grinding"}
+                            {isWinner ? "Claim this spot!" : "Keep grinding"}
                           </div>
                         </div>
                       </div>
@@ -511,30 +513,20 @@ export default function LeaderboardPage() {
                         <div className="text-sm font-bold text-white">
                           0 <span className="text-xs font-normal text-gray-400">glazes</span>
                         </div>
-                        {isWinner && (
+                        {isWinner && prizeAmount && (
                           <div className="text-[10px] text-green-400">
-                            +Ξ{rank === 1 ? firstPlacePrize : rank === 2 ? secondPlacePrize : thirdPlacePrize}
+                            +Ξ{prizeAmount}
                           </div>
                         )}
                       </div>
                     </div>
                   );
-                })}
-              </>
-            ) : (
-              leaderboard.map((entry: LeaderboardEntry, index: number) => {
-                const rank = index + 1;
-                const isWinner = rank <= 3;
-                let prizeAmount = null;
-                if (rank === 1) prizeAmount = firstPlacePrize;
-                if (rank === 2) prizeAmount = secondPlacePrize;
-                if (rank === 3) prizeAmount = thirdPlacePrize;
+                }
 
                 const profile = profiles?.[entry.address];
                 const displayName = profile?.displayName || formatAddress(entry.address);
                 const username = profile?.username ? `@${profile.username}` : "";
                 const avatarUrl = profile?.pfpUrl || getAnonPfp(entry.address);
-                const styles = getRankStyles();
 
                 return (
                   <div
@@ -559,22 +551,24 @@ export default function LeaderboardPage() {
                       <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
                         <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
                         <AvatarFallback className="bg-zinc-800 text-white text-xs">
-                          {initialsFrom(displayName)}
+                          {displayName.slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
 
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-white truncate">{displayName}</div>
-                        {username && <div className="text-xs text-gray-400 truncate">{username}</div>}
+                        {username && (
+                          <div className="text-xs text-gray-400 truncate">{username}</div>
+                        )}
                       </div>
                     </div>
 
                     <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                      <div className="text-base font-bold text-white">
-                        {entry.points} <span className="text-xs font-normal text-gray-400">glazes</span>
+                      <div className="text-sm font-bold text-white">
+                        {entry.total_points} <span className="text-xs font-normal text-gray-400">glazes</span>
                       </div>
-                      {prizeAmount && (
-                        <div className="text-[10px] text-green-400 font-medium">
+                      {isWinner && prizeAmount && (
+                        <div className="text-[10px] text-green-400">
                           +Ξ{prizeAmount}
                         </div>
                       )}
