@@ -8,15 +8,11 @@ import { SHARE_REWARDS_ADDRESS, SHARE_REWARDS_ABI } from "@/lib/contracts/share-
 const VERIFIER_PRIVATE_KEY = process.env.SHARE_VERIFIER_PRIVATE_KEY as `0x${string}`;
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY!;
 
-// Keywords to look for in casts
-const SHARE_KEYWORDS = [
-  "donutlabs",
-  "donut labs",
-  "donut-labs",
-  "glazed",
-  "glaze",
-  "miniapps",
-  "🍩",
+// The EXACT miniapp URL that must be in the cast
+const REQUIRED_EMBED_URLS = [
+  "donutlabs.vercel.app",
+  "warpcast.com/miniapps/donutlabs",
+  "warpcast.com/~/miniapps/donutlabs",
 ];
 
 export async function POST(req: NextRequest) {
@@ -38,7 +34,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get current campaign ID from contract
+    // Get current campaign info from contract
     const publicClient = createPublicClient({
       chain: base,
       transport: http("https://mainnet.base.org"),
@@ -67,15 +63,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if campaign is active
-    const [, , , , , active] = campaignInfo as [string, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
-    
+    // Parse campaign info
+    const [, , , , , active, startTime] = campaignInfo as [
+      string,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      boolean,
+      bigint,
+      bigint
+    ];
+
     if (campaignId === 0n || !active) {
       return NextResponse.json(
         { error: "No active campaign", message: "There is no share campaign active right now." },
         { status: 400 }
       );
     }
+
+    // Convert campaign start time to milliseconds
+    const campaignStartMs = Number(startTime) * 1000;
 
     // Check if user already claimed
     const hasClaimed = await publicClient.readContract({
@@ -114,36 +122,42 @@ export async function POST(req: NextRequest) {
     const castsData = await castsRes.json();
     const casts = castsData.casts || [];
 
-    // Look for a cast that contains miniapp-related content (within last 7 days)
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-
+    // Find a valid cast that:
+    // 1. Was made AFTER the campaign started
+    // 2. Contains the miniapp embed URL
     const validCast = casts.find((cast: any) => {
       const castTime = new Date(cast.timestamp).getTime();
-      if (castTime < sevenDaysAgo) return false;
+      
+      // Cast must be AFTER campaign started
+      if (castTime < campaignStartMs) {
+        return false;
+      }
 
-      const text = (cast.text || "").toLowerCase();
-
-      // Check text for keywords
-      const hasKeyword = SHARE_KEYWORDS.some((keyword) =>
-        text.includes(keyword.toLowerCase())
-      );
-
-      // Check embeds for miniapp URL
+      // Check embeds for the miniapp URL (this is the important one)
       const embeds = cast.embeds || [];
-      const hasEmbed = embeds.some((embed: any) => {
+      const hasValidEmbed = embeds.some((embed: any) => {
         const url = (embed.url || "").toLowerCase();
-        return SHARE_KEYWORDS.some((keyword) => url.includes(keyword.toLowerCase()));
+        return REQUIRED_EMBED_URLS.some((requiredUrl) =>
+          url.includes(requiredUrl.toLowerCase())
+        );
       });
 
-      return hasKeyword || hasEmbed;
+      // Also check text as fallback
+      const text = (cast.text || "").toLowerCase();
+      const hasValidText = REQUIRED_EMBED_URLS.some((requiredUrl) =>
+        text.includes(requiredUrl.toLowerCase())
+      );
+
+      return hasValidEmbed || hasValidText;
     });
 
     if (!validCast) {
+      // Give helpful error message
+      const campaignStartDate = new Date(campaignStartMs).toLocaleString();
       return NextResponse.json(
         {
           error: "No valid share found",
-          message:
-            "Please share the mini app to your feed first. Include 'Donut Labs' or 🍩 in your cast, then try again.",
+          message: `Please share the mini app AFTER the campaign started (${campaignStartDate}). Make sure to include the Donut Labs miniapp link in your cast.`,
         },
         { status: 404 }
       );
@@ -183,7 +197,7 @@ export async function POST(req: NextRequest) {
     if (!castHashHex.startsWith("0x")) {
       castHashHex = "0x" + castHashHex;
     }
-    
+
     // Pad to 32 bytes (64 hex chars + 0x)
     while (castHashHex.length < 66) {
       castHashHex = castHashHex + "0";
@@ -208,13 +222,16 @@ export async function POST(req: NextRequest) {
       message: { raw: toBytes(messageHash) },
     });
 
+    const castDate = new Date(validCast.timestamp).toLocaleString();
+
     return NextResponse.json({
       success: true,
       neynarScore: finalScore,
       castHash: castHashHex,
       signature,
       campaignId: Number(campaignId),
-      castText: validCast.text?.slice(0, 100),
+      castText: validCast.text?.slice(0, 50),
+      castDate,
     });
   } catch (error) {
     console.error("Share verify error:", error);
