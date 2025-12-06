@@ -43,7 +43,6 @@ const ANON_PFPS = [
 ];
 
 const getAnonPfp = (address: string): string => {
-  // Use the last character of the address to deterministically select a PFP
   const lastChar = address.slice(-1).toLowerCase();
   const charCode = lastChar.charCodeAt(0);
   const index = charCode % ANON_PFPS.length;
@@ -60,6 +59,38 @@ const initialsFrom = (label?: string) => {
 const formatAddress = (addr: string) => {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 };
+
+// Background colors for each rank (1st is lightest, 5th is darkest)
+const getRankBackground = (rank: number): string => {
+  switch (rank) {
+    case 1:
+      return "bg-zinc-700/80 border-zinc-500";
+    case 2:
+      return "bg-zinc-800/80 border-zinc-600";
+    case 3:
+      return "bg-zinc-850/80 border-zinc-700";
+    case 4:
+      return "bg-zinc-900/80 border-zinc-800";
+    case 5:
+    default:
+      return "bg-zinc-950/80 border-zinc-800";
+  }
+};
+
+// Floating Trophy Component
+function FloatingTrophy({ delay, duration, startX }: { delay: number; duration: number; startX: number }) {
+  return (
+    <div
+      className="absolute text-yellow-400/30 pointer-events-none"
+      style={{
+        left: `${startX}%`,
+        animation: `float-up ${duration}s ease-in-out ${delay}s infinite`,
+      }}
+    >
+      <Trophy className="w-4 h-4" />
+    </div>
+  );
+}
 
 export default function LeaderboardPage() {
   const readyRef = useRef(false);
@@ -122,7 +153,7 @@ export default function LeaderboardPage() {
       if (!res.ok) throw new Error("Failed to fetch leaderboard");
       return res.json();
     },
-    refetchInterval: 30_000, // Refresh every 30 seconds
+    refetchInterval: 30_000,
   });
 
   // Fetch prize pool balance
@@ -148,7 +179,7 @@ export default function LeaderboardPage() {
       const data = await res.json();
       return { balance: data.result || "0x0" };
     },
-    refetchInterval: 30_000, // Refresh every 30 seconds
+    refetchInterval: 30_000,
   });
 
   // Fetch Farcaster profiles for all leaderboard entries
@@ -176,7 +207,7 @@ export default function LeaderboardPage() {
       return Object.fromEntries(results);
     },
     enabled: addresses.length > 0,
-    staleTime: 300_000, // Cache for 5 minutes
+    staleTime: 300_000,
   });
 
   // Calculate time until next Friday 12pm UTC
@@ -236,8 +267,40 @@ export default function LeaderboardPage() {
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
+      {/* Floating Trophies Animation */}
+      <style jsx global>{`
+        @keyframes float-up {
+          0% {
+            transform: translateY(100vh) rotate(0deg);
+            opacity: 0;
+          }
+          10% {
+            opacity: 0.6;
+          }
+          90% {
+            opacity: 0.6;
+          }
+          100% {
+            transform: translateY(-20px) rotate(360deg);
+            opacity: 0;
+          }
+        }
+      `}</style>
+      
+      {/* Floating trophies container */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <FloatingTrophy delay={0} duration={8} startX={10} />
+        <FloatingTrophy delay={2} duration={10} startX={25} />
+        <FloatingTrophy delay={4} duration={7} startX={40} />
+        <FloatingTrophy delay={1} duration={9} startX={55} />
+        <FloatingTrophy delay={3} duration={11} startX={70} />
+        <FloatingTrophy delay={5} duration={8} startX={85} />
+        <FloatingTrophy delay={6} duration={9} startX={15} />
+        <FloatingTrophy delay={7} duration={10} startX={60} />
+      </div>
+
       <div
-        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 pb-4 shadow-inner"
+        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 pb-4 shadow-inner z-10"
         style={{
           paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
@@ -331,7 +394,7 @@ export default function LeaderboardPage() {
 
                   <div className="mb-4">
                     <h2 className="text-xl font-bold text-white mb-2">
-                      How to Get on the Leaderboard
+                      How to Earn Glazes 🍩
                     </h2>
                   </div>
 
@@ -339,21 +402,21 @@ export default function LeaderboardPage() {
                     <div className="flex gap-3">
                       <span className="text-white font-bold flex-shrink-0">1.</span>
                       <p>
-                        <span className="text-white font-semibold">Glaze the Factory</span> - Every time you successfully win the auction by clicking "GLAZE" on the main page, you earn 1 point.
+                        <span className="text-white font-semibold">Glaze the Factory</span> - Win the Dutch auction by clicking "GLAZE" on the home page. Each successful glaze = 1 glaze point! 🍩
                       </p>
                     </div>
 
                     <div className="flex gap-3">
                       <span className="text-white font-bold flex-shrink-0">2.</span>
                       <p>
-                        <span className="text-white font-semibold">Compete Weekly</span> - The leaderboard resets every Friday at 12pm UTC. Your points only count for the current week.
+                        <span className="text-white font-semibold">Compete Weekly</span> - The leaderboard resets every Friday at 12pm UTC. Stack those glazes!
                       </p>
                     </div>
 
                     <div className="flex gap-3">
                       <span className="text-white font-bold flex-shrink-0">3.</span>
                       <p>
-                        <span className="text-white font-semibold">Win Prizes</span> - Top 3 at the end of the week split the prize pool:
+                        <span className="text-white font-semibold">Win ETH Prizes</span> - Top 3 glazers split the prize pool:
                       </p>
                     </div>
 
@@ -374,7 +437,7 @@ export default function LeaderboardPage() {
 
                     <div className="pt-3 border-t border-zinc-800">
                       <p className="text-xs text-gray-400 italic">
-                        Prize pool grows from 2.5% of all glazing fees collected during the week.
+                        The prize pool grows from 2.5% of all glazing fees. More glazes = bigger prizes! 🍩
                       </p>
                     </div>
                   </div>
@@ -383,7 +446,7 @@ export default function LeaderboardPage() {
                     onClick={() => setShowHelpDialog(false)}
                     className="mt-6 w-full rounded-xl bg-white py-3 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
                   >
-                    Got it!
+                    Let&apos;s Glaze! 🍩
                   </button>
                 </div>
               </div>
@@ -404,8 +467,8 @@ export default function LeaderboardPage() {
                   return (
                     <div
                       key={rank}
-                      className={`flex items-center justify-between bg-zinc-900 border rounded-lg p-3 ${
-                        isWinner ? "border-zinc-700 opacity-50" : "border-zinc-800 opacity-30"
+                      className={`flex items-center justify-between border rounded-lg p-3 ${getRankBackground(rank)} ${
+                        !isWinner ? "opacity-50" : ""
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -445,7 +508,7 @@ export default function LeaderboardPage() {
                       <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                         <div className="flex items-center gap-1">
                           <span className="text-lg font-bold text-gray-600">0</span>
-                          <span className="text-xs text-gray-600">pts</span>
+                          <span className="text-xs text-gray-600">🍩</span>
                         </div>
                         {isWinner && (
                           <div className="text-xs text-gray-600 font-semibold">
@@ -474,8 +537,8 @@ export default function LeaderboardPage() {
                 return (
                   <div
                     key={entry.address}
-                    className={`flex items-center justify-between bg-zinc-900 border rounded-lg p-3 hover:bg-zinc-800 transition-colors ${
-                      isWinner ? "border-zinc-700" : "border-zinc-800 opacity-60"
+                    className={`flex items-center justify-between border rounded-lg p-3 hover:brightness-110 transition-all ${getRankBackground(rank)} ${
+                      !isWinner ? "opacity-70" : ""
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -509,7 +572,7 @@ export default function LeaderboardPage() {
                     <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                       <div className="flex items-center gap-1">
                         <span className="text-lg font-bold text-white">{entry.points}</span>
-                        <span className="text-xs text-gray-400">pts</span>
+                        <span className="text-sm">🍩</span>
                       </div>
                       {prizeAmount && (
                         <div className="text-xs text-green-400 font-semibold">
