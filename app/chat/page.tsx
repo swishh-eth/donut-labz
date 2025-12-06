@@ -77,7 +77,7 @@ export default function ChatPage() {
   const [pendingMessage, setPendingMessage] = useState("");
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
 
-  const COOLDOWN_SECONDS = 30;
+  const COOLDOWN_SECONDS = 60;
 
   const { address, isConnected } = useAccount();
   const { data: hash, writeContract, isPending } = useWriteContract();

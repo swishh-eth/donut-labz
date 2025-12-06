@@ -382,6 +382,34 @@ export default function BlazeryPage() {
 
   return (
     <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
+      {/* Rising Flames CSS */}
+      <style jsx global>{`
+        @keyframes rise-flame-1 {
+          0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 0.12; }
+          50% { transform: translateY(-150px) scale(1.1) rotate(5deg); opacity: 0.08; }
+          100% { transform: translateY(-300px) scale(0.8) rotate(-5deg); opacity: 0; }
+        }
+        @keyframes rise-flame-2 {
+          0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 0.1; }
+          50% { transform: translateY(-180px) scale(1.2) rotate(-8deg); opacity: 0.06; }
+          100% { transform: translateY(-360px) scale(0.7) rotate(8deg); opacity: 0; }
+        }
+        @keyframes rise-flame-3 {
+          0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 0.14; }
+          50% { transform: translateY(-120px) scale(1.15) rotate(6deg); opacity: 0.1; }
+          100% { transform: translateY(-240px) scale(0.9) rotate(-6deg); opacity: 0; }
+        }
+        @keyframes rise-flame-4 {
+          0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 0.11; }
+          50% { transform: translateY(-200px) scale(1.1) rotate(-4deg); opacity: 0.07; }
+          100% { transform: translateY(-400px) scale(0.6) rotate(4deg); opacity: 0; }
+        }
+        .rising-flame-1 { animation: rise-flame-1 4s ease-out infinite; }
+        .rising-flame-2 { animation: rise-flame-2 5s ease-out infinite; }
+        .rising-flame-3 { animation: rise-flame-3 3.5s ease-out infinite; }
+        .rising-flame-4 { animation: rise-flame-4 6s ease-out infinite; }
+      `}</style>
+
       <div
         className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 pb-4 shadow-inner"
         style={{
@@ -389,7 +417,21 @@ export default function BlazeryPage() {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
         }}
       >
-        <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Rising Flames from bottom */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <Flame className="absolute bottom-24 left-4 w-8 h-8 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] rising-flame-1" />
+          <Flame className="absolute bottom-20 right-8 w-7 h-7 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] rising-flame-2" />
+          <Flame className="absolute bottom-28 left-12 w-6 h-6 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] rising-flame-3" />
+          <Flame className="absolute bottom-16 right-16 w-8 h-8 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] rising-flame-4" />
+          <Flame className="absolute bottom-32 left-1/4 w-7 h-7 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] rising-flame-1" style={{ animationDelay: '1s' }} />
+          <Flame className="absolute bottom-20 right-1/4 w-6 h-6 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] rising-flame-2" style={{ animationDelay: '2s' }} />
+          <Flame className="absolute bottom-24 left-1/3 w-8 h-8 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] rising-flame-3" style={{ animationDelay: '0.5s' }} />
+          <Flame className="absolute bottom-28 right-1/3 w-7 h-7 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] rising-flame-4" style={{ animationDelay: '1.5s' }} />
+          <Flame className="absolute bottom-16 left-8 w-6 h-6 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] rising-flame-1" style={{ animationDelay: '2.5s' }} />
+          <Flame className="absolute bottom-32 right-6 w-8 h-8 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] rising-flame-2" style={{ animationDelay: '3s' }} />
+        </div>
+
+        <div className="flex flex-1 flex-col overflow-hidden relative z-10">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold tracking-wide">BURN</h1>
