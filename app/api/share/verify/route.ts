@@ -1,12 +1,18 @@
 // app/api/share/verify/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createPublicClient, http, keccak256, encodePacked, toBytes } from "viem";
+import { createPublicClient, http, keccak256, encodePacked } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
+import { createClient } from "@supabase/supabase-js";
 import { SHARE_REWARDS_ADDRESS, SHARE_REWARDS_ABI } from "@/lib/contracts/share-rewards";
 
 const VERIFIER_PRIVATE_KEY = process.env.SHARE_VERIFIER_PRIVATE_KEY as `0x${string}`;
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY!;
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // Minimum requirements
 const MIN_NEYNAR_SCORE = 0.7;
@@ -21,6 +27,9 @@ const REQUIRED_EMBED_URLS = [
   "warpcast.com/miniapps/donutlabs",
   "warpcast.com/~/miniapps/donutlabs",
 ];
+
+// Cache TTL - 1 week
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function POST(req: NextRequest) {
   try {
@@ -41,82 +50,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get user's Neynar score and follower count
-    const userRes = await fetch(
-      `https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`,
-      {
-        headers: {
-          accept: "application/json",
-          api_key: NEYNAR_API_KEY,
-        },
-      }
-    );
-
-    if (!userRes.ok) {
-      console.error("Failed to fetch user:", await userRes.text());
-      return NextResponse.json(
-        { error: "Failed to fetch user data" },
-        { status: 500 }
-      );
-    }
-
-    const userData = await userRes.json();
-    const user = userData.users?.[0];
-    const neynarScore = user?.experimental?.neynar_user_score || 0;
-    const followerCount = user?.follower_count ?? 0;
-
-    // Check if user follows swishh.eth using the follow check endpoint
-    let followsSwishh = false;
-    try {
-      const followRes = await fetch(
-        `https://api.neynar.com/v2/farcaster/user/bulk?fids=${SWISHH_FID}&viewer_fid=${fid}`,
-        {
-          headers: {
-            accept: "application/json",
-            api_key: NEYNAR_API_KEY,
-          },
-        }
-      );
-      if (followRes.ok) {
-        const followData = await followRes.json();
-        // viewer_context.following means the viewer (user) follows swishh
-        followsSwishh = followData.users?.[0]?.viewer_context?.following || false;
-      }
-    } catch (e) {
-      console.error("Failed to check follow status:", e);
-    }
-
-    console.log("Share verify - User check:", { 
-      fid, 
-      neynarScore, 
-      followerCount,
-      followsSwishh,
-      hasUser: !!user 
-    });
-
-    // Check minimum follower requirement FIRST
-    if (followerCount < MIN_FOLLOWERS) {
-      return NextResponse.json(
-        {
-          error: "Not enough followers",
-          message: `You need at least ${MIN_FOLLOWERS} followers to claim (you have ${followerCount}).`,
-        },
-        { status: 403 }
-      );
-    }
-
-    // Check minimum score requirement
-    if (neynarScore < MIN_NEYNAR_SCORE) {
-      return NextResponse.json(
-        {
-          error: "Score too low",
-          message: `Your Neynar score (${neynarScore.toFixed(2)}) is below the minimum required (${MIN_NEYNAR_SCORE}). Build up your reputation and try again!`,
-        },
-        { status: 403 }
-      );
-    }
-
-    // Get current campaign info from contract
+    // ============================================
+    // STEP 1: Check contract if already claimed (FREE)
+    // ============================================
     const publicClient = createPublicClient({
       chain: base,
       transport: http("https://mainnet.base.org"),
@@ -145,7 +81,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Parse campaign info
     const [, , , , , active, startTime] = campaignInfo as [
       string,
       bigint,
@@ -164,10 +99,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Convert campaign start time to milliseconds
     const campaignStartMs = Number(startTime) * 1000;
 
-    // Check if user already claimed
     const hasClaimed = await publicClient.readContract({
       address: SHARE_REWARDS_ADDRESS as `0x${string}`,
       abi: SHARE_REWARDS_ABI,
@@ -182,7 +115,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch user's recent casts from Neynar
+    // ============================================
+    // STEP 2: Check for valid cast FIRST (1 Neynar call)
+    // If no cast found, reject early - saves 2 API calls
+    // ============================================
     const castsRes = await fetch(
       `https://api.neynar.com/v2/farcaster/feed/user/casts?fid=${fid}&limit=25`,
       {
@@ -204,18 +140,13 @@ export async function POST(req: NextRequest) {
     const castsData = await castsRes.json();
     const casts = castsData.casts || [];
 
-    // Find a valid cast that:
-    // 1. Was made AFTER the campaign started
-    // 2. Contains the miniapp embed URL
     const validCast = casts.find((cast: any) => {
       const castTime = new Date(cast.timestamp).getTime();
 
-      // Cast must be AFTER campaign started
       if (castTime < campaignStartMs) {
         return false;
       }
 
-      // Check embeds for the miniapp URL (this is the important one)
       const embeds = cast.embeds || [];
       const hasValidEmbed = embeds.some((embed: any) => {
         const url = (embed.url || "").toLowerCase();
@@ -224,7 +155,6 @@ export async function POST(req: NextRequest) {
         );
       });
 
-      // Also check text as fallback
       const text = (cast.text || "").toLowerCase();
       const hasValidText = REQUIRED_EMBED_URLS.some((requiredUrl) =>
         text.includes(requiredUrl.toLowerCase())
@@ -244,7 +174,140 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if user follows swishh.eth - required to claim
+    // ============================================
+    // STEP 3: Check profile cache in Supabase (FREE)
+    // ============================================
+    let neynarScore: number | null = null;
+    let followerCount: number | null = null;
+
+    try {
+      const { data: cachedProfile } = await supabase
+        .from("profile_cache")
+        .select("*")
+        .eq("address", address.toLowerCase())
+        .single();
+
+      if (cachedProfile) {
+        const cachedTime = new Date(cachedProfile.updated_at).getTime();
+        if (Date.now() - cachedTime < CACHE_TTL_MS) {
+          neynarScore = cachedProfile.profile?.neynarScore ?? null;
+          followerCount = cachedProfile.profile?.followerCount ?? null;
+          console.log("Share verify - Using cached profile:", { neynarScore, followerCount });
+        }
+      }
+    } catch (e) {
+      // Cache miss, will fetch from Neynar
+    }
+
+    // ============================================
+    // STEP 4: Fetch user data from Neynar if not cached (1 Neynar call)
+    // ============================================
+    let user: any = null;
+    
+    if (neynarScore === null || followerCount === null) {
+      const userRes = await fetch(
+        `https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`,
+        {
+          headers: {
+            accept: "application/json",
+            api_key: NEYNAR_API_KEY,
+          },
+        }
+      );
+
+      if (!userRes.ok) {
+        console.error("Failed to fetch user:", await userRes.text());
+        return NextResponse.json(
+          { error: "Failed to fetch user data" },
+          { status: 500 }
+        );
+      }
+
+      const userData = await userRes.json();
+      user = userData.users?.[0];
+      
+      neynarScore = user?.experimental?.neynar_user_score || 0;
+      followerCount = user?.follower_count ?? 0;
+
+      // Update cache with fresh data including follower count
+      const userVerifiedAddress = user?.verified_addresses?.eth_addresses?.[0]?.toLowerCase();
+      if (userVerifiedAddress) {
+        try {
+          await supabase.from("profile_cache").upsert(
+            {
+              address: userVerifiedAddress,
+              profile: {
+                fid: user.fid,
+                username: user.username,
+                displayName: user.display_name,
+                pfpUrl: user.pfp_url,
+                neynarScore: neynarScore,
+                followerCount: followerCount,
+              },
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "address" }
+          );
+        } catch (e) {
+          console.error("Failed to update profile cache:", e);
+        }
+      }
+    }
+
+    console.log("Share verify - User check:", { 
+      fid, 
+      neynarScore, 
+      followerCount,
+      fromCache: user === null,
+    });
+
+    // Check minimum follower requirement
+    if (followerCount! < MIN_FOLLOWERS) {
+      return NextResponse.json(
+        {
+          error: "Not enough followers",
+          message: `You need at least ${MIN_FOLLOWERS} followers to claim (you have ${followerCount}).`,
+        },
+        { status: 403 }
+      );
+    }
+
+    // Check minimum score requirement
+    if (neynarScore! < MIN_NEYNAR_SCORE) {
+      return NextResponse.json(
+        {
+          error: "Score too low",
+          message: `Your Neynar score (${neynarScore!.toFixed(2)}) is below the minimum required (${MIN_NEYNAR_SCORE}). Build up your reputation and try again!`,
+        },
+        { status: 403 }
+      );
+    }
+
+    // ============================================
+    // STEP 5: Check if user follows swishh.eth (1 Neynar call)
+    // ============================================
+    let followsSwishh = false;
+    try {
+      const followRes = await fetch(
+        `https://api.neynar.com/v2/farcaster/user/bulk?fids=${SWISHH_FID}&viewer_fid=${fid}`,
+        {
+          headers: {
+            accept: "application/json",
+            api_key: NEYNAR_API_KEY,
+          },
+        }
+      );
+
+      if (followRes.ok) {
+        const followData = await followRes.json();
+        followsSwishh = followData.users?.[0]?.viewer_context?.following || false;
+      }
+    } catch (e) {
+      console.error("Failed to check follow status:", e);
+    }
+
+    console.log("Share verify - Follow check:", { fid, followsSwishh });
+
     if (!followsSwishh) {
       return NextResponse.json(
         {
@@ -257,33 +320,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Calculate score for contract
-    // Score range: 0.7 to 1.0 maps to 0.9x to 1.1x of base reward
-    // 
-    // Formula: multiplier = 0.9 + ((score - 0.7) / 0.3) * 0.2
-    // Score 0.7 → 0.9 (90% of base)
-    // Score 0.85 → 1.0 (100% of base)  
-    // Score 1.0 → 1.1 (110% of base)
-    //
-    // We'll pass the multiplier as basis points (9000-11000)
-    // Contract will do: reward = baseReward * scoreBps / 10000
-    
-    const multiplier = 0.9 + ((neynarScore - 0.7) / 0.3) * 0.2;
+    // ============================================
+    // STEP 6: All checks passed - generate signature
+    // ============================================
+    const multiplier = 0.9 + ((neynarScore! - 0.7) / 0.3) * 0.2;
     const clampedMultiplier = Math.min(Math.max(multiplier, 0.9), 1.1);
     const scoreBps = Math.floor(clampedMultiplier * 10000);
 
-    // Format cast hash - needs to be bytes32
     let castHashHex = validCast.hash;
     if (!castHashHex.startsWith("0x")) {
       castHashHex = "0x" + castHashHex;
     }
 
-    // Pad to 32 bytes (64 hex chars + 0x)
     while (castHashHex.length < 66) {
       castHashHex = castHashHex + "0";
     }
 
-    // Create the message hash that matches the contract
     const messageHash = keccak256(
       encodePacked(
         ["uint256", "address", "uint256", "bytes32"],
@@ -296,30 +348,30 @@ export async function POST(req: NextRequest) {
       )
     );
 
-    // Sign the message
     const account = privateKeyToAccount(VERIFIER_PRIVATE_KEY);
     const signature = await account.signMessage({
-      message: { raw: toBytes(messageHash) },
+      message: { raw: messageHash },
     });
 
-    const castDate = new Date(validCast.timestamp).toLocaleString();
+    console.log("Share verify - Success:", {
+      address,
+      fid,
+      scoreBps,
+      castHash: castHashHex,
+    });
 
     return NextResponse.json({
       success: true,
-      neynarScore: scoreBps,
-      rawNeynarScore: neynarScore,
-      multiplier: clampedMultiplier,
+      campaignId: campaignId.toString(),
+      scoreBps,
       castHash: castHashHex,
       signature,
-      campaignId: Number(campaignId),
-      castText: validCast.text?.slice(0, 50),
-      castDate,
-      followerCount,
+      neynarScore,
     });
   } catch (error) {
     console.error("Share verify error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Verification failed" },
       { status: 500 }
     );
   }
