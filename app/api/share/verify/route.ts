@@ -8,8 +8,9 @@ import { SHARE_REWARDS_ADDRESS, SHARE_REWARDS_ABI } from "@/lib/contracts/share-
 const VERIFIER_PRIVATE_KEY = process.env.SHARE_VERIFIER_PRIVATE_KEY as `0x${string}`;
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY!;
 
-// Minimum Neynar score required (0.6 = 6000 basis points)
+// Minimum requirements
 const MIN_NEYNAR_SCORE = 0.7;
+const MIN_FOLLOWERS = 500;
 
 // The EXACT miniapp URL that must be in the cast
 const REQUIRED_EMBED_URLS = [
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get user's Neynar score FIRST to reject low scores early
+    // Get user's Neynar score and follower count FIRST to reject early
     const userRes = await fetch(
       `https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`,
       {
@@ -59,6 +60,18 @@ export async function POST(req: NextRequest) {
     const userData = await userRes.json();
     const user = userData.users?.[0];
     const neynarScore = user?.experimental?.neynar_user_score || 0;
+    const followerCount = user?.follower_count || 0;
+
+    // Check minimum follower requirement
+    if (followerCount < MIN_FOLLOWERS) {
+      return NextResponse.json(
+        {
+          error: "Not enough followers",
+          message: `You need at least ${MIN_FOLLOWERS} followers to claim (you have ${followerCount}).`,
+        },
+        { status: 403 }
+      );
+    }
 
     // Check minimum score requirement
     if (neynarScore < MIN_NEYNAR_SCORE) {
@@ -200,18 +213,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Calculate score for contract
-    // We pass a value that the contract will use to calculate reward
-    // Score range: 0.6 to 1.0 maps to -10% to +10% of base reward
+    // Score range: 0.7 to 1.0 maps to 0.9x to 1.1x of base reward
     // 
-    // Formula: multiplier = 0.9 + (score - 0.6) * 0.5
-    // Score 0.6 → 0.9 (90% of base)
-    // Score 0.8 → 1.0 (100% of base)  
+    // Formula: multiplier = 0.9 + ((score - 0.7) / 0.3) * 0.2
+    // Score 0.7 → 0.9 (90% of base)
+    // Score 0.85 → 1.0 (100% of base)  
     // Score 1.0 → 1.1 (110% of base)
     //
     // We'll pass the multiplier as basis points (9000-11000)
     // Contract will do: reward = baseReward * scoreBps / 10000
     
-    const multiplier = 0.9 + (neynarScore - 0.6) * 0.5;
+    const multiplier = 0.9 + ((neynarScore - 0.7) / 0.3) * 0.2;
     const clampedMultiplier = Math.min(Math.max(multiplier, 0.9), 1.1);
     const scoreBps = Math.floor(clampedMultiplier * 10000);
 
@@ -257,6 +269,7 @@ export async function POST(req: NextRequest) {
       campaignId: Number(campaignId),
       castText: validCast.text?.slice(0, 50),
       castDate,
+      followerCount,
     });
   } catch (error) {
     console.error("Share verify error:", error);
