@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Send, MessageCircle, HelpCircle, X, Users, Star } from "lucide-react";
+import { Send, MessageCircle, HelpCircle, X, Users, Sparkles } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
 import { base } from "wagmi/chains";
 import { createPublicClient, http, parseAbiItem } from "viem";
@@ -313,8 +313,8 @@ export default function ChatPage() {
           <div className="grid grid-cols-2 gap-2 mb-3 flex-shrink-0">
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
               <div className="flex items-center gap-1 mb-0.5">
-                <Star className="w-3 h-3 text-yellow-400" />
-                <span className="text-[9px] text-gray-400 uppercase">Your Points</span>
+                <Sparkles className="w-3 h-3 text-pink-400" />
+                <span className="text-[9px] text-gray-400 uppercase">Your Sprinkles</span>
               </div>
               <div className="text-lg font-bold text-white">
                 {typeof userPoints === 'number' ? userPoints.toFixed(2) : '0.00'}
@@ -334,8 +334,8 @@ export default function ChatPage() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-3 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Star className="w-4 h-4 text-yellow-400" />
-                <span className="text-xs font-semibold text-white">Earn Points</span>
+                <Sparkles className="w-4 h-4 text-pink-400" />
+                <span className="text-xs font-semibold text-white">Earn Sprinkles</span>
                 <button
                   onClick={() => setShowHelpDialog(true)}
                   className="ml-1 text-gray-400 hover:text-white transition-colors"
@@ -366,32 +366,32 @@ export default function ChatPage() {
                   </button>
 
                   <div className="mb-4">
-                    <h2 className="text-xl font-bold text-white mb-2">Onchain Chat Points</h2>
+                    <h2 className="text-xl font-bold text-white mb-2">Onchain Chat Sprinkles</h2>
                   </div>
 
                   <div className="space-y-3 text-sm text-gray-300">
                     <div className="flex gap-3">
                       <span className="text-white font-bold flex-shrink-0">1.</span>
                       <p>
-                        <span className="text-white font-semibold">Send Messages</span> - Every message you send onchain earns you points based on your Neynar score.
+                        <span className="text-white font-semibold">Send Messages</span> - Every message you send onchain earns you sprinkles based on your Neynar score.
                       </p>
                     </div>
                     <div className="flex gap-3">
                       <span className="text-white font-bold flex-shrink-0">2.</span>
                       <p>
-                        <span className="text-white font-semibold">Neynar Score</span> - Your Farcaster reputation score (0-1) determines how many points each message earns.
+                        <span className="text-white font-semibold">Neynar Score</span> - Your Farcaster reputation score (0-1) determines how many sprinkles each message earns.
                       </p>
                     </div>
                     <div className="flex gap-3">
                       <span className="text-white font-bold flex-shrink-0">3.</span>
                       <p>
-                        <span className="text-white font-semibold">Example</span> - A user with 0.7 Neynar score earns 0.7 points per message sent.
+                        <span className="text-white font-semibold">Example</span> - A user with 0.7 Neynar score earns 0.7 sprinkles per message sent.
                       </p>
                     </div>
                     <div className="flex gap-3">
                       <span className="text-white font-bold flex-shrink-0">4.</span>
                       <p>
-                        <span className="text-white font-semibold">Future Rewards</span> - Points may be used for future airdrops and rewards!
+                        <span className="text-white font-semibold">Future Rewards</span> - Sprinkles may be used for future airdrops and rewards!
                       </p>
                     </div>
                     <div className="pt-3 border-t border-zinc-800">
