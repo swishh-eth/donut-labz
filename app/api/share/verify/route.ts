@@ -9,7 +9,7 @@ const VERIFIER_PRIVATE_KEY = process.env.SHARE_VERIFIER_PRIVATE_KEY as `0x${stri
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY!;
 
 // Minimum Neynar score required (0.6 = 6000 basis points)
-const MIN_NEYNAR_SCORE = 0.6;
+const MIN_NEYNAR_SCORE = 0.7;
 
 // The EXACT miniapp URL that must be in the cast
 const REQUIRED_EMBED_URLS = [
