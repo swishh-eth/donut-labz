@@ -11,7 +11,7 @@ import {
 import { base } from "wagmi/chains";
 import { formatUnits } from "viem";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { Share2, Gift, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Share2, Gift, Loader2, CheckCircle, XCircle, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SHARE_REWARDS_ADDRESS,
@@ -49,6 +49,7 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
   const [claimedAmount, setClaimedAmount] = useState<string | null>(null);
   const [showClaimSuccess, setShowClaimSuccess] = useState(false);
   const [hasShared, setHasShared] = useState(false);
+  const [needsFollow, setNeedsFollow] = useState(false);
 
   // Pulsing effect for active campaign
   useEffect(() => {
@@ -171,7 +172,7 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
   // Share before claiming (to qualify)
   const handleShareToQualify = async () => {
     const estimatedAmount = getEstimatedAmount();
-    const shareText = `I just got some free glaze at the Donut Labs by @swishh.eth 🍩\n\n${estimatedAmount} $${tokenSymbol} claimed! 🎉\n\nGet your free tokens too 👇`;
+    const shareText = `I just got some free glaze at the Donut Lab! 🍩🍩🍩\n\n${estimatedAmount} $${tokenSymbol} claimed! 🎉\n\nGet your free tokens too 👇`;
     
     try {
       await sdk.actions.composeCast({
@@ -238,6 +239,7 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
 
     setIsVerifying(true);
     setVerifyError(null);
+    setNeedsFollow(false);
 
     try {
       const res = await fetch("/api/share/verify", {
@@ -249,10 +251,18 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
       const data = await res.json();
 
       if (!res.ok) {
+        // Check if they need to follow
+        if (data.needsFollow) {
+          setNeedsFollow(true);
+          setHasShared(true); // They've shared, just need to follow
+          return;
+        }
         setVerifyError(data.message || data.error || "Verification failed");
         return;
       }
 
+      // Success - they've shared AND followed
+      setNeedsFollow(false);
       setClaimData({
         neynarScore: data.scoreBps || data.neynarScore,
         castHash: data.castHash,
@@ -262,6 +272,15 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
       setVerifyError("Failed to verify share");
     } finally {
       setIsVerifying(false);
+    }
+  };
+
+  // Handle opening swishh.eth profile to follow
+  const handleFollow = async () => {
+    try {
+      await sdk.actions.openUrl("https://warpcast.com/swishh.eth");
+    } catch (e) {
+      window.open("https://warpcast.com/swishh.eth", "_blank");
     }
   };
 
@@ -461,6 +480,7 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
               onClick={() => {
                 setVerifyError(null);
                 setHasShared(false);
+                setNeedsFollow(false);
               }}
               className="text-[9px] text-red-300 underline flex-shrink-0"
             >
@@ -491,7 +511,39 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
       );
     }
 
-    // State 2: Shared - Show verify button
+    // State 2: Needs to follow @swishh.eth
+    if (needsFollow) {
+      return (
+        <div className="flex gap-1.5">
+          <button
+            onClick={handleFollow}
+            className="flex-1 bg-purple-500 hover:bg-purple-400 border border-purple-400 rounded-lg p-2 flex items-center justify-center gap-1 transition-all"
+          >
+            <UserPlus className="w-3 h-3 text-white" />
+            <span className="font-bold text-[10px] text-white">Follow</span>
+          </button>
+          <button
+            onClick={handleVerifyAndClaim}
+            disabled={isVerifying}
+            className={cn(
+              "flex-1 bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 rounded-lg p-2 flex items-center justify-center gap-1 transition-all",
+              isVerifying && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            {isVerifying ? (
+              <Loader2 className="w-3 h-3 animate-spin text-white" />
+            ) : (
+              <CheckCircle className="w-3 h-3 text-white" />
+            )}
+            <span className="font-bold text-[10px] text-white">
+              {isVerifying ? "..." : "Verify"}
+            </span>
+          </button>
+        </div>
+      );
+    }
+
+    // State 3: Shared - Show verify button
     return (
       <button
         onClick={handleVerifyAndClaim}

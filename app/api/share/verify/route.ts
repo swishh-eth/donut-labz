@@ -12,6 +12,9 @@ const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY!;
 const MIN_NEYNAR_SCORE = 0.7;
 const MIN_FOLLOWERS = 500;
 
+// swishh.eth FID - users must follow this account
+const SWISHH_FID = 270504;
+
 // The EXACT miniapp URL that must be in the cast
 const REQUIRED_EMBED_URLS = [
   "donutlabs.vercel.app",
@@ -38,7 +41,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get user's Neynar score and follower count FIRST to reject early
+    // Get user's Neynar score and follower count
     const userRes = await fetch(
       `https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`,
       {
@@ -60,13 +63,34 @@ export async function POST(req: NextRequest) {
     const userData = await userRes.json();
     const user = userData.users?.[0];
     const neynarScore = user?.experimental?.neynar_user_score || 0;
-    // Neynar v2 API: follower_count is directly on user object
     const followerCount = user?.follower_count ?? 0;
+
+    // Check if user follows swishh.eth using the follow check endpoint
+    let followsSwishh = false;
+    try {
+      const followRes = await fetch(
+        `https://api.neynar.com/v2/farcaster/user/bulk?fids=${SWISHH_FID}&viewer_fid=${fid}`,
+        {
+          headers: {
+            accept: "application/json",
+            api_key: NEYNAR_API_KEY,
+          },
+        }
+      );
+      if (followRes.ok) {
+        const followData = await followRes.json();
+        // viewer_context.following means the viewer (user) follows swishh
+        followsSwishh = followData.users?.[0]?.viewer_context?.following || false;
+      }
+    } catch (e) {
+      console.error("Failed to check follow status:", e);
+    }
 
     console.log("Share verify - User check:", { 
       fid, 
       neynarScore, 
       followerCount,
+      followsSwishh,
       hasUser: !!user 
     });
 
@@ -217,6 +241,19 @@ export async function POST(req: NextRequest) {
           message: `Please share the mini app AFTER the campaign started (${campaignStartDate}). Make sure to include the Donut Labs miniapp link in your cast.`,
         },
         { status: 404 }
+      );
+    }
+
+    // Check if user follows swishh.eth - required to claim
+    if (!followsSwishh) {
+      return NextResponse.json(
+        {
+          error: "Must follow @swishh.eth",
+          message: "You need to follow @swishh.eth to claim rewards.",
+          needsFollow: true,
+          hasShared: true,
+        },
+        { status: 403 }
       );
     }
 
