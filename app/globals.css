@@ -43,6 +43,22 @@ html, body {
   overscroll-behavior: none;
 }
 
+/* Page transitions */
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-transition {
+  animation: pageIn 0.2s ease-out;
+}
+
 @keyframes glow-pulse {
   0%,
   100% {

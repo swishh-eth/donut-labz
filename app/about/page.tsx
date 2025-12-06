@@ -8,6 +8,7 @@ import { AddToFarcasterButton } from "@/components/add-to-farcaster-button";
 import { DuneDashboardButton } from "@/components/dune-dashboard-button";
 import { CommunityLPButton } from "@/components/community-lp-button";
 import { LearnMoreButton } from "@/components/learn-more-button";
+import { Info, Pickaxe, PieChart, Clock, Flame, Building, Beaker, Code } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -24,6 +25,24 @@ const initialsFrom = (label?: string) => {
   if (!stripped) return label.slice(0, 2).toUpperCase();
   return stripped.slice(0, 2).toUpperCase();
 };
+
+type SectionProps = {
+  icon: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
+};
+
+const Section = ({ icon, title, children }: SectionProps) => (
+  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+    <div className="flex items-center gap-2 mb-2">
+      {icon}
+      <h2 className="text-sm font-bold text-white">{title}</h2>
+    </div>
+    <div className="text-xs text-gray-400 space-y-1.5">
+      {children}
+    </div>
+  </div>
+);
 
 export default function AboutPage() {
   const readyRef = useRef(false);
@@ -69,7 +88,7 @@ export default function AboutPage() {
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
   return (
-    <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
+    <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <div
         className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 pb-4 shadow-inner"
         style={{
@@ -78,9 +97,10 @@ export default function AboutPage() {
         }}
       >
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="sticky top-0 z-10 bg-black pb-2 flex items-center justify-between">
-            <h1 className="text-2xl font-bold tracking-wide">ABOUT</h1>
-            {context?.user ? (
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold tracking-wide">INFO</h1>
+            {context?.user && (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
                 <Avatar className="h-8 w-8 border border-zinc-800">
                   <AvatarImage
@@ -94,15 +114,17 @@ export default function AboutPage() {
                 </Avatar>
                 <div className="leading-tight text-left">
                   <div className="text-sm font-bold">{userDisplayName}</div>
-                  {userHandle ? (
+                  {userHandle && (
                     <div className="text-xs text-gray-400">{userHandle}</div>
-                  ) : null}
+                  )}
                 </div>
               </div>
-            ) : null}
+            )}
           </div>
 
-          <div className="space-y-6 px-2 overflow-y-auto scrollbar-hide flex-1">
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto scrollbar-hide space-y-3 pb-4">
+            {/* Quick Links */}
             <div className="grid grid-cols-2 gap-2">
               <AddToFarcasterButton variant="default" />
               <DuneDashboardButton variant="default" />
@@ -110,101 +132,116 @@ export default function AboutPage() {
               <LearnMoreButton variant="default" />
             </div>
 
-            <section>
-              <h2 className="text-lg font-bold text-white mb-2">
-                What Is $DONUT
-              </h2>
-              <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
-                <li>$DONUT is a store-of-value token on Base</li>
-                <li>Mined through a continuous Dutch auction instead of proof-of-work or staking</li>
-                <li>Auction revenue increases $DONUT's liquidity and scarcity</li>
-              </ul>
-            </section>
+            {/* What is $DONUT */}
+            <Section
+              icon={<Info className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
+              title="What Is $DONUT"
+            >
+              <p>$DONUT is a store-of-value token on Base, mined through a continuous Dutch auction instead of proof-of-work or staking.</p>
+              <p>Auction revenue increases $DONUT's liquidity and scarcity.</p>
+            </Section>
 
-            <section>
-              <h2 className="text-lg font-bold text-white mb-2">
-                How Mining Works
-              </h2>
-              <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
-                <li>Only one active miner at a time, called the King Glazer</li>
-                <li>The right to mine is bought with ETH through a continuous Dutch auction:</li>
-                <li className="pl-6 list-none">- Price doubles after each purchase</li>
-                <li className="pl-6 list-none">- Then decays to 0 over one hour</li>
-                <li className="pl-6 list-none">- Anyone can purchase control of emissions at the current price</li>
-              </ul>
-            </section>
+            {/* How Mining Works */}
+            <Section
+              icon={<Pickaxe className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
+              title="How Mining Works"
+            >
+              <p>Only one active miner at a time, called the <span className="text-white font-semibold">King Glazer</span>.</p>
+              <p>The right to mine is bought with ETH through a continuous Dutch auction:</p>
+              <div className="pl-2 border-l border-zinc-700 ml-1 space-y-1">
+                <p>• Price doubles after each purchase</p>
+                <p>• Then decays to 0 over one hour</p>
+                <p>• Anyone can purchase control at current price</p>
+              </div>
+            </Section>
 
-            <section>
-              <h2 className="text-lg font-bold text-white mb-2">
-                Revenue Split
-              </h2>
-              <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
-                <li>80% → previous King Glazer</li>
-                <li>15% → treasury (Blazery)</li>
-                <li>5% → provider (frontend host)</li>
-              </ul>
-            </section>
+            {/* Revenue Split */}
+            <Section
+              icon={<PieChart className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
+              title="Revenue Split"
+            >
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-zinc-800 rounded-lg p-2">
+                  <div className="text-lg font-bold text-white">80%</div>
+                  <div className="text-[10px] text-gray-500">Prev Glazer</div>
+                </div>
+                <div className="bg-zinc-800 rounded-lg p-2">
+                  <div className="text-lg font-bold text-white">15%</div>
+                  <div className="text-[10px] text-gray-500">Treasury</div>
+                </div>
+                <div className="bg-zinc-800 rounded-lg p-2">
+                  <div className="text-lg font-bold text-white">5%</div>
+                  <div className="text-[10px] text-gray-500">Provider</div>
+                </div>
+              </div>
+            </Section>
 
-            <section>
-              <h2 className="text-lg font-bold text-white mb-2">
-                Emission Schedule
-              </h2>
-              <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
-                <li>Starts at 4 DONUT / sec</li>
-                <li>Halving every 30 days</li>
-                <li>Tail emission: 0.01 DONUT / sec (forever)</li>
-              </ul>
-            </section>
+            {/* Emission Schedule */}
+            <Section
+              icon={<Clock className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
+              title="Emission Schedule"
+            >
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-zinc-800 rounded-lg p-2">
+                  <div className="text-sm font-bold text-white">4/sec</div>
+                  <div className="text-[10px] text-gray-500">Start Rate</div>
+                </div>
+                <div className="bg-zinc-800 rounded-lg p-2">
+                  <div className="text-sm font-bold text-white">30 days</div>
+                  <div className="text-[10px] text-gray-500">Halving</div>
+                </div>
+                <div className="bg-zinc-800 rounded-lg p-2">
+                  <div className="text-sm font-bold text-white">0.01/s</div>
+                  <div className="text-[10px] text-gray-500">Tail Rate</div>
+                </div>
+              </div>
+            </Section>
 
-            <section>
-              <h2 className="text-lg font-bold text-white mb-2">
-                Proof of Just-In-Time Stake
-              </h2>
-              <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
-                <li>ETH is "staked" only while controlling emissions</li>
-                <li>Profit if the next purchase pays more</li>
-                <li>Lose if it pays less</li>
-                <li>Earn $DONUT the entire time you hold control</li>
-              </ul>
-            </section>
+            {/* Proof of Just-In-Time Stake */}
+            <Section
+              icon={<Flame className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
+              title="Proof of Just-In-Time Stake"
+            >
+              <p>ETH is "staked" only while controlling emissions.</p>
+              <p>Profit if the next purchase pays more, lose if it pays less.</p>
+              <p>Earn $DONUT the entire time you hold control.</p>
+            </Section>
 
-            <section>
-              <h2 className="text-lg font-bold text-white mb-2">
-                Treasury
-              </h2>
-              <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
-                <li>Treasury ETH is used to buy and burn DONUT-WETH LP in the Blazery</li>
-                <li>Once sufficient liquidity is established, the Glazery can be upgraded to buy and burn DONUT directly, or governance can decide to acquire other assets or reinvest the treasury</li>
-              </ul>
-            </section>
+            {/* Treasury */}
+            <Section
+              icon={<Building className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
+              title="Treasury"
+            >
+              <p>Treasury ETH is used to buy and burn DONUT-WETH LP in the Blazery.</p>
+              <p>Once sufficient liquidity is established, governance can decide to buy/burn DONUT directly or reinvest.</p>
+            </Section>
 
-                                    <section>
-              <h2 className="text-lg font-bold text-white mb-2">
-                What is Donut Labs?
-              </h2>
-              <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
-                <li>Donut Labs is an independent donut shop operating inside the $DONUT ecosystem, focused on delivering community-owned tools, auctions, rewards, and glazer culture.</li>
-                <li>When you Glaze through the Donut Labs mini-app, you’re automatically entered into the weekly rewards leaderboard.</li>
-                <li>Every auction entry counts as a leaderboard entry, only the top 3 Glazers of the week split the plot!</li>
-                <li>More Glazes = More Entries = Higher Rank</li>
+            {/* What is Donut Labs? */}
+            <Section
+              icon={<Beaker className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
+              title="What is Donut Labs?"
+            >
+              <p>Donut Labs is an independent donut shop operating inside the $DONUT ecosystem.</p>
+              <p>When you Glaze through this mini-app, you're automatically entered into the <span className="text-white font-semibold">weekly rewards leaderboard</span>.</p>
+              <p>Top 3 Glazers of the week split the prize pool!</p>
+              <p className="text-gray-500 italic">More Glazes = More Entries = Higher Rank</p>
+            </Section>
 
-                <li>Donut Labs also offers an Onchain Glazery Chat</li>
-                <li>May lead to something later...</li>
-              </ul>
-            </section>
-
-            <section className="pb-4">
-              <h2 className="text-lg font-bold text-white mb-2">
-                Builder Codes
-              </h2>
-              <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
-                <li>Anyone can host their own Donut Shop by deploying a frontend</li>
-                <li>Add your builder code to earn 5% of all purchases made through your shop</li>
-                <li>The protocol will launch with two official Donut Shops:</li>
-                <li className="pl-6 list-none">- GlazeCorp by @heesh</li>
-                <li className="pl-6 list-none">- Pinky Glazer by @bigbroc</li>
-              </ul>
-            </section>
+            {/* Builder Codes */}
+            <Section
+              icon={<Code className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
+              title="Builder Codes"
+            >
+              <p>Anyone can host their own Donut Shop by deploying a frontend.</p>
+              <p>Add your builder code to earn 5% of all purchases made through your shop.</p>
+              <div className="mt-2 pt-2 border-t border-zinc-800">
+                <p className="text-[10px] text-gray-500 mb-1">Official Donut Shops:</p>
+                <div className="flex gap-2">
+                  <span className="bg-zinc-800 px-2 py-0.5 rounded text-[10px] text-white">GlazeCorp @heesh</span>
+                  <span className="bg-zinc-800 px-2 py-0.5 rounded text-[10px] text-white">Pinky Glazer @bigbroc</span>
+                </div>
+              </div>
+            </Section>
           </div>
         </div>
       </div>

@@ -237,7 +237,7 @@ export default function LeaderboardPage() {
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
   return (
-    <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
+    <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       {/* Floating Trophies CSS */}
       <style jsx global>{`
         @keyframes float-trophy-1 {
