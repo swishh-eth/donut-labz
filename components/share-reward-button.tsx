@@ -48,6 +48,7 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
   const [isPulsing, setIsPulsing] = useState(false);
   const [claimedAmount, setClaimedAmount] = useState<string | null>(null);
   const [showClaimSuccess, setShowClaimSuccess] = useState(false);
+  const [hasShared, setHasShared] = useState(false);
 
   // Pulsing effect for active campaign
   useEffect(() => {
@@ -177,18 +178,21 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
         text: shareText,
         embeds: ["https://donutlabs.vercel.app"],
       });
+      setHasShared(true);
     } catch (e) {
       try {
         const encodedText = encodeURIComponent(shareText);
         await sdk.actions.openUrl({
           url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
         });
+        setHasShared(true);
       } catch {
         const encodedText = encodeURIComponent(shareText);
         window.open(
           `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
           "_blank"
         );
+        setHasShared(true);
       }
     }
   };
@@ -384,7 +388,7 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
             <Gift className="w-3 h-3 text-black" />
           )}
           <span className="font-bold text-xs text-black">
-            {isWriting ? "..." : isConfirming ? "..." : "Claim"}
+            {isWriting ? "Approve..." : isConfirming ? "Claiming..." : "Claim"}
           </span>
         </button>
       );
@@ -454,7 +458,10 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
               </span>
             </div>
             <button
-              onClick={() => setVerifyError(null)}
+              onClick={() => {
+                setVerifyError(null);
+                setHasShared(false);
+              }}
               className="text-[9px] text-red-300 underline flex-shrink-0"
             >
               Retry
@@ -464,19 +471,43 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
       );
     }
 
+    // State 1: Initial - Show gift icon, tap to share
+    if (!hasShared) {
+      return (
+        <button
+          onClick={handleShareToQualify}
+          disabled={!userFid}
+          className={cn(
+            "bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded-lg p-2 flex items-center justify-center gap-1.5 transition-all",
+            isPulsing && "scale-[0.97]",
+            !userFid && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          <Gift className="w-3 h-3 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+          <span className="font-bold text-xs text-amber-400">
+            {claimsRemaining} left
+          </span>
+        </button>
+      );
+    }
+
+    // State 2: Shared - Show verify button
     return (
       <button
-        onClick={handleShareToQualify}
-        disabled={!userFid}
+        onClick={handleVerifyAndClaim}
+        disabled={isVerifying || !userFid}
         className={cn(
-          "bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded-lg p-2 flex items-center justify-center gap-1.5 transition-all",
-          isPulsing && "scale-[0.97]",
-          !userFid && "opacity-50 cursor-not-allowed"
+          "bg-amber-500 hover:bg-amber-400 border border-amber-400 rounded-lg p-2 flex items-center justify-center gap-1.5 transition-all",
+          (isVerifying || !userFid) && "opacity-50 cursor-not-allowed"
         )}
       >
-        <Share2 className="w-3 h-3 text-amber-400" />
-        <span className="font-bold text-xs text-amber-400">
-          Share 🍩
+        {isVerifying ? (
+          <Loader2 className="w-3 h-3 animate-spin text-black" />
+        ) : (
+          <CheckCircle className="w-3 h-3 text-black" />
+        )}
+        <span className="font-bold text-xs text-black">
+          {isVerifying ? "Checking..." : "Verify"}
         </span>
       </button>
     );
