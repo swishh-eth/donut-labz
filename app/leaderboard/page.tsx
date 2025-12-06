@@ -59,39 +59,34 @@ const formatAddress = (addr: string) => {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 };
 
-// Rank styles - 1st brightest, 5th darkest
+// Rank styles - 1st brightest, 5th darkest (solid colors)
 const getRankStyles = (rank: number) => {
   switch (rank) {
     case 1:
       return {
-        bg: "bg-gradient-to-r from-zinc-600/90 to-zinc-700/90",
-        border: "border-zinc-500/60",
-        glow: "shadow-[0_0_15px_rgba(255,215,0,0.15)]",
+        bg: "bg-zinc-600",
+        border: "border-zinc-500",
       };
     case 2:
       return {
-        bg: "bg-gradient-to-r from-zinc-700/80 to-zinc-800/80",
-        border: "border-zinc-600/50",
-        glow: "shadow-[0_0_10px_rgba(192,192,192,0.1)]",
+        bg: "bg-zinc-700",
+        border: "border-zinc-600",
       };
     case 3:
       return {
-        bg: "bg-gradient-to-r from-zinc-800/70 to-zinc-850/70",
-        border: "border-zinc-700/40",
-        glow: "shadow-[0_0_8px_rgba(205,127,50,0.1)]",
+        bg: "bg-zinc-800",
+        border: "border-zinc-700",
       };
     case 4:
       return {
-        bg: "bg-zinc-900/60",
-        border: "border-zinc-800/30",
-        glow: "",
+        bg: "bg-zinc-900",
+        border: "border-zinc-800",
       };
     case 5:
     default:
       return {
-        bg: "bg-zinc-950/50",
-        border: "border-zinc-900/20",
-        glow: "",
+        bg: "bg-zinc-950",
+        border: "border-zinc-900",
       };
   }
 };
@@ -308,12 +303,12 @@ export default function LeaderboardPage() {
       >
         {/* Floating Trophies */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <Trophy className="absolute top-32 left-4 w-5 h-5 text-yellow-500/20 floating-trophy-1" />
-          <Trophy className="absolute top-48 right-6 w-4 h-4 text-yellow-500/15 floating-trophy-2" />
-          <Trophy className="absolute top-64 left-8 w-3 h-3 text-yellow-500/10 floating-trophy-3" />
-          <Trophy className="absolute top-40 right-12 w-4 h-4 text-yellow-500/20 floating-trophy-4" />
-          <Trophy className="absolute top-56 left-16 w-3 h-3 text-yellow-500/15 floating-trophy-1" style={{ animationDelay: '2s' }} />
-          <Trophy className="absolute top-72 right-4 w-4 h-4 text-yellow-500/10 floating-trophy-2" style={{ animationDelay: '1s' }} />
+          <Trophy className="absolute top-32 left-4 w-8 h-8 text-white/10 floating-trophy-1" />
+          <Trophy className="absolute top-48 right-6 w-7 h-7 text-white/8 floating-trophy-2" />
+          <Trophy className="absolute top-64 left-8 w-6 h-6 text-white/6 floating-trophy-3" />
+          <Trophy className="absolute top-40 right-12 w-7 h-7 text-white/10 floating-trophy-4" />
+          <Trophy className="absolute top-56 left-16 w-6 h-6 text-white/8 floating-trophy-1" style={{ animationDelay: '2s' }} />
+          <Trophy className="absolute top-72 right-4 w-8 h-8 text-white/6 floating-trophy-2" style={{ animationDelay: '1s' }} />
         </div>
 
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
@@ -496,7 +491,7 @@ export default function LeaderboardPage() {
                   return (
                     <div
                       key={rank}
-                      className={`flex items-center justify-between rounded-xl p-3 border ${styles.bg} ${styles.border} ${styles.glow} transition-all`}
+                      className={`flex items-center justify-between rounded-xl p-3 border ${styles.bg} ${styles.border} transition-all`}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <span
@@ -564,7 +559,7 @@ export default function LeaderboardPage() {
                 return (
                   <div
                     key={entry.address}
-                    className={`flex items-center justify-between rounded-xl p-3 border ${styles.bg} ${styles.border} ${styles.glow} hover:brightness-110 transition-all`}
+                    className={`flex items-center justify-between rounded-xl p-3 border ${styles.bg} ${styles.border} hover:brightness-110 transition-all`}
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <span

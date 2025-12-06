@@ -31,9 +31,10 @@ type CampaignInfo = [
 
 type ShareRewardButtonProps = {
   userFid?: number;
+  compact?: boolean;
 };
 
-export function ShareRewardButton({ userFid }: ShareRewardButtonProps) {
+export function ShareRewardButton({ userFid, compact = false }: ShareRewardButtonProps) {
   const { address } = useAccount();
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
@@ -271,6 +272,16 @@ export function ShareRewardButton({ userFid }: ShareRewardButtonProps) {
 
   // Just claimed success - show share button
   if (showClaimSuccess && claimedAmount) {
+    if (compact) {
+      return (
+        <div className="bg-zinc-900 border border-green-500/30 rounded-lg p-2 flex items-center justify-center">
+          <div className="flex items-center gap-1.5 text-green-400">
+            <CheckCircle className="w-3 h-3" />
+            <span className="font-semibold text-xs">+{claimedAmount} 🍩</span>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-500/40 rounded-lg p-3">
         <div className="flex items-center justify-center gap-2 text-green-400 mb-2">
@@ -299,6 +310,16 @@ export function ShareRewardButton({ userFid }: ShareRewardButtonProps) {
 
   // Already claimed state (from previous session)
   if (hasClaimed && isActive) {
+    if (compact) {
+      return (
+        <div className="bg-zinc-900 border border-green-500/30 rounded-lg p-2 flex items-center justify-center">
+          <div className="flex items-center gap-1.5 text-green-400">
+            <CheckCircle className="w-3 h-3" />
+            <span className="font-semibold text-xs">Claimed! 🍩</span>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="bg-zinc-900 border border-green-500/30 rounded-lg p-3">
         <div className="flex items-center justify-center gap-2 text-green-400">
@@ -309,8 +330,18 @@ export function ShareRewardButton({ userFid }: ShareRewardButtonProps) {
     );
   }
 
-  // No active campaign - greyed out state (compact)
+  // No active campaign - greyed out state
   if (!isActive) {
+    if (compact) {
+      return (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 opacity-60 flex items-center justify-center">
+          <div className="flex items-center gap-1.5 text-gray-500">
+            <Share2 className="w-3 h-3" />
+            <span className="font-semibold text-xs">No Campaign</span>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 opacity-60">
         <div className="flex items-center gap-3">
@@ -326,6 +357,27 @@ export function ShareRewardButton({ userFid }: ShareRewardButtonProps) {
 
   // Active campaign with claim data - show claim UI
   if (claimData) {
+    if (compact) {
+      return (
+        <button
+          onClick={handleClaim}
+          disabled={isWriting || isConfirming}
+          className={cn(
+            "bg-green-500 hover:bg-green-400 border border-green-400 rounded-lg p-2 flex items-center justify-center gap-1.5 transition-all",
+            (isWriting || isConfirming) && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          {isWriting || isConfirming ? (
+            <Loader2 className="w-3 h-3 animate-spin text-black" />
+          ) : (
+            <Gift className="w-3 h-3 text-black" />
+          )}
+          <span className="font-bold text-xs text-black">
+            {isWriting ? "..." : isConfirming ? "..." : "Claim"}
+          </span>
+        </button>
+      );
+    }
     return (
       <div className="bg-gradient-to-r from-amber-900/20 to-orange-900/20 border border-amber-500/30 rounded-lg p-3">
         <div className="flex items-center justify-between mb-2">
@@ -377,7 +429,30 @@ export function ShareRewardButton({ userFid }: ShareRewardButtonProps) {
     );
   }
 
-  // Active campaign - main UI (compact)
+  // Active campaign - main UI
+  if (compact) {
+    return (
+      <button
+        onClick={handleVerifyAndClaim}
+        disabled={isVerifying || !userFid}
+        className={cn(
+          "bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded-lg p-2 flex items-center justify-center gap-1.5 transition-all",
+          isPulsing && "scale-[0.97]",
+          (isVerifying || !userFid) && "opacity-50 cursor-not-allowed"
+        )}
+      >
+        {isVerifying ? (
+          <Loader2 className="w-3 h-3 animate-spin text-amber-400" />
+        ) : (
+          <Gift className="w-3 h-3 text-amber-400" />
+        )}
+        <span className="font-bold text-xs text-amber-400">
+          {isVerifying ? "..." : `${claimsRemaining} left`}
+        </span>
+      </button>
+    );
+  }
+
   return (
     <div className="bg-gradient-to-r from-amber-900/20 to-orange-900/20 border border-amber-500/30 rounded-lg p-3">
       <div className="flex items-center justify-between mb-2">
