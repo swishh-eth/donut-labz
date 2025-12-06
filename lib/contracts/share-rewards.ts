@@ -1,5 +1,5 @@
 // lib/contracts/share-rewards.ts
-export const SHARE_REWARDS_ADDRESS = "0x9fb5D51390b4666262Eb6ac533696E101a778725";
+export const SHARE_REWARDS_ADDRESS = "0x5fFaD9606f3f3e08Fe9a6253Df2A48B0eB1dc085";
 
 export const SHARE_REWARDS_ABI = [
   {
@@ -111,37 +111,5 @@ export const SHARE_REWARDS_ABI = [
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: "uint256", name: "campaignId", type: "uint256" },
-      { indexed: false, internalType: "address", name: "token", type: "address" },
-      { indexed: false, internalType: "uint256", name: "totalAmount", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "maxClaims", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "endTime", type: "uint256" },
-    ],
-    name: "CampaignStarted",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: "uint256", name: "campaignId", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "remainingAmount", type: "uint256" },
-    ],
-    name: "CampaignEnded",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: "uint256", name: "campaignId", type: "uint256" },
-      { indexed: true, internalType: "address", name: "user", type: "address" },
-      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "neynarScore", type: "uint256" },
-    ],
-    name: "RewardClaimed",
-    type: "event",
   },
 ] as const;

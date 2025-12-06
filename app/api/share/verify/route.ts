@@ -8,6 +8,9 @@ import { SHARE_REWARDS_ADDRESS, SHARE_REWARDS_ABI } from "@/lib/contracts/share-
 const VERIFIER_PRIVATE_KEY = process.env.SHARE_VERIFIER_PRIVATE_KEY as `0x${string}`;
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY!;
 
+// Minimum Neynar score required (0.6 = 6000 basis points)
+const MIN_NEYNAR_SCORE = 0.6;
+
 // The EXACT miniapp URL that must be in the cast
 const REQUIRED_EMBED_URLS = [
   "donutlabs.vercel.app",
@@ -31,6 +34,40 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Server misconfigured" },
         { status: 500 }
+      );
+    }
+
+    // Get user's Neynar score FIRST to reject low scores early
+    const userRes = await fetch(
+      `https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`,
+      {
+        headers: {
+          accept: "application/json",
+          api_key: NEYNAR_API_KEY,
+        },
+      }
+    );
+
+    if (!userRes.ok) {
+      console.error("Failed to fetch user:", await userRes.text());
+      return NextResponse.json(
+        { error: "Failed to fetch user data" },
+        { status: 500 }
+      );
+    }
+
+    const userData = await userRes.json();
+    const user = userData.users?.[0];
+    const neynarScore = user?.experimental?.neynar_user_score || 0;
+
+    // Check minimum score requirement
+    if (neynarScore < MIN_NEYNAR_SCORE) {
+      return NextResponse.json(
+        {
+          error: "Score too low",
+          message: `Your Neynar score (${neynarScore.toFixed(2)}) is below the minimum required (${MIN_NEYNAR_SCORE}). Build up your reputation and try again!`,
+        },
+        { status: 403 }
       );
     }
 
@@ -127,7 +164,7 @@ export async function POST(req: NextRequest) {
     // 2. Contains the miniapp embed URL
     const validCast = casts.find((cast: any) => {
       const castTime = new Date(cast.timestamp).getTime();
-      
+
       // Cast must be AFTER campaign started
       if (castTime < campaignStartMs) {
         return false;
@@ -152,7 +189,6 @@ export async function POST(req: NextRequest) {
     });
 
     if (!validCast) {
-      // Give helpful error message
       const campaignStartDate = new Date(campaignStartMs).toLocaleString();
       return NextResponse.json(
         {
@@ -163,34 +199,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get user's Neynar score
-    const userRes = await fetch(
-      `https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`,
-      {
-        headers: {
-          accept: "application/json",
-          api_key: NEYNAR_API_KEY,
-        },
-      }
-    );
-
-    if (!userRes.ok) {
-      console.error("Failed to fetch user:", await userRes.text());
-      return NextResponse.json(
-        { error: "Failed to fetch user data" },
-        { status: 500 }
-      );
-    }
-
-    const userData = await userRes.json();
-    const user = userData.users?.[0];
-    const neynarScore = user?.experimental?.neynar_user_score || 0.01;
-
-    // Convert to basis points (0-10000)
-    const scoreBps = Math.floor(Math.min(neynarScore, 1) * 10000);
-
-    // Ensure minimum score (contract requires >= 100)
-    const finalScore = Math.max(scoreBps, 100);
+    // Calculate score for contract
+    // We pass a value that the contract will use to calculate reward
+    // Score range: 0.6 to 1.0 maps to -10% to +10% of base reward
+    // 
+    // Formula: multiplier = 0.9 + (score - 0.6) * 0.5
+    // Score 0.6 → 0.9 (90% of base)
+    // Score 0.8 → 1.0 (100% of base)  
+    // Score 1.0 → 1.1 (110% of base)
+    //
+    // We'll pass the multiplier as basis points (9000-11000)
+    // Contract will do: reward = baseReward * scoreBps / 10000
+    
+    const multiplier = 0.9 + (neynarScore - 0.6) * 0.5;
+    const clampedMultiplier = Math.min(Math.max(multiplier, 0.9), 1.1);
+    const scoreBps = Math.floor(clampedMultiplier * 10000);
 
     // Format cast hash - needs to be bytes32
     let castHashHex = validCast.hash;
@@ -210,7 +233,7 @@ export async function POST(req: NextRequest) {
         [
           campaignId,
           address as `0x${string}`,
-          BigInt(finalScore),
+          BigInt(scoreBps),
           castHashHex as `0x${string}`,
         ]
       )
@@ -226,7 +249,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      neynarScore: finalScore,
+      neynarScore: scoreBps,
+      rawNeynarScore: neynarScore,
+      multiplier: clampedMultiplier,
       castHash: castHashHex,
       signature,
       campaignId: Number(campaignId),
