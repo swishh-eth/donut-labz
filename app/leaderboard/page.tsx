@@ -320,7 +320,7 @@ export default function LeaderboardPage() {
           <div className="grid grid-cols-2 gap-2 mb-4">
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
-                <Trophy className="w-4 h-4 text-yellow-400" />
+                <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                 <span className="text-xs text-gray-400 uppercase">Week</span>
               </div>
               <div className="text-2xl font-bold text-white">#{weekNumber}</div>
@@ -477,15 +477,15 @@ export default function LeaderboardPage() {
                         <span
                           className={`text-xl font-bold w-8 flex-shrink-0 text-center ${
                             rank === 1
-                              ? "text-yellow-400"
+                              ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]"
                               : rank === 2
-                                ? "text-gray-300"
+                                ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]"
                                 : rank === 3
-                                  ? "text-amber-600"
+                                  ? "text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]"
                                   : "text-gray-500"
                           }`}
                         >
-                          {rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`}
+                          {rank}
                         </span>
 
                         <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
@@ -545,15 +545,15 @@ export default function LeaderboardPage() {
                       <span
                         className={`text-xl font-bold w-8 flex-shrink-0 text-center ${
                           rank === 1
-                            ? "text-yellow-400"
+                            ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]"
                             : rank === 2
-                              ? "text-gray-300"
+                              ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]"
                               : rank === 3
-                                ? "text-amber-600"
+                                ? "text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]"
                                 : "text-gray-500"
                         }`}
                       >
-                        {rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`}
+                        {rank}
                       </span>
 
                       <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">

@@ -349,59 +349,86 @@ export default function ChatPage() {
           {showHelpDialog && (
             <div className="fixed inset-0 z-50">
               <div
-                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/90 backdrop-blur-md"
                 onClick={() => setShowHelpDialog(false)}
               />
-              <div className="absolute left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2">
-                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-black p-6 shadow-2xl">
+              <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
                   <button
                     onClick={() => setShowHelpDialog(false)}
-                    className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 transition-colors hover:bg-zinc-800 hover:text-white"
+                    className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
                   >
-                    <X className="h-5 w-5" />
+                    <X className="h-4 w-4" />
                   </button>
 
-                  <div className="mb-4">
-                    <h2 className="text-xl font-bold text-white mb-2">Onchain Chat Sprinkles</h2>
+                  <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                    How to Earn Sprinkles
+                  </h2>
+
+                  <div className="space-y-4">
+                    {/* Step 1 */}
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
+                        1
+                      </div>
+                      <div>
+                        <div className="font-semibold text-white text-sm">Send Messages</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          Every onchain message earns sprinkles based on your Neynar score.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
+                        2
+                      </div>
+                      <div>
+                        <div className="font-semibold text-white text-sm">Neynar Score</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          Your Farcaster reputation (0-1) determines sprinkles per message.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
+                        3
+                      </div>
+                      <div>
+                        <div className="font-semibold text-white text-sm">Example</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          0.7 Neynar score = 0.7 sprinkles per message.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 4 */}
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
+                        4
+                      </div>
+                      <div>
+                        <div className="font-semibold text-white text-sm">Future Rewards</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          Sprinkles may be used for airdrops and rewards!
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="space-y-3 text-sm text-gray-300">
-                    <div className="flex gap-3">
-                      <span className="text-white font-bold flex-shrink-0">1.</span>
-                      <p>
-                        <span className="text-white font-semibold">Send Messages</span> - Every message you send onchain earns you sprinkles based on your Neynar score.
-                      </p>
-                    </div>
-                    <div className="flex gap-3">
-                      <span className="text-white font-bold flex-shrink-0">2.</span>
-                      <p>
-                        <span className="text-white font-semibold">Neynar Score</span> - Your Farcaster reputation score (0-1) determines how many sprinkles each message earns.
-                      </p>
-                    </div>
-                    <div className="flex gap-3">
-                      <span className="text-white font-bold flex-shrink-0">3.</span>
-                      <p>
-                        <span className="text-white font-semibold">Example</span> - A user with 0.7 Neynar score earns 0.7 sprinkles per message sent.
-                      </p>
-                    </div>
-                    <div className="flex gap-3">
-                      <span className="text-white font-bold flex-shrink-0">4.</span>
-                      <p>
-                        <span className="text-white font-semibold">Future Rewards</span> - Sprinkles may be used for future airdrops and rewards!
-                      </p>
-                    </div>
-                    <div className="pt-3 border-t border-zinc-800">
-                      <p className="text-xs text-gray-400 italic">
-                        Messages are permanently stored on Base. Gas fees apply.
-                      </p>
-                    </div>
-                  </div>
+                  <p className="text-[10px] text-gray-500 text-center mt-4">
+                    Messages are permanently stored on Base. Gas fees apply.
+                  </p>
 
                   <button
                     onClick={() => setShowHelpDialog(false)}
-                    className="mt-6 w-full rounded-xl bg-white py-3 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
+                    className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
                   >
-                    Got it!
+                    Got it
                   </button>
                 </div>
               </div>
