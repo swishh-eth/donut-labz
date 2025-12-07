@@ -172,7 +172,7 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
   // Share before claiming (to qualify)
   const handleShareToQualify = async () => {
     const estimatedAmount = getEstimatedAmount();
-    const shareText = `I just got some free glaze at the Donut Lab! 🍩🍩🍩\n\n${estimatedAmount} $${tokenSymbol} claimed! 🎉\n\nGet your free tokens too 👇`;
+    const shareText = `I just got free glaze from Donut Labs! by @swishh.eth 🧪\n\n${estimatedAmount} $${tokenSymbol} claimed! 🎉\n\nJoin the lab, compete in leaderboards 👇`;
 
     try {
       await sdk.actions.composeCast({
@@ -427,7 +427,6 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
 
         {verifyError && (
           <div className="flex rounded-lg overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)] mb-2">
-            {/* Main error content */}
             <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-lg p-2">
               <div className="flex items-start gap-2">
                 <XCircle className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />
@@ -436,7 +435,6 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
                 </span>
               </div>
             </div>
-            {/* Retry button section */}
             <button
               onClick={() => {
                 setVerifyError(null);
@@ -499,7 +497,6 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
     if (verifyError) {
       return (
         <div className="flex rounded-lg overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-          {/* Main error content */}
           <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-lg p-2">
             <div className="flex items-start gap-1.5">
               <XCircle className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />
@@ -508,7 +505,6 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
               </span>
             </div>
           </div>
-          {/* Retry button section */}
           <button
             onClick={() => {
               setVerifyError(null);
@@ -635,7 +631,6 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
 
       {verifyError && (
         <div className="flex rounded-lg overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)] mb-2">
-          {/* Main error content */}
           <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-lg p-2">
             <div className="flex items-start gap-2">
               <XCircle className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />
@@ -644,7 +639,6 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
               </span>
             </div>
           </div>
-          {/* Retry button section */}
           <button
             onClick={() => {
               setVerifyError(null);
