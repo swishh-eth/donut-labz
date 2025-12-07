@@ -4,7 +4,9 @@ import { base } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getTop3Winners, saveWeeklyWinners, getCurrentWeek } from '@/lib/supabase-leaderboard';
 
-const LEADERBOARD_CONTRACT = '0xC8826f73206215CaE1327D1262A4bC5128b0973B';
+const LEADERBOARD_CONTRACT = '0x4681A6DeEe2D74f5DE48CEcd2A572979EA641586' as `0x${string}`;
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as `0x${string}`;
+const DONUT_ADDRESS = '0xAE4a37d554C6D6F3E398546d8566B25052e0169C' as `0x${string}`;
 
 const LEADERBOARD_ABI = [
   {
@@ -33,10 +35,16 @@ const LEADERBOARD_ABI = [
     stateMutability: 'view',
     type: 'function',
   },
+  {
+    inputs: [{ name: 'token', type: 'address' }],
+    name: 'getTokenBalance',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
 ] as const;
 
 export async function GET(request: Request) {
-  // Verify cron secret to prevent unauthorized calls
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -56,7 +64,6 @@ export async function GET(request: Request) {
       transport: http(process.env.NEXT_PUBLIC_BASE_RPC_URL),
     }).extend(publicActions);
 
-    // Check if distribution is ready
     const canDistribute = await client.readContract({
       address: LEADERBOARD_CONTRACT,
       abi: LEADERBOARD_ABI,
@@ -70,62 +77,69 @@ export async function GET(request: Request) {
       });
     }
 
-    // Get contract balance
-    const balance = await client.readContract({
+    const ethBalance = await client.readContract({
       address: LEADERBOARD_CONTRACT,
       abi: LEADERBOARD_ABI,
       functionName: 'getBalance',
     });
 
-    if (balance === 0n) {
+    const donutBalance = await client.readContract({
+      address: LEADERBOARD_CONTRACT,
+      abi: LEADERBOARD_ABI,
+      functionName: 'getTokenBalance',
+      args: [DONUT_ADDRESS],
+    });
+
+    if (ethBalance === 0n && donutBalance === 0n) {
       return NextResponse.json({ 
         success: false, 
-        message: 'No funds to distribute' 
+        message: 'No funds to distribute - rolling over' 
       });
     }
 
-    // Get top 3 winners from database
     const winners = await getTop3Winners();
+    const weekNumber = getCurrentWeek();
     
-    if (!winners) {
+    const first = (winners?.first || ZERO_ADDRESS) as `0x${string}`;
+    const second = (winners?.second || ZERO_ADDRESS) as `0x${string}`;
+    const third = (winners?.third || ZERO_ADDRESS) as `0x${string}`;
+
+    if (first === ZERO_ADDRESS) {
       return NextResponse.json({ 
         success: false, 
-        message: 'Not enough participants this week' 
+        message: 'No participants this week - rewards rolling over' 
       });
     }
 
-    // Execute distribution
     const hash = await client.writeContract({
       address: LEADERBOARD_CONTRACT,
       abi: LEADERBOARD_ABI,
       functionName: 'distributeWeekly',
-      args: [
-        winners.first as `0x${string}`,
-        winners.second as `0x${string}`,
-        winners.third as `0x${string}`,
-        BigInt(winners.weekNumber),
-      ],
+      args: [first, second, third, BigInt(weekNumber)],
     });
 
-    // Wait for transaction
     const receipt = await client.waitForTransactionReceipt({ hash });
 
     if (receipt.status === 'success') {
-      // Calculate prize amounts
-      const totalBalance = Number(balance) / 1e18;
-      const firstAmount = (totalBalance * 0.5).toString();
-      const secondAmount = (totalBalance * 0.3).toString();
-      const thirdAmount = (totalBalance * 0.2).toString();
+      const totalEth = Number(ethBalance) / 1e18;
+      const totalDonut = Number(donutBalance) / 1e18;
+      
+      let firstPercent = 50;
+      let secondPercent = second !== ZERO_ADDRESS ? 30 : 0;
+      let thirdPercent = third !== ZERO_ADDRESS ? 20 : 0;
 
-      // Save winners to database
+      const firstEth = ((totalEth * firstPercent) / 100).toString();
+      const secondEth = ((totalEth * secondPercent) / 100).toString();
+      const thirdEth = ((totalEth * thirdPercent) / 100).toString();
+
       await saveWeeklyWinners(
-        winners.weekNumber,
-        winners.first,
-        winners.second,
-        winners.third,
-        firstAmount,
-        secondAmount,
-        thirdAmount,
+        weekNumber,
+        first,
+        second !== ZERO_ADDRESS ? second : null,
+        third !== ZERO_ADDRESS ? third : null,
+        firstEth,
+        secondEth,
+        thirdEth,
         hash
       );
 
@@ -134,9 +148,13 @@ export async function GET(request: Request) {
         message: 'Distribution successful',
         txHash: hash,
         winners: {
-          first: winners.first,
-          second: winners.second,
-          third: winners.third,
+          first,
+          second: second !== ZERO_ADDRESS ? second : null,
+          third: third !== ZERO_ADDRESS ? third : null,
+        },
+        distributed: {
+          eth: totalEth,
+          donut: totalDonut,
         },
       });
     } else {

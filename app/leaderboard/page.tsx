@@ -38,8 +38,12 @@ type LeaderboardResponse = {
 };
 
 type PrizePoolResponse = {
-  balance: string;
+  ethBalance: string;
+  donutBalance: string;
 };
+
+const LEADERBOARD_CONTRACT = "0x4681A6DeEe2D74f5DE48CEcd2A572979EA641586";
+const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C";
 
 const ANON_PFPS = [
   "/media/anonpfp1.png",
@@ -80,6 +84,7 @@ export default function LeaderboardPage() {
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [timeUntilDistribution, setTimeUntilDistribution] = useState("");
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
+  const [donutPrice, setDonutPrice] = useState<number>(0);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
 
   useEffect(() => {
@@ -113,7 +118,7 @@ export default function LeaderboardPage() {
   }, []);
 
   useEffect(() => {
-    const fetchPrice = async () => {
+    const fetchPrices = async () => {
       try {
         const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
         const data = await res.json();
@@ -121,10 +126,20 @@ export default function LeaderboardPage() {
       } catch {
         console.error('Failed to fetch ETH price');
       }
+
+      try {
+        const res = await fetch('https://api.dexscreener.com/latest/dex/tokens/' + DONUT_ADDRESS);
+        const data = await res.json();
+        if (data.pairs && data.pairs.length > 0) {
+          setDonutPrice(parseFloat(data.pairs[0].priceUsd || 0));
+        }
+      } catch {
+        console.error('Failed to fetch DONUT price');
+      }
     };
 
-    fetchPrice();
-    const interval = setInterval(fetchPrice, 60_000);
+    fetchPrices();
+    const interval = setInterval(fetchPrices, 60_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -141,24 +156,44 @@ export default function LeaderboardPage() {
   const { data: prizePoolData } = useQuery<PrizePoolResponse>({
     queryKey: ["prize-pool"],
     queryFn: async () => {
-      const contractAddress = "0xC8826f73206215CaE1327D1262A4bC5128b0973B";
       const rpcUrl = process.env.NEXT_PUBLIC_BASE_RPC_URL;
       
-      if (!rpcUrl) return { balance: "0" };
+      if (!rpcUrl) return { ethBalance: "0", donutBalance: "0" };
 
-      const res = await fetch(rpcUrl, {
+      const ethRes = await fetch(rpcUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jsonrpc: "2.0",
           method: "eth_getBalance",
-          params: [contractAddress, "latest"],
+          params: [LEADERBOARD_CONTRACT, "latest"],
           id: 1,
         }),
       });
+      const ethData = await ethRes.json();
 
-      const data = await res.json();
-      return { balance: data.result || "0x0" };
+      const donutRes = await fetch(rpcUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method: "eth_call",
+          params: [
+            {
+              to: DONUT_ADDRESS,
+              data: "0x70a08231000000000000000000000000" + LEADERBOARD_CONTRACT.slice(2),
+            },
+            "latest",
+          ],
+          id: 2,
+        }),
+      });
+      const donutData = await donutRes.json();
+
+      return {
+        ethBalance: ethData.result || "0x0",
+        donutBalance: donutData.result || "0x0",
+      };
     },
     refetchInterval: 30_000,
   });
@@ -177,7 +212,7 @@ export default function LeaderboardPage() {
       return res.json();
     },
     enabled: addresses.length > 0,
-    staleTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 30 * 60 * 1000,
   });
 
   const profiles = profilesData?.profiles || {};
@@ -185,7 +220,7 @@ export default function LeaderboardPage() {
   useEffect(() => {
     const updateCountdown = () => {
       const now = new Date();
-      const firstDistribution = new Date("2024-12-13T12:00:00Z");
+      const firstDistribution = new Date("2025-12-12T12:00:00Z");
       
       const weeksSinceFirst = Math.floor(
         (now.getTime() - firstDistribution.getTime()) / (7 * 24 * 60 * 60 * 1000)
@@ -219,13 +254,23 @@ export default function LeaderboardPage() {
   const leaderboard: LeaderboardEntry[] = leaderboardData?.leaderboard || [];
   const weekNumber = leaderboardData?.weekNumber || 0;
   
-  const prizePoolBalance = prizePoolData?.balance
-    ? parseFloat(formatEther(BigInt(prizePoolData.balance)))
+  const ethBalance = prizePoolData?.ethBalance
+    ? parseFloat(formatEther(BigInt(prizePoolData.ethBalance)))
     : 0;
 
-  const firstPlacePrize = (prizePoolBalance * 0.5).toFixed(4);
-  const secondPlacePrize = (prizePoolBalance * 0.3).toFixed(4);
-  const thirdPlacePrize = (prizePoolBalance * 0.2).toFixed(4);
+  const donutBalance = prizePoolData?.donutBalance
+    ? parseFloat(formatEther(BigInt(prizePoolData.donutBalance)))
+    : 0;
+
+  const totalPrizeUsd = (ethBalance * ethUsdPrice) + (donutBalance * donutPrice);
+
+  const firstPlaceEth = (ethBalance * 0.5).toFixed(4);
+  const secondPlaceEth = (ethBalance * 0.3).toFixed(4);
+  const thirdPlaceEth = (ethBalance * 0.2).toFixed(4);
+
+  const firstPlaceDonut = (donutBalance * 0.5).toFixed(2);
+  const secondPlaceDonut = (donutBalance * 0.3).toFixed(2);
+  const thirdPlaceDonut = (donutBalance * 0.2).toFixed(2);
 
   const userDisplayName =
     context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
@@ -238,7 +283,6 @@ export default function LeaderboardPage() {
 
   return (
     <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
-      {/* Floating Trophies CSS */}
       <style jsx global>{`
         @keyframes float-trophy-1 {
           0%, 100% { transform: translate(0, 0) rotate(0deg); }
@@ -277,7 +321,6 @@ export default function LeaderboardPage() {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
         }}
       >
-        {/* Floating Trophies */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <Trophy className="absolute top-28 left-4 w-8 h-8 text-white/10 floating-trophy-1" />
           <Trophy className="absolute top-44 right-6 w-7 h-7 text-white/8 floating-trophy-2" />
@@ -331,11 +374,23 @@ export default function LeaderboardPage() {
                 <Coins className="w-4 h-4 text-green-400" />
                 <span className="text-xs text-gray-400 uppercase">Prize Pool</span>
               </div>
-              <div className="text-2xl font-bold text-green-400">
-                Ξ{prizePoolBalance.toFixed(4)}
+              <div className="flex flex-col gap-0.5">
+                {ethBalance > 0 && (
+                  <div className="text-lg font-bold text-green-400">
+                    Ξ{ethBalance.toFixed(4)}
+                  </div>
+                )}
+                {donutBalance > 0 && (
+                  <div className="text-lg font-bold text-amber-400">
+                    🍩{donutBalance.toFixed(2)}
+                  </div>
+                )}
+                {ethBalance === 0 && donutBalance === 0 && (
+                  <div className="text-lg font-bold text-gray-500">Empty</div>
+                )}
               </div>
               <div className="text-xs text-gray-400">
-                (${(prizePoolBalance * ethUsdPrice).toFixed(2)})
+                (${totalPrizeUsd.toFixed(2)})
               </div>
             </div>
           </div>
@@ -412,9 +467,9 @@ export default function LeaderboardPage() {
                         3
                       </div>
                       <div>
-                        <div className="font-semibold text-white text-sm">Win ETH Prizes</div>
+                        <div className="font-semibold text-white text-sm">Win Prizes</div>
                         <div className="text-xs text-gray-400 mt-0.5">
-                          Top 3 glazers split the prize pool.
+                          Top 3 glazers split the ETH and DONUT prize pool.
                         </div>
                       </div>
                     </div>
@@ -437,7 +492,7 @@ export default function LeaderboardPage() {
                     </div>
 
                     <p className="text-[10px] text-gray-500 text-center">
-                      Prize pool grows from 2.5% of all glazing fees
+                      Prize pool grows from glazing fees and SPRINKLES mining
                     </p>
                   </div>
 
@@ -463,10 +518,11 @@ export default function LeaderboardPage() {
                 const rank = index + 1;
                 const entry = leaderboard[index];
                 const isWinner = rank <= 3;
-                let prizeAmount: string | null = null;
-                if (rank === 1) prizeAmount = firstPlacePrize;
-                if (rank === 2) prizeAmount = secondPlacePrize;
-                if (rank === 3) prizeAmount = thirdPlacePrize;
+                let prizeEth: string | null = null;
+                let prizeDonut: string | null = null;
+                if (rank === 1) { prizeEth = firstPlaceEth; prizeDonut = firstPlaceDonut; }
+                if (rank === 2) { prizeEth = secondPlaceEth; prizeDonut = secondPlaceDonut; }
+                if (rank === 3) { prizeEth = thirdPlaceEth; prizeDonut = thirdPlaceDonut; }
                 const styles = getRankStyles();
 
                 if (!entry) {
@@ -513,9 +569,14 @@ export default function LeaderboardPage() {
                         <div className="text-sm font-bold text-white">
                           0 <span className="text-xs font-normal text-gray-400">glazes</span>
                         </div>
-                        {isWinner && prizeAmount && (
-                          <div className="text-[10px] text-green-400">
-                            +Ξ{prizeAmount}
+                        {isWinner && (
+                          <div className="flex flex-col items-end">
+                            {ethBalance > 0 && prizeEth && (
+                              <div className="text-[10px] text-green-400">+Ξ{prizeEth}</div>
+                            )}
+                            {donutBalance > 0 && prizeDonut && (
+                              <div className="text-[10px] text-amber-400">+🍩{prizeDonut}</div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -567,9 +628,14 @@ export default function LeaderboardPage() {
                       <div className="text-sm font-bold text-white">
                         {entry.total_points} <span className="text-xs font-normal text-gray-400">glazes</span>
                       </div>
-                      {isWinner && prizeAmount && (
-                        <div className="text-[10px] text-green-400">
-                          +Ξ{prizeAmount}
+                      {isWinner && (
+                        <div className="flex flex-col items-end">
+                          {ethBalance > 0 && prizeEth && (
+                            <div className="text-[10px] text-green-400">+Ξ{prizeEth}</div>
+                          )}
+                          {donutBalance > 0 && prizeDonut && (
+                            <div className="text-[10px] text-amber-400">+🍩{prizeDonut}</div>
+                          )}
                         </div>
                       )}
                     </div>

@@ -7,10 +7,9 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Get current week number (resets Friday 12pm UTC)
 export function getCurrentWeek(): number {
-  const epochStart = new Date('2025-12-13T12:00:00Z'); // First distribution Friday Dec 12th 12pm UTC (2025)
+  const epochStart = new Date('2025-12-12T12:00:00Z');
   const now = new Date();
   const secondsElapsed = Math.floor((now.getTime() - epochStart.getTime()) / 1000);
-  
   
   if (secondsElapsed < 0) {
     return 1;
@@ -24,7 +23,6 @@ export function getCurrentWeek(): number {
 export async function recordGlaze(address: string) {
   const weekNumber = getCurrentWeek();
   
-  // Try to update existing entry
   const { data: existing } = await supabase
     .from('leaderboard_entries')
     .select('*')
@@ -33,7 +31,6 @@ export async function recordGlaze(address: string) {
     .single();
 
   if (existing) {
-    // Update existing entry
     const { error } = await supabase
       .from('leaderboard_entries')
       .update({
@@ -47,7 +44,6 @@ export async function recordGlaze(address: string) {
 
     if (error) throw error;
   } else {
-    // Insert new entry
     const { error } = await supabase
       .from('leaderboard_entries')
       .insert({
@@ -71,7 +67,7 @@ export async function getLeaderboard(limit: number = 10) {
     .select('*')
     .eq('week_number', weekNumber)
     .order('points', { ascending: false })
-    .order('last_glaze_timestamp', { ascending: true }) // Tiebreaker: earliest glaze wins
+    .order('last_glaze_timestamp', { ascending: true })
     .limit(limit);
 
   if (error) throw error;
@@ -92,14 +88,14 @@ export async function getTop3Winners() {
 
   if (error) throw error;
   
-  if (!data || data.length < 3) {
-    return null; // Not enough winners
+  if (!data || data.length === 0) {
+    return null;
   }
 
   return {
-    first: data[0].address,
-    second: data[1].address,
-    third: data[2].address,
+    first: data[0]?.address || null,
+    second: data[1]?.address || null,
+    third: data[2]?.address || null,
     weekNumber,
   };
 }
@@ -108,8 +104,8 @@ export async function getTop3Winners() {
 export async function saveWeeklyWinners(
   weekNumber: number,
   first: string,
-  second: string,
-  third: string,
+  second: string | null,
+  third: string | null,
   firstAmount: string,
   secondAmount: string,
   thirdAmount: string,
@@ -120,8 +116,8 @@ export async function saveWeeklyWinners(
     .insert({
       week_number: weekNumber,
       first_place: first.toLowerCase(),
-      second_place: second.toLowerCase(),
-      third_place: third.toLowerCase(),
+      second_place: second?.toLowerCase() || null,
+      third_place: third?.toLowerCase() || null,
       first_amount: firstAmount,
       second_amount: secondAmount,
       third_amount: thirdAmount,
