@@ -76,6 +76,8 @@ export default function ChatPage() {
   const [message, setMessage] = useState("");
   const [pendingMessage, setPendingMessage] = useState("");
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [eligibilityError, setEligibilityError] = useState<string[] | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const COOLDOWN_SECONDS = 30;
 
@@ -86,7 +88,6 @@ export default function ChatPage() {
   // Prevent iOS zoom on input focus
   useEffect(() => {
     const handleFocus = () => {
-      // Prevent zoom by ensuring viewport is set correctly
       const viewport = document.querySelector('meta[name="viewport"]');
       if (viewport) {
         viewport.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
@@ -137,22 +138,22 @@ export default function ChatPage() {
     queryKey: ["chat-messages-onchain"],
     queryFn: async () => {
       const client = wagmiPublicClient || basePublicClient;
-      
+
       try {
         const DEPLOYMENT_BLOCK = 39080208n;
         const BLOCKS_PER_HOUR = 1800n;
-        
+
         const currentBlock = await client.getBlockNumber();
         console.log("Current block:", currentBlock.toString());
-        
+
         let fromBlock = currentBlock - BLOCKS_PER_HOUR;
-        
+
         if (fromBlock < DEPLOYMENT_BLOCK) {
           fromBlock = DEPLOYMENT_BLOCK;
         }
-        
+
         console.log("Fetching from:", fromBlock.toString(), "to:", currentBlock.toString());
-        
+
         const logs = await client.getLogs({
           address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
           event: parseAbiItem("event MessageSent(address indexed sender, string message, uint256 timestamp)"),
@@ -196,7 +197,7 @@ export default function ChatPage() {
 
   // Get current user's points
   const userPoints = statsData?.leaderboard?.find(
-    (entry: { address: string; total_points: number }) => 
+    (entry: { address: string; total_points: number }) =>
       entry.address.toLowerCase() === address?.toLowerCase()
   )?.total_points || 0;
 
@@ -207,7 +208,7 @@ export default function ChatPage() {
     queryKey: ["chat-profiles-batch", senderAddresses.join(",")],
     queryFn: async () => {
       if (senderAddresses.length === 0) return { profiles: {} };
-      
+
       const res = await fetch(
         `/api/profiles?addresses=${encodeURIComponent(senderAddresses.join(","))}`
       );
@@ -215,7 +216,7 @@ export default function ChatPage() {
       return res.json();
     },
     enabled: senderAddresses.length > 0,
-    staleTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 30 * 60 * 1000,
   });
 
   const profiles = profilesData?.profiles || {};
@@ -237,7 +238,7 @@ export default function ChatPage() {
     } catch (e) {
       console.error("Failed to record points:", e);
     }
-  }, [address, queryClient]);
+  }, [address, queryClient, pendingMessage]);
 
   // Handle successful transaction
   useEffect(() => {
@@ -245,10 +246,10 @@ export default function ChatPage() {
       recordPoints();
       setPendingMessage("");
       setMessage("");
-      
+
       // Start cooldown timer
       setCooldownRemaining(COOLDOWN_SECONDS);
-      
+
       setTimeout(() => {
         refetchMessages();
       }, 2000);
@@ -258,7 +259,7 @@ export default function ChatPage() {
   // Cooldown countdown timer
   useEffect(() => {
     if (cooldownRemaining <= 0) return;
-    
+
     const timer = setInterval(() => {
       setCooldownRemaining((prev) => {
         if (prev <= 1) {
@@ -274,10 +275,31 @@ export default function ChatPage() {
 
   // Send message
   const handleSendMessage = async () => {
-    if (!message.trim() || !isConnected || isPending || isConfirming || cooldownRemaining > 0) return;
+    if (!message.trim() || !isConnected || isPending || isConfirming || cooldownRemaining > 0 || isVerifying) return;
 
-    setPendingMessage(message.trim());
+    setEligibilityError(null);
+    setIsVerifying(true);
+
     try {
+      // Verify eligibility BEFORE transaction
+      const verifyRes = await fetch("/api/chat/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ senderAddress: address, message: message.trim() }),
+      });
+
+      const verifyData = await verifyRes.json();
+
+      if (!verifyData.eligible) {
+        setEligibilityError(verifyData.reasons || ["Not eligible to send messages"]);
+        setIsVerifying(false);
+        return;
+      }
+
+      // Eligible - proceed with transaction
+      setPendingMessage(message.trim());
+      setIsVerifying(false);
+
       writeContract({
         address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
         abi: GLAZERY_CHAT_ABI,
@@ -286,7 +308,9 @@ export default function ChatPage() {
       });
     } catch (e) {
       console.error("Failed to send message:", e);
+      setEligibilityError(["Something went wrong, try again"]);
       setPendingMessage("");
+      setIsVerifying(false);
     }
   };
 
@@ -294,8 +318,6 @@ export default function ChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  const totalUsers = statsData?.stats?.total_users || 0;
 
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userHandle = context?.user?.username ? `@${context.user.username}` : context?.user?.fid ? `fid ${context.user.fid}` : "";
@@ -452,7 +474,7 @@ export default function ChatPage() {
           )}
 
           {/* Chat Messages Area */}
-          <div 
+          <div
             ref={messagesContainerRef}
             className="flex-1 overflow-y-auto space-y-2 pb-2 min-h-0"
           >
@@ -538,25 +560,53 @@ export default function ChatPage() {
               </div>
             ) : (
               <>
+                {/* Eligibility Error Box */}
+                {eligibilityError && (
+                  <div className="mb-2 bg-red-950/50 border border-red-500/50 rounded-xl p-3 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+                    <div className="flex items-start gap-2">
+                      <X className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-red-400 mb-1">Cannot Send Message</p>
+                        <ul className="space-y-0.5">
+                          {eligibilityError.map((reason, i) => (
+                            <li key={i} className="text-[11px] text-red-300/80">• {reason}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <button
+                        onClick={() => setEligibilityError(null)}
+                        className="text-red-400 hover:text-red-300 p-1"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2">
                   <input
                     type="text"
                     value={message}
-                    onChange={(e) => setMessage(e.target.value.slice(0, 280))}
+                    onChange={(e) => {
+                      setMessage(e.target.value.slice(0, 280));
+                      if (eligibilityError) setEligibilityError(null);
+                    }}
                     onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
                     placeholder={cooldownRemaining > 0 ? `Wait ${cooldownRemaining}s...` : "Type a message..."}
-                    disabled={isPending || isConfirming || cooldownRemaining > 0}
+                    disabled={isPending || isConfirming || cooldownRemaining > 0 || isVerifying}
                     className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-2 py-1.5 outline-none disabled:opacity-50"
-                    style={{ fontSize: '16px' }} // Prevents iOS zoom
+                    style={{ fontSize: '16px' }}
                   />
                   <span className="text-[10px] text-gray-500 mr-1">{message.length}/280</span>
                   <button
                     onClick={handleSendMessage}
-                    disabled={!message.trim() || isPending || isConfirming || cooldownRemaining > 0}
+                    disabled={!message.trim() || isPending || isConfirming || cooldownRemaining > 0 || isVerifying}
                     className="flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
                   >
                     {cooldownRemaining > 0 ? (
                       <span className="text-xs font-bold">{cooldownRemaining}</span>
+                    ) : isVerifying ? (
+                      <span className="text-xs font-bold">...</span>
                     ) : (
                       <Send className="w-4 h-4" />
                     )}

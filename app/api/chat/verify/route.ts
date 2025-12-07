@@ -8,16 +8,13 @@ const baseClient = createPublicClient({
   transport: http("https://base.publicnode.com"),
 });
 
-// Minimum ETH balance required (0.0001 ETH)
+// Requirements
 const MIN_ETH_BALANCE = 0.0005;
-
-// Rate limit: minimum seconds between messages
-const RATE_LIMIT_SECONDS = 30;
-
-// Minimum message length to earn points
+const MIN_NEYNAR_SCORE = 0.6;
+const MIN_FOLLOWERS = 500;
 const MIN_MESSAGE_LENGTH = 3;
-
-// Only refresh Neynar score if cache is older than 7 days
+const RATE_LIMIT_SECONDS = 30;
+const MAX_SAME_MESSAGE = 3;
 const SCORE_CACHE_DAYS = 7;
 
 export async function POST(request: Request) {
@@ -27,74 +24,71 @@ export async function POST(request: Request) {
 
     if (!senderAddress) {
       return NextResponse.json(
-        { error: "Missing sender address" },
+        { eligible: false, reasons: ["Missing wallet address"] },
         { status: 400 }
       );
     }
 
     const address = senderAddress.toLowerCase();
+    const trimmedMessage = message?.trim() || "";
+    const reasons: string[] = [];
 
-    // === SPAM CHECK 1: Minimum message length ===
-    if (message && message.trim().length < MIN_MESSAGE_LENGTH) {
-      return NextResponse.json({
-        success: true,
-        pointsAwarded: 0,
-        reason: "Message too short to earn sprinkles",
-      });
+    // === CHECK 1: Minimum message length ===
+    if (trimmedMessage.length < MIN_MESSAGE_LENGTH) {
+      reasons.push(`Message must be at least ${MIN_MESSAGE_LENGTH} characters`);
     }
 
-    // === SPAM CHECK 2: ETH balance check (free RPC call) ===
+    // === CHECK 2: ETH balance ===
     try {
       const balance = await baseClient.getBalance({ address: address as `0x${string}` });
       const ethBalance = parseFloat(formatEther(balance));
-      
+
       if (ethBalance < MIN_ETH_BALANCE) {
-        return NextResponse.json({
-          success: true,
-          pointsAwarded: 0,
-          reason: "Insufficient ETH balance",
-        });
+        reasons.push(`Need at least ${MIN_ETH_BALANCE} ETH in wallet`);
       }
     } catch (e) {
       console.error("Failed to check ETH balance:", e);
     }
 
-    // Check if user exists in chat_points
+    // === CHECK 3: Get user data from chat_points ===
     const { data: existing } = await supabase
       .from("chat_points")
       .select("*")
       .eq("address", address)
       .single();
 
-    // === SPAM CHECK 3: Rate limiting ===
+    // === CHECK 4: Rate limiting ===
     if (existing?.last_message_at) {
       const lastMessageTime = new Date(existing.last_message_at).getTime();
       const now = Date.now();
       const secondsSinceLastMessage = (now - lastMessageTime) / 1000;
 
       if (secondsSinceLastMessage < RATE_LIMIT_SECONDS) {
-        return NextResponse.json({
-          success: true,
-          pointsAwarded: 0,
-          reason: "Rate limited",
-        });
+        const waitTime = Math.ceil(RATE_LIMIT_SECONDS - secondsSinceLastMessage);
+        reasons.push(`Wait ${waitTime}s before sending another message`);
       }
     }
 
-    // === SPAM CHECK 4: Duplicate message detection ===
-    if (message && existing?.last_message === message.trim()) {
-      return NextResponse.json({
-        success: true,
-        pointsAwarded: 0,
-        reason: "Duplicate message",
-      });
+    // === CHECK 5: Duplicate consecutive message ===
+    if (trimmedMessage && existing?.last_message === trimmedMessage) {
+      reasons.push("Cannot send the same message twice in a row");
     }
 
-    // === GET NEYNAR SCORE FROM profile_cache FIRST ===
-    let neynarScore = 0;
-    let needsFreshScore = true;
+    // === CHECK 6: Repeated message abuse ===
+    if (trimmedMessage && existing?.recent_messages) {
+      const recentMessages = existing.recent_messages as string[];
+      const sameMessageCount = recentMessages.filter(m => m === trimmedMessage).length;
 
-    // Check profile_cache for existing score
+      if (sameMessageCount >= MAX_SAME_MESSAGE) {
+        reasons.push("Message used too frequently, try something different");
+      }
+    }
+
+    // === CHECK 7: Neynar score and follower count from profile_cache ===
+    let neynarScore = 0;
+    let followerCount = 0;
+    let needsFreshData = true;
+
     const { data: cachedProfile } = await supabase
       .from("profile_cache")
       .select("profile, updated_at")
@@ -102,19 +96,19 @@ export async function POST(request: Request) {
       .single();
 
     if (cachedProfile?.profile) {
-      const profile = cachedProfile.profile as { neynarScore?: number };
+      const profile = cachedProfile.profile as { neynarScore?: number; followerCount?: number };
       const cacheAge = Date.now() - new Date(cachedProfile.updated_at).getTime();
       const cacheMaxAge = SCORE_CACHE_DAYS * 24 * 60 * 60 * 1000;
 
-      if (profile.neynarScore !== undefined && cacheAge < cacheMaxAge) {
-        // Use cached score
-        neynarScore = profile.neynarScore;
-        needsFreshScore = false;
+      if (cacheAge < cacheMaxAge) {
+        neynarScore = profile.neynarScore ?? 0;
+        followerCount = profile.followerCount ?? 0;
+        needsFreshData = false;
       }
     }
 
-    // Only fetch from Neynar if cache is missing or stale
-    if (needsFreshScore) {
+    // Fetch fresh data from Neynar if needed
+    if (needsFreshData) {
       try {
         const neynarRes = await fetch(
           `https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${address}`,
@@ -132,15 +126,16 @@ export async function POST(request: Request) {
           if (users && users.length > 0) {
             const user = users[0];
             neynarScore = user.experimental?.neynar_user_score || 0;
+            followerCount = user.follower_count || 0;
 
-            // Update profile_cache with fresh data
+            // Update profile_cache
             const profileData = {
               fid: user.fid,
               pfpUrl: user.pfp_url,
               username: user.username,
               displayName: user.display_name,
               neynarScore: neynarScore,
-              followerCount: user.follower_count,
+              followerCount: followerCount,
             };
 
             await supabase
@@ -153,44 +148,39 @@ export async function POST(request: Request) {
           }
         }
       } catch (e) {
-        console.error("Failed to fetch neynar score:", e);
+        console.error("Failed to fetch neynar data:", e);
       }
     }
 
-    // Update chat_points
-    if (existing) {
-      const { error } = await supabase
-        .from("chat_points")
-        .update({
-          total_messages: existing.total_messages + 1,
-          total_points: existing.total_points + neynarScore,
-          last_message_at: new Date().toISOString(),
-          last_message: message?.trim() || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("address", address);
+    // Check neynar score
+    if (neynarScore < MIN_NEYNAR_SCORE) {
+      reasons.push(`Neynar score must be at least ${MIN_NEYNAR_SCORE} (yours: ${neynarScore.toFixed(2)})`);
+    }
 
-      if (error) throw error;
-    } else {
-      const { error } = await supabase.from("chat_points").insert({
-        address,
-        total_messages: 1,
-        total_points: neynarScore,
-        last_message_at: new Date().toISOString(),
-        last_message: message?.trim() || null,
+    // Check follower count
+    if (followerCount < MIN_FOLLOWERS) {
+      reasons.push(`Need at least ${MIN_FOLLOWERS} followers (yours: ${followerCount})`);
+    }
+
+    // Return result
+    if (reasons.length > 0) {
+      return NextResponse.json({
+        eligible: false,
+        reasons,
+        neynarScore,
+        followerCount,
       });
-
-      if (error) throw error;
     }
 
     return NextResponse.json({
-      success: true,
-      pointsAwarded: neynarScore,
+      eligible: true,
+      neynarScore,
+      followerCount,
     });
   } catch (error) {
-    console.error("Error recording points:", error);
+    console.error("Error verifying eligibility:", error);
     return NextResponse.json(
-      { error: "Failed to record points" },
+      { eligible: false, reasons: ["Verification failed, try again"] },
       { status: 500 }
     );
   }
