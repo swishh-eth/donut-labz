@@ -5,7 +5,7 @@ import { base } from "viem/chains";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 const GLAZERY_CHAT_ADDRESS = "0x2fA4E51741DF5049D2f8c82CC51a6d3a8bbD60bf";
