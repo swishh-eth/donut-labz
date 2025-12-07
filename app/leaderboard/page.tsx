@@ -497,143 +497,143 @@ export default function LeaderboardPage() {
             </div>
           )}
 
-          {/* Leaderboard List */}
-          <div className="flex-1 overflow-y-auto space-y-2 pb-2 scrollbar-hide">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-gray-400">Loading leaderboard...</div>
+         {/* Leaderboard List */}
+<div className="flex-1 overflow-y-auto space-y-2 pb-2 scrollbar-hide">
+  {isLoading ? (
+    <div className="flex items-center justify-center py-12">
+      <div className="text-gray-400">Loading leaderboard...</div>
+    </div>
+  ) : (
+    [0, 1, 2, 3, 4].map((index) => {
+      const rank = index + 1;
+      const entry = leaderboard[index];
+      const isWinner = rank <= 3;
+      let prizeEth: string | null = null;
+      let prizeDonut: string | null = null;
+      if (rank === 1) { prizeEth = firstPlaceEth; prizeDonut = firstPlaceDonut; }
+      if (rank === 2) { prizeEth = secondPlaceEth; prizeDonut = secondPlaceDonut; }
+      if (rank === 3) { prizeEth = thirdPlaceEth; prizeDonut = thirdPlaceDonut; }
+      const styles = getRankStyles();
+
+      if (!entry) {
+        return (
+          <div
+            key={`empty-${rank}`}
+            className={`flex items-center justify-between rounded-xl p-3 border min-h-[72px] ${styles.bg} ${styles.border}`}
+          >
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <span
+                className={`text-xl font-bold w-8 flex-shrink-0 text-center ${
+                  rank === 1
+                    ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]"
+                    : rank === 2
+                      ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]"
+                      : rank === 3
+                        ? "text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]"
+                        : "text-gray-500"
+                }`}
+              >
+                {rank}
+              </span>
+
+              <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
+                <AvatarImage
+                  src={ANON_PFPS[rank % ANON_PFPS.length]}
+                  alt="Empty spot"
+                  className="object-cover"
+                />
+                <AvatarFallback className="bg-zinc-800 text-white text-xs">
+                  --
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-white truncate">No one yet</div>
+                <div className="text-xs text-gray-400 truncate">
+                  {isWinner ? "Claim this spot!" : "Keep grinding"}
+                </div>
               </div>
-            ) : (
-              [0, 1, 2, 3, 4].map((index) => {
-                const rank = index + 1;
-                const entry = leaderboard[index];
-                const isWinner = rank <= 3;
-                let prizeEth: string | null = null;
-                let prizeDonut: string | null = null;
-                if (rank === 1) { prizeEth = firstPlaceEth; prizeDonut = firstPlaceDonut; }
-                if (rank === 2) { prizeEth = secondPlaceEth; prizeDonut = secondPlaceDonut; }
-                if (rank === 3) { prizeEth = thirdPlaceEth; prizeDonut = thirdPlaceDonut; }
-                const styles = getRankStyles();
+            </div>
 
-                if (!entry) {
-                  return (
-                    <div
-                      key={`empty-${rank}`}
-                      className={`flex items-center justify-between rounded-xl p-3 border ${styles.bg} ${styles.border}`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <span
-                          className={`text-xl font-bold w-8 flex-shrink-0 text-center ${
-                            rank === 1
-                              ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]"
-                              : rank === 2
-                                ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]"
-                                : rank === 3
-                                  ? "text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]"
-                                  : "text-gray-500"
-                          }`}
-                        >
-                          {rank}
-                        </span>
+            <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+              <div className="text-sm font-bold text-white">
+                0 <span className="text-xs font-normal text-gray-400">glazes</span>
+              </div>
+              {isWinner && (
+                <div className="flex items-center gap-2">
+                  {ethBalance > 0 && prizeEth && (
+                    <div className="text-[10px] text-green-400">+Ξ{prizeEth}</div>
+                  )}
+                  {donutBalance > 0 && prizeDonut && (
+                    <div className="text-[10px] text-amber-400">+🍩{prizeDonut}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
 
-                        <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
-                          <AvatarImage
-                            src={ANON_PFPS[rank % ANON_PFPS.length]}
-                            alt="Empty spot"
-                            className="object-cover"
-                          />
-                          <AvatarFallback className="bg-zinc-800 text-white text-xs">
-                            --
-                          </AvatarFallback>
-                        </Avatar>
+      const profile = profiles?.[entry.address];
+      const displayName = profile?.displayName || formatAddress(entry.address);
+      const username = profile?.username ? `@${profile.username}` : "";
+      const avatarUrl = profile?.pfpUrl || getAnonPfp(entry.address);
 
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-white truncate">No one yet</div>
-                          <div className="text-xs text-gray-400 truncate">
-                            {isWinner ? "Claim this spot!" : "Keep grinding"}
-                          </div>
-                        </div>
-                      </div>
+      return (
+        <div
+          key={entry.address}
+          className={`flex items-center justify-between rounded-xl p-3 border min-h-[72px] ${styles.bg} ${styles.border}`}
+        >
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <span
+              className={`text-xl font-bold w-8 flex-shrink-0 text-center ${
+                rank === 1
+                  ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]"
+                  : rank === 2
+                    ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]"
+                    : rank === 3
+                      ? "text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]"
+                      : "text-gray-500"
+              }`}
+            >
+              {rank}
+            </span>
 
-                      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                        <div className="text-sm font-bold text-white">
-                          0 <span className="text-xs font-normal text-gray-400">glazes</span>
-                        </div>
-                        {isWinner && (
-                          <div className="flex flex-col items-end">
-                            {ethBalance > 0 && prizeEth && (
-                              <div className="text-[10px] text-green-400">+Ξ{prizeEth}</div>
-                            )}
-                            {donutBalance > 0 && prizeDonut && (
-                              <div className="text-[10px] text-amber-400">+🍩{prizeDonut}</div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }
+            <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
+              <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+              <AvatarFallback className="bg-zinc-800 text-white text-xs">
+                {displayName.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
 
-                const profile = profiles?.[entry.address];
-                const displayName = profile?.displayName || formatAddress(entry.address);
-                const username = profile?.username ? `@${profile.username}` : "";
-                const avatarUrl = profile?.pfpUrl || getAnonPfp(entry.address);
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-white truncate">{displayName}</div>
+              {username && (
+                <div className="text-xs text-gray-400 truncate">{username}</div>
+              )}
+            </div>
+          </div>
 
-                return (
-                  <div
-                    key={entry.address}
-                    className={`flex items-center justify-between rounded-xl p-3 border ${styles.bg} ${styles.border}`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span
-                        className={`text-xl font-bold w-8 flex-shrink-0 text-center ${
-                          rank === 1
-                            ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]"
-                            : rank === 2
-                              ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]"
-                              : rank === 3
-                                ? "text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]"
-                                : "text-gray-500"
-                        }`}
-                      >
-                        {rank}
-                      </span>
-
-                      <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
-                        <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
-                        <AvatarFallback className="bg-zinc-800 text-white text-xs">
-                          {displayName.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-white truncate">{displayName}</div>
-                        {username && (
-                          <div className="text-xs text-gray-400 truncate">{username}</div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                      <div className="text-sm font-bold text-white">
-                        {entry.total_points} <span className="text-xs font-normal text-gray-400">glazes</span>
-                      </div>
-                      {isWinner && (
-                        <div className="flex flex-col items-end">
-                          {ethBalance > 0 && prizeEth && (
-                            <div className="text-[10px] text-green-400">+Ξ{prizeEth}</div>
-                          )}
-                          {donutBalance > 0 && prizeDonut && (
-                            <div className="text-[10px] text-amber-400">+🍩{prizeDonut}</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
+          <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+            <div className="text-sm font-bold text-white">
+              {entry.total_points} <span className="text-xs font-normal text-gray-400">glazes</span>
+            </div>
+            {isWinner && (
+              <div className="flex items-center gap-2">
+                {ethBalance > 0 && prizeEth && (
+                  <div className="text-[10px] text-green-400">+Ξ{prizeEth}</div>
+                )}
+                {donutBalance > 0 && prizeDonut && (
+                  <div className="text-[10px] text-amber-400">+🍩{prizeDonut}</div>
+                )}
+              </div>
             )}
           </div>
+        </div>
+      );
+    })
+  )}
+</div>
         </div>
       </div>
       <NavBar />
