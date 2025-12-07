@@ -531,30 +531,30 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
       );
     }
 
-    // State 1: Initial - Show gift icon, tap to share
-    if (!hasShared) {
-      return (
-        <button
-          onClick={handleShareToQualify}
-          disabled={!userFid}
-          className={cn(
-            "bg-gradient-to-br from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 rounded-lg p-2 flex items-center gap-2 transition-all",
-            !userFid && "opacity-50 cursor-not-allowed"
-          )}
-        >
-          <Gift
-            className={cn(
-              "w-4 h-4 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.9)] transition-transform duration-300",
-              isPulsing ? "scale-75" : "scale-100"
-            )}
-          />
-          <div className="flex flex-col items-start leading-tight">
-            <span className="font-bold text-xs text-white">Share to Claim</span>
-            <span className="text-[9px] text-amber-400/80">{claimsRemaining} left</span>
-          </div>
-        </button>
-      );
-    }
+  // State 1: Initial - Show gift icon, tap to share
+if (!hasShared) {
+  return (
+    <button
+      onClick={handleShareToQualify}
+      disabled={!userFid}
+      className={cn(
+        "bg-amber-500/90 hover:bg-amber-400 border border-amber-400 rounded-lg p-2 flex items-center gap-2 transition-all",
+        !userFid && "opacity-50 cursor-not-allowed"
+      )}
+    >
+      <Gift
+        className={cn(
+          "w-4 h-4 text-black transition-transform duration-300",
+          isPulsing ? "scale-75" : "scale-100"
+        )}
+      />
+      <div className="flex flex-col items-start leading-tight">
+        <span className="font-bold text-xs text-black">Share to Claim</span>
+        <span className="text-[9px] text-black/70">{claimsRemaining} left</span>
+      </div>
+    </button>
+  );
+}
 
     // State 2: Needs to follow @swishh.eth
     if (needsFollow) {

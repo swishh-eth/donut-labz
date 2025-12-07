@@ -6,9 +6,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { Send, MessageCircle, HelpCircle, X, Sparkles } from "lucide-react";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
-import { base } from "wagmi/chains";
-import { createPublicClient, http, parseAbiItem } from "viem";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
 import { ShareRewardButton } from "@/components/share-reward-button";
 
@@ -58,18 +56,11 @@ const timeAgo = (timestamp: bigint) => {
   return `${Math.floor(diff / 86400)}d ago`;
 };
 
-// Create a dedicated public client for Base
-const basePublicClient = createPublicClient({
-  chain: base,
-  transport: http("https://base.publicnode.com"),
-});
-
 export default function ChatPage() {
   const readyRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
-  const wagmiPublicClient = usePublicClient({ chainId: base.id });
 
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
@@ -85,7 +76,6 @@ export default function ChatPage() {
   const { data: hash, writeContract, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
-  // Prevent iOS zoom on input focus
   useEffect(() => {
     const handleFocus = () => {
       const viewport = document.querySelector('meta[name="viewport"]');
@@ -106,7 +96,6 @@ export default function ChatPage() {
     };
   }, []);
 
-  // Farcaster SDK context
   useEffect(() => {
     let cancelled = false;
     const hydrateContext = async () => {
@@ -133,58 +122,26 @@ export default function ChatPage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Fetch messages from blockchain events
+  // Fetch messages from Supabase
   const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
-    queryKey: ["chat-messages-onchain"],
+    queryKey: ["chat-messages"],
     queryFn: async () => {
-      const client = wagmiPublicClient || basePublicClient;
-
-      try {
-        const DEPLOYMENT_BLOCK = 39080208n;
-        const BLOCKS_PER_HOUR = 1800n;
-
-        const currentBlock = await client.getBlockNumber();
-        console.log("Current block:", currentBlock.toString());
-
-        let fromBlock = currentBlock - BLOCKS_PER_HOUR;
-
-        if (fromBlock < DEPLOYMENT_BLOCK) {
-          fromBlock = DEPLOYMENT_BLOCK;
-        }
-
-        console.log("Fetching from:", fromBlock.toString(), "to:", currentBlock.toString());
-
-        const logs = await client.getLogs({
-          address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
-          event: parseAbiItem("event MessageSent(address indexed sender, string message, uint256 timestamp)"),
-          fromBlock,
-          toBlock: currentBlock,
-        });
-
-        console.log("Logs found:", logs.length);
-
-        const parsedMessages: ChatMessage[] = logs.map((log) => ({
-          sender: log.args.sender as string,
-          message: log.args.message as string,
-          timestamp: log.args.timestamp as bigint,
-          transactionHash: log.transactionHash,
-          blockNumber: log.blockNumber,
-        }));
-
-        return parsedMessages
-          .sort((a, b) => Number(b.timestamp - a.timestamp))
-          .slice(0, 20);
-      } catch (e) {
-        console.error("Failed to fetch messages:", e);
-        return [];
-      }
+      const res = await fetch("/api/chat/messages");
+      if (!res.ok) throw new Error("Failed to fetch messages");
+      const data = await res.json();
+      
+      return data.messages.map((m: any) => ({
+        sender: m.sender,
+        message: m.message,
+        timestamp: BigInt(m.timestamp),
+        transactionHash: m.transaction_hash,
+        blockNumber: BigInt(m.block_number),
+      })) as ChatMessage[];
     },
-    refetchInterval: 15000,
+    refetchInterval: 30000,
     staleTime: 10000,
-    gcTime: 30000,
   });
 
-  // Fetch chat stats from database
   const { data: statsData } = useQuery({
     queryKey: ["chat-stats"],
     queryFn: async () => {
@@ -195,13 +152,11 @@ export default function ChatPage() {
     refetchInterval: 30000,
   });
 
-  // Get current user's points
   const userPoints = statsData?.leaderboard?.find(
     (entry: { address: string; total_points: number }) =>
       entry.address.toLowerCase() === address?.toLowerCase()
   )?.total_points || 0;
 
-  // Fetch profiles for message senders
   const senderAddresses = [...new Set(messages?.map((m) => m.sender.toLowerCase()) || [])];
 
   const { data: profilesData } = useQuery<{ profiles: Record<string, FarcasterProfile | null> }>({
@@ -221,7 +176,6 @@ export default function ChatPage() {
 
   const profiles = profilesData?.profiles || {};
 
-  // Record points after successful transaction
   const recordPoints = useCallback(async () => {
     if (!address) return;
 
@@ -240,23 +194,21 @@ export default function ChatPage() {
     }
   }, [address, queryClient, pendingMessage]);
 
-  // Handle successful transaction
   useEffect(() => {
     if (isSuccess && hash) {
       recordPoints();
       setPendingMessage("");
       setMessage("");
-
-      // Start cooldown timer
       setCooldownRemaining(COOLDOWN_SECONDS);
 
-      setTimeout(() => {
+      // Sync blockchain to Supabase, then refresh
+      setTimeout(async () => {
+        await fetch("/api/chat/messages?sync=true");
         refetchMessages();
-      }, 2000);
+      }, 3000);
     }
   }, [isSuccess, hash, recordPoints, refetchMessages]);
 
-  // Cooldown countdown timer
   useEffect(() => {
     if (cooldownRemaining <= 0) return;
 
@@ -273,7 +225,6 @@ export default function ChatPage() {
     return () => clearInterval(timer);
   }, [cooldownRemaining]);
 
-  // Send message
   const handleSendMessage = async () => {
     if (!message.trim() || !isConnected || isPending || isConfirming || cooldownRemaining > 0 || isVerifying) return;
 
@@ -281,11 +232,10 @@ export default function ChatPage() {
     setIsVerifying(true);
 
     try {
-      // Verify eligibility BEFORE transaction
       const verifyRes = await fetch("/api/chat/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ senderAddress: address, message: message.trim(), fid: context?.user?.fid }),
+        body: JSON.stringify({ senderAddress: address, message: message.trim(), fid: context?.user?.fid }),
       });
 
       const verifyData = await verifyRes.json();
@@ -296,7 +246,6 @@ export default function ChatPage() {
         return;
       }
 
-      // Eligible - proceed with transaction
       setPendingMessage(message.trim());
       setIsVerifying(false);
 
@@ -314,7 +263,6 @@ export default function ChatPage() {
     }
   };
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -333,7 +281,6 @@ export default function ChatPage() {
         }}
       >
         <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Header */}
           <div className="flex items-center justify-between mb-3 flex-shrink-0">
             <h1 className="text-2xl font-bold tracking-wide">CHAT</h1>
             {context?.user && (
@@ -350,7 +297,6 @@ export default function ChatPage() {
             )}
           </div>
 
-          {/* Stats Cards */}
           <div className="grid grid-cols-2 gap-2 mb-3 flex-shrink-0">
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
               <div className="flex items-center gap-1 mb-0.5">
@@ -362,11 +308,9 @@ export default function ChatPage() {
               </div>
             </div>
 
-            {/* Share Reward Button */}
             <ShareRewardButton userFid={context?.user?.fid} compact />
           </div>
 
-          {/* Info Banner - Tap to open help */}
           <button
             onClick={() => setShowHelpDialog(true)}
             className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-3 flex-shrink-0 hover:bg-zinc-800 transition-colors"
@@ -383,7 +327,6 @@ export default function ChatPage() {
             </div>
           </button>
 
-          {/* Help Dialog */}
           {showHelpDialog && (
             <div className="fixed inset-0 z-50">
               <div
@@ -405,62 +348,40 @@ export default function ChatPage() {
                   </h2>
 
                   <div className="space-y-4">
-                    {/* Step 1 */}
                     <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                        1
-                      </div>
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">1</div>
                       <div>
                         <div className="font-semibold text-white text-sm">Send Messages</div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          Every onchain message earns sprinkles based on your Neynar score.
-                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5">Every onchain message earns sprinkles based on your Neynar score.</div>
                       </div>
                     </div>
 
-                    {/* Step 2 */}
                     <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                        2
-                      </div>
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">2</div>
                       <div>
                         <div className="font-semibold text-white text-sm">Neynar Score</div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          Your Farcaster reputation (0-1) determines sprinkles per message.
-                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5">Your Farcaster reputation (0-1) determines sprinkles per message.</div>
                       </div>
                     </div>
 
-                    {/* Step 3 */}
                     <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                        3
-                      </div>
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">3</div>
                       <div>
                         <div className="font-semibold text-white text-sm">Example</div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          0.7 Neynar score = 0.7 sprinkles per message.
-                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5">0.7 Neynar score = 0.7 sprinkles per message.</div>
                       </div>
                     </div>
 
-                    {/* Step 4 */}
                     <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                        4
-                      </div>
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">4</div>
                       <div>
                         <div className="font-semibold text-white text-sm">Future Rewards</div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          Sprinkles may be used for airdrops and rewards!
-                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5">Sprinkles may be used for airdrops and rewards!</div>
                       </div>
                     </div>
                   </div>
 
-                  <p className="text-[10px] text-gray-500 text-center mt-4">
-                    Messages are permanently stored on Base. Gas fees apply.
-                  </p>
+                  <p className="text-[10px] text-gray-500 text-center mt-4">Messages are permanently stored on Base. Gas fees apply.</p>
 
                   <button
                     onClick={() => setShowHelpDialog(false)}
@@ -473,7 +394,6 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Chat Messages Area */}
           <div
             ref={messagesContainerRef}
             className="flex-1 overflow-y-auto space-y-2 pb-2 min-h-0"
@@ -488,9 +408,7 @@ export default function ChatPage() {
                   <MessageCircle className="w-8 h-8 text-gray-600" />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">No messages yet</h3>
-                <p className="text-sm text-gray-400 text-center max-w-xs">
-                  Be the first to send an onchain message!
-                </p>
+                <p className="text-sm text-gray-400 text-center max-w-xs">Be the first to send an onchain message!</p>
               </div>
             ) : (
               <>
@@ -510,9 +428,7 @@ export default function ChatPage() {
                     >
                       <Avatar className="h-8 w-8 border border-zinc-700 flex-shrink-0">
                         <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
-                        <AvatarFallback className="bg-zinc-800 text-white text-xs">
-                          {initialsFrom(displayName)}
-                        </AvatarFallback>
+                        <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(displayName)}</AvatarFallback>
                       </Avatar>
 
                       <div className="flex-1 min-w-0">
@@ -527,14 +443,11 @@ export default function ChatPage() {
                   );
                 })}
 
-                {/* Pending message */}
                 {pendingMessage && (
                   <div className="flex gap-2 p-2 rounded-lg bg-zinc-800/50 border border-zinc-700/50 opacity-60">
                     <Avatar className="h-8 w-8 border border-zinc-700 flex-shrink-0">
                       <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
-                      <AvatarFallback className="bg-zinc-800 text-white text-xs">
-                        {initialsFrom(userDisplayName)}
-                      </AvatarFallback>
+                      <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(userDisplayName)}</AvatarFallback>
                     </Avatar>
 
                     <div className="flex-1 min-w-0">
@@ -552,7 +465,6 @@ export default function ChatPage() {
             )}
           </div>
 
-          {/* Message Input - Fixed at bottom */}
           <div className="flex-shrink-0 pt-2 pb-2">
             {!isConnected ? (
               <div className="flex items-center justify-center bg-zinc-900 border border-zinc-800 rounded-xl p-3">
@@ -560,32 +472,29 @@ export default function ChatPage() {
               </div>
             ) : (
               <>
-{/* Eligibility Error Box */}
-{eligibilityError && (
-  <div className="mb-2 flex rounded-xl overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-    {/* Main error content */}
-    <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-xl p-3">
-      <div className="flex items-start gap-2">
-        <X className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-        <div className="flex-1">
-          <p className="text-xs font-semibold text-red-400 mb-1">Cannot Send Message</p>
-          <ul className="space-y-1">
-            {eligibilityError.map((reason, i) => (
-              <li key={i} className="text-[11px] text-red-300/80 leading-relaxed">{reason}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </div>
-    {/* Close button section */}
-    <button
-      onClick={() => setEligibilityError(null)}
-      className="flex items-center justify-center px-4 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-xl hover:bg-red-900/50 transition-colors"
-    >
-      <X className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
-    </button>
-  </div>
-)}
+                {eligibilityError && (
+                  <div className="mb-2 flex rounded-xl overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+                    <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-xl p-3">
+                      <div className="flex items-start gap-2">
+                        <X className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-red-400 mb-1">Cannot Send Message</p>
+                          <ul className="space-y-1">
+                            {eligibilityError.map((reason, i) => (
+                              <li key={i} className="text-[11px] text-red-300/80 leading-relaxed">{reason}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setEligibilityError(null)}
+                      className="flex items-center justify-center px-4 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-xl hover:bg-red-900/50 transition-colors"
+                    >
+                      <X className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
+                    </button>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2">
                   <input
