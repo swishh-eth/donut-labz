@@ -444,7 +444,7 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
               className="flex items-center justify-center px-3 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-lg hover:bg-red-900/50 transition-colors"
             >
               <svg
-                className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] animate-[spin_3s_linear_infinite]"
+                className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] animate-[spin_3s_linear_infinite_reverse]"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -514,7 +514,7 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
             className="flex items-center justify-center px-2.5 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-lg hover:bg-red-900/50 transition-colors"
           >
             <svg
-              className="w-3.5 h-3.5 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] animate-[spin_3s_linear_infinite]"
+              className="w-3.5 h-3.5 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] animate-[spin_3s_linear_infinite_reverse]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -648,7 +648,7 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
             className="flex items-center justify-center px-3 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-lg hover:bg-red-900/50 transition-colors"
           >
             <svg
-              className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] animate-[spin_3s_linear_infinite]"
+              className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] animate-[spin_3s_linear_infinite_reverse]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
