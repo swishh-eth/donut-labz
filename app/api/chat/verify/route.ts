@@ -20,11 +20,18 @@ const SCORE_CACHE_DAYS = 7;
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { senderAddress, message } = body;
+    const { senderAddress, message, fid } = body;
 
     if (!senderAddress) {
       return NextResponse.json(
         { eligible: false, reasons: ["Missing wallet address"] },
+        { status: 400 }
+      );
+    }
+
+    if (!fid) {
+      return NextResponse.json(
+        { eligible: false, reasons: ["Farcaster account not detected"] },
         { status: 400 }
       );
     }
@@ -84,11 +91,12 @@ export async function POST(request: Request) {
       }
     }
 
-    // === CHECK 7: Neynar score and follower count from profile_cache ===
+    // === CHECK 7: Neynar score and follower count using FID ===
     let neynarScore = 0;
     let followerCount = 0;
     let needsFreshData = true;
 
+    // Check profile_cache by address first (for cached data)
     const { data: cachedProfile } = await supabase
       .from("profile_cache")
       .select("profile, updated_at")
@@ -96,22 +104,23 @@ export async function POST(request: Request) {
       .single();
 
     if (cachedProfile?.profile) {
-      const profile = cachedProfile.profile as { neynarScore?: number; followerCount?: number };
+      const profile = cachedProfile.profile as { neynarScore?: number; followerCount?: number; fid?: number };
       const cacheAge = Date.now() - new Date(cachedProfile.updated_at).getTime();
       const cacheMaxAge = SCORE_CACHE_DAYS * 24 * 60 * 60 * 1000;
 
-      if (cacheAge < cacheMaxAge) {
+      // Use cache if fresh and FID matches
+      if (cacheAge < cacheMaxAge && profile.fid === fid) {
         neynarScore = profile.neynarScore ?? 0;
         followerCount = profile.followerCount ?? 0;
         needsFreshData = false;
       }
     }
 
-    // Fetch fresh data from Neynar if needed
+    // Fetch fresh data from Neynar using FID
     if (needsFreshData) {
       try {
         const neynarRes = await fetch(
-          `https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${address}`,
+          `https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`,
           {
             headers: {
               accept: "application/json",
@@ -122,13 +131,13 @@ export async function POST(request: Request) {
 
         if (neynarRes.ok) {
           const neynarData = await neynarRes.json();
-          const users = neynarData[address];
+          const users = neynarData.users;
           if (users && users.length > 0) {
             const user = users[0];
             neynarScore = user.experimental?.neynar_user_score || 0;
             followerCount = user.follower_count || 0;
 
-            // Update profile_cache
+            // Update profile_cache with fresh data
             const profileData = {
               fid: user.fid,
               pfpUrl: user.pfp_url,
