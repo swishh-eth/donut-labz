@@ -395,8 +395,8 @@ export default function ChatPage() {
           )}
 
           <div
-            ref={messagesContainerRef}
-            className="flex-1 overflow-y-auto space-y-2 pb-2 min-h-0"
+  ref={messagesContainerRef}
+  className="flex-1 overflow-y-auto space-y-2 pb-2 min-h-0 scrollbar-hide"
           >
             {messagesLoading ? (
               <div className="flex items-center justify-center py-12">

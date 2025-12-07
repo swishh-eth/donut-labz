@@ -497,7 +497,7 @@ export default function LeaderboardPage() {
             </div>
           )}
 
-         {/* Leaderboard List */}
+        {/* Leaderboard List */}
 <div className="flex-1 overflow-y-auto space-y-2 pb-2 scrollbar-hide">
   {isLoading ? (
     <div className="flex items-center justify-center py-12">
@@ -519,7 +519,7 @@ export default function LeaderboardPage() {
         return (
           <div
             key={`empty-${rank}`}
-            className={`flex items-center justify-between rounded-xl p-3 border min-h-[72px] ${styles.bg} ${styles.border}`}
+            className={`flex items-center justify-between rounded-xl p-4 border min-h-[80px] ${styles.bg} ${styles.border}`}
           >
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <span
@@ -536,7 +536,7 @@ export default function LeaderboardPage() {
                 {rank}
               </span>
 
-              <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
+              <Avatar className="h-11 w-11 border border-zinc-700 flex-shrink-0">
                 <AvatarImage
                   src={ANON_PFPS[rank % ANON_PFPS.length]}
                   alt="Empty spot"
@@ -555,17 +555,17 @@ export default function LeaderboardPage() {
               </div>
             </div>
 
-            <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+            <div className="flex flex-col items-end gap-1 flex-shrink-0">
               <div className="text-sm font-bold text-white">
                 0 <span className="text-xs font-normal text-gray-400">glazes</span>
               </div>
               {isWinner && (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col items-end">
                   {ethBalance > 0 && prizeEth && (
-                    <div className="text-[10px] text-green-400">+Ξ{prizeEth}</div>
+                    <div className="text-[11px] text-green-400 font-medium">+Ξ{prizeEth}</div>
                   )}
                   {donutBalance > 0 && prizeDonut && (
-                    <div className="text-[10px] text-amber-400">+🍩{prizeDonut}</div>
+                    <div className="text-[11px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
                   )}
                 </div>
               )}
@@ -582,7 +582,7 @@ export default function LeaderboardPage() {
       return (
         <div
           key={entry.address}
-          className={`flex items-center justify-between rounded-xl p-3 border min-h-[72px] ${styles.bg} ${styles.border}`}
+          className={`flex items-center justify-between rounded-xl p-4 border min-h-[80px] ${styles.bg} ${styles.border}`}
         >
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <span
@@ -599,7 +599,7 @@ export default function LeaderboardPage() {
               {rank}
             </span>
 
-            <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
+            <Avatar className="h-11 w-11 border border-zinc-700 flex-shrink-0">
               <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
               <AvatarFallback className="bg-zinc-800 text-white text-xs">
                 {displayName.slice(0, 2).toUpperCase()}
@@ -614,17 +614,17 @@ export default function LeaderboardPage() {
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
             <div className="text-sm font-bold text-white">
               {entry.total_points} <span className="text-xs font-normal text-gray-400">glazes</span>
             </div>
             {isWinner && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col items-end">
                 {ethBalance > 0 && prizeEth && (
-                  <div className="text-[10px] text-green-400">+Ξ{prizeEth}</div>
+                  <div className="text-[11px] text-green-400 font-medium">+Ξ{prizeEth}</div>
                 )}
                 {donutBalance > 0 && prizeDonut && (
-                  <div className="text-[10px] text-amber-400">+🍩{prizeDonut}</div>
+                  <div className="text-[11px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
                 )}
               </div>
             )}
