@@ -228,7 +228,7 @@ export default function ChatPage() {
       const res = await fetch("/api/chat/record", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ senderAddress: address }),
+        body: JSON.stringify({ senderAddress: address, message: pendingMessage }),
       });
       const data = await res.json();
       console.log("Points awarded:", data.pointsAwarded);
