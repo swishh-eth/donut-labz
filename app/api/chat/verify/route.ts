@@ -22,12 +22,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { senderAddress, message, fid } = body;
 
-    console.log("=== VERIFY DEBUG START ===");
-    console.log("Raw body:", JSON.stringify(body));
-    console.log("FID received:", fid, "Type:", typeof fid);
-
     if (!senderAddress) {
-      console.log("ERROR: Missing sender address");
       return NextResponse.json(
         { eligible: false, reasons: ["Missing wallet address"] },
         { status: 400 }
@@ -35,7 +30,6 @@ export async function POST(request: Request) {
     }
 
     if (!fid) {
-      console.log("ERROR: Missing FID");
       return NextResponse.json(
         { eligible: false, reasons: ["Farcaster account not detected"] },
         { status: 400 }
@@ -46,9 +40,6 @@ export async function POST(request: Request) {
     const trimmedMessage = message?.trim() || "";
     const reasons: string[] = [];
 
-    console.log("Address (lowercase):", address);
-    console.log("Message:", trimmedMessage);
-
     // === CHECK 1: Minimum message length ===
     if (trimmedMessage.length < MIN_MESSAGE_LENGTH) {
       reasons.push(`Message must be at least ${MIN_MESSAGE_LENGTH} characters`);
@@ -58,7 +49,6 @@ export async function POST(request: Request) {
     try {
       const balance = await baseClient.getBalance({ address: address as `0x${string}` });
       const ethBalance = parseFloat(formatEther(balance));
-      console.log("ETH Balance:", ethBalance);
 
       if (ethBalance < MIN_ETH_BALANCE) {
         reasons.push(`Need at least ${MIN_ETH_BALANCE} ETH in wallet`);
@@ -74,15 +64,11 @@ export async function POST(request: Request) {
       .eq("address", address)
       .single();
 
-    console.log("Existing chat_points data:", existing);
-
     // === CHECK 4: Rate limiting ===
     if (existing?.last_message_at) {
       const lastMessageTime = new Date(existing.last_message_at).getTime();
       const now = Date.now();
       const secondsSinceLastMessage = (now - lastMessageTime) / 1000;
-
-      console.log("Seconds since last message:", secondsSinceLastMessage);
 
       if (secondsSinceLastMessage < RATE_LIMIT_SECONDS) {
         const waitTime = Math.ceil(RATE_LIMIT_SECONDS - secondsSinceLastMessage);
@@ -111,59 +97,45 @@ export async function POST(request: Request) {
     let needsFreshData = true;
 
     // Check profile_cache by address first (for cached data)
-    const { data: cachedProfile, error: cacheError } = await supabase
+    const { data: cachedProfile } = await supabase
       .from("profile_cache")
       .select("profile, updated_at")
       .eq("address", address)
       .single();
-
-    console.log("Cache lookup error:", cacheError);
-    console.log("Cached profile:", cachedProfile);
 
     if (cachedProfile?.profile) {
       const profile = cachedProfile.profile as { neynarScore?: number; followerCount?: number; fid?: number };
       const cacheAge = Date.now() - new Date(cachedProfile.updated_at).getTime();
       const cacheMaxAge = SCORE_CACHE_DAYS * 24 * 60 * 60 * 1000;
 
-      console.log("Cache age (ms):", cacheAge, "Max age:", cacheMaxAge);
-      console.log("Cached FID:", profile.fid, "Request FID:", fid);
-
-      // Use cache if fresh and FID matches
-      if (cacheAge < cacheMaxAge && profile.fid === fid) {
+      // Use cache if fresh, FID matches, AND followerCount exists
+      if (cacheAge < cacheMaxAge && profile.fid === fid && profile.followerCount !== undefined) {
         neynarScore = profile.neynarScore ?? 0;
         followerCount = profile.followerCount ?? 0;
         needsFreshData = false;
-        console.log("Using cached data - Score:", neynarScore, "Followers:", followerCount);
       }
     }
 
     // Fetch fresh data from Neynar using FID
     if (needsFreshData) {
-      console.log("Fetching fresh data from Neynar for FID:", fid);
       try {
-        const neynarUrl = `https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`;
-        console.log("Neynar URL:", neynarUrl);
-
-        const neynarRes = await fetch(neynarUrl, {
-          headers: {
-            accept: "application/json",
-            api_key: process.env.NEYNAR_API_KEY || "",
-          },
-        });
-
-        console.log("Neynar response status:", neynarRes.status);
+        const neynarRes = await fetch(
+          `https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`,
+          {
+            headers: {
+              accept: "application/json",
+              api_key: process.env.NEYNAR_API_KEY || "",
+            },
+          }
+        );
 
         if (neynarRes.ok) {
           const neynarData = await neynarRes.json();
-          console.log("Neynar raw response:", JSON.stringify(neynarData));
-
           const users = neynarData.users;
           if (users && users.length > 0) {
             const user = users[0];
             neynarScore = user.experimental?.neynar_user_score || 0;
             followerCount = user.follower_count || 0;
-
-            console.log("Parsed from Neynar - Score:", neynarScore, "Followers:", followerCount);
 
             // Update profile_cache with fresh data
             const profileData = {
@@ -175,34 +147,19 @@ export async function POST(request: Request) {
               followerCount: followerCount,
             };
 
-            console.log("Upserting profile_cache with:", profileData);
-
-            const { error: upsertError } = await supabase
+            await supabase
               .from("profile_cache")
               .upsert({
                 address,
                 profile: profileData,
                 updated_at: new Date().toISOString(),
               }, { onConflict: "address" });
-
-            if (upsertError) {
-              console.error("Profile cache upsert error:", upsertError);
-            } else {
-              console.log("Profile cache updated successfully");
-            }
-          } else {
-            console.log("No users returned from Neynar");
           }
-        } else {
-          const errorText = await neynarRes.text();
-          console.error("Neynar error response:", errorText);
         }
       } catch (e) {
         console.error("Failed to fetch neynar data:", e);
       }
     }
-
-    console.log("Final values - Score:", neynarScore, "Followers:", followerCount);
 
     // Check neynar score
     if (neynarScore < MIN_NEYNAR_SCORE) {
@@ -213,9 +170,6 @@ export async function POST(request: Request) {
     if (followerCount < MIN_FOLLOWERS) {
       reasons.push(`Need at least ${MIN_FOLLOWERS} followers (yours: ${followerCount})`);
     }
-
-    console.log("All reasons:", reasons);
-    console.log("=== VERIFY DEBUG END ===");
 
     // Return result
     if (reasons.length > 0) {
