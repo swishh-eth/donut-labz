@@ -562,24 +562,43 @@ export default function ChatPage() {
               <>
 {/* Eligibility Error Box */}
 {eligibilityError && (
-  <div className="mb-2 bg-red-950/50 border border-red-500/50 rounded-xl p-3 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-    <div className="flex items-start gap-2">
-      <X className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-red-400 mb-1">Cannot Send Message</p>
-        <ul className="space-y-1">
-          {eligibilityError.map((reason, i) => (
-            <li key={i} className="text-[11px] text-red-300/80 break-words">{reason}</li>
-          ))}
-        </ul>
+  <div className="mb-2 flex rounded-xl overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+    {/* Main error content */}
+    <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-xl p-3">
+      <div className="flex items-start gap-2">
+        <X className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <p className="text-xs font-semibold text-red-400 mb-1">Cannot Send Message</p>
+          <ul className="space-y-1">
+            {eligibilityError.map((reason, i) => (
+              <li key={i} className="text-[11px] text-red-300/80 leading-relaxed">{reason}</li>
+            ))}
+          </ul>
+        </div>
       </div>
-      <button
-        onClick={() => setEligibilityError(null)}
-        className="text-red-400 hover:text-red-300 p-1 flex-shrink-0"
-      >
-        <X className="w-3 h-3" />
-      </button>
     </div>
+    {/* Retry button section */}
+    <button
+      onClick={() => {
+        setEligibilityError(null);
+        handleSendMessage();
+      }}
+      className="flex items-center justify-center px-3 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-xl hover:bg-red-900/50 transition-colors"
+    >
+      <svg
+        className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] animate-[spin_3s_linear_infinite]"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+        />
+      </svg>
+    </button>
   </div>
 )}
 

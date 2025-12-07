@@ -131,7 +131,7 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
     isPending: isWriting,
     reset: resetWrite,
   } = useWriteContract();
-  
+
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash: txHash,
   });
@@ -173,7 +173,7 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
   const handleShareToQualify = async () => {
     const estimatedAmount = getEstimatedAmount();
     const shareText = `I just got some free glaze at the Donut Lab! 🍩🍩🍩\n\n${estimatedAmount} $${tokenSymbol} claimed! 🎉\n\nGet your free tokens too 👇`;
-    
+
     try {
       await sdk.actions.composeCast({
         text: shareText,
@@ -200,8 +200,8 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
 
   // Share after claiming (brag about it!)
   const handleShareSuccess = useCallback(async () => {
-    const shareText = `I just got some free glaze at the Donut Lab! 🍩🍩🍩\n\n${claimedAmount} $${tokenSymbol} claimed! 🎉\n\nGet your free tokens too 👇`;
-    
+    const shareText = `I just got free glaze from Donut Labs! by @swishh.eth 🧪\n\n${claimedAmount} $${tokenSymbol} claimed! 🎉\n\nJoin the lab, compete in leaderboards 👇`;
+
     try {
       await sdk.actions.composeCast({
         text: shareText,
@@ -426,9 +426,39 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
         </div>
 
         {verifyError && (
-          <div className="flex items-center gap-2 text-red-400 text-xs mb-2">
-            <XCircle className="w-3 h-3" />
-            <span>{verifyError}</span>
+          <div className="flex rounded-lg overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)] mb-2">
+            {/* Main error content */}
+            <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-lg p-2">
+              <div className="flex items-start gap-2">
+                <XCircle className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />
+                <span className="text-xs text-red-300/90 leading-relaxed break-words">
+                  {verifyError}
+                </span>
+              </div>
+            </div>
+            {/* Retry button section */}
+            <button
+              onClick={() => {
+                setVerifyError(null);
+                setHasShared(false);
+                setNeedsFollow(false);
+              }}
+              className="flex items-center justify-center px-3 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-lg hover:bg-red-900/50 transition-colors"
+            >
+              <svg
+                className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] animate-[spin_3s_linear_infinite]"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+            </button>
           </div>
         )}
 
@@ -468,25 +498,39 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
     // Show error state if there's an error
     if (verifyError) {
       return (
-        <div className="bg-red-500/20 border border-red-500/40 rounded-lg p-2">
-          <div className="flex items-center justify-between gap-1">
-            <div className="flex items-center gap-1 min-w-0">
-              <XCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
-              <span className="font-bold text-[10px] text-red-400 truncate">
+        <div className="flex rounded-lg overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+          {/* Main error content */}
+          <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-lg p-2">
+            <div className="flex items-start gap-1.5">
+              <XCircle className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />
+              <span className="text-[10px] text-red-300/90 leading-relaxed break-words">
                 {verifyError}
               </span>
             </div>
-            <button
-              onClick={() => {
-                setVerifyError(null);
-                setHasShared(false);
-                setNeedsFollow(false);
-              }}
-              className="text-[9px] text-red-300 underline flex-shrink-0"
-            >
-              Retry
-            </button>
           </div>
+          {/* Retry button section */}
+          <button
+            onClick={() => {
+              setVerifyError(null);
+              setHasShared(false);
+              setNeedsFollow(false);
+            }}
+            className="flex items-center justify-center px-2.5 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-lg hover:bg-red-900/50 transition-colors"
+          >
+            <svg
+              className="w-3.5 h-3.5 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] animate-[spin_3s_linear_infinite]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+          </button>
         </div>
       );
     }
@@ -498,15 +542,20 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
           onClick={handleShareToQualify}
           disabled={!userFid}
           className={cn(
-            "bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded-lg p-2 flex items-center justify-center gap-1.5 transition-all",
-            isPulsing && "scale-[0.97]",
+            "bg-gradient-to-br from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 rounded-lg p-2 flex items-center gap-2 transition-all",
             !userFid && "opacity-50 cursor-not-allowed"
           )}
         >
-          <Gift className="w-3 h-3 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-          <span className="font-bold text-xs text-amber-400">
-            {claimsRemaining} left
-          </span>
+          <Gift
+            className={cn(
+              "w-4 h-4 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.9)] transition-transform duration-300",
+              isPulsing ? "scale-75" : "scale-100"
+            )}
+          />
+          <div className="flex flex-col items-start leading-tight">
+            <span className="font-bold text-xs text-white">Share to Claim</span>
+            <span className="text-[9px] text-amber-400/80">{claimsRemaining} left</span>
+          </div>
         </button>
       );
     }
@@ -585,9 +634,39 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
       </div>
 
       {verifyError && (
-        <div className="flex items-center gap-2 text-red-400 text-xs mb-2 bg-red-500/10 rounded p-2">
-          <XCircle className="w-3 h-3 flex-shrink-0" />
-          <span>{verifyError}</span>
+        <div className="flex rounded-lg overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)] mb-2">
+          {/* Main error content */}
+          <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-lg p-2">
+            <div className="flex items-start gap-2">
+              <XCircle className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />
+              <span className="text-xs text-red-300/90 leading-relaxed break-words">
+                {verifyError}
+              </span>
+            </div>
+          </div>
+          {/* Retry button section */}
+          <button
+            onClick={() => {
+              setVerifyError(null);
+              setHasShared(false);
+              setNeedsFollow(false);
+            }}
+            className="flex items-center justify-center px-3 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-lg hover:bg-red-900/50 transition-colors"
+          >
+            <svg
+              className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] animate-[spin_3s_linear_infinite]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+          </button>
         </div>
       )}
 
