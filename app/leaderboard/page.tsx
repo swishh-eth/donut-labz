@@ -359,62 +359,52 @@ export default function LeaderboardPage() {
             )}
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                <span className="text-xs text-gray-400 uppercase">Week</span>
-              </div>
-              <div className="text-2xl font-bold text-white">#{weekNumber}</div>
-            </div>
+         {/* Stats Cards */}
+<div className="grid grid-cols-2 gap-2 mb-3">
+  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+    <div className="flex items-center gap-1.5 mb-0.5">
+      <Trophy className="w-3.5 h-3.5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+      <span className="text-[10px] text-gray-400 uppercase">Week</span>
+    </div>
+    <div className="text-xl font-bold text-white">#{weekNumber}</div>
+  </div>
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Coins className="w-4 h-4 text-green-400" />
-                <span className="text-xs text-gray-400 uppercase">Prize Pool</span>
-              </div>
-              <div className="flex flex-col gap-0.5">
-                {ethBalance > 0 && (
-                  <div className="text-lg font-bold text-green-400">
-                    Ξ{ethBalance.toFixed(4)}
-                  </div>
-                )}
-                {donutBalance > 0 && (
-                  <div className="text-lg font-bold text-amber-400">
-                    🍩{donutBalance.toFixed(2)}
-                  </div>
-                )}
-                {ethBalance === 0 && donutBalance === 0 && (
-                  <div className="text-lg font-bold text-gray-500">Empty</div>
-                )}
-              </div>
-              <div className="text-xs text-gray-400">
-                (${totalPrizeUsd.toFixed(2)})
-              </div>
-            </div>
-          </div>
+  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+    <div className="flex items-center gap-1.5 mb-0.5">
+      <Coins className="w-3.5 h-3.5 text-green-400" />
+      <span className="text-[10px] text-gray-400 uppercase">Prize Pool</span>
+    </div>
+    <div className="flex items-center gap-2">
+      {ethBalance > 0 && (
+        <span className="text-base font-bold text-green-400">Ξ{ethBalance.toFixed(4)}</span>
+      )}
+      {donutBalance > 0 && (
+        <span className="text-base font-bold text-amber-400">🍩{donutBalance.toFixed(0)}</span>
+      )}
+      {ethBalance === 0 && donutBalance === 0 && (
+        <span className="text-base font-bold text-gray-500">Empty</span>
+      )}
+    </div>
+    <div className="text-[10px] text-gray-400">${totalPrizeUsd.toFixed(2)}</div>
+  </div>
+</div>
 
-          {/* Countdown */}
-          <div className="bg-gradient-to-r from-zinc-900 to-zinc-800 border border-zinc-700 rounded-lg p-3 mb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-white" />
-                <span className="text-sm font-semibold text-white">
-                  Next Distribution
-                </span>
-                <button
-                  onClick={() => setShowHelpDialog(true)}
-                  className="ml-1 text-gray-400 hover:text-white transition-colors"
-                >
-                  <HelpCircle className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="text-sm font-bold text-white">
-                {timeUntilDistribution}
-              </div>
-            </div>
-          </div>
+         {/* Countdown */}
+<div className="bg-gradient-to-r from-zinc-900 to-zinc-800 border border-zinc-700 rounded-lg p-2 mb-3">
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-2">
+      <Clock className="w-4 h-4 text-white" />
+      <span className="text-xs font-semibold text-white">Next Distribution</span>
+      <button
+        onClick={() => setShowHelpDialog(true)}
+        className="text-gray-400 hover:text-white transition-colors"
+      >
+        <HelpCircle className="w-3.5 h-3.5" />
+      </button>
+    </div>
+    <div className="text-xs font-bold text-white">{timeUntilDistribution}</div>
+  </div>
+</div>
 
           {/* Help Dialog */}
           {showHelpDialog && (
