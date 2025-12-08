@@ -14,10 +14,10 @@ type LearnMoreButtonProps = {
 // Contract addresses
 const CONTRACTS = {
   donutToken: "0xAE4a37d554C6D6F3E398546d8566B25052e0169C",
-  sprinklesToken: "0x98DCF4D319fd761EE144C8682300A890Df9f4398",
+  sprinklesToken: "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D",
   donutMiner: "0xF69614F4Ee8D4D3879dd53d5A039eB3114C794F6",
-  sprinklesMiner: "0x4AcfB87F3CDA3Bb2962F54862181c3f2CdcA5fa0",
-  sprinklesDonutLP: "0x1f23d5b26a2d9c6278f39d87e1c58d1121a57d22",
+  sprinklesMiner: "0x924b2d4a89b84A37510950031DCDb6552Dc97bcC",
+  sprinklesDonutLP: "0x47e8b03017d8b8d058ba5926838ca4dd4531e668",
   leaderboard: "0x4681A6DeEe2D74f5DE48CEcd2A572979EA641586",
   wheel: "", // Coming soon
   donutLabsTreasury: "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d",
