@@ -8,7 +8,7 @@ import { NavBar } from "@/components/nav-bar";
 import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
-import { ShareRewardButton } from "@/components/share-reward-button";
+import { SprinklesClaimButton } from "@/components/sprinkles-claim-button";
 
 type MiniAppContext = {
   user?: {
@@ -372,7 +372,7 @@ export default function ChatPage() {
               </div>
             </div>
 
-            <ShareRewardButton userFid={context?.user?.fid} compact />
+            <SprinklesClaimButton userFid={context?.user?.fid} compact />
           </div>
 
           <button
