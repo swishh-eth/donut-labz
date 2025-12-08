@@ -10,7 +10,8 @@ import { NavBar } from "@/components/nav-bar";
 import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
-import { ArrowLeft } from "lucide-react";
+import { ShareRewardButton } from "@/components/share-reward-button";
+import { ArrowLeft, HelpCircle } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
 import { useAccount } from "wagmi";
@@ -31,7 +32,7 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
-const formatEth = (value: bigint, maximumFractionDigits = 5) => {
+const formatEth = (value: bigint, maximumFractionDigits = 2) => {
   if (value === 0n) return "0";
   const asNumber = Number(formatEther(value));
   if (!Number.isFinite(asNumber)) {
@@ -45,7 +46,7 @@ const formatEth = (value: bigint, maximumFractionDigits = 5) => {
 const formatTokenAmount = (
   value: bigint,
   decimals: number,
-  maximumFractionDigits = 4
+  maximumFractionDigits = 2
 ) => {
   if (value === 0n) return "0";
   const asNumber = Number(formatUnits(value, decimals));
@@ -65,9 +66,6 @@ export default function HomePage() {
   const sprinklesVideoRef = useRef<HTMLVideoElement>(null);
 
   const { address } = useAccount();
-
-  // Videos now have built-in fade in/out, so we just use native looping
-  // No need for dual video crossfade anymore since the 35s videos handle it
 
   // Fetch DONUT miner price
   const { data: rawMinerState } = useReadContract({
@@ -220,7 +218,7 @@ export default function HomePage() {
     );
   }
 
-  // Mining selection screen
+  // Mining selection screen - 2x2 Grid Layout
   return (
     <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <AddToFarcasterDialog showOnFirstVisit={true} />
@@ -233,7 +231,7 @@ export default function HomePage() {
       >
         <div className="flex flex-1 flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <h1 className="text-2xl font-bold tracking-wide">MINE</h1>
             {context?.user && (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
@@ -249,14 +247,29 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Mining Tiles - Vertical Stack */}
-          <div className="flex-1 flex flex-col gap-4 px-2">
+          {/* Top Row - Wheel & Claim Rewards */}
+          <div className="grid grid-cols-2 gap-2 px-2 mb-2">
+            {/* Daily Wheel - Coming Soon */}
+            <div className="relative rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900/50 p-3 flex flex-col items-center justify-center cursor-not-allowed opacity-60">
+              <div className="text-3xl mb-1">🎡</div>
+              <div className="text-xs font-bold text-gray-500">Daily Wheel</div>
+              <div className="text-[10px] text-gray-600">???</div>
+            </div>
+
+            {/* Share Rewards Button - Using the actual component */}
+            <div className="flex items-stretch">
+              <ShareRewardButton userFid={context?.user?.fid} compact />
+            </div>
+          </div>
+
+          {/* Bottom Section - Miner Tiles */}
+          <div className="flex-1 grid grid-cols-2 gap-2 px-2">
             {/* Donut Tile */}
             <button
               onClick={() => setSelectedMiner("donut")}
-              className="relative flex-1 rounded-2xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
+              className="relative rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
             >
-              {/* Video Background - single video with native loop */}
+              {/* Video Background */}
               <video
                 ref={donutVideoRef}
                 className="absolute inset-0 w-full h-full object-cover"
@@ -271,25 +284,25 @@ export default function HomePage() {
               <div className="absolute inset-0 bg-black/60" />
               
               {/* Content */}
-              <div className="relative z-10 flex flex-col items-center justify-center h-full p-6">
-                <div className="text-xl font-bold text-white mb-2 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
+              <div className="relative z-10 flex flex-col items-center justify-center h-full p-3">
+                <div className="text-xs font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
                   Pay ETH
                 </div>
-                <div className="text-2xl font-bold text-amber-400 mb-3 text-center" style={{ textShadow: '0 0 10px rgba(251,191,36,0.8)' }}>
+                <div className="text-base font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 10px rgba(251,191,36,0.8)' }}>
                   Mine DONUT
                 </div>
-                <div className="text-base text-white/80">
-                  Current Price: <span className="font-bold text-white" style={{ textShadow: '0 0 8px rgba(255,255,255,0.6)' }}>
-                    Ξ{donutPrice ? formatEth(donutPrice) : "—"}
+                <div className="text-[10px] text-white/80">
+                  Price: <span className="font-bold text-white" style={{ textShadow: '0 0 8px rgba(255,255,255,0.6)' }}>
+                    Ξ{donutPrice ? formatEth(donutPrice, 2) : "—"}
                   </span>
                 </div>
               </div>
             </button>
 
-            {/* Sprinkles Tile - ACTIVE */}
+            {/* Sprinkles Tile */}
             <button
               onClick={() => setSelectedMiner("sprinkles")}
-              className="relative flex-1 rounded-2xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
+              className="relative rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
             >
               <video
                 ref={sprinklesVideoRef}
@@ -303,52 +316,20 @@ export default function HomePage() {
               />
               <div className="absolute inset-0 bg-black/60" />
               
-              <div className="relative z-10 flex flex-col items-center justify-center h-full p-6">
-                <div className="text-xl font-bold text-white mb-2 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
+              <div className="relative z-10 flex flex-col items-center justify-center h-full p-3">
+                <div className="text-xs font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
                   Pay DONUT
                 </div>
-                <div className="text-2xl font-bold text-amber-400 mb-3 text-center" style={{ textShadow: '0 0 10px rgba(251,191,36,0.8)' }}>
+                <div className="text-base font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 10px rgba(251,191,36,0.8)' }}>
                   Mine SPRINKLES
                 </div>
-                <div className="text-base text-white/80">
-                  Current Price: <span className="font-bold text-white" style={{ textShadow: '0 0 8px rgba(255,255,255,0.6)' }}>
-                    🍩{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18) : "—"}
+                <div className="text-[10px] text-white/80">
+                  Price: <span className="font-bold text-white" style={{ textShadow: '0 0 8px rgba(255,255,255,0.6)' }}>
+                    🍩{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18, 2) : "—"}
                   </span>
                 </div>
               </div>
             </button>
-
-            {/* ============================================================
-                SPRINKLES MINER TILE - COMING SOON PLACEHOLDER (HIDDEN)
-                TODO: Uncomment this and hide the real tile above if you need
-                to disable sprinkles miner again
-                ============================================================
-            <div className="relative flex-1 rounded-2xl overflow-hidden border border-zinc-800 cursor-not-allowed">
-              <video
-                ref={sprinklesVideoRef}
-                className="absolute inset-0 w-full h-full object-cover grayscale"
-                autoPlay
-                muted
-                playsInline
-                loop
-                preload="auto"
-                src="/media/sprinkles-loop.mp4"
-              />
-              <div className="absolute inset-0 bg-black/80" />
-              
-              <div className="relative z-10 flex flex-col items-center justify-center h-full p-6">
-                <div className="text-4xl font-bold text-gray-500 mb-2 text-center">
-                  ???
-                </div>
-                <div className="text-xl font-bold text-gray-500 mb-3 text-center">
-                  Coming Soon
-                </div>
-                <div className="text-sm text-gray-600">
-                  Stay tuned...
-                </div>
-              </div>
-            </div>
-            */}
           </div>
         </div>
       </div>
