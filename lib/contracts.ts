@@ -8,31 +8,11 @@ export const CONTRACT_ADDRESSES = {
 export const MULTICALL_ABI = [
   {
     inputs: [
-      {
-        internalType: "address",
-        name: "provider",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "epochId",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "deadline",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "maxPrice",
-        type: "uint256",
-      },
-      {
-        internalType: "string",
-        name: "uri",
-        type: "string",
-      },
+      { internalType: "address", name: "provider", type: "address" },
+      { internalType: "uint256", name: "epochId", type: "uint256" },
+      { internalType: "uint256", name: "deadline", type: "uint256" },
+      { internalType: "uint256", name: "maxPrice", type: "uint256" },
+      { internalType: "string", name: "uri", type: "string" },
     ],
     name: "mine",
     outputs: [],
@@ -41,21 +21,9 @@ export const MULTICALL_ABI = [
   },
   {
     inputs: [
-      {
-        internalType: "uint256",
-        name: "epochId",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "deadline",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "maxPaymentTokenAmount",
-        type: "uint256",
-      },
+      { internalType: "uint256", name: "epochId", type: "uint256" },
+      { internalType: "uint256", name: "deadline", type: "uint256" },
+      { internalType: "uint256", name: "maxPaymentTokenAmount", type: "uint256" },
     ],
     name: "buy",
     outputs: [],
@@ -63,82 +31,24 @@ export const MULTICALL_ABI = [
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-    ],
+    inputs: [{ internalType: "address", name: "account", type: "address" }],
     name: "getMiner",
     outputs: [
       {
         components: [
-          {
-            internalType: "uint16",
-            name: "epochId",
-            type: "uint16",
-          },
-          {
-            internalType: "uint192",
-            name: "initPrice",
-            type: "uint192",
-          },
-          {
-            internalType: "uint40",
-            name: "startTime",
-            type: "uint40",
-          },
-          {
-            internalType: "uint256",
-            name: "glazed",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "price",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "dps",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "nextDps",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "donutPrice",
-            type: "uint256",
-          },
-          {
-            internalType: "address",
-            name: "miner",
-            type: "address",
-          },
-          {
-            internalType: "string",
-            name: "uri",
-            type: "string",
-          },
-          {
-            internalType: "uint256",
-            name: "ethBalance",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "wethBalance",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "donutBalance",
-            type: "uint256",
-          },
+          { internalType: "uint16", name: "epochId", type: "uint16" },
+          { internalType: "uint192", name: "initPrice", type: "uint192" },
+          { internalType: "uint40", name: "startTime", type: "uint40" },
+          { internalType: "uint256", name: "glazed", type: "uint256" },
+          { internalType: "uint256", name: "price", type: "uint256" },
+          { internalType: "uint256", name: "dps", type: "uint256" },
+          { internalType: "uint256", name: "nextDps", type: "uint256" },
+          { internalType: "uint256", name: "donutPrice", type: "uint256" },
+          { internalType: "address", name: "miner", type: "address" },
+          { internalType: "string", name: "uri", type: "string" },
+          { internalType: "uint256", name: "ethBalance", type: "uint256" },
+          { internalType: "uint256", name: "wethBalance", type: "uint256" },
+          { internalType: "uint256", name: "donutBalance", type: "uint256" },
         ],
         internalType: "struct Multicall.MinerState",
         name: "state",
@@ -149,62 +59,20 @@ export const MULTICALL_ABI = [
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-    ],
+    inputs: [{ internalType: "address", name: "account", type: "address" }],
     name: "getAuction",
     outputs: [
       {
         components: [
-          {
-            internalType: "uint16",
-            name: "epochId",
-            type: "uint16",
-          },
-          {
-            internalType: "uint192",
-            name: "initPrice",
-            type: "uint192",
-          },
-          {
-            internalType: "uint40",
-            name: "startTime",
-            type: "uint40",
-          },
-          {
-            internalType: "address",
-            name: "paymentToken",
-            type: "address",
-          },
-          {
-            internalType: "uint256",
-            name: "price",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "paymentTokenPrice",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "wethAccumulated",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "wethBalance",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "paymentTokenBalance",
-            type: "uint256",
-          },
+          { internalType: "uint16", name: "epochId", type: "uint16" },
+          { internalType: "uint192", name: "initPrice", type: "uint192" },
+          { internalType: "uint40", name: "startTime", type: "uint40" },
+          { internalType: "address", name: "paymentToken", type: "address" },
+          { internalType: "uint256", name: "price", type: "uint256" },
+          { internalType: "uint256", name: "paymentTokenPrice", type: "uint256" },
+          { internalType: "uint256", name: "wethAccumulated", type: "uint256" },
+          { internalType: "uint256", name: "wethBalance", type: "uint256" },
+          { internalType: "uint256", name: "paymentTokenBalance", type: "uint256" },
         ],
         internalType: "struct Multicall.AuctionState",
         name: "state",
