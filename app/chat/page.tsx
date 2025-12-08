@@ -398,7 +398,7 @@ export default function ChatPage() {
                 onClick={() => setShowHelpDialog(false)}
               />
               <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
+                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
                   <button
                     onClick={() => setShowHelpDialog(false)}
                     className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
@@ -406,74 +406,62 @@ export default function ChatPage() {
                     <X className="h-4 w-4" />
                   </button>
 
-                  <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                  <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                     How to Earn Sprinkles
                   </h2>
 
-                  <div className="space-y-4">
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">1</div>
+                  <div className="space-y-2.5">
+                    <div className="flex gap-2">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">1</div>
                       <div>
-                        <div className="font-semibold text-white text-sm">Send Messages</div>
-                        <div className="text-xs text-gray-400 mt-0.5">Every onchain message earns sprinkles. Points = Multiplier × Neynar Score.</div>
+                        <div className="font-semibold text-white text-xs">Send Messages</div>
+                        <div className="text-[10px] text-gray-400">Points = Multiplier × Neynar Score per message.</div>
                       </div>
                     </div>
 
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">2</div>
+                    <div className="flex gap-2">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
                       <div>
-                        <div className="font-semibold text-white text-sm">Neynar Score</div>
-                        <div className="text-xs text-gray-400 mt-0.5">Your Farcaster reputation (0-1) determines your base earning rate.</div>
+                        <div className="font-semibold text-white text-xs">Neynar Score</div>
+                        <div className="text-[10px] text-gray-400">Your Farcaster reputation (0-1) is your base rate.</div>
                       </div>
                     </div>
 
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-black">3</div>
+                    <div className="flex gap-2">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
                       <div>
-                        <div className="font-semibold text-amber-400 text-sm">Halving Mechanic</div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          The multiplier halves every 30 days, starting at 1x and reducing to a minimum of 0.1x. Early chatters earn more!
+                        <div className="font-semibold text-amber-400 text-xs">Halving Mechanic</div>
+                        <div className="text-[10px] text-gray-400">
+                          Multiplier halves every 30 days (1x → 0.5x → 0.25x → min 0.1x). Early = more!
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">4</div>
+                    <div className="flex gap-2">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">4</div>
                       <div>
-                        <div className="font-semibold text-white text-sm">Example</div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          At {currentMultiplier.toFixed(2)}x multiplier with 0.8 Neynar score = {(currentMultiplier * 0.8).toFixed(2)} sprinkles per message.
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">5</div>
-                      <div>
-                        <div className="font-semibold text-white text-sm">SPRINKLES Token</div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          SPRINKLES is also mineable! Pay DONUT to mine SPRINKLES tokens with the same 30-day halving schedule.
+                        <div className="font-semibold text-white text-xs">Example</div>
+                        <div className="text-[10px] text-gray-400">
+                          {currentMultiplier.toFixed(2)}x × 0.8 score = {(currentMultiplier * 0.8).toFixed(2)} sprinkles/msg
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Timer className="w-4 h-4 text-amber-400" />
-                      <span className="text-sm font-semibold text-amber-400">Current Status</span>
+                  <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Timer className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="text-xs font-semibold text-amber-400">{currentMultiplier.toFixed(2)}x</span>
                     </div>
-                    <div className="text-xs text-gray-300">
-                      Multiplier: <span className="text-amber-400 font-bold">{currentMultiplier.toFixed(2)}x</span> • Next halving in <span className="text-amber-400 font-bold">{timeUntilHalving}</span>
+                    <div className="text-[10px] text-gray-300">
+                      Halving in <span className="text-amber-400 font-bold">{timeUntilHalving}</span>
                     </div>
                   </div>
-
-                  <p className="text-[10px] text-gray-500 text-center mt-4">Messages are permanently stored on Base. Gas fees apply.</p>
 
                   <button
                     onClick={() => setShowHelpDialog(false)}
-                    className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
+                    className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
                   >
                     Got it
                   </button>
