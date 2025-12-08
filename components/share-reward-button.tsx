@@ -32,9 +32,10 @@ type CampaignInfo = [
 type ShareRewardButtonProps = {
   userFid?: number;
   compact?: boolean;
+  tile?: boolean; // New prop for mine page tile display
 };
 
-export function ShareRewardButton({ userFid, compact = false }: ShareRewardButtonProps) {
+export function ShareRewardButton({ userFid, compact = false, tile = false }: ShareRewardButtonProps) {
   const { address } = useAccount();
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
@@ -304,6 +305,138 @@ export function ShareRewardButton({ userFid, compact = false }: ShareRewardButto
     }
   };
 
+  // ============== TILE MODE ==============
+  if (tile) {
+    // Just claimed success
+    if (showClaimSuccess && claimedAmount) {
+      return (
+        <div className="h-24 rounded-xl border border-green-500/30 bg-zinc-900 p-3 flex flex-col items-center justify-center">
+          <CheckCircle className="w-6 h-6 text-green-400 mb-1" />
+          <div className="text-xs font-bold text-green-400">Claimed!</div>
+          <div className="text-[10px] text-green-500">+{claimedAmount} {tokenSymbol}</div>
+        </div>
+      );
+    }
+
+    // Already claimed
+    if (hasClaimed && isActive) {
+      return (
+        <div className="h-24 rounded-xl border border-green-500/30 bg-zinc-900 p-3 flex flex-col items-center justify-center">
+          <CheckCircle className="w-6 h-6 text-green-400 mb-1" />
+          <div className="text-xs font-bold text-green-400">Claimed!</div>
+          <div className="text-[10px] text-gray-500">Check back later</div>
+        </div>
+      );
+    }
+
+    // No active campaign
+    if (!isActive) {
+      return (
+        <div className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex flex-col items-center justify-center opacity-50 cursor-not-allowed">
+          <Gift className="w-8 h-8 text-gray-500 mb-1" />
+          <div className="text-xs font-bold text-gray-500">Rewards</div>
+          <div className="text-[10px] text-gray-600">No Campaign</div>
+        </div>
+      );
+    }
+
+    // Has claim data ready - show claim button
+    if (claimData) {
+      return (
+        <button
+          onClick={handleClaim}
+          disabled={isWriting || isConfirming}
+          className={cn(
+            "h-24 rounded-xl border border-green-500/30 bg-zinc-900 p-3 flex flex-col items-center justify-center transition-all",
+            (isWriting || isConfirming) && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          {isWriting || isConfirming ? (
+            <Loader2 className="w-6 h-6 text-green-400 mb-1 animate-spin" />
+          ) : (
+            <Gift className="w-6 h-6 text-green-400 mb-1" />
+          )}
+          <div className="text-xs font-bold text-green-400">
+            {isWriting ? "Confirm..." : isConfirming ? "Claiming..." : "Claim Now"}
+          </div>
+          <div className="text-[10px] text-gray-400">Tap to claim</div>
+        </button>
+      );
+    }
+
+    // Needs to follow
+    if (needsFollow) {
+      return (
+        <div className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 p-2 flex flex-col items-center justify-center gap-1">
+          <button
+            onClick={handleFollow}
+            className="flex-1 w-full bg-purple-500 hover:bg-purple-400 rounded-lg flex items-center justify-center gap-1 transition-all"
+          >
+            <UserPlus className="w-4 h-4 text-white" />
+            <span className="font-bold text-xs text-white">Follow</span>
+          </button>
+          <button
+            onClick={handleVerifyAndClaim}
+            disabled={isVerifying}
+            className="flex-1 w-full bg-zinc-700 hover:bg-zinc-600 rounded-lg flex items-center justify-center gap-1 transition-all"
+          >
+            {isVerifying ? (
+              <Loader2 className="w-3 h-3 animate-spin text-white" />
+            ) : (
+              <CheckCircle className="w-3 h-3 text-white" />
+            )}
+            <span className="font-bold text-xs text-white">Verify</span>
+          </button>
+        </div>
+      );
+    }
+
+    // Has shared - show verify button
+    if (hasShared) {
+      return (
+        <button
+          onClick={handleVerifyAndClaim}
+          disabled={isVerifying || !userFid}
+          className={cn(
+            "h-24 rounded-xl border border-amber-500/30 bg-zinc-900 p-3 flex flex-col items-center justify-center transition-all hover:bg-zinc-800",
+            (isVerifying || !userFid) && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          {isVerifying ? (
+            <Loader2 className="w-6 h-6 text-amber-400 mb-1 animate-spin" />
+          ) : (
+            <CheckCircle className="w-6 h-6 text-amber-400 mb-1" />
+          )}
+          <div className="text-xs font-bold text-amber-400">
+            {isVerifying ? "Checking..." : "Verify Share"}
+          </div>
+          <div className="text-[10px] text-gray-400">Tap to verify</div>
+        </button>
+      );
+    }
+
+    // Default - show share to claim
+    return (
+      <button
+        onClick={handleShareToQualify}
+        disabled={!userFid}
+        className={cn(
+          "h-24 rounded-xl border border-amber-500/30 bg-zinc-900 p-3 flex flex-col items-center justify-center transition-all hover:bg-zinc-800",
+          !userFid && "opacity-50 cursor-not-allowed",
+          isPulsing && "scale-[0.98]"
+        )}
+      >
+        <Gift className={cn(
+          "w-8 h-8 text-amber-400 mb-1 transition-transform",
+          isPulsing && "scale-110"
+        )} />
+        <div className="text-xs font-bold text-amber-400">Share to Claim</div>
+        <div className="text-[10px] text-gray-400">{claimsRemaining} left</div>
+      </button>
+    );
+  }
+
+  // ============== COMPACT MODE (for chat page) ==============
   // Just claimed success - show share button
   if (showClaimSuccess && claimedAmount) {
     if (compact) {

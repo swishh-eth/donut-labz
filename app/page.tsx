@@ -11,7 +11,7 @@ import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
 import { ShareRewardButton } from "@/components/share-reward-button";
-import { ArrowLeft, CircleDot } from "lucide-react";
+import { ArrowLeft, Gift } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
 import { useAccount } from "wagmi";
@@ -280,10 +280,8 @@ export default function HomePage() {
               <div className="text-[10px] text-gray-600">Coming Soon</div>
             </div>
 
-            {/* Share Rewards */}
-            <div className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex items-center justify-center">
-              <ShareRewardButton userFid={context?.user?.fid} compact />
-            </div>
+            {/* Share Rewards - Use tile prop for full-tile styling */}
+            <ShareRewardButton userFid={context?.user?.fid} tile />
           </div>
 
           {/* Miner Tiles - Stacked Vertically */}
