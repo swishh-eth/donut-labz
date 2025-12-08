@@ -62,9 +62,54 @@ export default function HomePage() {
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [selectedMiner, setSelectedMiner] = useState<"donut" | "sprinkles" | null>(null);
   const donutVideoRef = useRef<HTMLVideoElement>(null);
+  const donutVideoRef2 = useRef<HTMLVideoElement>(null);
   const sprinklesVideoRef = useRef<HTMLVideoElement>(null);
+  const sprinklesVideoRef2 = useRef<HTMLVideoElement>(null);
 
   const { address } = useAccount();
+
+  // Seamless video looping with dual videos
+  useEffect(() => {
+    const setupDualLoop = (video1: HTMLVideoElement | null, video2: HTMLVideoElement | null) => {
+      if (!video1 || !video2) return;
+      
+      video2.style.opacity = '0';
+      video2.currentTime = 0;
+      
+      const checkTime = () => {
+        // When video1 is near end, start video2 and fade
+        if (video1.currentTime >= 9.5 && video2.style.opacity === '0') {
+          video2.currentTime = 0;
+          video2.play();
+          video2.style.opacity = '1';
+          video1.style.opacity = '0';
+        }
+        // When video2 is near end, start video1 and fade
+        if (video2.currentTime >= 9.5 && video1.style.opacity === '0') {
+          video1.currentTime = 0;
+          video1.play();
+          video1.style.opacity = '1';
+          video2.style.opacity = '0';
+        }
+      };
+      
+      video1.addEventListener('timeupdate', checkTime);
+      video2.addEventListener('timeupdate', checkTime);
+      
+      return () => {
+        video1.removeEventListener('timeupdate', checkTime);
+        video2.removeEventListener('timeupdate', checkTime);
+      };
+    };
+    
+    const cleanup1 = setupDualLoop(donutVideoRef.current, donutVideoRef2.current);
+    const cleanup2 = setupDualLoop(sprinklesVideoRef.current, sprinklesVideoRef2.current);
+    
+    return () => {
+      cleanup1?.();
+      cleanup2?.();
+    };
+  }, []);
 
   // Fetch DONUT miner price
   const { data: rawMinerState } = useReadContract({
@@ -251,12 +296,19 @@ export default function HomePage() {
               onClick={() => setSelectedMiner("donut")}
               className="relative flex-1 rounded-2xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
             >
-              {/* Video Background */}
+              {/* Video Background - Dual videos for seamless loop */}
               <video
                 ref={donutVideoRef}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
                 autoPlay
-                loop
+                muted
+                playsInline
+                preload="auto"
+                src="/media/donut-loop.mp4"
+              />
+              <video
+                ref={donutVideoRef2}
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
                 muted
                 playsInline
                 preload="auto"
@@ -281,26 +333,30 @@ export default function HomePage() {
               </div>
             </button>
 
-            {/* Sprinkles Tile */}
+            {/* Sprinkles Tile - TEMPORARILY HIDDEN
             <button
               onClick={() => setSelectedMiner("sprinkles")}
               className="relative flex-1 rounded-2xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
             >
-              {/* Video Background */}
               <video
                 ref={sprinklesVideoRef}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
                 autoPlay
-                loop
                 muted
                 playsInline
                 preload="auto"
                 src="/media/sprinkles-loop.mp4"
               />
-              {/* Dark Overlay */}
+              <video
+                ref={sprinklesVideoRef2}
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+                muted
+                playsInline
+                preload="auto"
+                src="/media/sprinkles-loop.mp4"
+              />
               <div className="absolute inset-0 bg-black/60" />
               
-              {/* Content */}
               <div className="relative z-10 flex flex-col items-center justify-center h-full p-6">
                 <div className="text-xl font-bold text-white mb-2 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
                   Pay DONUT
@@ -315,6 +371,7 @@ export default function HomePage() {
                 </div>
               </div>
             </button>
+            */}
           </div>
         </div>
       </div>
