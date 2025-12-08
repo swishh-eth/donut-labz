@@ -90,12 +90,12 @@ export function NavBar() {
         >
           <Pickaxe 
             className={cn(
-              "transition-all origin-bottom-right",
+              "transition-all",
               pathname === "/" ? "w-7 h-7" : "w-5 h-5"
             )}
             style={{
-              transform: isSwinging ? 'rotate(-45deg)' : 'rotate(0deg)',
-              transition: 'transform 0.2s ease-in-out'
+              transform: isSwinging ? 'rotate(15deg)' : 'rotate(0deg)',
+              transition: 'transform 0.15s ease-in-out'
             }}
           />
         </Link>
