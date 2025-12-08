@@ -35,9 +35,8 @@ export function LearnMoreButton({
 
   const openTokenInWallet = async (address: string) => {
     try {
-      // Use SDK openUrl to navigate directly to token page
-      // Format that goes directly to token: /~/token-page/{address}
-      await sdk.actions.openUrl({ url: `https://warpcast.com/~/token-page/${address}` });
+      // Use viewToken with CAIP-19 format for Base chain
+      await sdk.actions.viewToken({ token: `eip155:8453/erc20:${address}` });
     } catch (error) {
       console.error("Failed to open token:", error);
     }
