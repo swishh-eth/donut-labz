@@ -10,20 +10,32 @@ export function NavBar() {
   const pathname = usePathname();
   const [isSwinging, setIsSwinging] = useState(false);
 
+  const isMinePage = pathname === "/";
+
   // Periodic mining swing animation
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
     const triggerSwing = () => {
       setIsSwinging(true);
       setTimeout(() => setIsSwinging(false), 400);
       
-      // Random interval between 3-6 seconds
-      const nextSwing = 3000 + Math.random() * 3000;
-      setTimeout(triggerSwing, nextSwing);
+      // If on mine page, swing more frequently (1-2 seconds)
+      // Otherwise, swing every 3-6 seconds
+      const nextSwing = isMinePage 
+        ? 1000 + Math.random() * 1000
+        : 3000 + Math.random() * 3000;
+      timeoutId = setTimeout(triggerSwing, nextSwing);
     };
 
-    const initialDelay = setTimeout(triggerSwing, 2000);
-    return () => clearTimeout(initialDelay);
-  }, []);
+    // Start immediately if on mine page, otherwise delay
+    const initialDelay = setTimeout(triggerSwing, isMinePage ? 500 : 2000);
+    
+    return () => {
+      clearTimeout(initialDelay);
+      clearTimeout(timeoutId);
+    };
+  }, [isMinePage]);
 
   return (
     <nav
@@ -33,19 +45,6 @@ export function NavBar() {
         paddingTop: "8px",
       }}
     >
-      <style jsx>{`
-        @keyframes pickaxeSwing {
-          0% { transform: rotate(0deg); }
-          25% { transform: rotate(-45deg); }
-          50% { transform: rotate(0deg); }
-          75% { transform: rotate(-30deg); }
-          100% { transform: rotate(0deg); }
-        }
-        .pickaxe-swing {
-          animation: pickaxeSwing 0.4s ease-in-out;
-        }
-      `}</style>
-      
       <div className="flex justify-around items-center max-w-[520px] mx-auto px-4 relative">
         {/* Leaderboard */}
         <Link
@@ -91,10 +90,13 @@ export function NavBar() {
         >
           <Pickaxe 
             className={cn(
-              "transition-all",
-              pathname === "/" ? "w-7 h-7" : "w-5 h-5",
-              isSwinging && "pickaxe-swing"
+              "transition-all origin-bottom-right",
+              pathname === "/" ? "w-7 h-7" : "w-5 h-5"
             )}
+            style={{
+              transform: isSwinging ? 'rotate(-45deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease-in-out'
+            }}
           />
         </Link>
 
