@@ -247,17 +247,17 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Top Row - Wheel & Claim Rewards (equal width) */}
+          {/* Top Row - Wheel & Claim Rewards (equal size) */}
           <div className="grid grid-cols-2 gap-2 px-2 mb-3">
             {/* Daily Wheel - Coming Soon */}
-            <div className="rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900/50 p-4 flex flex-col items-center justify-center cursor-not-allowed opacity-60">
-              <div className="text-3xl mb-1">🎡</div>
+            <div className="h-24 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900/50 p-4 flex flex-col items-center justify-center cursor-not-allowed opacity-60">
+              <div className="text-2xl mb-1">🎡</div>
               <div className="text-xs font-bold text-gray-500">Daily Wheel</div>
               <div className="text-[10px] text-gray-600">???</div>
             </div>
 
-            {/* Share Rewards Button */}
-            <div className="rounded-xl overflow-hidden">
+            {/* Share Rewards - Wrapper to match height */}
+            <div className="h-24 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900 flex items-center justify-center">
               <ShareRewardButton userFid={context?.user?.fid} compact />
             </div>
           </div>
