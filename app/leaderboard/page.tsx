@@ -405,10 +405,10 @@ export default function LeaderboardPage() {
             )}
           </div>
 
-          {/* Stats Cards - 3 Column Grid */}
+          {/* Stats Cards - 3 Column Grid - CENTERED */}
           <div className="grid grid-cols-3 gap-2 mb-3">
             {/* Week Number */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
               <div className="flex items-center gap-1 mb-0.5">
                 <Trophy className="w-3 h-3 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                 <span className="text-[9px] text-gray-400 uppercase">Week</span>
@@ -417,7 +417,7 @@ export default function LeaderboardPage() {
             </div>
 
             {/* Timer */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
               <div className="flex items-center gap-1 mb-0.5">
                 <Clock className="w-3 h-3 text-amber-400" />
                 <span className="text-[9px] text-gray-400 uppercase">Ends In</span>
@@ -426,15 +426,13 @@ export default function LeaderboardPage() {
             </div>
 
             {/* Prize Pool */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-              <div className="flex items-center justify-between mb-0.5">
-                <div className="flex items-center gap-1">
-                  <Coins className="w-3 h-3 text-green-400" />
-                  <span className="text-[9px] text-gray-400 uppercase">Prizes</span>
-                </div>
-                <span className="text-[9px] text-gray-500">${Math.floor(totalPrizeUsd)}</span>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
+              <div className="flex items-center gap-1 mb-0.5">
+                <Coins className="w-3 h-3 text-green-400" />
+                <span className="text-[9px] text-gray-400 uppercase">Prizes</span>
               </div>
-              <div className="flex flex-col">
+              <div className="text-[9px] text-gray-500 mb-0.5">${Math.floor(totalPrizeUsd)}</div>
+              <div className="flex flex-col items-center">
                 <span className="text-xs font-bold text-green-400">Ξ{ethBalance.toFixed(4)}</span>
                 <span className="text-xs font-bold text-amber-400">🍩{donutBalance.toFixed(0)}</span>
                 <span className="text-xs font-bold text-white flex items-center gap-0.5 drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
@@ -450,15 +448,10 @@ export default function LeaderboardPage() {
             onClick={() => setShowHelpDialog(true)}
             className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-3 hover:bg-zinc-800 transition-colors"
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                <span className="text-xs font-semibold text-white">How to Win</span>
-                <HelpCircle className="w-3 h-3 text-gray-400" />
-              </div>
-              <div className="text-[10px] font-medium text-gray-400">
-                Top 3 split prizes
-              </div>
+            <div className="flex items-center justify-center gap-2">
+              <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+              <span className="text-xs font-semibold text-white">How to Win</span>
+              <HelpCircle className="w-3 h-3 text-gray-400" />
             </div>
           </button>
 
@@ -485,15 +478,23 @@ export default function LeaderboardPage() {
 
                   <div className="space-y-2.5">
                     <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">1</div>
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">1</div>
                       <div>
-                        <div className="font-semibold text-white text-xs">Glaze the Factory</div>
-                        <div className="text-[11px] text-gray-400">Win the Dutch auction on the mine page. Each win = 1 glaze.</div>
+                        <div className="font-semibold text-amber-400 text-xs">Mine DONUT Only</div>
+                        <div className="text-[11px] text-gray-400">Only DONUT mining counts for the leaderboard. Pay ETH to glaze the factory and earn DONUT tokens.</div>
                       </div>
                     </div>
 
                     <div className="flex gap-2.5">
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
+                      <div>
+                        <div className="font-semibold text-white text-xs">SPRINKLES Mining ≠ Points</div>
+                        <div className="text-[11px] text-gray-400">Mining SPRINKLES does NOT give you leaderboard points. Only ETH glazes count!</div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">3</div>
                       <div>
                         <div className="font-semibold text-white text-xs">Climb the Ranks</div>
                         <div className="text-[11px] text-gray-400">Compete weekly. Leaderboard resets every Friday at 12pm UTC.</div>
@@ -501,7 +502,7 @@ export default function LeaderboardPage() {
                     </div>
 
                     <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
                       <div>
                         <div className="font-semibold text-amber-400 text-xs">Win Prizes</div>
                         <div className="text-[11px] text-gray-400">Top 3 glazers split the prize pool: ETH, DONUT, and SPRINKLES!</div>
@@ -509,7 +510,7 @@ export default function LeaderboardPage() {
                     </div>
 
                     <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">4</div>
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">5</div>
                       <div>
                         <div className="font-semibold text-white text-xs">Where Rewards Come From</div>
                         <div className="text-[11px] text-gray-400">ETH & DONUT from glazing fees. SPRINKLES from Donut Labs buybacks.</div>
