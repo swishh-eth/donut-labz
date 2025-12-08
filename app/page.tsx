@@ -11,7 +11,7 @@ import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
 import { ShareRewardButton } from "@/components/share-reward-button";
-import { ArrowLeft, HelpCircle } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
 import { useAccount } from "wagmi";
@@ -218,7 +218,7 @@ export default function HomePage() {
     );
   }
 
-  // Mining selection screen - 2x2 Grid Layout
+  // Mining selection screen
   return (
     <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <AddToFarcasterDialog showOnFirstVisit={true} />
@@ -247,27 +247,27 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Top Row - Wheel & Claim Rewards */}
-          <div className="grid grid-cols-2 gap-2 px-2 mb-2">
+          {/* Top Row - Wheel & Claim Rewards (equal width) */}
+          <div className="grid grid-cols-2 gap-2 px-2 mb-3">
             {/* Daily Wheel - Coming Soon */}
-            <div className="relative rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900/50 p-3 flex flex-col items-center justify-center cursor-not-allowed opacity-60">
+            <div className="rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900/50 p-4 flex flex-col items-center justify-center cursor-not-allowed opacity-60">
               <div className="text-3xl mb-1">🎡</div>
               <div className="text-xs font-bold text-gray-500">Daily Wheel</div>
               <div className="text-[10px] text-gray-600">???</div>
             </div>
 
-            {/* Share Rewards Button - Using the actual component */}
-            <div className="flex items-stretch">
+            {/* Share Rewards Button */}
+            <div className="rounded-xl overflow-hidden">
               <ShareRewardButton userFid={context?.user?.fid} compact />
             </div>
           </div>
 
-          {/* Bottom Section - Miner Tiles */}
-          <div className="flex-1 grid grid-cols-2 gap-2 px-2">
+          {/* Miner Tiles - Stacked Vertically */}
+          <div className="flex-1 flex flex-col gap-3 px-2">
             {/* Donut Tile */}
             <button
               onClick={() => setSelectedMiner("donut")}
-              className="relative rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
+              className="relative flex-1 rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
             >
               {/* Video Background */}
               <video
@@ -284,14 +284,14 @@ export default function HomePage() {
               <div className="absolute inset-0 bg-black/60" />
               
               {/* Content */}
-              <div className="relative z-10 flex flex-col items-center justify-center h-full p-3">
-                <div className="text-xs font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
+              <div className="relative z-10 flex flex-col items-center justify-center h-full p-4">
+                <div className="text-base font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
                   Pay ETH
                 </div>
-                <div className="text-base font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 10px rgba(251,191,36,0.8)' }}>
+                <div className="text-xl font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 10px rgba(251,191,36,0.8)' }}>
                   Mine DONUT
                 </div>
-                <div className="text-[10px] text-white/80">
+                <div className="text-sm text-white/80">
                   Price: <span className="font-bold text-white" style={{ textShadow: '0 0 8px rgba(255,255,255,0.6)' }}>
                     Ξ{donutPrice ? formatEth(donutPrice, 2) : "—"}
                   </span>
@@ -302,7 +302,7 @@ export default function HomePage() {
             {/* Sprinkles Tile */}
             <button
               onClick={() => setSelectedMiner("sprinkles")}
-              className="relative rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
+              className="relative flex-1 rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
             >
               <video
                 ref={sprinklesVideoRef}
@@ -316,14 +316,14 @@ export default function HomePage() {
               />
               <div className="absolute inset-0 bg-black/60" />
               
-              <div className="relative z-10 flex flex-col items-center justify-center h-full p-3">
-                <div className="text-xs font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
+              <div className="relative z-10 flex flex-col items-center justify-center h-full p-4">
+                <div className="text-base font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
                   Pay DONUT
                 </div>
-                <div className="text-base font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 10px rgba(251,191,36,0.8)' }}>
+                <div className="text-xl font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 10px rgba(251,191,36,0.8)' }}>
                   Mine SPRINKLES
                 </div>
-                <div className="text-[10px] text-white/80">
+                <div className="text-sm text-white/80">
                   Price: <span className="font-bold text-white" style={{ textShadow: '0 0 8px rgba(255,255,255,0.6)' }}>
                     🍩{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18, 2) : "—"}
                   </span>
