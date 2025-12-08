@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { BookOpen, X, ExternalLink, Flame } from "lucide-react";
+import { BookOpen, X, ExternalLink, Flame, ShieldX } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { base } from "wagmi/chains";
+import { formatUnits, zeroAddress } from "viem";
 
 type LearnMoreButtonProps = {
   className?: string;
@@ -24,8 +27,29 @@ const CONTRACTS = {
   deadAddress: "0x000000000000000000000000000000000000dEaD",
 };
 
-// SPRINKLES miner is now live!
-const SPRINKLES_ENABLED = true;
+// ERC20 ABI for allowance and approve
+const ERC20_ABI = [
+  {
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    name: "allowance",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    name: "approve",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
 
 export function LearnMoreButton({
   className,
@@ -33,10 +57,107 @@ export function LearnMoreButton({
   size = "default",
 }: LearnMoreButtonProps) {
   const [showDialog, setShowDialog] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState<"donut" | "sprinkles" | null>(null);
+  const { address } = useAccount();
+
+  // Read DONUT allowance for SPRINKLES miner
+  const { data: donutAllowance, refetch: refetchDonutAllowance } = useReadContract({
+    address: CONTRACTS.donutToken as `0x${string}`,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: [address ?? zeroAddress, CONTRACTS.sprinklesMiner as `0x${string}`],
+    chainId: base.id,
+    query: {
+      enabled: !!address && showDialog,
+      refetchInterval: 10_000,
+    },
+  });
+
+  // Read SPRINKLES allowance (for future use - currently no spender contract)
+  const { data: sprinklesAllowance, refetch: refetchSprinklesAllowance } = useReadContract({
+    address: CONTRACTS.sprinklesToken as `0x${string}`,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: [address ?? zeroAddress, CONTRACTS.sprinklesMiner as `0x${string}`],
+    chainId: base.id,
+    query: {
+      enabled: !!address && showDialog,
+      refetchInterval: 10_000,
+    },
+  });
+
+  const {
+    data: txHash,
+    writeContract,
+    isPending: isWriting,
+    reset: resetWrite,
+  } = useWriteContract();
+
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: txHash,
+    chainId: base.id,
+  });
+
+  // Handle successful revoke
+  useEffect(() => {
+    if (isSuccess) {
+      refetchDonutAllowance();
+      refetchSprinklesAllowance();
+      setRevokeTarget(null);
+      resetWrite();
+    }
+  }, [isSuccess, refetchDonutAllowance, refetchSprinklesAllowance, resetWrite]);
+
+  const hasDonutApproval = donutAllowance && (donutAllowance as bigint) > 0n;
+  const hasSprinklesApproval = sprinklesAllowance && (sprinklesAllowance as bigint) > 0n;
+
+  const formatAllowance = (allowance: bigint | undefined) => {
+    if (!allowance || allowance === 0n) return "0";
+    const formatted = Number(formatUnits(allowance, 18));
+    if (formatted > 1_000_000_000) return "∞";
+    if (formatted > 1_000_000) return `${(formatted / 1_000_000).toFixed(1)}M`;
+    if (formatted > 1_000) return `${(formatted / 1_000).toFixed(1)}K`;
+    return formatted.toFixed(2);
+  };
+
+  const handleRevokeDonut = async () => {
+    if (!address) return;
+    setRevokeTarget("donut");
+    try {
+      await writeContract({
+        address: CONTRACTS.donutToken as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [CONTRACTS.sprinklesMiner as `0x${string}`, 0n],
+        chainId: base.id,
+      });
+    } catch (error) {
+      console.error("Failed to revoke:", error);
+      setRevokeTarget(null);
+      resetWrite();
+    }
+  };
+
+  const handleRevokeSprinkles = async () => {
+    if (!address) return;
+    setRevokeTarget("sprinkles");
+    try {
+      await writeContract({
+        address: CONTRACTS.sprinklesToken as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [CONTRACTS.sprinklesMiner as `0x${string}`, 0n],
+        chainId: base.id,
+      });
+    } catch (error) {
+      console.error("Failed to revoke:", error);
+      setRevokeTarget(null);
+      resetWrite();
+    }
+  };
 
   const openTokenInWallet = async (address: string) => {
     try {
-      // Use viewToken with CAIP-19 format for Base chain
       await sdk.actions.viewToken({ token: `eip155:8453/erc20:${address}` });
     } catch (error) {
       console.error("Failed to open token:", error);
@@ -54,9 +175,10 @@ export function LearnMoreButton({
   };
 
   const openBurnedLP = () => {
-    // Link to dead address holdings of the LP token to show burned LP
     window.open(`https://basescan.org/token/${CONTRACTS.sprinklesDonutLP}?a=${CONTRACTS.deadAddress}`, "_blank", "noopener,noreferrer");
   };
+
+  const isRevoking = isWriting || isConfirming;
 
   return (
     <>
@@ -92,37 +214,99 @@ export function LearnMoreButton({
               </h2>
               <p className="text-[9px] text-gray-500 italic mb-3">Don't trust, verify.</p>
 
-              {/* Token Buttons */}
+              {/* Token Buttons - Split Design */}
               <div className="space-y-1.5 mb-3">
                 <p className="text-[9px] text-gray-500 uppercase">Tokens</p>
                 
-                <button
-                  onClick={() => openTokenInWallet(CONTRACTS.donutToken)}
-                  className="w-full flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors group"
-                >
-                  <div className="flex items-center gap-2">
+                {/* DONUT Token - Split Tile */}
+                <div className="flex rounded-lg overflow-hidden border border-zinc-800">
+                  {/* Left side - Token info & view */}
+                  <button
+                    onClick={() => openTokenInWallet(CONTRACTS.donutToken)}
+                    className="flex-1 flex items-center gap-2 bg-zinc-900 p-2 hover:bg-zinc-800 transition-colors group"
+                  >
                     <span className="text-base">🍩</span>
-                    <div className="text-left">
+                    <div className="text-left flex-1">
                       <div className="text-xs font-bold text-white">$DONUT</div>
                       <div className="text-[9px] text-gray-500 font-mono">{CONTRACTS.donutToken.slice(0, 6)}...{CONTRACTS.donutToken.slice(-4)}</div>
                     </div>
-                  </div>
-                  <ExternalLink className="w-3.5 h-3.5 text-gray-500 group-hover:text-white transition-colors" />
-                </button>
+                    <ExternalLink className="w-3.5 h-3.5 text-gray-500 group-hover:text-white transition-colors" />
+                  </button>
+                  
+                  {/* Right side - Approval status */}
+                  {hasDonutApproval ? (
+                    <button
+                      onClick={handleRevokeDonut}
+                      disabled={isRevoking}
+                      className={cn(
+                        "w-24 flex flex-col items-center justify-center bg-amber-950/50 border-l border-amber-500/30 hover:bg-amber-950/70 transition-colors",
+                        isRevoking && revokeTarget === "donut" && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      {isRevoking && revokeTarget === "donut" ? (
+                        <span className="text-[9px] text-amber-400">Revoking...</span>
+                      ) : (
+                        <>
+                          <div className="text-[10px] font-bold text-amber-400">{formatAllowance(donutAllowance as bigint)}</div>
+                          <div className="text-[8px] text-amber-500 flex items-center gap-0.5">
+                            <ShieldX className="w-2.5 h-2.5" />
+                            Revoke
+                          </div>
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="w-24 flex flex-col items-center justify-center bg-zinc-900/50 border-l border-zinc-700 opacity-50">
+                      <div className="text-[10px] font-bold text-gray-500">0</div>
+                      <div className="text-[8px] text-gray-600">Approved</div>
+                    </div>
+                  )}
+                </div>
 
-                <button
-                  onClick={() => openTokenInWallet(CONTRACTS.sprinklesToken)}
-                  className="w-full flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors group"
-                >
-                  <div className="flex items-center gap-2">
+                {/* SPRINKLES Token - Split Tile */}
+                <div className="flex rounded-lg overflow-hidden border border-zinc-800">
+                  {/* Left side - Token info & view */}
+                  <button
+                    onClick={() => openTokenInWallet(CONTRACTS.sprinklesToken)}
+                    className="flex-1 flex items-center gap-2 bg-zinc-900 p-2 hover:bg-zinc-800 transition-colors group"
+                  >
                     <span className="text-base">✨</span>
-                    <div className="text-left">
+                    <div className="text-left flex-1">
                       <div className="text-xs font-bold text-white">$SPRINKLES</div>
                       <div className="text-[9px] text-gray-500 font-mono">{CONTRACTS.sprinklesToken.slice(0, 6)}...{CONTRACTS.sprinklesToken.slice(-4)}</div>
                     </div>
-                  </div>
-                  <ExternalLink className="w-3.5 h-3.5 text-gray-500 group-hover:text-white transition-colors" />
-                </button>
+                    <ExternalLink className="w-3.5 h-3.5 text-gray-500 group-hover:text-white transition-colors" />
+                  </button>
+                  
+                  {/* Right side - Approval status */}
+                  {hasSprinklesApproval ? (
+                    <button
+                      onClick={handleRevokeSprinkles}
+                      disabled={isRevoking}
+                      className={cn(
+                        "w-24 flex flex-col items-center justify-center bg-amber-950/50 border-l border-amber-500/30 hover:bg-amber-950/70 transition-colors",
+                        isRevoking && revokeTarget === "sprinkles" && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      {isRevoking && revokeTarget === "sprinkles" ? (
+                        <span className="text-[9px] text-amber-400">Revoking...</span>
+                      ) : (
+                        <>
+                          <div className="text-[10px] font-bold text-amber-400">{formatAllowance(sprinklesAllowance as bigint)}</div>
+                          <div className="text-[8px] text-amber-500 flex items-center gap-0.5">
+                            <ShieldX className="w-2.5 h-2.5" />
+                            Revoke
+                          </div>
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="w-24 flex flex-col items-center justify-center bg-zinc-900/50 border-l border-zinc-700 opacity-50">
+                      <div className="text-[10px] font-bold text-gray-500">0</div>
+                      <div className="text-[8px] text-gray-600">Approved</div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* LP Pools */}
