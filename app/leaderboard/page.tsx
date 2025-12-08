@@ -432,7 +432,7 @@ export default function LeaderboardPage() {
                   <Coins className="w-3 h-3 text-green-400" />
                   <span className="text-[9px] text-gray-400 uppercase">Prizes</span>
                 </div>
-                <span className="text-[9px] text-gray-500">${totalPrizeUsd.toFixed(2)}</span>
+                <span className="text-[9px] text-gray-500">${Math.floor(totalPrizeUsd)}</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-xs font-bold text-green-400">Ξ{ethBalance.toFixed(4)}</span>

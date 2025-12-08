@@ -420,7 +420,7 @@ export default function BlazeryPage() {
 
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
           {/* Header */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <h1 className="text-2xl font-bold tracking-wide">BURN</h1>
             {context?.user && (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
@@ -445,74 +445,74 @@ export default function BlazeryPage() {
           </div>
 
           {/* Pay / Get Cards */}
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Coins className="w-4 h-4 text-white" />
-                <span className="text-xs text-gray-400 uppercase">Pay</span>
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+              <div className="flex items-center gap-1 mb-0.5">
+                <Coins className="w-3 h-3 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <span className="text-[9px] text-gray-400 uppercase">Pay</span>
               </div>
-              <div className="text-2xl font-bold text-white">
+              <div className="text-lg font-bold text-white">
                 {auctionPriceDisplay}
               </div>
-              <div className="text-xs text-gray-400">
+              <div className="text-[10px] text-gray-500">
                 LP ($
                 {auctionState
                   ? (
                       Number(formatEther(auctionState.price)) *
                       Number(formatEther(auctionState.paymentTokenPrice)) *
                       ethUsdPrice
-                    ).toFixed(2)
-                  : "0.00"}
+                    ).toFixed(0)
+                  : "0"}
                 )
               </div>
             </div>
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Flame className="w-4 h-4 text-white" />
-                <span className="text-xs text-gray-400 uppercase">Get</span>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+              <div className="flex items-center gap-1 mb-0.5">
+                <Flame className="w-3 h-3 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <span className="text-[9px] text-gray-400 uppercase">Get</span>
               </div>
-              <div className="text-2xl font-bold text-white">
+              <div className="text-lg font-bold text-green-400">
                 Ξ{claimableDisplay}
               </div>
-              <div className="text-xs text-gray-400">
+              <div className="text-[10px] text-gray-500">
                 $
                 {auctionState
                   ? (
                       Number(formatEther(auctionState.wethAccumulated)) *
                       ethUsdPrice
-                    ).toFixed(2)
-                  : "0.00"}
+                    ).toFixed(0)
+                  : "0"}
               </div>
             </div>
           </div>
 
           {/* LP Balance */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-2">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs text-gray-400 uppercase mb-1">
+                <div className="text-[9px] text-gray-400 uppercase mb-0.5">
                   Your LP Balance
                 </div>
-                <div className="text-lg font-bold text-white">
+                <div className="text-sm font-bold text-white">
                   {address && auctionState?.paymentTokenBalance
                     ? formatEth(auctionState.paymentTokenBalance, 4)
                     : "0"}{" "}
-                  <span className="text-sm text-gray-400">DONUT-ETH</span>
+                  <span className="text-xs text-gray-500">DONUT-ETH</span>
                 </div>
               </div>
               <a
                 href={lpLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 bg-white text-black px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
+                className="flex items-center gap-1 bg-white text-black px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-200 transition-colors"
               >
                 Get LP
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-3 h-3" />
               </a>
             </div>
             {hasInsufficientLP && (
-              <div className="text-xs text-red-400 mt-2">
+              <div className="text-[10px] text-red-400 mt-1">
                 Insufficient LP balance to burn
               </div>
             )}
@@ -522,24 +522,24 @@ export default function BlazeryPage() {
           {blazeProfitLoss && (
             <div
               className={cn(
-                "bg-zinc-900 border rounded-lg p-3 mb-4 text-center",
+                "bg-zinc-900 border rounded-lg p-2 mb-2 text-center",
                 blazeProfitLoss.isProfitable
-                  ? "border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]"
-                  : "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]"
+                  ? "border-green-500/50"
+                  : "border-red-500/50"
               )}
             >
               <div
                 className={cn(
-                  "text-sm font-semibold",
+                  "text-xs font-semibold",
                   blazeProfitLoss.isProfitable ? "text-green-400" : "text-red-400"
                 )}
               >
                 {blazeProfitLoss.isProfitable
-                  ? `Profitable! +$${blazeProfitLoss.profitLoss.toFixed(2)}`
-                  : `Unprofitable: $${blazeProfitLoss.profitLoss.toFixed(2)}`}
+                  ? `Profitable: +$${blazeProfitLoss.profitLoss.toFixed(0)}`
+                  : `Unprofitable: -$${Math.abs(blazeProfitLoss.profitLoss).toFixed(0)}`}
               </div>
-              <div className="text-xs text-gray-400 mt-1">
-                ${blazeProfitLoss.lpValueInUsd.toFixed(2)} LP → ${blazeProfitLoss.wethValueInUsd.toFixed(2)} WETH
+              <div className="text-[10px] text-gray-500 mt-0.5">
+                ${blazeProfitLoss.lpValueInUsd.toFixed(0)} LP → ${blazeProfitLoss.wethValueInUsd.toFixed(0)} WETH
               </div>
             </div>
           )}
@@ -547,17 +547,17 @@ export default function BlazeryPage() {
           {/* Burn Pool Info - Tappable */}
           <button
             onClick={() => setShowHelpDialog(true)}
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4 hover:bg-zinc-800 transition-colors"
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-2 hover:bg-zinc-800 transition-colors"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Flame className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                <span className="text-sm font-semibold text-white">
+                <Flame className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <span className="text-xs font-semibold text-white">
                   Burn Pool
                 </span>
-                <HelpCircle className="w-4 h-4 text-gray-400" />
+                <HelpCircle className="w-3 h-3 text-gray-400" />
               </div>
-              <div className="text-xs font-medium text-gray-400">
+              <div className="text-[10px] font-medium text-gray-400">
                 Burn LP → Get WETH
               </div>
             </div>
@@ -571,80 +571,60 @@ export default function BlazeryPage() {
                 onClick={() => setShowHelpDialog(false)}
               />
               <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
+                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
                   <button
                     onClick={() => setShowHelpDialog(false)}
-                    className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
+                    className="absolute right-3 top-3 rounded-full p-1 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
                   >
                     <X className="h-4 w-4" />
                   </button>
 
-                  <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Flame className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                  <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                    <Flame className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                     How The Burn Pool Works
                   </h2>
 
-                  <div className="space-y-4">
-                    {/* Step 1 */}
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                        1
-                      </div>
+                  <div className="space-y-2.5">
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">1</div>
                       <div>
-                        <div className="font-semibold text-white text-sm">Burn LP Tokens</div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          Exchange your DONUT-ETH LP tokens for WETH from the burn pool.
-                        </div>
+                        <div className="font-semibold text-white text-xs">Burn LP Tokens</div>
+                        <div className="text-[11px] text-gray-400">Exchange your DONUT-ETH LP tokens for WETH from the burn pool.</div>
                       </div>
                     </div>
 
-                    {/* Step 2 */}
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                        2
-                      </div>
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
                       <div>
-                        <div className="font-semibold text-white text-sm">Dutch Auction</div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          Price starts high and decreases until someone burns.
-                        </div>
+                        <div className="font-semibold text-white text-xs">Dutch Auction</div>
+                        <div className="text-[11px] text-gray-400">Price starts high and decreases until someone burns.</div>
                       </div>
                     </div>
 
-                    {/* Step 3 */}
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                        3
-                      </div>
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">3</div>
                       <div>
-                        <div className="font-semibold text-white text-sm">Profit Indicator</div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          Green = profit, Red = loss based on current prices.
-                        </div>
+                        <div className="font-semibold text-white text-xs">Profit Indicator</div>
+                        <div className="text-[11px] text-gray-400">Green = profit, Red = loss based on current prices.</div>
                       </div>
                     </div>
 
-                    {/* Step 4 */}
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                        4
-                      </div>
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">4</div>
                       <div>
-                        <div className="font-semibold text-white text-sm">Get LP</div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          Get DONUT-ETH LP tokens from Uniswap.
-                        </div>
+                        <div className="font-semibold text-white text-xs">Get LP</div>
+                        <div className="text-[11px] text-gray-400">Get DONUT-ETH LP tokens from Uniswap.</div>
                       </div>
                     </div>
                   </div>
 
-                  <p className="text-[10px] text-gray-500 text-center mt-4">
+                  <p className="text-[9px] text-gray-500 text-center mt-3">
                     LP tokens are permanently burned. This is irreversible.
                   </p>
 
                   <button
                     onClick={() => setShowHelpDialog(false)}
-                    className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
+                    className="mt-3 w-full rounded-xl bg-white py-2 text-xs font-bold text-black hover:bg-gray-200 transition-colors"
                   >
                     Got it
                   </button>
@@ -656,7 +636,7 @@ export default function BlazeryPage() {
           {/* Burn Button */}
           <button
             className={cn(
-              "w-full rounded-xl py-4 text-lg font-bold transition-colors",
+              "w-full rounded-xl py-3 text-sm font-bold transition-colors",
               blazeResult === "success"
                 ? "bg-green-500 text-white"
                 : blazeResult === "failure"
@@ -670,6 +650,16 @@ export default function BlazeryPage() {
           >
             {buttonLabel}
           </button>
+
+          {/* ============================================================
+              COMING SOON PLACEHOLDER
+              TODO: Remove when new feature is ready
+              ============================================================ */}
+          <div className="flex-1 mt-2 bg-zinc-900/50 border border-zinc-800 rounded-xl flex flex-col items-center justify-center cursor-not-allowed">
+            <div className="text-3xl font-bold text-gray-600 mb-1">???</div>
+            <div className="text-sm font-semibold text-gray-600">Coming Soon</div>
+            <div className="text-[10px] text-gray-700 mt-1">Stay tuned...</div>
+          </div>
         </div>
       </div>
 
