@@ -171,6 +171,8 @@ export default function HomePage() {
       : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
+  const resetMiner = () => setSelectedMiner(null);
+
   // If a miner is selected, show that miner's UI
   if (selectedMiner === "donut") {
     return (
@@ -211,7 +213,7 @@ export default function HomePage() {
             <DonutMiner context={context} />
           </div>
         </div>
-        <NavBar />
+        <NavBar onMineClick={resetMiner} />
       </main>
     );
   }
@@ -255,7 +257,7 @@ export default function HomePage() {
             <SprinklesMiner context={context} />
           </div>
         </div>
-        <NavBar />
+        <NavBar onMineClick={resetMiner} />
       </main>
     );
   }

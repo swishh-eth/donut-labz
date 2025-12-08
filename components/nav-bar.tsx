@@ -6,7 +6,11 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Flame, Info, Trophy, MessageCircle, Pickaxe } from "lucide-react";
 
-export function NavBar() {
+interface NavBarProps {
+  onMineClick?: () => void;
+}
+
+export function NavBar({ onMineClick }: NavBarProps) {
   const pathname = usePathname();
   const [isSwinging, setIsSwinging] = useState(false);
 
@@ -36,6 +40,13 @@ export function NavBar() {
       clearTimeout(timeoutId);
     };
   }, [isMinePage]);
+
+  const handleMineClick = (e: React.MouseEvent) => {
+    if (isMinePage && onMineClick) {
+      e.preventDefault();
+      onMineClick();
+    }
+  };
 
   return (
     <nav
@@ -81,6 +92,7 @@ export function NavBar() {
         {/* Main Mine Page - Pickaxe */}
         <Link
           href="/"
+          onClick={handleMineClick}
           className={cn(
             "flex items-center justify-center p-3 transition-all",
             pathname === "/"
