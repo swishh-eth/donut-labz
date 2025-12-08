@@ -434,7 +434,10 @@ export default function LeaderboardPage() {
               <div className="flex flex-col">
                 <span className="text-xs font-bold text-green-400">Ξ{ethBalance.toFixed(4)}</span>
                 <span className="text-xs font-bold text-amber-400">🍩{donutBalance.toFixed(0)}</span>
-                <span className="text-xs font-bold text-amber-400">✨{sprinklesBalance.toFixed(0)}</span>
+                <span className="text-xs font-bold text-amber-400 flex items-center gap-0.5">
+                  <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
+                  {sprinklesBalance.toFixed(0)}
+                </span>
               </div>
             </div>
           </div>
@@ -610,7 +613,9 @@ export default function LeaderboardPage() {
                           <div className="flex flex-col items-end">
                             <div className="text-[10px] text-green-400 font-medium">+Ξ{prizeEth}</div>
                             <div className="text-[10px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
-                            <div className="text-[10px] text-amber-400 font-medium">+✨{prizeSprinkles}</div>
+                            <div className="text-[10px] text-amber-400 font-medium flex items-center gap-0.5">
+                              +<Sparkles className="w-2.5 h-2.5 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />{prizeSprinkles}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -668,7 +673,9 @@ export default function LeaderboardPage() {
                         <div className="flex flex-col items-end">
                           <div className="text-[10px] text-green-400 font-medium">+Ξ{prizeEth}</div>
                           <div className="text-[10px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
-                          <div className="text-[10px] text-amber-400 font-medium">+✨{prizeSprinkles}</div>
+                          <div className="text-[10px] text-amber-400 font-medium flex items-center gap-0.5">
+                            +<Sparkles className="w-2.5 h-2.5 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />{prizeSprinkles}
+                          </div>
                         </div>
                       )}
                     </div>
