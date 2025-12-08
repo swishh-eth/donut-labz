@@ -1,41 +1,39 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Coins } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { sdk } from "@farcaster/miniapp-sdk";
+import { Target } from "lucide-react";
 
 type CommunityLPButtonProps = {
-  className?: string;
-  variant?: "default" | "outline" | "ghost";
-  size?: "default" | "sm" | "lg" | "icon";
+  variant?: "default" | "compact";
 };
 
-export function CommunityLPButton({
-  className,
-  variant = "default",
-  size = "default",
-}: CommunityLPButtonProps) {
-  const handleClick = async () => {
-    try {
-      await sdk.actions.openUrl({ 
-        url: "https://warpcast.com/miniapps/OBSXNsOaGYv1/peeples-donuts"
-      });
-    } catch (e) {
-      console.error("Failed to open miniapp:", e);
-      window.location.href = "https://warpcast.com/miniapps/OBSXNsOaGYv1/peeples-donuts";
-    }
+export function CommunityLPButton({ variant = "default" }: CommunityLPButtonProps) {
+  const handleClick = () => {
+    window.open(
+      "https://peeples.fun/token/8453/0xAE4a37d554C6D6F3E398546d8566B25052e0169C",
+      "_blank",
+      "noopener,noreferrer"
+    );
   };
 
+  if (variant === "compact") {
+    return (
+      <button
+        onClick={handleClick}
+        className="flex items-center justify-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-white px-3 py-1.5 rounded-lg transition-colors"
+      >
+        <Target className="w-4 h-4" />
+        <span className="text-xs font-semibold">Peeples Pool</span>
+      </button>
+    );
+  }
+
   return (
-    <Button
+    <button
       onClick={handleClick}
-      variant={variant}
-      size={size}
-      className={cn("gap-2 transition-all", className)}
+      className="flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-white p-3 rounded-lg transition-colors"
     >
-      <Coins className="h-4 w-4" />
-      <span>Community LP</span>
-    </Button>
+      <Target className="w-4 h-4" />
+      <span className="text-xs font-semibold">Peeples Pool</span>
+    </button>
   );
 }

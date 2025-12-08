@@ -57,7 +57,7 @@ export function LearnMoreButton({
       <button
         onClick={() => setShowDialog(true)}
         className={cn(
-          "flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white p-3 rounded-lg transition-colors",
+          "flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-white p-3 rounded-lg transition-colors",
           className
         )}
       >
@@ -80,10 +80,11 @@ export function LearnMoreButton({
                 <X className="h-4 w-4" />
               </button>
 
-              <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                 Links & Contracts
               </h2>
+              <p className="text-[9px] text-gray-500 italic mb-3">Don't trust, verify.</p>
 
               {/* Token Buttons */}
               <div className="space-y-1.5 mb-3">
