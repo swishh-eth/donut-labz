@@ -2,12 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
+import { useReadContract } from "wagmi";
+import { base } from "wagmi/chains";
+import { formatEther, formatUnits, zeroAddress } from "viem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
 import { ArrowLeft } from "lucide-react";
+import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
+import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
+import { useAccount } from "wagmi";
 
 type MiniAppContext = {
   user?: {
@@ -25,10 +31,66 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
+const formatEth = (value: bigint, maximumFractionDigits = 5) => {
+  if (value === 0n) return "0";
+  const asNumber = Number(formatEther(value));
+  if (!Number.isFinite(asNumber)) {
+    return formatEther(value);
+  }
+  return asNumber.toLocaleString(undefined, {
+    maximumFractionDigits,
+  });
+};
+
+const formatTokenAmount = (
+  value: bigint,
+  decimals: number,
+  maximumFractionDigits = 4
+) => {
+  if (value === 0n) return "0";
+  const asNumber = Number(formatUnits(value, decimals));
+  if (!Number.isFinite(asNumber)) {
+    return formatUnits(value, decimals);
+  }
+  return asNumber.toLocaleString(undefined, {
+    maximumFractionDigits,
+  });
+};
+
 export default function HomePage() {
   const readyRef = useRef(false);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [selectedMiner, setSelectedMiner] = useState<"donut" | "sprinkles" | null>(null);
+  const donutVideoRef = useRef<HTMLVideoElement>(null);
+  const sprinklesVideoRef = useRef<HTMLVideoElement>(null);
+
+  const { address } = useAccount();
+
+  // Fetch DONUT miner price
+  const { data: rawMinerState } = useReadContract({
+    address: CONTRACT_ADDRESSES.multicall,
+    abi: MULTICALL_ABI,
+    functionName: "getMiner",
+    args: [address ?? zeroAddress],
+    chainId: base.id,
+    query: {
+      refetchInterval: 3_000,
+    },
+  });
+
+  // Fetch SPRINKLES miner price
+  const { data: sprinklesPrice } = useReadContract({
+    address: SPRINKLES_MINER_ADDRESS,
+    abi: SPRINKLES_MINER_ABI,
+    functionName: "getPrice",
+    chainId: base.id,
+    query: {
+      refetchInterval: 3_000,
+    },
+  });
+
+  const donutPrice = rawMinerState ? (rawMinerState as any).price as bigint : undefined;
+  const sprinklesPriceValue = sprinklesPrice as bigint | undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -54,6 +116,32 @@ export default function HomePage() {
       }
     }, 1200);
     return () => clearTimeout(timeout);
+  }, []);
+
+  // Seamless video loops
+  useEffect(() => {
+    const videos = [donutVideoRef.current, sprinklesVideoRef.current];
+    
+    const handleTimeUpdate = (video: HTMLVideoElement) => {
+      if (video.duration - video.currentTime < 0.1) {
+        video.currentTime = 0;
+      }
+    };
+
+    videos.forEach(video => {
+      if (video) {
+        const handler = () => handleTimeUpdate(video);
+        video.addEventListener("timeupdate", handler);
+      }
+    });
+
+    return () => {
+      videos.forEach(video => {
+        if (video) {
+          video.removeEventListener("timeupdate", () => {});
+        }
+      });
+    };
   }, []);
 
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
@@ -182,32 +270,76 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Main Content */}
-          <div className="flex-1 flex flex-col justify-center items-center gap-6">
-            <h2 className="text-xl text-gray-400 font-medium">I want to mine...</h2>
+          {/* Glowing Title */}
+          <h2 className="text-xl text-white font-bold text-center mb-6 drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]">
+            I want to mine...
+          </h2>
 
-            {/* Mining Tiles */}
-            <div className="w-full grid grid-cols-2 gap-4 px-2">
-              {/* Donut Tile */}
-              <button
-                onClick={() => setSelectedMiner("donut")}
-                className="aspect-square bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col items-center justify-center gap-3 hover:bg-zinc-800 hover:border-zinc-700 transition-all active:scale-95"
-              >
-                <div className="text-6xl">🍩</div>
-                <div className="text-lg font-bold text-white">Donuts</div>
-                <div className="text-xs text-gray-400">Pay ETH, earn DONUT</div>
-              </button>
+          {/* Mining Tiles - Vertical Stack */}
+          <div className="flex-1 flex flex-col gap-4 px-2">
+            {/* Donut Tile */}
+            <button
+              onClick={() => setSelectedMiner("donut")}
+              className="relative flex-1 rounded-2xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
+            >
+              {/* Video Background */}
+              <video
+                ref={donutVideoRef}
+                className="absolute inset-0 w-full h-full object-cover"
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                src="/media/donut-loop.mp4"
+              />
+              {/* Dark Overlay */}
+              <div className="absolute inset-0 bg-black/60" />
+              
+              {/* Content */}
+              <div className="relative z-10 flex flex-col items-center justify-center h-full p-6">
+                <div className="text-2xl font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] mb-2">
+                  Pay ETH, Mine DONUT
+                </div>
+                <div className="text-lg text-white/80">
+                  Current Price: <span className="font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">
+                    Ξ{donutPrice ? formatEth(donutPrice) : "—"}
+                  </span>
+                </div>
+              </div>
+            </button>
 
-              {/* Sprinkles Tile */}
-              <button
-                onClick={() => setSelectedMiner("sprinkles")}
-                className="aspect-square bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col items-center justify-center gap-3 hover:bg-zinc-800 hover:border-zinc-700 transition-all active:scale-95"
-              >
-                <div className="text-6xl">✨</div>
-                <div className="text-lg font-bold text-white">Sprinkles</div>
-                <div className="text-xs text-gray-400">Pay DONUT, earn SPRINKLES</div>
-              </button>
-            </div>
+            {/* Sprinkles Tile */}
+            <button
+              onClick={() => setSelectedMiner("sprinkles")}
+              className="relative flex-1 rounded-2xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
+            >
+              {/* Video Background */}
+              <video
+                ref={sprinklesVideoRef}
+                className="absolute inset-0 w-full h-full object-cover"
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                src="/media/sprinkles-loop.mp4"
+              />
+              {/* Dark Overlay */}
+              <div className="absolute inset-0 bg-black/60" />
+              
+              {/* Content */}
+              <div className="relative z-10 flex flex-col items-center justify-center h-full p-6">
+                <div className="text-2xl font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] mb-2">
+                  Pay DONUT, Mine SPRINKLES
+                </div>
+                <div className="text-lg text-white/80">
+                  Current Price: <span className="font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">
+                    🍩{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18) : "—"}
+                  </span>
+                </div>
+              </div>
+            </button>
           </div>
         </div>
       </div>
