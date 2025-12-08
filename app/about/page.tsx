@@ -8,7 +8,7 @@ import { AddToFarcasterButton } from "@/components/add-to-farcaster-button";
 import { DuneDashboardButton } from "@/components/dune-dashboard-button";
 import { CommunityLPButton } from "@/components/community-lp-button";
 import { LearnMoreButton } from "@/components/learn-more-button";
-import { Info, Pickaxe, PieChart, Clock, Flame, Building, Beaker, Code } from "lucide-react";
+import { Info, Pickaxe, PieChart, Clock, Flame, Building, Beaker, Code, Sparkles, MessageCircle, Timer } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -30,13 +30,14 @@ type SectionProps = {
   icon: React.ReactNode;
   title: string;
   children: React.ReactNode;
+  highlight?: boolean;
 };
 
-const Section = ({ icon, title, children }: SectionProps) => (
-  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+const Section = ({ icon, title, children, highlight }: SectionProps) => (
+  <div className={`rounded-lg p-3 ${highlight ? 'bg-purple-950/30 border border-purple-500/30' : 'bg-zinc-900 border border-zinc-800'}`}>
     <div className="flex items-center gap-2 mb-2">
       {icon}
-      <h2 className="text-sm font-bold text-white">{title}</h2>
+      <h2 className={`text-sm font-bold ${highlight ? 'text-purple-300' : 'text-white'}`}>{title}</h2>
     </div>
     <div className="text-xs text-gray-400 space-y-1.5">
       {children}
@@ -141,13 +142,55 @@ export default function AboutPage() {
               <p>Auction revenue increases $DONUT's liquidity and scarcity.</p>
             </Section>
 
+            {/* What is $SPRINKLES */}
+            <Section
+              icon={<Sparkles className="w-4 h-4 text-purple-400 drop-shadow-[0_0_4px_rgba(168,85,247,0.8)]" />}
+              title="What Is $SPRINKLES"
+              highlight
+            >
+              <p>$SPRINKLES is a companion token to $DONUT, mined by paying $DONUT in a separate auction.</p>
+              <p>The DONUT spent on SPRINKLES mining goes to buy-and-burn, increasing DONUT scarcity.</p>
+              <div className="grid grid-cols-3 gap-2 text-center mt-2">
+                <div className="bg-purple-900/30 rounded-lg p-2">
+                  <div className="text-sm font-bold text-purple-300">40/sec</div>
+                  <div className="text-[10px] text-gray-500">Start Rate</div>
+                </div>
+                <div className="bg-purple-900/30 rounded-lg p-2">
+                  <div className="text-sm font-bold text-purple-300">30 days</div>
+                  <div className="text-[10px] text-gray-500">Halving</div>
+                </div>
+                <div className="bg-purple-900/30 rounded-lg p-2">
+                  <div className="text-sm font-bold text-purple-300">0.1/s</div>
+                  <div className="text-[10px] text-gray-500">Tail Rate</div>
+                </div>
+              </div>
+            </Section>
+
+            {/* Chat to Earn */}
+            <Section
+              icon={<MessageCircle className="w-4 h-4 text-purple-400 drop-shadow-[0_0_4px_rgba(168,85,247,0.8)]" />}
+              title="Chat to Earn Sprinkles"
+              highlight
+            >
+              <p>Send onchain messages in the Chat tab to earn sprinkles points!</p>
+              <p>Your earnings per message = <span className="text-purple-300 font-semibold">Multiplier × Neynar Score</span></p>
+              <div className="mt-2 p-2 bg-purple-900/20 rounded-lg">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Timer className="w-3 h-3 text-amber-400" />
+                  <span className="text-[10px] text-amber-400 font-semibold">Halving Schedule</span>
+                </div>
+                <p className="text-[10px] text-gray-400">Multiplier halves every 30 days: 1x → 0.5x → 0.25x → min 0.1x</p>
+                <p className="text-[10px] text-gray-500 mt-1">Chat early to earn more sprinkles!</p>
+              </div>
+            </Section>
+
             {/* How Mining Works */}
             <Section
               icon={<Pickaxe className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
               title="How Mining Works"
             >
               <p>Only one active miner at a time, called the <span className="text-white font-semibold">King Glazer</span>.</p>
-              <p>The right to mine is bought with ETH through a continuous Dutch auction:</p>
+              <p>The right to mine is bought through a continuous Dutch auction:</p>
               <div className="pl-2 border-l border-zinc-700 ml-1 space-y-1">
                 <p>• Price doubles after each purchase</p>
                 <p>• Then decays to 0 over one hour</p>
@@ -176,10 +219,10 @@ export default function AboutPage() {
               </div>
             </Section>
 
-            {/* Emission Schedule */}
+            {/* DONUT Emission Schedule */}
             <Section
               icon={<Clock className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
-              title="Emission Schedule"
+              title="DONUT Emission Schedule"
             >
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-zinc-800 rounded-lg p-2">
@@ -223,7 +266,7 @@ export default function AboutPage() {
             >
               <p>Donut Labs is an independent donut shop operating inside the $DONUT ecosystem.</p>
               <p>When you Glaze through this mini-app, you're automatically entered into the <span className="text-white font-semibold">weekly rewards leaderboard</span>.</p>
-              <p>Top 3 Glazers of the week split the prize pool!</p>
+              <p>Top 3 Glazers of the week split the prize pool: ETH, DONUT, and SPRINKLES!</p>
               <p className="text-gray-500 italic">More Glazes = More Entries = Higher Rank</p>
             </Section>
 

@@ -271,7 +271,7 @@ export default function LeaderboardPage() {
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
       setTimeUntilDistribution(
-        `${days}d ${hours}h ${minutes}m ${seconds}s`
+        `${days}d ${hours}h ${minutes}m`
       );
     };
 
@@ -431,18 +431,9 @@ export default function LeaderboardPage() {
                 <span className="text-[9px] text-gray-400 uppercase">Prizes</span>
               </div>
               <div className="flex flex-col">
-                {ethBalance > 0 && (
-                  <span className="text-xs font-bold text-green-400">Ξ{ethBalance.toFixed(4)}</span>
-                )}
-                {donutBalance > 0 && (
-                  <span className="text-xs font-bold text-amber-400">🍩{donutBalance.toFixed(0)}</span>
-                )}
-                {sprinklesBalance > 0 && (
-                  <span className="text-xs font-bold text-purple-400">✨{sprinklesBalance.toFixed(0)}</span>
-                )}
-                {ethBalance === 0 && donutBalance === 0 && sprinklesBalance === 0 && (
-                  <span className="text-xs font-bold text-gray-500">Empty</span>
-                )}
+                <span className="text-xs font-bold text-green-400">Ξ{ethBalance.toFixed(4)}</span>
+                <span className="text-xs font-bold text-amber-400">🍩{donutBalance.toFixed(0)}</span>
+                <span className="text-xs font-bold text-purple-400">✨{sprinklesBalance.toFixed(0)}</span>
               </div>
             </div>
           </div>
@@ -485,12 +476,12 @@ export default function LeaderboardPage() {
                     How to Win Prizes
                   </h2>
 
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     <div className="flex gap-2.5">
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">1</div>
                       <div>
                         <div className="font-semibold text-white text-xs">Glaze the Factory</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">Win the Dutch auction on the mine page. Each win = 1 glaze on the leaderboard.</div>
+                        <div className="text-[11px] text-gray-400">Win the Dutch auction on the mine page. Each win = 1 glaze.</div>
                       </div>
                     </div>
 
@@ -498,7 +489,7 @@ export default function LeaderboardPage() {
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
                       <div>
                         <div className="font-semibold text-white text-xs">Climb the Ranks</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">Compete weekly. Leaderboard resets every Friday at 12pm UTC.</div>
+                        <div className="text-[11px] text-gray-400">Compete weekly. Leaderboard resets every Friday at 12pm UTC.</div>
                       </div>
                     </div>
 
@@ -506,32 +497,40 @@ export default function LeaderboardPage() {
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
                       <div>
                         <div className="font-semibold text-amber-400 text-xs">Win Prizes</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">Top 3 glazers split the prize pool: ETH, DONUT, and SPRINKLES!</div>
+                        <div className="text-[11px] text-gray-400">Top 3 glazers split the prize pool: ETH, DONUT, and SPRINKLES!</div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">4</div>
+                      <div>
+                        <div className="font-semibold text-white text-xs">Where Rewards Come From</div>
+                        <div className="text-[11px] text-gray-400">ETH & DONUT from glazing fees. SPRINKLES from Donut Labs buybacks.</div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-3 p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl">
-                    <div className="text-[10px] text-gray-500 uppercase mb-2 text-center">Prize Distribution</div>
+                  <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-xl">
+                    <div className="text-[9px] text-gray-500 uppercase mb-1.5 text-center">Prize Distribution</div>
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div>
-                        <div className="text-lg font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]">1st</div>
-                        <div className="text-amber-400 font-bold text-sm">50%</div>
+                        <div className="text-base font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]">1st</div>
+                        <div className="text-amber-400 font-bold text-xs">50%</div>
                       </div>
                       <div>
-                        <div className="text-lg font-bold text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]">2nd</div>
-                        <div className="text-amber-400 font-bold text-sm">30%</div>
+                        <div className="text-base font-bold text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]">2nd</div>
+                        <div className="text-amber-400 font-bold text-xs">30%</div>
                       </div>
                       <div>
-                        <div className="text-lg font-bold text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]">3rd</div>
-                        <div className="text-amber-400 font-bold text-sm">20%</div>
+                        <div className="text-base font-bold text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]">3rd</div>
+                        <div className="text-amber-400 font-bold text-xs">20%</div>
                       </div>
                     </div>
                   </div>
 
                   <button
                     onClick={() => setShowHelpDialog(false)}
-                    className="mt-3 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
+                    className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
                   >
                     Got it
                   </button>
@@ -608,15 +607,9 @@ export default function LeaderboardPage() {
                         </div>
                         {isWinner && (
                           <div className="flex flex-col items-end">
-                            {ethBalance > 0 && prizeEth && (
-                              <div className="text-[10px] text-green-400 font-medium">+Ξ{prizeEth}</div>
-                            )}
-                            {donutBalance > 0 && prizeDonut && (
-                              <div className="text-[10px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
-                            )}
-                            {sprinklesBalance > 0 && prizeSprinkles && (
-                              <div className="text-[10px] text-purple-400 font-medium">+✨{prizeSprinkles}</div>
-                            )}
+                            <div className="text-[10px] text-green-400 font-medium">+Ξ{prizeEth}</div>
+                            <div className="text-[10px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
+                            <div className="text-[10px] text-purple-400 font-medium">+✨{prizeSprinkles}</div>
                           </div>
                         )}
                       </div>
@@ -672,15 +665,9 @@ export default function LeaderboardPage() {
                       </div>
                       {isWinner && (
                         <div className="flex flex-col items-end">
-                          {ethBalance > 0 && prizeEth && (
-                            <div className="text-[10px] text-green-400 font-medium">+Ξ{prizeEth}</div>
-                          )}
-                          {donutBalance > 0 && prizeDonut && (
-                            <div className="text-[10px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
-                          )}
-                          {sprinklesBalance > 0 && prizeSprinkles && (
-                            <div className="text-[10px] text-purple-400 font-medium">+✨{prizeSprinkles}</div>
-                          )}
+                          <div className="text-[10px] text-green-400 font-medium">+Ξ{prizeEth}</div>
+                          <div className="text-[10px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
+                          <div className="text-[10px] text-purple-400 font-medium">+✨{prizeSprinkles}</div>
                         </div>
                       )}
                     </div>
