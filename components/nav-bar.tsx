@@ -2,11 +2,28 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Flame, Info, Trophy, MessageCircle } from "lucide-react";
+import { Flame, Info, Trophy, MessageCircle, Pickaxe } from "lucide-react";
 
 export function NavBar() {
   const pathname = usePathname();
+  const [isSwinging, setIsSwinging] = useState(false);
+
+  // Periodic mining swing animation
+  useEffect(() => {
+    const triggerSwing = () => {
+      setIsSwinging(true);
+      setTimeout(() => setIsSwinging(false), 400);
+      
+      // Random interval between 3-6 seconds
+      const nextSwing = 3000 + Math.random() * 3000;
+      setTimeout(triggerSwing, nextSwing);
+    };
+
+    const initialDelay = setTimeout(triggerSwing, 2000);
+    return () => clearTimeout(initialDelay);
+  }, []);
 
   return (
     <nav
@@ -16,6 +33,19 @@ export function NavBar() {
         paddingTop: "8px",
       }}
     >
+      <style jsx>{`
+        @keyframes pickaxeSwing {
+          0% { transform: rotate(0deg); }
+          25% { transform: rotate(-45deg); }
+          50% { transform: rotate(0deg); }
+          75% { transform: rotate(-30deg); }
+          100% { transform: rotate(0deg); }
+        }
+        .pickaxe-swing {
+          animation: pickaxeSwing 0.4s ease-in-out;
+        }
+      `}</style>
+      
       <div className="flex justify-around items-center max-w-[520px] mx-auto px-4 relative">
         {/* Leaderboard */}
         <Link
@@ -49,7 +79,7 @@ export function NavBar() {
           )} />
         </Link>
 
-        {/* Main Glazery Page */}
+        {/* Main Mine Page - Pickaxe */}
         <Link
           href="/"
           className={cn(
@@ -59,12 +89,11 @@ export function NavBar() {
               : "text-gray-400 hover:text-gray-300"
           )}
         >
-          <div
+          <Pickaxe 
             className={cn(
-              "rounded-full border-[5px] transition-all",
-              pathname === "/" 
-                ? "border-white w-7 h-7" 
-                : "border-gray-400 w-5 h-5 border-[3px]"
+              "transition-all",
+              pathname === "/" ? "w-7 h-7" : "w-5 h-5",
+              isSwinging && "pickaxe-swing"
             )}
           />
         </Link>
