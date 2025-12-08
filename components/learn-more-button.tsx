@@ -35,8 +35,9 @@ export function LearnMoreButton({
 
   const openTokenInWallet = async (address: string) => {
     try {
-      // Use SDK openUrl to navigate within Farcaster app
-      await sdk.actions.openUrl({ url: `https://warpcast.com/~/token/${address}` });
+      // Use SDK openUrl to navigate directly to token page
+      // Format that goes directly to token: /~/token-page/{address}
+      await sdk.actions.openUrl({ url: `https://warpcast.com/~/token-page/${address}` });
     } catch (error) {
       console.error("Failed to open token:", error);
     }
