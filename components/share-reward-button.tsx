@@ -334,7 +334,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
       return (
         <div className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex flex-col items-center justify-center opacity-50 cursor-not-allowed">
           <Gift className="w-8 h-8 text-gray-500 mb-1" />
-          <div className="text-xs font-bold text-gray-500">Rewards</div>
+          <div className="text-xs font-bold text-gray-500">Share The Glaze</div>
           <div className="text-[10px] text-gray-600">No Campaign</div>
         </div>
       );
