@@ -7,6 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { Trophy, Clock, Coins, HelpCircle, X, Sparkles } from "lucide-react";
 import { formatEther } from "viem";
+import { useReadContract } from "wagmi";
+import { base } from "wagmi/chains";
 
 type MiniAppContext = {
   user?: {
@@ -35,12 +37,6 @@ type FarcasterProfile = {
 type LeaderboardResponse = {
   leaderboard: LeaderboardEntry[];
   weekNumber: number;
-};
-
-type PrizePoolResponse = {
-  ethBalance: string;
-  donutBalance: string;
-  sprinklesBalance: string;
 };
 
 const LEADERBOARD_CONTRACT = "0x4681A6DeEe2D74f5DE48CEcd2A572979EA641586";
@@ -163,14 +159,23 @@ export default function LeaderboardPage() {
     refetchInterval: 30_000,
   });
 
-  const { data: prizePoolData } = useQuery<PrizePoolResponse>({
-    queryKey: ["prize-pool"],
-    queryFn: async () => {
-      const rpcUrl = process.env.NEXT_PUBLIC_BASE_RPC_URL;
-      
-      if (!rpcUrl) return { ethBalance: "0", donutBalance: "0", sprinklesBalance: "0" };
+  // ERC20 balanceOf ABI
+  const erc20BalanceAbi = [
+    {
+      inputs: [{ name: "account", type: "address" }],
+      name: "balanceOf",
+      outputs: [{ name: "", type: "uint256" }],
+      stateMutability: "view",
+      type: "function",
+    },
+  ] as const;
 
-      const ethRes = await fetch(rpcUrl, {
+  // Fetch ETH balance using wagmi
+  const { data: ethBalanceData } = useQuery({
+    queryKey: ["eth-balance", LEADERBOARD_CONTRACT],
+    queryFn: async () => {
+      const rpcUrl = "https://mainnet.base.org";
+      const res = await fetch(rpcUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -180,51 +185,28 @@ export default function LeaderboardPage() {
           id: 1,
         }),
       });
-      const ethData = await ethRes.json();
-
-      const donutRes = await fetch(rpcUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          method: "eth_call",
-          params: [
-            {
-              to: DONUT_ADDRESS,
-              data: "0x70a08231000000000000000000000000" + LEADERBOARD_CONTRACT.slice(2),
-            },
-            "latest",
-          ],
-          id: 2,
-        }),
-      });
-      const donutData = await donutRes.json();
-
-      const sprinklesRes = await fetch(rpcUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          method: "eth_call",
-          params: [
-            {
-              to: SPRINKLES_ADDRESS,
-              data: "0x70a08231000000000000000000000000" + LEADERBOARD_CONTRACT.slice(2),
-            },
-            "latest",
-          ],
-          id: 3,
-        }),
-      });
-      const sprinklesData = await sprinklesRes.json();
-
-      return {
-        ethBalance: ethData.result || "0x0",
-        donutBalance: donutData.result || "0x0",
-        sprinklesBalance: sprinklesData.result || "0x0",
-      };
+      const data = await res.json();
+      return data.result || "0x0";
     },
     refetchInterval: 30_000,
+  });
+
+  // Fetch DONUT balance
+  const { data: donutBalanceRaw } = useReadContract({
+    address: DONUT_ADDRESS as `0x${string}`,
+    abi: erc20BalanceAbi,
+    functionName: "balanceOf",
+    args: [LEADERBOARD_CONTRACT as `0x${string}`],
+    chainId: base.id,
+  });
+
+  // Fetch SPRINKLES balance
+  const { data: sprinklesBalanceRaw } = useReadContract({
+    address: SPRINKLES_ADDRESS as `0x${string}`,
+    abi: erc20BalanceAbi,
+    functionName: "balanceOf",
+    args: [LEADERBOARD_CONTRACT as `0x${string}`],
+    chainId: base.id,
   });
 
   const addresses: string[] = leaderboardData?.leaderboard?.map((entry) => entry.address) || [];
@@ -283,16 +265,16 @@ export default function LeaderboardPage() {
   const leaderboard: LeaderboardEntry[] = leaderboardData?.leaderboard || [];
   const weekNumber = leaderboardData?.weekNumber || 0;
   
-  const ethBalance = prizePoolData?.ethBalance
-    ? parseFloat(formatEther(BigInt(prizePoolData.ethBalance)))
+  const ethBalance = ethBalanceData
+    ? parseFloat(formatEther(BigInt(ethBalanceData)))
     : 0;
 
-  const donutBalance = prizePoolData?.donutBalance
-    ? parseFloat(formatEther(BigInt(prizePoolData.donutBalance)))
+  const donutBalance = donutBalanceRaw
+    ? parseFloat(formatEther(donutBalanceRaw))
     : 0;
 
-  const sprinklesBalance = prizePoolData?.sprinklesBalance
-    ? parseFloat(formatEther(BigInt(prizePoolData.sprinklesBalance)))
+  const sprinklesBalance = sprinklesBalanceRaw
+    ? parseFloat(formatEther(sprinklesBalanceRaw))
     : 0;
 
   const totalPrizeUsd = (ethBalance * ethUsdPrice) + (donutBalance * donutPrice);
