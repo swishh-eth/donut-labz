@@ -120,27 +120,38 @@ export default function HomePage() {
 
   // Seamless video loops
   useEffect(() => {
-    const videos = [donutVideoRef.current, sprinklesVideoRef.current];
+    const donutVideo = donutVideoRef.current;
+    const sprinklesVideo = sprinklesVideoRef.current;
     
-    const handleTimeUpdate = (video: HTMLVideoElement) => {
-      if (video.duration - video.currentTime < 0.1) {
-        video.currentTime = 0;
-      }
+    const createLoopHandler = (video: HTMLVideoElement) => {
+      return () => {
+        if (video.duration - video.currentTime < 0.05) {
+          video.currentTime = 0;
+          video.play();
+        }
+      };
     };
 
-    videos.forEach(video => {
-      if (video) {
-        const handler = () => handleTimeUpdate(video);
-        video.addEventListener("timeupdate", handler);
-      }
-    });
+    if (donutVideo) {
+      const handler = createLoopHandler(donutVideo);
+      donutVideo.addEventListener("timeupdate", handler);
+      donutVideo.addEventListener("ended", () => {
+        donutVideo.currentTime = 0;
+        donutVideo.play();
+      });
+    }
+
+    if (sprinklesVideo) {
+      const handler = createLoopHandler(sprinklesVideo);
+      sprinklesVideo.addEventListener("timeupdate", handler);
+      sprinklesVideo.addEventListener("ended", () => {
+        sprinklesVideo.currentTime = 0;
+        sprinklesVideo.play();
+      });
+    }
 
     return () => {
-      videos.forEach(video => {
-        if (video) {
-          video.removeEventListener("timeupdate", () => {});
-        }
-      });
+      // Cleanup handled by component unmount
     };
   }, []);
 
@@ -270,11 +281,6 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Glowing Title */}
-          <h2 className="text-xl text-white font-bold text-center mb-6 drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]">
-            I want to mine...
-          </h2>
-
           {/* Mining Tiles - Vertical Stack */}
           <div className="flex-1 flex flex-col gap-4 px-2">
             {/* Donut Tile */}
@@ -287,7 +293,6 @@ export default function HomePage() {
                 ref={donutVideoRef}
                 className="absolute inset-0 w-full h-full object-cover"
                 autoPlay
-                loop
                 muted
                 playsInline
                 preload="auto"
@@ -298,10 +303,13 @@ export default function HomePage() {
               
               {/* Content */}
               <div className="relative z-10 flex flex-col items-center justify-center h-full p-6">
-                <div className="text-2xl font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] mb-2">
-                  Pay ETH, Mine DONUT
+                <div className="text-xl font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] mb-2 text-center">
+                  Pay ETH
                 </div>
-                <div className="text-lg text-white/80">
+                <div className="text-2xl font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] mb-3 text-center">
+                  Mine DONUT
+                </div>
+                <div className="text-base text-white/80">
                   Current Price: <span className="font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">
                     Ξ{donutPrice ? formatEth(donutPrice) : "—"}
                   </span>
@@ -319,7 +327,6 @@ export default function HomePage() {
                 ref={sprinklesVideoRef}
                 className="absolute inset-0 w-full h-full object-cover"
                 autoPlay
-                loop
                 muted
                 playsInline
                 preload="auto"
@@ -330,10 +337,13 @@ export default function HomePage() {
               
               {/* Content */}
               <div className="relative z-10 flex flex-col items-center justify-center h-full p-6">
-                <div className="text-2xl font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] mb-2">
-                  Pay DONUT, Mine SPRINKLES
+                <div className="text-xl font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] mb-2 text-center">
+                  Pay DONUT
                 </div>
-                <div className="text-lg text-white/80">
+                <div className="text-2xl font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] mb-3 text-center">
+                  Mine SPRINKLES
+                </div>
+                <div className="text-base text-white/80">
                   Current Price: <span className="font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">
                     🍩{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18) : "—"}
                   </span>
