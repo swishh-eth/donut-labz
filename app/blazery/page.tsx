@@ -378,7 +378,15 @@ export default function BlazeryPage() {
       : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
-  const lpLink = "https://app.uniswap.org/explore/pools/base/0xD1DbB2E56533C55C3A637D13C53aeEf65c5D5703";
+  const lpLink = "https://farcaster.xyz/miniapps/UPRyA-OqW0GP/uniswap-beta";
+
+  const openUniswap = async () => {
+    try {
+      await sdk.actions.openUrl({ url: lpLink });
+    } catch (error) {
+      console.error("Failed to open Uniswap:", error);
+    }
+  };
 
   return (
     <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -386,15 +394,39 @@ export default function BlazeryPage() {
       <style jsx global>{`
         @keyframes rise-flame {
           0% { 
-            transform: translateY(0) rotate(0deg); 
+            transform: translateY(100px) rotate(0deg);
+            opacity: 0;
+          }
+          5% {
+            opacity: 1;
+          }
+          95% {
+            opacity: 1;
           }
           100% { 
-            transform: translateY(-400px) rotate(10deg); 
+            transform: translateY(calc(-100vh - 50px)) rotate(15deg);
+            opacity: 0;
           }
         }
-        .rising-flame {
-          animation: rise-flame 8s ease-in-out infinite;
-          filter: drop-shadow(0 0 8px rgba(255,255,255,0.8));
+        .rising-flame-1 {
+          animation: rise-flame 8s linear infinite;
+          filter: drop-shadow(0 0 6px rgba(255,255,255,0.6));
+        }
+        .rising-flame-2 {
+          animation: rise-flame 9s linear infinite;
+          filter: drop-shadow(0 0 10px rgba(255,255,255,0.8));
+        }
+        .rising-flame-3 {
+          animation: rise-flame 7s linear infinite;
+          filter: drop-shadow(0 0 4px rgba(255,255,255,0.5));
+        }
+        .rising-flame-4 {
+          animation: rise-flame 10s linear infinite;
+          filter: drop-shadow(0 0 12px rgba(255,255,255,0.9));
+        }
+        .rising-flame-5 {
+          animation: rise-flame 8.5s linear infinite;
+          filter: drop-shadow(0 0 8px rgba(255,255,255,0.7));
         }
       `}</style>
 
@@ -405,17 +437,17 @@ export default function BlazeryPage() {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
         }}
       >
-        {/* Rising Flames from bottom */}
+        {/* Rising Flames from bottom - start off-screen with negative delays */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <Flame className="absolute bottom-16 left-[5%] w-6 h-6 text-white/20 rising-flame" style={{ animationDelay: '0s', animationDuration: '7s' }} />
-          <Flame className="absolute bottom-20 left-[15%] w-7 h-7 text-white/15 rising-flame" style={{ animationDelay: '1s', animationDuration: '9s' }} />
-          <Flame className="absolute bottom-12 left-[25%] w-5 h-5 text-white/20 rising-flame" style={{ animationDelay: '2s', animationDuration: '6s' }} />
-          <Flame className="absolute bottom-24 left-[35%] w-8 h-8 text-white/15 rising-flame" style={{ animationDelay: '0.5s', animationDuration: '8s' }} />
-          <Flame className="absolute bottom-16 left-[48%] w-6 h-6 text-white/20 rising-flame" style={{ animationDelay: '3s', animationDuration: '7.5s' }} />
-          <Flame className="absolute bottom-20 left-[60%] w-7 h-7 text-white/15 rising-flame" style={{ animationDelay: '1.5s', animationDuration: '8.5s' }} />
-          <Flame className="absolute bottom-12 left-[72%] w-5 h-5 text-white/20 rising-flame" style={{ animationDelay: '2.5s', animationDuration: '6.5s' }} />
-          <Flame className="absolute bottom-24 left-[82%] w-8 h-8 text-white/15 rising-flame" style={{ animationDelay: '0.8s', animationDuration: '9.5s' }} />
-          <Flame className="absolute bottom-16 left-[92%] w-6 h-6 text-white/20 rising-flame" style={{ animationDelay: '4s', animationDuration: '7s' }} />
+          <Flame className="absolute bottom-0 left-[5%] w-6 h-6 text-white/20 rising-flame-1" style={{ animationDelay: '-2s' }} />
+          <Flame className="absolute bottom-0 left-[15%] w-7 h-7 text-white/15 rising-flame-2" style={{ animationDelay: '-5s' }} />
+          <Flame className="absolute bottom-0 left-[25%] w-5 h-5 text-white/20 rising-flame-3" style={{ animationDelay: '-1s' }} />
+          <Flame className="absolute bottom-0 left-[35%] w-8 h-8 text-white/15 rising-flame-4" style={{ animationDelay: '-7s' }} />
+          <Flame className="absolute bottom-0 left-[48%] w-6 h-6 text-white/20 rising-flame-5" style={{ animationDelay: '-3s' }} />
+          <Flame className="absolute bottom-0 left-[60%] w-7 h-7 text-white/15 rising-flame-1" style={{ animationDelay: '-6s' }} />
+          <Flame className="absolute bottom-0 left-[72%] w-5 h-5 text-white/20 rising-flame-2" style={{ animationDelay: '-4s' }} />
+          <Flame className="absolute bottom-0 left-[82%] w-8 h-8 text-white/15 rising-flame-3" style={{ animationDelay: '-8s' }} />
+          <Flame className="absolute bottom-0 left-[92%] w-6 h-6 text-white/20 rising-flame-4" style={{ animationDelay: '-2.5s' }} />
         </div>
 
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
@@ -501,15 +533,6 @@ export default function BlazeryPage() {
                   <span className="text-xs text-gray-500">DONUT-ETH</span>
                 </div>
               </div>
-              <a
-                href={lpLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 bg-white text-black px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-200 transition-colors"
-              >
-                Get LP
-                <ArrowRight className="w-3 h-3" />
-              </a>
             </div>
             {hasInsufficientLP && (
               <div className="text-[10px] text-red-400 mt-1">
@@ -517,6 +540,23 @@ export default function BlazeryPage() {
               </div>
             )}
           </div>
+
+          {/* Get LP Tile */}
+          <button
+            onClick={openUniswap}
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-2 hover:bg-zinc-800 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Coins className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <span className="text-xs font-semibold text-white">Get LP</span>
+              </div>
+              <div className="flex items-center gap-1 text-[10px] font-medium text-gray-400">
+                <span>Uniswap</span>
+                <ArrowRight className="w-3 h-3" />
+              </div>
+            </div>
+          </button>
 
           {/* Profit/Loss Indicator */}
           {blazeProfitLoss && (
