@@ -322,22 +322,16 @@ export default function LeaderboardPage() {
     <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style jsx global>{`
         @keyframes fall-1 {
-          0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
-          100% { transform: translateY(calc(100vh + 20px)) rotate(360deg); opacity: 0; }
+          0% { transform: translateY(-50px) rotate(0deg); }
+          100% { transform: translateY(calc(100vh + 50px)) rotate(360deg); }
         }
         @keyframes fall-2 {
-          0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
-          100% { transform: translateY(calc(100vh + 20px)) rotate(-360deg); opacity: 0; }
+          0% { transform: translateY(-50px) rotate(0deg); }
+          100% { transform: translateY(calc(100vh + 50px)) rotate(-360deg); }
         }
         @keyframes fall-3 {
-          0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
-          100% { transform: translateY(calc(100vh + 20px)) rotate(180deg); opacity: 0; }
+          0% { transform: translateY(-50px) rotate(0deg); }
+          100% { transform: translateY(calc(100vh + 50px)) rotate(180deg); }
         }
         .falling-1 { animation: fall-1 8s linear infinite; }
         .falling-2 { animation: fall-2 10s linear infinite; }
@@ -345,6 +339,10 @@ export default function LeaderboardPage() {
         .falling-4 { animation: fall-1 9s linear infinite; }
         .falling-5 { animation: fall-2 11s linear infinite; }
         .falling-6 { animation: fall-3 7s linear infinite; }
+        
+        .glow-symbol {
+          filter: drop-shadow(0 0 4px rgba(255,255,255,0.8));
+        }
         
         @keyframes spin-slow-cw { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes spin-slow-ccw { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
@@ -363,23 +361,23 @@ export default function LeaderboardPage() {
         }}
       >
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {/* ETH symbols */}
-          <span className="absolute left-[5%] text-white/10 text-lg falling-1" style={{ animationDelay: '0s' }}>Ξ</span>
-          <span className="absolute left-[25%] text-white/8 text-xl falling-2" style={{ animationDelay: '2s' }}>Ξ</span>
-          <span className="absolute left-[80%] text-white/10 text-base falling-3" style={{ animationDelay: '4s' }}>Ξ</span>
-          <span className="absolute left-[60%] text-white/6 text-lg falling-4" style={{ animationDelay: '1s' }}>Ξ</span>
+          {/* ETH symbols - white glowing */}
+          <span className="absolute left-[5%] top-0 text-white/20 text-lg glow-symbol falling-1" style={{ animationDelay: '-2s' }}>Ξ</span>
+          <span className="absolute left-[25%] top-0 text-white/15 text-xl glow-symbol falling-2" style={{ animationDelay: '-5s' }}>Ξ</span>
+          <span className="absolute left-[80%] top-0 text-white/20 text-base glow-symbol falling-3" style={{ animationDelay: '-8s' }}>Ξ</span>
+          <span className="absolute left-[60%] top-0 text-white/10 text-lg glow-symbol falling-4" style={{ animationDelay: '-3s' }}>Ξ</span>
           
-          {/* Donut symbols */}
-          <span className="absolute left-[15%] text-white/10 text-lg falling-2" style={{ animationDelay: '0.5s' }}>🍩</span>
-          <span className="absolute left-[45%] text-white/8 text-base falling-4" style={{ animationDelay: '3s' }}>🍩</span>
-          <span className="absolute left-[70%] text-white/10 text-xl falling-1" style={{ animationDelay: '5s' }}>🍩</span>
-          <span className="absolute left-[90%] text-white/6 text-lg falling-5" style={{ animationDelay: '2.5s' }}>🍩</span>
+          {/* Donut symbols - white glowing */}
+          <span className="absolute left-[15%] top-0 text-white/20 text-lg glow-symbol falling-2" style={{ animationDelay: '-1s' }}>🍩</span>
+          <span className="absolute left-[45%] top-0 text-white/15 text-base glow-symbol falling-4" style={{ animationDelay: '-6s' }}>🍩</span>
+          <span className="absolute left-[70%] top-0 text-white/20 text-xl glow-symbol falling-1" style={{ animationDelay: '-4s' }}>🍩</span>
+          <span className="absolute left-[90%] top-0 text-white/10 text-lg glow-symbol falling-5" style={{ animationDelay: '-7s' }}>🍩</span>
           
-          {/* Sprinkles symbols */}
-          <span className="absolute left-[10%] text-white/8 text-base falling-3" style={{ animationDelay: '1.5s' }}>✨</span>
-          <span className="absolute left-[35%] text-white/10 text-lg falling-5" style={{ animationDelay: '4.5s' }}>✨</span>
-          <span className="absolute left-[55%] text-white/6 text-xl falling-6" style={{ animationDelay: '0.5s' }}>✨</span>
-          <span className="absolute left-[85%] text-white/10 text-base falling-1" style={{ animationDelay: '3.5s' }}>✨</span>
+          {/* Sprinkles - white Sparkles icons */}
+          <Sparkles className="absolute left-[10%] top-0 w-4 h-4 text-white/20 glow-symbol falling-3" style={{ animationDelay: '-2.5s' }} />
+          <Sparkles className="absolute left-[35%] top-0 w-5 h-5 text-white/25 glow-symbol falling-5" style={{ animationDelay: '-5.5s' }} />
+          <Sparkles className="absolute left-[55%] top-0 w-6 h-6 text-white/15 glow-symbol falling-6" style={{ animationDelay: '-1.5s' }} />
+          <Sparkles className="absolute left-[85%] top-0 w-4 h-4 text-white/20 glow-symbol falling-1" style={{ animationDelay: '-4.5s' }} />
         </div>
 
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
