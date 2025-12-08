@@ -118,43 +118,6 @@ export default function HomePage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Seamless video loops
-  useEffect(() => {
-    const donutVideo = donutVideoRef.current;
-    const sprinklesVideo = sprinklesVideoRef.current;
-    
-    const createLoopHandler = (video: HTMLVideoElement) => {
-      return () => {
-        if (video.duration - video.currentTime < 0.05) {
-          video.currentTime = 0;
-          video.play();
-        }
-      };
-    };
-
-    if (donutVideo) {
-      const handler = createLoopHandler(donutVideo);
-      donutVideo.addEventListener("timeupdate", handler);
-      donutVideo.addEventListener("ended", () => {
-        donutVideo.currentTime = 0;
-        donutVideo.play();
-      });
-    }
-
-    if (sprinklesVideo) {
-      const handler = createLoopHandler(sprinklesVideo);
-      sprinklesVideo.addEventListener("timeupdate", handler);
-      sprinklesVideo.addEventListener("ended", () => {
-        sprinklesVideo.currentTime = 0;
-        sprinklesVideo.play();
-      });
-    }
-
-    return () => {
-      // Cleanup handled by component unmount
-    };
-  }, []);
-
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userHandle = context?.user?.username
     ? `@${context.user.username}`
@@ -297,20 +260,30 @@ export default function HomePage() {
                 playsInline
                 preload="auto"
                 src="/media/donut-loop.mp4"
+                onTimeUpdate={(e) => {
+                  const video = e.currentTarget;
+                  if (video.duration - video.currentTime < 0.001) {
+                    video.currentTime = 0;
+                  }
+                }}
+                onEnded={(e) => {
+                  e.currentTarget.currentTime = 0;
+                  e.currentTarget.play();
+                }}
               />
               {/* Dark Overlay */}
               <div className="absolute inset-0 bg-black/60" />
               
               {/* Content */}
               <div className="relative z-10 flex flex-col items-center justify-center h-full p-6">
-                <div className="text-xl font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] mb-2 text-center">
+                <div className="text-xl font-bold text-white mb-2 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
                   Pay ETH
                 </div>
-                <div className="text-2xl font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] mb-3 text-center">
+                <div className="text-2xl font-bold text-amber-400 mb-3 text-center" style={{ textShadow: '0 0 10px rgba(251,191,36,0.8)' }}>
                   Mine DONUT
                 </div>
                 <div className="text-base text-white/80">
-                  Current Price: <span className="font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">
+                  Current Price: <span className="font-bold text-white" style={{ textShadow: '0 0 8px rgba(255,255,255,0.6)' }}>
                     Ξ{donutPrice ? formatEth(donutPrice) : "—"}
                   </span>
                 </div>
@@ -331,20 +304,30 @@ export default function HomePage() {
                 playsInline
                 preload="auto"
                 src="/media/sprinkles-loop.mp4"
+                onTimeUpdate={(e) => {
+                  const video = e.currentTarget;
+                  if (video.duration - video.currentTime < 0.001) {
+                    video.currentTime = 0;
+                  }
+                }}
+                onEnded={(e) => {
+                  e.currentTarget.currentTime = 0;
+                  e.currentTarget.play();
+                }}
               />
               {/* Dark Overlay */}
               <div className="absolute inset-0 bg-black/60" />
               
               {/* Content */}
               <div className="relative z-10 flex flex-col items-center justify-center h-full p-6">
-                <div className="text-xl font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] mb-2 text-center">
+                <div className="text-xl font-bold text-white mb-2 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
                   Pay DONUT
                 </div>
-                <div className="text-2xl font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] mb-3 text-center">
+                <div className="text-2xl font-bold text-amber-400 mb-3 text-center" style={{ textShadow: '0 0 10px rgba(251,191,36,0.8)' }}>
                   Mine SPRINKLES
                 </div>
                 <div className="text-base text-white/80">
-                  Current Price: <span className="font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">
+                  Current Price: <span className="font-bold text-white" style={{ textShadow: '0 0 8px rgba(255,255,255,0.6)' }}>
                     🍩{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18) : "—"}
                   </span>
                 </div>
