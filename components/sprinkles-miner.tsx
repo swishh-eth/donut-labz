@@ -11,7 +11,7 @@ import {
   useWriteContract,
 } from "wagmi";
 import { base } from "wagmi/chains";
-import { formatEther, formatUnits, zeroAddress, type Address } from "viem";
+import { formatEther, formatUnits, parseUnits, zeroAddress, type Address } from "viem";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI, DONUT_ADDRESS, DONUT_ABI } from "@/lib/contracts/sprinkles";
@@ -97,9 +97,12 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const [mineResult, setMineResult] = useState<"success" | "failure" | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
+  const [approvalAmount, setApprovalAmount] = useState("");
+  const [isApprovalMode, setIsApprovalMode] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const mineResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const approvalInputRef = useRef<HTMLInputElement>(null);
 
   const resetMineResult = useCallback(() => {
     if (mineResultTimeoutRef.current) {
@@ -291,13 +294,18 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       refetchSlot0();
       refetchPrice();
       refetchAllowance();
+      // Reset approval mode on successful approval
+      if (receipt.status === "success" && isApprovalMode) {
+        setIsApprovalMode(false);
+        setApprovalAmount("");
+      }
       const resetTimer = setTimeout(() => {
         resetWrite();
       }, 500);
       return () => clearTimeout(resetTimer);
     }
     return;
-  }, [receipt, refetchSlot0, refetchPrice, refetchAllowance, resetWrite, showMineResult]);
+  }, [receipt, refetchSlot0, refetchPrice, refetchAllowance, resetWrite, showMineResult, isApprovalMode]);
 
   const minerAddress = slot0?.miner ?? zeroAddress;
   const hasMiner = minerAddress !== zeroAddress;
@@ -334,15 +342,25 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     return (donutAllowance as bigint) < price;
   }, [price, donutAllowance]);
 
+  // Parse approval amount to bigint
+  const parsedApprovalAmount = useMemo(() => {
+    if (!approvalAmount || approvalAmount === "") return 0n;
+    try {
+      return parseUnits(approvalAmount, DONUT_DECIMALS);
+    } catch {
+      return 0n;
+    }
+  }, [approvalAmount]);
+
   const handleApprove = useCallback(async () => {
-    if (!address) return;
+    if (!address || parsedApprovalAmount === 0n) return;
     try {
       await writeContract({
         account: address as Address,
         address: DONUT_ADDRESS,
         abi: DONUT_ABI,
         functionName: "approve",
-        args: [SPRINKLES_MINER_ADDRESS, BigInt("115792089237316195423570985008687907853269984665640564039457584007913129639935")],
+        args: [SPRINKLES_MINER_ADDRESS, parsedApprovalAmount],
         chainId: base.id,
       });
     } catch (error) {
@@ -350,7 +368,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       showMineResult("failure");
       resetWrite();
     }
-  }, [address, writeContract, showMineResult, resetWrite]);
+  }, [address, parsedApprovalAmount, writeContract, showMineResult, resetWrite]);
 
   const handleMine = useCallback(async () => {
     if (!slot0 || !price) return;
@@ -523,10 +541,14 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const formatMineTime = (seconds: number): string => {
     if (seconds < 0) return "0s";
 
-    const hours = Math.floor(seconds / 3600);
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
 
+    if (days > 0) {
+      return `${days}d ${hours}h ${minutes}m`;
+    }
     if (hours > 0) {
       return `${hours}h ${minutes}m ${secs}s`;
     }
@@ -550,19 +572,26 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     ? formatTokenAmount(donutBalance as bigint, DONUT_DECIMALS, 2)
     : "—";
 
+  const currentAllowanceDisplay = donutAllowance
+    ? formatTokenAmount(donutAllowance as bigint, DONUT_DECIMALS, 2)
+    : "0";
+
   const buttonLabel = useMemo(() => {
     if (!slot0 || price === undefined) return "Loading…";
     if (mineResult === "success") return "SUCCESS";
     if (mineResult === "failure") return "FAILURE";
     if (isWriting || isConfirming) {
-      return needsApproval ? "APPROVING…" : "MINING…";
+      return isApprovalMode ? "APPROVING…" : "MINING…";
     }
-    if (needsApproval) return "APPROVE DONUT";
+    if (needsApproval && !isApprovalMode) return "APPROVE";
     return "MINE";
-  }, [mineResult, isConfirming, isWriting, slot0, price, needsApproval]);
+  }, [mineResult, isConfirming, isWriting, slot0, price, needsApproval, isApprovalMode]);
 
   const isMineDisabled =
     !slot0 || price === undefined || isWriting || isConfirming || mineResult !== null;
+
+  const isApproveButtonDisabled = 
+    isMineDisabled || parsedApprovalAmount === 0n || !approvalAmount;
 
   const handleViewMinerProfile = useCallback(() => {
     const fid = neynarUser?.user?.fid;
@@ -579,6 +608,17 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     slot0?.uri && slot0.uri.trim() !== ""
       ? slot0.uri
       : "Every donut needs sprinkles - Donut Labs";
+
+  // Handle clicking APPROVE button - enter approval mode
+  const handleApproveClick = useCallback(() => {
+    if (needsApproval && !isApprovalMode) {
+      setIsApprovalMode(true);
+      // Focus the input after state update
+      setTimeout(() => {
+        approvalInputRef.current?.focus();
+      }, 100);
+    }
+  }, [needsApproval, isApprovalMode]);
 
   return (
     <>
@@ -824,29 +864,77 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           disabled={isMineDisabled}
         />
 
-        {/* Mine Button */}
-        <button
-          className={cn(
-            "w-full rounded-xl py-4 text-lg font-bold transition-all duration-300",
-            mineResult === "success"
-              ? "bg-green-500 text-white"
-              : mineResult === "failure"
-                ? "bg-red-500 text-white"
-                : isMineDisabled
-                  ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
-                  : "bg-white text-black hover:bg-gray-200",
-            isPulsing && !isMineDisabled && !mineResult && "scale-[0.95]"
-          )}
-          onClick={needsApproval ? handleApprove : handleMine}
-          disabled={isMineDisabled}
-        >
-          {buttonLabel}
-        </button>
+        {/* Mine/Approve Button */}
+        {needsApproval && isApprovalMode ? (
+          /* Approval Input Mode - Split Button */
+          <div className="flex w-full rounded-xl overflow-hidden">
+            <input
+              ref={approvalInputRef}
+              type="text"
+              inputMode="decimal"
+              value={approvalAmount}
+              onChange={(e) => {
+                // Only allow numbers and decimal point
+                const value = e.target.value.replace(/[^0-9.]/g, '');
+                // Prevent multiple decimal points
+                const parts = value.split('.');
+                if (parts.length > 2) return;
+                setApprovalAmount(value);
+              }}
+              placeholder="Enter DONUT amount"
+              className="flex-1 bg-zinc-800 text-white px-4 py-4 text-lg font-bold placeholder-gray-500 focus:outline-none"
+              style={{ fontSize: '16px' }}
+              disabled={isWriting || isConfirming}
+            />
+            <button
+              className={cn(
+                "px-6 py-4 text-lg font-bold transition-all duration-300",
+                isApproveButtonDisabled
+                  ? "bg-zinc-700 text-gray-500 cursor-not-allowed"
+                  : "bg-amber-500 text-black hover:bg-amber-400",
+                mineResult === "success" && "bg-green-500 text-white",
+                mineResult === "failure" && "bg-red-500 text-white"
+              )}
+              onClick={handleApprove}
+              disabled={isApproveButtonDisabled}
+            >
+              {isWriting || isConfirming ? "…" : mineResult === "success" ? "✓" : mineResult === "failure" ? "✗" : "APPROVE"}
+            </button>
+          </div>
+        ) : (
+          /* Normal Button */
+          <button
+            className={cn(
+              "w-full rounded-xl py-4 text-lg font-bold transition-all duration-300",
+              mineResult === "success"
+                ? "bg-green-500 text-white"
+                : mineResult === "failure"
+                  ? "bg-red-500 text-white"
+                  : isMineDisabled
+                    ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
+                    : needsApproval
+                      ? "bg-amber-500 text-black hover:bg-amber-400"
+                      : "bg-white text-black hover:bg-gray-200",
+              isPulsing && !isMineDisabled && !mineResult && "scale-[0.95]"
+            )}
+            onClick={needsApproval ? handleApproveClick : handleMine}
+            disabled={isMineDisabled}
+          >
+            {buttonLabel}
+          </button>
+        )}
 
         {/* Balances Card */}
         <div className="w-full border border-zinc-800 rounded-lg p-2 bg-zinc-900">
-          <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-1.5">
-            Your DONUT Balance
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="text-[9px] text-gray-400 uppercase tracking-wider">
+              Your DONUT Balance
+            </div>
+            {(donutAllowance as bigint) > 0n && (
+              <div className="text-[9px] text-amber-400">
+                Approved: 🍩{currentAllowanceDisplay}
+              </div>
+            )}
           </div>
           <div className="text-center">
             <div className="text-lg font-bold text-white">

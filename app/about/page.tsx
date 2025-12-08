@@ -30,20 +30,34 @@ type SectionProps = {
   icon: React.ReactNode;
   title: string;
   children: React.ReactNode;
-  highlight?: boolean;
+  variant?: 'default' | 'amber' | 'glow';
 };
 
-const Section = ({ icon, title, children, highlight }: SectionProps) => (
-  <div className={`rounded-lg p-3 ${highlight ? 'bg-amber-950/30 border border-amber-500/30' : 'bg-zinc-900 border border-zinc-800'}`}>
-    <div className="flex items-center gap-2 mb-2">
-      {icon}
-      <h2 className={`text-sm font-bold ${highlight ? 'text-amber-300' : 'text-white'}`}>{title}</h2>
+const Section = ({ icon, title, children, variant = 'default' }: SectionProps) => {
+  const styles = {
+    default: 'bg-zinc-900 border border-zinc-800',
+    amber: 'bg-amber-950/30 border border-amber-500/30',
+    glow: 'bg-zinc-900 border border-white/50 shadow-[0_0_20px_rgba(255,255,255,0.3),inset_0_0_20px_rgba(255,255,255,0.05)]',
+  };
+
+  const titleStyles = {
+    default: 'text-white',
+    amber: 'text-amber-300',
+    glow: 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]',
+  };
+
+  return (
+    <div className={`rounded-lg p-3 ${styles[variant]}`}>
+      <div className="flex items-center gap-2 mb-2">
+        {icon}
+        <h2 className={`text-sm font-bold ${titleStyles[variant]}`}>{title}</h2>
+      </div>
+      <div className="text-xs text-gray-400 space-y-1.5">
+        {children}
+      </div>
     </div>
-    <div className="text-xs text-gray-400 space-y-1.5">
-      {children}
-    </div>
-  </div>
-);
+  );
+};
 
 export default function AboutPage() {
   const readyRef = useRef(false);
@@ -133,30 +147,57 @@ export default function AboutPage() {
               <LearnMoreButton variant="default" />
             </div>
 
-            {/* What is $DONUT */}
+            {/* What is $DONUT - Now Amber Highlight */}
             <Section
-              icon={<Info className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
+              icon={<Info className="w-4 h-4 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]" />}
               title="What Is $DONUT"
+              variant="amber"
             >
               <p>$DONUT is a store-of-value token on Base, mined through a continuous Dutch auction instead of proof-of-work or staking.</p>
               <p>Auction revenue increases $DONUT's liquidity and scarcity.</p>
+              
+              <div className="mt-2 mb-2">
+                <p className="text-white font-semibold text-[11px] mb-1">DONUT Revenue Split:</p>
+                <div className="pl-2 border-l border-amber-500/30 ml-1 space-y-1">
+                  <p><span className="text-amber-400 font-semibold">80%</span> → Previous Glazer (rewards active miners)</p>
+                  <p><span className="text-amber-400 font-semibold">15%</span> → Treasury (LP buybacks & burns)</p>
+                  <p><span className="text-amber-400 font-semibold">5%</span> → Provider Fee (builder codes)</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-center mt-2">
+                <div className="bg-amber-900/30 rounded-lg p-2">
+                  <div className="text-sm font-bold text-amber-300">4/sec</div>
+                  <div className="text-[10px] text-gray-500">Start Rate</div>
+                </div>
+                <div className="bg-amber-900/30 rounded-lg p-2">
+                  <div className="text-sm font-bold text-amber-300">30 days</div>
+                  <div className="text-[10px] text-gray-500">Halving</div>
+                </div>
+                <div className="bg-amber-900/30 rounded-lg p-2">
+                  <div className="text-sm font-bold text-amber-300">0.01/s</div>
+                  <div className="text-[10px] text-gray-500">Tail Rate</div>
+                </div>
+              </div>
             </Section>
 
             {/* What is $SPRINKLES */}
             <Section
               icon={<Sparkles className="w-4 h-4 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]" />}
               title="What Is $SPRINKLES"
-              highlight
+              variant="amber"
             >
               <p>$SPRINKLES is a companion token to $DONUT, mined by paying $DONUT in a separate auction.</p>
+              <p className="text-white font-semibold">Max Supply: 210,000,000 SPRINKLES (10x DONUT)</p>
+              <p className="text-gray-500 text-[10px]">10M preminted & seeded with 1,000 DONUT for permanent LP</p>
               
               <div className="mt-2 mb-2">
                 <p className="text-white font-semibold text-[11px] mb-1">SPRINKLES Revenue Split:</p>
                 <div className="pl-2 border-l border-amber-500/30 ml-1 space-y-1">
-                  <p><span className="text-amber-400 font-semibold">80%</span> → Previous Glazer (rewards active miners)</p>
-                  <p><span className="text-amber-400 font-semibold">10%</span> → Buy & Burn DONUT (increases scarcity)</p>
+                  <p><span className="text-amber-400 font-semibold">80%</span> → Previous Miner (rewards active miners)</p>
+                  <p><span className="text-amber-400 font-semibold">10%</span> → Buy & Burn SPRINKLES (increases scarcity)</p>
                   <p><span className="text-amber-400 font-semibold">5%</span> → Leaderboard Prizes (weekly rewards)</p>
-                  <p><span className="text-amber-400 font-semibold">5%</span> → Donut Labs (prize mechanics & SPRINKLES buybacks)</p>
+                  <p><span className="text-amber-400 font-semibold">5%</span> → Donut Labs (prize mechanics & buybacks)</p>
                 </div>
               </div>
 
@@ -176,18 +217,18 @@ export default function AboutPage() {
               </div>
             </Section>
 
-            {/* Chat to Earn */}
+            {/* Chat to Earn - Now White Glow */}
             <Section
-              icon={<MessageCircle className="w-4 h-4 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]" />}
+              icon={<MessageCircle className="w-4 h-4 text-white drop-shadow-[0_0_8px_rgba(255,255,255,1)]" />}
               title="Chat to Earn Sprinkles"
-              highlight
+              variant="glow"
             >
               <p>Send onchain messages in the Chat tab to earn sprinkles points!</p>
-              <p>Your earnings per message = <span className="text-amber-300 font-semibold">Multiplier × Neynar Score</span></p>
-              <div className="mt-2 p-2 bg-amber-900/20 rounded-lg">
+              <p>Your earnings per message = <span className="text-white font-semibold drop-shadow-[0_0_4px_rgba(255,255,255,0.6)]">Multiplier × Neynar Score</span></p>
+              <div className="mt-2 p-2 bg-white/5 border border-white/20 rounded-lg">
                 <div className="flex items-center gap-1.5 mb-1">
-                  <Timer className="w-3 h-3 text-amber-400" />
-                  <span className="text-[10px] text-amber-400 font-semibold">Halving Schedule</span>
+                  <Timer className="w-3 h-3 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                  <span className="text-[10px] text-white font-semibold drop-shadow-[0_0_4px_rgba(255,255,255,0.6)]">Halving Schedule</span>
                 </div>
                 <p className="text-[10px] text-gray-400">Multiplier halves every 30 days: 1x → 0.5x → 0.25x → min 0.1x</p>
                 <p className="text-[10px] text-gray-500 mt-1">Chat early to earn more sprinkles!</p>
@@ -205,48 +246,6 @@ export default function AboutPage() {
                 <p>• Price doubles after each purchase</p>
                 <p>• Then decays to 0 over one hour</p>
                 <p>• Anyone can purchase control at current price</p>
-              </div>
-            </Section>
-
-            {/* Revenue Split */}
-            <Section
-              icon={<PieChart className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
-              title="Revenue Split"
-            >
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-zinc-800 rounded-lg p-2">
-                  <div className="text-lg font-bold text-white">80%</div>
-                  <div className="text-[10px] text-gray-500">Prev Glazer</div>
-                </div>
-                <div className="bg-zinc-800 rounded-lg p-2">
-                  <div className="text-lg font-bold text-white">15%</div>
-                  <div className="text-[10px] text-gray-500">Treasury</div>
-                </div>
-                <div className="bg-zinc-800 rounded-lg p-2">
-                  <div className="text-lg font-bold text-white">5%</div>
-                  <div className="text-[10px] text-gray-500">Provider</div>
-                </div>
-              </div>
-            </Section>
-
-            {/* DONUT Emission Schedule */}
-            <Section
-              icon={<Clock className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
-              title="DONUT Emission Schedule"
-            >
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-zinc-800 rounded-lg p-2">
-                  <div className="text-sm font-bold text-white">4/sec</div>
-                  <div className="text-[10px] text-gray-500">Start Rate</div>
-                </div>
-                <div className="bg-zinc-800 rounded-lg p-2">
-                  <div className="text-sm font-bold text-white">30 days</div>
-                  <div className="text-[10px] text-gray-500">Halving</div>
-                </div>
-                <div className="bg-zinc-800 rounded-lg p-2">
-                  <div className="text-sm font-bold text-white">0.01/s</div>
-                  <div className="text-[10px] text-gray-500">Tail Rate</div>
-                </div>
               </div>
             </Section>
 
