@@ -62,54 +62,12 @@ export default function HomePage() {
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [selectedMiner, setSelectedMiner] = useState<"donut" | "sprinkles" | null>(null);
   const donutVideoRef = useRef<HTMLVideoElement>(null);
-  const donutVideoRef2 = useRef<HTMLVideoElement>(null);
   const sprinklesVideoRef = useRef<HTMLVideoElement>(null);
-  const sprinklesVideoRef2 = useRef<HTMLVideoElement>(null);
 
   const { address } = useAccount();
 
-  // Seamless video looping with dual videos
-  useEffect(() => {
-    const setupDualLoop = (video1: HTMLVideoElement | null, video2: HTMLVideoElement | null) => {
-      if (!video1 || !video2) return;
-      
-      video2.style.opacity = '0';
-      video2.currentTime = 0;
-      
-      const checkTime = () => {
-        // When video1 is near end, start video2 and fade
-        if (video1.currentTime >= 9.5 && video2.style.opacity === '0') {
-          video2.currentTime = 0;
-          video2.play();
-          video2.style.opacity = '1';
-          video1.style.opacity = '0';
-        }
-        // When video2 is near end, start video1 and fade
-        if (video2.currentTime >= 9.5 && video1.style.opacity === '0') {
-          video1.currentTime = 0;
-          video1.play();
-          video1.style.opacity = '1';
-          video2.style.opacity = '0';
-        }
-      };
-      
-      video1.addEventListener('timeupdate', checkTime);
-      video2.addEventListener('timeupdate', checkTime);
-      
-      return () => {
-        video1.removeEventListener('timeupdate', checkTime);
-        video2.removeEventListener('timeupdate', checkTime);
-      };
-    };
-    
-    const cleanup1 = setupDualLoop(donutVideoRef.current, donutVideoRef2.current);
-    const cleanup2 = setupDualLoop(sprinklesVideoRef.current, sprinklesVideoRef2.current);
-    
-    return () => {
-      cleanup1?.();
-      cleanup2?.();
-    };
-  }, []);
+  // Videos now have built-in fade in/out, so we just use native looping
+  // No need for dual video crossfade anymore since the 35s videos handle it
 
   // Fetch DONUT miner price
   const { data: rawMinerState } = useReadContract({
@@ -298,21 +256,14 @@ export default function HomePage() {
               onClick={() => setSelectedMiner("donut")}
               className="relative flex-1 rounded-2xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
             >
-              {/* Video Background - Dual videos for seamless loop */}
+              {/* Video Background - single video with native loop */}
               <video
                 ref={donutVideoRef}
-                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+                className="absolute inset-0 w-full h-full object-cover"
                 autoPlay
                 muted
                 playsInline
-                preload="auto"
-                src="/media/donut-loop.mp4"
-              />
-              <video
-                ref={donutVideoRef2}
-                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
-                muted
-                playsInline
+                loop
                 preload="auto"
                 src="/media/donut-loop.mp4"
               />
@@ -341,21 +292,14 @@ export default function HomePage() {
                 when ready to launch sprinkles miner
                 ============================================================ */}
             <div className="relative flex-1 rounded-2xl overflow-hidden border border-zinc-800 cursor-not-allowed">
-              {/* Video Background - Greyed out */}
+              {/* Video Background - Greyed out with native loop */}
               <video
                 ref={sprinklesVideoRef}
-                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500 grayscale"
+                className="absolute inset-0 w-full h-full object-cover grayscale"
                 autoPlay
                 muted
                 playsInline
-                preload="auto"
-                src="/media/sprinkles-loop.mp4"
-              />
-              <video
-                ref={sprinklesVideoRef2}
-                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500 grayscale"
-                muted
-                playsInline
+                loop
                 preload="auto"
                 src="/media/sprinkles-loop.mp4"
               />
@@ -387,18 +331,11 @@ export default function HomePage() {
             >
               <video
                 ref={sprinklesVideoRef}
-                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+                className="absolute inset-0 w-full h-full object-cover"
                 autoPlay
                 muted
                 playsInline
-                preload="auto"
-                src="/media/sprinkles-loop.mp4"
-              />
-              <video
-                ref={sprinklesVideoRef2}
-                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
-                muted
-                playsInline
+                loop
                 preload="auto"
                 src="/media/sprinkles-loop.mp4"
               />
