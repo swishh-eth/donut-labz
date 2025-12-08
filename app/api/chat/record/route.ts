@@ -8,7 +8,7 @@ const baseClient = createPublicClient({
   transport: http("https://base.publicnode.com"),
 });
 
-// Minimum ETH balance required (0.0001 ETH)
+// Minimum ETH balance required (0.0005 ETH)
 const MIN_ETH_BALANCE = 0.0005;
 
 // Rate limit: minimum seconds between messages
@@ -19,6 +19,29 @@ const MIN_MESSAGE_LENGTH = 3;
 
 // Only refresh Neynar score if cache is older than 7 days
 const SCORE_CACHE_DAYS = 7;
+
+// Sprinkles chat reward halving constants
+const CHAT_REWARDS_START_TIME = 1765163000; // Approx when sprinkles miner deployed
+const HALVING_PERIOD = 30 * 24 * 60 * 60; // 30 days in seconds
+const INITIAL_MULTIPLIER = 1.0;
+const MIN_MULTIPLIER = 0.1;
+
+const getCurrentMultiplier = () => {
+  const now = Math.floor(Date.now() / 1000);
+  const elapsed = now - CHAT_REWARDS_START_TIME;
+  const halvings = Math.floor(elapsed / HALVING_PERIOD);
+  
+  let multiplier = INITIAL_MULTIPLIER;
+  for (let i = 0; i < halvings; i++) {
+    multiplier = multiplier / 2;
+    if (multiplier < MIN_MULTIPLIER) {
+      multiplier = MIN_MULTIPLIER;
+      break;
+    }
+  }
+  
+  return multiplier;
+};
 
 export async function POST(request: Request) {
   try {
@@ -157,13 +180,17 @@ export async function POST(request: Request) {
       }
     }
 
+    // Calculate points with halving multiplier
+    const currentMultiplier = getCurrentMultiplier();
+    const pointsAwarded = neynarScore * currentMultiplier;
+
     // Update chat_points
     if (existing) {
       const { error } = await supabase
         .from("chat_points")
         .update({
           total_messages: existing.total_messages + 1,
-          total_points: existing.total_points + neynarScore,
+          total_points: existing.total_points + pointsAwarded,
           last_message_at: new Date().toISOString(),
           last_message: message?.trim() || null,
           updated_at: new Date().toISOString(),
@@ -175,7 +202,7 @@ export async function POST(request: Request) {
       const { error } = await supabase.from("chat_points").insert({
         address,
         total_messages: 1,
-        total_points: neynarScore,
+        total_points: pointsAwarded,
         last_message_at: new Date().toISOString(),
         last_message: message?.trim() || null,
       });
@@ -185,7 +212,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      pointsAwarded: neynarScore,
+      pointsAwarded: pointsAwarded,
+      multiplier: currentMultiplier,
+      neynarScore: neynarScore,
     });
   } catch (error) {
     console.error("Error recording points:", error);

@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Send, MessageCircle, HelpCircle, X, Sparkles } from "lucide-react";
+import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
 import { ShareRewardButton } from "@/components/share-reward-button";
@@ -33,6 +33,49 @@ type FarcasterProfile = {
   displayName: string | null;
   pfpUrl: string | null;
   neynarScore: number | null;
+};
+
+// Sprinkles chat reward constants - matches SPRINKLES token halving
+const CHAT_REWARDS_START_TIME = 1765163000; // Approx when sprinkles miner deployed
+const HALVING_PERIOD = 30 * 24 * 60 * 60; // 30 days in seconds
+const INITIAL_MULTIPLIER = 1.0;
+const MIN_MULTIPLIER = 0.1;
+
+const getCurrentMultiplier = () => {
+  const now = Math.floor(Date.now() / 1000);
+  const elapsed = now - CHAT_REWARDS_START_TIME;
+  const halvings = Math.floor(elapsed / HALVING_PERIOD);
+  
+  let multiplier = INITIAL_MULTIPLIER;
+  for (let i = 0; i < halvings; i++) {
+    multiplier = multiplier / 2;
+    if (multiplier < MIN_MULTIPLIER) {
+      multiplier = MIN_MULTIPLIER;
+      break;
+    }
+  }
+  
+  return multiplier;
+};
+
+const getTimeUntilNextHalving = () => {
+  const now = Math.floor(Date.now() / 1000);
+  const elapsed = now - CHAT_REWARDS_START_TIME;
+  const currentPeriod = Math.floor(elapsed / HALVING_PERIOD);
+  const nextHalvingTime = CHAT_REWARDS_START_TIME + ((currentPeriod + 1) * HALVING_PERIOD);
+  const secondsRemaining = nextHalvingTime - now;
+  
+  const days = Math.floor(secondsRemaining / 86400);
+  const hours = Math.floor((secondsRemaining % 86400) / 3600);
+  const minutes = Math.floor((secondsRemaining % 3600) / 60);
+  
+  if (days > 0) {
+    return `${days}d ${hours}h`;
+  } else if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  } else {
+    return `${minutes}m`;
+  }
 };
 
 const initialsFrom = (label?: string) => {
@@ -69,12 +112,25 @@ export default function ChatPage() {
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [eligibilityError, setEligibilityError] = useState<string[] | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [currentMultiplier, setCurrentMultiplier] = useState(getCurrentMultiplier());
+  const [timeUntilHalving, setTimeUntilHalving] = useState(getTimeUntilNextHalving());
 
   const COOLDOWN_SECONDS = 30;
 
   const { address, isConnected } = useAccount();
   const { data: hash, writeContract, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  // Update halving countdown every minute
+  useEffect(() => {
+    const updateHalvingInfo = () => {
+      setCurrentMultiplier(getCurrentMultiplier());
+      setTimeUntilHalving(getTimeUntilNextHalving());
+    };
+
+    const interval = setInterval(updateHalvingInfo, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const handleFocus = () => {
@@ -299,12 +355,20 @@ export default function ChatPage() {
 
           <div className="grid grid-cols-2 gap-2 mb-3 flex-shrink-0">
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-              <div className="flex items-center gap-1 mb-0.5">
-                <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
-                <span className="text-[9px] text-gray-400 uppercase">Your Sprinkles</span>
+              <div className="flex items-center justify-between mb-0.5">
+                <div className="flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
+                  <span className="text-[9px] text-gray-400 uppercase">Your Sprinkles</span>
+                </div>
               </div>
               <div className="text-lg font-bold text-white">
                 {typeof userPoints === 'number' ? userPoints.toFixed(2) : '0.00'}
+              </div>
+              <div className="flex items-center gap-1 mt-1">
+                <Timer className="w-2.5 h-2.5 text-amber-400" />
+                <span className="text-[9px] text-amber-400">
+                  {currentMultiplier.toFixed(2)}x • Halving in {timeUntilHalving}
+                </span>
               </div>
             </div>
 
@@ -321,8 +385,8 @@ export default function ChatPage() {
                 <span className="text-xs font-semibold text-white">Earn Sprinkles</span>
                 <HelpCircle className="w-3 h-3 text-gray-400" />
               </div>
-              <div className="text-[10px] font-medium text-gray-400">
-                Neynar Score × Messages
+              <div className="text-[10px] font-medium text-amber-400">
+                {currentMultiplier.toFixed(2)}x × Neynar Score
               </div>
             </div>
           </button>
@@ -352,7 +416,7 @@ export default function ChatPage() {
                       <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">1</div>
                       <div>
                         <div className="font-semibold text-white text-sm">Send Messages</div>
-                        <div className="text-xs text-gray-400 mt-0.5">Every onchain message earns sprinkles based on your Neynar score.</div>
+                        <div className="text-xs text-gray-400 mt-0.5">Every onchain message earns sprinkles. Points = Multiplier × Neynar Score.</div>
                       </div>
                     </div>
 
@@ -360,24 +424,48 @@ export default function ChatPage() {
                       <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">2</div>
                       <div>
                         <div className="font-semibold text-white text-sm">Neynar Score</div>
-                        <div className="text-xs text-gray-400 mt-0.5">Your Farcaster reputation (0-1) determines sprinkles per message.</div>
+                        <div className="text-xs text-gray-400 mt-0.5">Your Farcaster reputation (0-1) determines your base earning rate.</div>
                       </div>
                     </div>
 
                     <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">3</div>
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-black">3</div>
                       <div>
-                        <div className="font-semibold text-white text-sm">Example</div>
-                        <div className="text-xs text-gray-400 mt-0.5">0.7 Neynar score = 0.7 sprinkles per message.</div>
+                        <div className="font-semibold text-amber-400 text-sm">Halving Mechanic</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          The multiplier halves every 30 days, starting at 1x and reducing to a minimum of 0.1x. Early chatters earn more!
+                        </div>
                       </div>
                     </div>
 
                     <div className="flex gap-3">
                       <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">4</div>
                       <div>
-                        <div className="font-semibold text-white text-sm">Future Rewards</div>
-                        <div className="text-xs text-gray-400 mt-0.5">Sprinkles may be used for airdrops and rewards!</div>
+                        <div className="font-semibold text-white text-sm">Example</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          At {currentMultiplier.toFixed(2)}x multiplier with 0.8 Neynar score = {(currentMultiplier * 0.8).toFixed(2)} sprinkles per message.
+                        </div>
                       </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">5</div>
+                      <div>
+                        <div className="font-semibold text-white text-sm">SPRINKLES Token</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          SPRINKLES is also mineable! Pay DONUT to mine SPRINKLES tokens with the same 30-day halving schedule.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Timer className="w-4 h-4 text-amber-400" />
+                      <span className="text-sm font-semibold text-amber-400">Current Status</span>
+                    </div>
+                    <div className="text-xs text-gray-300">
+                      Multiplier: <span className="text-amber-400 font-bold">{currentMultiplier.toFixed(2)}x</span> • Next halving in <span className="text-amber-400 font-bold">{timeUntilHalving}</span>
                     </div>
                   </div>
 
@@ -395,8 +483,8 @@ export default function ChatPage() {
           )}
 
           <div
-  ref={messagesContainerRef}
-  className="flex-1 overflow-y-auto space-y-2 pb-2 min-h-0 scrollbar-hide"
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto space-y-2 pb-2 min-h-0 scrollbar-hide"
           >
             {messagesLoading ? (
               <div className="flex items-center justify-center py-12">
