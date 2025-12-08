@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { BookOpen, X, ExternalLink } from "lucide-react";
+import { BookOpen, X, ExternalLink, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type LearnMoreButtonProps = {
@@ -21,6 +21,7 @@ const CONTRACTS = {
   leaderboard: "0x4681A6DeEe2D74f5DE48CEcd2A572979EA641586",
   wheel: "", // Coming soon
   donutLabsTreasury: "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d",
+  deadAddress: "0x000000000000000000000000000000000000dEaD",
 };
 
 // SPRINKLES miner is now live!
@@ -50,6 +51,11 @@ export function LearnMoreButton({
   const openDexScreener = (address: string) => {
     if (!address) return;
     window.open(`https://dexscreener.com/base/${address}`, "_blank", "noopener,noreferrer");
+  };
+
+  const openBurnedLP = () => {
+    // Link to dead address holdings of the LP token to show burned LP
+    window.open(`https://basescan.org/token/${CONTRACTS.sprinklesDonutLP}?a=${CONTRACTS.deadAddress}`, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -135,14 +141,17 @@ export function LearnMoreButton({
                 </button>
 
                 <button
-                  onClick={() => openDexScreener(CONTRACTS.sprinklesToken)}
-                  className="w-full flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors group"
+                  onClick={openBurnedLP}
+                  className="w-full flex items-center justify-between bg-orange-950/30 border border-orange-500/30 rounded-lg p-2 hover:bg-orange-950/50 transition-colors group"
                 >
-                  <div className="text-left">
-                    <div className="text-[11px] font-semibold text-white">SPRINKLES/DONUT Pool</div>
-                    <div className="text-[9px] text-gray-500">DexScreener</div>
+                  <div className="flex items-center gap-2">
+                    <Flame className="w-4 h-4 text-orange-500" />
+                    <div className="text-left">
+                      <div className="text-[11px] font-semibold text-orange-400">SPRINKLES/DONUT LP</div>
+                      <div className="text-[9px] text-orange-600">🔥 100% Burned - View Proof</div>
+                    </div>
                   </div>
-                  <ExternalLink className="w-3 h-3 text-gray-500 group-hover:text-white transition-colors" />
+                  <ExternalLink className="w-3 h-3 text-orange-500 group-hover:text-orange-300 transition-colors" />
                 </button>
               </div>
 
