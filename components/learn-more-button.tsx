@@ -332,7 +332,7 @@ export function LearnMoreButton({
                     <Flame className="w-4 h-4 text-orange-500" />
                     <div className="text-left">
                       <div className="text-[11px] font-semibold text-orange-400">SPRINKLES/DONUT LP</div>
-                      <div className="text-[9px] text-orange-600">🔥 100% Burned - View Proof</div>
+                      <div className="text-[9px] text-orange-600">🔥 100% Burned - View on Basescan</div>
                     </div>
                   </div>
                   <ExternalLink className="w-3 h-3 text-orange-500 group-hover:text-orange-300 transition-colors" />
