@@ -177,23 +177,15 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     if (!video) return;
 
     const handleTimeUpdate = () => {
-      if (video.duration - video.currentTime < 0.05) {
+      if (video.currentTime >= 9.9) {
         video.currentTime = 0;
-        video.play();
       }
     };
 
-    const handleEnded = () => {
-      video.currentTime = 0;
-      video.play();
-    };
-
     video.addEventListener("timeupdate", handleTimeUpdate);
-    video.addEventListener("ended", handleEnded);
     
     return () => {
       video.removeEventListener("timeupdate", handleTimeUpdate);
-      video.removeEventListener("ended", handleEnded);
     };
   }, []);
 

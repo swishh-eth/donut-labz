@@ -262,13 +262,9 @@ export default function HomePage() {
                 src="/media/donut-loop.mp4"
                 onTimeUpdate={(e) => {
                   const video = e.currentTarget;
-                  if (video.duration - video.currentTime < 0.001) {
+                  if (video.currentTime >= 9.9) {
                     video.currentTime = 0;
                   }
-                }}
-                onEnded={(e) => {
-                  e.currentTarget.currentTime = 0;
-                  e.currentTarget.play();
                 }}
               />
               {/* Dark Overlay */}
@@ -306,13 +302,9 @@ export default function HomePage() {
                 src="/media/sprinkles-loop.mp4"
                 onTimeUpdate={(e) => {
                   const video = e.currentTarget;
-                  if (video.duration - video.currentTime < 0.001) {
+                  if (video.currentTime >= 9.9) {
                     video.currentTime = 0;
                   }
-                }}
-                onEnded={(e) => {
-                  e.currentTarget.currentTime = 0;
-                  e.currentTarget.play();
                 }}
               />
               {/* Dark Overlay */}
