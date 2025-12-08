@@ -20,7 +20,7 @@ export function AddToFarcasterButton({ variant = "default" }: AddToFarcasterButt
     return (
       <button
         onClick={handleAddToFarcaster}
-        className="flex items-center justify-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg transition-colors"
+        className="flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-black px-3 py-1.5 rounded-lg transition-colors"
       >
         <Plus className="w-4 h-4" strokeWidth={3} />
         <span className="text-xs font-semibold">Add</span>
@@ -31,7 +31,7 @@ export function AddToFarcasterButton({ variant = "default" }: AddToFarcasterButt
   return (
     <button
       onClick={handleAddToFarcaster}
-      className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 text-white p-3 rounded-lg transition-colors"
+      className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 text-black p-3 rounded-lg transition-colors"
     >
       <Plus className="w-5 h-5" strokeWidth={3} />
       <span className="text-xs font-semibold">Add to Farcaster</span>

@@ -34,10 +34,10 @@ type SectionProps = {
 };
 
 const Section = ({ icon, title, children, highlight }: SectionProps) => (
-  <div className={`rounded-lg p-3 ${highlight ? 'bg-purple-950/30 border border-purple-500/30' : 'bg-zinc-900 border border-zinc-800'}`}>
+  <div className={`rounded-lg p-3 ${highlight ? 'bg-amber-950/30 border border-amber-500/30' : 'bg-zinc-900 border border-zinc-800'}`}>
     <div className="flex items-center gap-2 mb-2">
       {icon}
-      <h2 className={`text-sm font-bold ${highlight ? 'text-purple-300' : 'text-white'}`}>{title}</h2>
+      <h2 className={`text-sm font-bold ${highlight ? 'text-amber-300' : 'text-white'}`}>{title}</h2>
     </div>
     <div className="text-xs text-gray-400 space-y-1.5">
       {children}
@@ -144,23 +144,32 @@ export default function AboutPage() {
 
             {/* What is $SPRINKLES */}
             <Section
-              icon={<Sparkles className="w-4 h-4 text-purple-400 drop-shadow-[0_0_4px_rgba(168,85,247,0.8)]" />}
+              icon={<Sparkles className="w-4 h-4 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]" />}
               title="What Is $SPRINKLES"
               highlight
             >
               <p>$SPRINKLES is a companion token to $DONUT, mined by paying $DONUT in a separate auction.</p>
-              <p>The DONUT spent on SPRINKLES mining goes to buy-and-burn, increasing DONUT scarcity.</p>
+              
+              <div className="mt-2 mb-2">
+                <p className="text-white font-semibold text-[11px] mb-1">SPRINKLES Revenue Split:</p>
+                <div className="pl-2 border-l border-amber-500/30 ml-1 space-y-1">
+                  <p><span className="text-amber-400 font-semibold">80%</span> → Previous Glazer (rewards active miners)</p>
+                  <p><span className="text-amber-400 font-semibold">15%</span> → Buy & Burn DONUT (increases scarcity)</p>
+                  <p><span className="text-amber-400 font-semibold">5%</span> → Provider Fee (split: 50% Donut Labs, 50% Leaderboard Prizes)</p>
+                </div>
+              </div>
+
               <div className="grid grid-cols-3 gap-2 text-center mt-2">
-                <div className="bg-purple-900/30 rounded-lg p-2">
-                  <div className="text-sm font-bold text-purple-300">40/sec</div>
+                <div className="bg-amber-900/30 rounded-lg p-2">
+                  <div className="text-sm font-bold text-amber-300">40/sec</div>
                   <div className="text-[10px] text-gray-500">Start Rate</div>
                 </div>
-                <div className="bg-purple-900/30 rounded-lg p-2">
-                  <div className="text-sm font-bold text-purple-300">30 days</div>
+                <div className="bg-amber-900/30 rounded-lg p-2">
+                  <div className="text-sm font-bold text-amber-300">30 days</div>
                   <div className="text-[10px] text-gray-500">Halving</div>
                 </div>
-                <div className="bg-purple-900/30 rounded-lg p-2">
-                  <div className="text-sm font-bold text-purple-300">0.1/s</div>
+                <div className="bg-amber-900/30 rounded-lg p-2">
+                  <div className="text-sm font-bold text-amber-300">0.1/s</div>
                   <div className="text-[10px] text-gray-500">Tail Rate</div>
                 </div>
               </div>
@@ -168,13 +177,13 @@ export default function AboutPage() {
 
             {/* Chat to Earn */}
             <Section
-              icon={<MessageCircle className="w-4 h-4 text-purple-400 drop-shadow-[0_0_4px_rgba(168,85,247,0.8)]" />}
+              icon={<MessageCircle className="w-4 h-4 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]" />}
               title="Chat to Earn Sprinkles"
               highlight
             >
               <p>Send onchain messages in the Chat tab to earn sprinkles points!</p>
-              <p>Your earnings per message = <span className="text-purple-300 font-semibold">Multiplier × Neynar Score</span></p>
-              <div className="mt-2 p-2 bg-purple-900/20 rounded-lg">
+              <p>Your earnings per message = <span className="text-amber-300 font-semibold">Multiplier × Neynar Score</span></p>
+              <div className="mt-2 p-2 bg-amber-900/20 rounded-lg">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Timer className="w-3 h-3 text-amber-400" />
                   <span className="text-[10px] text-amber-400 font-semibold">Halving Schedule</span>
