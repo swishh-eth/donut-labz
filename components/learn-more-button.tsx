@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { sdk } from "@farcaster/miniapp-sdk";
 import { BookOpen, X, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,11 +33,13 @@ export function LearnMoreButton({
 }: LearnMoreButtonProps) {
   const [showDialog, setShowDialog] = useState(false);
 
-  const openTokenInWallet = (address: string) => {
-    // Open token in Farcaster native wallet using deep link
-    // Format: https://warpcast.com/~/token/eip155:8453:${address}
-    const tokenUrl = `https://warpcast.com/~/token/eip155:8453:${address}`;
-    window.open(tokenUrl, "_blank", "noopener,noreferrer");
+  const openTokenInWallet = async (address: string) => {
+    try {
+      // Use SDK openUrl to navigate within Farcaster app
+      await sdk.actions.openUrl({ url: `https://warpcast.com/~/token/${address}` });
+    } catch (error) {
+      console.error("Failed to open token:", error);
+    }
   };
 
   const openBasescan = (address: string) => {
