@@ -23,8 +23,8 @@ const CONTRACTS = {
   donutLabsTreasury: "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d",
 };
 
-// TODO: Set to true when SPRINKLES miner is re-enabled
-const SPRINKLES_ENABLED = false;
+// SPRINKLES miner is now live!
+const SPRINKLES_ENABLED = true;
 
 export function LearnMoreButton({
   className,
@@ -104,32 +104,19 @@ export function LearnMoreButton({
                   <ExternalLink className="w-3.5 h-3.5 text-gray-500 group-hover:text-white transition-colors" />
                 </button>
 
-                {SPRINKLES_ENABLED ? (
-                  <button
-                    onClick={() => openTokenInWallet(CONTRACTS.sprinklesToken)}
-                    className="w-full flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors group"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">✨</span>
-                      <div className="text-left">
-                        <div className="text-xs font-bold text-white">$SPRINKLES</div>
-                        <div className="text-[9px] text-gray-500 font-mono">{CONTRACTS.sprinklesToken.slice(0, 6)}...{CONTRACTS.sprinklesToken.slice(-4)}</div>
-                      </div>
+                <button
+                  onClick={() => openTokenInWallet(CONTRACTS.sprinklesToken)}
+                  className="w-full flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">✨</span>
+                    <div className="text-left">
+                      <div className="text-xs font-bold text-white">$SPRINKLES</div>
+                      <div className="text-[9px] text-gray-500 font-mono">{CONTRACTS.sprinklesToken.slice(0, 6)}...{CONTRACTS.sprinklesToken.slice(-4)}</div>
                     </div>
-                    <ExternalLink className="w-3.5 h-3.5 text-gray-500 group-hover:text-white transition-colors" />
-                  </button>
-                ) : (
-                  <div className="w-full flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-2 opacity-50 cursor-not-allowed">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">✨</span>
-                      <div className="text-left">
-                        <div className="text-xs font-bold text-white">$SPRINKLES</div>
-                        <div className="text-[9px] text-gray-500 font-mono">Coming Soon</div>
-                      </div>
-                    </div>
-                    <span className="text-gray-500 text-xs">???</span>
                   </div>
-                )}
+                  <ExternalLink className="w-3.5 h-3.5 text-gray-500 group-hover:text-white transition-colors" />
+                </button>
               </div>
 
               {/* LP Pools */}
@@ -147,26 +134,16 @@ export function LearnMoreButton({
                   <ExternalLink className="w-3 h-3 text-gray-500 group-hover:text-white transition-colors" />
                 </button>
 
-                {SPRINKLES_ENABLED ? (
-                  <button
-                    onClick={() => openDexScreener(CONTRACTS.sprinklesToken)}
-                    className="w-full flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors group"
-                  >
-                    <div className="text-left">
-                      <div className="text-[11px] font-semibold text-white">SPRINKLES/DONUT Pool</div>
-                      <div className="text-[9px] text-gray-500">DexScreener</div>
-                    </div>
-                    <ExternalLink className="w-3 h-3 text-gray-500 group-hover:text-white transition-colors" />
-                  </button>
-                ) : (
-                  <div className="w-full flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-2 opacity-50 cursor-not-allowed">
-                    <div className="text-left">
-                      <div className="text-[11px] font-semibold text-white">SPRINKLES/DONUT Pool</div>
-                      <div className="text-[9px] text-gray-500">Coming Soon</div>
-                    </div>
-                    <span className="text-gray-500 text-[10px]">???</span>
+                <button
+                  onClick={() => openDexScreener(CONTRACTS.sprinklesToken)}
+                  className="w-full flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors group"
+                >
+                  <div className="text-left">
+                    <div className="text-[11px] font-semibold text-white">SPRINKLES/DONUT Pool</div>
+                    <div className="text-[9px] text-gray-500">DexScreener</div>
                   </div>
-                )}
+                  <ExternalLink className="w-3 h-3 text-gray-500 group-hover:text-white transition-colors" />
+                </button>
               </div>
 
               {/* Contracts */}
@@ -182,20 +159,13 @@ export function LearnMoreButton({
                     <ExternalLink className="w-2.5 h-2.5 text-gray-500 group-hover:text-white" />
                   </button>
 
-                  {SPRINKLES_ENABLED ? (
-                    <button
-                      onClick={() => openBasescan(CONTRACTS.sprinklesMiner)}
-                      className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 hover:bg-zinc-800 transition-colors group"
-                    >
-                      <span className="text-[9px] font-semibold text-white">SPRINKLES Miner</span>
-                      <ExternalLink className="w-2.5 h-2.5 text-gray-500 group-hover:text-white" />
-                    </button>
-                  ) : (
-                    <div className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 opacity-50 cursor-not-allowed">
-                      <span className="text-[9px] font-semibold text-white">SPRINKLES Miner</span>
-                      <span className="text-gray-500 text-[9px]">???</span>
-                    </div>
-                  )}
+                  <button
+                    onClick={() => openBasescan(CONTRACTS.sprinklesMiner)}
+                    className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 hover:bg-zinc-800 transition-colors group"
+                  >
+                    <span className="text-[9px] font-semibold text-white">SPRINKLES Miner</span>
+                    <ExternalLink className="w-2.5 h-2.5 text-gray-500 group-hover:text-white" />
+                  </button>
 
                   <button
                     onClick={() => openBasescan(CONTRACTS.leaderboard)}
