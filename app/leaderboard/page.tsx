@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Trophy, Clock, Coins, HelpCircle, X } from "lucide-react";
+import { Trophy, Clock, Coins, HelpCircle, X, Sparkles } from "lucide-react";
 import { formatEther } from "viem";
 
 type MiniAppContext = {
@@ -40,10 +40,12 @@ type LeaderboardResponse = {
 type PrizePoolResponse = {
   ethBalance: string;
   donutBalance: string;
+  sprinklesBalance: string;
 };
 
 const LEADERBOARD_CONTRACT = "0x4681A6DeEe2D74f5DE48CEcd2A572979EA641586";
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C";
+const SPRINKLES_ADDRESS = "0x98DCF4D319fd761EE144C8682300A890Df9f4398";
 
 const ANON_PFPS = [
   "/media/anonpfp1.png",
@@ -59,6 +61,14 @@ const getAnonPfp = (address: string): string => {
   const charCode = lastChar.charCodeAt(0);
   const index = charCode % ANON_PFPS.length;
   return ANON_PFPS[index];
+};
+
+// Generate random rotation animation for each avatar
+const getRandomRotation = (seed: string) => {
+  const hash = seed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const duration = 8 + (hash % 7); // 8-15 seconds
+  const direction = hash % 2 === 0 ? 1 : -1; // clockwise or counter-clockwise
+  return { duration, direction };
 };
 
 const initialsFrom = (label?: string) => {
@@ -158,7 +168,7 @@ export default function LeaderboardPage() {
     queryFn: async () => {
       const rpcUrl = process.env.NEXT_PUBLIC_BASE_RPC_URL;
       
-      if (!rpcUrl) return { ethBalance: "0", donutBalance: "0" };
+      if (!rpcUrl) return { ethBalance: "0", donutBalance: "0", sprinklesBalance: "0" };
 
       const ethRes = await fetch(rpcUrl, {
         method: "POST",
@@ -190,9 +200,28 @@ export default function LeaderboardPage() {
       });
       const donutData = await donutRes.json();
 
+      const sprinklesRes = await fetch(rpcUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method: "eth_call",
+          params: [
+            {
+              to: SPRINKLES_ADDRESS,
+              data: "0x70a08231000000000000000000000000" + LEADERBOARD_CONTRACT.slice(2),
+            },
+            "latest",
+          ],
+          id: 3,
+        }),
+      });
+      const sprinklesData = await sprinklesRes.json();
+
       return {
         ethBalance: ethData.result || "0x0",
         donutBalance: donutData.result || "0x0",
+        sprinklesBalance: sprinklesData.result || "0x0",
       };
     },
     refetchInterval: 30_000,
@@ -232,7 +261,7 @@ export default function LeaderboardPage() {
       const diff = nextDistribution.getTime() - now.getTime();
       
       if (diff <= 0) {
-        setTimeUntilDistribution("Distribution pending...");
+        setTimeUntilDistribution("Soon...");
         return;
       }
 
@@ -262,6 +291,10 @@ export default function LeaderboardPage() {
     ? parseFloat(formatEther(BigInt(prizePoolData.donutBalance)))
     : 0;
 
+  const sprinklesBalance = prizePoolData?.sprinklesBalance
+    ? parseFloat(formatEther(BigInt(prizePoolData.sprinklesBalance)))
+    : 0;
+
   const totalPrizeUsd = (ethBalance * ethUsdPrice) + (donutBalance * donutPrice);
 
   const firstPlaceEth = (ethBalance * 0.5).toFixed(4);
@@ -271,6 +304,10 @@ export default function LeaderboardPage() {
   const firstPlaceDonut = (donutBalance * 0.5).toFixed(2);
   const secondPlaceDonut = (donutBalance * 0.3).toFixed(2);
   const thirdPlaceDonut = (donutBalance * 0.2).toFixed(2);
+
+  const firstPlaceSprinkles = (sprinklesBalance * 0.5).toFixed(0);
+  const secondPlaceSprinkles = (sprinklesBalance * 0.3).toFixed(0);
+  const thirdPlaceSprinkles = (sprinklesBalance * 0.2).toFixed(0);
 
   const userDisplayName =
     context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
@@ -312,6 +349,14 @@ export default function LeaderboardPage() {
         .floating-trophy-2 { animation: float-trophy-2 8s ease-in-out infinite; }
         .floating-trophy-3 { animation: float-trophy-3 7s ease-in-out infinite; }
         .floating-trophy-4 { animation: float-trophy-4 9s ease-in-out infinite; }
+        
+        @keyframes spin-slow-cw { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes spin-slow-ccw { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+        .spin-avatar-1 { animation: spin-slow-cw 12s linear infinite; }
+        .spin-avatar-2 { animation: spin-slow-ccw 10s linear infinite; }
+        .spin-avatar-3 { animation: spin-slow-cw 14s linear infinite; }
+        .spin-avatar-4 { animation: spin-slow-ccw 11s linear infinite; }
+        .spin-avatar-5 { animation: spin-slow-cw 9s linear infinite; }
       `}</style>
 
       <div
@@ -359,52 +404,65 @@ export default function LeaderboardPage() {
             )}
           </div>
 
-         {/* Stats Cards */}
-<div className="grid grid-cols-2 gap-2 mb-3">
-  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-    <div className="flex items-center gap-1.5 mb-0.5">
-      <Trophy className="w-3.5 h-3.5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-      <span className="text-[10px] text-gray-400 uppercase">Week</span>
-    </div>
-    <div className="text-xl font-bold text-white">#{weekNumber}</div>
-  </div>
+          {/* Stats Cards - 3 Column Grid */}
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {/* Week Number */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+              <div className="flex items-center gap-1 mb-0.5">
+                <Trophy className="w-3 h-3 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <span className="text-[9px] text-gray-400 uppercase">Week</span>
+              </div>
+              <div className="text-lg font-bold text-white">#{weekNumber}</div>
+            </div>
 
-  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-    <div className="flex items-center gap-1.5 mb-0.5">
-      <Coins className="w-3.5 h-3.5 text-green-400" />
-      <span className="text-[10px] text-gray-400 uppercase">Prize Pool</span>
-    </div>
-    <div className="flex items-center gap-2">
-      {ethBalance > 0 && (
-        <span className="text-base font-bold text-green-400">Ξ{ethBalance.toFixed(4)}</span>
-      )}
-      {donutBalance > 0 && (
-        <span className="text-base font-bold text-amber-400">🍩{donutBalance.toFixed(0)}</span>
-      )}
-      {ethBalance === 0 && donutBalance === 0 && (
-        <span className="text-base font-bold text-gray-500">Empty</span>
-      )}
-    </div>
-    <div className="text-[10px] text-gray-400">${totalPrizeUsd.toFixed(2)}</div>
-  </div>
-</div>
+            {/* Timer */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+              <div className="flex items-center gap-1 mb-0.5">
+                <Clock className="w-3 h-3 text-amber-400" />
+                <span className="text-[9px] text-gray-400 uppercase">Ends In</span>
+              </div>
+              <div className="text-sm font-bold text-amber-400">{timeUntilDistribution}</div>
+            </div>
 
-         {/* Countdown */}
-<div className="bg-gradient-to-r from-zinc-900 to-zinc-800 border border-zinc-700 rounded-lg p-2 mb-3">
-  <div className="flex items-center justify-between">
-    <div className="flex items-center gap-2">
-      <Clock className="w-4 h-4 text-white" />
-      <span className="text-xs font-semibold text-white">Next Distribution</span>
-      <button
-        onClick={() => setShowHelpDialog(true)}
-        className="text-gray-400 hover:text-white transition-colors"
-      >
-        <HelpCircle className="w-3.5 h-3.5" />
-      </button>
-    </div>
-    <div className="text-xs font-bold text-white">{timeUntilDistribution}</div>
-  </div>
-</div>
+            {/* Prize Pool */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+              <div className="flex items-center gap-1 mb-0.5">
+                <Coins className="w-3 h-3 text-green-400" />
+                <span className="text-[9px] text-gray-400 uppercase">Prizes</span>
+              </div>
+              <div className="flex flex-col">
+                {ethBalance > 0 && (
+                  <span className="text-xs font-bold text-green-400">Ξ{ethBalance.toFixed(4)}</span>
+                )}
+                {donutBalance > 0 && (
+                  <span className="text-xs font-bold text-amber-400">🍩{donutBalance.toFixed(0)}</span>
+                )}
+                {sprinklesBalance > 0 && (
+                  <span className="text-xs font-bold text-purple-400">✨{sprinklesBalance.toFixed(0)}</span>
+                )}
+                {ethBalance === 0 && donutBalance === 0 && sprinklesBalance === 0 && (
+                  <span className="text-xs font-bold text-gray-500">Empty</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* How to Win Button */}
+          <button
+            onClick={() => setShowHelpDialog(true)}
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-3 hover:bg-zinc-800 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <span className="text-xs font-semibold text-white">How to Win</span>
+                <HelpCircle className="w-3 h-3 text-gray-400" />
+              </div>
+              <div className="text-[10px] font-medium text-gray-400">
+                Top 3 split prizes
+              </div>
+            </div>
+          </button>
 
           {/* Help Dialog */}
           {showHelpDialog && (
@@ -414,7 +472,7 @@ export default function LeaderboardPage() {
                 onClick={() => setShowHelpDialog(false)}
               />
               <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
+                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
                   <button
                     onClick={() => setShowHelpDialog(false)}
                     className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
@@ -422,73 +480,58 @@ export default function LeaderboardPage() {
                     <X className="h-4 w-4" />
                   </button>
 
-                  <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                    How to Earn Glazes
+                  <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                    How to Win Prizes
                   </h2>
 
-                  <div className="space-y-4">
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                        1
+                  <div className="space-y-3">
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">1</div>
+                      <div>
+                        <div className="font-semibold text-white text-xs">Glaze the Factory</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">Win the Dutch auction on the mine page. Each win = 1 glaze on the leaderboard.</div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
+                      <div>
+                        <div className="font-semibold text-white text-xs">Climb the Ranks</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">Compete weekly. Leaderboard resets every Friday at 12pm UTC.</div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
+                      <div>
+                        <div className="font-semibold text-amber-400 text-xs">Win Prizes</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">Top 3 glazers split the prize pool: ETH, DONUT, and SPRINKLES!</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl">
+                    <div className="text-[10px] text-gray-500 uppercase mb-2 text-center">Prize Distribution</div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <div className="text-lg font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]">1st</div>
+                        <div className="text-amber-400 font-bold text-sm">50%</div>
                       </div>
                       <div>
-                        <div className="font-semibold text-white text-sm">Glaze the Factory</div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          Win the Dutch auction on the home page. Each win = 1 glaze.
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                        2
+                        <div className="text-lg font-bold text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]">2nd</div>
+                        <div className="text-amber-400 font-bold text-sm">30%</div>
                       </div>
                       <div>
-                        <div className="font-semibold text-white text-sm">Compete Weekly</div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          Leaderboard resets every Friday 12pm UTC.
-                        </div>
+                        <div className="text-lg font-bold text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]">3rd</div>
+                        <div className="text-amber-400 font-bold text-sm">20%</div>
                       </div>
                     </div>
-
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                        3
-                      </div>
-                      <div>
-                        <div className="font-semibold text-white text-sm">Win Prizes</div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          Top 3 glazers split the ETH and DONUT prize pool.
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-zinc-900/50 rounded-lg p-3 mt-3">
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div>
-                          <div className="text-xl font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]">1</div>
-                          <div className="text-white font-bold text-sm">50%</div>
-                        </div>
-                        <div>
-                          <div className="text-xl font-bold text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]">2</div>
-                          <div className="text-white font-bold text-sm">30%</div>
-                        </div>
-                        <div>
-                          <div className="text-xl font-bold text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]">3</div>
-                          <div className="text-white font-bold text-sm">20%</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <p className="text-[10px] text-gray-500 text-center">
-                      Prize pool grows from glazing fees and SPRINKLES mining
-                    </p>
                   </div>
 
                   <button
                     onClick={() => setShowHelpDialog(false)}
-                    className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
+                    className="mt-3 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
                   >
                     Got it
                   </button>
@@ -497,143 +540,155 @@ export default function LeaderboardPage() {
             </div>
           )}
 
-        {/* Leaderboard List */}
-<div className="flex-1 overflow-y-auto space-y-2 pb-2 scrollbar-hide">
-  {isLoading ? (
-    <div className="flex items-center justify-center py-12">
-      <div className="text-gray-400">Loading leaderboard...</div>
-    </div>
-  ) : (
-    [0, 1, 2, 3, 4].map((index) => {
-      const rank = index + 1;
-      const entry = leaderboard[index];
-      const isWinner = rank <= 3;
-      let prizeEth: string | null = null;
-      let prizeDonut: string | null = null;
-      if (rank === 1) { prizeEth = firstPlaceEth; prizeDonut = firstPlaceDonut; }
-      if (rank === 2) { prizeEth = secondPlaceEth; prizeDonut = secondPlaceDonut; }
-      if (rank === 3) { prizeEth = thirdPlaceEth; prizeDonut = thirdPlaceDonut; }
-      const styles = getRankStyles();
-
-      if (!entry) {
-        return (
-          <div
-            key={`empty-${rank}`}
-            className={`flex items-center justify-between rounded-xl p-4 border min-h-[80px] ${styles.bg} ${styles.border}`}
-          >
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <span
-                className={`text-xl font-bold w-8 flex-shrink-0 text-center ${
-                  rank === 1
-                    ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]"
-                    : rank === 2
-                      ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]"
-                      : rank === 3
-                        ? "text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]"
-                        : "text-gray-500"
-                }`}
-              >
-                {rank}
-              </span>
-
-              <Avatar className="h-11 w-11 border border-zinc-700 flex-shrink-0">
-                <AvatarImage
-                  src={ANON_PFPS[rank % ANON_PFPS.length]}
-                  alt="Empty spot"
-                  className="object-cover"
-                />
-                <AvatarFallback className="bg-zinc-800 text-white text-xs">
-                  --
-                </AvatarFallback>
-              </Avatar>
-
-              <div className="min-w-0 flex-1">
-                <div className="font-semibold text-white truncate">No one yet</div>
-                <div className="text-xs text-gray-400 truncate">
-                  {isWinner ? "Claim this spot!" : "Keep grinding"}
-                </div>
+          {/* Leaderboard List */}
+          <div className="flex-1 overflow-y-auto space-y-2 pb-2 scrollbar-hide">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-gray-400">Loading leaderboard...</div>
               </div>
-            </div>
+            ) : (
+              [0, 1, 2, 3, 4].map((index) => {
+                const rank = index + 1;
+                const entry = leaderboard[index];
+                const isWinner = rank <= 3;
+                let prizeEth: string | null = null;
+                let prizeDonut: string | null = null;
+                let prizeSprinkles: string | null = null;
+                if (rank === 1) { prizeEth = firstPlaceEth; prizeDonut = firstPlaceDonut; prizeSprinkles = firstPlaceSprinkles; }
+                if (rank === 2) { prizeEth = secondPlaceEth; prizeDonut = secondPlaceDonut; prizeSprinkles = secondPlaceSprinkles; }
+                if (rank === 3) { prizeEth = thirdPlaceEth; prizeDonut = thirdPlaceDonut; prizeSprinkles = thirdPlaceSprinkles; }
+                const styles = getRankStyles();
+                const spinClass = `spin-avatar-${(rank % 5) + 1}`;
 
-            <div className="flex flex-col items-end gap-1 flex-shrink-0">
-              <div className="text-sm font-bold text-white">
-                0 <span className="text-xs font-normal text-gray-400">glazes</span>
-              </div>
-              {isWinner && (
-                <div className="flex flex-col items-end">
-                  {ethBalance > 0 && prizeEth && (
-                    <div className="text-[11px] text-green-400 font-medium">+Ξ{prizeEth}</div>
-                  )}
-                  {donutBalance > 0 && prizeDonut && (
-                    <div className="text-[11px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      }
+                if (!entry) {
+                  return (
+                    <div
+                      key={`empty-${rank}`}
+                      className={`flex items-center justify-between rounded-xl p-3 border min-h-[72px] ${styles.bg} ${styles.border}`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span
+                          className={`text-xl font-bold w-7 flex-shrink-0 text-center ${
+                            rank === 1
+                              ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]"
+                              : rank === 2
+                                ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]"
+                                : rank === 3
+                                  ? "text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]"
+                                  : "text-gray-500"
+                          }`}
+                        >
+                          {rank}
+                        </span>
 
-      const profile = profiles?.[entry.address];
-      const displayName = profile?.displayName || formatAddress(entry.address);
-      const username = profile?.username ? `@${profile.username}` : "";
-      const avatarUrl = profile?.pfpUrl || getAnonPfp(entry.address);
+                        <div className={spinClass}>
+                          <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
+                            <AvatarImage
+                              src={ANON_PFPS[rank % ANON_PFPS.length]}
+                              alt="Empty spot"
+                              className="object-cover"
+                            />
+                            <AvatarFallback className="bg-zinc-800 text-white text-xs">
+                              --
+                            </AvatarFallback>
+                          </Avatar>
+                        </div>
 
-      return (
-        <div
-          key={entry.address}
-          className={`flex items-center justify-between rounded-xl p-4 border min-h-[80px] ${styles.bg} ${styles.border}`}
-        >
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <span
-              className={`text-xl font-bold w-8 flex-shrink-0 text-center ${
-                rank === 1
-                  ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]"
-                  : rank === 2
-                    ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]"
-                    : rank === 3
-                      ? "text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]"
-                      : "text-gray-500"
-              }`}
-            >
-              {rank}
-            </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-white truncate text-sm">No one yet</div>
+                          <div className="text-[10px] text-gray-400 truncate">
+                            {isWinner ? "Claim this spot!" : "Keep grinding"}
+                          </div>
+                        </div>
+                      </div>
 
-            <Avatar className="h-11 w-11 border border-zinc-700 flex-shrink-0">
-              <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
-              <AvatarFallback className="bg-zinc-800 text-white text-xs">
-                {displayName.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+                      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                        <div className="text-xs font-bold text-white">
+                          0 <span className="text-[10px] font-normal text-gray-400">glazes</span>
+                        </div>
+                        {isWinner && (
+                          <div className="flex flex-col items-end">
+                            {ethBalance > 0 && prizeEth && (
+                              <div className="text-[10px] text-green-400 font-medium">+Ξ{prizeEth}</div>
+                            )}
+                            {donutBalance > 0 && prizeDonut && (
+                              <div className="text-[10px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
+                            )}
+                            {sprinklesBalance > 0 && prizeSprinkles && (
+                              <div className="text-[10px] text-purple-400 font-medium">+✨{prizeSprinkles}</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
 
-            <div className="min-w-0 flex-1">
-              <div className="font-semibold text-white truncate">{displayName}</div>
-              {username && (
-                <div className="text-xs text-gray-400 truncate">{username}</div>
-              )}
-            </div>
-          </div>
+                const profile = profiles?.[entry.address];
+                const displayName = profile?.displayName || formatAddress(entry.address);
+                const username = profile?.username ? `@${profile.username}` : "";
+                const avatarUrl = profile?.pfpUrl || getAnonPfp(entry.address);
 
-          <div className="flex flex-col items-end gap-1 flex-shrink-0">
-            <div className="text-sm font-bold text-white">
-              {entry.total_points} <span className="text-xs font-normal text-gray-400">glazes</span>
-            </div>
-            {isWinner && (
-              <div className="flex flex-col items-end">
-                {ethBalance > 0 && prizeEth && (
-                  <div className="text-[11px] text-green-400 font-medium">+Ξ{prizeEth}</div>
-                )}
-                {donutBalance > 0 && prizeDonut && (
-                  <div className="text-[11px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
-                )}
-              </div>
+                return (
+                  <div
+                    key={entry.address}
+                    className={`flex items-center justify-between rounded-xl p-3 border min-h-[72px] ${styles.bg} ${styles.border}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span
+                        className={`text-xl font-bold w-7 flex-shrink-0 text-center ${
+                          rank === 1
+                            ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]"
+                            : rank === 2
+                              ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]"
+                              : rank === 3
+                                ? "text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]"
+                                : "text-gray-500"
+                        }`}
+                      >
+                        {rank}
+                      </span>
+
+                      <div className={spinClass}>
+                        <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
+                          <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+                          <AvatarFallback className="bg-zinc-800 text-white text-xs">
+                            {displayName.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-white truncate text-sm">{displayName}</div>
+                        {username && (
+                          <div className="text-[10px] text-gray-400 truncate">{username}</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                      <div className="text-xs font-bold text-white">
+                        {entry.total_points} <span className="text-[10px] font-normal text-gray-400">glazes</span>
+                      </div>
+                      {isWinner && (
+                        <div className="flex flex-col items-end">
+                          {ethBalance > 0 && prizeEth && (
+                            <div className="text-[10px] text-green-400 font-medium">+Ξ{prizeEth}</div>
+                          )}
+                          {donutBalance > 0 && prizeDonut && (
+                            <div className="text-[10px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
+                          )}
+                          {sprinklesBalance > 0 && prizeSprinkles && (
+                            <div className="text-[10px] text-purple-400 font-medium">+✨{prizeSprinkles}</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
-        </div>
-      );
-    })
-  )}
-</div>
         </div>
       </div>
       <NavBar />
