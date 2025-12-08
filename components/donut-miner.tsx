@@ -175,17 +175,21 @@ export default function DonutMiner({ context }: DonutMinerProps) {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+    
+    let animationId: number;
 
-    const handleTimeUpdate = () => {
-      if (video.currentTime >= 9.9) {
+    const checkLoop = () => {
+      if (video.currentTime >= 9.8) {
         video.currentTime = 0;
+        video.play();
       }
+      animationId = requestAnimationFrame(checkLoop);
     };
 
-    video.addEventListener("timeupdate", handleTimeUpdate);
+    animationId = requestAnimationFrame(checkLoop);
     
     return () => {
-      video.removeEventListener("timeupdate", handleTimeUpdate);
+      cancelAnimationFrame(animationId);
     };
   }, []);
 

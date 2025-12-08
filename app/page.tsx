@@ -119,6 +119,32 @@ export default function HomePage() {
   }, []);
 
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
+
+  // Seamless video looping with requestAnimationFrame
+  useEffect(() => {
+    const donutVideo = donutVideoRef.current;
+    const sprinklesVideo = sprinklesVideoRef.current;
+    let animationId: number;
+
+    const checkLoop = () => {
+      if (donutVideo && donutVideo.currentTime >= 9.8) {
+        donutVideo.currentTime = 0;
+        donutVideo.play();
+      }
+      if (sprinklesVideo && sprinklesVideo.currentTime >= 9.8) {
+        sprinklesVideo.currentTime = 0;
+        sprinklesVideo.play();
+      }
+      animationId = requestAnimationFrame(checkLoop);
+    };
+
+    animationId = requestAnimationFrame(checkLoop);
+
+    return () => {
+      cancelAnimationFrame(animationId);
+    };
+  }, []);
+
   const userHandle = context?.user?.username
     ? `@${context.user.username}`
     : context?.user?.fid
@@ -260,12 +286,6 @@ export default function HomePage() {
                 playsInline
                 preload="auto"
                 src="/media/donut-loop.mp4"
-                onTimeUpdate={(e) => {
-                  const video = e.currentTarget;
-                  if (video.currentTime >= 9.9) {
-                    video.currentTime = 0;
-                  }
-                }}
               />
               {/* Dark Overlay */}
               <div className="absolute inset-0 bg-black/60" />
@@ -300,12 +320,6 @@ export default function HomePage() {
                 playsInline
                 preload="auto"
                 src="/media/sprinkles-loop.mp4"
-                onTimeUpdate={(e) => {
-                  const video = e.currentTarget;
-                  if (video.currentTime >= 9.9) {
-                    video.currentTime = 0;
-                  }
-                }}
               />
               {/* Dark Overlay */}
               <div className="absolute inset-0 bg-black/60" />
