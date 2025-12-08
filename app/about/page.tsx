@@ -154,8 +154,9 @@ export default function AboutPage() {
                 <p className="text-white font-semibold text-[11px] mb-1">SPRINKLES Revenue Split:</p>
                 <div className="pl-2 border-l border-amber-500/30 ml-1 space-y-1">
                   <p><span className="text-amber-400 font-semibold">80%</span> → Previous Glazer (rewards active miners)</p>
-                  <p><span className="text-amber-400 font-semibold">15%</span> → Buy & Burn DONUT (increases scarcity)</p>
-                  <p><span className="text-amber-400 font-semibold">5%</span> → Provider Fee (split: 50% Donut Labs, 50% Leaderboard Prizes)</p>
+                  <p><span className="text-amber-400 font-semibold">10%</span> → Buy & Burn DONUT (increases scarcity)</p>
+                  <p><span className="text-amber-400 font-semibold">5%</span> → Leaderboard Prizes (weekly rewards)</p>
+                  <p><span className="text-amber-400 font-semibold">5%</span> → Donut Labs (prize mechanics & SPRINKLES buybacks)</p>
                 </div>
               </div>
 
