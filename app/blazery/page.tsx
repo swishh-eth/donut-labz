@@ -428,6 +428,14 @@ export default function BlazeryPage() {
           animation: rise-flame 8.5s linear infinite;
           filter: drop-shadow(0 0 8px rgba(255,255,255,0.7));
         }
+        .rising-flame-6 {
+          animation: rise-flame 6.5s linear infinite;
+          filter: drop-shadow(0 0 5px rgba(255,255,255,0.55));
+        }
+        .rising-flame-7 {
+          animation: rise-flame 11s linear infinite;
+          filter: drop-shadow(0 0 14px rgba(255,255,255,0.95));
+        }
       `}</style>
 
       <div
@@ -437,17 +445,35 @@ export default function BlazeryPage() {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
         }}
       >
-        {/* Rising Flames from bottom - start off-screen with negative delays */}
+        {/* Rising Flames - many more for seamless coverage */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <Flame className="absolute bottom-0 left-[5%] w-6 h-6 text-white/20 rising-flame-1" style={{ animationDelay: '-2s' }} />
-          <Flame className="absolute bottom-0 left-[15%] w-7 h-7 text-white/15 rising-flame-2" style={{ animationDelay: '-5s' }} />
-          <Flame className="absolute bottom-0 left-[25%] w-5 h-5 text-white/20 rising-flame-3" style={{ animationDelay: '-1s' }} />
-          <Flame className="absolute bottom-0 left-[35%] w-8 h-8 text-white/15 rising-flame-4" style={{ animationDelay: '-7s' }} />
-          <Flame className="absolute bottom-0 left-[48%] w-6 h-6 text-white/20 rising-flame-5" style={{ animationDelay: '-3s' }} />
-          <Flame className="absolute bottom-0 left-[60%] w-7 h-7 text-white/15 rising-flame-1" style={{ animationDelay: '-6s' }} />
-          <Flame className="absolute bottom-0 left-[72%] w-5 h-5 text-white/20 rising-flame-2" style={{ animationDelay: '-4s' }} />
-          <Flame className="absolute bottom-0 left-[82%] w-8 h-8 text-white/15 rising-flame-3" style={{ animationDelay: '-8s' }} />
-          <Flame className="absolute bottom-0 left-[92%] w-6 h-6 text-white/20 rising-flame-4" style={{ animationDelay: '-2.5s' }} />
+          {/* Row 1 - staggered */}
+          <Flame className="absolute bottom-0 left-[3%] w-5 h-5 text-white/15 rising-flame-1" style={{ animationDelay: '-1s' }} />
+          <Flame className="absolute bottom-0 left-[10%] w-6 h-6 text-white/20 rising-flame-2" style={{ animationDelay: '-4s' }} />
+          <Flame className="absolute bottom-0 left-[18%] w-7 h-7 text-white/15 rising-flame-3" style={{ animationDelay: '-7s' }} />
+          <Flame className="absolute bottom-0 left-[26%] w-5 h-5 text-white/20 rising-flame-4" style={{ animationDelay: '-2s' }} />
+          <Flame className="absolute bottom-0 left-[34%] w-8 h-8 text-white/15 rising-flame-5" style={{ animationDelay: '-5s' }} />
+          <Flame className="absolute bottom-0 left-[42%] w-6 h-6 text-white/20 rising-flame-6" style={{ animationDelay: '-8s' }} />
+          <Flame className="absolute bottom-0 left-[50%] w-5 h-5 text-white/15 rising-flame-7" style={{ animationDelay: '-3s' }} />
+          <Flame className="absolute bottom-0 left-[58%] w-7 h-7 text-white/20 rising-flame-1" style={{ animationDelay: '-6s' }} />
+          <Flame className="absolute bottom-0 left-[66%] w-6 h-6 text-white/15 rising-flame-2" style={{ animationDelay: '-9s' }} />
+          <Flame className="absolute bottom-0 left-[74%] w-5 h-5 text-white/20 rising-flame-3" style={{ animationDelay: '-1.5s' }} />
+          <Flame className="absolute bottom-0 left-[82%] w-8 h-8 text-white/15 rising-flame-4" style={{ animationDelay: '-4.5s' }} />
+          <Flame className="absolute bottom-0 left-[90%] w-6 h-6 text-white/20 rising-flame-5" style={{ animationDelay: '-7.5s' }} />
+          
+          {/* Row 2 - offset timing for density */}
+          <Flame className="absolute bottom-0 left-[6%] w-6 h-6 text-white/15 rising-flame-6" style={{ animationDelay: '-2.5s' }} />
+          <Flame className="absolute bottom-0 left-[14%] w-5 h-5 text-white/20 rising-flame-7" style={{ animationDelay: '-5.5s' }} />
+          <Flame className="absolute bottom-0 left-[22%] w-7 h-7 text-white/15 rising-flame-1" style={{ animationDelay: '-8.5s' }} />
+          <Flame className="absolute bottom-0 left-[30%] w-6 h-6 text-white/20 rising-flame-2" style={{ animationDelay: '-0.5s' }} />
+          <Flame className="absolute bottom-0 left-[38%] w-5 h-5 text-white/15 rising-flame-3" style={{ animationDelay: '-3.5s' }} />
+          <Flame className="absolute bottom-0 left-[46%] w-8 h-8 text-white/20 rising-flame-4" style={{ animationDelay: '-6.5s' }} />
+          <Flame className="absolute bottom-0 left-[54%] w-6 h-6 text-white/15 rising-flame-5" style={{ animationDelay: '-9.5s' }} />
+          <Flame className="absolute bottom-0 left-[62%] w-5 h-5 text-white/20 rising-flame-6" style={{ animationDelay: '-1.8s' }} />
+          <Flame className="absolute bottom-0 left-[70%] w-7 h-7 text-white/15 rising-flame-7" style={{ animationDelay: '-4.8s' }} />
+          <Flame className="absolute bottom-0 left-[78%] w-6 h-6 text-white/20 rising-flame-1" style={{ animationDelay: '-7.8s' }} />
+          <Flame className="absolute bottom-0 left-[86%] w-5 h-5 text-white/15 rising-flame-2" style={{ animationDelay: '-2.8s' }} />
+          <Flame className="absolute bottom-0 left-[94%] w-7 h-7 text-white/20 rising-flame-3" style={{ animationDelay: '-5.8s' }} />
         </div>
 
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
@@ -519,44 +545,36 @@ export default function BlazeryPage() {
             </div>
           </div>
 
-          {/* LP Balance */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[9px] text-gray-400 uppercase mb-0.5">
-                  Your LP Balance
-                </div>
-                <div className="text-sm font-bold text-white">
-                  {address && auctionState?.paymentTokenBalance
-                    ? formatEth(auctionState.paymentTokenBalance, 4)
-                    : "0"}{" "}
-                  <span className="text-xs text-gray-500">DONUT-ETH</span>
-                </div>
+          {/* LP Balance + Get LP Combined Tile */}
+          <div className="bg-zinc-800 border border-zinc-700 rounded-lg mb-2 flex overflow-hidden">
+            {/* LP Balance - darker left side */}
+            <div className="flex-1 bg-zinc-900 p-2">
+              <div className="text-[9px] text-gray-400 uppercase mb-0.5">
+                Your LP Balance
               </div>
+              <div className="text-sm font-bold text-white">
+                {address && auctionState?.paymentTokenBalance
+                  ? formatEth(auctionState.paymentTokenBalance, 4)
+                  : "0"}{" "}
+                <span className="text-xs text-gray-500">DONUT-ETH</span>
+              </div>
+              {hasInsufficientLP && (
+                <div className="text-[10px] text-red-400 mt-1">
+                  Insufficient LP balance
+                </div>
+              )}
             </div>
-            {hasInsufficientLP && (
-              <div className="text-[10px] text-red-400 mt-1">
-                Insufficient LP balance to burn
-              </div>
-            )}
+            
+            {/* Get LP Button - lighter right side */}
+            <button
+              onClick={openUniswap}
+              className="px-4 flex flex-col items-center justify-center hover:bg-zinc-700 transition-colors"
+            >
+              <Coins className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)] mb-1" />
+              <span className="text-[10px] font-semibold text-white">Get LP</span>
+              <span className="text-[8px] text-gray-400">Uniswap</span>
+            </button>
           </div>
-
-          {/* Get LP Tile */}
-          <button
-            onClick={openUniswap}
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-2 hover:bg-zinc-800 transition-colors"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Coins className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                <span className="text-xs font-semibold text-white">Get LP</span>
-              </div>
-              <div className="flex items-center gap-1 text-[10px] font-medium text-gray-400">
-                <span>Uniswap</span>
-                <ArrowRight className="w-3 h-3" />
-              </div>
-            </div>
-          </button>
 
           {/* Profit/Loss Indicator */}
           {blazeProfitLoss && (
