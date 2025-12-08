@@ -97,6 +97,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const [mineResult, setMineResult] = useState<"success" | "failure" | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const mineResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -387,7 +388,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           BigInt(epochId),
           deadline,
           maxPrice,
-          customMessage.trim() || "DONUT LABS - SPRINKLES DIVISION",
+          customMessage.trim() || "Every donut needs sprinkles - Donut Labs",
         ],
         chainId: base.id,
       });
@@ -577,17 +578,22 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const scrollMessage =
     slot0?.uri && slot0.uri.trim() !== ""
       ? slot0.uri
-      : "Sprinkle The World";
+      : "Every donut needs sprinkles - Donut Labs";
 
   return (
     <>
-      {/* Sprinkles Animation Area */}
-      <div className="-mx-2 w-[calc(100%+1rem)] overflow-hidden flex-1 flex items-center justify-center bg-zinc-950 rounded-xl border border-zinc-800">
-        <div className="text-center">
-          <div className="text-8xl mb-4 animate-bounce">✨</div>
-          <div className="text-2xl font-bold text-white">SPRINKLES</div>
-          <div className="text-sm text-gray-400 mt-1">Pay DONUT, Earn SPRINKLES</div>
-        </div>
+      {/* Video Player - Seamless Loop (like donut miner) */}
+      <div className="-mx-2 w-[calc(100%+1rem)] overflow-hidden flex-1">
+        <video
+          ref={videoRef}
+          className="w-full h-full object-contain"
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          src="/media/sprinkles-loop.mp4"
+        />
       </div>
 
       {/* Bottom Content */}
