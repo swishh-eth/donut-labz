@@ -335,7 +335,52 @@ export default function HomePage() {
               </div>
             </button>
 
-            {/* Sprinkles Tile - TEMPORARILY HIDDEN
+            {/* ============================================================
+                SPRINKLES MINER TILE - COMING SOON PLACEHOLDER
+                TODO: Remove this placeholder and uncomment the real tile below
+                when ready to launch sprinkles miner
+                ============================================================ */}
+            <div className="relative flex-1 rounded-2xl overflow-hidden border border-zinc-800 cursor-not-allowed">
+              {/* Video Background - Greyed out */}
+              <video
+                ref={sprinklesVideoRef}
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500 grayscale"
+                autoPlay
+                muted
+                playsInline
+                preload="auto"
+                src="/media/sprinkles-loop.mp4"
+              />
+              <video
+                ref={sprinklesVideoRef2}
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500 grayscale"
+                muted
+                playsInline
+                preload="auto"
+                src="/media/sprinkles-loop.mp4"
+              />
+              {/* Darker Overlay for disabled state */}
+              <div className="absolute inset-0 bg-black/80" />
+              
+              {/* Coming Soon Content */}
+              <div className="relative z-10 flex flex-col items-center justify-center h-full p-6">
+                <div className="text-4xl font-bold text-gray-500 mb-2 text-center">
+                  ???
+                </div>
+                <div className="text-xl font-bold text-gray-500 mb-3 text-center">
+                  Coming Soon
+                </div>
+                <div className="text-sm text-gray-600">
+                  Stay tuned...
+                </div>
+              </div>
+            </div>
+
+            {/* ============================================================
+                SPRINKLES MINER TILE - REAL VERSION (CURRENTLY HIDDEN)
+                TODO: Uncomment this and remove the placeholder above
+                when ready to launch sprinkles miner
+                ============================================================
             <button
               onClick={() => setSelectedMiner("sprinkles")}
               className="relative flex-1 rounded-2xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"

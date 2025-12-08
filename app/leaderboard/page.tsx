@@ -427,9 +427,12 @@ export default function LeaderboardPage() {
 
             {/* Prize Pool */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-              <div className="flex items-center gap-1 mb-0.5">
-                <Coins className="w-3 h-3 text-green-400" />
-                <span className="text-[9px] text-gray-400 uppercase">Prizes</span>
+              <div className="flex items-center justify-between mb-0.5">
+                <div className="flex items-center gap-1">
+                  <Coins className="w-3 h-3 text-green-400" />
+                  <span className="text-[9px] text-gray-400 uppercase">Prizes</span>
+                </div>
+                <span className="text-[9px] text-gray-500">${totalPrizeUsd.toFixed(2)}</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-xs font-bold text-green-400">Ξ{ethBalance.toFixed(4)}</span>
