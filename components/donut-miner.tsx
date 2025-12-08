@@ -173,24 +173,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
   }, []);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    
-    let animationId: number;
-
-    const checkLoop = () => {
-      if (video.currentTime >= 9.8) {
-        video.currentTime = 0;
-        video.play();
-      }
-      animationId = requestAnimationFrame(checkLoop);
-    };
-
-    animationId = requestAnimationFrame(checkLoop);
-    
-    return () => {
-      cancelAnimationFrame(animationId);
-    };
+    // Video uses native loop attribute, no JS needed
   }, []);
 
   useEffect(() => {

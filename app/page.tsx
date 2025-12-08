@@ -119,32 +119,6 @@ export default function HomePage() {
   }, []);
 
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
-
-  // Seamless video looping with requestAnimationFrame
-  useEffect(() => {
-    const donutVideo = donutVideoRef.current;
-    const sprinklesVideo = sprinklesVideoRef.current;
-    let animationId: number;
-
-    const checkLoop = () => {
-      if (donutVideo && donutVideo.currentTime >= 9.8) {
-        donutVideo.currentTime = 0;
-        donutVideo.play();
-      }
-      if (sprinklesVideo && sprinklesVideo.currentTime >= 9.8) {
-        sprinklesVideo.currentTime = 0;
-        sprinklesVideo.play();
-      }
-      animationId = requestAnimationFrame(checkLoop);
-    };
-
-    animationId = requestAnimationFrame(checkLoop);
-
-    return () => {
-      cancelAnimationFrame(animationId);
-    };
-  }, []);
-
   const userHandle = context?.user?.username
     ? `@${context.user.username}`
     : context?.user?.fid
@@ -282,6 +256,7 @@ export default function HomePage() {
                 ref={donutVideoRef}
                 className="absolute inset-0 w-full h-full object-cover"
                 autoPlay
+                loop
                 muted
                 playsInline
                 preload="auto"
@@ -316,6 +291,7 @@ export default function HomePage() {
                 ref={sprinklesVideoRef}
                 className="absolute inset-0 w-full h-full object-cover"
                 autoPlay
+                loop
                 muted
                 playsInline
                 preload="auto"
