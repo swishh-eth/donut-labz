@@ -11,7 +11,7 @@ import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
 import { ShareRewardButton } from "@/components/share-reward-button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CircleDot } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
 import { useAccount } from "wagmi";
@@ -57,6 +57,30 @@ const formatTokenAmount = (
     maximumFractionDigits,
   });
 };
+
+// Custom Wheel SVG Icon
+const WheelIcon = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="1.5" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+    className={className}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <circle cx="12" cy="12" r="2" />
+    <line x1="12" y1="2" x2="12" y2="10" />
+    <line x1="12" y1="14" x2="12" y2="22" />
+    <line x1="2" y1="12" x2="10" y2="12" />
+    <line x1="14" y1="12" x2="22" y2="12" />
+    <line x1="4.93" y1="4.93" x2="9.17" y2="9.17" />
+    <line x1="14.83" y1="14.83" x2="19.07" y2="19.07" />
+    <line x1="4.93" y1="19.07" x2="9.17" y2="14.83" />
+    <line x1="14.83" y1="9.17" x2="19.07" y2="4.93" />
+  </svg>
+);
 
 export default function HomePage() {
   const readyRef = useRef(false);
@@ -250,14 +274,14 @@ export default function HomePage() {
           {/* Top Row - Wheel & Claim Rewards (equal size) */}
           <div className="grid grid-cols-2 gap-2 px-2 mb-3">
             {/* Daily Wheel - Coming Soon */}
-            <div className="h-24 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900/50 p-4 flex flex-col items-center justify-center cursor-not-allowed opacity-60">
-              <div className="text-2xl mb-1">🎡</div>
+            <div className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex flex-col items-center justify-center cursor-not-allowed opacity-50">
+              <WheelIcon className="w-8 h-8 text-gray-500 mb-1" />
               <div className="text-xs font-bold text-gray-500">Daily Wheel</div>
-              <div className="text-[10px] text-gray-600">???</div>
+              <div className="text-[10px] text-gray-600">Coming Soon</div>
             </div>
 
-            {/* Share Rewards - Wrapper to match height */}
-            <div className="h-24 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900 flex items-center justify-center">
+            {/* Share Rewards */}
+            <div className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex items-center justify-center">
               <ShareRewardButton userFid={context?.user?.fid} compact />
             </div>
           </div>
