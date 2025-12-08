@@ -321,34 +321,30 @@ export default function LeaderboardPage() {
   return (
     <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style jsx global>{`
-        @keyframes float-trophy-1 {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          25% { transform: translate(10px, -15px) rotate(5deg); }
-          50% { transform: translate(-5px, -25px) rotate(-3deg); }
-          75% { transform: translate(-15px, -10px) rotate(3deg); }
+        @keyframes fall-1 {
+          0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { transform: translateY(calc(100vh + 20px)) rotate(360deg); opacity: 0; }
         }
-        @keyframes float-trophy-2 {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          25% { transform: translate(-12px, -20px) rotate(-5deg); }
-          50% { transform: translate(8px, -30px) rotate(4deg); }
-          75% { transform: translate(15px, -12px) rotate(-2deg); }
+        @keyframes fall-2 {
+          0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { transform: translateY(calc(100vh + 20px)) rotate(-360deg); opacity: 0; }
         }
-        @keyframes float-trophy-3 {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          33% { transform: translate(15px, -18px) rotate(6deg); }
-          66% { transform: translate(-10px, -28px) rotate(-4deg); }
+        @keyframes fall-3 {
+          0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { transform: translateY(calc(100vh + 20px)) rotate(180deg); opacity: 0; }
         }
-        @keyframes float-trophy-4 {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          20% { transform: translate(-8px, -22px) rotate(-3deg); }
-          40% { transform: translate(12px, -35px) rotate(5deg); }
-          60% { transform: translate(-15px, -20px) rotate(-5deg); }
-          80% { transform: translate(5px, -10px) rotate(2deg); }
-        }
-        .floating-trophy-1 { animation: float-trophy-1 6s ease-in-out infinite; }
-        .floating-trophy-2 { animation: float-trophy-2 8s ease-in-out infinite; }
-        .floating-trophy-3 { animation: float-trophy-3 7s ease-in-out infinite; }
-        .floating-trophy-4 { animation: float-trophy-4 9s ease-in-out infinite; }
+        .falling-1 { animation: fall-1 8s linear infinite; }
+        .falling-2 { animation: fall-2 10s linear infinite; }
+        .falling-3 { animation: fall-3 12s linear infinite; }
+        .falling-4 { animation: fall-1 9s linear infinite; }
+        .falling-5 { animation: fall-2 11s linear infinite; }
+        .falling-6 { animation: fall-3 7s linear infinite; }
         
         @keyframes spin-slow-cw { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes spin-slow-ccw { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
@@ -367,16 +363,23 @@ export default function LeaderboardPage() {
         }}
       >
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <Trophy className="absolute top-28 left-4 w-8 h-8 text-white/10 floating-trophy-1" />
-          <Trophy className="absolute top-44 right-6 w-7 h-7 text-white/8 floating-trophy-2" />
-          <Trophy className="absolute top-60 left-10 w-6 h-6 text-white/6 floating-trophy-3" />
-          <Trophy className="absolute top-36 right-14 w-7 h-7 text-white/10 floating-trophy-4" />
-          <Trophy className="absolute top-52 left-20 w-6 h-6 text-white/8 floating-trophy-1" style={{ animationDelay: '2s' }} />
-          <Trophy className="absolute top-68 right-8 w-8 h-8 text-white/6 floating-trophy-2" style={{ animationDelay: '1s' }} />
-          <Trophy className="absolute top-80 left-6 w-7 h-7 text-white/10 floating-trophy-3" style={{ animationDelay: '3s' }} />
-          <Trophy className="absolute top-40 left-1/2 w-6 h-6 text-white/8 floating-trophy-4" style={{ animationDelay: '1.5s' }} />
-          <Trophy className="absolute top-96 right-16 w-8 h-8 text-white/6 floating-trophy-1" style={{ animationDelay: '2.5s' }} />
-          <Trophy className="absolute top-24 right-1/3 w-5 h-5 text-white/10 floating-trophy-2" style={{ animationDelay: '0.5s' }} />
+          {/* ETH symbols */}
+          <span className="absolute left-[5%] text-white/10 text-lg falling-1" style={{ animationDelay: '0s' }}>Ξ</span>
+          <span className="absolute left-[25%] text-white/8 text-xl falling-2" style={{ animationDelay: '2s' }}>Ξ</span>
+          <span className="absolute left-[80%] text-white/10 text-base falling-3" style={{ animationDelay: '4s' }}>Ξ</span>
+          <span className="absolute left-[60%] text-white/6 text-lg falling-4" style={{ animationDelay: '1s' }}>Ξ</span>
+          
+          {/* Donut symbols */}
+          <span className="absolute left-[15%] text-white/10 text-lg falling-2" style={{ animationDelay: '0.5s' }}>🍩</span>
+          <span className="absolute left-[45%] text-white/8 text-base falling-4" style={{ animationDelay: '3s' }}>🍩</span>
+          <span className="absolute left-[70%] text-white/10 text-xl falling-1" style={{ animationDelay: '5s' }}>🍩</span>
+          <span className="absolute left-[90%] text-white/6 text-lg falling-5" style={{ animationDelay: '2.5s' }}>🍩</span>
+          
+          {/* Sprinkles symbols */}
+          <span className="absolute left-[10%] text-white/8 text-base falling-3" style={{ animationDelay: '1.5s' }}>✨</span>
+          <span className="absolute left-[35%] text-white/10 text-lg falling-5" style={{ animationDelay: '4.5s' }}>✨</span>
+          <span className="absolute left-[55%] text-white/6 text-xl falling-6" style={{ animationDelay: '0.5s' }}>✨</span>
+          <span className="absolute left-[85%] text-white/10 text-base falling-1" style={{ animationDelay: '3.5s' }}>✨</span>
         </div>
 
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
