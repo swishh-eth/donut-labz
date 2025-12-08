@@ -284,7 +284,7 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     // Already claimed this epoch
     if (hasClaimed) {
       return (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
           <div className="flex items-center gap-1 mb-0.5">
             <CheckCircle className="w-3 h-3 text-green-500" />
             <span className="text-[9px] text-gray-400 uppercase">Week {currentEpoch?.toString()}</span>
@@ -304,7 +304,7 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
           onClick={handleClaim}
           disabled={isClaimingInProgress}
           className={cn(
-            "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border border-amber-400/50 rounded-lg p-2 transition-all shadow-[0_0_15px_rgba(251,191,36,0.3)] text-left",
+            "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border border-amber-400/50 rounded-lg p-2 transition-all shadow-[0_0_15px_rgba(251,191,36,0.3)] flex flex-col items-center justify-center text-center",
             isClaimingInProgress && "opacity-50 cursor-not-allowed"
           )}
         >
@@ -332,7 +332,7 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     // Claim window open (Friday) but no points
     if (isClaimOpen && !hasClaimableAmount) {
       return (
-        <div className="bg-zinc-900 border border-amber-500/30 rounded-lg p-2">
+        <div className="bg-zinc-900 border border-amber-500/30 rounded-lg p-2 flex flex-col items-center justify-center text-center">
           <div className="flex items-center gap-1 mb-0.5">
             <Calendar className="w-3 h-3 text-amber-400" />
             <span className="text-[9px] text-gray-400 uppercase">It's Friday!</span>
@@ -347,7 +347,7 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
 
     // Countdown to Friday
     return (
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
         <div className="flex items-center gap-1 mb-0.5">
           <Sparkles className="w-3 h-3 text-amber-400 drop-shadow-[0_0_3px_rgba(251,191,36,0.8)]" />
           <span className="text-[9px] text-gray-400 uppercase">Friday Drop</span>
