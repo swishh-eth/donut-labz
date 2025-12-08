@@ -43,56 +43,32 @@ export function AddToFarcasterButton({ variant = "default" }: AddToFarcasterButt
     }
   };
 
+  // All states use same base styling for consistent size
+  const baseStyles = "flex items-center justify-center gap-2 p-3 rounded-lg transition-colors";
+
   if (isLoading) {
-    if (variant === "compact") {
-      return (
-        <div className="flex items-center justify-center gap-1.5 bg-zinc-700 text-zinc-400 px-3 py-1.5 rounded-lg">
-          <span className="text-xs font-semibold">...</span>
-        </div>
-      );
-    }
     return (
-      <div className="flex items-center justify-center gap-2 bg-zinc-700 text-zinc-400 p-3 rounded-lg">
+      <div className={`${baseStyles} bg-zinc-700 text-zinc-400`}>
         <span className="text-xs font-semibold">Loading...</span>
       </div>
     );
   }
 
   if (isAdded) {
-    if (variant === "compact") {
-      return (
-        <div className="flex items-center justify-center gap-1.5 bg-zinc-800 text-zinc-500 px-3 py-1.5 rounded-lg cursor-default">
-          <Check className="w-4 h-4" strokeWidth={3} />
-          <span className="text-xs font-semibold">Added</span>
-        </div>
-      );
-    }
     return (
-      <div className="flex items-center justify-center gap-2 bg-zinc-800 text-zinc-500 p-3 rounded-lg cursor-default">
-        <Check className="w-5 h-5" strokeWidth={3} />
+      <div className={`${baseStyles} bg-zinc-800 text-zinc-500 cursor-default`}>
+        <Check className="w-4 h-4" strokeWidth={3} />
         <span className="text-xs font-semibold">Added to Farcaster</span>
       </div>
-    );
-  }
-
-  if (variant === "compact") {
-    return (
-      <button
-        onClick={handleAddToFarcaster}
-        className="flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-black px-3 py-1.5 rounded-lg transition-colors"
-      >
-        <Plus className="w-4 h-4" strokeWidth={3} />
-        <span className="text-xs font-semibold">Add</span>
-      </button>
     );
   }
 
   return (
     <button
       onClick={handleAddToFarcaster}
-      className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 text-black p-3 rounded-lg transition-colors"
+      className={`${baseStyles} bg-amber-600 hover:bg-amber-500 text-black`}
     >
-      <Plus className="w-5 h-5" strokeWidth={3} />
+      <Plus className="w-4 h-4" strokeWidth={3} />
       <span className="text-xs font-semibold">Add to Farcaster</span>
     </button>
   );
