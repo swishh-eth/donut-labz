@@ -1,5 +1,6 @@
 "use client";
 
+import { sdk } from "@farcaster/miniapp-sdk";
 import { Droplet } from "lucide-react";
 
 type CommunityLPButtonProps = {
@@ -7,12 +8,13 @@ type CommunityLPButtonProps = {
 };
 
 export function CommunityLPButton({ variant = "default" }: CommunityLPButtonProps) {
-  const handleClick = () => {
-    window.open(
-      "https://farcaster.xyz/miniapps/OBSXNsOaGYv1/peeples-donuts",
-      "_blank",
-      "noopener,noreferrer"
-    );
+  const handleClick = async () => {
+    try {
+      // Use SDK to open the Peeples miniapp
+      await sdk.actions.openUrl({ url: "https://farcaster.xyz/miniapps/OBSXNsOaGYv1/peeples-donuts" });
+    } catch (error) {
+      console.error("Failed to open Peeples:", error);
+    }
   };
 
   if (variant === "compact") {
