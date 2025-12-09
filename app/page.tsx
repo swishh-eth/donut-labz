@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useReadContract } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
@@ -12,7 +13,6 @@ import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
 import { ShareRewardButton } from "@/components/share-reward-button";
-import { SpinWheelDialog } from "@/components/spin-wheel-dialog";
 import { ArrowLeft } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
@@ -85,13 +85,12 @@ const RouletteIcon = ({ className }: { className?: string }) => (
 );
 
 export default function HomePage() {
+  const router = useRouter();
   const readyRef = useRef(false);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [selectedMiner, setSelectedMiner] = useState<"donut" | "sprinkles" | null>(null);
   const donutVideoRef = useRef<HTMLVideoElement>(null);
   const sprinklesVideoRef = useRef<HTMLVideoElement>(null);
-  const [showWheelDialog, setShowWheelDialog] = useState(false);
-  const [wheelCooldown, setWheelCooldown] = useState(0);
 
   const { address } = useAccount();
 
@@ -193,23 +192,6 @@ export default function HomePage() {
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
   const resetMiner = () => setSelectedMiner(null);
-
-  // Cooldown timer countdown
-  useEffect(() => {
-    if (wheelCooldown <= 0) return;
-    const timer = setInterval(() => {
-      setWheelCooldown(prev => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [wheelCooldown]);
-
-  // Handle wheel dialog close with cooldown only if transaction was submitted
-  const handleWheelClose = (hadTransaction?: boolean) => {
-    setShowWheelDialog(false);
-    if (hadTransaction) {
-      setWheelCooldown(5); // 5 second cooldown only after transaction
-    }
-  };
 
   if (selectedMiner === "donut") {
     return (
@@ -326,51 +308,31 @@ export default function HomePage() {
 
           <div className="grid grid-cols-2 gap-2 px-2 mb-3">
             <button
-              onClick={() => wheelCooldown <= 0 && setShowWheelDialog(true)}
-              disabled={wheelCooldown > 0}
+              onClick={() => router.push("/wheel")}
               className={`h-24 rounded-xl border p-3 flex flex-col items-center justify-center transition-colors relative ${
-                wheelCooldown > 0
-                  ? "border-zinc-700 bg-zinc-900/50 cursor-not-allowed"
-                  : isWheelBoostActive
-                    ? "border-amber-400 bg-gradient-to-br from-amber-500/40 to-orange-500/40 shadow-[0_0_20px_rgba(251,191,36,0.4)]"
-                    : availableSpins > 0
-                      ? "border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20"
-                      : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
+                isWheelBoostActive
+                  ? "border-amber-400 bg-gradient-to-br from-amber-500/40 to-orange-500/40 shadow-[0_0_20px_rgba(251,191,36,0.4)]"
+                  : availableSpins > 0
+                    ? "border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20"
+                    : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
               }`}
             >
-              {isWheelBoostActive && wheelCooldown <= 0 && (
+              {isWheelBoostActive && (
                 <div className="absolute top-1 right-1 text-[9px] font-bold text-black bg-amber-400 px-1.5 py-0.5 rounded-full">
                   🔥 {wheelBoostMultiplier}x
                 </div>
               )}
-              {wheelCooldown > 0 ? (
-                <>
-                  <div className="text-2xl font-bold text-gray-400 mb-1">{wheelCooldown}s</div>
-                  <div className="text-xs font-bold text-gray-500">Cooldown</div>
-                  <div className="text-[10px] text-gray-600">Please wait...</div>
-                </>
-              ) : (
-                <>
-                  <RouletteIcon className={`w-8 h-8 mb-1 ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`} />
-                  <div className={`text-xs font-bold ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`}>
-                    Glaze Wheel
-                  </div>
-                  <div className={`text-[10px] ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400/80" : "text-gray-600"}`}>
-                    {availableSpins > 0 ? `${availableSpins} spin${availableSpins !== 1 ? "s" : ""} ready!` : "Mine SPRINKLES to earn"}
-                  </div>
-                </>
-              )}
+              <RouletteIcon className={`w-8 h-8 mb-1 ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`} />
+              <div className={`text-xs font-bold ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`}>
+                Glaze Wheel
+              </div>
+              <div className={`text-[10px] ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400/80" : "text-gray-600"}`}>
+                {availableSpins > 0 ? `${availableSpins} spin${availableSpins !== 1 ? "s" : ""} ready!` : "Mine SPRINKLES to earn"}
+              </div>
             </button>
 
             <ShareRewardButton userFid={context?.user?.fid} tile />
           </div>
-
-          <SpinWheelDialog
-            isOpen={showWheelDialog}
-            onClose={handleWheelClose}
-            availableSpins={availableSpins}
-            onSpinComplete={() => refetchSpins()}
-          />
 
           <div className="flex-1 flex flex-col gap-3 px-2">
             <button
