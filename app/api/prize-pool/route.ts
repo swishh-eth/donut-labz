@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 const LEADERBOARD_CONTRACT = "0x4681A6DeEe2D74f5DE48CEcd2A572979EA641586";
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C";
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
+const WETH_ADDRESS = "0x4200000000000000000000000000000000000006";
 
 // Cache the result for 60 seconds
 let cache: {
@@ -40,6 +41,25 @@ export async function GET() {
     });
     const ethData = await ethRes.json();
 
+    // Fetch WETH balance (to combine with ETH)
+    const wethRes = await fetch(rpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "eth_call",
+        params: [
+          {
+            to: WETH_ADDRESS,
+            data: "0x70a08231000000000000000000000000" + LEADERBOARD_CONTRACT.slice(2).toLowerCase(),
+          },
+          "latest",
+        ],
+        id: 2,
+      }),
+    });
+    const wethData = await wethRes.json();
+
     // Fetch DONUT balance (balanceOf call)
     const donutRes = await fetch(rpcUrl, {
       method: "POST",
@@ -54,7 +74,7 @@ export async function GET() {
           },
           "latest",
         ],
-        id: 2,
+        id: 3,
       }),
     });
     const donutData = await donutRes.json();
@@ -73,13 +93,18 @@ export async function GET() {
           },
           "latest",
         ],
-        id: 3,
+        id: 4,
       }),
     });
     const sprinklesData = await sprinklesRes.json();
 
+    // Combine ETH + WETH balances
+    const ethBalance = BigInt(ethData.result || "0x0");
+    const wethBalance = BigInt(wethData.result || "0x0");
+    const combinedEthBalance = ethBalance + wethBalance;
+
     const result = {
-      ethBalance: ethData.result || "0x0",
+      ethBalance: "0x" + combinedEthBalance.toString(16),
       donutBalance: donutData.result || "0x0",
       sprinklesBalance: sprinklesData.result || "0x0",
     };
