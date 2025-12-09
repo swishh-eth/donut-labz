@@ -670,10 +670,14 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     }
   }, [commitReceipt]);
 
-  // Auto-reveal when ready
+  // Auto-reveal when ready - with delay to ensure blockhash is available
   useEffect(() => {
     if (stage === "waiting" && canRevealData === true && secret) {
-      handleReveal();
+      // Wait 3 seconds after canReveal is true to ensure blockhash is available
+      const timer = setTimeout(() => {
+        handleReveal();
+      }, 3000);
+      return () => clearTimeout(timer);
     }
   }, [stage, canRevealData, secret, handleReveal]);
 
@@ -1086,9 +1090,12 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
             )}
             
             {stage === "waiting" && (
-              <div className="flex items-center justify-center gap-2 text-amber-400 py-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span className="text-sm">Waiting for block...</span>
+              <div className="flex flex-col items-center justify-center gap-1 text-amber-400 py-2">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="text-sm">Confirming on blockchain...</span>
+                </div>
+                <span className="text-[10px] text-gray-500">This takes a few seconds</span>
               </div>
             )}
             
