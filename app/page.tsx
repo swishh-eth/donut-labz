@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useReadContract } from "wagmi";
+import { useQuery } from "@tanstack/react-query";
 import { base } from "wagmi/chains";
 import { formatEther, formatUnits, zeroAddress } from "viem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -11,6 +12,7 @@ import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
 import { ShareRewardButton } from "@/components/share-reward-button";
+import { SpinWheelDialog } from "@/components/spin-wheel-dialog";
 import { ArrowLeft, Gift } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
@@ -88,8 +90,50 @@ export default function HomePage() {
   const [selectedMiner, setSelectedMiner] = useState<"donut" | "sprinkles" | null>(null);
   const donutVideoRef = useRef<HTMLVideoElement>(null);
   const sprinklesVideoRef = useRef<HTMLVideoElement>(null);
+  const [showWheelDialog, setShowWheelDialog] = useState(false);
 
   const { address } = useAccount();
+
+  // Fetch user's available spins
+  const { data: spinsData, refetch: refetchSpins } = useQuery<{ availableSpins: number }>({
+    queryKey: ["user-spins", address],
+    queryFn: async () => {
+      if (!address) return { availableSpins: 0 };
+      const res = await fetch(`/api/spins?address=${address}`);
+      if (!res.ok) return { availableSpins: 0 };
+      return res.json();
+    },
+    enabled: !!address,
+    refetchInterval: 30_000,
+  });
+
+  // Fetch wheel boost status
+  const { data: boostInfo } = useReadContract({
+    address: "0x3ed3c1Cf26050D98B1E610fBC899a6577982c4fc" as `0x${string}`,
+    abi: [
+      {
+        inputs: [],
+        name: "getBoostInfo",
+        outputs: [
+          { name: "active", type: "bool" },
+          { name: "multiplier", type: "uint256" },
+          { name: "endTime", type: "uint256" },
+          { name: "timeRemaining", type: "uint256" },
+        ],
+        stateMutability: "view",
+        type: "function",
+      },
+    ] as const,
+    functionName: "getBoostInfo",
+    chainId: base.id,
+    query: {
+      refetchInterval: 30_000,
+    },
+  });
+
+  const availableSpins = spinsData?.availableSpins || 0;
+  const isWheelBoostActive = boostInfo?.[0] ?? false;
+  const wheelBoostMultiplier = boostInfo?.[1] ? Number(boostInfo[1]) / 100 : 1;
 
   // Fetch DONUT miner price
   const { data: rawMinerState } = useReadContract({
@@ -273,16 +317,49 @@ export default function HomePage() {
 
           {/* Top Row - Wheel & Claim Rewards (equal size) */}
           <div className="grid grid-cols-2 gap-2 px-2 mb-3">
-            {/* Daily Wheel - Coming Soon */}
-            <div className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex flex-col items-center justify-center cursor-not-allowed opacity-50">
-              <WheelIcon className="w-8 h-8 text-gray-500 mb-1" />
-              <div className="text-xs font-bold text-gray-500">Daily Wheel</div>
-              <div className="text-[10px] text-gray-600">Coming Soon</div>
-            </div>
+            {/* Spin Wheel Tile */}
+            <button
+              onClick={() => setShowWheelDialog(true)}
+              className={`h-24 rounded-xl border p-3 flex flex-col items-center justify-center transition-all active:scale-[0.98] relative overflow-hidden ${
+                isWheelBoostActive
+                  ? "border-amber-500 bg-gradient-to-br from-amber-500/20 to-orange-500/20 shadow-[0_0_15px_rgba(251,191,36,0.3)]"
+                  : availableSpins > 0
+                    ? "border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20"
+                    : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
+              }`}
+            >
+              {/* Boost glow effect */}
+              {isWheelBoostActive && (
+                <div className="absolute inset-0 bg-gradient-to-r from-amber-500/0 via-amber-500/20 to-amber-500/0 animate-pulse" />
+              )}
+              
+              <div className="relative z-10 flex flex-col items-center">
+                {isWheelBoostActive && (
+                  <div className="absolute -top-1 -right-8 text-[10px] font-bold text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded-full">
+                    🔥 {wheelBoostMultiplier}x
+                  </div>
+                )}
+                <WheelIcon className={`w-8 h-8 mb-1 ${isWheelBoostActive ? "text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" : availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`} />
+                <div className={`text-xs font-bold ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`}>
+                  Spin Wheel
+                </div>
+                <div className={`text-[10px] ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400/80" : "text-gray-600"}`}>
+                  {availableSpins > 0 ? `${availableSpins} spin${availableSpins !== 1 ? "s" : ""} available` : "Mine SPRINKLES to earn"}
+                </div>
+              </div>
+            </button>
 
             {/* Share Rewards - Use tile prop for full-tile styling */}
             <ShareRewardButton userFid={context?.user?.fid} tile />
           </div>
+
+          {/* Spin Wheel Dialog */}
+          <SpinWheelDialog
+            isOpen={showWheelDialog}
+            onClose={() => setShowWheelDialog(false)}
+            availableSpins={availableSpins}
+            onSpinComplete={() => refetchSpins()}
+          />
 
           {/* Miner Tiles - Stacked Vertically */}
           <div className="flex-1 flex flex-col gap-3 px-2">
