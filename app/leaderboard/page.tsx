@@ -7,8 +7,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { Trophy, Clock, Coins, HelpCircle, X, Sparkles } from "lucide-react";
 import { formatEther } from "viem";
-import { useReadContract } from "wagmi";
-import { base } from "wagmi/chains";
 
 type MiniAppContext = {
   user?: {
@@ -156,57 +154,24 @@ export default function LeaderboardPage() {
       if (!res.ok) throw new Error("Failed to fetch leaderboard");
       return res.json();
     },
-    refetchInterval: 30_000,
+    refetchInterval: 60_000, // 1 minute
+    staleTime: 30_000, // Consider fresh for 30 seconds
   });
 
-  // ERC20 balanceOf ABI
-  const erc20BalanceAbi = [
-    {
-      inputs: [{ name: "account", type: "address" }],
-      name: "balanceOf",
-      outputs: [{ name: "", type: "uint256" }],
-      stateMutability: "view",
-      type: "function",
-    },
-  ] as const;
-
-  // Fetch ETH balance using wagmi
-  const { data: ethBalanceData } = useQuery({
-    queryKey: ["eth-balance", LEADERBOARD_CONTRACT],
+  // Fetch prize pool from cached API endpoint
+  const { data: prizePoolData } = useQuery<{
+    ethBalance: string;
+    donutBalance: string;
+    sprinklesBalance: string;
+  }>({
+    queryKey: ["prize-pool"],
     queryFn: async () => {
-      const rpcUrl = "https://mainnet.base.org";
-      const res = await fetch(rpcUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          method: "eth_getBalance",
-          params: [LEADERBOARD_CONTRACT, "latest"],
-          id: 1,
-        }),
-      });
-      const data = await res.json();
-      return data.result || "0x0";
+      const res = await fetch("/api/prize-pool");
+      if (!res.ok) throw new Error("Failed to fetch prize pool");
+      return res.json();
     },
-    refetchInterval: 30_000,
-  });
-
-  // Fetch DONUT balance
-  const { data: donutBalanceRaw } = useReadContract({
-    address: DONUT_ADDRESS as `0x${string}`,
-    abi: erc20BalanceAbi,
-    functionName: "balanceOf",
-    args: [LEADERBOARD_CONTRACT as `0x${string}`],
-    chainId: base.id,
-  });
-
-  // Fetch SPRINKLES balance
-  const { data: sprinklesBalanceRaw } = useReadContract({
-    address: SPRINKLES_ADDRESS as `0x${string}`,
-    abi: erc20BalanceAbi,
-    functionName: "balanceOf",
-    args: [LEADERBOARD_CONTRACT as `0x${string}`],
-    chainId: base.id,
+    refetchInterval: 60_000, // 1 minute
+    staleTime: 30_000, // Consider fresh for 30 seconds
   });
 
   const addresses: string[] = leaderboardData?.leaderboard?.map((entry) => entry.address) || [];
@@ -265,16 +230,16 @@ export default function LeaderboardPage() {
   const leaderboard: LeaderboardEntry[] = leaderboardData?.leaderboard || [];
   const weekNumber = leaderboardData?.weekNumber || 0;
   
-  const ethBalance = ethBalanceData
-    ? parseFloat(formatEther(BigInt(ethBalanceData)))
+  const ethBalance = prizePoolData?.ethBalance
+    ? parseFloat(formatEther(BigInt(prizePoolData.ethBalance)))
     : 0;
 
-  const donutBalance = donutBalanceRaw
-    ? parseFloat(formatEther(donutBalanceRaw))
+  const donutBalance = prizePoolData?.donutBalance
+    ? parseFloat(formatEther(BigInt(prizePoolData.donutBalance)))
     : 0;
 
-  const sprinklesBalance = sprinklesBalanceRaw
-    ? parseFloat(formatEther(sprinklesBalanceRaw))
+  const sprinklesBalance = prizePoolData?.sprinklesBalance
+    ? parseFloat(formatEther(BigInt(prizePoolData.sprinklesBalance)))
     : 0;
 
   const totalPrizeUsd = (ethBalance * ethUsdPrice) + (donutBalance * donutPrice);
@@ -413,7 +378,6 @@ export default function LeaderboardPage() {
                 <Coins className="w-3 h-3 text-green-400" />
                 <span className="text-[9px] text-gray-400 uppercase">Prizes</span>
               </div>
-              <div className="text-[9px] text-gray-500 mb-0.5">${Math.floor(totalPrizeUsd)}</div>
               <div className="flex flex-col items-center">
                 <span className="text-xs font-bold text-green-400">Ξ{ethBalance.toFixed(4)}</span>
                 <span className="text-xs font-bold text-amber-400">🍩{donutBalance.toFixed(0)}</span>
@@ -421,6 +385,7 @@ export default function LeaderboardPage() {
                   <Sparkles className="w-3 h-3" />
                   {sprinklesBalance.toFixed(0)}
                 </span>
+                <span className="text-[9px] text-gray-500 mt-0.5">${Math.floor(totalPrizeUsd)}</span>
               </div>
             </div>
           </div>
