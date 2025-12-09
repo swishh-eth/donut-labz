@@ -90,7 +90,7 @@ export default function LeaderboardPage() {
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
   const [donutPrice, setDonutPrice] = useState<number>(0);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
-  const [showUsdPrize, setShowUsdPrize] = useState(false);
+  const [showUsdPrize, setShowUsdPrize] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -373,10 +373,10 @@ export default function LeaderboardPage() {
               <div className="text-sm font-bold text-amber-400">{timeUntilDistribution}</div>
             </div>
 
-            {/* Prize Pool - Tappable Toggle */}
+            {/* Prize Pool - Tappable Toggle - Fixed Height */}
             <button
               onClick={() => setShowUsdPrize(!showUsdPrize)}
-              className={`border rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all ${
+              className={`border rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all h-[72px] ${
                 showUsdPrize 
                   ? "bg-amber-500/10 border-amber-500/50" 
                   : "bg-zinc-900 border-zinc-800"
@@ -392,12 +392,12 @@ export default function LeaderboardPage() {
                   <span className="text-[8px] text-gray-500">tap to see tokens</span>
                 </div>
               ) : (
-                <div className="flex flex-col items-center">
-                  <span className="text-sm font-bold text-green-400">Ξ{ethBalance.toFixed(4)}</span>
-                  <span className="text-sm font-bold text-amber-400">🍩{donutBalance.toFixed(0)}</span>
-                  <span className="text-sm font-bold text-white flex items-center gap-0.5 drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
-                    <Sparkles className="w-3 h-3" />
-                    {sprinklesBalance.toFixed(0)}
+                <div className="flex items-center justify-center gap-1.5">
+                  <span className="text-[10px] font-bold text-green-400">Ξ{ethBalance.toFixed(3)}</span>
+                  <span className="text-[10px] font-bold text-amber-400">🍩{Math.floor(donutBalance)}</span>
+                  <span className="text-[10px] font-bold text-white flex items-center drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
+                    <Sparkles className="w-2.5 h-2.5" />
+                    {Math.floor(sprinklesBalance/1000)}k
                   </span>
                 </div>
               )}
@@ -411,7 +411,7 @@ export default function LeaderboardPage() {
           >
             <div className="flex items-center justify-center gap-2">
               <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-              <span className="text-xs font-semibold text-white">How to Win</span>
+              <span className="text-xs font-semibold text-white">Claim Your Share</span>
               <HelpCircle className="w-3 h-3 text-gray-400" />
             </div>
           </button>
