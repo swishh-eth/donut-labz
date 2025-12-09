@@ -132,12 +132,15 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
   const [resultSegment, setResultSegment] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ethPrice, setEthPrice] = useState<number>(0);
+  const [donutPrice, setDonutPrice] = useState<number>(0);
   const [hasRecordedSpin, setHasRecordedSpin] = useState(false);
   const [localSpins, setLocalSpins] = useState(availableSpins);
   const [floatOffset, setFloatOffset] = useState(0);
   const [continuousRotation, setContinuousRotation] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const animationRef = useRef<number | null>(null);
+  const clickSoundRef = useRef<HTMLAudioElement | null>(null);
+  const clickIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isProcessingRef = useRef(false);
   const hasStartedRef = useRef(false);
 
@@ -210,13 +213,37 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     }
   }, [isAnimating, stage]);
 
-  // Fetch ETH price
+  // Fetch ETH and DONUT prices
   useEffect(() => {
+    if (!isOpen) return;
+    
+    // Fetch ETH price
     fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd")
       .then(res => res.json())
       .then(data => setEthPrice(data.ethereum?.usd || 0))
       .catch(() => setEthPrice(0));
+    
+    // Fetch DONUT price from DexScreener
+    fetch("https://api.dexscreener.com/latest/dex/tokens/0xAE4a37d554C6D6F3E398546d8566B25052e0169C")
+      .then(res => res.json())
+      .then(data => {
+        if (data.pairs && data.pairs.length > 0) {
+          setDonutPrice(parseFloat(data.pairs[0].priceUsd || 0));
+        }
+      })
+      .catch(() => setDonutPrice(0));
   }, [isOpen]);
+
+  // Initialize click sound
+  useEffect(() => {
+    clickSoundRef.current = new Audio("/sounds/wheel-click.mp3");
+    clickSoundRef.current.volume = 0.3;
+    return () => {
+      if (clickIntervalRef.current) {
+        clearInterval(clickIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Contract writes
   const { data: commitHash, writeContract: writeCommit, isPending: isCommitting, reset: resetCommit } = useWriteContract();
@@ -343,6 +370,16 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     setIsAnimating(true);
     setContinuousRotation(0);
     
+    // Start click sound interval
+    if (clickSoundRef.current) {
+      clickIntervalRef.current = setInterval(() => {
+        if (clickSoundRef.current) {
+          clickSoundRef.current.currentTime = 0;
+          clickSoundRef.current.play().catch(() => {});
+        }
+      }, 150);
+    }
+    
     hasStartedRef.current = true;
     isProcessingRef.current = true;
     setError(null);
@@ -370,6 +407,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       setError("Failed to commit. Please try again.");
       setStage("idle");
       setIsAnimating(false);
+      if (clickIntervalRef.current) clearInterval(clickIntervalRef.current);
       isProcessingRef.current = false;
       hasStartedRef.current = false;
       clearSecret(address);
@@ -458,6 +496,22 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       }
       setIsAnimating(false);
       
+      // Slow down and stop click sound
+      if (clickIntervalRef.current) {
+        clearInterval(clickIntervalRef.current);
+        // Play a few slower clicks as it slows down
+        let clickDelay = 200;
+        const slowClicks = () => {
+          if (clickDelay < 600 && clickSoundRef.current) {
+            clickSoundRef.current.currentTime = 0;
+            clickSoundRef.current.play().catch(() => {});
+            clickDelay += 100;
+            setTimeout(slowClicks, clickDelay);
+          }
+        };
+        slowClicks();
+      }
+      
       // Calculate rotation to land on correct segment
       // Start from current continuous rotation, add spins, land on segment
       const targetAngle = SEGMENT_ANGLES[segment];
@@ -512,6 +566,11 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       cancelAnimationFrame(animationRef.current);
     }
     
+    // Stop click sound
+    if (clickIntervalRef.current) {
+      clearInterval(clickIntervalRef.current);
+    }
+    
     // Only clear secret if spin is complete (result shown)
     if (stage === "result" && address) {
       clearSecret(address);
@@ -551,9 +610,8 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
               <ArrowLeft className="w-5 h-5 text-white" />
             </button>
             
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <RouletteIcon className="w-5 h-5 text-amber-400" />
-              Glaze Roulette
+            <h2 className="text-lg font-bold text-white tracking-wide">
+              Glaze Wheel
             </h2>
             
             <div className="w-8" /> {/* Spacer for centering */}
@@ -588,21 +646,19 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                 {Math.floor(sprinklesPool).toLocaleString()}
               </span>
             </div>
-            {ethPrice > 0 && (
-              <div className="text-center mt-1.5 text-xs text-gray-400">
-                ≈ ${(ethPool * ethPrice).toFixed(2)} USD
-              </div>
-            )}
+            <div className="text-center mt-1.5 text-xs text-gray-400">
+              ≈ ${((ethPool * ethPrice) + (donutPool * donutPrice)).toFixed(2)} USD
+            </div>
           </div>
 
-          {/* Donut Wheel */}
-          <div className={`relative w-52 h-52 mx-auto mb-3 ${isBoostActive ? "drop-shadow-[0_0_20px_rgba(251,191,36,0.4)]" : ""}`}>
+          {/* Donut Wheel - Larger */}
+          <div className={`relative w-64 h-64 mx-auto mb-3 ${isBoostActive ? "drop-shadow-[0_0_20px_rgba(251,191,36,0.4)]" : ""}`}>
             {/* Pointer */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-10">
-              <div className="w-0 h-0 border-l-[10px] border-r-[10px] border-t-[16px] border-l-transparent border-r-transparent border-t-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+              <div className="w-0 h-0 border-l-[12px] border-r-[12px] border-t-[20px] border-l-transparent border-r-transparent border-t-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
             </div>
             
-            {/* Wheel SVG - Donut Shape */}
+            {/* Wheel SVG - White with colored glowing text */}
             <svg
               viewBox="0 0 200 200"
               className="w-full h-full"
@@ -612,19 +668,18 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                 transitionTimingFunction: "cubic-bezier(0.17, 0.67, 0.12, 0.99)",
               }}
             >
-              {/* Outer glow ring */}
-              <circle cx="100" cy="100" r="98" fill="none" stroke="rgba(251, 191, 36, 0.15)" strokeWidth="3" />
+              {/* Outer ring */}
+              <circle cx="100" cy="100" r="98" fill="none" stroke="#3f3f46" strokeWidth="2" />
               
-              {/* Segments */}
+              {/* Segments - White/Light gray alternating */}
               {SEGMENTS.map((seg, i) => {
                 const startAngle = i * 72 - 90;
                 const endAngle = startAngle + 72;
                 const startRad = (startAngle * Math.PI) / 180;
                 const endRad = (endAngle * Math.PI) / 180;
                 
-                // Outer arc
                 const outerR = 95;
-                const innerR = 40;
+                const innerR = 35;
                 
                 const ox1 = 100 + outerR * Math.cos(startRad);
                 const oy1 = 100 + outerR * Math.sin(startRad);
@@ -636,32 +691,35 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                 const ix2 = 100 + innerR * Math.cos(endRad);
                 const iy2 = 100 + innerR * Math.sin(endRad);
                 
-                // Label position
                 const labelAngle = startAngle + 36;
                 const labelRad = (labelAngle * Math.PI) / 180;
                 const labelR = (outerR + innerR) / 2;
                 const labelX = 100 + labelR * Math.cos(labelRad);
                 const labelY = 100 + labelR * Math.sin(labelRad);
                 
+                // Alternating white/light gray
+                const segmentColor = i % 2 === 0 ? "#ffffff" : "#e4e4e7";
+                
                 return (
                   <g key={i}>
-                    {/* Segment */}
                     <path
                       d={`M ${ox1} ${oy1} A ${outerR} ${outerR} 0 0 1 ${ox2} ${oy2} L ${ix2} ${iy2} A ${innerR} ${innerR} 0 0 0 ${ix1} ${iy1} Z`}
-                      fill={seg.color}
-                      stroke="#27272a"
-                      strokeWidth="1.5"
+                      fill={segmentColor}
+                      stroke="#a1a1aa"
+                      strokeWidth="1"
                     />
                     <text
                       x={labelX}
                       y={labelY}
-                      fill="white"
-                      fontSize={seg.prize === 0 ? "16" : "11"}
+                      fill={seg.glowColor}
+                      fontSize={seg.prize === 0 ? "18" : "13"}
                       fontWeight="bold"
                       textAnchor="middle"
                       dominantBaseline="middle"
                       transform={`rotate(${labelAngle + 90}, ${labelX}, ${labelY})`}
-                      style={{ textShadow: "0 0 4px rgba(0,0,0,0.9)" }}
+                      style={{ 
+                        filter: `drop-shadow(0 0 6px ${seg.glowColor}) drop-shadow(0 0 10px ${seg.glowColor})`,
+                      }}
                     >
                       {seg.label}
                     </text>
@@ -669,9 +727,9 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                 );
               })}
               
-              {/* Inner donut hole */}
-              <circle cx="100" cy="100" r="40" fill="#09090b" />
-              <circle cx="100" cy="100" r="38" fill="none" stroke="#27272a" strokeWidth="2" />
+              {/* Inner donut hole - dark */}
+              <circle cx="100" cy="100" r="35" fill="#18181b" />
+              <circle cx="100" cy="100" r="33" fill="none" stroke="#3f3f46" strokeWidth="2" />
             </svg>
 
             {/* Floating Center Donut - counter-rotate to stay upright */}
@@ -684,7 +742,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
               }}
             >
               <span 
-                className="text-2xl"
+                className="text-3xl"
                 style={{ 
                   transform: `translateY(${floatOffset}px)`,
                   transition: 'transform 0.1s ease-out',

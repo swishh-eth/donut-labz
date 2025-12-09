@@ -91,6 +91,7 @@ export default function HomePage() {
   const donutVideoRef = useRef<HTMLVideoElement>(null);
   const sprinklesVideoRef = useRef<HTMLVideoElement>(null);
   const [showWheelDialog, setShowWheelDialog] = useState(false);
+  const [wheelCooldown, setWheelCooldown] = useState(0);
 
   const { address } = useAccount();
 
@@ -192,6 +193,21 @@ export default function HomePage() {
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
   const resetMiner = () => setSelectedMiner(null);
+
+  // Cooldown timer countdown
+  useEffect(() => {
+    if (wheelCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setWheelCooldown(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [wheelCooldown]);
+
+  // Handle wheel dialog close with cooldown
+  const handleWheelClose = () => {
+    setShowWheelDialog(false);
+    setWheelCooldown(10); // 10 second cooldown
+  };
 
   if (selectedMiner === "donut") {
     return (
@@ -308,27 +324,40 @@ export default function HomePage() {
 
           <div className="grid grid-cols-2 gap-2 px-2 mb-3">
             <button
-              onClick={() => setShowWheelDialog(true)}
+              onClick={() => wheelCooldown <= 0 && setShowWheelDialog(true)}
+              disabled={wheelCooldown > 0}
               className={`h-24 rounded-xl border p-3 flex flex-col items-center justify-center transition-colors relative ${
-                isWheelBoostActive
-                  ? "border-amber-400 bg-gradient-to-br from-amber-500/40 to-orange-500/40 shadow-[0_0_20px_rgba(251,191,36,0.4)]"
-                  : availableSpins > 0
-                    ? "border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20"
-                    : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
+                wheelCooldown > 0
+                  ? "border-zinc-700 bg-zinc-900/50 cursor-not-allowed"
+                  : isWheelBoostActive
+                    ? "border-amber-400 bg-gradient-to-br from-amber-500/40 to-orange-500/40 shadow-[0_0_20px_rgba(251,191,36,0.4)]"
+                    : availableSpins > 0
+                      ? "border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20"
+                      : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
               }`}
             >
-              {isWheelBoostActive && (
+              {isWheelBoostActive && wheelCooldown <= 0 && (
                 <div className="absolute top-1 right-1 text-[9px] font-bold text-black bg-amber-400 px-1.5 py-0.5 rounded-full">
                   🔥 {wheelBoostMultiplier}x
                 </div>
               )}
-              <RouletteIcon className={`w-8 h-8 mb-1 ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`} />
-              <div className={`text-xs font-bold ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`}>
-                Glaze Roulette
-              </div>
-              <div className={`text-[10px] ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400/80" : "text-gray-600"}`}>
-                {availableSpins > 0 ? `${availableSpins} spin${availableSpins !== 1 ? "s" : ""} ready!` : "Mine SPRINKLES to earn"}
-              </div>
+              {wheelCooldown > 0 ? (
+                <>
+                  <div className="text-2xl font-bold text-gray-400 mb-1">{wheelCooldown}s</div>
+                  <div className="text-xs font-bold text-gray-500">Cooldown</div>
+                  <div className="text-[10px] text-gray-600">Please wait...</div>
+                </>
+              ) : (
+                <>
+                  <RouletteIcon className={`w-8 h-8 mb-1 ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`} />
+                  <div className={`text-xs font-bold ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`}>
+                    Glaze Wheel
+                  </div>
+                  <div className={`text-[10px] ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400/80" : "text-gray-600"}`}>
+                    {availableSpins > 0 ? `${availableSpins} spin${availableSpins !== 1 ? "s" : ""} ready!` : "Mine SPRINKLES to earn"}
+                  </div>
+                </>
+              )}
             </button>
 
             <ShareRewardButton userFid={context?.user?.fid} tile />
@@ -336,7 +365,7 @@ export default function HomePage() {
 
           <SpinWheelDialog
             isOpen={showWheelDialog}
-            onClose={() => setShowWheelDialog(false)}
+            onClose={handleWheelClose}
             availableSpins={availableSpins}
             onSpinComplete={() => refetchSpins()}
           />
