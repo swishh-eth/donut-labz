@@ -226,6 +226,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
   const [continuousRotation, setContinuousRotation] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [auctionPrice, setAuctionPrice] = useState(AUCTION_MIN_PRICE);
+  const [approvalAmount, setApprovalAmount] = useState<string>("");
   const [lastPurchaseTime, setLastPurchaseTime] = useState<number | null>(null);
   const [isBuying, setIsBuying] = useState(false);
   const animationRef = useRef<number | null>(null);
@@ -354,6 +355,10 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     if (auctionState) {
       const priceInDonut = Number(auctionState[0]) / 1e18;
       setAuctionPrice(priceInDonut);
+      // Set default approval to price + 50% buffer (for multiple buys or price increases)
+      if (!approvalAmount || parseFloat(approvalAmount) < priceInDonut) {
+        setApprovalAmount(Math.ceil(priceInDonut * 1.5).toString());
+      }
     }
   }, [auctionState]);
 
@@ -651,13 +656,14 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     
     try {
       if (needsApproval) {
-        // First approve
-        const approveAmount = BigInt(Math.ceil(auctionPrice * 1.1 * 1e18)); // 10% buffer
+        // Use custom approval amount from input
+        const approveValue = parseFloat(approvalAmount) || (auctionPrice * 1.5);
+        const approveAmountWei = BigInt(Math.ceil(approveValue * 1e18));
         writeApprove({
           address: DONUT_ADDRESS,
           abi: ERC20_ABI,
           functionName: "approve",
-          args: [SPIN_AUCTION_ADDRESS, approveAmount],
+          args: [SPIN_AUCTION_ADDRESS, approveAmountWei],
           chainId: base.id,
         });
       } else {
@@ -676,7 +682,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       setError(err.message || "Failed to buy spin");
       setIsBuying(false);
     }
-  }, [address, auctionPrice, isBuying, isApproving, isBuyingOnChain, needsApproval, userDonutBalance, writeApprove, writeBuySpin]);
+  }, [address, auctionPrice, approvalAmount, isBuying, isApproving, isBuyingOnChain, needsApproval, userDonutBalance, writeApprove, writeBuySpin]);
 
   // Watch commit confirmation
   useEffect(() => {
@@ -839,9 +845,9 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       <div className="absolute inset-0 bg-black/95 backdrop-blur-md" onClick={!isProcessing ? handleClose : undefined} />
       
       <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-        <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
+        <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-3 shadow-2xl max-h-[85vh] overflow-hidden">
           {/* Header with back button only */}
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-2">
             <button
               onClick={handleClose}
               className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
@@ -875,8 +881,8 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
           )}
           
           {/* Pool info - styled like leaderboard with USD */}
-          <div className="mb-3 p-2.5 rounded-xl bg-zinc-900 border border-zinc-800">
-            <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-1.5 text-center">Prize Pool</div>
+          <div className="mb-2 p-2 rounded-xl bg-zinc-900 border border-zinc-800">
+            <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-1 text-center">Prize Pool</div>
             <div className="flex items-center justify-center gap-3">
               <span className="text-sm font-bold text-green-400">Ξ{ethPool.toFixed(2)}</span>
               <span className="text-sm font-bold text-amber-400">🍩{donutPool.toFixed(2)}</span>
@@ -890,8 +896,8 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
             </div>
           </div>
 
-          {/* Donut Wheel - Larger */}
-          <div className={`relative w-64 h-64 mx-auto mb-3 ${isBoostActive ? "drop-shadow-[0_0_20px_rgba(251,191,36,0.4)]" : ""}`}>
+          {/* Donut Wheel - Larger with white glow */}
+          <div className={`relative w-56 h-56 mx-auto mb-2 ${isBoostActive ? "drop-shadow-[0_0_20px_rgba(251,191,36,0.4)]" : "drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"}`}>
             {/* Pointer */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-10">
               <div className="w-0 h-0 border-l-[12px] border-r-[12px] border-t-[20px] border-l-transparent border-r-transparent border-t-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
@@ -1033,13 +1039,13 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
             
             {stage === "idle" && !hasPendingCommit && (
               <>
-                <div className="text-sm text-gray-400 mb-2">
+                <div className="text-sm text-gray-400 mb-1.5">
                   You have <span className="text-amber-400 font-bold">{localSpins}</span> spin{localSpins !== 1 ? "s" : ""}
                 </div>
                 <button
                   onClick={handleSpin}
                   disabled={localSpins <= 0 || hasStartedRef.current}
-                  className={`w-full py-2.5 rounded-xl font-bold text-base transition-all ${
+                  className={`w-full py-2 rounded-xl font-bold text-base transition-all ${
                     localSpins > 0
                       ? "bg-amber-500 text-black hover:bg-amber-400 active:scale-[0.98]"
                       : "bg-zinc-800 text-gray-500 cursor-not-allowed"
@@ -1049,45 +1055,59 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                 </button>
                 
                 {/* Buy Spin Section */}
-                <div className="mt-3 pt-3 border-t border-zinc-800">
+                <div className="mt-2">
                   <div className="text-[10px] text-gray-500 mb-2">Or buy a spin instantly</div>
                   {!auctionBuyingEnabled ? (
                     <div className="w-full py-2 rounded-xl text-sm bg-zinc-800 text-gray-500 text-center">
                       Buying Temporarily Disabled
                     </div>
                   ) : (
-                    <button
-                      onClick={handleBuySpin}
-                      disabled={isBuying || isApproving || isBuyingOnChain || isApproveConfirming || isBuyConfirming || userDonutBalance < auctionPrice}
-                      className="w-full py-2 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-600 to-orange-600 text-white hover:from-amber-500 hover:to-orange-500 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isApproving || isApproveConfirming ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Approving DONUT...
-                        </span>
-                      ) : isBuyingOnChain || isBuyConfirming ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Buying Spin...
-                        </span>
-                      ) : userDonutBalance < auctionPrice ? (
-                        <>Insufficient DONUT</>
-                      ) : needsApproval ? (
-                        <>Approve & Buy - 🍩{auctionPrice.toFixed(0)}</>
-                      ) : (
-                        <>Buy Spin - 🍩{auctionPrice.toFixed(0)}</>
+                    <>
+                      {/* Approval Amount Input - only show if needs approval */}
+                      {needsApproval && (
+                        <div className="mb-2">
+                          <div className="text-[9px] text-gray-500 mb-1">Approval Amount (DONUT)</div>
+                          <input
+                            type="number"
+                            value={approvalAmount}
+                            onChange={(e) => setApprovalAmount(e.target.value)}
+                            placeholder={Math.ceil(auctionPrice * 1.5).toString()}
+                            className="w-full px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm focus:border-amber-500 focus:outline-none"
+                          />
+                          <div className="text-[8px] text-gray-600 mt-0.5">
+                            Set higher for multiple purchases without re-approving
+                          </div>
+                        </div>
                       )}
-                    </button>
+                      <button
+                        onClick={handleBuySpin}
+                        disabled={isBuying || isApproving || isBuyingOnChain || isApproveConfirming || isBuyConfirming || userDonutBalance < auctionPrice}
+                        className="w-full py-2 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-600 to-orange-600 text-white hover:from-amber-500 hover:to-orange-500 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isApproving || isApproveConfirming ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Approving DONUT...
+                          </span>
+                        ) : isBuyingOnChain || isBuyConfirming ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Buying Spin...
+                          </span>
+                        ) : userDonutBalance < auctionPrice ? (
+                          <>Insufficient DONUT</>
+                        ) : needsApproval ? (
+                          <>Approve & Buy - 🍩{auctionPrice.toFixed(0)}</>
+                        ) : (
+                          <>Buy Spin - 🍩{auctionPrice.toFixed(0)}</>
+                        )}
+                      </button>
+                    </>
                   )}
                   <div className="text-[8px] text-gray-600 mt-1 flex justify-between">
                     <span>Price doubles, decays to 10 over 1hr</span>
                     <span>Balance: 🍩{userDonutBalance.toFixed(1)}</span>
                   </div>
-                </div>
-                
-                <div className="text-[9px] text-gray-600 mt-2">
-                  Mine SPRINKLES to earn free spins
                 </div>
               </>
             )}
