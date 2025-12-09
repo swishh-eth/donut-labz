@@ -319,7 +319,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
             </button>
           )}
 
-          <h2 className="text-lg font-bold text-white mb-2 text-center">🎡 Spin the Wheel</h2>
+          <h2 className="text-lg font-bold text-white mb-2 text-center">🎡 Glaze Roulette</h2>
           
           {/* Boost Banner */}
           {isBoostActive && (

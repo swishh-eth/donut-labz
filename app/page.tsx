@@ -317,35 +317,28 @@ export default function HomePage() {
 
           {/* Top Row - Wheel & Claim Rewards (equal size) */}
           <div className="grid grid-cols-2 gap-2 px-2 mb-3">
-            {/* Spin Wheel Tile */}
+            {/* Glaze Roulette Tile */}
             <button
               onClick={() => setShowWheelDialog(true)}
-              className={`h-24 rounded-xl border p-3 flex flex-col items-center justify-center transition-all active:scale-[0.98] relative overflow-hidden ${
+              className={`h-24 rounded-xl border p-3 flex flex-col items-center justify-center transition-colors ${
                 isWheelBoostActive
-                  ? "border-amber-500 bg-gradient-to-br from-amber-500/20 to-orange-500/20 shadow-[0_0_15px_rgba(251,191,36,0.3)]"
+                  ? "border-amber-500 bg-gradient-to-br from-amber-600/30 to-orange-600/30 shadow-[0_0_20px_rgba(251,191,36,0.4)]"
                   : availableSpins > 0
-                    ? "border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20"
+                    ? "border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20"
                     : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
               }`}
             >
-              {/* Boost glow effect */}
               {isWheelBoostActive && (
-                <div className="absolute inset-0 bg-gradient-to-r from-amber-500/0 via-amber-500/20 to-amber-500/0 animate-pulse" />
+                <div className="absolute top-1 right-1 text-[9px] font-bold text-black bg-amber-400 px-1.5 py-0.5 rounded-full">
+                  🔥 {wheelBoostMultiplier}x
+                </div>
               )}
-              
-              <div className="relative z-10 flex flex-col items-center">
-                {isWheelBoostActive && (
-                  <div className="absolute -top-1 -right-8 text-[10px] font-bold text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded-full">
-                    🔥 {wheelBoostMultiplier}x
-                  </div>
-                )}
-                <WheelIcon className={`w-8 h-8 mb-1 ${isWheelBoostActive ? "text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" : availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`} />
-                <div className={`text-xs font-bold ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`}>
-                  Spin Wheel
-                </div>
-                <div className={`text-[10px] ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400/80" : "text-gray-600"}`}>
-                  {availableSpins > 0 ? `${availableSpins} spin${availableSpins !== 1 ? "s" : ""} available` : "Mine SPRINKLES to earn"}
-                </div>
+              <WheelIcon className={`w-8 h-8 mb-1 ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`} />
+              <div className={`text-xs font-bold ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`}>
+                Glaze Roulette
+              </div>
+              <div className={`text-[10px] ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400/80" : "text-gray-600"}`}>
+                {availableSpins > 0 ? `${availableSpins} spin${availableSpins !== 1 ? "s" : ""} ready!` : "Mine SPRINKLES to earn"}
               </div>
             </button>
 

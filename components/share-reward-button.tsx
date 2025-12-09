@@ -332,10 +332,10 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     // No active campaign
     if (!isActive) {
       return (
-        <div className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex flex-col items-center justify-center opacity-50 cursor-not-allowed">
+        <div className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex flex-col items-center justify-center">
           <Gift className="w-8 h-8 text-gray-500 mb-1" />
           <div className="text-xs font-bold text-gray-500">Share The Glaze</div>
-          <div className="text-[10px] text-gray-600">No Campaign</div>
+          <div className="text-[10px] text-gray-600">No active campaign</div>
         </div>
       );
     }
@@ -398,7 +398,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
           onClick={handleVerifyAndClaim}
           disabled={isVerifying || !userFid}
           className={cn(
-            "h-24 rounded-xl border border-amber-500/30 bg-zinc-900 p-3 flex flex-col items-center justify-center transition-all hover:bg-zinc-800",
+            "h-24 rounded-xl border border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20 p-3 flex flex-col items-center justify-center transition-colors",
             (isVerifying || !userFid) && "opacity-50 cursor-not-allowed"
           )}
         >
@@ -410,7 +410,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
           <div className="text-xs font-bold text-amber-400">
             {isVerifying ? "Checking..." : "Verify Share"}
           </div>
-          <div className="text-[10px] text-gray-400">Tap to verify</div>
+          <div className="text-[10px] text-amber-400/80">Tap to verify</div>
         </button>
       );
     }
@@ -421,17 +421,16 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
         onClick={handleShareToQualify}
         disabled={!userFid}
         className={cn(
-          "h-24 rounded-xl border border-amber-500/30 bg-zinc-900 p-3 flex flex-col items-center justify-center transition-all hover:bg-zinc-800",
-          !userFid && "opacity-50 cursor-not-allowed",
-          isPulsing && "scale-[0.98]"
+          "h-24 rounded-xl border p-3 flex flex-col items-center justify-center transition-colors",
+          isActive && claimsRemaining > 0
+            ? "border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20"
+            : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800",
+          !userFid && "opacity-50 cursor-not-allowed"
         )}
       >
-        <Gift className={cn(
-          "w-8 h-8 text-amber-400 mb-1 transition-transform",
-          isPulsing && "scale-110"
-        )} />
-        <div className="text-xs font-bold text-amber-400">Share to Claim</div>
-        <div className="text-[10px] text-gray-400">{claimsRemaining} left</div>
+        <Gift className="w-8 h-8 text-amber-400 mb-1" />
+        <div className="text-xs font-bold text-amber-400">Share The Glaze</div>
+        <div className="text-[10px] text-amber-400/80">{claimsRemaining} claims left</div>
       </button>
     );
   }
