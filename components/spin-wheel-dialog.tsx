@@ -959,13 +959,20 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
           {/* Status / Actions */}
           <div className="text-center">
             {error && (
-              <div className="text-red-400 text-sm mb-3">{error}</div>
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 mb-3">
+                <div className="text-red-400 text-sm font-medium mb-1">Transaction Issue</div>
+                <div className="text-red-300 text-xs">{error}</div>
+                <div className="text-gray-400 text-[10px] mt-2">
+                  Don't worry! Come back in a moment and your spin will be ready to complete.
+                </div>
+              </div>
             )}
             
             {stage === "idle" && hasPendingCommit && (
-              <>
-                <div className="text-xs text-amber-400 mb-2">
-                  ⚠️ Previous spin pending
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-2">
+                <div className="text-amber-400 text-sm font-medium mb-1">🎰 Spin Ready!</div>
+                <div className="text-gray-300 text-xs mb-2">
+                  You have a pending spin waiting to be revealed.
                 </div>
                 {canRevealPending && secret ? (
                   <>
@@ -977,22 +984,19 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                       }}
                       className="w-full py-2.5 rounded-xl font-bold text-base bg-green-500 text-white hover:bg-green-400 transition-all"
                     >
-                      RESUME SPIN!
+                      REVEAL MY SPIN!
                     </button>
-                    <div className="text-[9px] text-gray-500 mt-1.5">
-                      Tap to finish your spin
-                    </div>
                   </>
                 ) : canRevealPending ? (
                   <div className="text-[10px] text-gray-400">
                     Secret not found - waiting for expiry (~{commitmentData?.[4] ? Math.ceil(Number(commitmentData[4]) * 2 / 60) : "?"} min)
                   </div>
                 ) : (
-                  <div className="text-[10px] text-gray-400">
-                    Waiting for next block...
+                  <div className="text-amber-300 text-[11px]">
+                    ⏳ Waiting for blockchain confirmation... (few seconds)
                   </div>
                 )}
-              </>
+              </div>
             )}
             
             {stage === "idle" && !hasPendingCommit && (

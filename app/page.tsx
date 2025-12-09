@@ -207,7 +207,7 @@ export default function HomePage() {
   const handleWheelClose = (hadTransaction?: boolean) => {
     setShowWheelDialog(false);
     if (hadTransaction) {
-      setWheelCooldown(30); // 30 second cooldown only after transaction
+      setWheelCooldown(5); // 5 second cooldown only after transaction
     }
   };
 
