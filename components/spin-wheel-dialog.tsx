@@ -806,8 +806,8 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/95 backdrop-blur-md" onClick={!isProcessing ? handleClose : undefined} />
       
-      <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-        <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-3 shadow-2xl max-h-[85vh] overflow-hidden">
+      <div className="absolute left-1/2 top-4 w-full max-w-sm -translate-x-1/2">
+        <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-3 shadow-2xl max-h-[90vh] overflow-hidden">
           {/* Header with back button only */}
           <div className="flex items-center justify-between mb-2">
             <button
