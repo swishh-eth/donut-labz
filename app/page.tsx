@@ -320,9 +320,9 @@ export default function HomePage() {
             {/* Glaze Roulette Tile */}
             <button
               onClick={() => setShowWheelDialog(true)}
-              className={`h-24 rounded-xl border p-3 flex flex-col items-center justify-center transition-colors ${
+              className={`h-24 rounded-xl border p-3 flex flex-col items-center justify-center transition-colors relative ${
                 isWheelBoostActive
-                  ? "border-amber-500 bg-gradient-to-br from-amber-600/30 to-orange-600/30 shadow-[0_0_20px_rgba(251,191,36,0.4)]"
+                  ? "border-amber-400 bg-gradient-to-br from-amber-500/40 to-orange-500/40 shadow-[0_0_20px_rgba(251,191,36,0.4)]"
                   : availableSpins > 0
                     ? "border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20"
                     : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
@@ -333,7 +333,7 @@ export default function HomePage() {
                   🔥 {wheelBoostMultiplier}x
                 </div>
               )}
-              <WheelIcon className={`w-8 h-8 mb-1 ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`} />
+              <span className="text-3xl mb-1">🎡</span>
               <div className={`text-xs font-bold ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`}>
                 Glaze Roulette
               </div>
