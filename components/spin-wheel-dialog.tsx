@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi";
 import { base } from "wagmi/chains";
 import { keccak256, encodePacked, formatEther, formatUnits } from "viem";
-import { X, Loader2, Sparkles, ArrowLeft } from "lucide-react";
+import { Loader2, Sparkles, ArrowLeft } from "lucide-react";
 
 const SPIN_WHEEL_ADDRESS = "0x855F3E6F870C4D4dEB4959523484be3b147c4c0C" as `0x${string}`;
 
@@ -114,6 +114,9 @@ const RouletteIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+// Continuous spin animation state
+const SPIN_SPEED = 8; // degrees per frame for continuous spin
+
 interface SpinWheelDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -132,6 +135,9 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
   const [hasRecordedSpin, setHasRecordedSpin] = useState(false);
   const [localSpins, setLocalSpins] = useState(availableSpins);
   const [floatOffset, setFloatOffset] = useState(0);
+  const [continuousRotation, setContinuousRotation] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const animationRef = useRef<number | null>(null);
   const isProcessingRef = useRef(false);
   const hasStartedRef = useRef(false);
 
@@ -186,6 +192,23 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     frame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(frame);
   }, [isOpen]);
+
+  // Continuous spin animation
+  useEffect(() => {
+    if (isAnimating && stage !== "spinning" && stage !== "result") {
+      const animate = () => {
+        setContinuousRotation(prev => prev + SPIN_SPEED);
+        animationRef.current = requestAnimationFrame(animate);
+      };
+      animationRef.current = requestAnimationFrame(animate);
+      
+      return () => {
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+        }
+      };
+    }
+  }, [isAnimating, stage]);
 
   // Fetch ETH price
   useEffect(() => {
@@ -316,6 +339,10 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
   const handleSpin = useCallback(async () => {
     if (!address || localSpins <= 0 || stage !== "idle" || isProcessingRef.current || hasStartedRef.current) return;
     
+    // Start spinning animation immediately on click
+    setIsAnimating(true);
+    setContinuousRotation(0);
+    
     hasStartedRef.current = true;
     isProcessingRef.current = true;
     setError(null);
@@ -331,7 +358,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     setStage("committing");
     
     try {
-      await writeCommit({
+      writeCommit({
         address: SPIN_WHEEL_ADDRESS,
         abi: SPIN_WHEEL_ABI,
         functionName: "commit",
@@ -342,6 +369,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       console.error("Commit error:", err);
       setError("Failed to commit. Please try again.");
       setStage("idle");
+      setIsAnimating(false);
       isProcessingRef.current = false;
       hasStartedRef.current = false;
       clearSecret(address);
@@ -424,11 +452,17 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       setResultSegment(segment);
       setStage("spinning");
       
+      // Stop continuous animation
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+      setIsAnimating(false);
+      
       // Calculate rotation to land on correct segment
-      // Wheel spins 5 full rotations plus lands on segment
+      // Start from current continuous rotation, add spins, land on segment
       const targetAngle = SEGMENT_ANGLES[segment];
-      const fullSpins = 5 * 360;
-      const finalRotation = fullSpins + (360 - targetAngle);
+      const fullSpins = 3 * 360;
+      const finalRotation = continuousRotation + fullSpins + (360 - targetAngle) - (continuousRotation % 360);
       
       setRotation(finalRotation);
       
@@ -459,16 +493,25 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
           .catch(err => console.error("Spin use error:", err));
         }
         
-      }, 5000);
+      }, 4200);
       
     } else if (revealReceipt?.status === "reverted") {
       setError("Reveal transaction failed");
       setStage("idle");
     }
-  }, [revealReceipt, address, onSpinComplete, hasRecordedSpin, stage]);
+  }, [revealReceipt, address, onSpinComplete, hasRecordedSpin, stage, continuousRotation]);
 
   // Reset on close
   const handleClose = useCallback(() => {
+    // Don't allow closing while processing unless it's an error
+    const currentlyProcessing = stage !== "idle" && stage !== "result";
+    if (currentlyProcessing && !error) return;
+    
+    // Stop any animation
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+    
     // Only clear secret if spin is complete (result shown)
     if (stage === "result" && address) {
       clearSecret(address);
@@ -476,6 +519,8 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     setStage("idle");
     setSecret(null);
     setRotation(0);
+    setContinuousRotation(0);
+    setIsAnimating(false);
     setResultSegment(null);
     setError(null);
     setHasRecordedSpin(false);
@@ -484,7 +529,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     resetCommit();
     resetReveal();
     onClose();
-  }, [onClose, resetCommit, resetReveal, stage, address, clearSecret]);
+  }, [onClose, resetCommit, resetReveal, stage, address, clearSecret, error]);
 
   if (!isOpen) return null;
 
@@ -497,12 +542,11 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       
       <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
         <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
-          {/* Header with back button */}
+          {/* Header with back button only */}
           <div className="flex items-center justify-between mb-3">
             <button
-              onClick={!isProcessing ? handleClose : undefined}
-              disabled={isProcessing}
-              className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleClose}
+              className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
             >
               <ArrowLeft className="w-5 h-5 text-white" />
             </button>
@@ -512,13 +556,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
               Glaze Roulette
             </h2>
             
-            <button
-              onClick={!isProcessing ? handleClose : undefined}
-              disabled={isProcessing}
-              className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <X className="w-5 h-5 text-white" />
-            </button>
+            <div className="w-8" /> {/* Spacer for centering */}
           </div>
           
           {/* Boost Banner */}
@@ -539,7 +577,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
             </div>
           )}
           
-          {/* Pool info - styled like leaderboard */}
+          {/* Pool info - styled like leaderboard with USD */}
           <div className="mb-3 p-2.5 rounded-xl bg-zinc-900 border border-zinc-800">
             <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-1.5 text-center">Prize Pool</div>
             <div className="flex items-center justify-center gap-3">
@@ -550,6 +588,11 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                 {Math.floor(sprinklesPool).toLocaleString()}
               </span>
             </div>
+            {ethPrice > 0 && (
+              <div className="text-center mt-1.5 text-xs text-gray-400">
+                ≈ ${(ethPool * ethPrice).toFixed(2)} USD
+              </div>
+            )}
           </div>
 
           {/* Donut Wheel */}
@@ -564,8 +607,8 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
               viewBox="0 0 200 200"
               className="w-full h-full"
               style={{
-                transform: `rotate(${rotation}deg)`,
-                transitionDuration: stage === "spinning" ? "5s" : "0s",
+                transform: `rotate(${stage === "spinning" ? rotation : (isAnimating ? continuousRotation : rotation)}deg)`,
+                transitionDuration: stage === "spinning" ? "4s" : "0s",
                 transitionTimingFunction: "cubic-bezier(0.17, 0.67, 0.12, 0.99)",
               }}
             >
@@ -631,36 +674,24 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
               <circle cx="100" cy="100" r="38" fill="none" stroke="#27272a" strokeWidth="2" />
             </svg>
 
-            {/* Floating Center Icons - counter-rotate to stay upright */}
+            {/* Floating Center Donut - counter-rotate to stay upright */}
             <div 
               className="absolute inset-0 flex items-center justify-center pointer-events-none"
               style={{ 
-                transform: `rotate(${-rotation}deg)`,
-                transitionDuration: stage === "spinning" ? "5s" : "0s",
+                transform: `rotate(${-(stage === "spinning" ? rotation : (isAnimating ? continuousRotation : rotation))}deg)`,
+                transitionDuration: stage === "spinning" ? "4s" : "0s",
                 transitionTimingFunction: "cubic-bezier(0.17, 0.67, 0.12, 0.99)",
               }}
             >
-              <div className="relative w-16 h-16 flex items-center justify-center">
-                {/* Donut emoji - floats up */}
-                <span 
-                  className="absolute text-2xl transition-transform"
-                  style={{ 
-                    transform: `translateY(${floatOffset}px)`,
-                  }}
-                >
-                  🍩
-                </span>
-                {/* Sparkle - floats opposite direction, positioned to top-right */}
-                <Sparkles 
-                  className="absolute w-4 h-4 text-white transition-transform"
-                  style={{ 
-                    top: '4px',
-                    right: '4px',
-                    transform: `translateY(${-floatOffset * 0.8}px)`,
-                    filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.9))',
-                  }}
-                />
-              </div>
+              <span 
+                className="text-2xl"
+                style={{ 
+                  transform: `translateY(${floatOffset}px)`,
+                  transition: 'transform 0.1s ease-out',
+                }}
+              >
+                🍩
+              </span>
             </div>
           </div>
 
