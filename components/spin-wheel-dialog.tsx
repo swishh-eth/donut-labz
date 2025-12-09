@@ -106,7 +106,16 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
   const [error, setError] = useState<string | null>(null);
   const [ethPrice, setEthPrice] = useState<number>(0);
   const [hasRecordedSpin, setHasRecordedSpin] = useState(false);
+  const [localSpins, setLocalSpins] = useState(availableSpins);
   const isProcessingRef = useRef(false);
+  const hasStartedRef = useRef(false);
+
+  // Update local spins only when dialog opens or when idle
+  useEffect(() => {
+    if (isOpen && stage === "idle" && !hasStartedRef.current) {
+      setLocalSpins(availableSpins);
+    }
+  }, [isOpen, availableSpins, stage]);
 
   // Fetch ETH price
   useEffect(() => {
@@ -207,8 +216,9 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
 
   // Handle commit
   const handleSpin = useCallback(async () => {
-    if (!address || availableSpins <= 0 || stage !== "idle" || isProcessingRef.current) return;
+    if (!address || localSpins <= 0 || stage !== "idle" || isProcessingRef.current || hasStartedRef.current) return;
     
+    hasStartedRef.current = true;
     isProcessingRef.current = true;
     setError(null);
     const newSecret = generateSecret();
@@ -232,8 +242,9 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       setError("Failed to commit. Please try again.");
       setStage("idle");
       isProcessingRef.current = false;
+      hasStartedRef.current = false;
     }
-  }, [address, availableSpins, generateSecret, writeCommit, stage]);
+  }, [address, localSpins, generateSecret, writeCommit, stage]);
 
   // Handle reveal
   const handleReveal = useCallback(async () => {
@@ -364,6 +375,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     setError(null);
     setHasRecordedSpin(false);
     isProcessingRef.current = false;
+    hasStartedRef.current = false;
     resetCommit();
     resetReveal();
     onClose();
@@ -524,18 +536,18 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
             {stage === "idle" && (
               <>
                 <div className="text-sm text-gray-400 mb-3">
-                  You have <span className="text-amber-400 font-bold">{availableSpins}</span> spin{availableSpins !== 1 ? "s" : ""}
+                  You have <span className="text-amber-400 font-bold">{localSpins}</span> spin{localSpins !== 1 ? "s" : ""}
                 </div>
                 <button
                   onClick={handleSpin}
-                  disabled={availableSpins <= 0}
+                  disabled={localSpins <= 0 || hasStartedRef.current}
                   className={`w-full py-3 rounded-xl font-bold text-lg transition-all ${
-                    availableSpins > 0
+                    localSpins > 0
                       ? "bg-amber-500 text-black hover:bg-amber-400"
                       : "bg-zinc-800 text-gray-500 cursor-not-allowed"
                   }`}
                 >
-                  {availableSpins > 0 ? "SPIN!" : "No Spins Available"}
+                  {localSpins > 0 ? "SPIN!" : "No Spins Available"}
                 </button>
                 <div className="text-[10px] text-gray-500 mt-2">
                   Mine SPRINKLES to earn spins
