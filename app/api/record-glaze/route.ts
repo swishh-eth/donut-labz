@@ -3,7 +3,7 @@ import { recordGlaze } from '@/lib/supabase-leaderboard';
 import { decodeAbiParameters, parseAbiParameters, keccak256, toBytes } from 'viem';
 
 // Your provider address - glazes must use this to count
-const YOUR_PROVIDER_ADDRESS = '0x1cB715Ccf3a069F85a45cFCeB56b2Ec482373780'.toLowerCase();
+const YOUR_PROVIDER_ADDRESS = '0x30cb501B97c6b87B7b240755C730A9795dBB84f5'.toLowerCase();
 
 // The multicall contract address
 const MULTICALL_ADDRESS = '0x3ec144554b484C6798A683E34c8e8E222293f323'.toLowerCase();

@@ -4,7 +4,8 @@ import { createWalletClient, http, publicActions } from 'viem';
 import { base } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 
-const FEE_SPLITTER_V2 = '0x1cB715Ccf3a069F85a45cFCeB56b2Ec482373780' as `0x${string}`;
+// FeeSplitterV3 address
+const FEE_SPLITTER_V3 = '0x30cb501B97c6b87B7b240755C730A9795dBB84f5' as `0x${string}`;
 const WETH_ADDRESS = '0x4200000000000000000000000000000000000006' as `0x${string}`;
 
 const ERC20_ABI = [
@@ -20,7 +21,7 @@ const ERC20_ABI = [
 const FEE_SPLITTER_ABI = [
   {
     inputs: [],
-    name: 'unwrapAndSplit',
+    name: 'splitWETH',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
@@ -53,23 +54,23 @@ export async function GET(request: Request) {
       address: WETH_ADDRESS,
       abi: ERC20_ABI,
       functionName: 'balanceOf',
-      args: [FEE_SPLITTER_V2],
+      args: [FEE_SPLITTER_V3],
     });
 
     // If no WETH, skip
     if (wethBalance === 0n) {
       return NextResponse.json({ 
         success: true, 
-        message: 'No WETH to unwrap',
+        message: 'No WETH to split',
         wethBalance: '0',
       });
     }
 
-    // Unwrap and split
+    // Split WETH
     const hash = await client.writeContract({
-      address: FEE_SPLITTER_V2,
+      address: FEE_SPLITTER_V3,
       abi: FEE_SPLITTER_ABI,
-      functionName: 'unwrapAndSplit',
+      functionName: 'splitWETH',
     });
 
     const receipt = await client.waitForTransactionReceipt({ hash });
@@ -79,9 +80,9 @@ export async function GET(request: Request) {
       
       return NextResponse.json({
         success: true,
-        message: 'WETH unwrapped and split successfully',
+        message: 'WETH split successfully',
         txHash: hash,
-        wethUnwrapped: wethAmount.toFixed(6),
+        wethSplit: wethAmount.toFixed(6),
       });
     } else {
       throw new Error('Transaction reverted');
