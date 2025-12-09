@@ -153,6 +153,26 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     },
   });
 
+  // Check for existing commitment when dialog opens
+  const { data: commitmentData } = useReadContract({
+    address: SPIN_WHEEL_ADDRESS,
+    abi: SPIN_WHEEL_ABI,
+    functionName: "getCommitment",
+    args: address ? [address] : undefined,
+    chainId: base.id,
+    query: {
+      enabled: !!address && isOpen,
+    },
+  });
+
+  // Check if there's a pending (unrevealed, unexpired) commitment
+  const hasPendingCommit = commitmentData && 
+    commitmentData[1] > 0n && // commitBlock > 0
+    !commitmentData[2] && // not revealed
+    commitmentData[4] > 0n; // blocksUntilExpiry > 0 (not expired)
+  
+  const canRevealPending = commitmentData?.[3] ?? false; // canRevealNow
+
   // Get pool balances
   const { data: poolData } = useReadContract({
     address: SPIN_WHEEL_ADDRESS,
@@ -537,7 +557,21 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
               <div className="text-red-400 text-sm mb-3">{error}</div>
             )}
             
-            {stage === "idle" && (
+            {stage === "idle" && hasPendingCommit && (
+              <>
+                <div className="text-sm text-amber-400 mb-3">
+                  ⚠️ Previous spin pending
+                </div>
+                <div className="text-xs text-gray-400 mb-3">
+                  You have an incomplete spin from before. Please wait for it to expire.
+                </div>
+                <div className="text-[10px] text-gray-500">
+                  Expires in ~{commitmentData?.[4] ? Math.ceil(Number(commitmentData[4]) * 2 / 60) : "?"} minutes
+                </div>
+              </>
+            )}
+            
+            {stage === "idle" && !hasPendingCommit && (
               <>
                 <div className="text-sm text-gray-400 mb-3">
                   You have <span className="text-amber-400 font-bold">{localSpins}</span> spin{localSpins !== 1 ? "s" : ""}
