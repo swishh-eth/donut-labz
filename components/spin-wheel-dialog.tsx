@@ -586,6 +586,10 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     }
   }, [isApproveConfirmed, isBuying, auctionPrice, writeBuySpin]);
 
+  // Track if we've processed current buy
+  const [hasProcessedBuy, setHasProcessedBuy] = useState(false);
+  const [hasCheckedPending, setHasCheckedPending] = useState(false);
+
   // Store pending buy txHash in localStorage so we can recover if dialog closes
   useEffect(() => {
     if (buySpinHash && address) {
@@ -596,7 +600,8 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
 
   // After buy confirmed, process on backend and update state
   useEffect(() => {
-    if (isBuyConfirmed && buySpinHash && address) {
+    if (isBuyConfirmed && buySpinHash && address && !hasProcessedBuy) {
+      setHasProcessedBuy(true);
       console.log("Buy confirmed! Processing on backend...", { buySpinHash, address });
       
       // Call backend to verify and credit spin
@@ -633,11 +638,12 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
           refetchAllowance();
         });
     }
-  }, [isBuyConfirmed, buySpinHash, address, onSpinComplete, refetchAuction, refetchAllowance]);
+  }, [isBuyConfirmed, buySpinHash, address, hasProcessedBuy, onSpinComplete, refetchAuction, refetchAllowance]);
 
-  // On dialog open, check for any pending buys that need processing
+  // On dialog open, check for any pending buys that need processing (once only)
   useEffect(() => {
-    if (isOpen && address) {
+    if (isOpen && address && !hasCheckedPending) {
+      setHasCheckedPending(true);
       const pendingTxHash = localStorage.getItem(`pending-buy-${address}`);
       if (pendingTxHash) {
         console.log("Found pending buy txHash, processing:", pendingTxHash);
@@ -656,12 +662,18 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
               localStorage.removeItem(`pending-buy-${address}`);
               setLocalSpins(prev => prev + 1);
               onSpinComplete?.();
+            } else {
+              // Clear invalid pending tx
+              localStorage.removeItem(`pending-buy-${address}`);
             }
           })
-          .catch(err => console.error("Failed to process pending buy:", err));
+          .catch(err => {
+            console.error("Failed to process pending buy:", err);
+            localStorage.removeItem(`pending-buy-${address}`);
+          });
       }
     }
-  }, [isOpen, address, onSpinComplete]);
+  }, [isOpen, address, hasCheckedPending, onSpinComplete]);
 
   const handleBuySpin = useCallback(async () => {
     if (!address || isBuying || isApproving || isBuyingOnChain) return;
