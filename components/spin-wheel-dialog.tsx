@@ -340,9 +340,9 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
         setStage("result");
         
         // Record spin usage - only once per spin
-        if (!hasRecordedSpin && !isProcessingRef.current) {
-          isProcessingRef.current = true;
+        if (!hasRecordedSpin) {
           setHasRecordedSpin(true);
+          console.log("Recording spin usage:", { address, revealTxHash: revealReceipt.transactionHash, segment });
           
           fetch("/api/spins/use", {
             method: "POST",
@@ -353,9 +353,13 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
               segment,
               prizes: {},
             }),
-          }).then(() => {
+          })
+          .then(res => res.json())
+          .then(data => {
+            console.log("Spin use response:", data);
             onSpinComplete?.();
-          }).catch(console.error);
+          })
+          .catch(err => console.error("Spin use error:", err));
         }
         
       }, 5000);
