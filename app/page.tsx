@@ -109,7 +109,7 @@ export default function HomePage() {
 
   // Fetch wheel boost status
   const { data: boostInfo } = useReadContract({
-    address: "0x3ed3c1Cf26050D98B1E610fBC899a6577982c4fc" as `0x${string}`,
+    address: "0x855F3E6F870C4D4dEB4959523484be3b147c4c0C" as `0x${string}`,
     abi: [
       {
         inputs: [],

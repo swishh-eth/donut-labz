@@ -6,7 +6,7 @@ import { base } from "wagmi/chains";
 import { keccak256, encodePacked, formatEther, formatUnits } from "viem";
 import { X, Loader2, Sparkles } from "lucide-react";
 
-const SPIN_WHEEL_ADDRESS = "0x3ed3c1Cf26050D98B1E610fBC899a6577982c4fc" as `0x${string}`;
+const SPIN_WHEEL_ADDRESS = "0x855F3E6F870C4D4dEB4959523484be3b147c4c0C" as `0x${string}`;
 
 // Token addresses on Base
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C".toLowerCase();
@@ -110,6 +110,38 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
   const isProcessingRef = useRef(false);
   const hasStartedRef = useRef(false);
 
+  // Storage key for secret backup
+  const getSecretKey = (addr: string) => `spin-secret-${addr.toLowerCase()}`;
+
+  // Save secret to localStorage
+  const saveSecret = useCallback((addr: string, sec: `0x${string}`) => {
+    try {
+      localStorage.setItem(getSecretKey(addr), sec);
+    } catch (e) {
+      console.error("Failed to save secret:", e);
+    }
+  }, []);
+
+  // Load secret from localStorage
+  const loadSecret = useCallback((addr: string): `0x${string}` | null => {
+    try {
+      const saved = localStorage.getItem(getSecretKey(addr));
+      return saved as `0x${string}` | null;
+    } catch (e) {
+      console.error("Failed to load secret:", e);
+      return null;
+    }
+  }, []);
+
+  // Clear secret from localStorage
+  const clearSecret = useCallback((addr: string) => {
+    try {
+      localStorage.removeItem(getSecretKey(addr));
+    } catch (e) {
+      console.error("Failed to clear secret:", e);
+    }
+  }, []);
+
   // Update local spins only when dialog opens or when idle
   useEffect(() => {
     if (isOpen && stage === "idle" && !hasStartedRef.current) {
@@ -172,6 +204,17 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     commitmentData[4] > 0n; // blocksUntilExpiry > 0 (not expired)
   
   const canRevealPending = commitmentData?.[3] ?? false; // canRevealNow
+
+  // Check for saved secret when dialog opens with pending commit
+  useEffect(() => {
+    if (isOpen && address && hasPendingCommit && canRevealPending && stage === "idle" && !secret) {
+      const savedSecret = loadSecret(address);
+      if (savedSecret) {
+        console.log("Found saved secret for pending commit");
+        setSecret(savedSecret);
+      }
+    }
+  }, [isOpen, address, hasPendingCommit, canRevealPending, stage, loadSecret, secret]);
 
   // Get pool balances
   const { data: poolData } = useReadContract({
@@ -244,6 +287,9 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     const newSecret = generateSecret();
     setSecret(newSecret);
     
+    // Save secret to localStorage for recovery
+    saveSecret(address, newSecret);
+    
     // Create commit hash: keccak256(secret, address)
     const commitHashValue = keccak256(encodePacked(["bytes32", "address"], [newSecret, address]));
     
@@ -263,8 +309,9 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       setStage("idle");
       isProcessingRef.current = false;
       hasStartedRef.current = false;
+      clearSecret(address);
     }
-  }, [address, localSpins, generateSecret, writeCommit, stage]);
+  }, [address, localSpins, generateSecret, writeCommit, stage, saveSecret, clearSecret]);
 
   // Handle reveal
   const handleReveal = useCallback(async () => {
@@ -392,6 +439,10 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
 
   // Reset on close
   const handleClose = useCallback(() => {
+    // Only clear secret if spin is complete (result shown)
+    if (stage === "result" && address) {
+      clearSecret(address);
+    }
     setStage("idle");
     setSecret(null);
     setRotation(0);
@@ -403,7 +454,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     resetCommit();
     resetReveal();
     onClose();
-  }, [onClose, resetCommit, resetReveal]);
+  }, [onClose, resetCommit, resetReveal, stage, address, clearSecret]);
 
   if (!isOpen) return null;
 
@@ -562,12 +613,31 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                 <div className="text-sm text-amber-400 mb-3">
                   ⚠️ Previous spin pending
                 </div>
-                <div className="text-xs text-gray-400 mb-3">
-                  You have an incomplete spin from before. Please wait for it to expire.
-                </div>
-                <div className="text-[10px] text-gray-500">
-                  Expires in ~{commitmentData?.[4] ? Math.ceil(Number(commitmentData[4]) * 2 / 60) : "?"} minutes
-                </div>
+                {canRevealPending && secret ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        hasStartedRef.current = true;
+                        setStage("revealing");
+                        handleReveal();
+                      }}
+                      className="w-full py-3 rounded-xl font-bold text-lg bg-green-500 text-white hover:bg-green-400 transition-all"
+                    >
+                      RESUME SPIN!
+                    </button>
+                    <div className="text-[10px] text-gray-500 mt-2">
+                      Tap to finish your spin
+                    </div>
+                  </>
+                ) : canRevealPending ? (
+                  <div className="text-xs text-gray-400">
+                    Secret not found - waiting for expiry (~{commitmentData?.[4] ? Math.ceil(Number(commitmentData[4]) * 2 / 60) : "?"} min)
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-400">
+                    Waiting for next block...
+                  </div>
+                )}
               </>
             )}
             
