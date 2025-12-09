@@ -333,7 +333,7 @@ export default function HomePage() {
                   🔥 {wheelBoostMultiplier}x
                 </div>
               )}
-              <span className="text-3xl mb-1">🎡</span>
+              <span className="text-3xl mb-1">🎰</span>
               <div className={`text-xs font-bold ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`}>
                 Glaze Roulette
               </div>

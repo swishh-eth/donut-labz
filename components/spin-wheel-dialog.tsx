@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi";
 import { base } from "wagmi/chains";
 import { keccak256, encodePacked, formatEther, formatUnits } from "viem";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, Sparkles } from "lucide-react";
 
 const SPIN_WHEEL_ADDRESS = "0x3ed3c1Cf26050D98B1E610fBC899a6577982c4fc" as `0x${string}`;
 
@@ -362,7 +362,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
             </button>
           )}
 
-          <h2 className="text-lg font-bold text-white mb-2 text-center">🎡 Glaze Roulette</h2>
+          <h2 className="text-lg font-bold text-white mb-2 text-center">🎰 Glaze Roulette</h2>
           
           {/* Boost Banner */}
           {isBoostActive && (
@@ -382,27 +382,21 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
             </div>
           )}
           
-          {/* Pool info - show all tokens */}
-          <div className="mb-4 p-3 rounded-xl bg-zinc-900/50 border border-zinc-800">
-            <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 text-center">Prize Pool</div>
-            <div className="flex justify-center gap-4 text-sm">
-              <div className="text-center">
-                <div className="text-white font-bold">{ethPool.toFixed(2)}</div>
-                <div className="text-[10px] text-gray-500">ETH</div>
-              </div>
-              <div className="text-center">
-                <div className="text-white font-bold">{donutPool.toFixed(2)}</div>
-                <div className="text-[10px] text-gray-500">DONUT</div>
-              </div>
-              <div className="text-center">
-                <div className="text-white font-bold">{Math.floor(sprinklesPool).toLocaleString()}</div>
-                <div className="text-[10px] text-gray-500">SPRINKLES</div>
-              </div>
+          {/* Pool info - styled like leaderboard */}
+          <div className="mb-4 p-3 rounded-xl bg-zinc-900 border border-zinc-800">
+            <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-2 text-center">Prize Pool</div>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-base font-bold text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.6)]">Ξ{ethPool.toFixed(2)}</span>
+              <span className="text-base font-bold text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]">🍩{donutPool.toFixed(2)}</span>
+              <span className="text-base font-bold text-white flex items-center gap-1 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]">
+                <Sparkles className="w-4 h-4" />
+                {Math.floor(sprinklesPool).toLocaleString()}
+              </span>
             </div>
             {totalUsd > 0 && (
-              <div className="text-center mt-2 text-[10px] text-amber-400">
+              <div className="text-center mt-2 text-xs text-gray-400">
                 ≈ ${totalUsd.toFixed(2)} USD
-                {isBoostActive && <span className="text-amber-500"> • {boostMultiplier}x prizes</span>}
+                {isBoostActive && <span className="text-amber-400"> • {boostMultiplier}x</span>}
               </div>
             )}
           </div>
