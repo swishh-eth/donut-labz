@@ -13,7 +13,7 @@ import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
 import { ShareRewardButton } from "@/components/share-reward-button";
 import { SpinWheelDialog } from "@/components/spin-wheel-dialog";
-import { ArrowLeft, Gift } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
 import { useAccount } from "wagmi";
@@ -60,8 +60,8 @@ const formatTokenAmount = (
   });
 };
 
-// Custom Wheel SVG Icon
-const WheelIcon = ({ className }: { className?: string }) => (
+// Custom Roulette Wheel SVG Icon - matches the gift icon style (outlined, clean)
+const RouletteIcon = ({ className }: { className?: string }) => (
   <svg 
     viewBox="0 0 24 24" 
     fill="none" 
@@ -72,11 +72,11 @@ const WheelIcon = ({ className }: { className?: string }) => (
     className={className}
   >
     <circle cx="12" cy="12" r="10" />
-    <circle cx="12" cy="12" r="2" />
-    <line x1="12" y1="2" x2="12" y2="10" />
-    <line x1="12" y1="14" x2="12" y2="22" />
-    <line x1="2" y1="12" x2="10" y2="12" />
-    <line x1="14" y1="12" x2="22" y2="12" />
+    <circle cx="12" cy="12" r="3" />
+    <line x1="12" y1="2" x2="12" y2="9" />
+    <line x1="12" y1="15" x2="12" y2="22" />
+    <line x1="2" y1="12" x2="9" y2="12" />
+    <line x1="15" y1="12" x2="22" y2="12" />
     <line x1="4.93" y1="4.93" x2="9.17" y2="9.17" />
     <line x1="14.83" y1="14.83" x2="19.07" y2="19.07" />
     <line x1="4.93" y1="19.07" x2="9.17" y2="14.83" />
@@ -94,7 +94,6 @@ export default function HomePage() {
 
   const { address } = useAccount();
 
-  // Fetch user's available spins
   const { data: spinsData, refetch: refetchSpins } = useQuery<{ availableSpins: number }>({
     queryKey: ["user-spins", address],
     queryFn: async () => {
@@ -107,7 +106,6 @@ export default function HomePage() {
     refetchInterval: 30_000,
   });
 
-  // Fetch wheel boost status
   const { data: boostInfo } = useReadContract({
     address: "0x855F3E6F870C4D4dEB4959523484be3b147c4c0C" as `0x${string}`,
     abi: [
@@ -135,7 +133,6 @@ export default function HomePage() {
   const isWheelBoostActive = boostInfo?.[0] ?? false;
   const wheelBoostMultiplier = boostInfo?.[1] ? Number(boostInfo[1]) / 100 : 1;
 
-  // Fetch DONUT miner price
   const { data: rawMinerState } = useReadContract({
     address: CONTRACT_ADDRESSES.multicall,
     abi: MULTICALL_ABI,
@@ -147,7 +144,6 @@ export default function HomePage() {
     },
   });
 
-  // Fetch SPRINKLES miner price
   const { data: sprinklesPrice } = useReadContract({
     address: SPRINKLES_MINER_ADDRESS,
     abi: SPRINKLES_MINER_ABI,
@@ -197,7 +193,6 @@ export default function HomePage() {
 
   const resetMiner = () => setSelectedMiner(null);
 
-  // If a miner is selected, show that miner's UI
   if (selectedMiner === "donut") {
     return (
       <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -210,7 +205,6 @@ export default function HomePage() {
           }}
         >
           <div className="flex flex-1 flex-col overflow-hidden">
-            {/* Header with back button */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <button
@@ -254,7 +248,6 @@ export default function HomePage() {
           }}
         >
           <div className="flex flex-1 flex-col overflow-hidden">
-            {/* Header with back button */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <button
@@ -286,7 +279,6 @@ export default function HomePage() {
     );
   }
 
-  // Mining selection screen
   return (
     <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <AddToFarcasterDialog showOnFirstVisit={true} />
@@ -298,7 +290,6 @@ export default function HomePage() {
         }}
       >
         <div className="flex flex-1 flex-col">
-          {/* Header */}
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-2xl font-bold tracking-wide">MINE</h1>
             {context?.user && (
@@ -315,9 +306,7 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Top Row - Wheel & Claim Rewards (equal size) */}
           <div className="grid grid-cols-2 gap-2 px-2 mb-3">
-            {/* Glaze Roulette Tile */}
             <button
               onClick={() => setShowWheelDialog(true)}
               className={`h-24 rounded-xl border p-3 flex flex-col items-center justify-center transition-colors relative ${
@@ -333,7 +322,7 @@ export default function HomePage() {
                   🔥 {wheelBoostMultiplier}x
                 </div>
               )}
-              <span className="text-3xl mb-1">🎰</span>
+              <RouletteIcon className={`w-8 h-8 mb-1 ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`} />
               <div className={`text-xs font-bold ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`}>
                 Glaze Roulette
               </div>
@@ -342,11 +331,9 @@ export default function HomePage() {
               </div>
             </button>
 
-            {/* Share Rewards - Use tile prop for full-tile styling */}
             <ShareRewardButton userFid={context?.user?.fid} tile />
           </div>
 
-          {/* Spin Wheel Dialog */}
           <SpinWheelDialog
             isOpen={showWheelDialog}
             onClose={() => setShowWheelDialog(false)}
@@ -354,14 +341,11 @@ export default function HomePage() {
             onSpinComplete={() => refetchSpins()}
           />
 
-          {/* Miner Tiles - Stacked Vertically */}
           <div className="flex-1 flex flex-col gap-3 px-2">
-            {/* Donut Tile */}
             <button
               onClick={() => setSelectedMiner("donut")}
               className="relative flex-1 rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
             >
-              {/* Video Background */}
               <video
                 ref={donutVideoRef}
                 className="absolute inset-0 w-full h-full object-cover"
@@ -372,10 +356,8 @@ export default function HomePage() {
                 preload="auto"
                 src="/media/donut-loop.mp4"
               />
-              {/* Dark Overlay */}
               <div className="absolute inset-0 bg-black/60" />
               
-              {/* Content */}
               <div className="relative z-10 flex flex-col items-center justify-center h-full p-4">
                 <div className="text-base font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
                   Pay ETH
@@ -391,7 +373,6 @@ export default function HomePage() {
               </div>
             </button>
 
-            {/* Sprinkles Tile */}
             <button
               onClick={() => setSelectedMiner("sprinkles")}
               className="relative flex-1 rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"

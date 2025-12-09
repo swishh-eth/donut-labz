@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi";
 import { base } from "wagmi/chains";
 import { keccak256, encodePacked, formatEther, formatUnits } from "viem";
-import { X, Loader2, Sparkles } from "lucide-react";
+import { X, Loader2, Sparkles, ArrowLeft } from "lucide-react";
 
 const SPIN_WHEEL_ADDRESS = "0x855F3E6F870C4D4dEB4959523484be3b147c4c0C" as `0x${string}`;
 
@@ -72,13 +72,13 @@ const SPIN_WHEEL_ABI = [
   },
 ] as const;
 
-// Wheel segments with donut-themed colors
+// Wheel segments - dark theme colors
 const SEGMENTS = [
-  { label: "💀", color: "#374151", glowColor: "#6b7280", chance: 50, prize: 0 },
-  { label: "0.1%", color: "#16a34a", glowColor: "#22c55e", chance: 25, prize: 0.1 },
-  { label: "0.5%", color: "#0891b2", glowColor: "#06b6d4", chance: 15, prize: 0.5 },
-  { label: "1%", color: "#7c3aed", glowColor: "#a855f7", chance: 8, prize: 1 },
-  { label: "5%", color: "#f59e0b", glowColor: "#fbbf24", chance: 2, prize: 5 },
+  { label: "💀", color: "#18181b", glowColor: "#3f3f46", chance: 50, prize: 0 },
+  { label: "0.1%", color: "#166534", glowColor: "#22c55e", chance: 25, prize: 0.1 },
+  { label: "0.5%", color: "#0e7490", glowColor: "#06b6d4", chance: 15, prize: 0.5 },
+  { label: "1%", color: "#6d28d9", glowColor: "#a855f7", chance: 8, prize: 1 },
+  { label: "5%", color: "#b45309", glowColor: "#f59e0b", chance: 2, prize: 5 },
 ];
 
 // Segment angles for wheel (each segment's center position in degrees)
@@ -89,6 +89,30 @@ const SEGMENT_ANGLES = [
   252,  // 1% (3) - center at 252°
   324,  // 5% (4) - center at 324°
 ];
+
+// Custom Roulette Wheel Icon - matches the gift icon style
+const RouletteIcon = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="1.5" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+    className={className}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <circle cx="12" cy="12" r="3" />
+    <line x1="12" y1="2" x2="12" y2="9" />
+    <line x1="12" y1="15" x2="12" y2="22" />
+    <line x1="2" y1="12" x2="9" y2="12" />
+    <line x1="15" y1="12" x2="22" y2="12" />
+    <line x1="4.93" y1="4.93" x2="9.17" y2="9.17" />
+    <line x1="14.83" y1="14.83" x2="19.07" y2="19.07" />
+    <line x1="4.93" y1="19.07" x2="9.17" y2="14.83" />
+    <line x1="14.83" y1="9.17" x2="19.07" y2="4.93" />
+  </svg>
+);
 
 interface SpinWheelDialogProps {
   isOpen: boolean;
@@ -107,6 +131,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
   const [ethPrice, setEthPrice] = useState<number>(0);
   const [hasRecordedSpin, setHasRecordedSpin] = useState(false);
   const [localSpins, setLocalSpins] = useState(availableSpins);
+  const [floatOffset, setFloatOffset] = useState(0);
   const isProcessingRef = useRef(false);
   const hasStartedRef = useRef(false);
 
@@ -148,6 +173,19 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       setLocalSpins(availableSpins);
     }
   }, [isOpen, availableSpins, stage]);
+
+  // Floating animation for center icons
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    let frame: number;
+    const animate = () => {
+      setFloatOffset(Math.sin(Date.now() / 800) * 3);
+      frame = requestAnimationFrame(animate);
+    };
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen]);
 
   // Fetch ETH price
   useEffect(() => {
@@ -253,9 +291,6 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       sprinklesPool = Number(formatUnits(balance, 18));
     }
   }
-  
-  // Calculate USD value
-  const totalUsd = ethPool * ethPrice;
 
   const isBoostActive = boostData?.[0] ?? false;
   const boostMultiplier = boostData?.[1] ? Number(boostData[1]) / 100 : 1;
@@ -359,11 +394,6 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       const logs = revealReceipt.logs;
       let segment = 0;
       
-      // SpinRevealed event signature: keccak256("SpinRevealed(address,uint256,uint256,uint256)")
-      const SPIN_REVEALED_TOPIC = "0x" + "SpinRevealed(address,uint256,uint256,uint256)"
-        .split("")
-        .reduce((hash, char) => hash, ""); // We'll just check by contract address
-      
       // Event: SpinRevealed(address indexed user, uint256 segment, uint256 randomNumber, uint256 boostMultiplier)
       // Only 'user' is indexed (topics[1]), segment/randomNumber/boostMultiplier are in data
       for (const log of logs) {
@@ -462,64 +492,71 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
 
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={!isProcessing ? handleClose : undefined} />
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/95 backdrop-blur-md" onClick={!isProcessing ? handleClose : undefined} />
       
       <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-        <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
-          {/* Close button */}
-          {!isProcessing && (
+        <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
+          {/* Header with back button */}
+          <div className="flex items-center justify-between mb-3">
             <button
-              onClick={handleClose}
-              className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
+              onClick={!isProcessing ? handleClose : undefined}
+              disabled={isProcessing}
+              className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <X className="h-4 w-4" />
+              <ArrowLeft className="w-5 h-5 text-white" />
             </button>
-          )}
-
-          <h2 className="text-lg font-bold text-white mb-2 text-center">🎰 Glaze Roulette</h2>
+            
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <RouletteIcon className="w-5 h-5 text-amber-400" />
+              Glaze Roulette
+            </h2>
+            
+            <button
+              onClick={!isProcessing ? handleClose : undefined}
+              disabled={isProcessing}
+              className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+          </div>
           
           {/* Boost Banner */}
           {isBoostActive && (
             <div className="mb-3 p-2 rounded-lg bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border border-amber-500/50">
               <div className="flex items-center justify-center gap-2">
-                <span className="text-lg">🔥</span>
+                <span className="text-base">🔥</span>
                 <div className="text-center">
-                  <div className="text-amber-400 font-bold text-sm">
+                  <div className="text-amber-400 font-bold text-xs">
                     {boostMultiplier}x BOOST ACTIVE!
                   </div>
-                  <div className="text-amber-400/70 text-[10px]">
+                  <div className="text-amber-400/70 text-[9px]">
                     {formatBoostTime(boostTimeRemaining)} remaining
                   </div>
                 </div>
-                <span className="text-lg">🔥</span>
+                <span className="text-base">🔥</span>
               </div>
             </div>
           )}
           
           {/* Pool info - styled like leaderboard */}
-          <div className="mb-4 p-3 rounded-xl bg-zinc-900 border border-zinc-800">
-            <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-2 text-center">Prize Pool</div>
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-base font-bold text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.6)]">Ξ{ethPool.toFixed(2)}</span>
-              <span className="text-base font-bold text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]">🍩{donutPool.toFixed(2)}</span>
-              <span className="text-base font-bold text-white flex items-center gap-1 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]">
-                <Sparkles className="w-4 h-4" />
+          <div className="mb-3 p-2.5 rounded-xl bg-zinc-900 border border-zinc-800">
+            <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-1.5 text-center">Prize Pool</div>
+            <div className="flex items-center justify-center gap-3">
+              <span className="text-sm font-bold text-green-400">Ξ{ethPool.toFixed(2)}</span>
+              <span className="text-sm font-bold text-amber-400">🍩{donutPool.toFixed(2)}</span>
+              <span className="text-sm font-bold text-white flex items-center gap-0.5 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]">
+                <Sparkles className="w-3.5 h-3.5" />
                 {Math.floor(sprinklesPool).toLocaleString()}
               </span>
             </div>
-            {totalUsd > 0 && (
-              <div className="text-center mt-2 text-xs text-gray-400">
-                ≈ ${totalUsd.toFixed(2)} USD
-                {isBoostActive && <span className="text-amber-400"> • {boostMultiplier}x</span>}
-              </div>
-            )}
           </div>
 
           {/* Donut Wheel */}
-          <div className={`relative w-56 h-56 mx-auto mb-4 ${isBoostActive ? "drop-shadow-[0_0_20px_rgba(251,191,36,0.5)]" : ""}`}>
+          <div className={`relative w-52 h-52 mx-auto mb-3 ${isBoostActive ? "drop-shadow-[0_0_20px_rgba(251,191,36,0.4)]" : ""}`}>
             {/* Pointer */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-10">
-              <div className="w-0 h-0 border-l-[10px] border-r-[10px] border-t-[16px] border-l-transparent border-r-transparent border-t-amber-400 drop-shadow-lg" />
+              <div className="w-0 h-0 border-l-[10px] border-r-[10px] border-t-[16px] border-l-transparent border-r-transparent border-t-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
             </div>
             
             {/* Wheel SVG - Donut Shape */}
@@ -530,11 +567,10 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                 transform: `rotate(${rotation}deg)`,
                 transitionDuration: stage === "spinning" ? "5s" : "0s",
                 transitionTimingFunction: "cubic-bezier(0.17, 0.67, 0.12, 0.99)",
-                filter: "drop-shadow(0 0 10px rgba(251, 191, 36, 0.3))",
               }}
             >
               {/* Outer glow ring */}
-              <circle cx="100" cy="100" r="98" fill="none" stroke="rgba(251, 191, 36, 0.2)" strokeWidth="4" />
+              <circle cx="100" cy="100" r="98" fill="none" stroke="rgba(251, 191, 36, 0.15)" strokeWidth="3" />
               
               {/* Segments */}
               {SEGMENTS.map((seg, i) => {
@@ -545,7 +581,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                 
                 // Outer arc
                 const outerR = 95;
-                const innerR = 45;
+                const innerR = 40;
                 
                 const ox1 = 100 + outerR * Math.cos(startRad);
                 const oy1 = 100 + outerR * Math.sin(startRad);
@@ -566,13 +602,12 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                 
                 return (
                   <g key={i}>
-                    {/* Segment glow */}
+                    {/* Segment */}
                     <path
                       d={`M ${ox1} ${oy1} A ${outerR} ${outerR} 0 0 1 ${ox2} ${oy2} L ${ix2} ${iy2} A ${innerR} ${innerR} 0 0 0 ${ix1} ${iy1} Z`}
                       fill={seg.color}
-                      stroke={seg.glowColor}
-                      strokeWidth="1"
-                      style={{ filter: `drop-shadow(0 0 3px ${seg.glowColor})` }}
+                      stroke="#27272a"
+                      strokeWidth="1.5"
                     />
                     <text
                       x={labelX}
@@ -583,7 +618,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                       textAnchor="middle"
                       dominantBaseline="middle"
                       transform={`rotate(${labelAngle + 90}, ${labelX}, ${labelY})`}
-                      style={{ textShadow: "0 0 4px rgba(0,0,0,0.8)" }}
+                      style={{ textShadow: "0 0 4px rgba(0,0,0,0.9)" }}
                     >
                       {seg.label}
                     </text>
@@ -591,15 +626,42 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                 );
               })}
               
-              {/* Inner donut hole with glaze effect */}
-              <circle cx="100" cy="100" r="45" fill="#18181b" />
-              <circle cx="100" cy="100" r="42" fill="none" stroke="rgba(251, 191, 36, 0.3)" strokeWidth="2" />
-              
-              {/* Center donut emoji */}
-              <text x="100" y="105" fontSize="28" textAnchor="middle" dominantBaseline="middle">
-                🍩
-              </text>
+              {/* Inner donut hole */}
+              <circle cx="100" cy="100" r="40" fill="#09090b" />
+              <circle cx="100" cy="100" r="38" fill="none" stroke="#27272a" strokeWidth="2" />
             </svg>
+
+            {/* Floating Center Icons - counter-rotate to stay upright */}
+            <div 
+              className="absolute inset-0 flex items-center justify-center pointer-events-none"
+              style={{ 
+                transform: `rotate(${-rotation}deg)`,
+                transitionDuration: stage === "spinning" ? "5s" : "0s",
+                transitionTimingFunction: "cubic-bezier(0.17, 0.67, 0.12, 0.99)",
+              }}
+            >
+              <div className="relative w-16 h-16 flex items-center justify-center">
+                {/* Donut emoji - floats up */}
+                <span 
+                  className="absolute text-2xl transition-transform"
+                  style={{ 
+                    transform: `translateY(${floatOffset}px)`,
+                  }}
+                >
+                  🍩
+                </span>
+                {/* Sparkle - floats opposite direction, positioned to top-right */}
+                <Sparkles 
+                  className="absolute w-4 h-4 text-white transition-transform"
+                  style={{ 
+                    top: '4px',
+                    right: '4px',
+                    transform: `translateY(${-floatOffset * 0.8}px)`,
+                    filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.9))',
+                  }}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Status / Actions */}
@@ -610,7 +672,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
             
             {stage === "idle" && hasPendingCommit && (
               <>
-                <div className="text-sm text-amber-400 mb-3">
+                <div className="text-xs text-amber-400 mb-2">
                   ⚠️ Previous spin pending
                 </div>
                 {canRevealPending && secret ? (
@@ -621,20 +683,20 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                         setStage("revealing");
                         handleReveal();
                       }}
-                      className="w-full py-3 rounded-xl font-bold text-lg bg-green-500 text-white hover:bg-green-400 transition-all"
+                      className="w-full py-2.5 rounded-xl font-bold text-base bg-green-500 text-white hover:bg-green-400 transition-all"
                     >
                       RESUME SPIN!
                     </button>
-                    <div className="text-[10px] text-gray-500 mt-2">
+                    <div className="text-[9px] text-gray-500 mt-1.5">
                       Tap to finish your spin
                     </div>
                   </>
                 ) : canRevealPending ? (
-                  <div className="text-xs text-gray-400">
+                  <div className="text-[10px] text-gray-400">
                     Secret not found - waiting for expiry (~{commitmentData?.[4] ? Math.ceil(Number(commitmentData[4]) * 2 / 60) : "?"} min)
                   </div>
                 ) : (
-                  <div className="text-xs text-gray-400">
+                  <div className="text-[10px] text-gray-400">
                     Waiting for next block...
                   </div>
                 )}
@@ -643,67 +705,68 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
             
             {stage === "idle" && !hasPendingCommit && (
               <>
-                <div className="text-sm text-gray-400 mb-3">
+                <div className="text-sm text-gray-400 mb-2">
                   You have <span className="text-amber-400 font-bold">{localSpins}</span> spin{localSpins !== 1 ? "s" : ""}
                 </div>
                 <button
                   onClick={handleSpin}
                   disabled={localSpins <= 0 || hasStartedRef.current}
-                  className={`w-full py-3 rounded-xl font-bold text-lg transition-all ${
+                  className={`w-full py-2.5 rounded-xl font-bold text-base transition-all ${
                     localSpins > 0
-                      ? "bg-amber-500 text-black hover:bg-amber-400"
+                      ? "bg-amber-500 text-black hover:bg-amber-400 active:scale-[0.98]"
                       : "bg-zinc-800 text-gray-500 cursor-not-allowed"
                   }`}
                 >
                   {localSpins > 0 ? "SPIN!" : "No Spins Available"}
                 </button>
-                <div className="text-[10px] text-gray-500 mt-2">
+                <div className="text-[9px] text-gray-600 mt-1.5">
                   Mine SPRINKLES to earn spins
                 </div>
               </>
             )}
             
             {stage === "committing" && (
-              <div className="flex items-center justify-center gap-2 text-amber-400">
+              <div className="flex items-center justify-center gap-2 text-amber-400 py-2">
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Committing...</span>
+                <span className="text-sm">Committing...</span>
               </div>
             )}
             
             {stage === "waiting" && (
-              <div className="flex items-center justify-center gap-2 text-amber-400">
+              <div className="flex items-center justify-center gap-2 text-amber-400 py-2">
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Waiting for block...</span>
+                <span className="text-sm">Waiting for block...</span>
               </div>
             )}
             
             {stage === "revealing" && (
-              <div className="flex items-center justify-center gap-2 text-amber-400">
+              <div className="flex items-center justify-center gap-2 text-amber-400 py-2">
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Revealing...</span>
+                <span className="text-sm">Revealing...</span>
               </div>
             )}
             
             {stage === "spinning" && (
-              <div className="text-amber-400 font-bold">
-                🎰 Spinning...
+              <div className="text-amber-400 font-bold py-2 flex items-center justify-center gap-2">
+                <span className="animate-pulse">🎰</span>
+                <span>Spinning...</span>
               </div>
             )}
             
             {stage === "result" && resultSegment !== null && (
               <>
-                <div className={`text-2xl font-bold mb-2 ${resultSegment === 0 ? "text-gray-400" : "text-green-400"}`}>
-                  {resultSegment === 0 ? "😢 Nothing" : `🎉 Won ${(SEGMENTS[resultSegment].prize * boostMultiplier).toFixed(1)}%!`}
+                <div className={`text-xl font-bold mb-1.5 ${resultSegment === 0 ? "text-gray-400" : "text-green-400"}`}>
+                  {resultSegment === 0 ? "💀 Nothing" : `🎉 Won ${(SEGMENTS[resultSegment].prize * boostMultiplier).toFixed(1)}%!`}
                 </div>
                 {resultSegment > 0 && (
-                  <div className="text-sm text-gray-400 mb-3">
+                  <div className="text-xs text-gray-400 mb-2">
                     {isBoostActive && <span className="text-amber-400">🔥 {boostMultiplier}x Boosted! </span>}
                     Prizes sent to your wallet!
                   </div>
                 )}
                 <button
                   onClick={handleClose}
-                  className="w-full py-3 rounded-xl font-bold bg-white text-black hover:bg-gray-200 transition-colors"
+                  className="w-full py-2.5 rounded-xl font-bold text-base bg-white text-black hover:bg-gray-200 transition-colors"
                 >
                   Close
                 </button>
