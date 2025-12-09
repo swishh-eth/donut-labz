@@ -299,13 +299,24 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         setIsApprovalMode(false);
         setApprovalAmount("");
       }
+      // Award a spin for successful sprinkles mine (not approval)
+      if (receipt.status === "success" && !isApprovalMode && address) {
+        fetch("/api/spins/add", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            address: address,
+            txHash: receipt.transactionHash,
+          }),
+        }).catch(console.error);
+      }
       const resetTimer = setTimeout(() => {
         resetWrite();
       }, 500);
       return () => clearTimeout(resetTimer);
     }
     return;
-  }, [receipt, refetchSlot0, refetchPrice, refetchAllowance, resetWrite, showMineResult, isApprovalMode]);
+  }, [receipt, refetchSlot0, refetchPrice, refetchAllowance, resetWrite, showMineResult, isApprovalMode, address]);
 
   const minerAddress = slot0?.miner ?? zeroAddress;
   const hasMiner = minerAddress !== zeroAddress;
