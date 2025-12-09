@@ -206,7 +206,7 @@ export default function HomePage() {
   // Handle wheel dialog close with cooldown
   const handleWheelClose = () => {
     setShowWheelDialog(false);
-    setWheelCooldown(10); // 10 second cooldown
+    setWheelCooldown(30); // 30 second cooldown
   };
 
   if (selectedMiner === "donut") {

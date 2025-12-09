@@ -7,10 +7,17 @@ import { keccak256, encodePacked, formatEther, formatUnits } from "viem";
 import { Loader2, Sparkles, ArrowLeft } from "lucide-react";
 
 const SPIN_WHEEL_ADDRESS = "0x855F3E6F870C4D4dEB4959523484be3b147c4c0C" as `0x${string}`;
+const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as `0x${string}`;
+const SPIN_AUCTION_ADDRESS = "0x3f22C2258365a97FB319d23e053faB6f76d5F1b4" as `0x${string}`; // SpinAuction contract
+const LEADERBOARD_CONTRACT = "0x4681A6DeEe2D74f5DE48CEcd2A572979EA641586" as `0x${string}`;
 
-// Token addresses on Base
-const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C".toLowerCase();
+// Token addresses on Base (lowercase for comparison)
+const DONUT_ADDRESS_LOWER = DONUT_ADDRESS.toLowerCase();
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D".toLowerCase();
+
+// Auction constants (must match contract)
+const AUCTION_MIN_PRICE = 10; // 10 DONUT minimum
+const AUCTION_DECAY_PERIOD = 60 * 60; // 1 hour in seconds
 
 const SPIN_WHEEL_ABI = [
   {
@@ -68,6 +75,86 @@ const SPIN_WHEEL_ABI = [
       { name: "timeRemaining", type: "uint256" },
     ],
     stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+const ERC20_ABI = [
+  {
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    name: "approve",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    name: "transfer",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "account", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    name: "allowance",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+const SPIN_AUCTION_ABI = [
+  {
+    inputs: [],
+    name: "getCurrentPrice",
+    outputs: [{ name: "currentPrice", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getAuctionState",
+    outputs: [
+      { name: "currentPrice", type: "uint256" },
+      { name: "_peakPrice", type: "uint256" },
+      { name: "_lastPurchaseTime", type: "uint256" },
+      { name: "timeUntilMinPrice", type: "uint256" },
+      { name: "_minPrice", type: "uint256" },
+      { name: "_decayPeriod", type: "uint256" },
+      { name: "_priceMultiplier", type: "uint256" },
+      { name: "_buyingEnabled", type: "bool" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "buySpin",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "maxPrice", type: "uint256" }],
+    name: "buySpinWithMaxPrice",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function",
   },
 ] as const;
@@ -138,6 +225,9 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
   const [floatOffset, setFloatOffset] = useState(0);
   const [continuousRotation, setContinuousRotation] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [auctionPrice, setAuctionPrice] = useState(AUCTION_MIN_PRICE);
+  const [lastPurchaseTime, setLastPurchaseTime] = useState<number | null>(null);
+  const [isBuying, setIsBuying] = useState(false);
   const animationRef = useRef<number | null>(null);
   const clickSoundRef = useRef<HTMLAudioElement | null>(null);
   const clickIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -245,6 +335,56 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     };
   }, []);
 
+  // Fetch and calculate auction price from contract
+  const { data: auctionState, refetch: refetchAuction } = useReadContract({
+    address: SPIN_AUCTION_ADDRESS,
+    abi: SPIN_AUCTION_ABI,
+    functionName: "getAuctionState",
+    chainId: base.id,
+    query: {
+      refetchInterval: 5000, // Update every 5 seconds
+      enabled: isOpen,
+    },
+  });
+
+  // Update auction price from contract data
+  const auctionBuyingEnabled = auctionState?.[7] ?? true;
+  
+  useEffect(() => {
+    if (auctionState) {
+      const priceInDonut = Number(auctionState[0]) / 1e18;
+      setAuctionPrice(priceInDonut);
+    }
+  }, [auctionState]);
+
+  // Check DONUT allowance for auction contract
+  const { data: donutAllowance, refetch: refetchAllowance } = useReadContract({
+    address: DONUT_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: address ? [address, SPIN_AUCTION_ADDRESS] : undefined,
+    chainId: base.id,
+    query: {
+      enabled: !!address && isOpen,
+    },
+  });
+
+  // Check DONUT balance
+  const { data: donutBalance } = useReadContract({
+    address: DONUT_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    chainId: base.id,
+    query: {
+      enabled: !!address && isOpen,
+    },
+  });
+
+  const userDonutBalance = donutBalance ? Number(donutBalance) / 1e18 : 0;
+  const currentAllowance = donutAllowance ? Number(donutAllowance) / 1e18 : 0;
+  const needsApproval = currentAllowance < auctionPrice;
+
   // Contract writes
   const { data: commitHash, writeContract: writeCommit, isPending: isCommitting, reset: resetCommit } = useWriteContract();
   const { data: revealHash, writeContract: writeReveal, isPending: isRevealing, reset: resetReveal } = useWriteContract();
@@ -335,7 +475,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
   for (let i = 0; i < tokenAddresses.length; i++) {
     const addr = (tokenAddresses[i] as string).toLowerCase();
     const balance = tokenBalances[i] as bigint;
-    if (addr === DONUT_ADDRESS) {
+    if (addr === DONUT_ADDRESS_LOWER) {
       donutPool = Number(formatUnits(balance, 18));
     } else if (addr === SPRINKLES_ADDRESS) {
       sprinklesPool = Number(formatUnits(balance, 18));
@@ -434,6 +574,109 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       setStage("waiting");
     }
   }, [secret, writeReveal]);
+
+  // Handle buy spin - on-chain transaction
+  const { writeContract: writeApprove, data: approveHash, isPending: isApproving } = useWriteContract();
+  const { writeContract: writeBuySpin, data: buySpinHash, isPending: isBuyingOnChain } = useWriteContract();
+  
+  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useWaitForTransactionReceipt({
+    hash: approveHash,
+    chainId: base.id,
+  });
+  
+  const { isLoading: isBuyConfirming, isSuccess: isBuyConfirmed } = useWaitForTransactionReceipt({
+    hash: buySpinHash,
+    chainId: base.id,
+  });
+
+  // After approval confirmed, trigger buy
+  useEffect(() => {
+    if (isApproveConfirmed && isBuying) {
+      // Now buy the spin
+      const priceInWei = BigInt(Math.ceil(auctionPrice * 1.1 * 1e18)); // 10% slippage buffer
+      writeBuySpin({
+        address: SPIN_AUCTION_ADDRESS,
+        abi: SPIN_AUCTION_ABI,
+        functionName: "buySpinWithMaxPrice",
+        args: [priceInWei],
+        chainId: base.id,
+      });
+    }
+  }, [isApproveConfirmed, isBuying, auctionPrice, writeBuySpin]);
+
+  // After buy confirmed, process on backend and update state
+  useEffect(() => {
+    if (isBuyConfirmed && isBuying && buySpinHash) {
+      // Call backend to verify and credit spin
+      fetch("/api/spin-auction/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          txHash: buySpinHash,
+          address,
+        }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setLocalSpins(prev => prev + 1);
+            onSpinComplete?.();
+          } else {
+            setError(data.error || "Failed to credit spin");
+          }
+        })
+        .catch(err => {
+          console.error("Process error:", err);
+          setError("Failed to credit spin - contact support");
+        })
+        .finally(() => {
+          setIsBuying(false);
+          refetchAuction();
+          refetchAllowance();
+        });
+    }
+  }, [isBuyConfirmed, isBuying, buySpinHash, address, onSpinComplete, refetchAuction, refetchAllowance]);
+
+  const handleBuySpin = useCallback(async () => {
+    if (!address || isBuying || isApproving || isBuyingOnChain) return;
+    
+    // Check balance
+    if (userDonutBalance < auctionPrice) {
+      setError(`Insufficient DONUT. Need ${auctionPrice.toFixed(0)}, have ${userDonutBalance.toFixed(2)}`);
+      return;
+    }
+    
+    setIsBuying(true);
+    setError(null);
+    
+    try {
+      if (needsApproval) {
+        // First approve
+        const approveAmount = BigInt(Math.ceil(auctionPrice * 1.1 * 1e18)); // 10% buffer
+        writeApprove({
+          address: DONUT_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: "approve",
+          args: [SPIN_AUCTION_ADDRESS, approveAmount],
+          chainId: base.id,
+        });
+      } else {
+        // Already approved, just buy
+        const priceInWei = BigInt(Math.ceil(auctionPrice * 1.1 * 1e18)); // 10% slippage buffer
+        writeBuySpin({
+          address: SPIN_AUCTION_ADDRESS,
+          abi: SPIN_AUCTION_ABI,
+          functionName: "buySpinWithMaxPrice",
+          args: [priceInWei],
+          chainId: base.id,
+        });
+      }
+    } catch (err: any) {
+      console.error("Buy spin error:", err);
+      setError(err.message || "Failed to buy spin");
+      setIsBuying(false);
+    }
+  }, [address, auctionPrice, isBuying, isApproving, isBuyingOnChain, needsApproval, userDonutBalance, writeApprove, writeBuySpin]);
 
   // Watch commit confirmation
   useEffect(() => {
@@ -557,10 +800,6 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
 
   // Reset on close
   const handleClose = useCallback(() => {
-    // Don't allow closing while processing unless it's an error
-    const currentlyProcessing = stage !== "idle" && stage !== "result";
-    if (currentlyProcessing && !error) return;
-    
     // Stop any animation
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
@@ -588,7 +827,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     resetCommit();
     resetReveal();
     onClose();
-  }, [onClose, resetCommit, resetReveal, stage, address, clearSecret, error]);
+  }, [onClose, resetCommit, resetReveal, stage, address, clearSecret]);
 
   if (!isOpen) return null;
 
@@ -808,8 +1047,47 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                 >
                   {localSpins > 0 ? "SPIN!" : "No Spins Available"}
                 </button>
-                <div className="text-[9px] text-gray-600 mt-1.5">
-                  Mine SPRINKLES to earn spins
+                
+                {/* Buy Spin Section */}
+                <div className="mt-3 pt-3 border-t border-zinc-800">
+                  <div className="text-[10px] text-gray-500 mb-2">Or buy a spin instantly</div>
+                  {!auctionBuyingEnabled ? (
+                    <div className="w-full py-2 rounded-xl text-sm bg-zinc-800 text-gray-500 text-center">
+                      Buying Temporarily Disabled
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleBuySpin}
+                      disabled={isBuying || isApproving || isBuyingOnChain || isApproveConfirming || isBuyConfirming || userDonutBalance < auctionPrice}
+                      className="w-full py-2 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-600 to-orange-600 text-white hover:from-amber-500 hover:to-orange-500 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isApproving || isApproveConfirming ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Approving DONUT...
+                        </span>
+                      ) : isBuyingOnChain || isBuyConfirming ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Buying Spin...
+                        </span>
+                      ) : userDonutBalance < auctionPrice ? (
+                        <>Insufficient DONUT</>
+                      ) : needsApproval ? (
+                        <>Approve & Buy - 🍩{auctionPrice.toFixed(0)}</>
+                      ) : (
+                        <>Buy Spin - 🍩{auctionPrice.toFixed(0)}</>
+                      )}
+                    </button>
+                  )}
+                  <div className="text-[8px] text-gray-600 mt-1 flex justify-between">
+                    <span>Price doubles, decays to 10 over 1hr</span>
+                    <span>Balance: 🍩{userDonutBalance.toFixed(1)}</span>
+                  </div>
+                </div>
+                
+                <div className="text-[9px] text-gray-600 mt-2">
+                  Mine SPRINKLES to earn free spins
                 </div>
               </>
             )}
@@ -837,7 +1115,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
             
             {stage === "spinning" && (
               <div className="text-amber-400 font-bold py-2 flex items-center justify-center gap-2">
-                <span className="animate-pulse">🎰</span>
+                <Loader2 className="w-5 h-5 animate-spin" />
                 <span>Spinning...</span>
               </div>
             )}
