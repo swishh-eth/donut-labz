@@ -206,7 +206,7 @@ const SPIN_SPEED = 8; // degrees per frame for continuous spin
 
 interface SpinWheelDialogProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose: (hadTransaction?: boolean) => void;
   availableSpins: number;
   onSpinComplete?: () => void;
 }
@@ -230,8 +230,6 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
   const [lastPurchaseTime, setLastPurchaseTime] = useState<number | null>(null);
   const [isBuying, setIsBuying] = useState(false);
   const animationRef = useRef<number | null>(null);
-  const clickSoundRef = useRef<HTMLAudioElement | null>(null);
-  const clickIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isProcessingRef = useRef(false);
   const hasStartedRef = useRef(false);
 
@@ -324,17 +322,6 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       })
       .catch(() => setDonutPrice(0));
   }, [isOpen]);
-
-  // Initialize click sound
-  useEffect(() => {
-    clickSoundRef.current = new Audio("/sounds/wheel-click.mp3");
-    clickSoundRef.current.volume = 0.3;
-    return () => {
-      if (clickIntervalRef.current) {
-        clearInterval(clickIntervalRef.current);
-      }
-    };
-  }, []);
 
   // Fetch and calculate auction price from contract
   const { data: auctionState, refetch: refetchAuction } = useReadContract({
@@ -515,16 +502,6 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     setIsAnimating(true);
     setContinuousRotation(0);
     
-    // Start click sound interval
-    if (clickSoundRef.current) {
-      clickIntervalRef.current = setInterval(() => {
-        if (clickSoundRef.current) {
-          clickSoundRef.current.currentTime = 0;
-          clickSoundRef.current.play().catch(() => {});
-        }
-      }, 150);
-    }
-    
     hasStartedRef.current = true;
     isProcessingRef.current = true;
     setError(null);
@@ -552,7 +529,6 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       setError("Failed to commit. Please try again.");
       setStage("idle");
       setIsAnimating(false);
-      if (clickIntervalRef.current) clearInterval(clickIntervalRef.current);
       isProcessingRef.current = false;
       hasStartedRef.current = false;
       clearSecret(address);
@@ -745,22 +721,6 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       }
       setIsAnimating(false);
       
-      // Slow down and stop click sound
-      if (clickIntervalRef.current) {
-        clearInterval(clickIntervalRef.current);
-        // Play a few slower clicks as it slows down
-        let clickDelay = 200;
-        const slowClicks = () => {
-          if (clickDelay < 600 && clickSoundRef.current) {
-            clickSoundRef.current.currentTime = 0;
-            clickSoundRef.current.play().catch(() => {});
-            clickDelay += 100;
-            setTimeout(slowClicks, clickDelay);
-          }
-        };
-        slowClicks();
-      }
-      
       // Calculate rotation to land on correct segment
       // Start from current continuous rotation, add spins, land on segment
       const targetAngle = SEGMENT_ANGLES[segment];
@@ -806,14 +766,12 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
 
   // Reset on close
   const handleClose = useCallback(() => {
+    // Check if any transaction was submitted (spin or buy)
+    const hadTransaction = hasStartedRef.current || !!commitHash || !!approveHash || !!buySpinHash;
+    
     // Stop any animation
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
-    }
-    
-    // Stop click sound
-    if (clickIntervalRef.current) {
-      clearInterval(clickIntervalRef.current);
     }
     
     // Only clear secret if spin is complete (result shown)
@@ -832,8 +790,8 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     hasStartedRef.current = false;
     resetCommit();
     resetReveal();
-    onClose();
-  }, [onClose, resetCommit, resetReveal, stage, address, clearSecret]);
+    onClose(hadTransaction);
+  }, [onClose, resetCommit, resetReveal, stage, address, clearSecret, commitHash, approveHash, buySpinHash]);
 
   if (!isOpen) return null;
 
