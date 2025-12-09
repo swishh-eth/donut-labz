@@ -9,7 +9,7 @@ const supabase = createClient(
 
 const SPRINKLES_MINER_ADDRESS = "0x213d676d6d5c71d7f35a4213034e32739bd8f125";
 
-// POST - Add a spin when user becomes king glazer on sprinkles miner
+// POST - Add a spin when user mines sprinkles
 export async function POST(request: Request) {
   try {
     const { address, txHash } = await request.json();
@@ -52,30 +52,9 @@ export async function POST(request: Request) {
     }
 
     // Verify it was sent to the sprinkles miner contract
-    if (receiptData.result.to?.toLowerCase() !== SPRINKLES_MINER_ADDRESS?.toLowerCase()) {
+    if (receiptData.result.to?.toLowerCase() !== SPRINKLES_MINER_ADDRESS.toLowerCase()) {
       return NextResponse.json(
         { success: false, error: 'Invalid contract - not sprinkles miner' },
-        { status: 400 }
-      );
-    }
-
-    // Verify sender matches
-    const txResponse = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getTransactionByHash',
-        params: [txHash],
-        id: 2,
-      }),
-    });
-    
-    const txData = await txResponse.json();
-    
-    if (txData.result?.from?.toLowerCase() !== address.toLowerCase()) {
-      return NextResponse.json(
-        { success: false, error: 'Address mismatch' },
         { status: 400 }
       );
     }

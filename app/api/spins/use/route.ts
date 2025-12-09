@@ -7,7 +7,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const SPIN_WHEEL_ADDRESS = process.env.NEXT_PUBLIC_SPIN_WHEEL_ADDRESS;
+const SPIN_WHEEL_ADDRESS = "0x3ed3c1Cf26050D98B1E610fBC899a6577982c4fc";
 
 // POST - Use a spin after successful reveal
 export async function POST(request: Request) {
@@ -52,30 +52,9 @@ export async function POST(request: Request) {
     }
 
     // Verify it was sent to the spin wheel contract
-    if (receiptData.result.to?.toLowerCase() !== SPIN_WHEEL_ADDRESS?.toLowerCase()) {
+    if (receiptData.result.to?.toLowerCase() !== SPIN_WHEEL_ADDRESS.toLowerCase()) {
       return NextResponse.json(
         { success: false, error: 'Invalid contract' },
-        { status: 400 }
-      );
-    }
-
-    // Verify sender matches
-    const txResponse = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getTransactionByHash',
-        params: [revealTxHash],
-        id: 2,
-      }),
-    });
-    
-    const txData = await txResponse.json();
-    
-    if (txData.result?.from?.toLowerCase() !== address.toLowerCase()) {
-      return NextResponse.json(
-        { success: false, error: 'Address mismatch' },
         { status: 400 }
       );
     }
@@ -113,18 +92,21 @@ export async function POST(request: Request) {
       throw updateError;
     }
 
-    // Record in spin history
-    await supabase
-      .from('spin_history')
-      .insert({
-        address: address.toLowerCase(),
-        commit_hash: '', // Could pass this from frontend
-        reveal_tx_hash: revealTxHash,
-        segment,
-        prizes,
-        status: 'revealed',
-        revealed_at: new Date().toISOString(),
-      });
+    // Record in spin history (optional - don't fail if this errors)
+    try {
+      await supabase
+        .from('spin_history')
+        .insert({
+          address: address.toLowerCase(),
+          reveal_tx_hash: revealTxHash,
+          segment,
+          prizes,
+          status: 'revealed',
+          revealed_at: new Date().toISOString(),
+        });
+    } catch (e) {
+      console.error('Failed to record spin history:', e);
+    }
 
     return NextResponse.json({
       success: true,
