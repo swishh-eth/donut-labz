@@ -276,21 +276,36 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       const logs = revealReceipt.logs;
       let segment = 0;
       
-      // Find the SpinRevealed event (first topic is event signature)
+      // SpinRevealed event signature: keccak256("SpinRevealed(address,uint256,uint256,uint256)")
+      const SPIN_REVEALED_TOPIC = "0x" + "SpinRevealed(address,uint256,uint256,uint256)"
+        .split("")
+        .reduce((hash, char) => hash, ""); // We'll just check by contract address
+      
+      // Event: SpinRevealed(address indexed user, uint256 segment, uint256 randomNumber, uint256 boostMultiplier)
+      // Only 'user' is indexed (topics[1]), segment/randomNumber/boostMultiplier are in data
       for (const log of logs) {
         if (log.address.toLowerCase() === SPIN_WHEEL_ADDRESS.toLowerCase()) {
-          // Parse segment from data (third parameter after user and randomNumber)
           try {
-            // Event: SpinRevealed(address indexed user, uint256 segment, uint256 randomNumber, uint256 boostMultiplier)
-            // segment is the second topic (indexed) or in data
-            if (log.topics.length > 1) {
-              segment = parseInt(log.topics[1] as string, 16);
+            // data contains: segment (32 bytes) + randomNumber (32 bytes) + boostMultiplier (32 bytes)
+            // Each uint256 is 32 bytes (64 hex chars)
+            const data = log.data;
+            if (data && data.length >= 66) { // 0x + 64 chars minimum
+              // First 32 bytes (chars 2-66) is the segment
+              const segmentHex = data.slice(2, 66);
+              segment = parseInt(segmentHex, 16);
+              console.log("Parsed segment from log:", segment, "raw hex:", segmentHex);
             }
           } catch (e) {
             console.error("Failed to parse segment:", e);
           }
           break;
         }
+      }
+      
+      // Validate segment is in valid range
+      if (segment < 0 || segment > 4) {
+        console.warn("Invalid segment:", segment, "defaulting to 0");
+        segment = 0;
       }
       
       setResultSegment(segment);
