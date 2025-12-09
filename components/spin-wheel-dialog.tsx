@@ -573,6 +573,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
   // After approval confirmed, trigger buy
   useEffect(() => {
     if (isApproveConfirmed && isBuying) {
+      console.log("Approval confirmed, now buying spin...");
       // Now buy the spin
       const priceInWei = BigInt(Math.ceil(auctionPrice * 1.1 * 1e18)); // 10% slippage buffer
       writeBuySpin({
@@ -585,9 +586,19 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     }
   }, [isApproveConfirmed, isBuying, auctionPrice, writeBuySpin]);
 
+  // Store pending buy txHash in localStorage so we can recover if dialog closes
+  useEffect(() => {
+    if (buySpinHash && address) {
+      console.log("Storing pending buy txHash:", buySpinHash);
+      localStorage.setItem(`pending-buy-${address}`, buySpinHash);
+    }
+  }, [buySpinHash, address]);
+
   // After buy confirmed, process on backend and update state
   useEffect(() => {
-    if (isBuyConfirmed && isBuying && buySpinHash) {
+    if (isBuyConfirmed && buySpinHash && address) {
+      console.log("Buy confirmed! Processing on backend...", { buySpinHash, address });
+      
       // Call backend to verify and credit spin
       fetch("/api/spin-auction/process", {
         method: "POST",
@@ -597,9 +608,15 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
           address,
         }),
       })
-        .then(res => res.json())
+        .then(res => {
+          console.log("API response status:", res.status);
+          return res.json();
+        })
         .then(data => {
+          console.log("API response data:", data);
           if (data.success) {
+            // Clear pending buy
+            localStorage.removeItem(`pending-buy-${address}`);
             setLocalSpins(prev => prev + 1);
             onSpinComplete?.();
           } else {
@@ -616,7 +633,35 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
           refetchAllowance();
         });
     }
-  }, [isBuyConfirmed, isBuying, buySpinHash, address, onSpinComplete, refetchAuction, refetchAllowance]);
+  }, [isBuyConfirmed, buySpinHash, address, onSpinComplete, refetchAuction, refetchAllowance]);
+
+  // On dialog open, check for any pending buys that need processing
+  useEffect(() => {
+    if (isOpen && address) {
+      const pendingTxHash = localStorage.getItem(`pending-buy-${address}`);
+      if (pendingTxHash) {
+        console.log("Found pending buy txHash, processing:", pendingTxHash);
+        fetch("/api/spin-auction/process", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            txHash: pendingTxHash,
+            address,
+          }),
+        })
+          .then(res => res.json())
+          .then(data => {
+            console.log("Pending buy process result:", data);
+            if (data.success) {
+              localStorage.removeItem(`pending-buy-${address}`);
+              setLocalSpins(prev => prev + 1);
+              onSpinComplete?.();
+            }
+          })
+          .catch(err => console.error("Failed to process pending buy:", err));
+      }
+    }
+  }, [isOpen, address, onSpinComplete]);
 
   const handleBuySpin = useCallback(async () => {
     if (!address || isBuying || isApproving || isBuyingOnChain) return;
