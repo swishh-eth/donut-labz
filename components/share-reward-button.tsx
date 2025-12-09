@@ -225,16 +225,14 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   }, [claimedAmount, tokenSymbol]);
 
   const handleVerifyAndClaim = async () => {
-    if (!userFid) return;
+    if (!userFid) {
+      setVerifyError("Farcaster user not detected. Please open in Warpcast.");
+      return;
+    }
 
     // If no address, try to connect wallet first
     if (!address) {
-      try {
-        // Trigger wallet connection via Farcaster SDK
-        await sdk.actions.openUrl("https://warpcast.com");
-      } catch (e) {
-        setVerifyError("Please connect your wallet first");
-      }
+      setVerifyError("Please connect your wallet first");
       return;
     }
 
@@ -391,15 +389,34 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
       );
     }
 
-    // Has shared - show verify button
+    // Has shared - show verify button (or error)
     if (hasShared) {
+      // Show error if there is one
+      if (verifyError) {
+        return (
+          <button
+            onClick={() => {
+              setVerifyError(null);
+              setHasShared(false);
+            }}
+            className="h-24 rounded-xl border border-red-500/50 bg-red-950/30 p-3 flex flex-col items-center justify-center transition-colors"
+          >
+            <XCircle className="w-6 h-6 text-red-400 mb-1" />
+            <div className="text-[10px] font-bold text-red-400 text-center line-clamp-2">
+              {verifyError}
+            </div>
+            <div className="text-[9px] text-red-400/70">Tap to retry</div>
+          </button>
+        );
+      }
+
       return (
         <button
           onClick={handleVerifyAndClaim}
-          disabled={isVerifying || !userFid}
+          disabled={isVerifying}
           className={cn(
             "h-24 rounded-xl border border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20 p-3 flex flex-col items-center justify-center transition-colors",
-            (isVerifying || !userFid) && "opacity-50 cursor-not-allowed"
+            isVerifying && "opacity-50 cursor-not-allowed"
           )}
         >
           {isVerifying ? (
