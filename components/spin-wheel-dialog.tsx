@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi";
 import { base } from "wagmi/chains";
 import { keccak256, encodePacked, formatEther, formatUnits } from "viem";
@@ -105,6 +105,8 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
   const [resultSegment, setResultSegment] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ethPrice, setEthPrice] = useState<number>(0);
+  const [hasRecordedSpin, setHasRecordedSpin] = useState(false);
+  const isProcessingRef = useRef(false);
 
   // Fetch ETH price
   useEffect(() => {
@@ -205,8 +207,9 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
 
   // Handle commit
   const handleSpin = useCallback(async () => {
-    if (!address || availableSpins <= 0) return;
+    if (!address || availableSpins <= 0 || stage !== "idle" || isProcessingRef.current) return;
     
+    isProcessingRef.current = true;
     setError(null);
     const newSecret = generateSecret();
     setSecret(newSecret);
@@ -228,8 +231,9 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       console.error("Commit error:", err);
       setError("Failed to commit. Please try again.");
       setStage("idle");
+      isProcessingRef.current = false;
     }
-  }, [address, availableSpins, generateSecret, writeCommit]);
+  }, [address, availableSpins, generateSecret, writeCommit, stage]);
 
   // Handle reveal
   const handleReveal = useCallback(async () => {
@@ -271,7 +275,8 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
 
   // Watch reveal confirmation and animate wheel
   useEffect(() => {
-    if (revealReceipt?.status === "success") {
+    // Guard against multiple fires
+    if (revealReceipt?.status === "success" && stage === "revealing") {
       // Parse the SpinRevealed event from logs
       const logs = revealReceipt.logs;
       let segment = 0;
@@ -323,19 +328,24 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       setTimeout(() => {
         setStage("result");
         
-        // Record spin usage
-        fetch("/api/spins/use", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            address,
-            revealTxHash: revealReceipt.transactionHash,
-            segment,
-            prizes: {},
-          }),
-        }).then(() => {
-          onSpinComplete?.();
-        }).catch(console.error);
+        // Record spin usage - only once per spin
+        if (!hasRecordedSpin && !isProcessingRef.current) {
+          isProcessingRef.current = true;
+          setHasRecordedSpin(true);
+          
+          fetch("/api/spins/use", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              address,
+              revealTxHash: revealReceipt.transactionHash,
+              segment,
+              prizes: {},
+            }),
+          }).then(() => {
+            onSpinComplete?.();
+          }).catch(console.error);
+        }
         
       }, 5000);
       
@@ -343,7 +353,7 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
       setError("Reveal transaction failed");
       setStage("idle");
     }
-  }, [revealReceipt, address, onSpinComplete]);
+  }, [revealReceipt, address, onSpinComplete, hasRecordedSpin, stage]);
 
   // Reset on close
   const handleClose = useCallback(() => {
@@ -352,6 +362,8 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
     setRotation(0);
     setResultSegment(null);
     setError(null);
+    setHasRecordedSpin(false);
+    isProcessingRef.current = false;
     resetCommit();
     resetReveal();
     onClose();
