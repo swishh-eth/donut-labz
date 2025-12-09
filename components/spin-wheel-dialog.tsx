@@ -896,8 +896,8 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
             </div>
           </div>
 
-          {/* Donut Wheel - Larger with white glow */}
-          <div className={`relative w-56 h-56 mx-auto mb-2 ${isBoostActive ? "drop-shadow-[0_0_20px_rgba(251,191,36,0.4)]" : "drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"}`}>
+          {/* Donut Wheel */}
+          <div className={`relative w-56 h-56 mx-auto mb-2 ${isBoostActive ? "drop-shadow-[0_0_20px_rgba(251,191,36,0.4)]" : ""}`}>
             {/* Pointer */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-10">
               <div className="w-0 h-0 border-l-[12px] border-r-[12px] border-t-[20px] border-l-transparent border-r-transparent border-t-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
@@ -1056,57 +1056,61 @@ export function SpinWheelDialog({ isOpen, onClose, availableSpins, onSpinComplet
                 
                 {/* Buy Spin Section */}
                 <div className="mt-2">
-                  <div className="text-[10px] text-gray-500 mb-2">Or buy a spin instantly</div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] text-gray-500">Or buy a spin instantly</span>
+                    <span className="text-[11px] text-amber-400 font-mono">🍩{auctionPrice.toFixed(2)}</span>
+                  </div>
                   {!auctionBuyingEnabled ? (
                     <div className="w-full py-2 rounded-xl text-sm bg-zinc-800 text-gray-500 text-center">
                       Buying Temporarily Disabled
                     </div>
-                  ) : (
+                  ) : needsApproval ? (
                     <>
-                      {/* Approval Amount Input - only show if needs approval */}
-                      {needsApproval && (
-                        <div className="mb-2">
-                          <div className="text-[9px] text-gray-500 mb-1">Approval Amount (DONUT)</div>
-                          <input
-                            type="number"
-                            value={approvalAmount}
-                            onChange={(e) => setApprovalAmount(e.target.value)}
-                            placeholder={Math.ceil(auctionPrice * 1.5).toString()}
-                            className="w-full px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm focus:border-amber-500 focus:outline-none"
-                          />
-                          <div className="text-[8px] text-gray-600 mt-0.5">
-                            Set higher for multiple purchases without re-approving
-                          </div>
-                        </div>
-                      )}
+                      <input
+                        type="number"
+                        value={approvalAmount}
+                        onChange={(e) => setApprovalAmount(e.target.value)}
+                        placeholder="Set approval amount"
+                        className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-sm focus:border-amber-500 focus:outline-none placeholder-gray-500 mb-1.5"
+                      />
                       <button
                         onClick={handleBuySpin}
-                        disabled={isBuying || isApproving || isBuyingOnChain || isApproveConfirming || isBuyConfirming || userDonutBalance < auctionPrice}
+                        disabled={isBuying || isApproving || isApproveConfirming || userDonutBalance < auctionPrice || !approvalAmount}
                         className="w-full py-2 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-600 to-orange-600 text-white hover:from-amber-500 hover:to-orange-500 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isApproving || isApproveConfirming ? (
                           <span className="flex items-center justify-center gap-2">
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            Approving DONUT...
-                          </span>
-                        ) : isBuyingOnChain || isBuyConfirming ? (
-                          <span className="flex items-center justify-center gap-2">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Buying Spin...
+                            Approving...
                           </span>
                         ) : userDonutBalance < auctionPrice ? (
                           <>Insufficient DONUT</>
-                        ) : needsApproval ? (
-                          <>Approve & Buy - 🍩{auctionPrice.toFixed(0)}</>
                         ) : (
-                          <>Buy Spin - 🍩{auctionPrice.toFixed(0)}</>
+                          <>Approve & Buy</>
                         )}
                       </button>
                     </>
+                  ) : (
+                    <button
+                      onClick={handleBuySpin}
+                      disabled={isBuying || isBuyingOnChain || isBuyConfirming || userDonutBalance < auctionPrice}
+                      className="w-full py-2 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-600 to-orange-600 text-white hover:from-amber-500 hover:to-orange-500 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isBuyingOnChain || isBuyConfirming ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Buying...
+                        </span>
+                      ) : userDonutBalance < auctionPrice ? (
+                        <>Insufficient DONUT</>
+                      ) : (
+                        <>Buy Spin</>
+                      )}
+                    </button>
                   )}
                   <div className="text-[8px] text-gray-600 mt-1 flex justify-between">
-                    <span>Price doubles, decays to 10 over 1hr</span>
-                    <span>Balance: 🍩{userDonutBalance.toFixed(1)}</span>
+                    <span>Doubles on buy, decays to 10</span>
+                    <span>Bal: 🍩{userDonutBalance.toFixed(0)}</span>
                   </div>
                 </div>
               </>
