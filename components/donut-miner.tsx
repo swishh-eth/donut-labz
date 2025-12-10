@@ -80,7 +80,7 @@ const formatTokenAmount = (
   });
 };
 
-const formatEth = (value: bigint, maximumFractionDigits = 4) => {
+const formatEth = (value: bigint, maximumFractionDigits = 3) => {
   if (value === 0n) return "0";
   const asNumber = Number(formatEther(value));
   if (!Number.isFinite(asNumber)) {
@@ -485,7 +485,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     ? formatTokenAmount(minerState.nextDps, DONUT_DECIMALS, 4)
     : "—";
   const glazePriceDisplay = minerState
-    ? formatEth(minerState.price, minerState.price === 0n ? 0 : 5)
+    ? formatEth(minerState.price, 3)
     : "—";
   const glazedDisplay =
     minerState && interpolatedGlazed !== null
@@ -536,7 +536,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     const pnlEth = Number(formatEther(absolutePnl));
     const pnlUsd = pnlEth * ethUsdPrice;
     return {
-      eth: `${isPositive ? "+" : "-"}Ξ${formatEth(absolutePnl, 5)}`,
+      eth: `${isPositive ? "+" : "-"}Ξ${formatEth(absolutePnl, 3)}`,
       usd: `${isPositive ? "+" : "-"}$${pnlUsd.toFixed(2)}`,
       isPositive,
     };
@@ -563,13 +563,14 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     ? (occupantInitialsSource?.slice(-2) ?? "??").toUpperCase()
     : initialsFrom(occupantInitialsSource);
 
+  // Whole donuts only (no decimals)
   const donutBalanceDisplay =
     minerState && minerState.donutBalance !== undefined
-      ? formatTokenAmount(minerState.donutBalance, DONUT_DECIMALS, 2)
+      ? Math.floor(Number(formatUnits(minerState.donutBalance, DONUT_DECIMALS))).toLocaleString()
       : "—";
   const ethBalanceDisplay =
     minerState && minerState.ethBalance !== undefined
-      ? formatEth(minerState.ethBalance, 4)
+      ? formatEth(minerState.ethBalance, 3)
       : "—";
 
   const buttonLabel = useMemo(() => {
@@ -678,7 +679,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
               </div>
               {minerState && minerState.initPrice > 0n && (
                 <div className="text-[9px] text-gray-500">
-                  Paid Ξ{parseFloat(formatEther(minerState.initPrice / 2n)).toFixed(4)}
+                  Paid Ξ{parseFloat(formatEther(minerState.initPrice / 2n)).toFixed(3)}
                 </div>
               )}
             </div>
@@ -722,10 +723,10 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           </div>
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards - Centered */}
         <div className="grid grid-cols-2 gap-2">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-            <div className="flex items-center gap-1 mb-0.5">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-center">
+            <div className="flex items-center justify-center gap-1 mb-0.5">
               <TrendingUp className="w-3 h-3 text-white" />
               <span className="text-[9px] text-gray-400 uppercase">
                 Glaze Rate
@@ -740,8 +741,8 @@ export default function DonutMiner({ context }: DonutMinerProps) {
             </div>
           </div>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-            <div className="flex items-center gap-1 mb-0.5">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-center">
+            <div className="flex items-center justify-center gap-1 mb-0.5">
               <Coins className="w-3 h-3 text-white" />
               <span className="text-[9px] text-gray-400 uppercase">
                 Glaze Price
@@ -930,7 +931,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                   <div className="text-xs font-bold text-white">
                     wΞ{" "}
                     {minerState && minerState.wethBalance !== undefined
-                      ? formatEth(minerState.wethBalance, 4)
+                      ? formatEth(minerState.wethBalance, 3)
                       : "—"}
                   </div>
                 </div>
@@ -942,9 +943,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                   <div className="text-xs font-bold text-white">
                     🍩{" "}
                     {address && accountData?.mined
-                      ? Number(accountData.mined).toLocaleString(undefined, {
-                          maximumFractionDigits: 0,
-                        })
+                      ? Math.floor(Number(accountData.mined)).toLocaleString()
                       : "0"}
                   </div>
                 </div>
@@ -954,7 +953,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                     Ξ{" "}
                     {address && accountData?.spent
                       ? Number(accountData.spent).toLocaleString(undefined, {
-                          maximumFractionDigits: 2,
+                          maximumFractionDigits: 3,
                         })
                       : "0"}
                   </div>
@@ -965,7 +964,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                     wΞ{" "}
                     {address && accountData?.earned
                       ? Number(accountData.earned).toLocaleString(undefined, {
-                          maximumFractionDigits: 2,
+                          maximumFractionDigits: 3,
                         })
                       : "0"}
                   </div>

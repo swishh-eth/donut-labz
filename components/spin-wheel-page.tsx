@@ -1266,17 +1266,19 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
               <button
                 onClick={handleSpin}
                 disabled={localSpins <= 0 || hasStartedRef.current}
-                className={`w-full py-3 rounded-xl font-bold text-base transition-all ${
-                  localSpins > 0 ? "bg-amber-500 text-black hover:bg-amber-400 active:scale-[0.98]" : "bg-zinc-800 text-gray-500 cursor-not-allowed"
+                className={`w-full py-3 rounded-xl font-bold text-base transition-all border ${
+                  localSpins > 0 
+                    ? "bg-amber-500/10 border-amber-500/50 text-amber-400 hover:bg-amber-500/20 active:scale-[0.98]" 
+                    : "bg-zinc-800 border-zinc-700 text-gray-500 cursor-not-allowed"
                 }`}
               >
                 {localSpins > 0 ? "SPIN!" : "No Spins Available"}
               </button>
 
               {/* Buy Spin Section */}
-              <div className="mt-3 pt-3">
+              <div className="mt-2">
                 {!auctionBuyingEnabled ? (
-                  <div className="w-full py-3 rounded-xl text-base font-bold bg-zinc-800 text-gray-500 text-center">
+                  <div className="w-full py-3 rounded-xl text-base font-bold bg-zinc-800 border border-zinc-700 text-gray-500 text-center">
                     Buying Temporarily Disabled
                   </div>
                 ) : needsApproval ? (
@@ -1293,7 +1295,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                     <button
                       onClick={handleApprove}
                       disabled={isApproving || isApproveConfirming || !approvalAmount}
-                      className="w-full py-3 rounded-xl font-bold text-base bg-amber-500 text-black hover:bg-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full py-3 rounded-xl font-bold text-base bg-amber-500/10 border border-amber-500/50 text-amber-400 hover:bg-amber-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isApproving || isApproveConfirming ? (
                         <span className="flex items-center justify-center gap-2">
@@ -1310,7 +1312,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                   <button
                     onClick={handleBuySpin}
                     disabled={isBuying || isBuyingOnChain || isBuyConfirming || userDonutBalance < auctionPrice}
-                    className="w-full py-3 rounded-xl font-bold text-base bg-amber-500 text-black hover:bg-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-3 rounded-xl font-bold text-base bg-amber-500/10 border border-amber-500/50 text-amber-400 hover:bg-amber-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isBuyingOnChain || isBuyConfirming ? (
                       <span className="flex items-center justify-center gap-2">
@@ -1380,7 +1382,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                 )}
               </div>
               
-              {/* Spin Again / Done button - same style as Buy Spin */}
+              {/* Spin Again / Done button - same style as other buttons */}
               <button
                 onClick={() => {
                   setStage("idle");
@@ -1395,7 +1397,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                   resetCommit();
                   resetReveal();
                 }}
-                className="w-full py-3 rounded-xl font-bold text-base bg-amber-500 text-black hover:bg-amber-400 transition-all"
+                className="w-full py-3 rounded-xl font-bold text-base bg-amber-500/10 border border-amber-500/50 text-amber-400 hover:bg-amber-500/20 transition-all"
               >
                 {localSpins > 0 ? "Spin Again" : "Done"}
               </button>

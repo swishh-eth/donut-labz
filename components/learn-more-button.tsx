@@ -22,7 +22,9 @@ const CONTRACTS = {
   sprinklesMiner: "0x924b2d4a89b84A37510950031DCDb6552Dc97bcC",
   sprinklesDonutLP: "0x47e8b03017d8b8d058ba5926838ca4dd4531e668",
   leaderboard: "0x4681A6DeEe2D74f5DE48CEcd2A572979EA641586",
-  wheel: "", // Coming soon
+  wheel: "0x855F3E6F870C4D4dEB4959523484be3b147c4c0C",
+  wheelAuction: "0x3f22C2258365a97FB319d23e053faB6f76d5F1b4",
+  messaging: "0x543832Fe5EFB216a79f64BE52A24547D6d875685",
   donutLabsTreasury: "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d",
   deadAddress: "0x000000000000000000000000000000000000dEaD",
 };
@@ -368,10 +370,29 @@ export function LearnMoreButton({
                     <ExternalLink className="w-2.5 h-2.5 text-gray-500 group-hover:text-white" />
                   </button>
 
-                  <div className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 opacity-50 cursor-not-allowed">
+                  <button
+                    onClick={() => openBasescan(CONTRACTS.wheel)}
+                    className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 hover:bg-zinc-800 transition-colors group"
+                  >
                     <span className="text-[9px] font-semibold text-white">Wheel</span>
-                    <span className="text-gray-500 text-[9px]">???</span>
-                  </div>
+                    <ExternalLink className="w-2.5 h-2.5 text-gray-500 group-hover:text-white" />
+                  </button>
+
+                  <button
+                    onClick={() => openBasescan(CONTRACTS.wheelAuction)}
+                    className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 hover:bg-zinc-800 transition-colors group"
+                  >
+                    <span className="text-[9px] font-semibold text-white">Wheel Auction</span>
+                    <ExternalLink className="w-2.5 h-2.5 text-gray-500 group-hover:text-white" />
+                  </button>
+
+                  <button
+                    onClick={() => openBasescan(CONTRACTS.messaging)}
+                    className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 hover:bg-zinc-800 transition-colors group"
+                  >
+                    <span className="text-[9px] font-semibold text-white">Messaging</span>
+                    <ExternalLink className="w-2.5 h-2.5 text-gray-500 group-hover:text-white" />
+                  </button>
                 </div>
               </div>
 

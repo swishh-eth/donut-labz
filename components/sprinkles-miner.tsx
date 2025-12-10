@@ -606,6 +606,12 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     : "—";
   const earnedDisplay = formatTokenAmount(earnedSprinkles, SPRINKLES_DECIMALS, 2);
 
+  // Calculate what the current miner paid (initPrice from slot0)
+  const minerPaidDisplay = useMemo(() => {
+    if (!slot0 || !slot0.initPrice) return "—";
+    return Math.floor(Number(formatUnits(slot0.initPrice, DONUT_DECIMALS))).toLocaleString();
+  }, [slot0]);
+
   // Calculate DONUT per second equivalent based on SPRINKLES/DONUT price ratio
   const donutPerSecondDisplay = useMemo(() => {
     if (!dps || sprinklesPrice === 0 || donutPrice === 0) return null;
@@ -649,12 +655,13 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     ? (occupantInitialsSource?.slice(-2) ?? "??").toUpperCase()
     : initialsFrom(occupantInitialsSource);
 
+  // Show whole donuts only (no decimals)
   const donutBalanceDisplay = donutBalance
-    ? formatTokenAmount(donutBalance as bigint, DONUT_DECIMALS, 2)
+    ? Math.floor(Number(formatUnits(donutBalance as bigint, DONUT_DECIMALS))).toLocaleString()
     : "—";
 
   const currentAllowanceDisplay = donutAllowance
-    ? formatTokenAmount(donutAllowance as bigint, DONUT_DECIMALS, 2)
+    ? Math.floor(Number(formatUnits(donutAllowance as bigint, DONUT_DECIMALS))).toLocaleString()
     : "0";
 
   const buttonLabel = useMemo(() => {
@@ -778,7 +785,13 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-right flex-shrink-0">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-0.5 text-right flex-shrink-0">
+              <div>
+                <div className="text-[8px] text-gray-500">PAID</div>
+                <div className="text-xs font-bold text-amber-400">
+                  🍩{minerPaidDisplay}
+                </div>
+              </div>
               <div>
                 <div className="text-[8px] text-gray-500">TIME</div>
                 <div className="text-xs font-bold text-white">
@@ -797,14 +810,14 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 gap-2">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-            <div className="flex items-center gap-1 mb-0.5">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-center">
+            <div className="flex items-center justify-center gap-1 mb-0.5">
               <TrendingUp className="w-3 h-3 text-white" />
               <span className="text-[9px] text-gray-400 uppercase">
                 Mine Rate
               </span>
             </div>
-            <div className="text-lg font-bold text-white flex items-center gap-0.5">
+            <div className="text-lg font-bold text-white flex items-center justify-center gap-0.5">
               <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />{mineRateDisplay}
               <span className="text-xs text-gray-400">/s</span>
             </div>
@@ -815,8 +828,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             )}
           </div>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-            <div className="flex items-center gap-1 mb-0.5">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-center">
+            <div className="flex items-center justify-center gap-1 mb-0.5">
               <Coins className="w-3 h-3 text-white" />
               <span className="text-[9px] text-gray-400 uppercase">
                 Mine Price
