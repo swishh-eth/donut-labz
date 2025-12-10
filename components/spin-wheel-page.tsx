@@ -5,7 +5,7 @@ import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadCont
 import { useRouter } from "next/navigation";
 import { base } from "wagmi/chains";
 import { keccak256, encodePacked, formatEther, formatUnits, parseUnits } from "viem";
-import { Loader2, Sparkles, ArrowLeft, Coins, Trophy } from "lucide-react";
+import { Loader2, Sparkles, ArrowLeft, Coins, Trophy, HelpCircle, X } from "lucide-react";
 
 const SPIN_WHEEL_ADDRESS = "0x855F3E6F870C4D4dEB4959523484be3b147c4c0C" as `0x${string}`;
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as `0x${string}`;
@@ -186,6 +186,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   const [hasCheckedPending, setHasCheckedPending] = useState(false);
   const [showUsdPrize, setShowUsdPrize] = useState(true);
   const [pulseScale, setPulseScale] = useState(1);
+  const [showHelpDialog, setShowHelpDialog] = useState(false);
 
   const animationRef = useRef<number | null>(null);
   const isProcessingRef = useRef(false);
@@ -624,8 +625,11 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
           <ArrowLeft className="w-6 h-6" />
         </button>
         <h1 
-          className="text-2xl font-bold tracking-wide text-amber-400"
-          style={{ transform: `scale(${pulseScale})`, transition: 'transform 0.1s ease-out' }}
+          className="text-3xl font-bold tracking-wide text-white"
+          style={{ 
+            fontFamily: 'cursive',
+            textShadow: '0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,0.6), 0 0 30px rgba(255,255,255,0.4)',
+          }}
         >
           Glaze Wheel
         </h1>
@@ -646,7 +650,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         )}
 
         {/* Two Column Stats */}
-        <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="grid grid-cols-2 gap-2 mb-2">
           {/* Prize Breakdown */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2">
             <div className="flex items-center justify-center gap-1 mb-2">
@@ -701,6 +705,102 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
             )}
           </button>
         </div>
+
+        {/* How to get free spins button */}
+        <button
+          onClick={() => setShowHelpDialog(true)}
+          className="w-full mb-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
+        >
+          <HelpCircle className="w-4 h-4 text-amber-400" />
+          <span className="text-sm text-gray-400">How to get free spins</span>
+        </button>
+
+        {/* Help Dialog */}
+        {showHelpDialog && (
+          <div className="fixed inset-0 z-50">
+            <div
+              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+              onClick={() => setShowHelpDialog(false)}
+            />
+            <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+              <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
+                <button
+                  onClick={() => setShowHelpDialog(false)}
+                  className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+
+                <h2 
+                  className="text-xl font-bold text-white mb-4 text-center"
+                  style={{ 
+                    fontFamily: 'cursive',
+                    textShadow: '0 0 8px rgba(255,255,255,0.6), 0 0 16px rgba(255,255,255,0.4)',
+                  }}
+                >
+                  Glaze Wheel
+                </h2>
+
+                <div className="space-y-4">
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-xs font-bold text-amber-400">
+                      1
+                    </div>
+                    <div>
+                      <div className="font-semibold text-white text-sm">Earn Free Spins</div>
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        Mine <Sparkles className="w-3 h-3 inline drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />SPRINKLES to earn 1 free spin per mine. The more you mine, the more spins you get!
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-xs font-bold text-amber-400">
+                      2
+                    </div>
+                    <div>
+                      <div className="font-semibold text-white text-sm">Buy Spins</div>
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        Buy spins instantly with 🍩DONUT. Price uses a Dutch auction - doubles after each purchase, then decays back to 10 🍩DONUT over time.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-xs font-bold text-amber-400">
+                      3
+                    </div>
+                    <div>
+                      <div className="font-semibold text-white text-sm">Win Prizes</div>
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        Spin the wheel to win a percentage of the prize pool. Win up to 5% of all ETH, 🍩DONUT, and <Sparkles className="w-3 h-3 inline drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />SPRINKLES in the pool!
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-xs font-bold text-amber-400">
+                      4
+                    </div>
+                    <div>
+                      <div className="font-semibold text-white text-sm">How Pool is Funded</div>
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        The prize pool grows from spin purchases, protocol fees, and community contributions. The bigger the pool, the bigger the prizes!
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowHelpDialog(false)}
+                  className="mt-5 w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-black hover:bg-amber-400 transition-colors"
+                >
+                  Got it!
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Wheel */}
         <div className={`relative w-56 h-56 mx-auto mb-3 ${isBoostActive ? "drop-shadow-[0_0_20px_rgba(251,191,36,0.4)]" : ""}`}>
@@ -841,7 +941,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                 </div>
                 
                 {!auctionBuyingEnabled ? (
-                  <div className="w-full py-2.5 rounded-xl text-xs bg-zinc-800 text-gray-500 text-center">
+                  <div className="w-full py-3 rounded-xl text-base font-bold bg-zinc-800 text-gray-500 text-center">
                     Buying Temporarily Disabled
                   </div>
                 ) : needsApproval ? (
@@ -858,8 +958,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                     <button
                       onClick={handleApprove}
                       disabled={isApproving || isApproveConfirming || !approvalAmount}
-                      className="w-full py-2.5 rounded-xl font-bold text-sm bg-amber-500 text-black hover:bg-amber-400 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{ transform: `scale(${pulseScale})`, transition: 'transform 0.1s ease-out' }}
+                      className="w-full py-3 rounded-xl font-bold text-base bg-amber-500 text-black hover:bg-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isApproving || isApproveConfirming ? (
                         <span className="flex items-center justify-center gap-2">
@@ -876,8 +975,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                   <button
                     onClick={handleBuySpin}
                     disabled={isBuying || isBuyingOnChain || isBuyConfirming || userDonutBalance < auctionPrice}
-                    className="w-full py-2.5 rounded-xl font-bold text-sm bg-amber-500 text-black hover:bg-amber-400 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ transform: `scale(${pulseScale})`, transition: 'transform 0.1s ease-out' }}
+                    className="w-full py-3 rounded-xl font-bold text-base bg-amber-500 text-black hover:bg-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isBuyingOnChain || isBuyConfirming ? (
                       <span className="flex items-center justify-center gap-2">
@@ -887,7 +985,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                     ) : userDonutBalance < auctionPrice ? (
                       <>Insufficient DONUT</>
                     ) : (
-                      <>Buy Spin</>
+                      <>Buy Spin • 🍩{Math.floor(auctionPrice)}</>
                     )}
                   </button>
                 )}
