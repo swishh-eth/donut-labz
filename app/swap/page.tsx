@@ -650,70 +650,6 @@ export default function SwapPage() {
     }, 3000);
   }, []);
 
-  // Effect to trigger leg2 when leg1 completes
-  useEffect(() => {
-    if (!leg1Complete || !route || route.dex !== "multiHop") return;
-    
-    const executeLeg2 = async () => {
-      if (!address) return;
-      
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-      
-      try {
-        // Refetch to get latest values
-        const [balanceResult, allowanceResult] = await Promise.all([
-          refetchDonutBalance(),
-          refetchDonutAllowanceForAero(),
-        ]);
-        
-        const currentDonutBalance = balanceResult.data as bigint ?? 0n;
-        const currentAllowance = allowanceResult.data as bigint ?? 0n;
-        
-        console.log("Leg2 - DONUT balance:", currentDonutBalance.toString());
-        console.log("Leg2 - DONUT allowance:", currentAllowance.toString());
-        
-        if (currentDonutBalance === 0n) {
-          throw new Error("No DONUT balance for leg2");
-        }
-        
-        // Check if approval needed
-        if (currentAllowance < currentDonutBalance) {
-          console.log("Leg2 - Approving DONUT for Aerodrome...");
-          setTxStep("approving_leg2");
-          await writeContract({
-            address: DONUT_ADDRESS,
-            abi: ERC20_ABI,
-            functionName: "approve",
-            args: [AERODROME_ROUTER, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
-            chainId: base.id,
-          });
-          return;
-        }
-        
-        // Execute leg2 swap
-        console.log("Leg2 - Swapping DONUT to SPRINKLES...");
-        setTxStep("swapping_leg2");
-        await writeContract({
-          address: AERODROME_ROUTER,
-          abi: AERODROME_ROUTER_ABI,
-          functionName: "swapExactTokensForTokens",
-          args: [currentDonutBalance, minOutputAmount, route.leg2.routes, address, deadline],
-          chainId: base.id,
-        });
-      } catch (error) {
-        console.error("Leg2 error:", error);
-        showSwapResultFn("failure");
-        setTxStep("idle");
-        setLeg1Complete(false);
-        resetTx();
-      }
-    };
-    
-    // Small delay to ensure state is settled
-    const timer = setTimeout(executeLeg2, 500);
-    return () => clearTimeout(timer);
-  }, [leg1Complete, route, address, minOutputAmount, refetchDonutBalance, refetchDonutAllowanceForAero, writeContract, showSwapResultFn, resetTx]);
-
   // Handle tile click
   const handleTileClick = async (tile: TokenTile) => {
     if (tile.isPlaceholder) return;
@@ -933,10 +869,75 @@ export default function SwapPage() {
           resetTx();
           return;
         }
-        // For multi-hop, mark leg1 complete - the useEffect will handle leg2
-        console.log("Leg1 complete, triggering leg2...");
+        // For multi-hop, execute leg2 directly
+        console.log("Leg1 complete, starting leg2...");
         resetTx();
-        setLeg1Complete(true);
+        
+        // Capture current values for closure
+        const currentAddress = address;
+        const currentRoute = route;
+        
+        // Execute leg2 directly here
+        const executeLeg2 = async () => {
+          if (!currentAddress || !currentRoute || currentRoute.dex !== "multiHop") {
+            console.error("Missing address or route for leg2");
+            showSwapResultFn("failure");
+            setTxStep("idle");
+            return;
+          }
+          
+          const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+          
+          try {
+            // Refetch to get latest values
+            const [balanceResult, allowanceResult] = await Promise.all([
+              refetchDonutBalance(),
+              refetchDonutAllowanceForAero(),
+            ]);
+            
+            const currentDonutBalance = balanceResult.data as bigint ?? 0n;
+            const currentAllowance = allowanceResult.data as bigint ?? 0n;
+            
+            console.log("Leg2 - DONUT balance:", currentDonutBalance.toString());
+            console.log("Leg2 - DONUT allowance:", currentAllowance.toString());
+            
+            if (currentDonutBalance === 0n) {
+              throw new Error("No DONUT balance for leg2");
+            }
+            
+            // Check if approval needed
+            if (currentAllowance < currentDonutBalance) {
+              console.log("Leg2 - Approving DONUT for Aerodrome...");
+              setTxStep("approving_leg2");
+              writeContract({
+                address: DONUT_ADDRESS,
+                abi: ERC20_ABI,
+                functionName: "approve",
+                args: [AERODROME_ROUTER, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
+                chainId: base.id,
+              });
+              return;
+            }
+            
+            // Execute leg2 swap
+            console.log("Leg2 - Swapping DONUT to SPRINKLES...");
+            setTxStep("swapping_leg2");
+            writeContract({
+              address: AERODROME_ROUTER,
+              abi: AERODROME_ROUTER_ABI,
+              functionName: "swapExactTokensForTokens",
+              args: [currentDonutBalance, minOutputAmount, currentRoute.leg2.routes, currentAddress, deadline],
+              chainId: base.id,
+            });
+          } catch (error) {
+            console.error("Leg2 error:", error);
+            showSwapResultFn("failure");
+            setTxStep("idle");
+            resetTx();
+          }
+        };
+        
+        setTimeout(executeLeg2, 1000);
         return;
       }
 
@@ -985,7 +986,7 @@ export default function SwapPage() {
         return;
       }
     }
-  }, [receipt, txStep, route, handleSwap, showSwapResultFn, resetTx, refetchAllowance, refetchInputBalance, refetchDonutBalance, refetchDonutAllowanceForAero]);
+  }, [receipt, txStep, route, address, minOutputAmount, handleSwap, showSwapResultFn, resetTx, refetchAllowance, refetchInputBalance, refetchDonutBalance, refetchDonutAllowanceForAero, writeContract]);
 
   const isSwapDisabled =
     !isConnected ||
