@@ -7,7 +7,6 @@ import {
   useBalance,
   useConnect,
   useReadContract,
-  useSendTransaction,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi";
@@ -59,10 +58,6 @@ interface Token {
 // DexScreener token image URL helper
 const getDexScreenerIcon = (address: string) => 
   `https://dd.dexscreener.com/ds-data/tokens/base/${address.toLowerCase()}.png`;
-
-// DexScreener banner image URL helper (for featured tokens)
-const getDexScreenerBanner = (pairAddress: string) =>
-  `https://dd.dexscreener.com/ds-data/dexes/base/${pairAddress.toLowerCase()}.png`;
 
 const TOKENS: Token[] = [
   {
@@ -484,18 +479,18 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
 
 // Featured ecosystem tokens for carousel
 interface FeaturedToken {
-  pairAddress: string; // DexScreener pair address for banner
+  image: string; // Image URL for banner
   title: string;
   description: string;
-  dexScreenerUrl: string; // Link to DexScreener for buying
+  link: string; // Link to open when clicked
 }
 
 const FEATURED_TOKENS: FeaturedToken[] = [
   {
-    pairAddress: "0x2d3d5f71cf15bd2ae12a5ba87a8a1980efb6eef88f0f5e11cfddf52f02a761c8",
+    image: getDexScreenerIcon(PEEPLES_ADDRESS), // Use token icon as fallback
     title: "PEEPLES",
     description: "Pool ETH together and mine $DONUTS",
-    dexScreenerUrl: "https://dexscreener.com/base/0x2d3d5f71cf15bd2ae12a5ba87a8a1980efb6eef88f0f5e11cfddf52f02a761c8",
+    link: "https://farcaster.xyz/miniapps/OBSXNsOaGYv1/peeples-donuts",
   },
   // Add more featured tokens here
 ];
@@ -527,7 +522,8 @@ export default function SwapPage() {
     "transferring_fee" | 
     "swapping_leg1" | 
     "approving_leg2" | 
-    "swapping_leg2"
+    "swapping_leg2" |
+    "transferring_fee" // Fee transfer happens AFTER swap completes
   >("idle");
   const [swapResult, setSwapResult] = useState<"success" | "failure" | null>(null);
   const swapResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -731,32 +727,23 @@ export default function SwapPage() {
     }
   }, [inputAmount, inputToken.decimals]);
 
-  // Calculate fee amount (0.3%) - only on input token
-  const feeAmount = useMemo(() => {
-    if (inputAmountWei === 0n) return 0n;
-    return (inputAmountWei * BigInt(SWAP_FEE_BPS)) / BigInt(FEE_DENOMINATOR);
-  }, [inputAmountWei]);
+  // Fee is taken from OUTPUT after swap (0.3%)
+  // This simplifies the flow - no separate fee transaction needed
 
-  // Amount after fee (what gets swapped in first leg)
-  const amountAfterFee = useMemo(() => {
-    if (inputAmountWei === 0n) return 0n;
-    return inputAmountWei - feeAmount;
-  }, [inputAmountWei, feeAmount]);
-
-  // Get quote for first leg (Uniswap V2)
+  // Get quote for first leg (Uniswap V2) - quote full input amount
   const { data: leg1UniswapQuote, refetch: refetchLeg1Uniswap } = useReadContract({
     address: UNISWAP_V2_ROUTER,
     abi: UNISWAP_V2_ROUTER_ABI,
     functionName: "getAmountsOut",
-    args: [amountAfterFee, firstLeg.path ?? []],
+    args: [inputAmountWei, firstLeg.path ?? []],
     chainId: base.id,
     query: {
-      enabled: amountAfterFee > 0n && firstLeg.dex === "uniswap" && !!firstLeg.path?.length,
+      enabled: inputAmountWei > 0n && firstLeg.dex === "uniswap" && !!firstLeg.path?.length,
       refetchInterval: 10_000,
     },
   });
 
-  // Get quote for first leg (Uniswap V3) - using simulate since quoteExactInputSingle is nonpayable
+  // Get quote for first leg (Uniswap V3)
   const { data: leg1V3Quote, refetch: refetchLeg1V3 } = useReadContract({
     address: UNISWAP_V3_QUOTER,
     abi: UNISWAP_V3_QUOTER_ABI,
@@ -765,12 +752,12 @@ export default function SwapPage() {
       firstLeg.fromToken,
       firstLeg.toToken,
       firstLeg.fee ?? 10000,
-      amountAfterFee,
+      inputAmountWei,
       0n, // sqrtPriceLimitX96 - 0 means no limit
     ],
     chainId: base.id,
     query: {
-      enabled: amountAfterFee > 0n && firstLeg.dex === "uniswapV3" && !!firstLeg.fee,
+      enabled: inputAmountWei > 0n && firstLeg.dex === "uniswapV3" && !!firstLeg.fee,
       refetchInterval: 10_000,
     },
   });
@@ -780,10 +767,10 @@ export default function SwapPage() {
     address: AERODROME_ROUTER,
     abi: AERODROME_ROUTER_ABI,
     functionName: "getAmountsOut",
-    args: [amountAfterFee, firstLeg.routes ?? []],
+    args: [inputAmountWei, firstLeg.routes ?? []],
     chainId: base.id,
     query: {
-      enabled: amountAfterFee > 0n && firstLeg.dex === "aerodrome" && !!firstLeg.routes?.length,
+      enabled: inputAmountWei > 0n && firstLeg.dex === "aerodrome" && !!firstLeg.routes?.length,
       refetchInterval: 10_000,
     },
   });
@@ -844,8 +831,8 @@ export default function SwapPage() {
     },
   });
 
-  // Final output amount
-  const outputAmount = useMemo(() => {
+  // Final output amount (before fee)
+  const grossOutputAmount = useMemo(() => {
     if (!swapInfo.isMultiHop) {
       // Single hop - just return leg1 output
       return leg1Output;
@@ -859,6 +846,17 @@ export default function SwapPage() {
     if (!leg2Quote || !Array.isArray(leg2Quote) || leg2Quote.length < 2) return 0n;
     return leg2Quote[leg2Quote.length - 1] as bigint;
   }, [swapInfo.isMultiHop, leg1Output, secondLeg?.dex, leg2UniswapQuote, leg2AerodromeQuote, leg2V3Quote]);
+
+  // Fee taken from output (0.3%)
+  const feeAmount = useMemo(() => {
+    if (grossOutputAmount === 0n) return 0n;
+    return (grossOutputAmount * BigInt(SWAP_FEE_BPS)) / BigInt(FEE_DENOMINATOR);
+  }, [grossOutputAmount]);
+
+  // Net output after fee (what user receives)
+  const outputAmount = useMemo(() => {
+    return grossOutputAmount - feeAmount;
+  }, [grossOutputAmount, feeAmount]);
 
   const refetchQuote = useCallback(() => {
     if (firstLeg.dex === "uniswap") {
@@ -919,27 +917,10 @@ export default function SwapPage() {
     reset: resetWrite,
   } = useWriteContract();
 
-  // For sending native ETH (fee transfer)
-  const {
-    data: sendTxHash,
-    sendTransaction,
-    isPending: isSending,
-    reset: resetSend,
-  } = useSendTransaction();
-
-  // Combined tx hash for receipt tracking
-  const activeTxHash = txHash || sendTxHash;
-
   const { data: receipt, isLoading: isConfirming } = useWaitForTransactionReceipt({
-    hash: activeTxHash,
+    hash: txHash,
     chainId: base.id,
   });
-
-  // Combined reset function
-  const resetAll = useCallback(() => {
-    resetWrite();
-    resetSend();
-  }, [resetWrite, resetSend]);
 
   // Handle swap process
   const handleSwap = useCallback(async () => {
@@ -986,36 +967,14 @@ export default function SwapPage() {
         return;
       }
 
-      // Step 2: Transfer fee to treasury
-      // For native ETH, we send ETH directly. For tokens, we transfer.
-      if (txStep === "idle" || txStep === "transferring_fee") {
-        if (txStep !== "transferring_fee") {
-          console.log("Starting fee transfer");
-          setTxStep("transferring_fee");
+      // Step 2: Execute first leg swap (swap FULL input amount)
+      if (txStep === "idle" || txStep === "swapping_leg1") {
+        if (txStep !== "swapping_leg1") {
+          setTxStep("swapping_leg1");
         }
-        
-        if (inputToken.isNative) {
-          // Send ETH fee directly to treasury
-          sendTransaction({
-            to: TREASURY_ADDRESS,
-            value: feeAmount,
-            chainId: base.id,
-          });
-        } else {
-          await writeContract({
-            address: inputToken.address,
-            abi: ERC20_ABI,
-            functionName: "transfer",
-            args: [TREASURY_ADDRESS, feeAmount],
-            chainId: base.id,
-          });
-        }
-        return;
-      }
-
-      // Step 3: Execute first leg swap
-      if (txStep === "swapping_leg1") {
         console.log("Executing leg 1 swap via", firstLeg.dex);
+        // For single-hop, use minOutputAmount (which accounts for fee + slippage)
+        // For multi-hop, use minLeg1Output (slippage on intermediate)
         const minOut = swapInfo.isMultiHop ? minLeg1Output : minOutputAmount;
         
         if (firstLeg.dex === "uniswap" && firstLeg.path) {
@@ -1026,7 +985,7 @@ export default function SwapPage() {
               abi: UNISWAP_V2_ROUTER_ABI,
               functionName: "swapExactETHForTokens",
               args: [minOut, firstLeg.path, address, deadline],
-              value: amountAfterFee, // Send ETH with the call
+              value: inputAmountWei, // Send full ETH amount
               chainId: base.id,
             });
           } else {
@@ -1034,7 +993,7 @@ export default function SwapPage() {
               address: UNISWAP_V2_ROUTER,
               abi: UNISWAP_V2_ROUTER_ABI,
               functionName: "swapExactTokensForTokens",
-              args: [amountAfterFee, minOut, firstLeg.path, address, deadline],
+              args: [inputAmountWei, minOut, firstLeg.path, address, deadline],
               chainId: base.id,
             });
           }
@@ -1045,7 +1004,7 @@ export default function SwapPage() {
             tokenOut: firstLeg.toToken,
             fee: firstLeg.fee,
             recipient: address,
-            amountIn: amountAfterFee,
+            amountIn: inputAmountWei,
             amountOutMinimum: minOut,
             sqrtPriceLimitX96: 0n,
           };
@@ -1054,7 +1013,7 @@ export default function SwapPage() {
             abi: UNISWAP_V3_ROUTER_ABI,
             functionName: "exactInputSingle",
             args: [params],
-            value: inputToken.isNative ? amountAfterFee : 0n,
+            value: inputToken.isNative ? inputAmountWei : 0n,
             chainId: base.id,
           });
         } else if (firstLeg.dex === "aerodrome" && firstLeg.routes) {
@@ -1062,19 +1021,19 @@ export default function SwapPage() {
             address: AERODROME_ROUTER,
             abi: AERODROME_ROUTER_ABI,
             functionName: "swapExactTokensForTokens",
-            args: [amountAfterFee, minOut, firstLeg.routes, address, deadline],
+            args: [inputAmountWei, minOut, firstLeg.routes, address, deadline],
             chainId: base.id,
           });
         }
         return;
       }
 
-      // Step 4: Approve DONUT for second leg router (multi-hop only)
+      // Step 3: Approve intermediate token for second leg router (multi-hop only)
       if (txStep === "approving_leg2" && swapInfo.isMultiHop && secondLeg) {
-        console.log("Approving DONUT for leg 2 on", secondLeg.dex);
-        // Approve max uint256 for convenience
+        console.log("Approving intermediate token for leg 2 on", secondLeg.dex);
+        const intermediateToken = firstLeg.toToken;
         await writeContract({
-          address: DONUT_ADDRESS,
+          address: intermediateToken,
           abi: ERC20_ABI,
           functionName: "approve",
           args: [routerForLeg2!, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
@@ -1083,14 +1042,12 @@ export default function SwapPage() {
         return;
       }
 
-      // Step 5: Execute second leg swap (multi-hop only)
+      // Step 4: Execute second leg swap (multi-hop only)
       if (txStep === "swapping_leg2" && swapInfo.isMultiHop && secondLeg) {
         console.log("Executing leg 2 swap via", secondLeg.dex);
         
-        // Get current DONUT balance to swap all of it
-        const donutBal = donutBalance as bigint ?? 0n;
-        // Use the intermediate amount we tracked, or current balance
-        const swapAmount = intermediateAmount > 0n ? intermediateAmount : donutBal;
+        // Use the intermediate amount we tracked
+        const swapAmount = intermediateAmount > 0n ? intermediateAmount : (donutBalance as bigint ?? 0n);
         
         if (secondLeg.dex === "uniswap" && secondLeg.path) {
           await writeContract({
@@ -1101,7 +1058,6 @@ export default function SwapPage() {
             chainId: base.id,
           });
         } else if (secondLeg.dex === "uniswapV3" && secondLeg.fee) {
-          // V3 exactInputSingle for leg2
           const params = {
             tokenIn: secondLeg.fromToken,
             tokenOut: secondLeg.toToken,
@@ -1129,6 +1085,19 @@ export default function SwapPage() {
         }
         return;
       }
+
+      // Step 5: Transfer fee to treasury (from output token)
+      if (txStep === "transferring_fee") {
+        console.log("Transferring fee to treasury");
+        await writeContract({
+          address: outputToken.address,
+          abi: ERC20_ABI,
+          functionName: "transfer",
+          args: [TREASURY_ADDRESS, feeAmount],
+          chainId: base.id,
+        });
+        return;
+      }
     } catch (error: any) {
       console.error("Swap failed:", error);
       // Check if user rejected/cancelled
@@ -1139,7 +1108,7 @@ export default function SwapPage() {
       }
       setTxStep("idle");
       setIntermediateAmount(0n);
-      resetAll();
+      resetWrite();
     }
   }, [
     address,
@@ -1147,7 +1116,6 @@ export default function SwapPage() {
     needsApproval,
     txStep,
     feeAmount,
-    amountAfterFee,
     minOutputAmount,
     minLeg1Output,
     swapInfo,
@@ -1158,13 +1126,13 @@ export default function SwapPage() {
     intermediateAmount,
     donutBalance,
     inputToken,
+    outputToken,
     writeContract,
     resetSwapResult,
     showSwapResultFn,
-    resetAll,
+    resetWrite,
     primaryConnector,
     connectAsync,
-    sendTransaction,
   ]);
 
   // Handle transaction receipts
@@ -1175,85 +1143,81 @@ export default function SwapPage() {
       showSwapResultFn("failure");
       setTxStep("idle");
       setIntermediateAmount(0n);
-      resetAll();
+      resetWrite();
       return;
     }
 
     if (receipt.status === "success") {
       if (txStep === "approving") {
-        resetAll();
-        setTxStep("transferring_fee");
-        return;
-      }
-
-      if (txStep === "transferring_fee") {
-        resetAll();
+        resetWrite();
         setTxStep("swapping_leg1");
         return;
       }
 
       if (txStep === "swapping_leg1") {
         if (swapInfo.isMultiHop) {
-          // After leg1, check if we need to approve DONUT for leg2
-          resetAll();
+          // After leg1, check if we need to approve intermediate token for leg2
+          resetWrite();
           refetchDonutBalance();
           refetchDonutAllowance();
-          // Store intermediate amount (will be updated when balance refetches)
+          // Store intermediate amount
           setIntermediateAmount(leg1Output);
           
-          // Check if DONUT is already approved for leg2 router
-          const donutAllowance = donutAllowanceForLeg2 as bigint ?? 0n;
-          if (donutAllowance < leg1Output) {
+          // Check if intermediate token is already approved for leg2 router
+          const intermediateAllowance = donutAllowanceForLeg2 as bigint ?? 0n;
+          if (intermediateAllowance < leg1Output) {
             setTxStep("approving_leg2");
           } else {
             setTxStep("swapping_leg2");
           }
           return;
         } else {
-          // Single hop complete
-          showSwapResultFn("success");
-          setTxStep("idle");
-          setInputAmount("");
-          refetchInputBalance();
-          refetchAllowance();
-          resetAll();
+          // Single hop complete - transfer fee then done
+          resetWrite();
+          setTxStep("transferring_fee");
           return;
         }
       }
 
       if (txStep === "approving_leg2") {
-        resetAll();
+        resetWrite();
         refetchDonutAllowance();
         setTxStep("swapping_leg2");
         return;
       }
 
       if (txStep === "swapping_leg2") {
-        // Multi-hop complete!
+        // Multi-hop swap done - now transfer fee
+        resetWrite();
+        setTxStep("transferring_fee");
+        return;
+      }
+
+      if (txStep === "transferring_fee") {
+        // All done!
         showSwapResultFn("success");
         setTxStep("idle");
         setIntermediateAmount(0n);
         setInputAmount("");
         refetchInputBalance();
         refetchAllowance();
-        refetchDonutBalance();
-        resetAll();
+        resetWrite();
         return;
       }
     }
-  }, [receipt, txStep, swapInfo.isMultiHop, leg1Output, donutAllowanceForLeg2, resetAll, showSwapResultFn, refetchInputBalance, refetchAllowance, refetchDonutBalance, refetchDonutAllowance]);
+  }, [receipt, txStep, swapInfo.isMultiHop, leg1Output, donutAllowanceForLeg2, resetWrite, showSwapResultFn, refetchInputBalance, refetchAllowance, refetchDonutBalance, refetchDonutAllowance]);
 
-  // Auto-continue swap after approval/fee transfer - only if we have a pending step
+  // Auto-continue swap after approval - only if we have a pending step
   const pendingStepRef = useRef(false);
   
   useEffect(() => {
     // Only auto-continue if we're in a middle step and not already processing
-    const isPending = isWriting || isSending;
+    const isPending = isWriting;
     if (
-      (txStep === "approving" || txStep === "transferring_fee" || txStep === "swapping_leg1" || txStep === "approving_leg2" || txStep === "swapping_leg2") && 
+      (txStep === "approving" || txStep === "swapping_leg1" || txStep === "approving_leg2" || txStep === "swapping_leg2" || txStep === "transferring_fee") && 
       !isPending && 
       !isConfirming && 
-      !activeTxHash &&
+      !txHash &&
       !pendingStepRef.current
     ) {
       pendingStepRef.current = true;
@@ -1267,7 +1231,7 @@ export default function SwapPage() {
         pendingStepRef.current = false;
       };
     }
-  }, [txStep, isWriting, isSending, isConfirming, activeTxHash, handleSwap]);
+  }, [txStep, isWriting, false, isConfirming, txHash, handleSwap]);
 
   // Flip tokens
   const handleFlipTokens = () => {
@@ -1281,13 +1245,13 @@ export default function SwapPage() {
   const buttonLabel = useMemo(() => {
     if (swapResult === "success") return "Success!";
     if (swapResult === "failure") return "Failed";
-    const isPending = isWriting || isSending;
+    const isPending = isWriting;
     if (isPending || isConfirming) {
       if (txStep === "approving") return "Approving...";
-      if (txStep === "transferring_fee") return "Processing Fee...";
       if (txStep === "swapping_leg1") return swapInfo.isMultiHop ? "Swapping (1/2)..." : "Swapping...";
-      if (txStep === "approving_leg2") return "Approving DONUT...";
+      if (txStep === "approving_leg2") return "Approving...";
       if (txStep === "swapping_leg2") return "Swapping (2/2)...";
+      if (txStep === "transferring_fee") return "Collecting Fee...";
       return "Processing...";
     }
     if (!inputAmount || inputAmount === "0") return "Enter Amount";
@@ -1297,7 +1261,7 @@ export default function SwapPage() {
     }
     if (needsApproval) return swapInfo.isMultiHop ? "Approve & Multi-Swap" : "Approve & Swap";
     return swapInfo.isMultiHop ? "Multi-Swap" : "Swap";
-  }, [swapResult, isWriting, isSending, isConfirming, txStep, inputAmount, hasSufficientBalance, needsApproval, swapInfo.isMultiHop, inputToken.isNative]);
+  }, [swapResult, isWriting, false, isConfirming, txStep, inputAmount, hasSufficientBalance, needsApproval, swapInfo.isMultiHop, inputToken.isNative]);
 
   const isSwapDisabled =
     !inputAmount ||
@@ -1305,7 +1269,6 @@ export default function SwapPage() {
     inputAmountWei === 0n ||
     !hasSufficientBalance ||
     isWriting ||
-    isSending ||
     isConfirming ||
     swapResult !== null;
 
@@ -1463,17 +1426,17 @@ export default function SwapPage() {
           {/* Fee Info */}
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 mb-4">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">Swap Fee (0.3%)</span>
-              <span className="text-amber-400 flex items-center gap-1">
-                <img src={inputToken.icon} alt="" className="w-3.5 h-3.5 rounded-full" />
-                {feeAmount > 0n ? Number(formatUnits(feeAmount, inputToken.decimals)).toLocaleString(undefined, { maximumFractionDigits: inputToken.decimals === 6 ? 4 : 2 }) : "0"}
+              <span className="text-gray-400">You Receive</span>
+              <span className="text-white flex items-center gap-1">
+                <img src={outputToken.icon} alt="" className="w-3.5 h-3.5 rounded-full" />
+                {outputAmount > 0n ? Number(formatUnits(outputAmount, outputToken.decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 }) : "0"}
               </span>
             </div>
             <div className="flex items-center justify-between text-xs mt-1">
-              <span className="text-gray-400">Min. Received</span>
-              <span className="text-white flex items-center gap-1">
+              <span className="text-gray-400">Fee (0.3%)</span>
+              <span className="text-amber-400 flex items-center gap-1">
                 <img src={outputToken.icon} alt="" className="w-3.5 h-3.5 rounded-full" />
-                {minOutputAmount > 0n ? Number(formatUnits(minOutputAmount, outputToken.decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 }) : "0"}
+                {feeAmount > 0n ? Number(formatUnits(feeAmount, outputToken.decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 }) : "0"}
               </span>
             </div>
             <div className="flex items-center justify-between text-xs mt-1">
@@ -1508,7 +1471,7 @@ export default function SwapPage() {
                     : "bg-amber-500 text-black hover:bg-amber-400"
             )}
           >
-            {isWriting || isSending || isConfirming ? (
+            {isWriting || isConfirming ? (
               <span className="flex items-center justify-center gap-2">
                 <Loader2 className="w-5 h-5 animate-spin" />
                 {buttonLabel}
@@ -1589,25 +1552,21 @@ export default function SwapPage() {
           {FEATURED_TOKENS.length > 0 && (
             <div className="mt-4 relative">
               <div 
-                className="relative h-32 rounded-xl overflow-hidden cursor-pointer"
+                className="relative h-32 rounded-xl overflow-hidden cursor-pointer bg-gradient-to-br from-amber-900/50 to-zinc-900"
                 onClick={() => {
                   const featured = FEATURED_TOKENS[featuredIndex];
-                  // Open DexScreener in new tab
-                  sdk.actions.openUrl(featured.dexScreenerUrl);
+                  // Open miniapp link
+                  sdk.actions.openUrl(featured.link);
                 }}
               >
-                {/* Background image from DexScreener */}
+                {/* Background image */}
                 <img 
-                  src={getDexScreenerBanner(FEATURED_TOKENS[featuredIndex].pairAddress)}
+                  src={FEATURED_TOKENS[featuredIndex].image}
                   alt={FEATURED_TOKENS[featuredIndex].title}
-                  className="absolute inset-0 w-full h-full object-cover"
-                  onError={(e) => {
-                    // Fallback to a gradient if banner fails to load
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
+                  className="absolute inset-0 w-full h-full object-contain opacity-30"
                 />
                 {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
                 
                 {/* Text content */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
