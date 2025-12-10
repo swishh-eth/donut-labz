@@ -171,6 +171,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   const [rotation, setRotation] = useState(0);
   const [resultSegment, setResultSegment] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ethPrice, setEthPrice] = useState<number>(0);
   const [donutPrice, setDonutPrice] = useState<number>(0);
   const [sprinklesPrice, setSprinklesPrice] = useState<number>(0);
   const [hasRecordedSpin, setHasRecordedSpin] = useState(false);
@@ -184,6 +185,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   const [hasProcessedBuy, setHasProcessedBuy] = useState(false);
   const [hasCheckedPending, setHasCheckedPending] = useState(false);
   const [showUsdPrize, setShowUsdPrize] = useState(true);
+  const [pulseScale, setPulseScale] = useState(1);
 
   const animationRef = useRef<number | null>(null);
   const isProcessingRef = useRef(false);
@@ -206,10 +208,29 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     return () => cancelAnimationFrame(id);
   }, []);
 
+  // Pulse animation for button and title
+  useEffect(() => {
+    let frame = 0;
+    const animate = () => {
+      frame++;
+      // Gentle pulse between 0.97 and 1.03
+      const scale = 1 + Math.sin(frame * 0.03) * 0.03;
+      setPulseScale(scale);
+      requestAnimationFrame(animate);
+    };
+    const id = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   // Fetch prices
   useEffect(() => {
     const fetchPrices = async () => {
       try {
+        // Fetch ETH price
+        const ethRes = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
+        const ethData = await ethRes.json();
+        setEthPrice(ethData.ethereum?.usd || 0);
+        
         // Fetch DONUT price from DEXScreener
         const donutRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${DONUT_ADDRESS}`);
         const donutData = await donutRes.json();
@@ -565,11 +586,13 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     router.back();
   };
 
-  // Calculate pool values (no ETH, just DONUT and SPRINKLES)
+  // Calculate pool values
+  let ethBalance = 0n;
   let donutBalance = 0n;
   let sprinklesBalance = 0n;
 
   if (poolBalances) {
+    ethBalance = poolBalances[0];
     const tokens = poolBalances[1];
     const balances = poolBalances[2];
     for (let i = 0; i < tokens.length; i++) {
@@ -579,26 +602,33 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     }
   }
 
+  const ethValue = Number(formatEther(ethBalance));
   const donutValue = Number(formatUnits(donutBalance, 18));
   const sprinklesValue = Number(formatUnits(sprinklesBalance, 18));
-  const totalUsdValue = (donutValue * donutPrice) + (sprinklesValue * sprinklesPrice);
+  const totalUsdValue = (ethValue * ethPrice) + (donutValue * donutPrice) + (sprinklesValue * sprinklesPrice);
 
   // Calculate prize breakdown for each segment
   const prizeBreakdown = SEGMENTS.map(seg => ({
     label: seg.label,
     prize: seg.prize,
-    donut: (donutValue * seg.prize / 100).toFixed(0),
-    sprinkles: (sprinklesValue * seg.prize / 100).toFixed(0),
+    eth: (ethValue * seg.prize / 100),
+    donut: (donutValue * seg.prize / 100),
+    sprinkles: (sprinklesValue * seg.prize / 100),
   }));
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+      {/* Header - No border */}
+      <div className="flex items-center justify-between p-4">
         <button onClick={handleBack} className="p-2 rounded-lg hover:bg-zinc-800 transition-colors">
           <ArrowLeft className="w-6 h-6" />
         </button>
-        <h1 className="text-xl font-bold tracking-wide">Glaze Wheel</h1>
+        <h1 
+          className="text-2xl font-bold tracking-wide text-amber-400"
+          style={{ transform: `scale(${pulseScale})`, transition: 'transform 0.1s ease-out' }}
+        >
+          Glaze Wheel
+        </h1>
         <div className="w-10" />
       </div>
 
@@ -619,19 +649,20 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         <div className="grid grid-cols-2 gap-2 mb-3">
           {/* Prize Breakdown */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2">
-            <div className="flex items-center justify-center gap-1 mb-1.5">
+            <div className="flex items-center justify-center gap-1 mb-2">
               <Trophy className="w-3 h-3 text-amber-400" />
               <span className="text-[9px] text-gray-400 uppercase">Win Prizes</span>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {prizeBreakdown.filter(p => p.prize > 0).map((p, i) => (
-                <div key={i} className="flex items-center justify-between text-[10px]">
-                  <span className="text-gray-400">{p.label}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-amber-400">🍩{p.donut}</span>
-                    <span className="text-white flex items-center">
+                <div key={i} className="flex items-center text-[10px]">
+                  <span className="text-gray-400 w-8">{p.label}</span>
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-green-400 w-12 text-right">Ξ{p.eth.toFixed(3)}</span>
+                    <span className="text-amber-400 w-8 text-right">🍩{Math.floor(p.donut)}</span>
+                    <span className="text-white w-10 text-right flex items-center justify-end gap-0.5">
                       <Sparkles className="w-2.5 h-2.5 drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
-                      {Number(p.sprinkles) >= 1000 ? `${(Number(p.sprinkles)/1000).toFixed(0)}k` : p.sprinkles}
+                      {p.sprinkles >= 1000 ? `${(p.sprinkles/1000).toFixed(0)}k` : Math.floor(p.sprinkles)}
                     </span>
                   </div>
                 </div>
@@ -659,8 +690,9 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
               </div>
             ) : (
               <div className="flex flex-col items-center gap-0.5">
-                <span className="text-sm font-bold text-amber-400">🍩{Math.floor(donutValue).toLocaleString()}</span>
-                <span className="text-sm font-bold text-white flex items-center gap-0.5 drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
+                <span className="text-xs font-bold text-green-400">Ξ{ethValue.toFixed(3)}</span>
+                <span className="text-xs font-bold text-amber-400">🍩{Math.floor(donutValue).toLocaleString()}</span>
+                <span className="text-xs font-bold text-white flex items-center gap-0.5 drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
                   <Sparkles className="w-3 h-3" />
                   {sprinklesValue >= 1000 ? `${(sprinklesValue/1000).toFixed(0)}k` : Math.floor(sprinklesValue)}
                 </span>
@@ -802,7 +834,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
               </button>
 
               {/* Buy Spin Section */}
-              <div className="mt-3 pt-3 border-t border-zinc-800">
+              <div className="mt-3 pt-3">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] text-gray-500">Buy a spin instantly</span>
                   <span className="text-xs text-amber-400 font-mono">🍩{Math.floor(auctionPrice)}</span>
@@ -827,6 +859,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                       onClick={handleApprove}
                       disabled={isApproving || isApproveConfirming || !approvalAmount}
                       className="w-full py-2.5 rounded-xl font-bold text-sm bg-amber-500 text-black hover:bg-amber-400 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ transform: `scale(${pulseScale})`, transition: 'transform 0.1s ease-out' }}
                     >
                       {isApproving || isApproveConfirming ? (
                         <span className="flex items-center justify-center gap-2">
@@ -844,6 +877,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                     onClick={handleBuySpin}
                     disabled={isBuying || isBuyingOnChain || isBuyConfirming || userDonutBalance < auctionPrice}
                     className="w-full py-2.5 rounded-xl font-bold text-sm bg-amber-500 text-black hover:bg-amber-400 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ transform: `scale(${pulseScale})`, transition: 'transform 0.1s ease-out' }}
                   >
                     {isBuyingOnChain || isBuyConfirming ? (
                       <span className="flex items-center justify-center gap-2">
