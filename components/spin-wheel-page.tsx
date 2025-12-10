@@ -334,6 +334,11 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   const canRevealPending = commitmentData ? commitmentData[3] : false;
   const blocksUntilExpiry = commitmentData ? Number(commitmentData[4]) : 0;
   
+  // The commitment is truly expired only when there's no commit hash at all
+  // blocksUntilExpiry === 0 just means we're past the reveal window, but commit might still block new ones
+  const storedCommitHash = commitmentData ? commitmentData[0] : "0x0000000000000000000000000000000000000000000000000000000000000000";
+  const isCommitmentCleared = storedCommitHash === "0x0000000000000000000000000000000000000000000000000000000000000000";
+  
   // Check if we have a valid secret for the pending commit
   const storedSecret = address ? getSecret(address) : null;
   const hasValidSecret = !!storedSecret;
@@ -350,6 +355,23 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
       setHasShownIssuePopup(true);
     }
   }, [isCorruptedSpin, canRevealPending, hasShownIssuePopup]);
+  
+  // Debug logging
+  useEffect(() => {
+    if (commitmentData) {
+      console.log("Commitment data:", {
+        storedCommitHash: commitmentData[0],
+        commitBlock: Number(commitmentData[1]),
+        revealed: commitmentData[2],
+        canRevealNow: commitmentData[3],
+        blocksUntilExpiry: Number(commitmentData[4]),
+        hasPendingCommit,
+        isCommitmentCleared,
+        isCorruptedSpin,
+        hasValidSecret,
+      });
+    }
+  }, [commitmentData, hasPendingCommit, isCommitmentCleared, isCorruptedSpin, hasValidSecret]);
 
   useEffect(() => {
     if (auctionState) {
@@ -955,16 +977,16 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                     <span className="text-sm text-gray-300">Your previous spin encountered an issue</span>
                   </button>
                   <div className="text-center mt-2">
-                    {blocksUntilExpiry > 0 ? (
-                      <span className="text-amber-400 text-sm font-mono">~{Math.ceil(blocksUntilExpiry * 2 / 60)} min until reset</span>
-                    ) : (
-                      <button
-                        onClick={() => window.location.reload()}
-                        className="text-green-400 text-sm font-bold hover:text-green-300 transition-colors"
-                      >
-                        ✓ Ready! Tap to refresh
-                      </button>
-                    )}
+                    <span className="text-amber-400 text-sm font-mono">
+                      {blocksUntilExpiry > 0 
+                        ? `~${Math.ceil(blocksUntilExpiry * 2 / 60)} min until reset` 
+                        : "Waiting for blockchain to clear..."}
+                    </span>
+                    <div className="text-[10px] text-gray-500 mt-1">
+                      {blocksUntilExpiry > 0 
+                        ? `${blocksUntilExpiry} blocks remaining`
+                        : "This may take a few more blocks"}
+                    </div>
                   </div>
                 </>
               ) : (
