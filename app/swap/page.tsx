@@ -129,15 +129,17 @@ const TOKEN_TILES: TokenTile[] = [
 ];
 
 // Input token options
+type InputSymbol = "ETH" | "DONUT";
+
 interface InputToken {
-  symbol: "ETH" | "DONUT";
+  symbol: InputSymbol;
   address: Address;
   decimals: number;
   icon: string;
   isNative: boolean;
 }
 
-const INPUT_TOKENS: Record<"ETH" | "DONUT", InputToken> = {
+const INPUT_TOKENS: Record<InputSymbol, InputToken> = {
   ETH: {
     symbol: "ETH",
     address: WETH_ADDRESS,
@@ -278,7 +280,7 @@ const AERODROME_ROUTER_ABI = [
 ] as const;
 
 // Get swap route info
-function getSwapRoute(inputSymbol: "ETH" | "DONUT", outputAddress: Address) {
+function getSwapRoute(inputSymbol: InputSymbol, outputAddress: Address) {
   const output = outputAddress.toLowerCase();
   
   // ETH -> DONUT: Uniswap V2
@@ -392,7 +394,7 @@ export default function SwapPage() {
   
   // Main state
   const [selectedToken, setSelectedToken] = useState<TokenTile | null>(null);
-  const [inputSymbol, setInputSymbol] = useState<"ETH" | "DONUT">("ETH");
+  const [inputSymbol, setInputSymbol] = useState<InputSymbol>("ETH");
   const [inputAmount, setInputAmount] = useState("");
   const [slippage] = useState(1.0);
   const [showInputDropdown, setShowInputDropdown] = useState(false);
@@ -406,11 +408,15 @@ export default function SwapPage() {
   } | null>(null);
   
   // Transaction state
-  const [txStep, setTxStep] = useState<"idle" | "approving" | "approving_leg2" | "transferring_fee" | "swapping_leg1" | "swapping_leg2">("idle");
+  const [txStep, setTxStep] = useState<"idle" | "approving" | "approving_leg2" | "transferring_fee" | "swapping_leg1" | "swapping_leg2" | "setting_approval" | "revoking_approval">("idle");
   const [swapResult, setSwapResult] = useState<"success" | "failure" | null>(null);
   const swapResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [leg1Complete, setLeg1Complete] = useState(false);
   const [leg1ReceivedAmount, setLeg1ReceivedAmount] = useState<bigint>(0n); // Track DONUT received from leg1
+  
+  // Approval management state
+  const [showApprovalSection, setShowApprovalSection] = useState(false);
+  const [customApprovalAmount, setCustomApprovalAmount] = useState("");
 
   // Just use the regular token tiles (no infinite duplication)
   const displayItems = TOKEN_TILES;
@@ -499,7 +505,7 @@ export default function SwapPage() {
     query: { enabled: !!address, refetchInterval: 10_000 },
   });
 
-  const inputBalance = inputSymbol === "ETH" ? nativeEthBalance?.value : donutBalance;
+  const inputBalance = inputSymbol === "ETH" ? nativeEthBalance?.value : (donutBalance as bigint | undefined);
 
   const refetchInputBalance = useCallback(() => {
     if (inputSymbol === "ETH") refetchNativeEthBalance();
@@ -651,6 +657,64 @@ export default function SwapPage() {
     }, 3000);
   }, []);
 
+  // Handle set custom approval
+  const handleSetApproval = useCallback(async () => {
+    if (!address || !selectedToken || !customApprovalAmount) return;
+    
+    try {
+      setTxStep("setting_approval");
+      const approvalAmountWei = parseUnits(customApprovalAmount, selectedToken.decimals ?? 18);
+      await writeContract({
+        address: selectedToken.address!,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [routerForApproval, approvalAmountWei],
+        chainId: base.id,
+      });
+    } catch (error) {
+      console.error("Approval error:", error);
+      setTxStep("idle");
+    }
+  }, [address, selectedToken, customApprovalAmount, routerForApproval, writeContract]);
+
+  // Handle revoke approval
+  const handleRevokeApproval = useCallback(async () => {
+    if (!address || !selectedToken) return;
+    
+    try {
+      setTxStep("revoking_approval");
+      await writeContract({
+        address: selectedToken.address!,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [routerForApproval, 0n],
+        chainId: base.id,
+      });
+    } catch (error) {
+      console.error("Revoke error:", error);
+      setTxStep("idle");
+    }
+  }, [address, selectedToken, routerForApproval, writeContract]);
+
+  // Get current approval for the output token (what the user is buying)
+  const { data: outputTokenAllowance, refetch: refetchOutputAllowance } = useReadContract({
+    address: selectedToken?.address ?? zeroAddress,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: [address ?? zeroAddress, routerForApproval],
+    chainId: base.id,
+    query: { enabled: !!address && !!selectedToken?.address, refetchInterval: 10_000 },
+  });
+
+  const currentApprovalDisplay = useMemo(() => {
+    if (!outputTokenAllowance || outputTokenAllowance === 0n) return "0";
+    const formatted = Number(formatUnits(outputTokenAllowance as bigint, selectedToken?.decimals ?? 18));
+    if (formatted > 1e12) return "Unlimited";
+    return formatted.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }, [outputTokenAllowance, selectedToken]);
+
+  const hasApproval = (outputTokenAllowance ?? 0n) > 0n;
+
   // Handle tile click
   const handleTileClick = async (tile: TokenTile) => {
     if (tile.isPlaceholder) return;
@@ -678,6 +742,8 @@ export default function SwapPage() {
     setLeg1Complete(false);
     setLeg1ReceivedAmount(0n);
     setShowInputDropdown(false);
+    setShowApprovalSection(false);
+    setCustomApprovalAmount("");
     resetTx();
   };
 
@@ -1059,8 +1125,16 @@ export default function SwapPage() {
         resetTx();
         return;
       }
+
+      if (txStep === "setting_approval" || txStep === "revoking_approval") {
+        setTxStep("idle");
+        setCustomApprovalAmount("");
+        refetchOutputAllowance();
+        resetTx();
+        return;
+      }
     }
-  }, [receipt, txStep, route, address, minOutputAmount, amountToSwap, leg1Output, leg1ReceivedAmount, slippage, inputToken, showSwapResultFn, resetTx, refetchAllowance, refetchInputBalance, refetchDonutBalance, refetchDonutAllowanceForAero, writeContract]);
+  }, [receipt, txStep, route, address, minOutputAmount, amountToSwap, leg1Output, leg1ReceivedAmount, slippage, inputToken, showSwapResultFn, resetTx, refetchAllowance, refetchInputBalance, refetchDonutBalance, refetchDonutAllowanceForAero, refetchOutputAllowance, writeContract]);
 
   const isSwapDisabled =
     !isConnected ||
@@ -1355,11 +1429,87 @@ export default function SwapPage() {
                 : "bg-amber-500 text-black hover:bg-amber-400"
             )}
           >
-            {(isWriting || isSending || isConfirming) && (
+            {(isWriting || isSending || isConfirming) && txStep !== "setting_approval" && txStep !== "revoking_approval" && (
               <Loader2 className="w-5 h-5 inline mr-2 animate-spin" />
             )}
             {buttonText}
           </button>
+
+          {/* Approval Management Section */}
+          <div className="mt-4 pt-4 border-t border-zinc-800">
+            <button
+              onClick={() => setShowApprovalSection(!showApprovalSection)}
+              className="flex items-center justify-between w-full text-sm text-zinc-400 hover:text-zinc-300 transition-colors"
+            >
+              <span>Manage {selectedToken.symbol} Approval</span>
+              <ChevronDown className={cn("w-4 h-4 transition-transform", showApprovalSection && "rotate-180")} />
+            </button>
+            
+            {showApprovalSection && (
+              <div className="mt-3 space-y-3">
+                {/* Current Approval Display */}
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-500">Current Approval</span>
+                  <span className="text-zinc-300">{currentApprovalDisplay} {selectedToken.symbol}</span>
+                </div>
+                
+                {/* Set Custom Approval */}
+                <div className="space-y-2">
+                  <label className="text-xs text-zinc-500">Set New Approval Amount</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0.0"
+                      value={customApprovalAmount}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "" || /^[0-9]*\.?[0-9]*$/.test(val)) {
+                          setCustomApprovalAmount(val);
+                        }
+                      }}
+                      className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                    />
+                    <button
+                      onClick={handleSetApproval}
+                      disabled={!customApprovalAmount || txStep !== "idle" || isWriting || isConfirming}
+                      className={cn(
+                        "px-4 py-2 rounded-lg text-sm font-semibold transition-all",
+                        !customApprovalAmount || txStep !== "idle" || isWriting || isConfirming
+                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                          : "bg-green-600 text-white hover:bg-green-500"
+                      )}
+                    >
+                      {txStep === "setting_approval" ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        "Set"
+                      )}
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Revoke Approval */}
+                {hasApproval && (
+                  <button
+                    onClick={handleRevokeApproval}
+                    disabled={txStep !== "idle" || isWriting || isConfirming}
+                    className={cn(
+                      "w-full py-2.5 rounded-lg text-sm font-semibold transition-all",
+                      txStep !== "idle" || isWriting || isConfirming
+                        ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                        : "bg-amber-600/20 text-amber-500 border border-amber-600/50 hover:bg-amber-600/30"
+                    )}
+                  >
+                    {txStep === "revoking_approval" ? (
+                      <Loader2 className="w-4 h-4 inline mr-2 animate-spin" />
+                    ) : null}
+                    Revoke Approval
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
             </div>
           </div>
         </div>
