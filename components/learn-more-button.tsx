@@ -327,6 +327,17 @@ export function LearnMoreButton({
                 </button>
 
                 <button
+                  onClick={() => window.open(`https://www.geckoterminal.com/base/pools/${CONTRACTS.sprinklesToken}`, "_blank", "noopener,noreferrer")}
+                  className="w-full flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors group"
+                >
+                  <div className="text-left">
+                    <div className="text-[11px] font-semibold text-white">SPRINKLES/DONUT Pool</div>
+                    <div className="text-[9px] text-gray-500">GeckoTerminal</div>
+                  </div>
+                  <ExternalLink className="w-3 h-3 text-gray-500 group-hover:text-white transition-colors" />
+                </button>
+
+                <button
                   onClick={openBurnedLP}
                   className="w-full flex items-center justify-between bg-orange-950/30 border border-orange-500/30 rounded-lg p-2 hover:bg-orange-950/50 transition-colors group"
                 >
