@@ -60,14 +60,6 @@ interface TokenTile {
 
 const TOKEN_TILES: TokenTile[] = [
   {
-    id: "approvals",
-    symbol: "🛡️",
-    name: "Token Approvals",
-    description: "Manage & revoke token approvals",
-    isDonutEcosystem: false,
-    isApprovalsTile: true,
-  },
-  {
     id: "donut",
     address: DONUT_ADDRESS,
     symbol: "DONUT",
@@ -126,6 +118,14 @@ const TOKEN_TILES: TokenTile[] = [
     description: "Your Glazery Here",
     isDonutEcosystem: false,
     isPlaceholder: true,
+  },
+  {
+    id: "approvals",
+    symbol: "🛡️",
+    name: "Token Approvals",
+    description: "Manage & revoke token approvals",
+    isDonutEcosystem: false,
+    isApprovalsTile: true,
   },
 ];
 
@@ -362,21 +362,21 @@ function ApprovalsTile({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="w-full relative rounded-xl overflow-hidden border border-amber-600/50 hover:border-amber-500 transition-all active:scale-[0.98] text-left bg-gradient-to-r from-amber-950/50 via-zinc-900 to-zinc-900"
+      className="w-full relative rounded-xl overflow-hidden border border-amber-500 hover:border-amber-400 transition-all active:scale-[0.98] text-left bg-amber-600"
       style={{ height: "110px" }}
     >
       <div className="relative flex items-center gap-4 p-4 h-full">
         {/* Shield Icon */}
-        <div className="w-16 h-16 rounded-full bg-amber-600/20 border-2 border-amber-600/50 flex items-center justify-center flex-shrink-0">
-          <Shield className="w-8 h-8 text-amber-500" />
+        <div className="w-16 h-16 rounded-full bg-amber-500/30 border-2 border-amber-400/50 flex items-center justify-center flex-shrink-0">
+          <Shield className="w-8 h-8 text-white" />
         </div>
         
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <div className="font-bold text-xl text-amber-500" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.8)" }}>
+          <div className="font-bold text-xl text-white">
             Token Approvals
           </div>
-          <div className="text-sm text-zinc-400 mt-0.5" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.8)" }}>
+          <div className="text-sm text-amber-100 mt-0.5">
             Manage & revoke approvals
           </div>
         </div>
@@ -563,8 +563,8 @@ export default function SwapPage() {
     };
   }, []);
 
-  const inputToken = INPUT_TOKENS[inputSymbol];
-  const route = selectedToken?.address ? getSwapRoute(inputSymbol, selectedToken.address, isSellingMode) : null;
+  const inputToken: InputToken = INPUT_TOKENS[inputSymbol as InputSymbol];
+  const route = selectedToken?.address ? getSwapRoute(inputSymbol as InputSymbol, selectedToken.address, isSellingMode) : null;
 
   // Balances
   const { data: nativeEthBalance, refetch: refetchNativeEthBalance } = useBalance({
@@ -1307,7 +1307,7 @@ export default function SwapPage() {
   }, [isConnected, isSellingMode, isWriting, isSending, isConfirming, txStep, route, swapResult, inputBalance, inputAmountWei, amountToSwap, needsApproval]);
 
   // Available input tokens for selected token
-  const availableInputs = selectedToken?.allowedInputs ?? ["ETH"];
+  const availableInputs: InputSymbol[] = selectedToken?.allowedInputs ?? ["ETH"];
 
   // RENDER: Approvals Page
   if (showApprovalsPage) {
@@ -1572,17 +1572,12 @@ export default function SwapPage() {
               
               {/* Scrollable list - hidden scrollbar */}
               <div 
-                className="h-full overflow-y-auto px-2 py-2 space-y-3"
+                className="h-full overflow-y-auto px-2 py-2 space-y-3 scrollbar-hide"
                 style={{
                   scrollbarWidth: "none",
                   msOverflowStyle: "none",
                 }}
               >
-                <style jsx>{`
-                  div::-webkit-scrollbar {
-                    display: none;
-                  }
-                `}</style>
                 {displayItems.map((tile) => (
                   <TokenTileCard
                     key={tile.id}
