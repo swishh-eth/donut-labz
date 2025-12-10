@@ -31,6 +31,7 @@ type MiniAppContext = {
 // Contract addresses
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as Address;
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as Address;
+const PEEPLES_ADDRESS = "0x0eb9d965DBEfbfB131216A4250A29C9b0693Cb07" as Address;
 const WETH_ADDRESS = "0x4200000000000000000000000000000000000006" as Address;
 const TREASURY_ADDRESS = "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d" as Address;
 
@@ -73,6 +74,13 @@ const TOKENS: Token[] = [
     name: "Sprinkles",
     decimals: 18,
     icon: "✨",
+  },
+  {
+    address: PEEPLES_ADDRESS,
+    symbol: "PEEPLES",
+    name: "Peeples",
+    decimals: 18,
+    icon: "👥",
   },
 ];
 
@@ -287,6 +295,67 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
     };
   }
 
+  // DONUT <-> PEEPLES: Two legs - via ETH (Uniswap for both)
+  if (from === DONUT_ADDRESS.toLowerCase() && to === PEEPLES_ADDRESS.toLowerCase()) {
+    return {
+      legs: [
+        {
+          dex: "uniswap",
+          fromToken: DONUT_ADDRESS,
+          toToken: WETH_ADDRESS,
+          path: [DONUT_ADDRESS, WETH_ADDRESS],
+        },
+        {
+          dex: "uniswap",
+          fromToken: WETH_ADDRESS,
+          toToken: PEEPLES_ADDRESS,
+          path: [WETH_ADDRESS, PEEPLES_ADDRESS],
+        },
+      ],
+      displayPath: ["DONUT", "ETH", "PEEPLES"],
+      isMultiHop: true,
+    };
+  }
+
+  if (from === PEEPLES_ADDRESS.toLowerCase() && to === DONUT_ADDRESS.toLowerCase()) {
+    return {
+      legs: [
+        {
+          dex: "uniswap",
+          fromToken: PEEPLES_ADDRESS,
+          toToken: WETH_ADDRESS,
+          path: [PEEPLES_ADDRESS, WETH_ADDRESS],
+        },
+        {
+          dex: "uniswap",
+          fromToken: WETH_ADDRESS,
+          toToken: DONUT_ADDRESS,
+          path: [WETH_ADDRESS, DONUT_ADDRESS],
+        },
+      ],
+      displayPath: ["PEEPLES", "ETH", "DONUT"],
+      isMultiHop: true,
+    };
+  }
+
+  // ETH <-> PEEPLES: Single leg via Uniswap V2
+  if ((from === WETH_ADDRESS.toLowerCase() && to === PEEPLES_ADDRESS.toLowerCase()) ||
+      (from === PEEPLES_ADDRESS.toLowerCase() && to === WETH_ADDRESS.toLowerCase())) {
+    return {
+      legs: [{
+        dex: "uniswap",
+        fromToken,
+        toToken,
+        path: [fromToken, toToken],
+      }],
+      displayPath: [
+        from === WETH_ADDRESS.toLowerCase() ? "ETH" : "PEEPLES",
+        to === WETH_ADDRESS.toLowerCase() ? "ETH" : "PEEPLES",
+      ],
+      isMultiHop: false,
+    };
+  }
+
   // ETH -> SPRINKLES: Two legs - ETH -> DONUT (Uniswap) then DONUT -> SPRINKLES (Aerodrome)
   if (from === WETH_ADDRESS.toLowerCase() && to === SPRINKLES_ADDRESS.toLowerCase()) {
     return {
@@ -341,6 +410,9 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
     };
   }
 
+  // Note: SPRINKLES <-> PEEPLES would require 3 hops (SPRINKLES -> DONUT -> ETH -> PEEPLES)
+  // which is not currently supported. Users should swap to ETH first, then to the other token.
+
   // Default: try Uniswap direct (may fail)
   return {
     legs: [{
@@ -354,11 +426,33 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
   };
 }
 
+// Featured ecosystem tokens for carousel
+interface FeaturedToken {
+  image: string;
+  title: string;
+  description: string;
+  tokenAddress: Address;
+  link?: string;
+}
+
+const FEATURED_TOKENS: FeaturedToken[] = [
+  {
+    image: "/peeples-token.png",
+    title: "PEEPLES",
+    description: "Pool ETH together and mine $DONUTS",
+    tokenAddress: PEEPLES_ADDRESS,
+  },
+  // Add more featured tokens here
+];
+
 export default function SwapPage() {
   const readyRef = useRef(false);
   const autoConnectAttempted = useRef(false);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
+  
+  // Featured tokens carousel state
+  const [featuredIndex, setFeaturedIndex] = useState(0);
   
   // Swap state
   const [inputAmount, setInputAmount] = useState("");
@@ -1273,21 +1367,20 @@ export default function SwapPage() {
             )}
           </button>
 
-          {/* Powered by notice */}
-          <div className="text-center mt-3">
-            <span className="text-[10px] text-gray-600">
-              Powered by {swapInfo.isMultiHop ? "Uniswap + Aerodrome" : (firstLeg.dex === "uniswap" ? "Uniswap" : "Aerodrome")} • 0.3% fee supports Donut Labs
+          {/* Powered by + Slippage on one line */}
+          <div className="flex items-center justify-center gap-2 mt-2 text-[9px] text-gray-500">
+            <span>
+              {swapInfo.isMultiHop ? "Uni + Aero" : (firstLeg.dex === "uniswap" ? "Uniswap" : "Aerodrome")} • 0.3% fee
             </span>
+            <span>•</span>
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className="flex items-center gap-1 hover:text-gray-300 transition-colors"
+            >
+              <Settings className="w-2.5 h-2.5" />
+              <span>{slippage}% slip</span>
+            </button>
           </div>
-
-          {/* Slippage Settings - Below powered by */}
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="mt-3 flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-gray-300 transition-colors"
-          >
-            <Settings className="w-3 h-3" />
-            <span>Slippage: {slippage}%</span>
-          </button>
 
           {showSettings && (
             <div className="mt-2 bg-zinc-900 border border-zinc-800 rounded-xl p-3">
@@ -1337,6 +1430,90 @@ export default function SwapPage() {
                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Featured Tokens Carousel */}
+          {FEATURED_TOKENS.length > 0 && (
+            <div className="mt-4 relative">
+              <div 
+                className="relative h-32 rounded-xl overflow-hidden cursor-pointer"
+                onClick={() => {
+                  const featured = FEATURED_TOKENS[featuredIndex];
+                  // Set output token to the featured token and input to ETH
+                  const token = TOKENS.find(t => t.address.toLowerCase() === featured.tokenAddress.toLowerCase());
+                  if (token) {
+                    setOutputToken(token);
+                    setInputToken(TOKENS.find(t => t.isNative) || TOKENS[1]); // ETH
+                  }
+                }}
+              >
+                {/* Background image */}
+                <img 
+                  src={FEATURED_TOKENS[featuredIndex].image}
+                  alt={FEATURED_TOKENS[featuredIndex].title}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                
+                {/* Text content */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+                  <h3 className="text-xl font-black text-white drop-shadow-lg">
+                    {FEATURED_TOKENS[featuredIndex].title}
+                  </h3>
+                  <p className="text-xs text-gray-200 mt-1 drop-shadow-md">
+                    {FEATURED_TOKENS[featuredIndex].description}
+                  </p>
+                </div>
+
+                {/* Navigation arrows */}
+                {FEATURED_TOKENS.length > 1 && (
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFeaturedIndex((prev) => 
+                          prev === 0 ? FEATURED_TOKENS.length - 1 : prev - 1
+                        );
+                      }}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+                    >
+                      <ChevronDown className="w-4 h-4 rotate-90" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFeaturedIndex((prev) => 
+                          prev === FEATURED_TOKENS.length - 1 ? 0 : prev + 1
+                        );
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+                    >
+                      <ChevronDown className="w-4 h-4 -rotate-90" />
+                    </button>
+                  </>
+                )}
+
+                {/* Dots indicator */}
+                {FEATURED_TOKENS.length > 1 && (
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+                    {FEATURED_TOKENS.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFeaturedIndex(i);
+                        }}
+                        className={cn(
+                          "w-1.5 h-1.5 rounded-full transition-colors",
+                          i === featuredIndex ? "bg-white" : "bg-white/40"
+                        )}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
