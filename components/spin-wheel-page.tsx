@@ -819,10 +819,11 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
           <ArrowLeft className="w-6 h-6" />
         </button>
         <h1 
-          className="text-3xl font-bold tracking-wide text-white"
+          className="text-4xl font-bold tracking-wide text-white animate-pulse"
           style={{ 
             fontFamily: 'cursive',
             textShadow: '0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,0.6), 0 0 30px rgba(255,255,255,0.4)',
+            animation: 'pulse 2s ease-in-out infinite',
           }}
         >
           Glaze Wheel
@@ -1274,11 +1275,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
 
               {/* Buy Spin Section */}
               <div className="mt-3 pt-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] text-gray-500">Buy a spin instantly</span>
-                  <span className="text-xs text-amber-400 font-mono">🍩{Math.floor(auctionPrice)}</span>
-                </div>
-                
                 {!auctionBuyingEnabled ? (
                   <div className="w-full py-3 rounded-xl text-base font-bold bg-zinc-800 text-gray-500 text-center">
                     Buying Temporarily Disabled
