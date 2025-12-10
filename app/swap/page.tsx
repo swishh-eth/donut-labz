@@ -404,7 +404,7 @@ function PlaceholderTile() {
 }
 
 // Token Tile Component
-function TokenTileCard({ tile, onClick, onApprovalsClick }: { tile: TokenTile; onClick: () => void; onApprovalsClick?: () => void }) {
+function TokenTileCard({ tile, onClick, onApprovalsClick, isFirst }: { tile: TokenTile; onClick: () => void; onApprovalsClick?: () => void; isFirst?: boolean }) {
   if (tile.isPlaceholder) {
     return <PlaceholderTile />;
   }
@@ -416,7 +416,12 @@ function TokenTileCard({ tile, onClick, onApprovalsClick }: { tile: TokenTile; o
   return (
     <button
       onClick={onClick}
-      className="w-full relative rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98] text-left"
+      className={cn(
+        "w-full relative rounded-xl overflow-hidden border transition-all active:scale-[0.98] text-left",
+        isFirst 
+          ? "border-white/50 shadow-[0_0_15px_rgba(255,255,255,0.3)]" 
+          : "border-zinc-800 hover:border-zinc-600"
+      )}
       style={{ height: "110px" }}
     >
       {/* Banner as background */}
@@ -439,7 +444,10 @@ function TokenTileCard({ tile, onClick, onApprovalsClick }: { tile: TokenTile; o
           <img
             src={tile.icon}
             alt={tile.symbol}
-            className="w-16 h-16 rounded-full border-2 border-zinc-700"
+            className={cn(
+              "w-16 h-16 rounded-full border-2",
+              isFirst ? "border-white/70" : "border-zinc-700"
+            )}
           />
           {!tile.isDonutEcosystem && (
             <div className="absolute -top-1 -right-1 bg-amber-500 rounded-full w-5 h-5 flex items-center justify-center text-[10px] text-black font-bold">
@@ -1578,12 +1586,13 @@ export default function SwapPage() {
                   msOverflowStyle: "none",
                 }}
               >
-                {displayItems.map((tile) => (
+                {displayItems.map((tile, index) => (
                   <TokenTileCard
                     key={tile.id}
                     tile={tile}
                     onClick={() => handleTileClick(tile)}
                     onApprovalsClick={() => setShowApprovalsPage(true)}
+                    isFirst={index === 0}
                   />
                 ))}
               </div>
