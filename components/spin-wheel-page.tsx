@@ -417,11 +417,15 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     setError(null);
     setStage("committing");
 
+    // Generate a random secret
     const newSecret = keccak256(encodePacked(["address", "uint256"], [address, BigInt(Date.now())]));
-    const commitHashValue = keccak256(encodePacked(["address", "bytes32"], [address, newSecret]));
+    
+    // IMPORTANT: Contract expects keccak256(abi.encodePacked(_secret, msg.sender))
+    // So it's: secret FIRST, then address
+    const commitHashValue = keccak256(encodePacked(["bytes32", "address"], [newSecret, address]));
 
     console.log("Generated secret:", newSecret);
-    console.log("Commit hash:", commitHashValue);
+    console.log("Commit hash (secret + address):", commitHashValue);
 
     // Save secret BEFORE sending tx
     saveSecret(address, newSecret);
