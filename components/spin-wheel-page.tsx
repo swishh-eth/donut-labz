@@ -141,7 +141,40 @@ const SEGMENTS = [
   { label: "5%", color: "#b45309", glowColor: "#f59e0b", chance: 2, prize: 5 },
 ];
 
-const SEGMENT_ANGLES = [36, 108, 180, 252, 324];
+// Each segment is 72° wide (360/5)
+// Segment i starts at: i * 72 - 90 degrees
+// Segment i center is at: i * 72 - 90 + 36 = i * 72 - 54 degrees
+// To land pointer on segment i center, wheel must rotate so that angle is at top (270° in SVG coords, or -90°)
+// So we need to rotate by: -(segment center angle) = -(i * 72 - 54) = 54 - i * 72
+// But since we're adding rotation, we want the positive equivalent
+// Segment 0: center at -54°, rotate 54° to bring to top → but pointer is at TOP which is -90° in drawing
+// 
+// Let's recalculate: pointer is at top of screen
+// At rotation 0°, segment 0 is at top (starts at -90°, center at -54°)
+// The label for segment 0 is at -54° from center
+// For segment i to be under the pointer, we need its center under the pointer
+// Segment i center = i * 72 - 54 degrees from the initial position
+// To rotate segment i to the top, we rotate by: -1 * (i * 72 - 54) = 54 - i * 72
+// In positive rotation terms (wheel spins clockwise visually):
+// Segment 0: 54 - 0 = 54° (but segment 0 IS at top at rotation ~0, so this is the offset)
+// 
+// Actually simpler: At rotation 0, where is each segment's center?
+// Seg 0: -54° (almost at top, slightly left)
+// Seg 1: 18° (right side)
+// Seg 2: 90° (bottom right)  
+// Seg 3: 162° (bottom left)
+// Seg 4: 234° (left side)
+//
+// To bring segment i center to top (-90° position), rotate by: -90 - (i * 72 - 54) = -90 - i*72 + 54 = -36 - i*72
+// In positive: 360 + (-36 - i*72) % 360
+// Seg 0: 360 - 36 = 324°
+// Seg 1: 360 - 36 - 72 = 252°
+// Seg 2: 360 - 36 - 144 = 180°
+// Seg 3: 360 - 36 - 216 = 108°
+// Seg 4: 360 - 36 - 288 = 36°
+
+// These are the rotations needed to land on each segment
+const SEGMENT_ANGLES = [324, 252, 180, 108, 36];
 const SPIN_SPEED = 8;
 
 // Secret management
@@ -644,8 +677,13 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
 
       const baseRotation = continuousRotation % 360;
       const targetAngle = SEGMENT_ANGLES[segment];
-      const spins = 5;
-      const finalRotation = baseRotation + (spins * 360) + (360 - targetAngle) + 90;
+      const spins = 5; // Number of full rotations for dramatic effect
+      
+      // Calculate final rotation: base + full spins + target angle
+      // The targetAngle already accounts for where the segment needs to be
+      const finalRotation = baseRotation + (spins * 360) + targetAngle;
+      
+      console.log("Spin result:", { segment, segmentLabel: SEGMENTS[segment].label, targetAngle, finalRotation });
 
       setRotation(finalRotation);
       setStage("spinning");
