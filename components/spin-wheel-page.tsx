@@ -361,8 +361,12 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     const newSecret = keccak256(encodePacked(["address", "uint256"], [address, BigInt(Date.now())]));
     const commitHashValue = keccak256(encodePacked(["address", "bytes32"], [address, newSecret]));
 
-    setSecret(newSecret);
+    console.log("Generated secret:", newSecret);
+    console.log("Commit hash:", commitHashValue);
+
+    // Save secret BEFORE sending tx
     saveSecret(address, newSecret);
+    setSecret(newSecret);
 
     try {
       writeCommit({
@@ -376,19 +380,34 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
       setError(err.message || "Failed to commit");
       setStage("idle");
       hasStartedRef.current = false;
+      clearSecret(address);
     }
   }, [address, localSpins, writeCommit]);
 
   // Handle reveal
   const handleReveal = useCallback(async () => {
-    if (!address || !secret) return;
+    if (!address) return;
+    
+    // Always get secret from localStorage to ensure we have the right one
+    const storedSecret = getSecret(address);
+    console.log("Revealing with stored secret:", storedSecret);
+    console.log("Current state secret:", secret);
+    
+    const secretToUse = storedSecret || secret;
+    
+    if (!secretToUse) {
+      setError("No secret found. Please try spinning again.");
+      setStage("idle");
+      hasStartedRef.current = false;
+      return;
+    }
 
     try {
       writeReveal({
         address: SPIN_WHEEL_ADDRESS,
         abi: SPIN_WHEEL_ABI,
         functionName: "reveal",
-        args: [secret],
+        args: [secretToUse],
         chainId: base.id,
       });
     } catch (err: any) {
@@ -439,18 +458,20 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   // Commit confirmation
   useEffect(() => {
     if (commitReceipt?.status === "success" && stage === "committing") {
+      console.log("Commit confirmed, waiting for reveal eligibility...");
       setStage("waiting");
-      const checkReveal = setInterval(() => {
-        refetchCommitment();
-      }, 1000);
+      
+      // Poll for reveal eligibility
+      const checkReveal = setInterval(async () => {
+        console.log("Checking if can reveal...");
+        await refetchCommitment();
+      }, 2000);
 
+      // Set a max timeout of 30 seconds
       const timeout = setTimeout(() => {
         clearInterval(checkReveal);
-        if (canRevealPending && secret) {
-          setStage("revealing");
-          handleReveal();
-        }
-      }, 5000);
+        console.log("Timeout reached, checking final state");
+      }, 30000);
 
       return () => {
         clearInterval(checkReveal);
@@ -460,16 +481,22 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
       setError("Commit transaction failed");
       setStage("idle");
       hasStartedRef.current = false;
+      if (address) clearSecret(address);
     }
-  }, [commitReceipt, stage, canRevealPending, secret, handleReveal, refetchCommitment]);
+  }, [commitReceipt, stage, address, refetchCommitment]);
 
-  // Auto-reveal when ready
+  // Auto-reveal when canReveal becomes true
   useEffect(() => {
-    if (stage === "waiting" && canRevealPending && secret && !isRevealing && !revealHash) {
-      setStage("revealing");
-      handleReveal();
+    if (stage === "waiting" && canRevealPending && !isRevealing && !revealHash) {
+      console.log("Can reveal now! Triggering reveal...");
+      // Small delay to ensure state is settled
+      const timer = setTimeout(() => {
+        setStage("revealing");
+        handleReveal();
+      }, 500);
+      return () => clearTimeout(timer);
     }
-  }, [stage, canRevealPending, secret, isRevealing, revealHash, handleReveal]);
+  }, [stage, canRevealPending, isRevealing, revealHash, handleReveal]);
 
   // Approval confirmation
   useEffect(() => {
@@ -901,10 +928,17 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2 mb-2">
               <div className="text-amber-400 text-sm font-medium mb-1">🎰 Spin Ready!</div>
               <div className="text-gray-300 text-xs mb-2">You have a pending spin waiting to be revealed.</div>
-              {canRevealPending && secret ? (
+              {canRevealPending ? (
                 <button
                   onClick={() => {
+                    const storedSecret = address ? getSecret(address) : null;
+                    console.log("Manual reveal - stored secret:", storedSecret);
+                    if (!storedSecret) {
+                      setError("Secret not found. The spin may have been started in another session.");
+                      return;
+                    }
                     hasStartedRef.current = true;
+                    setSecret(storedSecret);
                     setStage("revealing");
                     handleReveal();
                   }}
@@ -913,7 +947,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                   REVEAL MY SPIN!
                 </button>
               ) : (
-                <div className="text-amber-300 text-[10px]">⏳ Waiting for blockchain confirmation...</div>
+                <div className="text-amber-300 text-[10px]">⏳ Waiting for blockchain confirmation... (need 1 more block)</div>
               )}
             </div>
           )}
