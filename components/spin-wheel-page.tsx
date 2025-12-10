@@ -943,24 +943,33 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
           )}
 
           {stage === "idle" && hasPendingCommit && (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2 mb-2">
+            <div className="mb-2">
               {isCorruptedSpin ? (
-                // Corrupted spin - show waiting message
+                // Corrupted spin - show help button style
                 <>
-                  <div className="text-amber-400 text-sm font-medium mb-1">⏳ Spin Reset Required</div>
-                  <div className="text-gray-300 text-xs mb-2">
-                    Your previous spin encountered an issue. Please wait for it to expire.
+                  <button
+                    onClick={() => setShowSpinIssuePopup(true)}
+                    className="w-full py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <HelpCircle className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                    <span className="text-sm text-gray-300">Your previous spin encountered an issue</span>
+                  </button>
+                  <div className="text-center mt-2">
+                    {blocksUntilExpiry > 0 ? (
+                      <span className="text-amber-400 text-sm font-mono">~{Math.ceil(blocksUntilExpiry * 2 / 60)} min until reset</span>
+                    ) : (
+                      <button
+                        onClick={() => window.location.reload()}
+                        className="text-green-400 text-sm font-bold hover:text-green-300 transition-colors"
+                      >
+                        ✓ Ready! Tap to refresh
+                      </button>
+                    )}
                   </div>
-                  <div className="text-center text-amber-300 text-sm font-mono">
-                    {blocksUntilExpiry > 0 ? `~${Math.ceil(blocksUntilExpiry * 2 / 60)} min remaining` : 'Ready now!'}
-                  </div>
-                  {blocksUntilExpiry === 0 && (
-                    <div className="text-[10px] text-gray-500 text-center mt-1">Refresh the page to continue</div>
-                  )}
                 </>
               ) : (
                 // Valid spin - show reveal button
-                <>
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2">
                   <div className="text-amber-400 text-sm font-medium mb-1">🎰 Spin Ready!</div>
                   <div className="text-gray-300 text-xs mb-2">You have a pending spin waiting to be revealed.</div>
                   {canRevealPending ? (
@@ -982,7 +991,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                   ) : (
                     <div className="text-amber-300 text-[10px]">⏳ Waiting for blockchain confirmation... (need 1 more block)</div>
                   )}
-                </>
+                </div>
               )}
             </div>
           )}
@@ -995,29 +1004,85 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                 onClick={() => setShowSpinIssuePopup(false)}
               />
               <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-                <div className="relative mx-4 rounded-2xl border border-amber-500/50 bg-zinc-950 p-5 shadow-2xl">
-                  <div className="text-center mb-4">
-                    <div className="text-4xl mb-2">⚠️</div>
-                    <h2 className="text-xl font-bold text-amber-400">Spin Issue Detected</h2>
+                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
+                  <button
+                    onClick={() => setShowSpinIssuePopup(false)}
+                    className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+
+                  <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <HelpCircle className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                    Why did my spin fail?
+                  </h2>
+
+                  <div className="space-y-4">
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
+                        1
+                      </div>
+                      <div>
+                        <div className="font-semibold text-white text-sm">How the wheel works</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          The Glaze Wheel uses a commit-reveal system for provably fair randomness. When you spin, a secret key is generated and stored locally on your device.
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
+                        2
+                      </div>
+                      <div>
+                        <div className="font-semibold text-white text-sm">What happened</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          Your secret key was lost - this can happen if the app refreshed, you switched devices, or cleared your browser data during the spin process.
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
+                        3
+                      </div>
+                      <div>
+                        <div className="font-semibold text-white text-sm">Why you need to wait</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          The blockchain has a pending commitment that needs to expire (~256 blocks). This prevents manipulation and keeps the wheel fair for everyone.
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-xs font-bold text-green-400">
+                        ✓
+                      </div>
+                      <div>
+                        <div className="font-semibold text-green-400 text-sm">Your spin is safe!</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          Spins are only deducted after a successful reveal. Once the timeout expires, you can spin again with your full balance.
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="text-gray-300 text-sm space-y-3">
-                    <p>
-                      Your spin data was lost (this can happen if the app refreshed during the spin process).
-                    </p>
-                    <p>
-                      <strong className="text-white">Don't worry!</strong> Your spin is safe and will still be available after the blockchain timeout.
-                    </p>
-                    <p className="text-amber-300">
-                      ⏳ Please wait approximately <strong>{blocksUntilExpiry > 0 ? `${Math.ceil(blocksUntilExpiry * 2 / 60)} minutes` : 'a few seconds'}</strong> for the old spin request to expire, then you can spin again.
-                    </p>
+
+                  <div className="mt-4 pt-4 border-t border-zinc-800">
+                    <a
+                      href={`https://basescan.org/address/${SPIN_WHEEL_ADDRESS}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-gray-500 hover:text-amber-400 transition-colors flex items-center justify-center gap-1"
+                    >
+                      View wheel contract on Basescan →
+                    </a>
                   </div>
 
                   <button
                     onClick={() => setShowSpinIssuePopup(false)}
-                    className="mt-5 w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-black hover:bg-amber-400 transition-colors"
+                    className="mt-4 w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-black hover:bg-amber-400 transition-colors"
                   >
-                    Got it, I'll wait
+                    Got it
                   </button>
                 </div>
               </div>
