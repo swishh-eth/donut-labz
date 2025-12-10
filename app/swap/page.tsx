@@ -7,6 +7,7 @@ import {
   useBalance,
   useConnect,
   useReadContract,
+  useSendTransaction,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi";
@@ -92,7 +93,8 @@ const TOKENS: Token[] = [
 ];
 
 // Fee configuration
-const SWAP_FEE_BPS = 30; // 0.3% = 30 basis points
+// Fee configuration (0.05% = 5 basis points)
+const SWAP_FEE_BPS = 5;
 const FEE_DENOMINATOR = 10000;
 
 // ABIs
@@ -479,15 +481,19 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
 
 // Featured ecosystem tokens for carousel
 interface FeaturedToken {
-  image: string; // Image URL for banner
+  tokenAddress: string; // Token address for banner
   title: string;
   description: string;
   link: string; // Link to open when clicked
 }
 
+// DexScreener header/banner image URL
+const getDexScreenerHeader = (address: string) =>
+  `https://dd.dexscreener.com/ds-data/tokens/base/${address.toLowerCase()}/header.png`;
+
 const FEATURED_TOKENS: FeaturedToken[] = [
   {
-    image: getDexScreenerIcon(PEEPLES_ADDRESS), // Use token icon as fallback
+    tokenAddress: PEEPLES_ADDRESS,
     title: "PEEPLES",
     description: "Pool ETH together and mine $DONUTS",
     link: "https://farcaster.xyz/miniapps/OBSXNsOaGYv1/peeples-donuts",
@@ -515,15 +521,14 @@ export default function SwapPage() {
   const [showSettings, setShowSettings] = useState(false);
   
   // Transaction state
-  // For multi-hop: approving -> fee -> swapping_leg1 -> approving_leg2 -> swapping_leg2
+  // For multi-hop: approving -> transferring_fee -> swapping_leg1 -> approving_leg2 -> swapping_leg2
   const [txStep, setTxStep] = useState<
     "idle" | 
     "approving" | 
-    "transferring_fee" | 
+    "transferring_fee" |
     "swapping_leg1" | 
     "approving_leg2" | 
-    "swapping_leg2" |
-    "transferring_fee" // Fee transfer happens AFTER swap completes
+    "swapping_leg2"
   >("idle");
   const [swapResult, setSwapResult] = useState<"success" | "failure" | null>(null);
   const swapResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -727,18 +732,26 @@ export default function SwapPage() {
     }
   }, [inputAmount, inputToken.decimals]);
 
-  // Fee is taken from OUTPUT after swap (0.3%)
-  // This simplifies the flow - no separate fee transaction needed
+  // Calculate fee (0.05% of input)
+  const feeAmount = useMemo(() => {
+    if (inputAmountWei === 0n) return 0n;
+    return (inputAmountWei * BigInt(SWAP_FEE_BPS)) / BigInt(FEE_DENOMINATOR);
+  }, [inputAmountWei]);
 
-  // Get quote for first leg (Uniswap V2) - quote full input amount
+  // Amount after fee (what actually gets swapped)
+  const amountAfterFee = useMemo(() => {
+    return inputAmountWei - feeAmount;
+  }, [inputAmountWei, feeAmount]);
+
+  // Get quote for first leg (Uniswap V2) - quote amount after fee
   const { data: leg1UniswapQuote, refetch: refetchLeg1Uniswap } = useReadContract({
     address: UNISWAP_V2_ROUTER,
     abi: UNISWAP_V2_ROUTER_ABI,
     functionName: "getAmountsOut",
-    args: [inputAmountWei, firstLeg.path ?? []],
+    args: [amountAfterFee, firstLeg.path ?? []],
     chainId: base.id,
     query: {
-      enabled: inputAmountWei > 0n && firstLeg.dex === "uniswap" && !!firstLeg.path?.length,
+      enabled: amountAfterFee > 0n && firstLeg.dex === "uniswap" && !!firstLeg.path?.length,
       refetchInterval: 10_000,
     },
   });
@@ -752,12 +765,12 @@ export default function SwapPage() {
       firstLeg.fromToken,
       firstLeg.toToken,
       firstLeg.fee ?? 10000,
-      inputAmountWei,
+      amountAfterFee,
       0n, // sqrtPriceLimitX96 - 0 means no limit
     ],
     chainId: base.id,
     query: {
-      enabled: inputAmountWei > 0n && firstLeg.dex === "uniswapV3" && !!firstLeg.fee,
+      enabled: amountAfterFee > 0n && firstLeg.dex === "uniswapV3" && !!firstLeg.fee,
       refetchInterval: 10_000,
     },
   });
@@ -767,10 +780,10 @@ export default function SwapPage() {
     address: AERODROME_ROUTER,
     abi: AERODROME_ROUTER_ABI,
     functionName: "getAmountsOut",
-    args: [inputAmountWei, firstLeg.routes ?? []],
+    args: [amountAfterFee, firstLeg.routes ?? []],
     chainId: base.id,
     query: {
-      enabled: inputAmountWei > 0n && firstLeg.dex === "aerodrome" && !!firstLeg.routes?.length,
+      enabled: amountAfterFee > 0n && firstLeg.dex === "aerodrome" && !!firstLeg.routes?.length,
       refetchInterval: 10_000,
     },
   });
@@ -831,8 +844,8 @@ export default function SwapPage() {
     },
   });
 
-  // Final output amount (before fee)
-  const grossOutputAmount = useMemo(() => {
+  // Final output amount
+  const outputAmount = useMemo(() => {
     if (!swapInfo.isMultiHop) {
       // Single hop - just return leg1 output
       return leg1Output;
@@ -846,17 +859,6 @@ export default function SwapPage() {
     if (!leg2Quote || !Array.isArray(leg2Quote) || leg2Quote.length < 2) return 0n;
     return leg2Quote[leg2Quote.length - 1] as bigint;
   }, [swapInfo.isMultiHop, leg1Output, secondLeg?.dex, leg2UniswapQuote, leg2AerodromeQuote, leg2V3Quote]);
-
-  // Fee taken from output (0.3%)
-  const feeAmount = useMemo(() => {
-    if (grossOutputAmount === 0n) return 0n;
-    return (grossOutputAmount * BigInt(SWAP_FEE_BPS)) / BigInt(FEE_DENOMINATOR);
-  }, [grossOutputAmount]);
-
-  // Net output after fee (what user receives)
-  const outputAmount = useMemo(() => {
-    return grossOutputAmount - feeAmount;
-  }, [grossOutputAmount, feeAmount]);
 
   const refetchQuote = useCallback(() => {
     if (firstLeg.dex === "uniswap") {
@@ -917,10 +919,27 @@ export default function SwapPage() {
     reset: resetWrite,
   } = useWriteContract();
 
+  // For sending native ETH (fee transfer)
+  const {
+    data: sendTxHash,
+    sendTransaction,
+    isPending: isSending,
+    reset: resetSend,
+  } = useSendTransaction();
+
+  // Combined tx hash for receipt tracking
+  const activeTxHash = txHash || sendTxHash;
+
   const { data: receipt, isLoading: isConfirming } = useWaitForTransactionReceipt({
-    hash: txHash,
+    hash: activeTxHash,
     chainId: base.id,
   });
+
+  // Combined reset
+  const resetAll = useCallback(() => {
+    resetAll();
+    resetSend();
+  }, [resetWrite, resetSend]);
 
   // Handle swap process
   const handleSwap = useCallback(async () => {
@@ -967,13 +986,42 @@ export default function SwapPage() {
         return;
       }
 
-      // Step 2: Execute first leg swap (swap FULL input amount)
-      if (txStep === "idle" || txStep === "swapping_leg1") {
-        if (txStep !== "swapping_leg1") {
+      // Step 2: Transfer fee to treasury
+      if (txStep === "idle" || txStep === "transferring_fee") {
+        if (feeAmount > 0n) {
+          if (txStep !== "transferring_fee") {
+            console.log("Transferring fee:", feeAmount.toString());
+            setTxStep("transferring_fee");
+          }
+          
+          if (inputToken.isNative) {
+            // Send ETH fee directly
+            sendTransaction({
+              to: TREASURY_ADDRESS,
+              value: feeAmount,
+              chainId: base.id,
+            });
+          } else {
+            // Transfer token fee
+            await writeContract({
+              address: inputToken.address,
+              abi: ERC20_ABI,
+              functionName: "transfer",
+              args: [TREASURY_ADDRESS, feeAmount],
+              chainId: base.id,
+            });
+          }
+          return;
+        } else {
+          // No fee, skip to swap
           setTxStep("swapping_leg1");
         }
+      }
+
+      // Step 3: Execute first leg swap
+      if (txStep === "swapping_leg1") {
         console.log("Executing leg 1 swap via", firstLeg.dex);
-        // For single-hop, use minOutputAmount (which accounts for fee + slippage)
+        // For single-hop, use minOutputAmount (with slippage)
         // For multi-hop, use minLeg1Output (slippage on intermediate)
         const minOut = swapInfo.isMultiHop ? minLeg1Output : minOutputAmount;
         
@@ -985,7 +1033,7 @@ export default function SwapPage() {
               abi: UNISWAP_V2_ROUTER_ABI,
               functionName: "swapExactETHForTokens",
               args: [minOut, firstLeg.path, address, deadline],
-              value: inputAmountWei, // Send full ETH amount
+              value: amountAfterFee, // Send amount after fee
               chainId: base.id,
             });
           } else {
@@ -993,7 +1041,7 @@ export default function SwapPage() {
               address: UNISWAP_V2_ROUTER,
               abi: UNISWAP_V2_ROUTER_ABI,
               functionName: "swapExactTokensForTokens",
-              args: [inputAmountWei, minOut, firstLeg.path, address, deadline],
+              args: [amountAfterFee, minOut, firstLeg.path, address, deadline],
               chainId: base.id,
             });
           }
@@ -1004,7 +1052,7 @@ export default function SwapPage() {
             tokenOut: firstLeg.toToken,
             fee: firstLeg.fee,
             recipient: address,
-            amountIn: inputAmountWei,
+            amountIn: amountAfterFee,
             amountOutMinimum: minOut,
             sqrtPriceLimitX96: 0n,
           };
@@ -1013,7 +1061,7 @@ export default function SwapPage() {
             abi: UNISWAP_V3_ROUTER_ABI,
             functionName: "exactInputSingle",
             args: [params],
-            value: inputToken.isNative ? inputAmountWei : 0n,
+            value: inputToken.isNative ? amountAfterFee : 0n,
             chainId: base.id,
           });
         } else if (firstLeg.dex === "aerodrome" && firstLeg.routes) {
@@ -1021,7 +1069,7 @@ export default function SwapPage() {
             address: AERODROME_ROUTER,
             abi: AERODROME_ROUTER_ABI,
             functionName: "swapExactTokensForTokens",
-            args: [inputAmountWei, minOut, firstLeg.routes, address, deadline],
+            args: [amountAfterFee, minOut, firstLeg.routes, address, deadline],
             chainId: base.id,
           });
         }
@@ -1085,19 +1133,6 @@ export default function SwapPage() {
         }
         return;
       }
-
-      // Step 5: Transfer fee to treasury (from output token)
-      if (txStep === "transferring_fee") {
-        console.log("Transferring fee to treasury");
-        await writeContract({
-          address: outputToken.address,
-          abi: ERC20_ABI,
-          functionName: "transfer",
-          args: [TREASURY_ADDRESS, feeAmount],
-          chainId: base.id,
-        });
-        return;
-      }
     } catch (error: any) {
       console.error("Swap failed:", error);
       // Check if user rejected/cancelled
@@ -1108,14 +1143,15 @@ export default function SwapPage() {
       }
       setTxStep("idle");
       setIntermediateAmount(0n);
-      resetWrite();
+      resetAll();
     }
   }, [
     address,
     inputAmountWei,
+    amountAfterFee,
+    feeAmount,
     needsApproval,
     txStep,
-    feeAmount,
     minOutputAmount,
     minLeg1Output,
     swapInfo,
@@ -1126,11 +1162,11 @@ export default function SwapPage() {
     intermediateAmount,
     donutBalance,
     inputToken,
-    outputToken,
     writeContract,
+    sendTransaction,
     resetSwapResult,
     showSwapResultFn,
-    resetWrite,
+    resetAll,
     primaryConnector,
     connectAsync,
   ]);
@@ -1143,13 +1179,19 @@ export default function SwapPage() {
       showSwapResultFn("failure");
       setTxStep("idle");
       setIntermediateAmount(0n);
-      resetWrite();
+      resetAll();
       return;
     }
 
     if (receipt.status === "success") {
       if (txStep === "approving") {
-        resetWrite();
+        resetAll();
+        setTxStep("transferring_fee");
+        return;
+      }
+
+      if (txStep === "transferring_fee") {
+        resetAll();
         setTxStep("swapping_leg1");
         return;
       }
@@ -1157,7 +1199,7 @@ export default function SwapPage() {
       if (txStep === "swapping_leg1") {
         if (swapInfo.isMultiHop) {
           // After leg1, check if we need to approve intermediate token for leg2
-          resetWrite();
+          resetAll();
           refetchDonutBalance();
           refetchDonutAllowance();
           // Store intermediate amount
@@ -1172,36 +1214,34 @@ export default function SwapPage() {
           }
           return;
         } else {
-          // Single hop complete - transfer fee then done
-          resetWrite();
-          setTxStep("transferring_fee");
+          // Single hop complete!
+          showSwapResultFn("success");
+          setTxStep("idle");
+          setInputAmount("");
+          refetchInputBalance();
+          refetchAllowance();
+          resetAll();
           return;
         }
       }
 
       if (txStep === "approving_leg2") {
-        resetWrite();
+        resetAll();
         refetchDonutAllowance();
         setTxStep("swapping_leg2");
         return;
       }
 
       if (txStep === "swapping_leg2") {
-        // Multi-hop swap done - now transfer fee
-        resetWrite();
-        setTxStep("transferring_fee");
-        return;
-      }
-
-      if (txStep === "transferring_fee") {
-        // All done!
+        // Multi-hop complete!
         showSwapResultFn("success");
         setTxStep("idle");
         setIntermediateAmount(0n);
         setInputAmount("");
         refetchInputBalance();
         refetchAllowance();
-        resetWrite();
+        refetchDonutBalance();
+        resetAll();
         return;
       }
     }
@@ -1212,12 +1252,12 @@ export default function SwapPage() {
   
   useEffect(() => {
     // Only auto-continue if we're in a middle step and not already processing
-    const isPending = isWriting;
+    const isPending = isWriting || isSending;
     if (
-      (txStep === "approving" || txStep === "swapping_leg1" || txStep === "approving_leg2" || txStep === "swapping_leg2" || txStep === "transferring_fee") && 
+      (txStep === "approving" || txStep === "transferring_fee" || txStep === "swapping_leg1" || txStep === "approving_leg2" || txStep === "swapping_leg2") && 
       !isPending && 
       !isConfirming && 
-      !txHash &&
+      !activeTxHash &&
       !pendingStepRef.current
     ) {
       pendingStepRef.current = true;
@@ -1231,7 +1271,7 @@ export default function SwapPage() {
         pendingStepRef.current = false;
       };
     }
-  }, [txStep, isWriting, false, isConfirming, txHash, handleSwap]);
+  }, [txStep, isWriting, isSending, isConfirming, activeTxHash, handleSwap]);
 
   // Flip tokens
   const handleFlipTokens = () => {
@@ -1245,13 +1285,13 @@ export default function SwapPage() {
   const buttonLabel = useMemo(() => {
     if (swapResult === "success") return "Success!";
     if (swapResult === "failure") return "Failed";
-    const isPending = isWriting;
+    const isPending = isWriting || isSending;
     if (isPending || isConfirming) {
       if (txStep === "approving") return "Approving...";
+      if (txStep === "transferring_fee") return "Fee...";
       if (txStep === "swapping_leg1") return swapInfo.isMultiHop ? "Swapping (1/2)..." : "Swapping...";
       if (txStep === "approving_leg2") return "Approving...";
       if (txStep === "swapping_leg2") return "Swapping (2/2)...";
-      if (txStep === "transferring_fee") return "Collecting Fee...";
       return "Processing...";
     }
     if (!inputAmount || inputAmount === "0") return "Enter Amount";
@@ -1261,7 +1301,7 @@ export default function SwapPage() {
     }
     if (needsApproval) return swapInfo.isMultiHop ? "Approve & Multi-Swap" : "Approve & Swap";
     return swapInfo.isMultiHop ? "Multi-Swap" : "Swap";
-  }, [swapResult, isWriting, false, isConfirming, txStep, inputAmount, hasSufficientBalance, needsApproval, swapInfo.isMultiHop, inputToken.isNative]);
+  }, [swapResult, isWriting, isSending, isConfirming, txStep, inputAmount, hasSufficientBalance, needsApproval, swapInfo.isMultiHop, inputToken.isNative]);
 
   const isSwapDisabled =
     !inputAmount ||
@@ -1269,6 +1309,7 @@ export default function SwapPage() {
     inputAmountWei === 0n ||
     !hasSufficientBalance ||
     isWriting ||
+    isSending ||
     isConfirming ||
     swapResult !== null;
 
@@ -1423,20 +1464,20 @@ export default function SwapPage() {
             </div>
           </div>
 
-          {/* Fee Info */}
+          {/* Swap Info */}
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 mb-4">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">You Receive</span>
-              <span className="text-white flex items-center gap-1">
-                <img src={outputToken.icon} alt="" className="w-3.5 h-3.5 rounded-full" />
-                {outputAmount > 0n ? Number(formatUnits(outputAmount, outputToken.decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 }) : "0"}
+              <span className="text-gray-400">Fee (0.05%)</span>
+              <span className="text-amber-400 flex items-center gap-1">
+                <img src={inputToken.icon} alt="" className="w-3.5 h-3.5 rounded-full" />
+                {feeAmount > 0n ? Number(formatUnits(feeAmount, inputToken.decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 }) : "0"}
               </span>
             </div>
             <div className="flex items-center justify-between text-xs mt-1">
-              <span className="text-gray-400">Fee (0.3%)</span>
-              <span className="text-amber-400 flex items-center gap-1">
+              <span className="text-gray-400">Min. Received</span>
+              <span className="text-white flex items-center gap-1">
                 <img src={outputToken.icon} alt="" className="w-3.5 h-3.5 rounded-full" />
-                {feeAmount > 0n ? Number(formatUnits(feeAmount, outputToken.decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 }) : "0"}
+                {minOutputAmount > 0n ? Number(formatUnits(minOutputAmount, outputToken.decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 }) : "0"}
               </span>
             </div>
             <div className="flex items-center justify-between text-xs mt-1">
@@ -1471,7 +1512,7 @@ export default function SwapPage() {
                     : "bg-amber-500 text-black hover:bg-amber-400"
             )}
           >
-            {isWriting || isConfirming ? (
+            {isWriting || isSending || isConfirming ? (
               <span className="flex items-center justify-center gap-2">
                 <Loader2 className="w-5 h-5 animate-spin" />
                 {buttonLabel}
@@ -1484,7 +1525,7 @@ export default function SwapPage() {
           {/* Powered by + Slippage on one line */}
           <div className="flex items-center justify-center gap-2 mt-2 text-[9px] text-gray-500">
             <span>
-              {firstLeg.dex === "uniswap" ? "Uniswap" : firstLeg.dex === "uniswapV3" ? "Uniswap V3" : "Aerodrome"}{swapInfo.isMultiHop && secondLeg ? ` + ${secondLeg.dex === "uniswap" ? "V2" : secondLeg.dex === "uniswapV3" ? "V3" : "Aero"}` : ""} • 0.3% fee
+              {firstLeg.dex === "uniswap" ? "Uniswap" : firstLeg.dex === "uniswapV3" ? "Uni V3" : "Aero"}{swapInfo.isMultiHop && secondLeg ? ` + ${secondLeg.dex === "uniswap" ? "V2" : secondLeg.dex === "uniswapV3" ? "V3" : "Aero"}` : ""} • 0.05% fee
             </span>
             <span>•</span>
             <button
@@ -1559,11 +1600,11 @@ export default function SwapPage() {
                   sdk.actions.openUrl(featured.link);
                 }}
               >
-                {/* Background image */}
+                {/* Background banner image from DexScreener */}
                 <img 
-                  src={FEATURED_TOKENS[featuredIndex].image}
+                  src={getDexScreenerHeader(FEATURED_TOKENS[featuredIndex].tokenAddress)}
                   alt={FEATURED_TOKENS[featuredIndex].title}
-                  className="absolute inset-0 w-full h-full object-contain opacity-30"
+                  className="absolute inset-0 w-full h-full object-cover"
                 />
                 {/* Gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
