@@ -505,12 +505,23 @@ const getDexScreenerHeader = (address: string) =>
 
 const FEATURED_TOKENS: FeaturedToken[] = [
   {
+    tokenAddress: SPRINKLES_ADDRESS,
+    title: "SPRINKLES",
+    description: "The sweetest token on Base",
+    link: "https://dexscreener.com/base/0xa890060be1788a676dbc3894160f5dc5ded2c98d",
+  },
+  {
     tokenAddress: PEEPLES_ADDRESS,
     title: "PEEPLES",
     description: "Pool ETH together and mine $DONUTS",
-    link: "https://farcaster.xyz/miniapps/OBSXNsOaGYv1/peeples-donuts",
+    link: "https://warpcast.com/peeples",
   },
-  // Add more featured tokens here
+  {
+    tokenAddress: DONUT_ADDRESS,
+    title: "DONUT",
+    description: "The backbone of the Donut ecosystem",
+    link: "https://warpcast.com/miniapps/BG5lMEHfNOjg/donut",
+  },
 ];
 
 export default function SwapPage() {
@@ -617,6 +628,15 @@ export default function SwapPage() {
         clearTimeout(swapResultTimeoutRef.current);
       }
     };
+  }, []);
+
+  // Auto-rotate featured tokens carousel
+  useEffect(() => {
+    if (FEATURED_TOKENS.length <= 1) return;
+    const interval = setInterval(() => {
+      setFeaturedIndex((prev) => (prev + 1) % FEATURED_TOKENS.length);
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const { address, isConnected } = useAccount();
