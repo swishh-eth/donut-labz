@@ -6,7 +6,6 @@ import {
   useAccount,
   useConnect,
   useReadContract,
-  useReadContracts,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi";
@@ -16,7 +15,7 @@ import { formatEther, formatUnits, parseUnits, zeroAddress, type Address } from 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn, getEthPrice } from "@/lib/utils";
 import { NavBar } from "@/components/nav-bar";
-import { ArrowDown, Settings, ChevronDown, Loader2, RefreshCw, X } from "lucide-react";
+import { ArrowDown, ArrowUpDown, ChevronDown, Loader2, RefreshCw, X, Settings } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -31,21 +30,36 @@ type MiniAppContext = {
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as Address;
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as Address;
 const WETH_ADDRESS = "0x4200000000000000000000000000000000000006" as Address;
+const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as Address;
 const TREASURY_ADDRESS = "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d" as Address;
 
 // Aerodrome Router
 const AERODROME_ROUTER = "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43" as Address;
+const AERODROME_FACTORY = "0x420DD381b31aEf6683db6B902084cB0FFECe40Da" as Address;
 
-// Supported tokens for swapping (tokens that have LP with DONUT)
-const SUPPORTED_TOKENS = [
+// Token definitions
+interface Token {
+  address: Address;
+  symbol: string;
+  name: string;
+  decimals: number;
+  icon: string;
+}
+
+const TOKENS: Token[] = [
+  {
+    address: DONUT_ADDRESS,
+    symbol: "DONUT",
+    name: "Donut",
+    decimals: 18,
+    icon: "🍩",
+  },
   {
     address: WETH_ADDRESS,
     symbol: "WETH",
     name: "Wrapped Ether",
     decimals: 18,
     icon: "Ξ",
-    poolAddress: "0xD1DbB2E56533C55C3A637D13C53aeEf65c5D5703" as Address, // DONUT-WETH pool
-    stable: false,
   },
   {
     address: SPRINKLES_ADDRESS,
@@ -53,21 +67,18 @@ const SUPPORTED_TOKENS = [
     name: "Sprinkles",
     decimals: 18,
     icon: "✨",
-    poolAddress: "0x47e8b03017d8b8d058ba5926838ca4dd4531e668" as Address, // SPRINKLES-DONUT pool
-    stable: false,
+  },
+  {
+    address: USDC_ADDRESS,
+    symbol: "USDC",
+    name: "USD Coin",
+    decimals: 6,
+    icon: "$",
   },
 ];
 
-const DONUT_TOKEN = {
-  address: DONUT_ADDRESS,
-  symbol: "DONUT",
-  name: "Donut",
-  decimals: 18,
-  icon: "🍩",
-};
-
 // Fee configuration
-const SWAP_FEE_BPS = 30; // 0.3% = 30 basis points
+const SWAP_FEE_BPS = 15; // 0.15% = 15 basis points
 const FEE_DENOMINATOR = 10000;
 
 // ABIs
@@ -155,9 +166,6 @@ const AERODROME_ROUTER_ABI = [
   },
 ] as const;
 
-// Aerodrome factory address
-const AERODROME_FACTORY = "0x420DD381b31aEf6683db6B902084cB0FFECe40Da" as Address;
-
 const initialsFrom = (label?: string) => {
   if (!label) return "";
   const stripped = label.replace(/[^a-zA-Z0-9]/g, "");
@@ -165,18 +173,103 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
+// Helper to determine route between two tokens
+function getRoute(fromToken: Address, toToken: Address): { from: Address; to: Address; stable: boolean; factory: Address }[] {
+  // Direct pairs
+  const directPairs: Record<string, boolean> = {
+    [`${DONUT_ADDRESS.toLowerCase()}-${WETH_ADDRESS.toLowerCase()}`]: false, // DONUT-WETH volatile
+    [`${WETH_ADDRESS.toLowerCase()}-${DONUT_ADDRESS.toLowerCase()}`]: false,
+    [`${DONUT_ADDRESS.toLowerCase()}-${SPRINKLES_ADDRESS.toLowerCase()}`]: false, // DONUT-SPRINKLES volatile
+    [`${SPRINKLES_ADDRESS.toLowerCase()}-${DONUT_ADDRESS.toLowerCase()}`]: false,
+    [`${WETH_ADDRESS.toLowerCase()}-${USDC_ADDRESS.toLowerCase()}`]: false, // WETH-USDC volatile
+    [`${USDC_ADDRESS.toLowerCase()}-${WETH_ADDRESS.toLowerCase()}`]: false,
+  };
+
+  const pairKey = `${fromToken.toLowerCase()}-${toToken.toLowerCase()}`;
+  
+  // Check if direct pair exists
+  if (pairKey in directPairs) {
+    return [{
+      from: fromToken,
+      to: toToken,
+      stable: directPairs[pairKey],
+      factory: AERODROME_FACTORY,
+    }];
+  }
+
+  // Multi-hop through WETH or DONUT
+  // USDC -> DONUT: USDC -> WETH -> DONUT
+  if (fromToken.toLowerCase() === USDC_ADDRESS.toLowerCase() && toToken.toLowerCase() === DONUT_ADDRESS.toLowerCase()) {
+    return [
+      { from: USDC_ADDRESS, to: WETH_ADDRESS, stable: false, factory: AERODROME_FACTORY },
+      { from: WETH_ADDRESS, to: DONUT_ADDRESS, stable: false, factory: AERODROME_FACTORY },
+    ];
+  }
+  
+  // DONUT -> USDC: DONUT -> WETH -> USDC
+  if (fromToken.toLowerCase() === DONUT_ADDRESS.toLowerCase() && toToken.toLowerCase() === USDC_ADDRESS.toLowerCase()) {
+    return [
+      { from: DONUT_ADDRESS, to: WETH_ADDRESS, stable: false, factory: AERODROME_FACTORY },
+      { from: WETH_ADDRESS, to: USDC_ADDRESS, stable: false, factory: AERODROME_FACTORY },
+    ];
+  }
+
+  // SPRINKLES -> WETH: SPRINKLES -> DONUT -> WETH
+  if (fromToken.toLowerCase() === SPRINKLES_ADDRESS.toLowerCase() && toToken.toLowerCase() === WETH_ADDRESS.toLowerCase()) {
+    return [
+      { from: SPRINKLES_ADDRESS, to: DONUT_ADDRESS, stable: false, factory: AERODROME_FACTORY },
+      { from: DONUT_ADDRESS, to: WETH_ADDRESS, stable: false, factory: AERODROME_FACTORY },
+    ];
+  }
+
+  // WETH -> SPRINKLES: WETH -> DONUT -> SPRINKLES
+  if (fromToken.toLowerCase() === WETH_ADDRESS.toLowerCase() && toToken.toLowerCase() === SPRINKLES_ADDRESS.toLowerCase()) {
+    return [
+      { from: WETH_ADDRESS, to: DONUT_ADDRESS, stable: false, factory: AERODROME_FACTORY },
+      { from: DONUT_ADDRESS, to: SPRINKLES_ADDRESS, stable: false, factory: AERODROME_FACTORY },
+    ];
+  }
+
+  // USDC -> SPRINKLES: USDC -> WETH -> DONUT -> SPRINKLES
+  if (fromToken.toLowerCase() === USDC_ADDRESS.toLowerCase() && toToken.toLowerCase() === SPRINKLES_ADDRESS.toLowerCase()) {
+    return [
+      { from: USDC_ADDRESS, to: WETH_ADDRESS, stable: false, factory: AERODROME_FACTORY },
+      { from: WETH_ADDRESS, to: DONUT_ADDRESS, stable: false, factory: AERODROME_FACTORY },
+      { from: DONUT_ADDRESS, to: SPRINKLES_ADDRESS, stable: false, factory: AERODROME_FACTORY },
+    ];
+  }
+
+  // SPRINKLES -> USDC: SPRINKLES -> DONUT -> WETH -> USDC
+  if (fromToken.toLowerCase() === SPRINKLES_ADDRESS.toLowerCase() && toToken.toLowerCase() === USDC_ADDRESS.toLowerCase()) {
+    return [
+      { from: SPRINKLES_ADDRESS, to: DONUT_ADDRESS, stable: false, factory: AERODROME_FACTORY },
+      { from: DONUT_ADDRESS, to: WETH_ADDRESS, stable: false, factory: AERODROME_FACTORY },
+      { from: WETH_ADDRESS, to: USDC_ADDRESS, stable: false, factory: AERODROME_FACTORY },
+    ];
+  }
+
+  // Default: try direct (may fail)
+  return [{
+    from: fromToken,
+    to: toToken,
+    stable: false,
+    factory: AERODROME_FACTORY,
+  }];
+}
+
 export default function SwapPage() {
   const readyRef = useRef(false);
   const autoConnectAttempted = useRef(false);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
-  const [donutPrice, setDonutPrice] = useState<number>(0);
   
   // Swap state
   const [inputAmount, setInputAmount] = useState("");
-  const [selectedOutputToken, setSelectedOutputToken] = useState(SUPPORTED_TOKENS[0]);
-  const [showTokenSelect, setShowTokenSelect] = useState(false);
-  const [slippage, setSlippage] = useState(0.5); // 0.5% default slippage
+  const [inputToken, setInputToken] = useState<Token>(TOKENS[0]); // DONUT default
+  const [outputToken, setOutputToken] = useState<Token>(TOKENS[2]); // SPRINKLES default
+  const [showInputTokenSelect, setShowInputTokenSelect] = useState(false);
+  const [showOutputTokenSelect, setShowOutputTokenSelect] = useState(false);
+  const [slippage, setSlippage] = useState(0.5);
   const [showSettings, setShowSettings] = useState(false);
   
   // Transaction state
@@ -224,22 +317,11 @@ export default function SwapPage() {
     };
   }, []);
 
-  // Fetch prices
+  // Fetch ETH price
   useEffect(() => {
     const fetchPrices = async () => {
       const ethPrice = await getEthPrice();
       setEthUsdPrice(ethPrice);
-      
-      // Fetch DONUT price from DexScreener
-      try {
-        const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${DONUT_ADDRESS}`);
-        const data = await res.json();
-        if (data.pairs && data.pairs.length > 0) {
-          setDonutPrice(parseFloat(data.pairs[0].priceUsd || "0"));
-        }
-      } catch (e) {
-        console.error("Failed to fetch DONUT price:", e);
-      }
     };
 
     fetchPrices();
@@ -287,9 +369,9 @@ export default function SwapPage() {
     }).catch(() => {});
   }, [connectAsync, isConnected, isConnecting, primaryConnector]);
 
-  // Read DONUT balance
-  const { data: donutBalance, refetch: refetchDonutBalance } = useReadContract({
-    address: DONUT_ADDRESS,
+  // Read input token balance
+  const { data: inputBalance, refetch: refetchInputBalance } = useReadContract({
+    address: inputToken.address,
     abi: ERC20_ABI,
     functionName: "balanceOf",
     args: [address ?? zeroAddress],
@@ -300,9 +382,9 @@ export default function SwapPage() {
     },
   });
 
-  // Read DONUT allowance for router
-  const { data: donutAllowance, refetch: refetchAllowance } = useReadContract({
-    address: DONUT_ADDRESS,
+  // Read input token allowance for router
+  const { data: inputAllowance, refetch: refetchAllowance } = useReadContract({
+    address: inputToken.address,
     abi: ERC20_ABI,
     functionName: "allowance",
     args: [address ?? zeroAddress, AERODROME_ROUTER],
@@ -317,13 +399,13 @@ export default function SwapPage() {
   const inputAmountWei = useMemo(() => {
     if (!inputAmount || inputAmount === "" || isNaN(parseFloat(inputAmount))) return 0n;
     try {
-      return parseUnits(inputAmount, 18);
+      return parseUnits(inputAmount, inputToken.decimals);
     } catch {
       return 0n;
     }
-  }, [inputAmount]);
+  }, [inputAmount, inputToken.decimals]);
 
-  // Calculate fee amount (0.3%)
+  // Calculate fee amount (0.3%) - only on input token
   const feeAmount = useMemo(() => {
     if (inputAmountWei === 0n) return 0n;
     return (inputAmountWei * BigInt(SWAP_FEE_BPS)) / BigInt(FEE_DENOMINATOR);
@@ -335,39 +417,35 @@ export default function SwapPage() {
     return inputAmountWei - feeAmount;
   }, [inputAmountWei, feeAmount]);
 
+  // Get route for swap
+  const route = useMemo(() => {
+    return getRoute(inputToken.address, outputToken.address);
+  }, [inputToken.address, outputToken.address]);
+
   // Get quote from Aerodrome
   const { data: quoteData, refetch: refetchQuote } = useReadContract({
     address: AERODROME_ROUTER,
     abi: AERODROME_ROUTER_ABI,
     functionName: "getAmountsOut",
-    args: [
-      amountAfterFee,
-      [
-        {
-          from: DONUT_ADDRESS,
-          to: selectedOutputToken.address,
-          stable: selectedOutputToken.stable,
-          factory: AERODROME_FACTORY,
-        },
-      ],
-    ],
+    args: [amountAfterFee, route],
     chainId: base.id,
     query: {
-      enabled: amountAfterFee > 0n,
+      enabled: amountAfterFee > 0n && route.length > 0,
       refetchInterval: 10_000,
     },
   });
 
   const outputAmount = useMemo(() => {
     if (!quoteData || !Array.isArray(quoteData) || quoteData.length < 2) return 0n;
-    return quoteData[1] as bigint;
+    // Last element is the final output amount
+    return quoteData[quoteData.length - 1] as bigint;
   }, [quoteData]);
 
   const outputAmountDisplay = useMemo(() => {
     if (outputAmount === 0n) return "0";
-    const formatted = Number(formatUnits(outputAmount, selectedOutputToken.decimals));
+    const formatted = Number(formatUnits(outputAmount, outputToken.decimals));
     return formatted.toLocaleString(undefined, { maximumFractionDigits: 6 });
-  }, [outputAmount, selectedOutputToken.decimals]);
+  }, [outputAmount, outputToken.decimals]);
 
   // Minimum output with slippage
   const minOutputAmount = useMemo(() => {
@@ -378,15 +456,15 @@ export default function SwapPage() {
 
   // Check if needs approval
   const needsApproval = useMemo(() => {
-    if (!donutAllowance || inputAmountWei === 0n) return true;
-    return (donutAllowance as bigint) < inputAmountWei;
-  }, [donutAllowance, inputAmountWei]);
+    if (!inputAllowance || inputAmountWei === 0n) return true;
+    return (inputAllowance as bigint) < inputAmountWei;
+  }, [inputAllowance, inputAmountWei]);
 
   // Check if has sufficient balance
   const hasSufficientBalance = useMemo(() => {
-    if (!donutBalance || inputAmountWei === 0n) return false;
-    return (donutBalance as bigint) >= inputAmountWei;
-  }, [donutBalance, inputAmountWei]);
+    if (!inputBalance || inputAmountWei === 0n) return false;
+    return (inputBalance as bigint) >= inputAmountWei;
+  }, [inputBalance, inputAmountWei]);
 
   const {
     data: txHash,
@@ -402,15 +480,39 @@ export default function SwapPage() {
 
   // Handle swap process
   const handleSwap = useCallback(async () => {
-    if (!address || inputAmountWei === 0n) return;
+    console.log("handleSwap called", { address, inputAmountWei: inputAmountWei.toString(), txStep, needsApproval });
+    
+    if (!address) {
+      console.log("No address, attempting to connect");
+      try {
+        if (!primaryConnector) {
+          console.error("No connector available");
+          return;
+        }
+        await connectAsync({
+          connector: primaryConnector,
+          chainId: base.id,
+        });
+      } catch (e) {
+        console.error("Connect failed:", e);
+      }
+      return;
+    }
+    
+    if (inputAmountWei === 0n) {
+      console.log("Input amount is 0");
+      return;
+    }
+    
     resetSwapResult();
 
     try {
+      // Step 1: Approve if needed
       if (needsApproval && txStep === "idle") {
-        // Step 1: Approve
+        console.log("Starting approval");
         setTxStep("approving");
         await writeContract({
-          address: DONUT_ADDRESS,
+          address: inputToken.address,
           abi: ERC20_ABI,
           functionName: "approve",
           args: [AERODROME_ROUTER, inputAmountWei],
@@ -419,24 +521,36 @@ export default function SwapPage() {
         return;
       }
 
-      if (txStep === "idle" || txStep === "transferring_fee") {
-        // Step 2: Transfer fee to treasury
-        if (txStep === "idle") {
-          setTxStep("transferring_fee");
-          await writeContract({
-            address: DONUT_ADDRESS,
-            abi: ERC20_ABI,
-            functionName: "transfer",
-            args: [TREASURY_ADDRESS, feeAmount],
-            chainId: base.id,
-          });
-          return;
-        }
+      // Step 2: Transfer fee to treasury
+      if (txStep === "idle") {
+        console.log("Starting fee transfer");
+        setTxStep("transferring_fee");
+        await writeContract({
+          address: inputToken.address,
+          abi: ERC20_ABI,
+          functionName: "transfer",
+          args: [TREASURY_ADDRESS, feeAmount],
+          chainId: base.id,
+        });
+        return;
       }
 
+      if (txStep === "transferring_fee") {
+        console.log("Continuing fee transfer");
+        await writeContract({
+          address: inputToken.address,
+          abi: ERC20_ABI,
+          functionName: "transfer",
+          args: [TREASURY_ADDRESS, feeAmount],
+          chainId: base.id,
+        });
+        return;
+      }
+
+      // Step 3: Execute swap
       if (txStep === "swapping") {
-        // Step 3: Execute swap
-        const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60); // 20 minutes
+        console.log("Executing swap");
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
         
         await writeContract({
           address: AERODROME_ROUTER,
@@ -445,14 +559,7 @@ export default function SwapPage() {
           args: [
             amountAfterFee,
             minOutputAmount,
-            [
-              {
-                from: DONUT_ADDRESS,
-                to: selectedOutputToken.address,
-                stable: selectedOutputToken.stable,
-                factory: AERODROME_FACTORY,
-              },
-            ],
+            route,
             address,
             deadline,
           ],
@@ -473,11 +580,14 @@ export default function SwapPage() {
     feeAmount,
     amountAfterFee,
     minOutputAmount,
-    selectedOutputToken,
+    route,
+    inputToken.address,
     writeContract,
     resetSwapResult,
     showSwapResultFn,
     resetWrite,
+    primaryConnector,
+    connectAsync,
   ]);
 
   // Handle transaction receipts
@@ -508,13 +618,13 @@ export default function SwapPage() {
         showSwapResultFn("success");
         setTxStep("idle");
         setInputAmount("");
-        refetchDonutBalance();
+        refetchInputBalance();
         refetchAllowance();
         resetWrite();
         return;
       }
     }
-  }, [receipt, txStep, resetWrite, showSwapResultFn, refetchDonutBalance, refetchAllowance]);
+  }, [receipt, txStep, resetWrite, showSwapResultFn, refetchInputBalance, refetchAllowance]);
 
   // Auto-continue swap after approval/fee transfer
   useEffect(() => {
@@ -522,6 +632,15 @@ export default function SwapPage() {
       handleSwap();
     }
   }, [txStep, isWriting, isConfirming, txHash, handleSwap]);
+
+  // Flip tokens
+  const handleFlipTokens = () => {
+    const tempInput = inputToken;
+    const tempOutput = outputToken;
+    setInputToken(tempOutput);
+    setOutputToken(tempInput);
+    setInputAmount("");
+  };
 
   const buttonLabel = useMemo(() => {
     if (swapResult === "success") return "Success!";
@@ -547,24 +666,9 @@ export default function SwapPage() {
     isConfirming ||
     swapResult !== null;
 
-  const donutBalanceDisplay = donutBalance
-    ? Math.floor(Number(formatUnits(donutBalance as bigint, 18))).toLocaleString()
+  const inputBalanceDisplay = inputBalance
+    ? Number(formatUnits(inputBalance as bigint, inputToken.decimals)).toLocaleString(undefined, { maximumFractionDigits: inputToken.decimals === 6 ? 2 : 0 })
     : "0";
-
-  const inputUsdValue = useMemo(() => {
-    if (!inputAmount || donutPrice === 0) return "0.00";
-    return (parseFloat(inputAmount) * donutPrice).toFixed(2);
-  }, [inputAmount, donutPrice]);
-
-  const outputUsdValue = useMemo(() => {
-    if (outputAmount === 0n) return "0.00";
-    const outputNum = Number(formatUnits(outputAmount, selectedOutputToken.decimals));
-    if (selectedOutputToken.symbol === "WETH") {
-      return (outputNum * ethUsdPrice).toFixed(2);
-    }
-    // For other tokens, estimate from DONUT value
-    return (parseFloat(inputAmount || "0") * donutPrice * 0.997).toFixed(2); // ~0.3% less due to fee
-  }, [outputAmount, selectedOutputToken, ethUsdPrice, inputAmount, donutPrice]);
 
   const userDisplayName =
     context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
@@ -576,11 +680,21 @@ export default function SwapPage() {
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
   const handleMaxClick = () => {
-    if (donutBalance) {
-      const maxAmount = formatUnits(donutBalance as bigint, 18);
-      setInputAmount(maxAmount);
+    if (inputBalance) {
+      const maxAmount = formatUnits(inputBalance as bigint, inputToken.decimals);
+      // Leave a tiny bit for gas if it's ETH/WETH
+      if (inputToken.symbol === "WETH") {
+        const reduced = Math.max(0, parseFloat(maxAmount) - 0.001);
+        setInputAmount(reduced.toString());
+      } else {
+        setInputAmount(maxAmount);
+      }
     }
   };
+
+  // Filter tokens for selection (exclude currently selected)
+  const availableInputTokens = TOKENS.filter(t => t.address !== outputToken.address);
+  const availableOutputTokens = TOKENS.filter(t => t.address !== inputToken.address);
 
   return (
     <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -596,12 +710,6 @@ export default function SwapPage() {
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold tracking-wide">SWAP</h1>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowSettings(!showSettings)}
-                className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors"
-              >
-                <Settings className="w-4 h-4 text-gray-400" />
-              </button>
               {context?.user && (
                 <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
                   <Avatar className="h-8 w-8 border border-zinc-800">
@@ -625,44 +733,6 @@ export default function SwapPage() {
             </div>
           </div>
 
-          {/* Settings Panel */}
-          {showSettings && (
-            <div className="mb-4 bg-zinc-900 border border-zinc-800 rounded-xl p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-gray-400">Slippage Tolerance</span>
-                <button onClick={() => setShowSettings(false)}>
-                  <X className="w-4 h-4 text-gray-500" />
-                </button>
-              </div>
-              <div className="flex gap-2">
-                {[0.1, 0.5, 1.0].map((val) => (
-                  <button
-                    key={val}
-                    onClick={() => setSlippage(val)}
-                    className={cn(
-                      "flex-1 py-2 rounded-lg text-xs font-bold transition-colors",
-                      slippage === val
-                        ? "bg-amber-500 text-black"
-                        : "bg-zinc-800 text-white hover:bg-zinc-700"
-                    )}
-                  >
-                    {val}%
-                  </button>
-                ))}
-                <div className="flex-1 relative">
-                  <input
-                    type="number"
-                    value={slippage}
-                    onChange={(e) => setSlippage(parseFloat(e.target.value) || 0.5)}
-                    className="w-full py-2 px-2 rounded-lg bg-zinc-800 text-white text-xs text-center font-bold focus:outline-none focus:ring-1 focus:ring-amber-500"
-                    style={{ fontSize: '16px' }}
-                  />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Swap Card */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 mb-2">
             {/* From Section */}
@@ -670,14 +740,18 @@ export default function SwapPage() {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-gray-400">From</span>
                 <span className="text-xs text-gray-400">
-                  Balance: {donutBalanceDisplay}
+                  Balance: {inputBalanceDisplay}
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-zinc-800 rounded-xl px-3 py-2">
-                  <span className="text-xl">🍩</span>
-                  <span className="font-bold">DONUT</span>
-                </div>
+                <button
+                  onClick={() => setShowInputTokenSelect(true)}
+                  className="flex items-center gap-2 bg-zinc-800 rounded-xl px-3 py-2 hover:bg-zinc-700 transition-colors"
+                >
+                  <span className="text-xl">{inputToken.icon}</span>
+                  <span className="font-bold">{inputToken.symbol}</span>
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                </button>
                 <div className="flex-1 text-right">
                   <input
                     type="text"
@@ -693,7 +767,6 @@ export default function SwapPage() {
                     className="w-full bg-transparent text-2xl font-bold text-right focus:outline-none placeholder-gray-600"
                     style={{ fontSize: '24px' }}
                   />
-                  <div className="text-xs text-gray-500">${inputUsdValue}</div>
                 </div>
                 <button
                   onClick={handleMaxClick}
@@ -704,11 +777,14 @@ export default function SwapPage() {
               </div>
             </div>
 
-            {/* Arrow Divider */}
+            {/* Flip Button */}
             <div className="flex justify-center my-2">
-              <div className="bg-zinc-800 rounded-full p-2">
-                <ArrowDown className="w-4 h-4 text-gray-400" />
-              </div>
+              <button
+                onClick={handleFlipTokens}
+                className="bg-zinc-800 rounded-full p-2 hover:bg-zinc-700 transition-colors"
+              >
+                <ArrowUpDown className="w-4 h-4 text-gray-400" />
+              </button>
             </div>
 
             {/* To Section */}
@@ -725,18 +801,17 @@ export default function SwapPage() {
               </div>
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setShowTokenSelect(true)}
+                  onClick={() => setShowOutputTokenSelect(true)}
                   className="flex items-center gap-2 bg-zinc-800 rounded-xl px-3 py-2 hover:bg-zinc-700 transition-colors"
                 >
-                  <span className="text-xl">{selectedOutputToken.icon}</span>
-                  <span className="font-bold">{selectedOutputToken.symbol}</span>
+                  <span className="text-xl">{outputToken.icon}</span>
+                  <span className="font-bold">{outputToken.symbol}</span>
                   <ChevronDown className="w-4 h-4 text-gray-400" />
                 </button>
                 <div className="flex-1 text-right">
                   <div className="text-2xl font-bold">
                     {outputAmountDisplay}
                   </div>
-                  <div className="text-xs text-gray-500">${outputUsdValue}</div>
                 </div>
               </div>
             </div>
@@ -747,18 +822,28 @@ export default function SwapPage() {
             <div className="flex items-center justify-between text-xs">
               <span className="text-gray-400">Swap Fee (0.3%)</span>
               <span className="text-amber-400">
-                🍩 {feeAmount > 0n ? Number(formatUnits(feeAmount, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "0"}
+                {inputToken.icon} {feeAmount > 0n ? Number(formatUnits(feeAmount, inputToken.decimals)).toLocaleString(undefined, { maximumFractionDigits: inputToken.decimals === 6 ? 4 : 2 }) : "0"}
               </span>
             </div>
             <div className="flex items-center justify-between text-xs mt-1">
               <span className="text-gray-400">Min. Received</span>
               <span className="text-white">
-                {selectedOutputToken.icon} {minOutputAmount > 0n ? Number(formatUnits(minOutputAmount, selectedOutputToken.decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 }) : "0"}
+                {outputToken.icon} {minOutputAmount > 0n ? Number(formatUnits(minOutputAmount, outputToken.decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 }) : "0"}
               </span>
             </div>
             <div className="flex items-center justify-between text-xs mt-1">
-              <span className="text-gray-400">Slippage</span>
-              <span className="text-white">{slippage}%</span>
+              <span className="text-gray-400">Route</span>
+              <span className="text-white text-[10px]">
+                {route.map((r, i) => {
+                  const fromToken = TOKENS.find(t => t.address.toLowerCase() === r.from.toLowerCase());
+                  const toToken = TOKENS.find(t => t.address.toLowerCase() === r.to.toLowerCase());
+                  return (
+                    <span key={i}>
+                      {i === 0 ? fromToken?.symbol : ""}{i === 0 ? " → " : ""}{toToken?.symbol}{i < route.length - 1 ? " → " : ""}
+                    </span>
+                  );
+                })}
+              </span>
             </div>
           </div>
 
@@ -793,38 +878,121 @@ export default function SwapPage() {
               Powered by Aerodrome • 0.3% fee supports Donut Labs
             </span>
           </div>
+
+          {/* Slippage Settings - Below powered by */}
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className="mt-3 flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            <Settings className="w-3 h-3" />
+            <span>Slippage: {slippage}%</span>
+          </button>
+
+          {showSettings && (
+            <div className="mt-2 bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-gray-400">Slippage Tolerance</span>
+                <button onClick={() => setShowSettings(false)}>
+                  <X className="w-4 h-4 text-gray-500" />
+                </button>
+              </div>
+              <div className="flex gap-2">
+                {[0.1, 0.5, 1.0, 2.0].map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => setSlippage(val)}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-xs font-bold transition-colors",
+                      slippage === val
+                        ? "bg-amber-500 text-black"
+                        : "bg-zinc-800 text-white hover:bg-zinc-700"
+                    )}
+                  >
+                    {val}%
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Token Select Modal */}
-      {showTokenSelect && (
+      {/* Input Token Select Modal */}
+      {showInputTokenSelect && (
         <div className="fixed inset-0 z-50">
           <div
             className="absolute inset-0 bg-black/90 backdrop-blur-md"
-            onClick={() => setShowTokenSelect(false)}
+            onClick={() => setShowInputTokenSelect(false)}
           />
           <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
             <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
               <button
-                onClick={() => setShowTokenSelect(false)}
+                onClick={() => setShowInputTokenSelect(false)}
                 className="absolute right-3 top-3 rounded-full p-1 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
               >
                 <X className="h-4 w-4" />
               </button>
 
-              <h2 className="text-lg font-bold text-white mb-4">Select Token</h2>
+              <h2 className="text-lg font-bold text-white mb-4">Select Input Token</h2>
 
               <div className="space-y-2">
-                {SUPPORTED_TOKENS.map((token) => (
+                {availableInputTokens.map((token) => (
                   <button
                     key={token.address}
                     onClick={() => {
-                      setSelectedOutputToken(token);
-                      setShowTokenSelect(false);
+                      setInputToken(token);
+                      setShowInputTokenSelect(false);
+                      setInputAmount("");
                     }}
                     className={cn(
                       "w-full flex items-center gap-3 p-3 rounded-xl transition-colors",
-                      selectedOutputToken.address === token.address
+                      inputToken.address === token.address
+                        ? "bg-amber-500/20 border border-amber-500/50"
+                        : "bg-zinc-900 border border-zinc-800 hover:bg-zinc-800"
+                    )}
+                  >
+                    <span className="text-2xl">{token.icon}</span>
+                    <div className="text-left">
+                      <div className="font-bold text-white">{token.symbol}</div>
+                      <div className="text-xs text-gray-400">{token.name}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Output Token Select Modal */}
+      {showOutputTokenSelect && (
+        <div className="fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-black/90 backdrop-blur-md"
+            onClick={() => setShowOutputTokenSelect(false)}
+          />
+          <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+            <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
+              <button
+                onClick={() => setShowOutputTokenSelect(false)}
+                className="absolute right-3 top-3 rounded-full p-1 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <h2 className="text-lg font-bold text-white mb-4">Select Output Token</h2>
+
+              <div className="space-y-2">
+                {availableOutputTokens.map((token) => (
+                  <button
+                    key={token.address}
+                    onClick={() => {
+                      setOutputToken(token);
+                      setShowOutputTokenSelect(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-3 p-3 rounded-xl transition-colors",
+                      outputToken.address === token.address
                         ? "bg-amber-500/20 border border-amber-500/50"
                         : "bg-zinc-900 border border-zinc-800 hover:bg-zinc-800"
                     )}
