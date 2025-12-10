@@ -233,18 +233,30 @@ const AERODROME_ROUTER_ABI = [
   },
 ] as const;
 
-// Uniswap V3 Quoter ABI (for getting quotes)
+// Uniswap V3 QuoterV2 ABI (for getting quotes on Base)
+// QuoterV2 uses a struct parameter unlike Quoter V1
 const UNISWAP_V3_QUOTER_ABI = [
   {
     inputs: [
-      { name: "tokenIn", type: "address" },
-      { name: "tokenOut", type: "address" },
-      { name: "fee", type: "uint24" },
-      { name: "amountIn", type: "uint256" },
-      { name: "sqrtPriceLimitX96", type: "uint160" },
+      {
+        components: [
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amountIn", type: "uint256" },
+          { name: "fee", type: "uint24" },
+          { name: "sqrtPriceLimitX96", type: "uint160" },
+        ],
+        name: "params",
+        type: "tuple",
+      },
     ],
     name: "quoteExactInputSingle",
-    outputs: [{ name: "amountOut", type: "uint256" }],
+    outputs: [
+      { name: "amountOut", type: "uint256" },
+      { name: "sqrtPriceX96After", type: "uint160" },
+      { name: "initializedTicksCrossed", type: "uint32" },
+      { name: "gasEstimate", type: "uint256" },
+    ],
     stateMutability: "nonpayable",
     type: "function",
   },
@@ -756,18 +768,18 @@ export default function SwapPage() {
     },
   });
 
-  // Get quote for first leg (Uniswap V3)
+  // Get quote for first leg (Uniswap V3) - QuoterV2 uses struct param
   const { data: leg1V3Quote, refetch: refetchLeg1V3 } = useReadContract({
     address: UNISWAP_V3_QUOTER,
     abi: UNISWAP_V3_QUOTER_ABI,
     functionName: "quoteExactInputSingle",
-    args: [
-      firstLeg.fromToken,
-      firstLeg.toToken,
-      firstLeg.fee ?? 10000,
-      amountAfterFee,
-      0n, // sqrtPriceLimitX96 - 0 means no limit
-    ],
+    args: [{
+      tokenIn: firstLeg.fromToken,
+      tokenOut: firstLeg.toToken,
+      amountIn: amountAfterFee,
+      fee: firstLeg.fee ?? 10000,
+      sqrtPriceLimitX96: 0n,
+    }],
     chainId: base.id,
     query: {
       enabled: amountAfterFee > 0n && firstLeg.dex === "uniswapV3" && !!firstLeg.fee,
@@ -791,8 +803,12 @@ export default function SwapPage() {
   // First leg output (intermediate amount for multi-hop)
   const leg1Output = useMemo(() => {
     if (firstLeg.dex === "uniswapV3") {
-      // V3 quoter returns a single uint256
+      // QuoterV2 returns [amountOut, sqrtPriceX96After, initializedTicksCrossed, gasEstimate]
       if (!leg1V3Quote) return 0n;
+      // It's an array, first element is amountOut
+      if (Array.isArray(leg1V3Quote)) {
+        return leg1V3Quote[0] as bigint;
+      }
       return leg1V3Quote as bigint;
     }
     const quoteData = firstLeg.dex === "uniswap" ? leg1UniswapQuote : leg1AerodromeQuote;
@@ -818,13 +834,13 @@ export default function SwapPage() {
     address: UNISWAP_V3_QUOTER,
     abi: UNISWAP_V3_QUOTER_ABI,
     functionName: "quoteExactInputSingle",
-    args: [
-      secondLeg?.fromToken ?? zeroAddress,
-      secondLeg?.toToken ?? zeroAddress,
-      secondLeg?.fee ?? 10000,
-      leg1Output,
-      0n,
-    ],
+    args: [{
+      tokenIn: secondLeg?.fromToken ?? zeroAddress,
+      tokenOut: secondLeg?.toToken ?? zeroAddress,
+      amountIn: leg1Output,
+      fee: secondLeg?.fee ?? 10000,
+      sqrtPriceLimitX96: 0n,
+    }],
     chainId: base.id,
     query: {
       enabled: leg1Output > 0n && swapInfo.isMultiHop && secondLeg?.dex === "uniswapV3" && !!secondLeg?.fee,
@@ -853,6 +869,10 @@ export default function SwapPage() {
     // Multi-hop - return leg2 output
     if (secondLeg?.dex === "uniswapV3") {
       if (!leg2V3Quote) return 0n;
+      // QuoterV2 returns [amountOut, ...]
+      if (Array.isArray(leg2V3Quote)) {
+        return leg2V3Quote[0] as bigint;
+      }
       return leg2V3Quote as bigint;
     }
     const leg2Quote = secondLeg?.dex === "uniswap" ? leg2UniswapQuote : leg2AerodromeQuote;
