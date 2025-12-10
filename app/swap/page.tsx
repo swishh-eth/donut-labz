@@ -16,7 +16,7 @@ import { formatUnits, parseUnits, zeroAddress, type Address } from "viem";
 
 import { cn, getEthPrice } from "@/lib/utils";
 import { NavBar } from "@/components/nav-bar";
-import { ArrowLeft, ArrowDown, Loader2, RefreshCw, X, ChevronDown } from "lucide-react";
+import { ArrowLeft, ArrowDown, Loader2, ChevronDown, Plus } from "lucide-react";
 
 // Contract addresses
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as Address;
@@ -43,24 +43,23 @@ const getDexScreenerHeader = (address: string) =>
 
 // Token tile definition
 interface TokenTile {
-  address: Address;
+  id: string;
+  address?: Address;
   symbol: string;
   name: string;
-  decimals: number;
-  icon: string;
-  banner: string;
+  decimals?: number;
+  icon?: string;
+  banner?: string;
   description: string;
-  // If true, this is a Donut ecosystem token - swap in app
-  // If false, open Farcaster native token page
   isDonutEcosystem: boolean;
-  // For Donut ecosystem tokens: which input tokens are allowed
+  isPlaceholder?: boolean;
   allowedInputs?: ("ETH" | "DONUT")[];
-  // For external tokens: the Warpcast/Farcaster token URL
   externalUrl?: string;
 }
 
 const TOKEN_TILES: TokenTile[] = [
   {
+    id: "donut",
     address: DONUT_ADDRESS,
     symbol: "DONUT",
     name: "Donut",
@@ -72,6 +71,7 @@ const TOKEN_TILES: TokenTile[] = [
     allowedInputs: ["ETH"],
   },
   {
+    id: "sprinkles",
     address: SPRINKLES_ADDRESS,
     symbol: "SPRINKLES",
     name: "Sprinkles",
@@ -83,6 +83,7 @@ const TOKEN_TILES: TokenTile[] = [
     allowedInputs: ["ETH", "DONUT"],
   },
   {
+    id: "peeples",
     address: PEEPLES_ADDRESS,
     symbol: "PEEPLES",
     name: "Peeples",
@@ -92,6 +93,22 @@ const TOKEN_TILES: TokenTile[] = [
     description: "Pool ETH and mine DONUTS",
     isDonutEcosystem: false,
     externalUrl: "https://warpcast.com/~/token-page/base/0x0eb9d965DBEfbfB131216A4250A29C9b0693Cb07",
+  },
+  {
+    id: "placeholder-1",
+    symbol: "???",
+    name: "Your Token",
+    description: "Build on Donut to get listed",
+    isDonutEcosystem: false,
+    isPlaceholder: true,
+  },
+  {
+    id: "placeholder-2",
+    symbol: "???",
+    name: "Your Token",
+    description: "Build on Donut to get listed",
+    isDonutEcosystem: false,
+    isPlaceholder: true,
   },
 ];
 
@@ -281,21 +298,90 @@ function getSwapRoute(inputSymbol: "ETH" | "DONUT", outputAddress: Address) {
   return null;
 }
 
+// Placeholder Tile Component
+function PlaceholderTile() {
+  return (
+    <div className="flex items-center gap-4 p-4 rounded-2xl bg-zinc-900/50 border border-dashed border-zinc-700">
+      <div className="w-14 h-14 rounded-full bg-zinc-800 flex items-center justify-center flex-shrink-0">
+        <Plus className="w-6 h-6 text-zinc-600" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="font-bold text-zinc-500">Your Token Here</div>
+        <div className="text-sm text-zinc-600">Build on Donut to get listed</div>
+      </div>
+    </div>
+  );
+}
+
+// Token Tile Component
+function TokenTileCard({ tile, onClick }: { tile: TokenTile; onClick: () => void }) {
+  if (tile.isPlaceholder) {
+    return <PlaceholderTile />;
+  }
+
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-4 p-4 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-amber-500/50 transition-all group text-left"
+    >
+      {/* Token Icon */}
+      <div className="relative flex-shrink-0">
+        <img
+          src={tile.icon}
+          alt={tile.symbol}
+          className="w-14 h-14 rounded-full border-2 border-zinc-800 group-hover:border-amber-500/50 transition-colors"
+        />
+        {!tile.isDonutEcosystem && (
+          <div className="absolute -top-1 -right-1 bg-zinc-700 rounded-full px-1.5 py-0.5 text-[10px] text-zinc-300">
+            ↗
+          </div>
+        )}
+      </div>
+      
+      {/* Token Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-white text-lg">{tile.symbol}</span>
+          <span className="text-sm text-zinc-500">{tile.name}</span>
+        </div>
+        <p className="text-sm text-zinc-400 truncate">{tile.description}</p>
+      </div>
+
+      {/* Banner thumbnail */}
+      {tile.banner && (
+        <div className="w-20 h-14 rounded-lg overflow-hidden flex-shrink-0">
+          <img
+            src={tile.banner}
+            alt=""
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        </div>
+      )}
+    </button>
+  );
+}
+
 export default function SwapPage() {
   const readyRef = useRef(false);
   const autoConnectAttempted = useRef(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
   
-  // Main state: which token tile is selected (null = show grid)
+  // Main state
   const [selectedToken, setSelectedToken] = useState<TokenTile | null>(null);
   const [inputSymbol, setInputSymbol] = useState<"ETH" | "DONUT">("ETH");
   const [inputAmount, setInputAmount] = useState("");
-  const [slippage] = useState(1.0); // 1% default
-  const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
+  const [slippage] = useState(1.0);
+  const [showInputDropdown, setShowInputDropdown] = useState(false);
   
   // Transaction state
   const [txStep, setTxStep] = useState<"idle" | "approving" | "transferring_fee" | "swapping">("idle");
   const [swapResult, setSwapResult] = useState<"success" | "failure" | null>(null);
   const swapResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Create infinite scroll items (3x the tiles for seamless looping)
+  const infiniteItems = useMemo(() => {
+    return [...TOKEN_TILES, ...TOKEN_TILES, ...TOKEN_TILES];
+  }, []);
 
   // Wagmi hooks
   const { address, isConnected } = useAccount();
@@ -307,7 +393,6 @@ export default function SwapPage() {
     data: writeHash,
     isPending: isWriting,
     reset: resetWrite,
-    error: writeError,
   } = useWriteContract();
 
   const {
@@ -334,23 +419,40 @@ export default function SwapPage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Fetch ETH price
-  useEffect(() => {
-    const fetchPrices = async () => {
-      const ethPrice = await getEthPrice();
-      setEthUsdPrice(ethPrice);
-    };
-    fetchPrices();
-    const interval = setInterval(fetchPrices, 30_000);
-    return () => clearInterval(interval);
-  }, []);
-
   // Auto-connect
   useEffect(() => {
     if (autoConnectAttempted.current || isConnected || !primaryConnector || isConnecting) return;
     autoConnectAttempted.current = true;
     connectAsync({ connector: primaryConnector, chainId: base.id }).catch(() => {});
   }, [connectAsync, isConnected, isConnecting, primaryConnector]);
+
+  // Infinite scroll handler
+  useEffect(() => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl || selectedToken) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollEl;
+      const itemHeight = scrollHeight / 3;
+      
+      // If scrolled to bottom third, jump to middle
+      if (scrollTop > itemHeight * 2 - clientHeight) {
+        scrollEl.scrollTop = scrollTop - itemHeight;
+      }
+      // If scrolled to top third, jump to middle
+      else if (scrollTop < itemHeight - clientHeight) {
+        scrollEl.scrollTop = scrollTop + itemHeight;
+      }
+    };
+
+    scrollEl.addEventListener("scroll", handleScroll);
+    
+    // Start in middle section
+    const itemHeight = scrollEl.scrollHeight / 3;
+    scrollEl.scrollTop = itemHeight;
+
+    return () => scrollEl.removeEventListener("scroll", handleScroll);
+  }, [selectedToken]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -360,7 +462,7 @@ export default function SwapPage() {
   }, []);
 
   const inputToken = INPUT_TOKENS[inputSymbol];
-  const route = selectedToken ? getSwapRoute(inputSymbol, selectedToken.address) : null;
+  const route = selectedToken?.address ? getSwapRoute(inputSymbol, selectedToken.address) : null;
 
   // Balances
   const { data: nativeEthBalance, refetch: refetchNativeEthBalance } = useBalance({
@@ -423,7 +525,7 @@ export default function SwapPage() {
   const needsApproval = !inputToken.isNative && (inputAllowance ?? 0n) < inputAmountWei;
 
   // Quote for single-hop V2
-  const { data: v2Quote, refetch: refetchV2Quote } = useReadContract({
+  const { data: v2Quote } = useReadContract({
     address: UNISWAP_V2_ROUTER,
     abi: UNISWAP_V2_ROUTER_ABI,
     functionName: "getAmountsOut",
@@ -433,7 +535,7 @@ export default function SwapPage() {
   });
 
   // Quote for single-hop Aerodrome
-  const { data: aeroQuote, refetch: refetchAeroQuote } = useReadContract({
+  const { data: aeroQuote } = useReadContract({
     address: AERODROME_ROUTER,
     abi: AERODROME_ROUTER_ABI,
     functionName: "getAmountsOut",
@@ -493,7 +595,7 @@ export default function SwapPage() {
 
   const outputAmountDisplay = useMemo(() => {
     if (!selectedToken || outputAmount === 0n) return "0";
-    const formatted = Number(formatUnits(outputAmount, selectedToken.decimals));
+    const formatted = Number(formatUnits(outputAmount, selectedToken.decimals ?? 18));
     return formatted.toLocaleString(undefined, { maximumFractionDigits: 2 });
   }, [outputAmount, selectedToken]);
 
@@ -518,14 +620,31 @@ export default function SwapPage() {
   }, []);
 
   // Handle tile click
-  const handleTileClick = (tile: TokenTile) => {
+  const handleTileClick = async (tile: TokenTile) => {
+    if (tile.isPlaceholder) return;
+    
     if (tile.isDonutEcosystem) {
       setSelectedToken(tile);
       setInputSymbol(tile.allowedInputs?.[0] ?? "ETH");
       setInputAmount("");
       setTxStep("idle");
-    } else if (tile.externalUrl) {
-      sdk.actions.openUrl(tile.externalUrl);
+    } else if (tile.address) {
+      // Open native Farcaster token page using deep link
+      // The farcaster:// protocol should open in the native app
+      const deepLink = `farcaster://token/base/${tile.address}`;
+      const webFallback = `https://warpcast.com/~/token/eip155:8453:${tile.address}`;
+      
+      try {
+        // Try deep link first (opens native app)
+        window.location.href = deepLink;
+      } catch {
+        // Fallback to web URL
+        try {
+          await sdk.actions.openUrl(webFallback);
+        } catch (err) {
+          console.error("Failed to open token page:", err);
+        }
+      }
     }
   };
 
@@ -534,6 +653,7 @@ export default function SwapPage() {
     setSelectedToken(null);
     setInputAmount("");
     setTxStep("idle");
+    setShowInputDropdown(false);
     resetTx();
   };
 
@@ -610,10 +730,8 @@ export default function SwapPage() {
             chainId: base.id,
           });
         }
-        // Multi-hop would need more complex handling - for now show error
+        // Multi-hop needs more complex handling
         else if (route.dex === "multiHop") {
-          // For multi-hop, we'd need to execute two separate swaps
-          // This is simplified - in production you'd want a router contract
           console.log("Multi-hop swaps require multiple transactions");
         }
         return;
@@ -646,14 +764,12 @@ export default function SwapPage() {
         resetTx();
         refetchAllowance();
         setTxStep("idle");
-        // Continue to fee transfer
         handleSwap();
         return;
       }
 
       if (txStep === "transferring_fee") {
         resetTx();
-        // Continue to swap
         handleSwap();
         return;
       }
@@ -695,54 +811,39 @@ export default function SwapPage() {
     return "Swap";
   }, [isConnected, isWriting, isSending, isConfirming, txStep, swapResult, inputBalance, inputAmountWei, amountToSwap, needsApproval]);
 
+  // Available input tokens for selected token
+  const availableInputs = selectedToken?.allowedInputs ?? ["ETH"];
+
   // RENDER: Token Grid View
   if (!selectedToken) {
     return (
       <main className="relative flex min-h-screen w-full flex-col bg-black text-white pb-20">
-        <div className="flex-1 overflow-y-auto p-4">
-          <h1 className="text-2xl font-black mb-4">SWAP</h1>
-          <p className="text-gray-400 text-sm mb-6">Select a token to swap into</p>
+        {/* Header */}
+        <div className="p-4 pb-2">
+          <h1 className="text-2xl font-black">SWAP</h1>
+          <p className="text-zinc-500 text-sm">Select a token to swap into</p>
+        </div>
+
+        {/* Scrollable token list with fade */}
+        <div className="relative flex-1 overflow-hidden">
+          {/* Top fade */}
+          <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-black to-transparent z-10 pointer-events-none" />
           
-          <div className="grid grid-cols-2 gap-3">
-            {TOKEN_TILES.map((tile) => (
-              <button
-                key={tile.address}
+          {/* Bottom fade */}
+          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black to-transparent z-10 pointer-events-none" />
+          
+          {/* Scrollable list */}
+          <div
+            ref={scrollRef}
+            className="h-full overflow-y-auto px-4 py-8 space-y-3 scrollbar-hide"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          >
+            {infiniteItems.map((tile, index) => (
+              <TokenTileCard
+                key={`${tile.id}-${index}`}
+                tile={tile}
                 onClick={() => handleTileClick(tile)}
-                className="relative rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-amber-500/50 transition-all group"
-              >
-                {/* Banner Image */}
-                <div className="relative h-24 overflow-hidden">
-                  <img
-                    src={tile.banner}
-                    alt={tile.symbol}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent" />
-                </div>
-                
-                {/* Token Info */}
-                <div className="p-3 -mt-6 relative">
-                  <div className="flex items-center gap-2">
-                    <img
-                      src={tile.icon}
-                      alt={tile.symbol}
-                      className="w-10 h-10 rounded-full border-2 border-zinc-900"
-                    />
-                    <div className="text-left">
-                      <div className="font-bold text-white">{tile.symbol}</div>
-                      <div className="text-xs text-gray-400">{tile.name}</div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2 line-clamp-2">{tile.description}</p>
-                </div>
-                
-                {/* External indicator */}
-                {!tile.isDonutEcosystem && (
-                  <div className="absolute top-2 right-2 bg-black/50 rounded-full px-2 py-0.5 text-xs text-gray-400">
-                    External
-                  </div>
-                )}
-              </button>
+              />
             ))}
           </div>
         </div>
@@ -764,11 +865,11 @@ export default function SwapPage() {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="flex items-center gap-2">
-            <img src={selectedToken.icon} alt={selectedToken.symbol} className="w-8 h-8 rounded-full" />
+          <div className="flex items-center gap-3">
+            <img src={selectedToken.icon} alt={selectedToken.symbol} className="w-10 h-10 rounded-full" />
             <div>
               <h1 className="text-xl font-bold">Buy {selectedToken.symbol}</h1>
-              <p className="text-xs text-gray-400">{selectedToken.description}</p>
+              <p className="text-xs text-zinc-500">{selectedToken.description}</p>
             </div>
           </div>
         </div>
@@ -777,9 +878,9 @@ export default function SwapPage() {
         <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
           {/* Input Section */}
           <div className="rounded-xl bg-zinc-900 p-4 mb-2">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-gray-400">You Pay</span>
-              <span className="text-sm text-gray-400">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-sm text-zinc-500">You Pay</span>
+              <span className="text-sm text-zinc-500">
                 Balance: {inputBalance !== undefined 
                   ? Number(formatUnits(inputBalance as bigint, inputToken.decimals)).toLocaleString(undefined, { maximumFractionDigits: 4 })
                   : "0"
@@ -788,34 +889,45 @@ export default function SwapPage() {
             </div>
             
             <div className="flex items-center gap-3">
-              {/* Input token selector (only if multiple allowed) */}
-              {selectedToken.allowedInputs && selectedToken.allowedInputs.length > 1 ? (
-                <div className="flex gap-1 bg-zinc-800 rounded-lg p-1">
-                  {selectedToken.allowedInputs.map((sym) => (
-                    <button
-                      key={sym}
-                      onClick={() => {
-                        setInputSymbol(sym);
-                        setInputAmount("");
-                      }}
-                      className={cn(
-                        "flex items-center gap-1.5 px-2 py-1 rounded-md text-sm font-medium transition-colors",
-                        inputSymbol === sym
-                          ? "bg-amber-500 text-black"
-                          : "text-gray-400 hover:text-white"
-                      )}
-                    >
-                      <img src={INPUT_TOKENS[sym].icon} alt={sym} className="w-4 h-4 rounded-full" />
-                      {sym}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 bg-zinc-800 rounded-lg px-3 py-2">
-                  <img src={inputToken.icon} alt={inputToken.symbol} className="w-5 h-5 rounded-full" />
-                  <span className="font-medium">{inputToken.symbol}</span>
-                </div>
-              )}
+              {/* Input token dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => availableInputs.length > 1 && setShowInputDropdown(!showInputDropdown)}
+                  className={cn(
+                    "flex items-center gap-2 bg-zinc-800 rounded-xl px-3 py-2.5 min-w-[120px]",
+                    availableInputs.length > 1 && "hover:bg-zinc-700 cursor-pointer"
+                  )}
+                >
+                  <img src={inputToken.icon} alt={inputToken.symbol} className="w-6 h-6 rounded-full" />
+                  <span className="font-semibold">{inputToken.symbol}</span>
+                  {availableInputs.length > 1 && (
+                    <ChevronDown className={cn("w-4 h-4 text-zinc-400 transition-transform", showInputDropdown && "rotate-180")} />
+                  )}
+                </button>
+                
+                {/* Dropdown */}
+                {showInputDropdown && availableInputs.length > 1 && (
+                  <div className="absolute top-full left-0 mt-2 w-full bg-zinc-800 rounded-xl border border-zinc-700 overflow-hidden z-20">
+                    {availableInputs.map((sym) => (
+                      <button
+                        key={sym}
+                        onClick={() => {
+                          setInputSymbol(sym);
+                          setShowInputDropdown(false);
+                          setInputAmount("");
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-2 px-3 py-2.5 hover:bg-zinc-700 transition-colors",
+                          inputSymbol === sym && "bg-zinc-700"
+                        )}
+                      >
+                        <img src={INPUT_TOKENS[sym].icon} alt={sym} className="w-6 h-6 rounded-full" />
+                        <span className="font-semibold">{sym}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               
               <input
                 type="text"
@@ -828,7 +940,7 @@ export default function SwapPage() {
                     setInputAmount(val);
                   }
                 }}
-                className="flex-1 bg-transparent text-right text-2xl font-bold outline-none placeholder-gray-600"
+                className="flex-1 bg-transparent text-right text-2xl font-bold outline-none placeholder-zinc-600 min-w-0"
               />
               
               <button
@@ -838,7 +950,7 @@ export default function SwapPage() {
                     setInputAmount(max);
                   }
                 }}
-                className="text-xs text-amber-500 font-bold hover:text-amber-400"
+                className="text-xs text-amber-500 font-bold hover:text-amber-400 flex-shrink-0"
               >
                 MAX
               </button>
@@ -848,23 +960,23 @@ export default function SwapPage() {
           {/* Arrow */}
           <div className="flex justify-center -my-1 relative z-10">
             <div className="bg-zinc-800 rounded-full p-2 border-4 border-zinc-950">
-              <ArrowDown className="w-4 h-4 text-gray-400" />
+              <ArrowDown className="w-4 h-4 text-zinc-400" />
             </div>
           </div>
 
           {/* Output Section */}
           <div className="rounded-xl bg-zinc-900 p-4 mt-2">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-gray-400">You Receive</span>
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-sm text-zinc-500">You Receive</span>
             </div>
             
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-zinc-800 rounded-lg px-3 py-2">
-                <img src={selectedToken.icon} alt={selectedToken.symbol} className="w-5 h-5 rounded-full" />
-                <span className="font-medium">{selectedToken.symbol}</span>
+              <div className="flex items-center gap-2 bg-zinc-800 rounded-xl px-3 py-2.5 min-w-[120px]">
+                <img src={selectedToken.icon} alt={selectedToken.symbol} className="w-6 h-6 rounded-full" />
+                <span className="font-semibold">{selectedToken.symbol}</span>
               </div>
               
-              <div className="flex-1 text-right text-2xl font-bold text-gray-300">
+              <div className="flex-1 text-right text-2xl font-bold text-zinc-300 min-w-0 truncate">
                 {outputAmountDisplay}
               </div>
             </div>
@@ -872,11 +984,11 @@ export default function SwapPage() {
 
           {/* Fee Info */}
           <div className="mt-4 pt-4 border-t border-zinc-800 space-y-2 text-sm">
-            <div className="flex justify-between text-gray-400">
+            <div className="flex justify-between text-zinc-500">
               <span>Fee (0.05%)</span>
               <span>{feeAmount > 0n ? Number(formatUnits(feeAmount, inputToken.decimals)).toFixed(6) : "0"} {inputToken.symbol}</span>
             </div>
-            <div className="flex justify-between text-gray-400">
+            <div className="flex justify-between text-zinc-500">
               <span>Route</span>
               <span>
                 {route?.dex === "uniswapV2" && "Uniswap V2"}
@@ -897,7 +1009,7 @@ export default function SwapPage() {
                 : swapResult === "failure"
                 ? "bg-red-500 text-white"
                 : isSwapDisabled
-                ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
+                ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                 : "bg-amber-500 text-black hover:bg-amber-400"
             )}
           >
@@ -908,6 +1020,14 @@ export default function SwapPage() {
           </button>
         </div>
       </div>
+
+      {/* Click outside to close dropdown */}
+      {showInputDropdown && (
+        <div 
+          className="fixed inset-0 z-10" 
+          onClick={() => setShowInputDropdown(false)} 
+        />
+      )}
 
       <NavBar />
     </main>
