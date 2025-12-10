@@ -1,3 +1,4 @@
+// app/api/spin-auction/process/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createPublicClient, http } from "viem";
@@ -12,7 +13,7 @@ const supabase = createClient(
 
 const client = createPublicClient({
   chain: base,
-  transport: http(),
+  transport: http(process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org"),
 });
 
 /**
@@ -21,9 +22,13 @@ const client = createPublicClient({
  * Verifies the transaction and credits the spin
  */
 export async function POST(request: NextRequest) {
+  console.log("=== Processing spin purchase ===");
+
   try {
     const body = await request.json();
     const { txHash, address } = body;
+
+    console.log("Request:", { txHash, address });
 
     if (!txHash || !address) {
       return NextResponse.json(
@@ -42,6 +47,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (existingPurchase) {
+      console.log("Already processed tx:", txHash);
       return NextResponse.json({
         success: true,
         message: "Already processed",
@@ -49,9 +55,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Get transaction receipt
+    console.log("Fetching transaction receipt...");
     const receipt = await client.getTransactionReceipt({
       hash: txHash as `0x${string}`,
     });
+
+    console.log("Receipt status:", receipt.status);
 
     if (receipt.status !== "success") {
       return NextResponse.json(
@@ -62,6 +71,7 @@ export async function POST(request: NextRequest) {
 
     // Verify transaction was to the SpinAuction contract
     if (receipt.to?.toLowerCase() !== SPIN_AUCTION_ADDRESS.toLowerCase()) {
+      console.log("Wrong contract:", receipt.to);
       return NextResponse.json(
         { error: "Invalid transaction target" },
         { status: 400 }
@@ -73,12 +83,9 @@ export async function POST(request: NextRequest) {
     for (const log of receipt.logs) {
       if (log.address.toLowerCase() === SPIN_AUCTION_ADDRESS.toLowerCase()) {
         try {
-          // Parse the indexed buyer address from topics[1]
           if (log.topics[1]) {
             const buyer = "0x" + log.topics[1].slice(26);
-            
-            // Parse non-indexed params from data
-            const data = log.data.slice(2); // Remove 0x
+            const data = log.data.slice(2);
             const price = BigInt("0x" + data.slice(0, 64));
             const wheelAmount = BigInt("0x" + data.slice(64, 128));
             const donutLabsAmount = BigInt("0x" + data.slice(128, 192));
@@ -95,6 +102,7 @@ export async function POST(request: NextRequest) {
               timestamp: Number(timestamp),
               purchaseId: Number(purchaseId),
             };
+            console.log("Parsed purchase event:", purchaseEvent);
             break;
           }
         } catch (e) {
@@ -104,6 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!purchaseEvent) {
+      console.log("No SpinPurchased event found");
       return NextResponse.json(
         { error: "SpinPurchased event not found in transaction" },
         { status: 400 }
@@ -112,13 +121,14 @@ export async function POST(request: NextRequest) {
 
     // Verify the buyer matches the claimed address
     if (purchaseEvent.buyer !== normalizedAddress) {
+      console.log("Address mismatch:", purchaseEvent.buyer, "vs", normalizedAddress);
       return NextResponse.json(
         { error: "Address mismatch" },
         { status: 400 }
       );
     }
 
-    // Record the purchase
+    // Record the purchase first (prevents double-processing)
     const { error: purchaseError } = await supabase
       .from("spin_purchases")
       .insert({
@@ -133,12 +143,21 @@ export async function POST(request: NextRequest) {
       });
 
     if (purchaseError) {
+      // If duplicate key, already processed
+      if (purchaseError.code === "23505") {
+        console.log("Duplicate tx, already processed");
+        return NextResponse.json({
+          success: true,
+          message: "Already processed",
+        });
+      }
       console.error("Failed to record purchase:", purchaseError);
-      // Continue anyway - we still want to credit the spin
+      // Continue anyway - still want to credit spin
     }
 
     // Credit the spin to the user
-    // Your table has: address, total_spins, spins_used, created_at, updated_at
+    console.log("Crediting spin to:", normalizedAddress);
+
     const { data: existingUser } = await supabase
       .from("user_spins")
       .select("total_spins")
@@ -146,12 +165,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (existingUser) {
-      // Update existing record - increment total_spins
       const { error: updateError } = await supabase
         .from("user_spins")
-        .update({ 
+        .update({
           total_spins: existingUser.total_spins + 1,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq("address", normalizedAddress);
 
@@ -162,8 +180,8 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+      console.log("Updated spins to:", existingUser.total_spins + 1);
     } else {
-      // Insert new record
       const { error: insertError } = await supabase
         .from("user_spins")
         .insert({
@@ -181,16 +199,20 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+      console.log("Created new user with 1 spin");
     }
 
-    // Get new spin count (available = total - used)
+    // Get new spin count
     const { data: newSpinData } = await supabase
       .from("user_spins")
       .select("total_spins, spins_used")
       .eq("address", normalizedAddress)
       .single();
 
-    const availableSpins = (newSpinData?.total_spins || 1) - (newSpinData?.spins_used || 0);
+    const availableSpins =
+      (newSpinData?.total_spins || 1) - (newSpinData?.spins_used || 0);
+
+    console.log("Success! Available spins:", availableSpins);
 
     return NextResponse.json({
       success: true,
@@ -199,10 +221,10 @@ export async function POST(request: NextRequest) {
       newSpinCount: availableSpins,
       price: purchaseEvent.price,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to process spin purchase:", error);
     return NextResponse.json(
-      { error: "Failed to process purchase" },
+      { error: "Failed to process purchase", details: error.message },
       { status: 500 }
     );
   }

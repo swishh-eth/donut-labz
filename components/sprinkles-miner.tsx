@@ -337,7 +337,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       // Award a spin for successful sprinkles mine (not approval)
       if (receipt.status === "success" && pendingTxType === "mine" && address) {
         console.log("Awarding spin for sprinkles mine:", { address, txHash: receipt.transactionHash });
-        fetch("/api/spins/add", {
+        fetch("/api/spins/award-sprinkles-mine", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -346,8 +346,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           }),
         })
           .then(res => res.json())
-          .then(data => console.log("Spin add result:", data))
-          .catch(err => console.error("Spin add error:", err));
+          .then(data => console.log("Spin award result:", data))
+          .catch(err => console.error("Spin award error:", err));
       }
       
       // Reset pending tx type
