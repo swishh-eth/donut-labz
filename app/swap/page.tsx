@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import {
   useAccount,
+  useBalance,
   useConnect,
   useReadContract,
+  useSendTransaction,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi";
@@ -39,13 +41,14 @@ const UNISWAP_V2_ROUTER = "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24" as Addres
 const AERODROME_ROUTER = "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43" as Address;
 const AERODROME_FACTORY = "0x420DD381b31aEf6683db6B902084cB0FFECe40Da" as Address;
 
-// Token definitions - only tokens with verified Aerodrome pools
+// Token definitions - only tokens with verified pools
 interface Token {
   address: Address;
   symbol: string;
   name: string;
   decimals: number;
   icon: string;
+  isNative?: boolean; // True for native ETH
 }
 
 const TOKENS: Token[] = [
@@ -62,6 +65,7 @@ const TOKENS: Token[] = [
     name: "Ethereum",
     decimals: 18,
     icon: "Ξ",
+    isNative: true, // Use native ETH balance, wrap before swap
   },
   {
     address: SPRINKLES_ADDRESS,
@@ -75,6 +79,24 @@ const TOKENS: Token[] = [
 // Fee configuration
 const SWAP_FEE_BPS = 30; // 0.3% = 30 basis points
 const FEE_DENOMINATOR = 10000;
+
+// WETH ABI for deposit (wrapping ETH)
+const WETH_ABI = [
+  {
+    inputs: [],
+    name: "deposit",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "wad", type: "uint256" }],
+    name: "withdraw",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
 
 // ABIs
 const ERC20_ABI = [
@@ -337,13 +359,16 @@ export default function SwapPage() {
   const [outputToken, setOutputToken] = useState<Token>(TOKENS[2]); // SPRINKLES default
   const [showInputTokenSelect, setShowInputTokenSelect] = useState(false);
   const [showOutputTokenSelect, setShowOutputTokenSelect] = useState(false);
-  const [slippage, setSlippage] = useState(0.5);
+  const [slippage, setSlippage] = useState(1.0); // Default 1%
+  const [customSlippage, setCustomSlippage] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   
   // Transaction state
-  // For multi-hop: approving_leg1, swapping_leg1, approving_leg2, swapping_leg2
+  // For native ETH: wrapping -> approving -> fee -> swapping
+  // For multi-hop: approving -> fee -> swapping_leg1 -> approving_leg2 -> swapping_leg2
   const [txStep, setTxStep] = useState<
     "idle" | 
+    "wrapping" |
     "approving" | 
     "transferring_fee" | 
     "swapping_leg1" | 
@@ -448,18 +473,41 @@ export default function SwapPage() {
     }).catch(() => {});
   }, [connectAsync, isConnected, isConnecting, primaryConnector]);
 
-  // Read input token balance
-  const { data: inputBalance, refetch: refetchInputBalance } = useReadContract({
-    address: inputToken.address,
-    abi: ERC20_ABI,
-    functionName: "balanceOf",
-    args: [address ?? zeroAddress],
+  // Read native ETH balance
+  const { data: nativeEthBalance, refetch: refetchNativeEthBalance } = useBalance({
+    address: address,
     chainId: base.id,
     query: {
       enabled: !!address,
       refetchInterval: 10_000,
     },
   });
+
+  // Read input token balance (for non-native tokens)
+  const { data: tokenBalance, refetch: refetchTokenBalance } = useReadContract({
+    address: inputToken.address,
+    abi: ERC20_ABI,
+    functionName: "balanceOf",
+    args: [address ?? zeroAddress],
+    chainId: base.id,
+    query: {
+      enabled: !!address && !inputToken.isNative,
+      refetchInterval: 10_000,
+    },
+  });
+
+  // Combined input balance - use native ETH or token balance
+  const inputBalance = inputToken.isNative 
+    ? nativeEthBalance?.value 
+    : tokenBalance;
+
+  const refetchInputBalance = useCallback(() => {
+    if (inputToken.isNative) {
+      refetchNativeEthBalance();
+    } else {
+      refetchTokenBalance();
+    }
+  }, [inputToken.isNative, refetchNativeEthBalance, refetchTokenBalance]);
 
   // Get swap info to determine routing
   const swapInfo = useMemo(() => {
@@ -474,18 +522,42 @@ export default function SwapPage() {
   const routerForLeg1 = firstLeg.dex === "uniswap" ? UNISWAP_V2_ROUTER : AERODROME_ROUTER;
   const routerForLeg2 = secondLeg?.dex === "uniswap" ? UNISWAP_V2_ROUTER : AERODROME_ROUTER;
 
-  // Read allowance for first leg router
-  const { data: inputAllowance, refetch: refetchAllowance } = useReadContract({
+  // Read WETH allowance for first leg router (always check WETH, even for native ETH swaps since we wrap first)
+  const { data: wethAllowance, refetch: refetchWethAllowance } = useReadContract({
+    address: WETH_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: [address ?? zeroAddress, routerForLeg1],
+    chainId: base.id,
+    query: {
+      enabled: !!address && inputToken.isNative,
+      refetchInterval: 10_000,
+    },
+  });
+
+  // Read allowance for first leg router (non-native tokens)
+  const { data: tokenAllowance, refetch: refetchTokenAllowance } = useReadContract({
     address: inputToken.address,
     abi: ERC20_ABI,
     functionName: "allowance",
     args: [address ?? zeroAddress, routerForLeg1],
     chainId: base.id,
     query: {
-      enabled: !!address,
+      enabled: !!address && !inputToken.isNative,
       refetchInterval: 10_000,
     },
   });
+
+  // Combined allowance
+  const inputAllowance = inputToken.isNative ? wethAllowance : tokenAllowance;
+  
+  const refetchAllowance = useCallback(() => {
+    if (inputToken.isNative) {
+      refetchWethAllowance();
+    } else {
+      refetchTokenAllowance();
+    }
+  }, [inputToken.isNative, refetchWethAllowance, refetchTokenAllowance]);
 
   // Read DONUT allowance for second leg (for multi-hop)
   const { data: donutAllowanceForLeg2, refetch: refetchDonutAllowance } = useReadContract({
@@ -695,12 +767,42 @@ export default function SwapPage() {
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
 
     try {
-      // Step 1: Approve input token for first leg router (if needed)
-      if (needsApproval && txStep === "idle") {
-        console.log("Starting approval for leg 1 on", firstLeg.dex);
-        setTxStep("approving");
+      // Step 0: Wrap ETH to WETH if using native ETH
+      if (inputToken.isNative && txStep === "idle") {
+        console.log("Wrapping ETH to WETH");
+        setTxStep("wrapping");
         await writeContract({
-          address: inputToken.address,
+          address: WETH_ADDRESS,
+          abi: WETH_ABI,
+          functionName: "deposit",
+          args: [],
+          value: inputAmountWei,
+          chainId: base.id,
+        });
+        return;
+      }
+
+      if (txStep === "wrapping") {
+        console.log("Executing wrap");
+        await writeContract({
+          address: WETH_ADDRESS,
+          abi: WETH_ABI,
+          functionName: "deposit",
+          args: [],
+          value: inputAmountWei,
+          chainId: base.id,
+        });
+        return;
+      }
+
+      // Step 1: Approve input token for first leg router (if needed)
+      // For native ETH, we already wrapped, so approve WETH
+      if (needsApproval && (txStep === "idle" || (inputToken.isNative && txStep === "approving"))) {
+        console.log("Starting approval for leg 1 on", firstLeg.dex);
+        if (txStep !== "approving") setTxStep("approving");
+        const tokenToApprove = inputToken.isNative ? WETH_ADDRESS : inputToken.address;
+        await writeContract({
+          address: tokenToApprove,
           abi: ERC20_ABI,
           functionName: "approve",
           args: [routerForLeg1, inputAmountWei],
@@ -709,24 +811,15 @@ export default function SwapPage() {
         return;
       }
 
-      // Step 2: Transfer fee to treasury
-      if (txStep === "idle") {
-        console.log("Starting fee transfer");
-        setTxStep("transferring_fee");
+      // Step 2: Transfer fee to treasury (use WETH if native ETH)
+      if (txStep === "idle" || txStep === "transferring_fee") {
+        if (txStep !== "transferring_fee") {
+          console.log("Starting fee transfer");
+          setTxStep("transferring_fee");
+        }
+        const tokenForFee = inputToken.isNative ? WETH_ADDRESS : inputToken.address;
         await writeContract({
-          address: inputToken.address,
-          abi: ERC20_ABI,
-          functionName: "transfer",
-          args: [TREASURY_ADDRESS, feeAmount],
-          chainId: base.id,
-        });
-        return;
-      }
-
-      if (txStep === "transferring_fee") {
-        console.log("Executing fee transfer");
-        await writeContract({
-          address: inputToken.address,
+          address: tokenForFee,
           abi: ERC20_ABI,
           functionName: "transfer",
           args: [TREASURY_ADDRESS, feeAmount],
@@ -854,6 +947,20 @@ export default function SwapPage() {
     }
 
     if (receipt.status === "success") {
+      // After wrapping ETH, check if we need to approve WETH
+      if (txStep === "wrapping") {
+        resetWrite();
+        refetchAllowance(); // Refetch WETH allowance
+        // Check if WETH needs approval
+        const wethAllow = inputAllowance as bigint ?? 0n;
+        if (wethAllow < inputAmountWei) {
+          setTxStep("approving");
+        } else {
+          setTxStep("transferring_fee");
+        }
+        return;
+      }
+
       if (txStep === "approving") {
         resetWrite();
         setTxStep("transferring_fee");
@@ -915,7 +1022,7 @@ export default function SwapPage() {
         return;
       }
     }
-  }, [receipt, txStep, swapInfo.isMultiHop, leg1Output, donutAllowanceForLeg2, resetWrite, showSwapResultFn, refetchInputBalance, refetchAllowance, refetchDonutBalance, refetchDonutAllowance]);
+  }, [receipt, txStep, swapInfo.isMultiHop, leg1Output, donutAllowanceForLeg2, inputAllowance, inputAmountWei, resetWrite, showSwapResultFn, refetchInputBalance, refetchAllowance, refetchDonutBalance, refetchDonutAllowance]);
 
   // Auto-continue swap after approval/fee transfer - only if we have a pending step
   const pendingStepRef = useRef(false);
@@ -923,7 +1030,7 @@ export default function SwapPage() {
   useEffect(() => {
     // Only auto-continue if we're in a middle step and not already processing
     if (
-      (txStep === "transferring_fee" || txStep === "swapping_leg1" || txStep === "approving_leg2" || txStep === "swapping_leg2") && 
+      (txStep === "wrapping" || txStep === "approving" || txStep === "transferring_fee" || txStep === "swapping_leg1" || txStep === "approving_leg2" || txStep === "swapping_leg2") && 
       !isWriting && 
       !isConfirming && 
       !txHash &&
@@ -955,6 +1062,7 @@ export default function SwapPage() {
     if (swapResult === "success") return "Success!";
     if (swapResult === "failure") return "Failed";
     if (isWriting || isConfirming) {
+      if (txStep === "wrapping") return "Wrapping ETH...";
       if (txStep === "approving") return "Approving...";
       if (txStep === "transferring_fee") return "Processing Fee...";
       if (txStep === "swapping_leg1") return swapInfo.isMultiHop ? "Swapping (1/2)..." : "Swapping...";
@@ -964,9 +1072,12 @@ export default function SwapPage() {
     }
     if (!inputAmount || inputAmount === "0") return "Enter Amount";
     if (!hasSufficientBalance) return "Insufficient Balance";
+    if (inputToken.isNative) {
+      return swapInfo.isMultiHop ? "Wrap & Multi-Swap" : "Wrap & Swap";
+    }
     if (needsApproval) return swapInfo.isMultiHop ? "Approve & Multi-Swap" : "Approve & Swap";
     return swapInfo.isMultiHop ? "Multi-Swap" : "Swap";
-  }, [swapResult, isWriting, isConfirming, txStep, inputAmount, hasSufficientBalance, needsApproval, swapInfo.isMultiHop]);
+  }, [swapResult, isWriting, isConfirming, txStep, inputAmount, hasSufficientBalance, needsApproval, swapInfo.isMultiHop, inputToken.isNative]);
 
   const isSwapDisabled =
     !inputAmount ||
@@ -993,9 +1104,9 @@ export default function SwapPage() {
   const handleMaxClick = () => {
     if (inputBalance) {
       const maxAmount = formatUnits(inputBalance as bigint, inputToken.decimals);
-      // Leave a tiny bit for gas if it's ETH/WETH
-      if (inputToken.symbol === "WETH") {
-        const reduced = Math.max(0, parseFloat(maxAmount) - 0.001);
+      // Leave some ETH for gas if it's native ETH
+      if (inputToken.isNative) {
+        const reduced = Math.max(0, parseFloat(maxAmount) - 0.002); // Leave 0.002 ETH for gas
         setInputAmount(reduced.toString());
       } else {
         setInputAmount(maxAmount);
@@ -1209,13 +1320,16 @@ export default function SwapPage() {
                 </button>
               </div>
               <div className="flex gap-2">
-                {[0.1, 0.5, 1.0, 2.0].map((val) => (
+                {[0.1, 0.5, 1.0].map((val) => (
                   <button
                     key={val}
-                    onClick={() => setSlippage(val)}
+                    onClick={() => {
+                      setSlippage(val);
+                      setCustomSlippage("");
+                    }}
                     className={cn(
                       "flex-1 py-2 rounded-lg text-xs font-bold transition-colors",
-                      slippage === val
+                      slippage === val && !customSlippage
                         ? "bg-amber-500 text-black"
                         : "bg-zinc-800 text-white hover:bg-zinc-700"
                     )}
@@ -1223,6 +1337,28 @@ export default function SwapPage() {
                     {val}%
                   </button>
                 ))}
+                <div className="flex-1 relative">
+                  <input
+                    type="number"
+                    placeholder="Custom"
+                    value={customSlippage}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCustomSlippage(val);
+                      const num = parseFloat(val);
+                      if (!isNaN(num) && num > 0 && num <= 50) {
+                        setSlippage(num);
+                      }
+                    }}
+                    className={cn(
+                      "w-full py-2 px-2 rounded-lg text-xs font-bold text-center transition-colors bg-zinc-800 text-white",
+                      customSlippage ? "ring-1 ring-amber-500" : ""
+                    )}
+                  />
+                  {customSlippage && (
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+                  )}
+                </div>
               </div>
             </div>
           )}
