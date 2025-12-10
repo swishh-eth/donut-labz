@@ -201,7 +201,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   const [localSpins, setLocalSpins] = useState(availableSpins);
   const [floatOffset, setFloatOffset] = useState(0);
   const [continuousRotation, setContinuousRotation] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
   const [auctionPrice, setAuctionPrice] = useState(AUCTION_MIN_PRICE);
   const [approvalAmount, setApprovalAmount] = useState<string>("");
   const [isBuying, setIsBuying] = useState(false);
@@ -624,28 +623,48 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     }
   }, [buyReceipt, address, hasProcessedBuy, onSpinComplete, refetchAuction, resetBuy]);
 
-  // Continuous rotation animation
+  // Continuous rotation animation - ALWAYS spinning, speed varies by stage
   useEffect(() => {
-    if (stage === "idle" && !hasPendingCommit) {
-      setIsAnimating(true);
-      let lastTime = performance.now();
+    let lastTime = performance.now();
+    let currentSpeed = 15; // degrees per second
+    
+    const getTargetSpeed = () => {
+      switch (stage) {
+        case "committing":
+        case "waiting":
+        case "revealing":
+          return 180; // Fast spin during blockchain operations
+        case "spinning":
+        case "result":
+          return 0; // CSS transition handles this
+        default:
+          return 15; // Slow idle spin
+      }
+    };
 
-      const animate = (currentTime: number) => {
-        const delta = (currentTime - lastTime) / 1000;
-        lastTime = currentTime;
-        setContinuousRotation(prev => (prev + delta * 15) % 360);
-        animationRef.current = requestAnimationFrame(animate);
-      };
-
+    const animate = (currentTime: number) => {
+      const delta = (currentTime - lastTime) / 1000;
+      lastTime = currentTime;
+      
+      // Smoothly interpolate speed
+      const targetSpeed = getTargetSpeed();
+      currentSpeed += (targetSpeed - currentSpeed) * 0.05;
+      
+      if (stage !== "spinning" && stage !== "result") {
+        setContinuousRotation(prev => prev + delta * currentSpeed);
+      }
+      
       animationRef.current = requestAnimationFrame(animate);
-      return () => {
-        if (animationRef.current) cancelAnimationFrame(animationRef.current);
-        setIsAnimating(false);
-      };
-    }
-  }, [stage, hasPendingCommit]);
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [stage]);
 
   // Reveal confirmation and animation
+  // The reveal transaction gives us the result, but we animate FIRST, then show result
   useEffect(() => {
     if (revealReceipt?.status === "success" && stage === "revealing" && !isProcessingRef.current) {
       isProcessingRef.current = true;
@@ -665,49 +684,52 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         }
       }
 
+      // Store the segment but DON'T show it yet
+      const winningSegment = segment;
+      
+      // Calculate final rotation to land on winning segment
       const currentRotation = continuousRotation % 360;
-      const targetAngle = SEGMENT_TARGET_ROTATION[segment];
+      const targetAngle = SEGMENT_TARGET_ROTATION[winningSegment];
       const spins = 5; // Number of full rotations for dramatic effect
       
-      // Calculate how much more we need to rotate from current position to land on target
-      // We want: (currentRotation + additionalRotation) % 360 = targetAngle
-      // additionalRotation = targetAngle - currentRotation (mod 360, keeping positive)
       let additionalRotation = targetAngle - currentRotation;
       if (additionalRotation < 0) {
         additionalRotation += 360;
       }
       
-      // Final rotation = current + full spins + additional to land on target
       const finalRotation = continuousRotation + (spins * 360) + additionalRotation;
       
       console.log("Spin result:", { 
-        segment, 
-        segmentLabel: SEGMENTS[segment].label, 
+        segment: winningSegment, 
+        segmentLabel: SEGMENTS[winningSegment].label, 
         currentRotation,
         targetAngle, 
         additionalRotation,
         finalRotation 
       });
 
+      // Start the spin animation
       setRotation(finalRotation);
       setStage("spinning");
 
+      // After wheel lands (4.2s), THEN reveal the result
       setTimeout(() => {
-        setResultSegment(segment);
+        setResultSegment(winningSegment);
         setStage("result");
 
+        // Record the spin usage
         if (!hasRecordedSpin && address) {
           setHasRecordedSpin(true);
           fetch("/api/spins/use", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ address, revealTxHash: revealReceipt.transactionHash, segment, prizes: {} }),
+            body: JSON.stringify({ address, revealTxHash: revealReceipt.transactionHash, segment: winningSegment, prizes: {} }),
           })
             .then(res => res.json())
             .then(() => onSpinComplete?.())
             .catch(err => console.error("Spin use error:", err));
         }
-      }, 4200);
+      }, 4500); // Slightly longer than animation to ensure it's fully stopped
     } else if (revealReceipt?.status === "reverted") {
       setError("Reveal transaction failed");
       setStage("idle");
@@ -943,11 +965,10 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
 
           {/* Wheel SVG */}
           <div
-            className="w-full h-full transition-transform"
+            className="w-full h-full"
             style={{
-              transform: `rotate(${stage === "spinning" ? rotation : (isAnimating ? continuousRotation : rotation)}deg)`,
-              transitionDuration: stage === "spinning" ? "4s" : "0s",
-              transitionTimingFunction: "cubic-bezier(0.17, 0.67, 0.12, 0.99)",
+              transform: `rotate(${stage === "spinning" || stage === "result" ? rotation : continuousRotation}deg)`,
+              transition: stage === "spinning" ? "transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)" : "none",
             }}
           >
             <svg viewBox="0 0 200 200" className="w-full h-full">
@@ -1008,9 +1029,8 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
             <div
               className="absolute inset-0 flex items-center justify-center pointer-events-none"
               style={{
-                transform: `rotate(${-(stage === "spinning" ? rotation : (isAnimating ? continuousRotation : rotation))}deg)`,
-                transitionDuration: stage === "spinning" ? "4s" : "0s",
-                transitionTimingFunction: "cubic-bezier(0.17, 0.67, 0.12, 0.99)",
+                transform: `rotate(${-(stage === "spinning" || stage === "result" ? rotation : continuousRotation)}deg)`,
+                transition: stage === "spinning" ? "transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)" : "none",
               }}
             >
               <span className="text-3xl" style={{ transform: `translateY(${floatOffset}px)`, transition: "transform 0.1s ease-out" }}>
@@ -1277,37 +1297,49 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
           )}
 
           {stage === "committing" && (
-            <div className="flex items-center justify-center gap-2 text-amber-400 py-3">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm">Committing...</span>
+            <div className="flex flex-col items-center justify-center gap-1 py-3">
+              <div className="flex items-center gap-2 text-amber-400">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm font-bold">Confirm in wallet...</span>
+              </div>
+              <span className="text-[10px] text-gray-500">Sign to start spinning</span>
             </div>
           )}
 
           {stage === "waiting" && (
-            <div className="flex flex-col items-center justify-center gap-1 text-amber-400 py-3">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col items-center justify-center gap-1 py-3">
+              <div className="flex items-center gap-2 text-amber-400">
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span className="text-sm">Confirming...</span>
+                <span className="text-sm font-bold">Building suspense...</span>
               </div>
-              <span className="text-[10px] text-gray-500">Few seconds</span>
+              <span className="text-[10px] text-gray-500">Waiting for blockchain</span>
             </div>
           )}
 
           {stage === "revealing" && (
-            <div className="flex items-center justify-center gap-2 text-amber-400 py-3">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm">Revealing...</span>
+            <div className="flex flex-col items-center justify-center gap-1 py-3">
+              <div className="flex items-center gap-2 text-amber-400">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm font-bold">Confirm to reveal...</span>
+              </div>
+              <span className="text-[10px] text-gray-500">Sign to see your prize!</span>
             </div>
           )}
 
           {stage === "spinning" && (
-            <div className="text-amber-400 py-3 text-sm">Spinning...</div>
+            <div className="flex flex-col items-center justify-center gap-1 py-3">
+              <span className="text-amber-400 text-lg font-bold animate-pulse">🎰 Good luck! 🎰</span>
+              <span className="text-[10px] text-gray-500">Wheel is spinning...</span>
+            </div>
           )}
 
           {stage === "result" && resultSegment !== null && (
             <div className="py-3">
               {SEGMENTS[resultSegment].prize === 0 ? (
-                <div className="text-2xl mb-2">💀</div>
+                <>
+                  <div className="text-2xl mb-1">💀</div>
+                  <div className="text-gray-400 text-sm">Better luck next time!</div>
+                </>
               ) : (
                 <>
                   <div className="text-green-400 text-lg font-bold mb-1">
