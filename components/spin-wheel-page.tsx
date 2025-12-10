@@ -332,6 +332,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
 
   const hasPendingCommit = commitmentData ? (commitmentData[0] !== "0x0000000000000000000000000000000000000000000000000000000000000000" && !commitmentData[2]) : false;
   const canRevealPending = commitmentData ? commitmentData[3] : false;
+  const blocksUntilExpiry = commitmentData ? Number(commitmentData[4]) : 0;
 
   useEffect(() => {
     if (auctionState) {
@@ -929,23 +930,40 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
               <div className="text-amber-400 text-sm font-medium mb-1">🎰 Spin Ready!</div>
               <div className="text-gray-300 text-xs mb-2">You have a pending spin waiting to be revealed.</div>
               {canRevealPending ? (
-                <button
-                  onClick={() => {
-                    const storedSecret = address ? getSecret(address) : null;
-                    console.log("Manual reveal - stored secret:", storedSecret);
-                    if (!storedSecret) {
-                      setError("Secret not found. The spin may have been started in another session.");
-                      return;
-                    }
-                    hasStartedRef.current = true;
-                    setSecret(storedSecret);
-                    setStage("revealing");
-                    handleReveal();
-                  }}
-                  className="w-full py-2 rounded-xl font-bold text-sm bg-green-500 text-white hover:bg-green-400 transition-all"
-                >
-                  REVEAL MY SPIN!
-                </button>
+                <>
+                  <button
+                    onClick={() => {
+                      const storedSecret = address ? getSecret(address) : null;
+                      console.log("Manual reveal - stored secret:", storedSecret);
+                      if (!storedSecret) {
+                        setError("Secret not found. The spin may have been started in another session. Try clearing below.");
+                        return;
+                      }
+                      hasStartedRef.current = true;
+                      setSecret(storedSecret);
+                      setStage("revealing");
+                      handleReveal();
+                    }}
+                    className="w-full py-2 rounded-xl font-bold text-sm bg-green-500 text-white hover:bg-green-400 transition-all"
+                  >
+                    REVEAL MY SPIN!
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (address) {
+                        clearSecret(address);
+                        setSecret(null);
+                        setError(null);
+                        hasStartedRef.current = false;
+                        // Force refetch to update UI
+                        refetchCommitment();
+                      }
+                    }}
+                    className="w-full mt-2 py-1.5 rounded-xl text-xs bg-zinc-800 text-gray-400 hover:bg-zinc-700 transition-all"
+                  >
+                    Clear stuck spin ({blocksUntilExpiry > 0 ? `~${Math.ceil(blocksUntilExpiry * 2 / 60)} min until expiry` : 'expired'})
+                  </button>
+                </>
               ) : (
                 <div className="text-amber-300 text-[10px]">⏳ Waiting for blockchain confirmation... (need 1 more block)</div>
               )}
