@@ -702,6 +702,8 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
 
   // Reveal confirmation and animation
   // The reveal transaction gives us the result, but we animate FIRST, then show result
+  const pendingResultRef = useRef<number | null>(null);
+  
   useEffect(() => {
     if (revealReceipt?.status === "success" && stage === "revealing" && !isProcessingRef.current) {
       isProcessingRef.current = true;
@@ -721,12 +723,12 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         }
       }
 
-      // Store the segment but DON'T show it yet
-      const winningSegment = segment;
+      // Store the segment in a ref - DON'T set state yet
+      pendingResultRef.current = segment;
       
       // Calculate final rotation to land on winning segment
       const currentRotation = continuousRotation % 360;
-      const targetAngle = SEGMENT_TARGET_ROTATION[winningSegment];
+      const targetAngle = SEGMENT_TARGET_ROTATION[segment];
       const spins = 5; // Number of full rotations for dramatic effect
       
       let additionalRotation = targetAngle - currentRotation;
@@ -736,37 +738,38 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
       
       const finalRotation = continuousRotation + (spins * 360) + additionalRotation;
       
-      console.log("Spin result:", { 
-        segment: winningSegment, 
-        segmentLabel: SEGMENTS[winningSegment].label, 
+      console.log("Spin result (hidden until animation completes):", { 
+        segment, 
+        segmentLabel: SEGMENTS[segment].label, 
         currentRotation,
         targetAngle, 
         additionalRotation,
         finalRotation 
       });
 
-      // Start the spin animation
+      // Start the spin animation FIRST
       setRotation(finalRotation);
       setStage("spinning");
 
-      // After wheel lands (4.2s), THEN reveal the result
+      // After wheel lands (4.5s), THEN reveal the result
       setTimeout(() => {
-        setResultSegment(winningSegment);
+        // NOW show the result
+        setResultSegment(pendingResultRef.current);
         setStage("result");
 
         // Record the spin usage
-        if (!hasRecordedSpin && address) {
+        if (!hasRecordedSpin && address && pendingResultRef.current !== null) {
           setHasRecordedSpin(true);
           fetch("/api/spins/use", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ address, revealTxHash: revealReceipt.transactionHash, segment: winningSegment, prizes: {} }),
+            body: JSON.stringify({ address, revealTxHash: revealReceipt.transactionHash, segment: pendingResultRef.current, prizes: {} }),
           })
             .then(res => res.json())
             .then(() => onSpinComplete?.())
             .catch(err => console.error("Spin use error:", err));
         }
-      }, 4500); // Slightly longer than animation to ensure it's fully stopped
+      }, 4500); // Wait for animation to complete
     } else if (revealReceipt?.status === "reverted") {
       setError("Reveal transaction failed");
       setStage("idle");
@@ -1364,20 +1367,24 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
           )}
 
           {stage === "result" && resultSegment !== null && (
-            <div className="py-3">
-              {SEGMENTS[resultSegment].prize === 0 ? (
-                <>
-                  <div className="text-2xl mb-1">💀</div>
-                  <div className="text-gray-400 text-sm">Better luck next time!</div>
-                </>
-              ) : (
-                <>
-                  <div className="text-green-400 text-lg font-bold mb-1">
-                    🎉 {SEGMENTS[resultSegment].label} of Pool!
-                  </div>
-                  <div className="text-gray-400 text-xs">Prizes sent to your wallet</div>
-                </>
-              )}
+            <>
+              <div className="text-center mb-3">
+                {SEGMENTS[resultSegment].prize === 0 ? (
+                  <>
+                    <div className="text-3xl mb-1">💀</div>
+                    <div className="text-gray-400 text-sm">Better luck next time!</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-green-400 text-xl font-bold mb-1">
+                      🎉 {SEGMENTS[resultSegment].label} of Pool!
+                    </div>
+                    <div className="text-gray-400 text-xs">Prizes sent to your wallet</div>
+                  </>
+                )}
+              </div>
+              
+              {/* Spin Again / Done button - same style as Buy Spin */}
               <button
                 onClick={() => {
                   setStage("idle");
@@ -1387,15 +1394,16 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                   setHasRecordedSpin(false);
                   isProcessingRef.current = false;
                   hasStartedRef.current = false;
+                  hasTriggeredRevealRef.current = false;
                   if (address) clearSecret(address);
                   resetCommit();
                   resetReveal();
                 }}
-                className="mt-3 px-5 py-2 rounded-xl bg-zinc-800 text-white text-sm hover:bg-zinc-700 transition-all"
+                className="w-full py-3 rounded-xl font-bold text-base bg-amber-500 text-black hover:bg-amber-400 transition-all"
               >
                 {localSpins > 0 ? "Spin Again" : "Done"}
               </button>
-            </div>
+            </>
           )}
         </div>
       </div>
