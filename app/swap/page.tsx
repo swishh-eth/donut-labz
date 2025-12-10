@@ -410,6 +410,7 @@ export default function SwapPage() {
   const [swapResult, setSwapResult] = useState<"success" | "failure" | null>(null);
   const swapResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [leg1Complete, setLeg1Complete] = useState(false);
+  const [leg1ReceivedAmount, setLeg1ReceivedAmount] = useState<bigint>(0n); // Track DONUT received from leg1
 
   // Just use the regular token tiles (no infinite duplication)
   const displayItems = TOKEN_TILES;
@@ -675,6 +676,7 @@ export default function SwapPage() {
     setInputAmount("");
     setTxStep("idle");
     setLeg1Complete(false);
+    setLeg1ReceivedAmount(0n);
     setShowInputDropdown(false);
     resetTx();
   };
@@ -877,6 +879,10 @@ export default function SwapPage() {
         const currentAddress = address;
         const currentRoute = route;
         
+        // Get the DONUT balance BEFORE we knew it (use the expected leg1Output)
+        // We'll swap exactly what leg1 was supposed to give us
+        const amountToSwapInLeg2 = leg1Output;
+        
         // Execute leg2 directly here
         const executeLeg2 = async () => {
           if (!currentAddress || !currentRoute || currentRoute.dex !== "multiHop") {
@@ -886,29 +892,28 @@ export default function SwapPage() {
             return;
           }
           
+          if (amountToSwapInLeg2 === 0n) {
+            console.error("No amount to swap in leg2");
+            showSwapResultFn("failure");
+            setTxStep("idle");
+            return;
+          }
+          
           const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
           
           try {
-            // Refetch to get latest values
-            const [balanceResult, allowanceResult] = await Promise.all([
-              refetchDonutBalance(),
-              refetchDonutAllowanceForAero(),
-            ]);
-            
-            const currentDonutBalance = balanceResult.data as bigint ?? 0n;
+            // Refetch allowance to check if approval needed
+            const allowanceResult = await refetchDonutAllowanceForAero();
             const currentAllowance = allowanceResult.data as bigint ?? 0n;
             
-            console.log("Leg2 - DONUT balance:", currentDonutBalance.toString());
+            console.log("Leg2 - Amount to swap:", amountToSwapInLeg2.toString());
             console.log("Leg2 - DONUT allowance:", currentAllowance.toString());
             
-            if (currentDonutBalance === 0n) {
-              throw new Error("No DONUT balance for leg2");
-            }
-            
-            // Check if approval needed
-            if (currentAllowance < currentDonutBalance) {
+            // Check if approval needed for the amount we want to swap
+            if (currentAllowance < amountToSwapInLeg2) {
               console.log("Leg2 - Approving DONUT for Aerodrome...");
               setTxStep("approving_leg2");
+              setLeg1ReceivedAmount(amountToSwapInLeg2); // Store for after approval
               writeContract({
                 address: DONUT_ADDRESS,
                 abi: ERC20_ABI,
@@ -919,14 +924,14 @@ export default function SwapPage() {
               return;
             }
             
-            // Execute leg2 swap
+            // Execute leg2 swap with only the amount from leg1
             console.log("Leg2 - Swapping DONUT to SPRINKLES...");
             setTxStep("swapping_leg2");
             writeContract({
               address: AERODROME_ROUTER,
               abi: AERODROME_ROUTER_ABI,
               functionName: "swapExactTokensForTokens",
-              args: [currentDonutBalance, minOutputAmount, currentRoute.leg2.routes, currentAddress, deadline],
+              args: [amountToSwapInLeg2, minOutputAmount, currentRoute.leg2.routes, currentAddress, deadline],
               chainId: base.id,
             });
           } catch (error) {
@@ -946,27 +951,33 @@ export default function SwapPage() {
         console.log("DONUT approval complete, executing leg2 swap...");
         resetTx();
         
+        // Capture values for closure
+        const currentAddress = address;
+        const currentRoute = route;
+        const amountToSwap = leg1ReceivedAmount; // Use the stored amount from leg1
+        
         // Execute the swap directly
         const executeLeg2Swap = async () => {
-          if (!address || !route || route.dex !== "multiHop") return;
+          if (!currentAddress || !currentRoute || currentRoute.dex !== "multiHop") return;
           
-          const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-          const balanceResult = await refetchDonutBalance();
-          const currentDonutBalance = balanceResult.data as bigint ?? 0n;
-          
-          if (currentDonutBalance === 0n) {
+          if (amountToSwap === 0n) {
+            console.error("No stored amount for leg2 swap");
             showSwapResultFn("failure");
             setTxStep("idle");
             setLeg1Complete(false);
+            setLeg1ReceivedAmount(0n);
             return;
           }
           
+          const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+          
+          console.log("Leg2 - Swapping", amountToSwap.toString(), "DONUT to SPRINKLES...");
           setTxStep("swapping_leg2");
-          await writeContract({
+          writeContract({
             address: AERODROME_ROUTER,
             abi: AERODROME_ROUTER_ABI,
             functionName: "swapExactTokensForTokens",
-            args: [currentDonutBalance, minOutputAmount, route.leg2.routes, address, deadline],
+            args: [amountToSwap, minOutputAmount, currentRoute.leg2.routes, currentAddress, deadline],
             chainId: base.id,
           });
         };
@@ -979,6 +990,7 @@ export default function SwapPage() {
         showSwapResultFn("success");
         setTxStep("idle");
         setLeg1Complete(false);
+        setLeg1ReceivedAmount(0n);
         setInputAmount("");
         refetchInputBalance();
         refetchDonutBalance();
