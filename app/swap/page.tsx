@@ -741,13 +741,14 @@ export default function SwapPage() {
         return;
       }
 
-      // Step 4 (multi-hop only): Approve DONUT for Aerodrome if needed
+      // Step 4 (multi-hop only): Approve DONUT for Aerodrome if needed, then swap
       if (txStep === "approving_leg2" && route.dex === "multiHop") {
         // Check current allowance
         const currentAllowance = donutAllowanceForAero as bigint ?? 0n;
         const donutToSwap = donutBalance as bigint ?? 0n;
         
-        if (currentAllowance < donutToSwap) {
+        if (currentAllowance < donutToSwap && donutToSwap > 0n) {
+          // Need approval first
           await writeContract({
             address: DONUT_ADDRESS,
             abi: ERC20_ABI,
@@ -757,11 +758,25 @@ export default function SwapPage() {
           });
           return;
         }
-        // If already approved, move to leg2
+        
+        // Already approved or no DONUT - proceed to swap
+        if (!donutToSwap || donutToSwap === 0n) {
+          throw new Error("No DONUT balance for leg2");
+        }
+        
+        // Execute leg2 swap directly
         setTxStep("swapping_leg2");
+        await writeContract({
+          address: AERODROME_ROUTER,
+          abi: AERODROME_ROUTER_ABI,
+          functionName: "swapExactTokensForTokens",
+          args: [donutToSwap, minOutputAmount, route.leg2.routes, address, deadline],
+          chainId: base.id,
+        });
+        return;
       }
 
-      // Step 5 (multi-hop only): Execute leg 2 (DONUT -> SPRINKLES via Aerodrome)
+      // Step 5 (multi-hop only): Execute leg 2 if we get here after approval
       if (txStep === "swapping_leg2" && route.dex === "multiHop") {
         // Get current DONUT balance to swap
         const donutToSwap = donutBalance as bigint;
@@ -828,6 +843,7 @@ export default function SwapPage() {
           return;
         }
         // For multi-hop, continue to leg2
+        console.log("Leg1 complete, preparing leg2...");
         resetTx();
         setLeg1Complete(true);
         // Refetch DONUT balance and allowance, then continue
@@ -835,18 +851,23 @@ export default function SwapPage() {
           refetchDonutBalance(),
           refetchDonutAllowanceForAero(),
         ]).then(() => {
+          console.log("Balances refreshed, starting leg2 approval check...");
           // Set state to approving_leg2 and call handleSwap
           setTxStep("approving_leg2");
-          setTimeout(() => handleSwap(), 300);
+          setTimeout(() => {
+            console.log("Calling handleSwap for leg2...");
+            handleSwap();
+          }, 1000);
         });
         return;
       }
 
       if (txStep === "approving_leg2") {
+        // Approval completed, now do the swap
         resetTx();
         refetchDonutAllowanceForAero().then(() => {
           setTxStep("swapping_leg2");
-          setTimeout(() => handleSwap(), 300);
+          setTimeout(() => handleSwap(), 500);
         });
         return;
       }
