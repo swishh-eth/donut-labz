@@ -210,10 +210,23 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   useEffect(() => {
     const fetchPrices = async () => {
       try {
-        const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum,donut&vs_currencies=usd");
-        const data = await res.json();
-        setEthPrice(data.ethereum?.usd || 0);
-        setDonutPrice(data.donut?.usd || 0);
+        // Fetch ETH price from CoinGecko
+        const ethRes = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
+        const ethData = await ethRes.json();
+        setEthPrice(ethData.ethereum?.usd || 0);
+        
+        // Fetch DONUT price from DEXScreener (Base chain)
+        try {
+          const donutRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${DONUT_ADDRESS}`);
+          const donutData = await donutRes.json();
+          if (donutData.pairs && donutData.pairs.length > 0) {
+            // Get price from the first pair (usually highest liquidity)
+            const price = parseFloat(donutData.pairs[0].priceUsd || "0");
+            setDonutPrice(price);
+          }
+        } catch (e) {
+          console.error("Failed to fetch DONUT price:", e);
+        }
       } catch (e) {
         console.error("Failed to fetch prices:", e);
       }

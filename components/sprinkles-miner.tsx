@@ -99,6 +99,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const [isPulsing, setIsPulsing] = useState(false);
   const [approvalAmount, setApprovalAmount] = useState("");
   const [isApprovalMode, setIsApprovalMode] = useState(false);
+  const [pendingTxType, setPendingTxType] = useState<"mine" | "approve" | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const mineResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -294,13 +295,16 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       refetchSlot0();
       refetchPrice();
       refetchAllowance();
+      
       // Reset approval mode on successful approval
-      if (receipt.status === "success" && isApprovalMode) {
+      if (receipt.status === "success" && pendingTxType === "approve") {
         setIsApprovalMode(false);
         setApprovalAmount("");
       }
+      
       // Award a spin for successful sprinkles mine (not approval)
-      if (receipt.status === "success" && !isApprovalMode && address) {
+      if (receipt.status === "success" && pendingTxType === "mine" && address) {
+        console.log("Awarding spin for sprinkles mine:", { address, txHash: receipt.transactionHash });
         fetch("/api/spins/add", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -308,15 +312,22 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             address: address,
             txHash: receipt.transactionHash,
           }),
-        }).catch(console.error);
+        })
+          .then(res => res.json())
+          .then(data => console.log("Spin add result:", data))
+          .catch(err => console.error("Spin add error:", err));
       }
+      
+      // Reset pending tx type
+      setPendingTxType(null);
+      
       const resetTimer = setTimeout(() => {
         resetWrite();
       }, 500);
       return () => clearTimeout(resetTimer);
     }
     return;
-  }, [receipt, refetchSlot0, refetchPrice, refetchAllowance, resetWrite, showMineResult, isApprovalMode, address]);
+  }, [receipt, refetchSlot0, refetchPrice, refetchAllowance, resetWrite, showMineResult, pendingTxType, address]);
 
   const minerAddress = slot0?.miner ?? zeroAddress;
   const hasMiner = minerAddress !== zeroAddress;
@@ -365,6 +376,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
   const handleApprove = useCallback(async () => {
     if (!address || parsedApprovalAmount === 0n) return;
+    setPendingTxType("approve");
     try {
       await writeContract({
         account: address as Address,
@@ -378,12 +390,14 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       console.error("Failed to approve:", error);
       showMineResult("failure");
       resetWrite();
+      setPendingTxType(null);
     }
   }, [address, parsedApprovalAmount, writeContract, showMineResult, resetWrite]);
 
   const handleMine = useCallback(async () => {
     if (!slot0 || !price) return;
     resetMineResult();
+    setPendingTxType("mine");
     try {
       let targetAddress = address;
       if (!targetAddress) {
@@ -425,6 +439,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       console.error("Failed to mine:", error);
       showMineResult("failure");
       resetWrite();
+      setPendingTxType(null);
     }
   }, [
     address,
@@ -592,11 +607,11 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     if (mineResult === "success") return "SUCCESS";
     if (mineResult === "failure") return "FAILURE";
     if (isWriting || isConfirming) {
-      return isApprovalMode ? "APPROVING…" : "MINING…";
+      return pendingTxType === "approve" ? "APPROVING…" : "MINING…";
     }
     if (needsApproval && !isApprovalMode) return "APPROVE";
     return "MINE";
-  }, [mineResult, isConfirming, isWriting, slot0, price, needsApproval, isApprovalMode]);
+  }, [mineResult, isConfirming, isWriting, slot0, price, needsApproval, isApprovalMode, pendingTxType]);
 
   const isMineDisabled =
     !slot0 || price === undefined || isWriting || isConfirming || mineResult !== null;
