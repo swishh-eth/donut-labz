@@ -333,6 +333,23 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   const hasPendingCommit = commitmentData ? (commitmentData[0] !== "0x0000000000000000000000000000000000000000000000000000000000000000" && !commitmentData[2]) : false;
   const canRevealPending = commitmentData ? commitmentData[3] : false;
   const blocksUntilExpiry = commitmentData ? Number(commitmentData[4]) : 0;
+  
+  // Check if we have a valid secret for the pending commit
+  const storedSecret = address ? getSecret(address) : null;
+  const hasValidSecret = !!storedSecret;
+  const isCorruptedSpin = hasPendingCommit && !hasValidSecret;
+  
+  // State for showing the "spin issue" popup
+  const [showSpinIssuePopup, setShowSpinIssuePopup] = useState(false);
+  const [hasShownIssuePopup, setHasShownIssuePopup] = useState(false);
+  
+  // Auto-show popup when we detect a corrupted spin
+  useEffect(() => {
+    if (isCorruptedSpin && canRevealPending && !hasShownIssuePopup) {
+      setShowSpinIssuePopup(true);
+      setHasShownIssuePopup(true);
+    }
+  }, [isCorruptedSpin, canRevealPending, hasShownIssuePopup]);
 
   useEffect(() => {
     if (auctionState) {
@@ -927,44 +944,83 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
 
           {stage === "idle" && hasPendingCommit && (
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2 mb-2">
-              <div className="text-amber-400 text-sm font-medium mb-1">🎰 Spin Ready!</div>
-              <div className="text-gray-300 text-xs mb-2">You have a pending spin waiting to be revealed.</div>
-              {canRevealPending && (
-                <button
-                  onClick={() => {
-                    const storedSecret = address ? getSecret(address) : null;
-                    console.log("Manual reveal - stored secret:", storedSecret);
-                    if (!storedSecret) {
-                      setError("Secret not found. The spin may have been started in another session. Try clearing below.");
-                      return;
-                    }
-                    hasStartedRef.current = true;
-                    setSecret(storedSecret);
-                    setStage("revealing");
-                    handleReveal();
-                  }}
-                  className="w-full py-2 rounded-xl font-bold text-sm bg-green-500 text-white hover:bg-green-400 transition-all"
-                >
-                  REVEAL MY SPIN!
-                </button>
+              {isCorruptedSpin ? (
+                // Corrupted spin - show waiting message
+                <>
+                  <div className="text-amber-400 text-sm font-medium mb-1">⏳ Spin Reset Required</div>
+                  <div className="text-gray-300 text-xs mb-2">
+                    Your previous spin encountered an issue. Please wait for it to expire.
+                  </div>
+                  <div className="text-center text-amber-300 text-sm font-mono">
+                    {blocksUntilExpiry > 0 ? `~${Math.ceil(blocksUntilExpiry * 2 / 60)} min remaining` : 'Ready now!'}
+                  </div>
+                  {blocksUntilExpiry === 0 && (
+                    <div className="text-[10px] text-gray-500 text-center mt-1">Refresh the page to continue</div>
+                  )}
+                </>
+              ) : (
+                // Valid spin - show reveal button
+                <>
+                  <div className="text-amber-400 text-sm font-medium mb-1">🎰 Spin Ready!</div>
+                  <div className="text-gray-300 text-xs mb-2">You have a pending spin waiting to be revealed.</div>
+                  {canRevealPending ? (
+                    <button
+                      onClick={() => {
+                        if (!storedSecret) {
+                          setShowSpinIssuePopup(true);
+                          return;
+                        }
+                        hasStartedRef.current = true;
+                        setSecret(storedSecret);
+                        setStage("revealing");
+                        handleReveal();
+                      }}
+                      className="w-full py-2 rounded-xl font-bold text-sm bg-green-500 text-white hover:bg-green-400 transition-all"
+                    >
+                      REVEAL MY SPIN!
+                    </button>
+                  ) : (
+                    <div className="text-amber-300 text-[10px]">⏳ Waiting for blockchain confirmation... (need 1 more block)</div>
+                  )}
+                </>
               )}
-              {!canRevealPending && (
-                <div className="text-amber-300 text-[10px] mb-2">⏳ Waiting for blockchain confirmation... (need 1 more block)</div>
-              )}
-              <button
-                onClick={() => {
-                  if (address) {
-                    clearSecret(address);
-                    setSecret(null);
-                    setError(null);
-                    hasStartedRef.current = false;
-                    refetchCommitment();
-                  }
-                }}
-                className="w-full mt-2 py-1.5 rounded-xl text-xs bg-zinc-800 text-gray-400 hover:bg-zinc-700 transition-all"
-              >
-                Secret lost? Clear spin ({blocksUntilExpiry > 0 ? `~${Math.ceil(blocksUntilExpiry * 2 / 60)} min until expiry` : 'expired'})
-              </button>
+            </div>
+          )}
+          
+          {/* Spin Issue Popup */}
+          {showSpinIssuePopup && (
+            <div className="fixed inset-0 z-50">
+              <div
+                className="absolute inset-0 bg-black/90 backdrop-blur-md"
+                onClick={() => setShowSpinIssuePopup(false)}
+              />
+              <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+                <div className="relative mx-4 rounded-2xl border border-amber-500/50 bg-zinc-950 p-5 shadow-2xl">
+                  <div className="text-center mb-4">
+                    <div className="text-4xl mb-2">⚠️</div>
+                    <h2 className="text-xl font-bold text-amber-400">Spin Issue Detected</h2>
+                  </div>
+                  
+                  <div className="text-gray-300 text-sm space-y-3">
+                    <p>
+                      Your spin data was lost (this can happen if the app refreshed during the spin process).
+                    </p>
+                    <p>
+                      <strong className="text-white">Don't worry!</strong> Your spin is safe and will still be available after the blockchain timeout.
+                    </p>
+                    <p className="text-amber-300">
+                      ⏳ Please wait approximately <strong>{blocksUntilExpiry > 0 ? `${Math.ceil(blocksUntilExpiry * 2 / 60)} minutes` : 'a few seconds'}</strong> for the old spin request to expire, then you can spin again.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setShowSpinIssuePopup(false)}
+                    className="mt-5 w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-black hover:bg-amber-400 transition-colors"
+                  >
+                    Got it, I'll wait
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
