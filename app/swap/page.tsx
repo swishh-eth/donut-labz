@@ -322,41 +322,46 @@ function TokenTileCard({ tile, onClick }: { tile: TokenTile; onClick: () => void
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-4 p-4 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-amber-500/50 transition-all group text-left"
+      className="w-full relative rounded-2xl overflow-hidden border border-zinc-800 hover:border-amber-500/50 transition-all group text-left h-24"
     >
-      {/* Token Icon */}
-      <div className="relative flex-shrink-0">
-        <img
-          src={tile.icon}
-          alt={tile.symbol}
-          className="w-14 h-14 rounded-full border-2 border-zinc-800 group-hover:border-amber-500/50 transition-colors"
-        />
-        {!tile.isDonutEcosystem && (
-          <div className="absolute -top-1 -right-1 bg-zinc-700 rounded-full px-1.5 py-0.5 text-[10px] text-zinc-300">
-            ↗
-          </div>
-        )}
-      </div>
-      
-      {/* Token Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-white text-lg">{tile.symbol}</span>
-          <span className="text-sm text-zinc-500">{tile.name}</span>
-        </div>
-        <p className="text-sm text-zinc-400 truncate">{tile.description}</p>
-      </div>
-
-      {/* Banner thumbnail */}
+      {/* Banner as background */}
       {tile.banner && (
-        <div className="w-20 h-14 rounded-lg overflow-hidden flex-shrink-0">
+        <div className="absolute inset-0">
           <img
             src={tile.banner}
             alt=""
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
+          {/* Dark overlay for readability */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-black/40" />
         </div>
       )}
+      
+      {/* Content */}
+      <div className="relative flex items-center gap-4 p-4 h-full">
+        {/* Token Icon */}
+        <div className="relative flex-shrink-0">
+          <img
+            src={tile.icon}
+            alt={tile.symbol}
+            className="w-14 h-14 rounded-full border-2 border-zinc-700 group-hover:border-amber-500/50 transition-colors"
+          />
+          {!tile.isDonutEcosystem && (
+            <div className="absolute -top-1 -right-1 bg-amber-500 rounded-full w-5 h-5 flex items-center justify-center text-[10px] text-black font-bold">
+              ↗
+            </div>
+          )}
+        </div>
+        
+        {/* Token Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-white text-lg drop-shadow-lg">{tile.symbol}</span>
+            <span className="text-sm text-zinc-300 drop-shadow-lg">{tile.name}</span>
+          </div>
+          <p className="text-sm text-zinc-300 truncate drop-shadow-lg">{tile.description}</p>
+        </div>
+      </div>
     </button>
   );
 }
@@ -431,27 +436,37 @@ export default function SwapPage() {
     const scrollEl = scrollRef.current;
     if (!scrollEl || selectedToken) return;
 
+    // Calculate the height of one set of items
+    const getOneSetHeight = () => scrollEl.scrollHeight / 3;
+
     const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = scrollEl;
-      const itemHeight = scrollHeight / 3;
+      const oneSetHeight = getOneSetHeight();
+      const { scrollTop } = scrollEl;
       
-      // If scrolled to bottom third, jump to middle
-      if (scrollTop > itemHeight * 2 - clientHeight) {
-        scrollEl.scrollTop = scrollTop - itemHeight;
+      // When scrolled near the end, jump back to the middle set
+      if (scrollTop >= oneSetHeight * 2) {
+        scrollEl.scrollTop = scrollTop - oneSetHeight;
       }
-      // If scrolled to top third, jump to middle
-      else if (scrollTop < itemHeight - clientHeight) {
-        scrollEl.scrollTop = scrollTop + itemHeight;
+      // When scrolled near the beginning, jump forward to the middle set
+      else if (scrollTop <= 0) {
+        scrollEl.scrollTop = scrollTop + oneSetHeight;
       }
     };
 
-    scrollEl.addEventListener("scroll", handleScroll);
-    
-    // Start in middle section
-    const itemHeight = scrollEl.scrollHeight / 3;
-    scrollEl.scrollTop = itemHeight;
+    // Start in the middle set
+    const initScroll = () => {
+      const oneSetHeight = getOneSetHeight();
+      scrollEl.scrollTop = oneSetHeight;
+    };
 
-    return () => scrollEl.removeEventListener("scroll", handleScroll);
+    // Small delay to ensure content is rendered
+    const timer = setTimeout(initScroll, 100);
+    scrollEl.addEventListener("scroll", handleScroll);
+
+    return () => {
+      clearTimeout(timer);
+      scrollEl.removeEventListener("scroll", handleScroll);
+    };
   }, [selectedToken]);
 
   // Cleanup timeout on unmount
@@ -629,21 +644,11 @@ export default function SwapPage() {
       setInputAmount("");
       setTxStep("idle");
     } else if (tile.address) {
-      // Open native Farcaster token page using deep link
-      // The farcaster:// protocol should open in the native app
-      const deepLink = `farcaster://token/base/${tile.address}`;
-      const webFallback = `https://warpcast.com/~/token/eip155:8453:${tile.address}`;
-      
+      // Open native Farcaster token page using the correct format
       try {
-        // Try deep link first (opens native app)
-        window.location.href = deepLink;
-      } catch {
-        // Fallback to web URL
-        try {
-          await sdk.actions.openUrl(webFallback);
-        } catch (err) {
-          console.error("Failed to open token page:", err);
-        }
+        await sdk.actions.viewToken({ token: `eip155:8453/erc20:${tile.address}` });
+      } catch (error) {
+        console.error("Failed to open token:", error);
       }
     }
   };
