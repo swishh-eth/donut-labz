@@ -369,7 +369,6 @@ function TokenTileCard({ tile, onClick }: { tile: TokenTile; onClick: () => void
 export default function SwapPage() {
   const readyRef = useRef(false);
   const autoConnectAttempted = useRef(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
   
   // Main state
   const [selectedToken, setSelectedToken] = useState<TokenTile | null>(null);
@@ -384,10 +383,8 @@ export default function SwapPage() {
   const swapResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [leg1Complete, setLeg1Complete] = useState(false);
 
-  // Create infinite scroll items (3x the tiles for seamless looping)
-  const infiniteItems = useMemo(() => {
-    return [...TOKEN_TILES, ...TOKEN_TILES, ...TOKEN_TILES];
-  }, []);
+  // Just use the regular token tiles (no infinite duplication)
+  const displayItems = TOKEN_TILES;
 
   // Wagmi hooks
   const { address, isConnected } = useAccount();
@@ -431,44 +428,6 @@ export default function SwapPage() {
     autoConnectAttempted.current = true;
     connectAsync({ connector: primaryConnector, chainId: base.id }).catch(() => {});
   }, [connectAsync, isConnected, isConnecting, primaryConnector]);
-
-  // Infinite scroll handler
-  useEffect(() => {
-    const scrollEl = scrollRef.current;
-    if (!scrollEl || selectedToken) return;
-
-    // Calculate the height of one set of items
-    const getOneSetHeight = () => scrollEl.scrollHeight / 3;
-
-    const handleScroll = () => {
-      const oneSetHeight = getOneSetHeight();
-      const { scrollTop } = scrollEl;
-      
-      // When scrolled near the end, jump back to the middle set
-      if (scrollTop >= oneSetHeight * 2) {
-        scrollEl.scrollTop = scrollTop - oneSetHeight;
-      }
-      // When scrolled near the beginning, jump forward to the middle set
-      else if (scrollTop <= 0) {
-        scrollEl.scrollTop = scrollTop + oneSetHeight;
-      }
-    };
-
-    // Start in the middle set
-    const initScroll = () => {
-      const oneSetHeight = getOneSetHeight();
-      scrollEl.scrollTop = oneSetHeight;
-    };
-
-    // Small delay to ensure content is rendered
-    const timer = setTimeout(initScroll, 100);
-    scrollEl.addEventListener("scroll", handleScroll);
-
-    return () => {
-      clearTimeout(timer);
-      scrollEl.removeEventListener("scroll", handleScroll);
-    };
-  }, [selectedToken]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -767,9 +726,12 @@ export default function SwapPage() {
       }
 
       // Step 4 (multi-hop only): Approve DONUT for Aerodrome if needed
-      if (txStep === "swapping_leg1" && route.dex === "multiHop" && leg1Complete) {
-        if (needsLeg2Approval) {
-          setTxStep("approving_leg2");
+      if (txStep === "approving_leg2" && route.dex === "multiHop") {
+        // Check current allowance
+        const currentAllowance = donutAllowanceForAero as bigint ?? 0n;
+        const donutToSwap = donutBalance as bigint ?? 0n;
+        
+        if (currentAllowance < donutToSwap) {
           await writeContract({
             address: DONUT_ADDRESS,
             abi: ERC20_ABI,
@@ -779,13 +741,12 @@ export default function SwapPage() {
           });
           return;
         }
-        // If no approval needed, go straight to leg2
-        setTxStep("approving_leg2");
+        // If already approved, move to leg2
+        setTxStep("swapping_leg2");
       }
 
       // Step 5 (multi-hop only): Execute leg 2 (DONUT -> SPRINKLES via Aerodrome)
-      if ((txStep === "approving_leg2" || (txStep === "swapping_leg1" && leg1Complete && !needsLeg2Approval)) && route.dex === "multiHop") {
-        setTxStep("swapping_leg2");
+      if (txStep === "swapping_leg2" && route.dex === "multiHop") {
         // Get current DONUT balance to swap
         const donutToSwap = donutBalance as bigint;
         if (!donutToSwap || donutToSwap === 0n) {
@@ -808,8 +769,8 @@ export default function SwapPage() {
       resetTx();
     }
   }, [
-    address, selectedToken, route, amountToSwap, needsApproval, needsLeg2Approval, txStep, leg1Complete,
-    inputToken, feeAmount, minOutputAmount, routerForApproval, leg1Output, donutBalance, slippage,
+    address, selectedToken, route, amountToSwap, needsApproval, txStep,
+    inputToken, feeAmount, minOutputAmount, routerForApproval, leg1Output, donutBalance, donutAllowanceForAero, slippage,
     writeContract, sendTransaction, showSwapResultFn, resetTx
   ]);
 
@@ -850,20 +811,27 @@ export default function SwapPage() {
           resetTx();
           return;
         }
-        // For multi-hop, mark leg1 complete and continue
+        // For multi-hop, continue to leg2
         resetTx();
-        refetchDonutBalance(); // Refresh DONUT balance after leg1
-        refetchDonutAllowanceForAero(); // Check if we need approval for leg2
         setLeg1Complete(true);
-        // Small delay to let balances refresh
-        setTimeout(() => handleSwap(), 500);
+        // Refetch DONUT balance and allowance, then continue
+        Promise.all([
+          refetchDonutBalance(),
+          refetchDonutAllowanceForAero(),
+        ]).then(() => {
+          // Set state to approving_leg2 and call handleSwap
+          setTxStep("approving_leg2");
+          setTimeout(() => handleSwap(), 300);
+        });
         return;
       }
 
       if (txStep === "approving_leg2") {
         resetTx();
-        refetchDonutAllowanceForAero();
-        handleSwap();
+        refetchDonutAllowanceForAero().then(() => {
+          setTxStep("swapping_leg2");
+          setTimeout(() => handleSwap(), 300);
+        });
         return;
       }
 
@@ -924,24 +892,18 @@ export default function SwapPage() {
         {/* Scrollable token list with fade */}
         <div className="relative flex-1 min-h-0">
           {/* Top fade */}
-          <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-black to-transparent z-10 pointer-events-none" />
+          <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-black to-transparent z-10 pointer-events-none" />
           
           {/* Bottom fade */}
-          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black to-transparent z-10 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black to-transparent z-10 pointer-events-none" />
           
           {/* Scrollable list */}
           <div
-            ref={scrollRef}
-            className="h-full overflow-y-scroll px-4 py-8 space-y-3 touch-pan-y"
-            style={{ 
-              WebkitOverflowScrolling: "touch",
-              scrollbarWidth: "none",
-              msOverflowStyle: "none",
-            }}
+            className="h-full overflow-y-auto overscroll-contain px-4 py-6 space-y-3"
           >
-            {infiniteItems.map((tile, index) => (
+            {displayItems.map((tile) => (
               <TokenTileCard
-                key={`${tile.id}-${index}`}
+                key={tile.id}
                 tile={tile}
                 onClick={() => handleTileClick(tile)}
               />
