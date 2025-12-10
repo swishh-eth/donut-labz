@@ -33,6 +33,7 @@ const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as Address;
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as Address;
 const PEEPLES_ADDRESS = "0x0eb9d965DBEfbfB131216A4250A29C9b0693Cb07" as Address;
 const WETH_ADDRESS = "0x4200000000000000000000000000000000000006" as Address;
+const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as Address; // USDC on Base
 const TREASURY_ADDRESS = "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d" as Address;
 
 // Uniswap V2 Router on Base (for DONUT-WETH pool)
@@ -75,6 +76,13 @@ const TOKENS: Token[] = [
     decimals: 18,
     icon: "https://dd.dexscreener.com/ds-data/tokens/base/0x4200000000000000000000000000000000000006.png",
     isNative: true, // Use native ETH balance, wrap before swap
+  },
+  {
+    address: USDC_ADDRESS,
+    symbol: "USDC",
+    name: "USD Coin",
+    decimals: 6, // USDC has 6 decimals
+    icon: getDexScreenerIcon(USDC_ADDRESS),
   },
   {
     address: SPRINKLES_ADDRESS,
@@ -414,7 +422,7 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
     };
   }
 
-  // ETH <-> PEEPLES: Single leg via Uniswap V3 (1% fee pool)
+  // ETH <-> PEEPLES: Single leg via Uniswap V3 (0.3% fee pool)
   if ((from === WETH_ADDRESS.toLowerCase() && to === PEEPLES_ADDRESS.toLowerCase()) ||
       (from === PEEPLES_ADDRESS.toLowerCase() && to === WETH_ADDRESS.toLowerCase())) {
     return {
@@ -422,7 +430,7 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
         dex: "uniswapV3",
         fromToken,
         toToken,
-        fee: 10000, // 1% fee pool
+        fee: 3000, // 0.3% fee pool
       }],
       displayPath: [
         from === WETH_ADDRESS.toLowerCase() ? "ETH" : "PEEPLES",
@@ -431,6 +439,122 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
       isMultiHop: false,
     };
   }
+
+  // USDC <-> ETH: Single leg via Uniswap V3 (0.05% fee pool - best liquidity)
+  if ((from === USDC_ADDRESS.toLowerCase() && to === WETH_ADDRESS.toLowerCase()) ||
+      (from === WETH_ADDRESS.toLowerCase() && to === USDC_ADDRESS.toLowerCase())) {
+    return {
+      legs: [{
+        dex: "uniswapV3",
+        fromToken,
+        toToken,
+        fee: 500, // 0.05% fee pool
+      }],
+      displayPath: [
+        from === USDC_ADDRESS.toLowerCase() ? "USDC" : "ETH",
+        to === USDC_ADDRESS.toLowerCase() ? "USDC" : "ETH",
+      ],
+      isMultiHop: false,
+    };
+  }
+
+  // USDC -> DONUT: Two legs - USDC -> ETH (V3) then ETH -> DONUT (V2)
+  if (from === USDC_ADDRESS.toLowerCase() && to === DONUT_ADDRESS.toLowerCase()) {
+    return {
+      legs: [
+        {
+          dex: "uniswapV3",
+          fromToken: USDC_ADDRESS,
+          toToken: WETH_ADDRESS,
+          fee: 500, // 0.05% fee pool
+        },
+        {
+          dex: "uniswap",
+          fromToken: WETH_ADDRESS,
+          toToken: DONUT_ADDRESS,
+          path: [WETH_ADDRESS, DONUT_ADDRESS],
+        },
+      ],
+      displayPath: ["USDC", "ETH", "DONUT"],
+      isMultiHop: true,
+    };
+  }
+
+  // DONUT -> USDC: Two legs - DONUT -> ETH (V2) then ETH -> USDC (V3)
+  if (from === DONUT_ADDRESS.toLowerCase() && to === USDC_ADDRESS.toLowerCase()) {
+    return {
+      legs: [
+        {
+          dex: "uniswap",
+          fromToken: DONUT_ADDRESS,
+          toToken: WETH_ADDRESS,
+          path: [DONUT_ADDRESS, WETH_ADDRESS],
+        },
+        {
+          dex: "uniswapV3",
+          fromToken: WETH_ADDRESS,
+          toToken: USDC_ADDRESS,
+          fee: 500, // 0.05% fee pool
+        },
+      ],
+      displayPath: ["DONUT", "ETH", "USDC"],
+      isMultiHop: true,
+    };
+  }
+
+  // USDC -> SPRINKLES: Two legs - USDC -> ETH (V3) then ETH -> DONUT (V2) then DONUT -> SPRINKLES (Aero)
+  // This would be 3 legs which is complex - route via ETH -> DONUT -> SPRINKLES
+  // Actually let's do USDC -> DONUT (via ETH) as first leg concept, but we need 2 legs max
+  // So: USDC -> DONUT multi-hop, then user swaps DONUT -> SPRINKLES separately
+  // OR we extend to support 3 legs... for now let's do 2 legs max and go through DONUT
+  
+  // USDC -> PEEPLES: Two legs - USDC -> ETH (V3) then ETH -> PEEPLES (V3)
+  if (from === USDC_ADDRESS.toLowerCase() && to === PEEPLES_ADDRESS.toLowerCase()) {
+    return {
+      legs: [
+        {
+          dex: "uniswapV3",
+          fromToken: USDC_ADDRESS,
+          toToken: WETH_ADDRESS,
+          fee: 500, // 0.05% fee pool
+        },
+        {
+          dex: "uniswapV3",
+          fromToken: WETH_ADDRESS,
+          toToken: PEEPLES_ADDRESS,
+          fee: 3000, // 0.3% fee pool
+        },
+      ],
+      displayPath: ["USDC", "ETH", "PEEPLES"],
+      isMultiHop: true,
+    };
+  }
+
+  // PEEPLES -> USDC: Two legs - PEEPLES -> ETH (V3) then ETH -> USDC (V3)
+  if (from === PEEPLES_ADDRESS.toLowerCase() && to === USDC_ADDRESS.toLowerCase()) {
+    return {
+      legs: [
+        {
+          dex: "uniswapV3",
+          fromToken: PEEPLES_ADDRESS,
+          toToken: WETH_ADDRESS,
+          fee: 3000, // 0.3% fee pool
+        },
+        {
+          dex: "uniswapV3",
+          fromToken: WETH_ADDRESS,
+          toToken: USDC_ADDRESS,
+          fee: 500, // 0.05% fee pool
+        },
+      ],
+      displayPath: ["PEEPLES", "ETH", "USDC"],
+      isMultiHop: true,
+    };
+  }
+
+  // USDC <-> SPRINKLES: Would need 3 hops (USDC -> ETH -> DONUT -> SPRINKLES)
+  // Not supported directly - users should swap to DONUT first then to SPRINKLES
+  // Fall through to default which will likely fail, prompting user to use a different route
 
   // DONUT <-> PEEPLES: Two legs via ETH (V2 for DONUT-ETH, V3 for ETH-PEEPLES)
   if (from === DONUT_ADDRESS.toLowerCase() && to === PEEPLES_ADDRESS.toLowerCase()) {
@@ -446,7 +570,7 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
           dex: "uniswapV3",
           fromToken: WETH_ADDRESS,
           toToken: PEEPLES_ADDRESS,
-          fee: 10000,
+          fee: 3000, // 0.3% fee pool
         },
       ],
       displayPath: ["DONUT", "ETH", "PEEPLES"],
@@ -461,7 +585,7 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
           dex: "uniswapV3",
           fromToken: PEEPLES_ADDRESS,
           toToken: WETH_ADDRESS,
-          fee: 10000,
+          fee: 3000, // 0.3% fee pool
         },
         {
           dex: "uniswap",
@@ -728,7 +852,7 @@ export default function SwapPage() {
     },
   });
 
-  // Read DONUT allowance for second leg (for multi-hop)
+  // Read DONUT allowance for second leg (for multi-hop with DONUT as intermediate)
   const { data: donutAllowanceForLeg2, refetch: refetchDonutAllowance } = useReadContract({
     address: DONUT_ADDRESS,
     abi: ERC20_ABI,
@@ -736,10 +860,38 @@ export default function SwapPage() {
     args: [address ?? zeroAddress, routerForLeg2 ?? zeroAddress],
     chainId: base.id,
     query: {
-      enabled: !!address && swapInfo.isMultiHop,
+      enabled: !!address && swapInfo.isMultiHop && firstLeg.toToken === DONUT_ADDRESS,
       refetchInterval: 5_000,
     },
   });
+
+  // Read WETH allowance for second leg (for multi-hop with WETH as intermediate)
+  const { data: wethAllowanceForLeg2, refetch: refetchWethAllowance } = useReadContract({
+    address: WETH_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: [address ?? zeroAddress, routerForLeg2 ?? zeroAddress],
+    chainId: base.id,
+    query: {
+      enabled: !!address && swapInfo.isMultiHop && firstLeg.toToken === WETH_ADDRESS,
+      refetchInterval: 5_000,
+    },
+  });
+
+  // Combined intermediate allowance based on which token is intermediate
+  const intermediateAllowanceForLeg2 = firstLeg.toToken === DONUT_ADDRESS 
+    ? donutAllowanceForLeg2 
+    : firstLeg.toToken === WETH_ADDRESS 
+      ? wethAllowanceForLeg2 
+      : 0n;
+
+  const refetchIntermediateAllowance = useCallback(() => {
+    if (firstLeg.toToken === DONUT_ADDRESS) {
+      refetchDonutAllowance();
+    } else if (firstLeg.toToken === WETH_ADDRESS) {
+      refetchWethAllowance();
+    }
+  }, [firstLeg.toToken, refetchDonutAllowance, refetchWethAllowance]);
 
   // Read DONUT balance (for multi-hop intermediate)
   const { data: donutBalance, refetch: refetchDonutBalance } = useReadContract({
@@ -749,10 +901,38 @@ export default function SwapPage() {
     args: [address ?? zeroAddress],
     chainId: base.id,
     query: {
-      enabled: !!address && swapInfo.isMultiHop,
+      enabled: !!address && swapInfo.isMultiHop && firstLeg.toToken === DONUT_ADDRESS,
       refetchInterval: 5_000,
     },
   });
+
+  // Read WETH balance (for multi-hop intermediate)
+  const { data: wethBalance, refetch: refetchWethBalance } = useReadContract({
+    address: WETH_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "balanceOf",
+    args: [address ?? zeroAddress],
+    chainId: base.id,
+    query: {
+      enabled: !!address && swapInfo.isMultiHop && firstLeg.toToken === WETH_ADDRESS,
+      refetchInterval: 5_000,
+    },
+  });
+
+  // Combined intermediate balance
+  const intermediateBalance = firstLeg.toToken === DONUT_ADDRESS 
+    ? donutBalance 
+    : firstLeg.toToken === WETH_ADDRESS 
+      ? wethBalance 
+      : 0n;
+
+  const refetchIntermediateBalance = useCallback(() => {
+    if (firstLeg.toToken === DONUT_ADDRESS) {
+      refetchDonutBalance();
+    } else if (firstLeg.toToken === WETH_ADDRESS) {
+      refetchWethBalance();
+    }
+  }, [firstLeg.toToken, refetchDonutBalance, refetchWethBalance]);
 
   // Calculate input amount in wei
   const inputAmountWei = useMemo(() => {
@@ -1134,7 +1314,7 @@ export default function SwapPage() {
         console.log("Executing leg 2 swap via", secondLeg.dex);
         
         // Use the intermediate amount we tracked
-        const swapAmount = intermediateAmount > 0n ? intermediateAmount : (donutBalance as bigint ?? 0n);
+        const swapAmount = intermediateAmount > 0n ? intermediateAmount : (intermediateBalance as bigint ?? 0n);
         
         if (secondLeg.dex === "uniswap" && secondLeg.path) {
           await writeContract({
@@ -1199,7 +1379,7 @@ export default function SwapPage() {
     routerForLeg1,
     routerForLeg2,
     intermediateAmount,
-    donutBalance,
+    intermediateBalance,
     inputToken,
     outputToken,
     writeContract,
@@ -1240,13 +1420,13 @@ export default function SwapPage() {
         if (swapInfo.isMultiHop) {
           // After leg1, check if we need to approve intermediate token for leg2
           resetTx();
-          refetchDonutBalance();
-          refetchDonutAllowance();
+          refetchIntermediateBalance();
+          refetchIntermediateAllowance();
           // Store intermediate amount
           setIntermediateAmount(leg1Output);
           
           // Check if intermediate token is already approved for leg2 router
-          const intermediateAllowance = donutAllowanceForLeg2 as bigint ?? 0n;
+          const intermediateAllowance = intermediateAllowanceForLeg2 as bigint ?? 0n;
           if (intermediateAllowance < leg1Output) {
             setTxStep("approving_leg2");
           } else {
@@ -1267,7 +1447,7 @@ export default function SwapPage() {
 
       if (txStep === "approving_leg2") {
         resetTx();
-        refetchDonutAllowance();
+        refetchIntermediateAllowance();
         setTxStep("swapping_leg2");
         return;
       }
@@ -1280,12 +1460,12 @@ export default function SwapPage() {
         setInputAmount("");
         refetchInputBalance();
         refetchAllowance();
-        refetchDonutBalance();
+        refetchIntermediateBalance();
         resetTx();
         return;
       }
     }
-  }, [receipt, txStep, swapInfo.isMultiHop, leg1Output, donutAllowanceForLeg2, resetTx, showSwapResultFn, refetchInputBalance, refetchAllowance, refetchDonutBalance, refetchDonutAllowance]);
+  }, [receipt, txStep, swapInfo.isMultiHop, leg1Output, intermediateAllowanceForLeg2, resetTx, showSwapResultFn, refetchInputBalance, refetchAllowance, refetchIntermediateBalance, refetchIntermediateAllowance]);
 
   // Auto-continue swap after approval - only if we have a pending step
   const pendingStepRef = useRef(false);
