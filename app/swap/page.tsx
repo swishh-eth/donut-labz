@@ -317,26 +317,26 @@ export default function SwapPage() {
       setQuoteError(null);
 
       try {
-        const params = new URLSearchParams({
-          chainId: "8453", // Base
-          sellToken: inputToken.address,
-          buyToken: outputToken.address,
-          sellAmount: inputAmountWei.toString(),
-          taker: address,
-          slippageBps: Math.round(slippage * 100).toString(), // 1% = 100 bps
-          endpoint: "quote",
-        });
+        const params = new URLSearchParams();
+        params.set("chainId", "8453"); // Base
+        params.set("sellToken", inputToken.address);
+        params.set("buyToken", outputToken.address);
+        params.set("sellAmount", inputAmountWei.toString());
+        params.set("taker", address);
+        params.set("slippageBps", Math.round(slippage * 100).toString());
 
-        console.log("Fetching quote with params:", Object.fromEntries(params));
+        console.log("Fetching quote:", Object.fromEntries(params));
 
         const response = await fetch(`/api/swap/quote?${params.toString()}`);
-        const data = await response.json();
-
-        console.log("Quote response:", data);
-
+        
         if (!response.ok) {
-          throw new Error(data.error || "Failed to get quote");
+          const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+          console.error("Quote API error:", errorData);
+          throw new Error(errorData.error || `HTTP ${response.status}`);
         }
+
+        const data = await response.json();
+        console.log("Quote response:", data);
 
         setQuote(data);
         setQuoteError(null);
