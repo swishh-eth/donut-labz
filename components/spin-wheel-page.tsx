@@ -142,39 +142,29 @@ const SEGMENTS = [
 ];
 
 // Each segment is 72° wide (360/5)
-// Segment i starts at: i * 72 - 90 degrees
-// Segment i center is at: i * 72 - 90 + 36 = i * 72 - 54 degrees
-// To land pointer on segment i center, wheel must rotate so that angle is at top (270° in SVG coords, or -90°)
-// So we need to rotate by: -(segment center angle) = -(i * 72 - 54) = 54 - i * 72
-// But since we're adding rotation, we want the positive equivalent
-// Segment 0: center at -54°, rotate 54° to bring to top → but pointer is at TOP which is -90° in drawing
+// Segment i is drawn starting at angle: i * 72 - 90 degrees
+// Segment i CENTER is at: i * 72 - 90 + 36 = i * 72 - 54 degrees
 // 
-// Let's recalculate: pointer is at top of screen
-// At rotation 0°, segment 0 is at top (starts at -90°, center at -54°)
-// The label for segment 0 is at -54° from center
-// For segment i to be under the pointer, we need its center under the pointer
-// Segment i center = i * 72 - 54 degrees from the initial position
-// To rotate segment i to the top, we rotate by: -1 * (i * 72 - 54) = 54 - i * 72
-// In positive rotation terms (wheel spins clockwise visually):
-// Segment 0: 54 - 0 = 54° (but segment 0 IS at top at rotation ~0, so this is the offset)
-// 
-// Actually simpler: At rotation 0, where is each segment's center?
-// Seg 0: -54° (almost at top, slightly left)
-// Seg 1: 18° (right side)
-// Seg 2: 90° (bottom right)  
-// Seg 3: 162° (bottom left)
-// Seg 4: 234° (left side)
+// At rotation 0°:
+// - Segment 0 (💀) center is at -54° (slightly left of top)
+// - Segment 1 (0.1%) center is at 18° (right of top)
+// - Segment 2 (0.5%) center is at 90° (right side)
+// - Segment 3 (1%) center is at 162° (bottom-left)
+// - Segment 4 (5%) center is at 234° (left side)
 //
-// To bring segment i center to top (-90° position), rotate by: -90 - (i * 72 - 54) = -90 - i*72 + 54 = -36 - i*72
-// In positive: 360 + (-36 - i*72) % 360
-// Seg 0: 360 - 36 = 324°
-// Seg 1: 360 - 36 - 72 = 252°
-// Seg 2: 360 - 36 - 144 = 180°
-// Seg 3: 360 - 36 - 216 = 108°
-// Seg 4: 360 - 36 - 288 = 36°
+// The pointer is at the TOP of the screen (at angle -90° or 270° in standard coords)
+// To bring segment i's center to angle -90° (top), we need to rotate by:
+// rotation = -90 - (i * 72 - 54) = -90 - i*72 + 54 = -36 - i*72
+// 
+// In positive degrees (mod 360):
+// Segment 0: (-36 - 0) mod 360 = 324°
+// Segment 1: (-36 - 72) mod 360 = (-108) mod 360 = 252°
+// Segment 2: (-36 - 144) mod 360 = (-180) mod 360 = 180°
+// Segment 3: (-36 - 216) mod 360 = (-252) mod 360 = 108°
+// Segment 4: (-36 - 288) mod 360 = (-324) mod 360 = 36°
 
-// These are the rotations needed to land on each segment
-const SEGMENT_ANGLES = [324, 252, 180, 108, 36];
+// Rotation needed to land pointer on each segment's center
+const SEGMENT_TARGET_ROTATION = [324, 252, 180, 108, 36];
 const SPIN_SPEED = 8;
 
 // Secret management
@@ -675,15 +665,29 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         }
       }
 
-      const baseRotation = continuousRotation % 360;
-      const targetAngle = SEGMENT_ANGLES[segment];
+      const currentRotation = continuousRotation % 360;
+      const targetAngle = SEGMENT_TARGET_ROTATION[segment];
       const spins = 5; // Number of full rotations for dramatic effect
       
-      // Calculate final rotation: base + full spins + target angle
-      // The targetAngle already accounts for where the segment needs to be
-      const finalRotation = baseRotation + (spins * 360) + targetAngle;
+      // Calculate how much more we need to rotate from current position to land on target
+      // We want: (currentRotation + additionalRotation) % 360 = targetAngle
+      // additionalRotation = targetAngle - currentRotation (mod 360, keeping positive)
+      let additionalRotation = targetAngle - currentRotation;
+      if (additionalRotation < 0) {
+        additionalRotation += 360;
+      }
       
-      console.log("Spin result:", { segment, segmentLabel: SEGMENTS[segment].label, targetAngle, finalRotation });
+      // Final rotation = current + full spins + additional to land on target
+      const finalRotation = continuousRotation + (spins * 360) + additionalRotation;
+      
+      console.log("Spin result:", { 
+        segment, 
+        segmentLabel: SEGMENTS[segment].label, 
+        currentRotation,
+        targetAngle, 
+        additionalRotation,
+        finalRotation 
+      });
 
       setRotation(finalRotation);
       setStage("spinning");
