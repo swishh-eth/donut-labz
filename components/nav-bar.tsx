@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Flame, Info, Trophy, MessageCircle, Pickaxe } from "lucide-react";
+import { ArrowLeftRight, Info, Trophy, MessageCircle, Pickaxe } from "lucide-react";
 
 interface NavBarProps {
   onMineClick?: () => void;
@@ -112,19 +112,19 @@ export function NavBar({ onMineClick }: NavBarProps) {
           />
         </Link>
 
-        {/* Blazery */}
+        {/* Swap */}
         <Link
-          href="/blazery"
+          href="/swap"
           className={cn(
             "flex items-center justify-center p-3 transition-all",
-            pathname === "/blazery"
+            pathname === "/swap"
               ? "text-white"
               : "text-gray-400 hover:text-gray-300"
           )}
         >
-          <Flame className={cn(
+          <ArrowLeftRight className={cn(
             "transition-all",
-            pathname === "/blazery" ? "w-7 h-7" : "w-5 h-5"
+            pathname === "/swap" ? "w-7 h-7" : "w-5 h-5"
           )} />
         </Link>
 

@@ -606,10 +606,11 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     : "—";
   const earnedDisplay = formatTokenAmount(earnedSprinkles, SPRINKLES_DECIMALS, 2);
 
-  // Calculate what the current miner paid (initPrice from slot0)
+  // Calculate what the current miner paid (initPrice / 2 since contract doubles it)
   const minerPaidDisplay = useMemo(() => {
     if (!slot0 || !slot0.initPrice) return "—";
-    return Math.floor(Number(formatUnits(slot0.initPrice, DONUT_DECIMALS))).toLocaleString();
+    const actualPaid = slot0.initPrice / 2n;
+    return Math.floor(Number(formatUnits(actualPaid, DONUT_DECIMALS))).toLocaleString();
   }, [slot0]);
 
   // Calculate DONUT per second equivalent based on SPRINKLES/DONUT price ratio
