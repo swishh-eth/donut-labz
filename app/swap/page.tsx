@@ -898,25 +898,23 @@ export default function SwapPage() {
   // RENDER: Token Grid View
   if (!selectedToken) {
     return (
-      <main className="relative flex min-h-screen w-full flex-col bg-black text-white pb-20">
-        {/* Header */}
-        <div className="p-4 pb-2">
+      <main className="fixed inset-0 flex flex-col bg-black text-white">
+        {/* Header - fixed height */}
+        <div className="flex-shrink-0 p-4 pb-2">
           <h1 className="text-2xl font-black">SWAP</h1>
           <p className="text-zinc-500 text-sm">Select a token to swap into</p>
         </div>
 
-        {/* Scrollable token list with fade */}
-        <div className="relative flex-1 min-h-0">
+        {/* Scrollable token list - takes remaining space */}
+        <div className="flex-1 overflow-hidden relative">
           {/* Top fade */}
-          <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-black to-transparent z-10 pointer-events-none" />
+          <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-black to-transparent z-10 pointer-events-none" />
           
           {/* Bottom fade */}
-          <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black to-transparent z-10 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-black to-transparent z-10 pointer-events-none" />
           
           {/* Scrollable list */}
-          <div
-            className="h-full overflow-y-auto overscroll-contain px-4 py-6 space-y-3"
-          >
+          <div className="absolute inset-0 overflow-y-auto px-4 pb-24 pt-2 space-y-3">
             {displayItems.map((tile) => (
               <TokenTileCard
                 key={tile.id}
