@@ -856,8 +856,70 @@ export default function SwapPage() {
       }
 
       if (txStep === "transferring_fee") {
+        console.log("Fee transfer complete, executing swap...");
         resetTx();
-        handleSwap();
+        // Don't call handleSwap directly - it checks txStep === "transferring_fee"
+        // Instead, execute the swap directly here
+        
+        const executeSwap = async () => {
+          if (!address || !route) {
+            showSwapResultFn("failure");
+            setTxStep("idle");
+            return;
+          }
+          
+          const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+          
+          try {
+            if (route.dex === "uniswapV2") {
+              setTxStep("swapping_leg1");
+              if (inputToken.isNative) {
+                writeContract({
+                  address: UNISWAP_V2_ROUTER,
+                  abi: UNISWAP_V2_ROUTER_ABI,
+                  functionName: "swapExactETHForTokens",
+                  args: [minOutputAmount, route.path, address, deadline],
+                  value: amountToSwap,
+                  chainId: base.id,
+                });
+              } else {
+                writeContract({
+                  address: UNISWAP_V2_ROUTER,
+                  abi: UNISWAP_V2_ROUTER_ABI,
+                  functionName: "swapExactTokensForTokens",
+                  args: [amountToSwap, minOutputAmount, route.path, address, deadline],
+                  chainId: base.id,
+                });
+              }
+            } else if (route.dex === "aerodrome") {
+              setTxStep("swapping_leg1");
+              writeContract({
+                address: AERODROME_ROUTER,
+                abi: AERODROME_ROUTER_ABI,
+                functionName: "swapExactTokensForTokens",
+                args: [amountToSwap, minOutputAmount, route.routes, address, deadline],
+                chainId: base.id,
+              });
+            } else if (route.dex === "multiHop") {
+              setTxStep("swapping_leg1");
+              const leg1MinOutput = leg1Output - (leg1Output * BigInt(Math.round(slippage * 100))) / 10000n;
+              writeContract({
+                address: UNISWAP_V2_ROUTER,
+                abi: UNISWAP_V2_ROUTER_ABI,
+                functionName: "swapExactETHForTokens",
+                args: [leg1MinOutput, route.leg1.path, address, deadline],
+                value: amountToSwap,
+                chainId: base.id,
+              });
+            }
+          } catch (error) {
+            console.error("Swap error:", error);
+            showSwapResultFn("failure");
+            setTxStep("idle");
+          }
+        };
+        
+        setTimeout(executeSwap, 500);
         return;
       }
 
@@ -998,7 +1060,7 @@ export default function SwapPage() {
         return;
       }
     }
-  }, [receipt, txStep, route, address, minOutputAmount, handleSwap, showSwapResultFn, resetTx, refetchAllowance, refetchInputBalance, refetchDonutBalance, refetchDonutAllowanceForAero, writeContract]);
+  }, [receipt, txStep, route, address, minOutputAmount, amountToSwap, leg1Output, leg1ReceivedAmount, slippage, inputToken, showSwapResultFn, resetTx, refetchAllowance, refetchInputBalance, refetchDonutBalance, refetchDonutAllowanceForAero, writeContract]);
 
   const isSwapDisabled =
     !isConnected ||
