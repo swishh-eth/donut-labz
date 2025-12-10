@@ -286,11 +286,13 @@ export default function SwapPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Parse input amount
+  // Parse input amount - handle leading decimal like ".001"
   const inputAmountWei = useMemo(() => {
-    if (!inputAmount || inputAmount === "0") return 0n;
+    if (!inputAmount || inputAmount === "0" || inputAmount === ".") return 0n;
     try {
-      return parseUnits(inputAmount, inputToken.decimals);
+      // Prepend 0 if starts with decimal
+      const normalizedAmount = inputAmount.startsWith(".") ? `0${inputAmount}` : inputAmount;
+      return parseUnits(normalizedAmount, inputToken.decimals);
     } catch {
       return 0n;
     }
@@ -314,7 +316,7 @@ export default function SwapPage() {
           buyToken: outputToken.isNative ? ETH_ADDRESS : outputToken.address,
           sellAmount: inputAmountWei.toString(),
           taker: address,
-          slippageBps: (slippage * 100).toString(),
+          slippageBps: Math.round(slippage * 100).toString(), // 1% = 100 bps
           endpoint: "quote",
         });
 
@@ -533,7 +535,7 @@ export default function SwapPage() {
 
         {/* Featured Token Carousel */}
         <div className="w-full max-w-sm mb-4">
-          <div className="relative overflow-hidden rounded-2xl h-20">
+          <div className="relative overflow-hidden rounded-2xl h-24">
             {FEATURED_TOKENS.map((token, index) => (
               <button
                 key={token.symbol}
@@ -541,21 +543,19 @@ export default function SwapPage() {
                   sdk.actions.openUrl(token.link);
                 }}
                 className={cn(
-                  "absolute inset-0 w-full h-full transition-all duration-500 ease-in-out",
-                  index === featuredIndex ? "opacity-100 translate-x-0" : "opacity-0 translate-x-full"
+                  "absolute inset-0 w-full h-full transition-all duration-500 ease-in-out overflow-hidden rounded-2xl",
+                  index === featuredIndex ? "opacity-100 translate-x-0" : "opacity-0 translate-x-full pointer-events-none"
                 )}
               >
-                <div className="relative w-full h-full overflow-hidden rounded-2xl">
-                  <img
-                    src={token.banner}
-                    alt={token.name}
-                    className="absolute inset-0 w-full h-full object-cover scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                  <div className="absolute bottom-2 left-3 flex items-center gap-2">
-                    <span className="text-white font-bold text-sm">{token.name}</span>
-                    <span className="text-xs text-amber-400 bg-amber-400/20 px-2 py-0.5 rounded-full">Featured</span>
-                  </div>
+                <img
+                  src={token.banner}
+                  alt={token.name}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                  <span className="text-white font-bold text-sm">{token.name}</span>
+                  <span className="text-xs text-amber-400 bg-amber-400/20 px-2 py-0.5 rounded-full">Featured</span>
                 </div>
               </button>
             ))}

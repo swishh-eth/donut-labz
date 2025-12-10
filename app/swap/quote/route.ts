@@ -7,7 +7,7 @@ const ZEROX_API_KEY = process.env.ZEROX_API_KEY || "";
 const ZEROX_API_URL = "https://api.0x.org/swap/allowance-holder";
 
 // Your treasury address for fee collection
-const TREASURY_ADDRESS = "0xc6bE08a3A221f1B7885C4194435dBc53e7c916a6";
+const TREASURY_ADDRESS = "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d";
 const SWAP_FEE_BPS = 5; // 0.05% = 5 basis points
 
 export async function GET(request: NextRequest) {
@@ -20,12 +20,28 @@ export async function GET(request: NextRequest) {
     const buyToken = searchParams.get("buyToken");
     const sellAmount = searchParams.get("sellAmount");
     const taker = searchParams.get("taker");
-    const slippageBps = searchParams.get("slippageBps") || "100"; // 1% default
+    const slippageBps = Math.round(Number(searchParams.get("slippageBps") || "100")); // Ensure integer
     
     if (!sellToken || !buyToken || !sellAmount || !taker) {
       return NextResponse.json(
         { error: "Missing required parameters: sellToken, buyToken, sellAmount, taker" },
         { status: 400 }
+      );
+    }
+
+    // Validate sellAmount is a valid number
+    if (!/^\d+$/.test(sellAmount)) {
+      return NextResponse.json(
+        { error: "Invalid sellAmount - must be a positive integer (wei)" },
+        { status: 400 }
+      );
+    }
+
+    // Check API key
+    if (!ZEROX_API_KEY) {
+      return NextResponse.json(
+        { error: "0x API key not configured" },
+        { status: 500 }
       );
     }
 
@@ -36,7 +52,7 @@ export async function GET(request: NextRequest) {
       buyToken,
       sellAmount,
       taker,
-      slippageBps,
+      slippageBps: slippageBps.toString(),
       // Fee collection - 0x handles this atomically!
       swapFeeBps: SWAP_FEE_BPS.toString(),
       swapFeeRecipient: TREASURY_ADDRESS,
@@ -46,7 +62,7 @@ export async function GET(request: NextRequest) {
     const endpoint = searchParams.get("endpoint") || "quote";
     const url = `${ZEROX_API_URL}/${endpoint}?${params.toString()}`;
 
-    console.log("Fetching 0x quote:", url);
+    console.log("Fetching 0x quote:", url.replace(ZEROX_API_KEY, "***"));
 
     const response = await fetch(url, {
       headers: {
@@ -60,7 +76,7 @@ export async function GET(request: NextRequest) {
     if (!response.ok) {
       console.error("0x API error:", data);
       return NextResponse.json(
-        { error: data.reason || "0x API error", details: data },
+        { error: data.reason || data.message || "0x API error", details: data },
         { status: response.status }
       );
     }
