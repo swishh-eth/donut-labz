@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CircleUserRound, HelpCircle, X, Coins, Timer, TrendingUp } from "lucide-react";
+import { CircleUserRound, HelpCircle, X, Coins, Timer, TrendingUp, Sparkles } from "lucide-react";
 import {
   useAccount,
   useConnect,
@@ -94,6 +94,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const autoConnectAttempted = useRef(false);
   const [customMessage, setCustomMessage] = useState("");
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
+  const [sprinklesPrice, setSprinklesPrice] = useState<number>(0);
+  const [donutPrice, setDonutPrice] = useState<number>(0);
   const [mineResult, setMineResult] = useState<"success" | "failure" | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
@@ -104,6 +106,9 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const mineResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const approvalInputRef = useRef<HTMLInputElement>(null);
+
+  // Token addresses for price fetching
+  const SPRINKLES_TOKEN_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
 
   const resetMineResult = useCallback(() => {
     if (mineResultTimeoutRef.current) {
@@ -122,6 +127,33 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       setMineResult(null);
       mineResultTimeoutRef.current = null;
     }, 3000);
+  }, []);
+
+  // Fetch token prices from DEXScreener
+  useEffect(() => {
+    const fetchPrices = async () => {
+      try {
+        // Fetch SPRINKLES price
+        const sprinklesRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${SPRINKLES_TOKEN_ADDRESS}`);
+        const sprinklesData = await sprinklesRes.json();
+        if (sprinklesData.pairs && sprinklesData.pairs.length > 0) {
+          setSprinklesPrice(parseFloat(sprinklesData.pairs[0].priceUsd || "0"));
+        }
+
+        // Fetch DONUT price
+        const donutRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${DONUT_ADDRESS}`);
+        const donutData = await donutRes.json();
+        if (donutData.pairs && donutData.pairs.length > 0) {
+          setDonutPrice(parseFloat(donutData.pairs[0].priceUsd || "0"));
+        }
+      } catch (e) {
+        console.error("Failed to fetch token prices:", e);
+      }
+    };
+
+    fetchPrices();
+    const interval = setInterval(fetchPrices, 60_000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -560,9 +592,22 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     ? formatTokenAmount(dps, SPRINKLES_DECIMALS, 4)
     : "—";
   const minePriceDisplay = price
-    ? formatTokenAmount(price, DONUT_DECIMALS, 4)
+    ? Math.floor(Number(formatUnits(price, DONUT_DECIMALS))).toLocaleString()
     : "—";
   const earnedDisplay = formatTokenAmount(earnedSprinkles, SPRINKLES_DECIMALS, 2);
+
+  // Calculate DONUT per second equivalent based on SPRINKLES/DONUT price ratio
+  const donutPerSecondDisplay = useMemo(() => {
+    if (!dps || sprinklesPrice === 0 || donutPrice === 0) return null;
+    // dps is SPRINKLES per second (in wei)
+    const sprinklesPerSecond = Number(dps) / 1e18;
+    // Convert SPRINKLES value to DONUT value
+    const sprinklesValueUsd = sprinklesPerSecond * sprinklesPrice;
+    const donutEquivalent = sprinklesValueUsd / donutPrice;
+    
+    if (donutEquivalent < 0.0001) return null;
+    return donutEquivalent.toFixed(4);
+  }, [dps, sprinklesPrice, donutPrice]);
 
   const formatMineTime = (seconds: number): string => {
     if (seconds < 0) return "0s";
@@ -721,11 +766,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               <div className="font-bold text-white text-sm truncate">
                 {occupantDisplay.primary}
               </div>
-              {slot0 && slot0.initPrice > 0n && (
-                <div className="text-[9px] text-gray-500">
-                  Paid 🍩{formatTokenAmount(slot0.initPrice, DONUT_DECIMALS, 4)}
-                </div>
-              )}
             </div>
 
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-right flex-shrink-0">
@@ -737,8 +777,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               </div>
               <div>
                 <div className="text-[8px] text-gray-500">EARNED</div>
-                <div className="text-xs font-bold text-white">
-                  ✨{earnedDisplay}
+                <div className="text-xs font-bold text-white flex items-center gap-0.5">
+                  <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />{earnedDisplay}
                 </div>
               </div>
             </div>
@@ -754,10 +794,15 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                 Mine Rate
               </span>
             </div>
-            <div className="text-lg font-bold text-white">
-              ✨{mineRateDisplay}
+            <div className="text-lg font-bold text-white flex items-center gap-0.5">
+              <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />{mineRateDisplay}
               <span className="text-xs text-gray-400">/s</span>
             </div>
+            {donutPerSecondDisplay && (
+              <div className="text-[10px] text-amber-400 mt-0.5">
+                ≈ 🍩{donutPerSecondDisplay}/s
+              </div>
+            )}
           </div>
 
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
@@ -810,7 +855,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
                 <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                   <Timer className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                  How SPRINKLES Mining Works
+                  How <Sparkles className="w-4 h-4 inline drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES Mining Works
                 </h2>
 
                 <div className="space-y-4">
@@ -819,7 +864,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                       1
                     </div>
                     <div>
-                      <div className="font-semibold text-white text-sm">Pay DONUT to Mine</div>
+                      <div className="font-semibold text-white text-sm">Pay 🍩DONUT to Mine</div>
                       <div className="text-xs text-gray-400 mt-0.5">
                         Pay the current price in DONUT to become the miner.
                       </div>
@@ -831,7 +876,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                       2
                     </div>
                     <div>
-                      <div className="font-semibold text-white text-sm">Earn SPRINKLES</div>
+                      <div className="font-semibold text-white text-sm flex items-center gap-1">Earn <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES</div>
                       <div className="text-xs text-gray-400 mt-0.5">
                         While you are the miner, you earn SPRINKLES every second.
                       </div>
@@ -845,7 +890,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                     <div>
                       <div className="font-semibold text-white text-sm">Dutch Auction</div>
                       <div className="text-xs text-gray-400 mt-0.5">
-                        Price starts high and drops to 1 DONUT over 1 hour.
+                        Price starts high and drops to 1 🍩DONUT over 1 hour.
                       </div>
                     </div>
                   </div>
@@ -857,14 +902,14 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                     <div>
                       <div className="font-semibold text-white text-sm">Get Paid Back</div>
                       <div className="text-xs text-gray-400 mt-0.5">
-                        When someone outbids you, you get 80% of their DONUT payment.
+                        When someone outbids you, you get 80% of their 🍩DONUT payment.
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <p className="text-[10px] text-gray-500 text-center mt-4">
-                  10% of all DONUT payments are used to buy and burn SPRINKLES!
+                <p className="text-[10px] text-gray-500 text-center mt-4 flex items-center justify-center gap-1">
+                  10% of all 🍩DONUT payments are used to buy and burn <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES!
                 </p>
 
                 <button
