@@ -102,6 +102,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const [approvalAmount, setApprovalAmount] = useState("");
   const [isApprovalMode, setIsApprovalMode] = useState(false);
   const [pendingTxType, setPendingTxType] = useState<"mine" | "approve" | null>(null);
+  const pendingTxTypeRef = useRef<"mine" | "approve" | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const mineResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -322,6 +323,10 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
   useEffect(() => {
     if (!receipt) return;
+    
+    const txType = pendingTxTypeRef.current;
+    console.log("Receipt received:", { status: receipt.status, txType, address, txHash: receipt.transactionHash });
+    
     if (receipt.status === "success" || receipt.status === "reverted") {
       showMineResult(receipt.status === "success" ? "success" : "failure");
       refetchSlot0();
@@ -329,13 +334,13 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       refetchAllowance();
       
       // Reset approval mode on successful approval
-      if (receipt.status === "success" && pendingTxType === "approve") {
+      if (receipt.status === "success" && txType === "approve") {
         setIsApprovalMode(false);
         setApprovalAmount("");
       }
       
       // Award a spin for successful sprinkles mine (not approval)
-      if (receipt.status === "success" && pendingTxType === "mine" && address) {
+      if (receipt.status === "success" && txType === "mine" && address) {
         console.log("Awarding spin for sprinkles mine:", { address, txHash: receipt.transactionHash });
         fetch("/api/spins/award-sprinkles-mine", {
           method: "POST",
@@ -352,6 +357,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       
       // Reset pending tx type
       setPendingTxType(null);
+      pendingTxTypeRef.current = null;
       
       const resetTimer = setTimeout(() => {
         resetWrite();
@@ -359,7 +365,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       return () => clearTimeout(resetTimer);
     }
     return;
-  }, [receipt, refetchSlot0, refetchPrice, refetchAllowance, resetWrite, showMineResult, pendingTxType, address]);
+  }, [receipt, refetchSlot0, refetchPrice, refetchAllowance, resetWrite, showMineResult, address]);
 
   const minerAddress = slot0?.miner ?? zeroAddress;
   const hasMiner = minerAddress !== zeroAddress;
@@ -409,6 +415,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const handleApprove = useCallback(async () => {
     if (!address || parsedApprovalAmount === 0n) return;
     setPendingTxType("approve");
+    pendingTxTypeRef.current = "approve";
     try {
       await writeContract({
         account: address as Address,
@@ -423,6 +430,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       showMineResult("failure");
       resetWrite();
       setPendingTxType(null);
+      pendingTxTypeRef.current = null;
     }
   }, [address, parsedApprovalAmount, writeContract, showMineResult, resetWrite]);
 
@@ -430,6 +438,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     if (!slot0 || !price) return;
     resetMineResult();
     setPendingTxType("mine");
+    pendingTxTypeRef.current = "mine";
     try {
       let targetAddress = address;
       if (!targetAddress) {
@@ -472,6 +481,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       showMineResult("failure");
       resetWrite();
       setPendingTxType(null);
+      pendingTxTypeRef.current = null;
     }
   }, [
     address,
