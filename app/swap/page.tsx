@@ -39,9 +39,16 @@ const TREASURY_ADDRESS = "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d" as Address
 // Uniswap V2 Router on Base (for DONUT-WETH pool)
 const UNISWAP_V2_ROUTER = "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24" as Address;
 
-// Uniswap V3 SwapRouter on Base (for PEEPLES-WETH pool)
+// Uniswap V3 SwapRouter on Base (for USDC-WETH pool)
 const UNISWAP_V3_ROUTER = "0x2626664c2603336E57B271c5C0b26F421741e481" as Address;
 const UNISWAP_V3_QUOTER = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a" as Address;
+
+// Uniswap V4 on Base (for PEEPLES-ETH pool)
+const UNISWAP_V4_QUOTER = "0x0d5e0f971ed27fbff6c2837bf31316121532048d" as Address;
+const UNISWAP_V4_ROUTER = "0x6ff5693b99212da76ad316178a184ab56d299b43" as Address; // Universal Router
+const PEEPLES_V4_HOOK = "0xd60D6B218116cFd801E28F78d011a203D2b068Cc" as Address;
+const PEEPLES_V4_TICK_SPACING = 200; // Need to verify this
+const PEEPLES_V4_FEE = 3000; // 0.3% - need to verify
 
 // Aerodrome Router (for SPRINKLES-DONUT pool)
 const AERODROME_ROUTER = "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43" as Address;
@@ -82,7 +89,7 @@ const TOKENS: Token[] = [
     symbol: "USDC",
     name: "USD Coin",
     decimals: 6, // USDC has 6 decimals
-    icon: getDexScreenerIcon(USDC_ADDRESS),
+    icon: "https://assets.coingecko.com/coins/images/6319/small/usdc.png",
   },
   {
     address: SPRINKLES_ADDRESS,
@@ -295,6 +302,43 @@ const UNISWAP_V3_ROUTER_ABI = [
   },
 ] as const;
 
+// Uniswap V4 Quoter ABI
+// V4 uses PoolKey to identify pools and has different quote structure
+const UNISWAP_V4_QUOTER_ABI = [
+  {
+    inputs: [
+      {
+        components: [
+          {
+            components: [
+              { name: "currency0", type: "address" },
+              { name: "currency1", type: "address" },
+              { name: "fee", type: "uint24" },
+              { name: "tickSpacing", type: "int24" },
+              { name: "hooks", type: "address" },
+            ],
+            name: "poolKey",
+            type: "tuple",
+          },
+          { name: "zeroForOne", type: "bool" },
+          { name: "exactAmount", type: "int128" },
+          { name: "sqrtPriceLimitX96", type: "uint160" },
+          { name: "hookData", type: "bytes" },
+        ],
+        name: "params",
+        type: "tuple",
+      },
+    ],
+    name: "quoteExactInputSingle",
+    outputs: [
+      { name: "amountOut", type: "int128" },
+      { name: "gasEstimate", type: "uint256" },
+    ],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
+
 const initialsFrom = (label?: string) => {
   if (!label) return "";
   const stripped = label.replace(/[^a-zA-Z0-9]/g, "");
@@ -304,7 +348,7 @@ const initialsFrom = (label?: string) => {
 
 // Swap leg definition for multi-hop swaps
 type SwapLeg = {
-  dex: "uniswap" | "uniswapV3" | "aerodrome";
+  dex: "uniswap" | "uniswapV3" | "uniswapV4" | "aerodrome";
   fromToken: Address;
   toToken: Address;
   // For Uniswap V2
@@ -313,6 +357,15 @@ type SwapLeg = {
   routes?: { from: Address; to: Address; stable: boolean; factory: Address }[];
   // For Uniswap V3
   fee?: number; // Pool fee in bps (3000 = 0.3%, 10000 = 1%)
+  // For Uniswap V4
+  v4PoolKey?: {
+    currency0: Address;
+    currency1: Address;
+    fee: number;
+    tickSpacing: number;
+    hooks: Address;
+  };
+  zeroForOne?: boolean; // V4: true if swapping currency0 -> currency1
 };
 
 // Full swap info with multiple legs
@@ -422,19 +475,29 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
     };
   }
 
-  // ETH <-> PEEPLES: Single leg via Uniswap V3 (0.3% fee pool)
+  // ETH <-> PEEPLES: Single leg via Uniswap V4 with hook
+  // V4 uses native ETH (address 0) as currency, and currencies must be sorted (currency0 < currency1)
+  // address(0) < PEEPLES, so: currency0 = ETH (0x0), currency1 = PEEPLES
   if ((from === WETH_ADDRESS.toLowerCase() && to === PEEPLES_ADDRESS.toLowerCase()) ||
       (from === PEEPLES_ADDRESS.toLowerCase() && to === WETH_ADDRESS.toLowerCase())) {
+    const isEthToPeeples = from === WETH_ADDRESS.toLowerCase();
     return {
       legs: [{
-        dex: "uniswapV3",
+        dex: "uniswapV4",
         fromToken,
         toToken,
-        fee: 3000, // 0.3% fee pool
+        v4PoolKey: {
+          currency0: "0x0000000000000000000000000000000000000000" as Address, // Native ETH
+          currency1: PEEPLES_ADDRESS,
+          fee: PEEPLES_V4_FEE,
+          tickSpacing: PEEPLES_V4_TICK_SPACING,
+          hooks: PEEPLES_V4_HOOK,
+        },
+        zeroForOne: isEthToPeeples, // true if ETH -> PEEPLES (currency0 -> currency1)
       }],
       displayPath: [
-        from === WETH_ADDRESS.toLowerCase() ? "ETH" : "PEEPLES",
-        to === WETH_ADDRESS.toLowerCase() ? "ETH" : "PEEPLES",
+        isEthToPeeples ? "ETH" : "PEEPLES",
+        isEthToPeeples ? "PEEPLES" : "ETH",
       ],
       isMultiHop: false,
     };
@@ -508,7 +571,7 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
   // So: USDC -> DONUT multi-hop, then user swaps DONUT -> SPRINKLES separately
   // OR we extend to support 3 legs... for now let's do 2 legs max and go through DONUT
   
-  // USDC -> PEEPLES: Two legs - USDC -> ETH (V3) then ETH -> PEEPLES (V3)
+  // USDC -> PEEPLES: Two legs - USDC -> ETH (V3) then ETH -> PEEPLES (V4)
   if (from === USDC_ADDRESS.toLowerCase() && to === PEEPLES_ADDRESS.toLowerCase()) {
     return {
       legs: [
@@ -519,10 +582,17 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
           fee: 500, // 0.05% fee pool
         },
         {
-          dex: "uniswapV3",
+          dex: "uniswapV4",
           fromToken: WETH_ADDRESS,
           toToken: PEEPLES_ADDRESS,
-          fee: 3000, // 0.3% fee pool
+          v4PoolKey: {
+            currency0: "0x0000000000000000000000000000000000000000" as Address,
+            currency1: PEEPLES_ADDRESS,
+            fee: PEEPLES_V4_FEE,
+            tickSpacing: PEEPLES_V4_TICK_SPACING,
+            hooks: PEEPLES_V4_HOOK,
+          },
+          zeroForOne: true, // ETH -> PEEPLES
         },
       ],
       displayPath: ["USDC", "ETH", "PEEPLES"],
@@ -530,15 +600,22 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
     };
   }
 
-  // PEEPLES -> USDC: Two legs - PEEPLES -> ETH (V3) then ETH -> USDC (V3)
+  // PEEPLES -> USDC: Two legs - PEEPLES -> ETH (V4) then ETH -> USDC (V3)
   if (from === PEEPLES_ADDRESS.toLowerCase() && to === USDC_ADDRESS.toLowerCase()) {
     return {
       legs: [
         {
-          dex: "uniswapV3",
+          dex: "uniswapV4",
           fromToken: PEEPLES_ADDRESS,
           toToken: WETH_ADDRESS,
-          fee: 3000, // 0.3% fee pool
+          v4PoolKey: {
+            currency0: "0x0000000000000000000000000000000000000000" as Address,
+            currency1: PEEPLES_ADDRESS,
+            fee: PEEPLES_V4_FEE,
+            tickSpacing: PEEPLES_V4_TICK_SPACING,
+            hooks: PEEPLES_V4_HOOK,
+          },
+          zeroForOne: false, // PEEPLES -> ETH
         },
         {
           dex: "uniswapV3",
@@ -556,7 +633,7 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
   // Not supported directly - users should swap to DONUT first then to SPRINKLES
   // Fall through to default which will likely fail, prompting user to use a different route
 
-  // DONUT <-> PEEPLES: Two legs via ETH (V2 for DONUT-ETH, V3 for ETH-PEEPLES)
+  // DONUT <-> PEEPLES: Two legs via ETH (V2 for DONUT-ETH, V4 for ETH-PEEPLES)
   if (from === DONUT_ADDRESS.toLowerCase() && to === PEEPLES_ADDRESS.toLowerCase()) {
     return {
       legs: [
@@ -567,10 +644,17 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
           path: [DONUT_ADDRESS, WETH_ADDRESS],
         },
         {
-          dex: "uniswapV3",
+          dex: "uniswapV4",
           fromToken: WETH_ADDRESS,
           toToken: PEEPLES_ADDRESS,
-          fee: 3000, // 0.3% fee pool
+          v4PoolKey: {
+            currency0: "0x0000000000000000000000000000000000000000" as Address,
+            currency1: PEEPLES_ADDRESS,
+            fee: PEEPLES_V4_FEE,
+            tickSpacing: PEEPLES_V4_TICK_SPACING,
+            hooks: PEEPLES_V4_HOOK,
+          },
+          zeroForOne: true, // ETH -> PEEPLES
         },
       ],
       displayPath: ["DONUT", "ETH", "PEEPLES"],
@@ -582,10 +666,17 @@ function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
     return {
       legs: [
         {
-          dex: "uniswapV3",
+          dex: "uniswapV4",
           fromToken: PEEPLES_ADDRESS,
           toToken: WETH_ADDRESS,
-          fee: 3000, // 0.3% fee pool
+          v4PoolKey: {
+            currency0: "0x0000000000000000000000000000000000000000" as Address,
+            currency1: PEEPLES_ADDRESS,
+            fee: PEEPLES_V4_FEE,
+            tickSpacing: PEEPLES_V4_TICK_SPACING,
+            hooks: PEEPLES_V4_HOOK,
+          },
+          zeroForOne: false, // PEEPLES -> ETH
         },
         {
           dex: "uniswap",
@@ -833,6 +924,7 @@ export default function SwapPage() {
   const getRouterForDex = (dex: string) => {
     if (dex === "uniswap") return UNISWAP_V2_ROUTER;
     if (dex === "uniswapV3") return UNISWAP_V3_ROUTER;
+    if (dex === "uniswapV4") return UNISWAP_V4_ROUTER;
     return AERODROME_ROUTER;
   };
   
@@ -1000,6 +1092,31 @@ export default function SwapPage() {
     },
   });
 
+  // Get quote for first leg (Uniswap V4)
+  const { data: leg1V4Quote, refetch: refetchLeg1V4 } = useReadContract({
+    address: UNISWAP_V4_QUOTER,
+    abi: UNISWAP_V4_QUOTER_ABI,
+    functionName: "quoteExactInputSingle",
+    args: [{
+      poolKey: {
+        currency0: firstLeg.v4PoolKey?.currency0 ?? zeroAddress,
+        currency1: firstLeg.v4PoolKey?.currency1 ?? zeroAddress,
+        fee: firstLeg.v4PoolKey?.fee ?? 3000,
+        tickSpacing: firstLeg.v4PoolKey?.tickSpacing ?? 60,
+        hooks: firstLeg.v4PoolKey?.hooks ?? zeroAddress,
+      },
+      zeroForOne: firstLeg.zeroForOne ?? true,
+      exactAmount: amountToSwap,
+      sqrtPriceLimitX96: 0n,
+      hookData: "0x" as `0x${string}`,
+    }],
+    chainId: base.id,
+    query: {
+      enabled: amountToSwap > 0n && firstLeg.dex === "uniswapV4" && !!firstLeg.v4PoolKey,
+      refetchInterval: 10_000,
+    },
+  });
+
   // First leg output (intermediate amount for multi-hop)
   const leg1Output = useMemo(() => {
     if (firstLeg.dex === "uniswapV3") {
@@ -1011,10 +1128,20 @@ export default function SwapPage() {
       }
       return leg1V3Quote as bigint;
     }
+    if (firstLeg.dex === "uniswapV4") {
+      // V4 Quoter returns [amountOut, gasEstimate]
+      if (!leg1V4Quote) return 0n;
+      if (Array.isArray(leg1V4Quote)) {
+        // amountOut is int128, convert to positive bigint
+        const amount = leg1V4Quote[0] as bigint;
+        return amount < 0n ? -amount : amount;
+      }
+      return leg1V4Quote as bigint;
+    }
     const quoteData = firstLeg.dex === "uniswap" ? leg1UniswapQuote : leg1AerodromeQuote;
     if (!quoteData || !Array.isArray(quoteData) || quoteData.length < 2) return 0n;
     return quoteData[quoteData.length - 1] as bigint;
-  }, [firstLeg.dex, leg1UniswapQuote, leg1AerodromeQuote, leg1V3Quote]);
+  }, [firstLeg.dex, leg1UniswapQuote, leg1AerodromeQuote, leg1V3Quote, leg1V4Quote]);
 
   // Get quote for second leg (if multi-hop) - Uniswap V2
   const { data: leg2UniswapQuote, refetch: refetchLeg2Uniswap } = useReadContract({
@@ -1060,6 +1187,31 @@ export default function SwapPage() {
     },
   });
 
+  // Get quote for second leg (if multi-hop) - Uniswap V4
+  const { data: leg2V4Quote, refetch: refetchLeg2V4 } = useReadContract({
+    address: UNISWAP_V4_QUOTER,
+    abi: UNISWAP_V4_QUOTER_ABI,
+    functionName: "quoteExactInputSingle",
+    args: [{
+      poolKey: {
+        currency0: secondLeg?.v4PoolKey?.currency0 ?? zeroAddress,
+        currency1: secondLeg?.v4PoolKey?.currency1 ?? zeroAddress,
+        fee: secondLeg?.v4PoolKey?.fee ?? 3000,
+        tickSpacing: secondLeg?.v4PoolKey?.tickSpacing ?? 60,
+        hooks: secondLeg?.v4PoolKey?.hooks ?? zeroAddress,
+      },
+      zeroForOne: secondLeg?.zeroForOne ?? true,
+      exactAmount: leg1Output,
+      sqrtPriceLimitX96: 0n,
+      hookData: "0x" as `0x${string}`,
+    }],
+    chainId: base.id,
+    query: {
+      enabled: leg1Output > 0n && swapInfo.isMultiHop && secondLeg?.dex === "uniswapV4" && !!secondLeg?.v4PoolKey,
+      refetchInterval: 10_000,
+    },
+  });
+
   // Gross output amount (before fee)
   const outputAmount = useMemo(() => {
     if (!swapInfo.isMultiHop) {
@@ -1075,16 +1227,26 @@ export default function SwapPage() {
       }
       return leg2V3Quote as bigint;
     }
+    if (secondLeg?.dex === "uniswapV4") {
+      if (!leg2V4Quote) return 0n;
+      if (Array.isArray(leg2V4Quote)) {
+        const amount = leg2V4Quote[0] as bigint;
+        return amount < 0n ? -amount : amount;
+      }
+      return leg2V4Quote as bigint;
+    }
     const leg2Quote = secondLeg?.dex === "uniswap" ? leg2UniswapQuote : leg2AerodromeQuote;
     if (!leg2Quote || !Array.isArray(leg2Quote) || leg2Quote.length < 2) return 0n;
     return leg2Quote[leg2Quote.length - 1] as bigint;
-  }, [swapInfo.isMultiHop, leg1Output, secondLeg?.dex, leg2UniswapQuote, leg2AerodromeQuote, leg2V3Quote]);
+  }, [swapInfo.isMultiHop, leg1Output, secondLeg?.dex, leg2UniswapQuote, leg2AerodromeQuote, leg2V3Quote, leg2V4Quote]);
 
   const refetchQuote = useCallback(() => {
     if (firstLeg.dex === "uniswap") {
       refetchLeg1Uniswap();
     } else if (firstLeg.dex === "uniswapV3") {
       refetchLeg1V3();
+    } else if (firstLeg.dex === "uniswapV4") {
+      refetchLeg1V4();
     } else {
       refetchLeg1Aerodrome();
     }
@@ -1093,11 +1255,13 @@ export default function SwapPage() {
         refetchLeg2Uniswap();
       } else if (secondLeg.dex === "uniswapV3") {
         refetchLeg2V3();
+      } else if (secondLeg.dex === "uniswapV4") {
+        refetchLeg2V4();
       } else {
         refetchLeg2Aerodrome();
       }
     }
-  }, [firstLeg.dex, swapInfo.isMultiHop, secondLeg, refetchLeg1Uniswap, refetchLeg1V3, refetchLeg1Aerodrome, refetchLeg2Uniswap, refetchLeg2V3, refetchLeg2Aerodrome]);
+  }, [firstLeg.dex, swapInfo.isMultiHop, secondLeg, refetchLeg1Uniswap, refetchLeg1V3, refetchLeg1V4, refetchLeg1Aerodrome, refetchLeg2Uniswap, refetchLeg2V3, refetchLeg2V4, refetchLeg2Aerodrome]);
 
   const outputAmountDisplay = useMemo(() => {
     if (outputAmount === 0n) return "0";
@@ -1706,11 +1870,11 @@ export default function SwapPage() {
                 {swapInfo.displayPath.join(" → ")}
                 {swapInfo.isMultiHop ? (
                   <span className="text-gray-500 ml-1">
-                    ({firstLeg.dex === "uniswap" ? "V2" : firstLeg.dex === "uniswapV3" ? "V3" : "Aero"} → {secondLeg?.dex === "uniswap" ? "V2" : secondLeg?.dex === "uniswapV3" ? "V3" : "Aero"})
+                    ({firstLeg.dex === "uniswap" ? "V2" : firstLeg.dex === "uniswapV3" ? "V3" : firstLeg.dex === "uniswapV4" ? "V4" : "Aero"} → {secondLeg?.dex === "uniswap" ? "V2" : secondLeg?.dex === "uniswapV3" ? "V3" : secondLeg?.dex === "uniswapV4" ? "V4" : "Aero"})
                   </span>
                 ) : (
                   <span className="text-gray-500 ml-1">
-                    ({firstLeg.dex === "uniswap" ? "Uniswap V2" : firstLeg.dex === "uniswapV3" ? "Uniswap V3" : "Aerodrome"})
+                    ({firstLeg.dex === "uniswap" ? "Uniswap V2" : firstLeg.dex === "uniswapV3" ? "Uniswap V3" : firstLeg.dex === "uniswapV4" ? "Uniswap V4" : "Aerodrome"})
                   </span>
                 )}
               </span>
