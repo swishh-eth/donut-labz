@@ -53,11 +53,20 @@ interface TokenTile {
   description: string;
   isDonutEcosystem: boolean;
   isPlaceholder?: boolean;
+  isApprovalsTile?: boolean;
   allowedInputs?: ("ETH" | "DONUT")[];
   externalUrl?: string;
 }
 
 const TOKEN_TILES: TokenTile[] = [
+  {
+    id: "approvals",
+    symbol: "🛡️",
+    name: "Token Approvals",
+    description: "Manage & revoke token approvals",
+    isDonutEcosystem: false,
+    isApprovalsTile: true,
+  },
   {
     id: "donut",
     address: DONUT_ADDRESS,
@@ -112,14 +121,6 @@ const TOKEN_TILES: TokenTile[] = [
   },
   {
     id: "placeholder-3",
-    symbol: "???",
-    name: "Coming Soon",
-    description: "Your Glazery Here",
-    isDonutEcosystem: false,
-    isPlaceholder: true,
-  },
-  {
-    id: "placeholder-4",
     symbol: "???",
     name: "Coming Soon",
     description: "Your Glazery Here",
@@ -356,6 +357,34 @@ function getSwapRoute(inputSymbol: InputSymbol, outputAddress: Address, isSellin
   return null;
 }
 
+// Approvals Tile Component
+function ApprovalsTile({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full relative rounded-xl overflow-hidden border border-amber-600/50 hover:border-amber-500 transition-all active:scale-[0.98] text-left bg-gradient-to-r from-amber-950/50 via-zinc-900 to-zinc-900"
+      style={{ height: "110px" }}
+    >
+      <div className="relative flex items-center gap-4 p-4 h-full">
+        {/* Shield Icon */}
+        <div className="w-16 h-16 rounded-full bg-amber-600/20 border-2 border-amber-600/50 flex items-center justify-center flex-shrink-0">
+          <Shield className="w-8 h-8 text-amber-500" />
+        </div>
+        
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-xl text-amber-500" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.8)" }}>
+            Token Approvals
+          </div>
+          <div className="text-sm text-zinc-400 mt-0.5" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.8)" }}>
+            Manage & revoke approvals
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 // Placeholder Tile Component
 function PlaceholderTile() {
   return (
@@ -375,9 +404,13 @@ function PlaceholderTile() {
 }
 
 // Token Tile Component
-function TokenTileCard({ tile, onClick }: { tile: TokenTile; onClick: () => void }) {
+function TokenTileCard({ tile, onClick, onApprovalsClick }: { tile: TokenTile; onClick: () => void; onApprovalsClick?: () => void }) {
   if (tile.isPlaceholder) {
     return <PlaceholderTile />;
+  }
+  
+  if (tile.isApprovalsTile && onApprovalsClick) {
+    return <ApprovalsTile onClick={onApprovalsClick} />;
   }
 
   return (
@@ -458,6 +491,8 @@ export default function SwapPage() {
   const [showApprovalSection, setShowApprovalSection] = useState(false);
   const [customApprovalAmount, setCustomApprovalAmount] = useState("");
   const [showApprovalPopup, setShowApprovalPopup] = useState(false);
+  const [showApprovalsPage, setShowApprovalsPage] = useState(false);
+  const [customApprovalToken, setCustomApprovalToken] = useState<{ address: Address; symbol: string; decimals: number; router: Address; routerName: string } | null>(null);
   const [isSellingMode, setIsSellingMode] = useState(false); // false = buying token, true = selling token
 
   // Just use the regular token tiles (no infinite duplication)
@@ -780,6 +815,26 @@ export default function SwapPage() {
       setTxStep("idle");
     }
   }, [address, writeContract]);
+
+  // Handle set custom approval for any token/router combo
+  const handleSetTokenApproval = useCallback(async () => {
+    if (!address || !customApprovalToken || !customApprovalAmount) return;
+    
+    try {
+      setTxStep("setting_approval");
+      const approvalAmountWei = parseUnits(customApprovalAmount, customApprovalToken.decimals);
+      await writeContract({
+        address: customApprovalToken.address,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [customApprovalToken.router, approvalAmountWei],
+        chainId: base.id,
+      });
+    } catch (error) {
+      console.error("Approval error:", error);
+      setTxStep("idle");
+    }
+  }, [address, customApprovalToken, customApprovalAmount, writeContract]);
 
   // Refetch all allowances
   const refetchAllAllowances = useCallback(() => {
@@ -1213,6 +1268,7 @@ export default function SwapPage() {
       if (txStep === "setting_approval" || txStep === "revoking_approval") {
         setTxStep("idle");
         setCustomApprovalAmount("");
+        setCustomApprovalToken(null);
         refetchAllAllowances();
         resetTx();
         return;
@@ -1252,6 +1308,223 @@ export default function SwapPage() {
 
   // Available input tokens for selected token
   const availableInputs = selectedToken?.allowedInputs ?? ["ETH"];
+
+  // RENDER: Approvals Page
+  if (showApprovalsPage) {
+    return (
+      <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
+        <div
+          className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 pb-4 shadow-inner"
+          style={{
+            paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
+            paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
+          }}
+        >
+          <div className="flex flex-1 flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4 px-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setShowApprovalsPage(false);
+                    setCustomApprovalToken(null);
+                    setCustomApprovalAmount("");
+                  }}
+                  className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+                >
+                  <ArrowLeft className="w-5 h-5 text-white" />
+                </button>
+                <div className="flex items-center gap-2">
+                  <Shield className="w-6 h-6 text-amber-500" />
+                  <h1 className="text-2xl font-bold tracking-wide">APPROVALS</h1>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-sm text-zinc-500 px-2 mb-4">
+              Manage token approvals for DEX routers. Revoke unused approvals to protect your funds.
+            </p>
+
+            {/* Approvals List */}
+            <div className="flex-1 overflow-y-auto px-2 space-y-4">
+              {/* DONUT Approvals */}
+              <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <img src={getDexScreenerIcon(DONUT_ADDRESS)} alt="DONUT" className="w-10 h-10 rounded-full border border-zinc-700" />
+                  <div>
+                    <div className="font-bold text-lg">DONUT</div>
+                    <div className="text-xs text-zinc-500">Token Approvals</div>
+                  </div>
+                </div>
+                
+                {/* DONUT -> Uniswap V2 */}
+                <div className="flex items-center justify-between py-3 border-t border-zinc-800">
+                  <div className="flex-1">
+                    <div className="text-sm text-zinc-400">Uniswap V2 Router</div>
+                    <div className="text-lg font-semibold">{formatAllowance(donutAllowanceForV2 as bigint, 18)}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCustomApprovalToken({ 
+                        address: DONUT_ADDRESS, 
+                        symbol: "DONUT", 
+                        decimals: 18, 
+                        router: UNISWAP_V2_ROUTER,
+                        routerName: "Uniswap V2"
+                      })}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                    >
+                      Set
+                    </button>
+                    {(donutAllowanceForV2 as bigint ?? 0n) > 0n && (
+                      <button
+                        onClick={() => handleRevokeTokenApproval(DONUT_ADDRESS, UNISWAP_V2_ROUTER)}
+                        disabled={txStep !== "idle" || isWriting || isConfirming}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-500 border border-amber-600/50 hover:bg-amber-600/30 disabled:opacity-50"
+                      >
+                        {txStep === "revoking_approval" ? <Loader2 className="w-3 h-3 animate-spin" /> : "Revoke"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                
+                {/* DONUT -> Aerodrome */}
+                <div className="flex items-center justify-between py-3 border-t border-zinc-800">
+                  <div className="flex-1">
+                    <div className="text-sm text-zinc-400">Aerodrome Router</div>
+                    <div className="text-lg font-semibold">{formatAllowance(donutAllowanceForAero as bigint, 18)}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCustomApprovalToken({ 
+                        address: DONUT_ADDRESS, 
+                        symbol: "DONUT", 
+                        decimals: 18, 
+                        router: AERODROME_ROUTER,
+                        routerName: "Aerodrome"
+                      })}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                    >
+                      Set
+                    </button>
+                    {(donutAllowanceForAero as bigint ?? 0n) > 0n && (
+                      <button
+                        onClick={() => handleRevokeTokenApproval(DONUT_ADDRESS, AERODROME_ROUTER)}
+                        disabled={txStep !== "idle" || isWriting || isConfirming}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-500 border border-amber-600/50 hover:bg-amber-600/30 disabled:opacity-50"
+                      >
+                        {txStep === "revoking_approval" ? <Loader2 className="w-3 h-3 animate-spin" /> : "Revoke"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* SPRINKLES Approvals */}
+              <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <img src={getDexScreenerIcon(SPRINKLES_ADDRESS)} alt="SPRINKLES" className="w-10 h-10 rounded-full border border-zinc-700" />
+                  <div>
+                    <div className="font-bold text-lg">SPRINKLES</div>
+                    <div className="text-xs text-zinc-500">Token Approvals</div>
+                  </div>
+                </div>
+                
+                {/* SPRINKLES -> Aerodrome */}
+                <div className="flex items-center justify-between py-3 border-t border-zinc-800">
+                  <div className="flex-1">
+                    <div className="text-sm text-zinc-400">Aerodrome Router</div>
+                    <div className="text-lg font-semibold">{formatAllowance(sprinklesAllowanceForAero as bigint, 18)}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCustomApprovalToken({ 
+                        address: SPRINKLES_ADDRESS, 
+                        symbol: "SPRINKLES", 
+                        decimals: 18, 
+                        router: AERODROME_ROUTER,
+                        routerName: "Aerodrome"
+                      })}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                    >
+                      Set
+                    </button>
+                    {(sprinklesAllowanceForAero as bigint ?? 0n) > 0n && (
+                      <button
+                        onClick={() => handleRevokeTokenApproval(SPRINKLES_ADDRESS, AERODROME_ROUTER)}
+                        disabled={txStep !== "idle" || isWriting || isConfirming}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-500 border border-amber-600/50 hover:bg-amber-600/30 disabled:opacity-50"
+                      >
+                        {txStep === "revoking_approval" ? <Loader2 className="w-3 h-3 animate-spin" /> : "Revoke"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Set Custom Approval Modal */}
+        {customApprovalToken && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+            <div className="w-[90%] max-w-[400px] bg-zinc-900 rounded-2xl border border-zinc-700 p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold">Set {customApprovalToken.symbol} Approval</h3>
+                <button
+                  onClick={() => {
+                    setCustomApprovalToken(null);
+                    setCustomApprovalAmount("");
+                  }}
+                  className="p-1 rounded-lg hover:bg-zinc-800 transition-colors"
+                >
+                  <X className="w-5 h-5 text-zinc-400" />
+                </button>
+              </div>
+              
+              <p className="text-sm text-zinc-500 mb-4">
+                Set approval amount for {customApprovalToken.routerName}
+              </p>
+              
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Enter amount"
+                  value={customApprovalAmount}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "" || /^[0-9]*\.?[0-9]*$/.test(val)) {
+                      setCustomApprovalAmount(val);
+                    }
+                  }}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-lg text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                />
+                
+                <button
+                  onClick={handleSetTokenApproval}
+                  disabled={!customApprovalAmount || txStep !== "idle" || isWriting || isConfirming}
+                  className={cn(
+                    "w-full py-3 rounded-xl text-lg font-semibold transition-all",
+                    !customApprovalAmount || txStep !== "idle" || isWriting || isConfirming
+                      ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                      : "bg-green-600 text-white hover:bg-green-500"
+                  )}
+                >
+                  {txStep === "setting_approval" ? (
+                    <Loader2 className="w-5 h-5 inline mr-2 animate-spin" />
+                  ) : null}
+                  {txStep === "setting_approval" ? "Approving..." : "Approve"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <NavBar />
+      </main>
+    );
+  }
 
   // RENDER: Token Grid View
   if (!selectedToken) {
@@ -1315,6 +1588,7 @@ export default function SwapPage() {
                     key={tile.id}
                     tile={tile}
                     onClick={() => handleTileClick(tile)}
+                    onApprovalsClick={() => setShowApprovalsPage(true)}
                   />
                 ))}
               </div>
@@ -1373,13 +1647,6 @@ export default function SwapPage() {
             <div className="flex-1">
               <p className="text-sm text-zinc-400">{selectedToken.description}</p>
             </div>
-            {/* Shield icon for approval management */}
-            <button
-              onClick={() => setShowApprovalPopup(true)}
-              className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
-            >
-              <Shield className="w-5 h-5 text-amber-500" />
-            </button>
           </div>
 
           {/* Swap Card */}
@@ -1588,111 +1855,6 @@ export default function SwapPage() {
           </div>
         </div>
       </div>
-
-      {/* Approval Management Popup */}
-      {showApprovalPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-          <div className="w-[90%] max-w-[400px] bg-zinc-900 rounded-2xl border border-zinc-700 p-4">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-amber-500" />
-                <h3 className="text-lg font-bold">Token Approvals</h3>
-              </div>
-              <button
-                onClick={() => setShowApprovalPopup(false)}
-                className="p-1 rounded-lg hover:bg-zinc-800 transition-colors"
-              >
-                <X className="w-5 h-5 text-zinc-400" />
-              </button>
-            </div>
-
-            <p className="text-xs text-zinc-500 mb-4">
-              Manage token approvals for DEX routers. Revoke unused approvals to protect your funds.
-            </p>
-
-            {/* Token Approvals List */}
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-              {/* DONUT Approvals */}
-              <div className="rounded-xl bg-zinc-800 p-3">
-                <div className="flex items-center gap-2 mb-3">
-                  <img src={getDexScreenerIcon(DONUT_ADDRESS)} alt="DONUT" className="w-6 h-6 rounded-full" />
-                  <span className="font-semibold">DONUT</span>
-                </div>
-                
-                {/* DONUT -> Uniswap V2 */}
-                <div className="flex items-center justify-between py-2 border-t border-zinc-700">
-                  <div>
-                    <div className="text-xs text-zinc-400">Uniswap V2</div>
-                    <div className="text-sm">{formatAllowance(donutAllowanceForV2 as bigint, 18)}</div>
-                  </div>
-                  {(donutAllowanceForV2 as bigint ?? 0n) > 0n && (
-                    <button
-                      onClick={() => handleRevokeTokenApproval(DONUT_ADDRESS, UNISWAP_V2_ROUTER)}
-                      disabled={txStep !== "idle" || isWriting || isConfirming}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-500 border border-amber-600/50 hover:bg-amber-600/30 disabled:opacity-50"
-                    >
-                      {txStep === "revoking_approval" ? <Loader2 className="w-3 h-3 animate-spin" /> : "Revoke"}
-                    </button>
-                  )}
-                </div>
-                
-                {/* DONUT -> Aerodrome */}
-                <div className="flex items-center justify-between py-2 border-t border-zinc-700">
-                  <div>
-                    <div className="text-xs text-zinc-400">Aerodrome</div>
-                    <div className="text-sm">{formatAllowance(donutAllowanceForAero as bigint, 18)}</div>
-                  </div>
-                  {(donutAllowanceForAero as bigint ?? 0n) > 0n && (
-                    <button
-                      onClick={() => handleRevokeTokenApproval(DONUT_ADDRESS, AERODROME_ROUTER)}
-                      disabled={txStep !== "idle" || isWriting || isConfirming}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-500 border border-amber-600/50 hover:bg-amber-600/30 disabled:opacity-50"
-                    >
-                      {txStep === "revoking_approval" ? <Loader2 className="w-3 h-3 animate-spin" /> : "Revoke"}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* SPRINKLES Approvals - only show on SPRINKLES page */}
-              {selectedToken.symbol === "SPRINKLES" && (
-                <div className="rounded-xl bg-zinc-800 p-3">
-                  <div className="flex items-center gap-2 mb-3">
-                    <img src={getDexScreenerIcon(SPRINKLES_ADDRESS)} alt="SPRINKLES" className="w-6 h-6 rounded-full" />
-                    <span className="font-semibold">SPRINKLES</span>
-                  </div>
-                  
-                  {/* SPRINKLES -> Aerodrome */}
-                  <div className="flex items-center justify-between py-2 border-t border-zinc-700">
-                    <div>
-                      <div className="text-xs text-zinc-400">Aerodrome</div>
-                      <div className="text-sm">{formatAllowance(sprinklesAllowanceForAero as bigint, 18)}</div>
-                    </div>
-                    {(sprinklesAllowanceForAero as bigint ?? 0n) > 0n && (
-                      <button
-                        onClick={() => handleRevokeTokenApproval(SPRINKLES_ADDRESS, AERODROME_ROUTER)}
-                        disabled={txStep !== "idle" || isWriting || isConfirming}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-500 border border-amber-600/50 hover:bg-amber-600/30 disabled:opacity-50"
-                      >
-                        {txStep === "revoking_approval" ? <Loader2 className="w-3 h-3 animate-spin" /> : "Revoke"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Close button */}
-            <button
-              onClick={() => setShowApprovalPopup(false)}
-              className="w-full mt-4 py-3 rounded-xl bg-zinc-800 text-zinc-300 font-semibold hover:bg-zinc-700 transition-colors"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Click outside to close dropdown */}
       {showInputDropdown && (
