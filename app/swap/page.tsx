@@ -97,16 +97,32 @@ const TOKEN_TILES: TokenTile[] = [
   {
     id: "placeholder-1",
     symbol: "???",
-    name: "Your Token",
-    description: "Build on Donut to get listed",
+    name: "Coming Soon",
+    description: "Your Glazery Here",
     isDonutEcosystem: false,
     isPlaceholder: true,
   },
   {
     id: "placeholder-2",
     symbol: "???",
-    name: "Your Token",
-    description: "Build on Donut to get listed",
+    name: "Coming Soon",
+    description: "Your Glazery Here",
+    isDonutEcosystem: false,
+    isPlaceholder: true,
+  },
+  {
+    id: "placeholder-3",
+    symbol: "???",
+    name: "Coming Soon",
+    description: "Your Glazery Here",
+    isDonutEcosystem: false,
+    isPlaceholder: true,
+  },
+  {
+    id: "placeholder-4",
+    symbol: "???",
+    name: "Coming Soon",
+    description: "Your Glazery Here",
     isDonutEcosystem: false,
     isPlaceholder: true,
   },
@@ -301,12 +317,12 @@ function getSwapRoute(inputSymbol: "ETH" | "DONUT", outputAddress: Address) {
 // Placeholder Tile Component
 function PlaceholderTile() {
   return (
-    <div className="flex items-center gap-4 p-4 rounded-2xl bg-zinc-900/50 border border-dashed border-zinc-700">
+    <div className="flex items-center gap-4 p-4 rounded-2xl bg-zinc-900/50 border border-dashed border-zinc-700 h-24">
       <div className="w-14 h-14 rounded-full bg-zinc-800 flex items-center justify-center flex-shrink-0">
         <Plus className="w-6 h-6 text-zinc-600" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="font-bold text-zinc-500">Your Token Here</div>
+        <div className="font-bold text-zinc-500">Your Glazery Here</div>
         <div className="text-sm text-zinc-600">Build on Donut to get listed</div>
       </div>
     </div>
