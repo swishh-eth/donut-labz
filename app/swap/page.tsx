@@ -33,7 +33,7 @@ const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as Address;
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as Address;
 const PEEPLES_ADDRESS = "0x0eb9d965DBEfbfB131216A4250A29C9b0693Cb07" as Address;
 const WETH_ADDRESS = "0x4200000000000000000000000000000000000006" as Address;
-const ETH_ADDRESS = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" as Address; // 0x native ETH placeholder
+const NATIVE_ETH_ADDRESS = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" as Address; // 0x native ETH placeholder
 
 // Token definitions
 interface Token {
@@ -50,19 +50,19 @@ const getDexScreenerIcon = (address: string) =>
 
 const TOKENS: Token[] = [
   {
+    address: NATIVE_ETH_ADDRESS, // Use 0x native ETH placeholder
+    symbol: "ETH",
+    name: "Ethereum",
+    decimals: 18,
+    icon: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
+    isNative: true,
+  },
+  {
     address: DONUT_ADDRESS,
     symbol: "DONUT",
     name: "Donut",
     decimals: 18,
     icon: getDexScreenerIcon(DONUT_ADDRESS),
-  },
-  {
-    address: ETH_ADDRESS,
-    symbol: "ETH",
-    name: "Ethereum",
-    decimals: 18,
-    icon: "https://dd.dexscreener.com/ds-data/tokens/base/0x4200000000000000000000000000000000000006.png",
-    isNative: true,
   },
   {
     address: SPRINKLES_ADDRESS,
@@ -83,16 +83,22 @@ const TOKENS: Token[] = [
 // Featured tokens for carousel
 const FEATURED_TOKENS = [
   {
-    symbol: "DONUT",
-    name: "Donut Labs",
-    banner: "https://pbs.twimg.com/profile_banners/1886883597655863296/1738616037/1500x500",
-    link: "https://warpcast.com/miniapps/BG5lMEHfNOjg/donut",
+    symbol: "SPRINKLES",
+    name: "Sprinkles",
+    banner: "https://dd.dexscreener.com/ds-data/tokens/base/0xa890060be1788a676dbc3894160f5dc5ded2c98d/header.png",
+    link: "https://dexscreener.com/base/0xa890060be1788a676dbc3894160f5dc5ded2c98d",
   },
   {
     symbol: "PEEPLES",
     name: "Peeples",
-    banner: "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/4f1e1d73-fba6-4e84-6238-ab40fc6e3b00/original",
+    banner: "https://dd.dexscreener.com/ds-data/tokens/base/0x0eb9d965dbefbfb131216a4250a29c9b0693cb07/header.png",
     link: "https://warpcast.com/peeples",
+  },
+  {
+    symbol: "DONUT",
+    name: "Donut",
+    banner: "https://dd.dexscreener.com/ds-data/tokens/base/0xae4a37d554c6d6f3e398546d8566b25052e0169c/header.png",
+    link: "https://warpcast.com/miniapps/BG5lMEHfNOjg/donut",
   },
 ];
 
@@ -154,8 +160,8 @@ export default function SwapPage() {
   
   // Swap state
   const [inputAmount, setInputAmount] = useState("");
-  const [inputToken, setInputToken] = useState<Token>(TOKENS[0]); // DONUT default
-  const [outputToken, setOutputToken] = useState<Token>(TOKENS[1]); // ETH default
+  const [inputToken, setInputToken] = useState<Token>(TOKENS[0]); // ETH default (first in list)
+  const [outputToken, setOutputToken] = useState<Token>(TOKENS[1]); // DONUT default (second in list)
   const [showInputTokenSelect, setShowInputTokenSelect] = useState(false);
   const [showOutputTokenSelect, setShowOutputTokenSelect] = useState(false);
   const [slippage, setSlippage] = useState(1.0); // Default 1%
@@ -199,9 +205,9 @@ export default function SwapPage() {
     query: { enabled: !!address },
   });
 
-  // Get allowance for 0x AllowanceHolder
+  // Get allowance for 0x AllowanceHolder (skip for native ETH)
   const { data: tokenAllowance, refetch: refetchAllowance } = useReadContract({
-    address: inputToken.address,
+    address: inputToken.isNative ? undefined : inputToken.address,
     abi: ERC20_ABI,
     functionName: "allowance",
     args: [address ?? "0x0", quote?.allowanceTarget as Address ?? "0x0"],
@@ -303,6 +309,7 @@ export default function SwapPage() {
     const fetchQuote = async () => {
       if (inputAmountWei === 0n || !address) {
         setQuote(null);
+        setQuoteError(null);
         return;
       }
 
@@ -312,22 +319,27 @@ export default function SwapPage() {
       try {
         const params = new URLSearchParams({
           chainId: "8453", // Base
-          sellToken: inputToken.isNative ? ETH_ADDRESS : inputToken.address,
-          buyToken: outputToken.isNative ? ETH_ADDRESS : outputToken.address,
+          sellToken: inputToken.address,
+          buyToken: outputToken.address,
           sellAmount: inputAmountWei.toString(),
           taker: address,
           slippageBps: Math.round(slippage * 100).toString(), // 1% = 100 bps
           endpoint: "quote",
         });
 
+        console.log("Fetching quote with params:", Object.fromEntries(params));
+
         const response = await fetch(`/api/swap/quote?${params.toString()}`);
         const data = await response.json();
+
+        console.log("Quote response:", data);
 
         if (!response.ok) {
           throw new Error(data.error || "Failed to get quote");
         }
 
         setQuote(data);
+        setQuoteError(null);
       } catch (error: any) {
         console.error("Quote error:", error);
         setQuoteError(error.message || "Failed to get quote");
@@ -515,7 +527,7 @@ export default function SwapPage() {
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
   return (
-    <main className="min-h-screen flex flex-col bg-gradient-to-br from-zinc-900 via-black to-zinc-900 text-white">
+    <main className="min-h-screen flex flex-col bg-black text-white">
       <NavBar />
       
       <div className="flex-1 flex flex-col items-center justify-start px-4 pt-4 pb-24 overflow-y-auto">

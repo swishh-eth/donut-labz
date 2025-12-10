@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const buyToken = searchParams.get("buyToken");
     const sellAmount = searchParams.get("sellAmount");
     const taker = searchParams.get("taker");
-    const slippageBps = Math.round(Number(searchParams.get("slippageBps") || "100")); // Ensure integer
+    const slippageBps = Math.round(Number(searchParams.get("slippageBps") || "100"));
     
     if (!sellToken || !buyToken || !sellAmount || !taker) {
       return NextResponse.json(
@@ -39,8 +39,9 @@ export async function GET(request: NextRequest) {
 
     // Check API key
     if (!ZEROX_API_KEY) {
+      console.error("ZEROX_API_KEY not set in environment variables");
       return NextResponse.json(
-        { error: "0x API key not configured" },
+        { error: "0x API key not configured. Set ZEROX_API_KEY in Vercel environment variables." },
         { status: 500 }
       );
     }
@@ -62,7 +63,13 @@ export async function GET(request: NextRequest) {
     const endpoint = searchParams.get("endpoint") || "quote";
     const url = `${ZEROX_API_URL}/${endpoint}?${params.toString()}`;
 
-    console.log("Fetching 0x quote:", url.replace(ZEROX_API_KEY, "***"));
+    console.log("Fetching 0x quote:", {
+      sellToken,
+      buyToken,
+      sellAmount,
+      taker,
+      slippageBps,
+    });
 
     const response = await fetch(url, {
       headers: {
@@ -74,9 +81,16 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("0x API error:", data);
+      console.error("0x API error:", JSON.stringify(data, null, 2));
+      // Extract meaningful error message
+      let errorMsg = "0x API error";
+      if (data.reason) errorMsg = data.reason;
+      else if (data.message) errorMsg = data.message;
+      else if (data.validationErrors?.length) {
+        errorMsg = data.validationErrors.map((e: any) => e.reason || e.message || JSON.stringify(e)).join(", ");
+      }
       return NextResponse.json(
-        { error: data.reason || data.message || "0x API error", details: data },
+        { error: errorMsg, details: data },
         { status: response.status }
       );
     }
