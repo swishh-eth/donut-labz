@@ -30,14 +30,16 @@ type MiniAppContext = {
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as Address;
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as Address;
 const WETH_ADDRESS = "0x4200000000000000000000000000000000000006" as Address;
-const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as Address;
 const TREASURY_ADDRESS = "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d" as Address;
 
-// Aerodrome Router
+// Uniswap V2 Router on Base (for DONUT-WETH pool)
+const UNISWAP_V2_ROUTER = "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24" as Address;
+
+// Aerodrome Router (for SPRINKLES-DONUT pool)
 const AERODROME_ROUTER = "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43" as Address;
 const AERODROME_FACTORY = "0x420DD381b31aEf6683db6B902084cB0FFECe40Da" as Address;
 
-// Token definitions
+// Token definitions - only tokens with verified Aerodrome pools
 interface Token {
   address: Address;
   symbol: string;
@@ -56,8 +58,8 @@ const TOKENS: Token[] = [
   },
   {
     address: WETH_ADDRESS,
-    symbol: "WETH",
-    name: "Wrapped Ether",
+    symbol: "ETH",
+    name: "Ethereum",
     decimals: 18,
     icon: "Ξ",
   },
@@ -68,17 +70,10 @@ const TOKENS: Token[] = [
     decimals: 18,
     icon: "✨",
   },
-  {
-    address: USDC_ADDRESS,
-    symbol: "USDC",
-    name: "USD Coin",
-    decimals: 6,
-    icon: "$",
-  },
 ];
 
 // Fee configuration
-const SWAP_FEE_BPS = 15; // 0.15% = 15 basis points
+const SWAP_FEE_BPS = 30; // 0.3% = 30 basis points
 const FEE_DENOMINATOR = 10000;
 
 // ABIs
@@ -118,6 +113,32 @@ const ERC20_ABI = [
     name: "transfer",
     outputs: [{ name: "", type: "bool" }],
     stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
+
+const UNISWAP_V2_ROUTER_ABI = [
+  {
+    inputs: [
+      { name: "amountIn", type: "uint256" },
+      { name: "amountOutMin", type: "uint256" },
+      { name: "path", type: "address[]" },
+      { name: "to", type: "address" },
+      { name: "deadline", type: "uint256" },
+    ],
+    name: "swapExactTokensForTokens",
+    outputs: [{ name: "amounts", type: "uint256[]" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "amountIn", type: "uint256" },
+      { name: "path", type: "address[]" },
+    ],
+    name: "getAmountsOut",
+    outputs: [{ name: "amounts", type: "uint256[]" }],
+    stateMutability: "view",
     type: "function",
   },
 ] as const;
@@ -173,88 +194,135 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
-// Helper to determine route between two tokens
-function getRoute(fromToken: Address, toToken: Address): { from: Address; to: Address; stable: boolean; factory: Address }[] {
-  // Direct pairs
-  const directPairs: Record<string, boolean> = {
-    [`${DONUT_ADDRESS.toLowerCase()}-${WETH_ADDRESS.toLowerCase()}`]: false, // DONUT-WETH volatile
-    [`${WETH_ADDRESS.toLowerCase()}-${DONUT_ADDRESS.toLowerCase()}`]: false,
-    [`${DONUT_ADDRESS.toLowerCase()}-${SPRINKLES_ADDRESS.toLowerCase()}`]: false, // DONUT-SPRINKLES volatile
-    [`${SPRINKLES_ADDRESS.toLowerCase()}-${DONUT_ADDRESS.toLowerCase()}`]: false,
-    [`${WETH_ADDRESS.toLowerCase()}-${USDC_ADDRESS.toLowerCase()}`]: false, // WETH-USDC volatile
-    [`${USDC_ADDRESS.toLowerCase()}-${WETH_ADDRESS.toLowerCase()}`]: false,
+// Swap leg definition for multi-hop swaps
+type SwapLeg = {
+  dex: "uniswap" | "aerodrome";
+  fromToken: Address;
+  toToken: Address;
+  // For Uniswap V2
+  path?: Address[];
+  // For Aerodrome
+  routes?: { from: Address; to: Address; stable: boolean; factory: Address }[];
+};
+
+// Full swap info with multiple legs
+type SwapInfo = {
+  legs: SwapLeg[];
+  displayPath: string[];
+  // Is this a multi-hop cross-DEX swap?
+  isMultiHop: boolean;
+};
+
+function getSwapInfo(fromToken: Address, toToken: Address): SwapInfo {
+  const from = fromToken.toLowerCase();
+  const to = toToken.toLowerCase();
+  
+  // DONUT <-> WETH: Single leg via Uniswap V2
+  if ((from === DONUT_ADDRESS.toLowerCase() && to === WETH_ADDRESS.toLowerCase()) ||
+      (from === WETH_ADDRESS.toLowerCase() && to === DONUT_ADDRESS.toLowerCase())) {
+    return {
+      legs: [{
+        dex: "uniswap",
+        fromToken,
+        toToken,
+        path: [fromToken, toToken],
+      }],
+      displayPath: [
+        from === DONUT_ADDRESS.toLowerCase() ? "DONUT" : "ETH",
+        to === DONUT_ADDRESS.toLowerCase() ? "DONUT" : "ETH",
+      ],
+      isMultiHop: false,
+    };
+  }
+  
+  // DONUT <-> SPRINKLES: Single leg via Aerodrome
+  if ((from === DONUT_ADDRESS.toLowerCase() && to === SPRINKLES_ADDRESS.toLowerCase()) ||
+      (from === SPRINKLES_ADDRESS.toLowerCase() && to === DONUT_ADDRESS.toLowerCase())) {
+    return {
+      legs: [{
+        dex: "aerodrome",
+        fromToken,
+        toToken,
+        routes: [{
+          from: fromToken,
+          to: toToken,
+          stable: false,
+          factory: AERODROME_FACTORY,
+        }],
+      }],
+      displayPath: [
+        from === DONUT_ADDRESS.toLowerCase() ? "DONUT" : "SPRINKLES",
+        to === DONUT_ADDRESS.toLowerCase() ? "DONUT" : "SPRINKLES",
+      ],
+      isMultiHop: false,
+    };
+  }
+
+  // ETH -> SPRINKLES: Two legs - ETH -> DONUT (Uniswap) then DONUT -> SPRINKLES (Aerodrome)
+  if (from === WETH_ADDRESS.toLowerCase() && to === SPRINKLES_ADDRESS.toLowerCase()) {
+    return {
+      legs: [
+        {
+          dex: "uniswap",
+          fromToken: WETH_ADDRESS,
+          toToken: DONUT_ADDRESS,
+          path: [WETH_ADDRESS, DONUT_ADDRESS],
+        },
+        {
+          dex: "aerodrome",
+          fromToken: DONUT_ADDRESS,
+          toToken: SPRINKLES_ADDRESS,
+          routes: [{
+            from: DONUT_ADDRESS,
+            to: SPRINKLES_ADDRESS,
+            stable: false,
+            factory: AERODROME_FACTORY,
+          }],
+        },
+      ],
+      displayPath: ["ETH", "DONUT", "SPRINKLES"],
+      isMultiHop: true,
+    };
+  }
+
+  // SPRINKLES -> ETH: Two legs - SPRINKLES -> DONUT (Aerodrome) then DONUT -> ETH (Uniswap)
+  if (from === SPRINKLES_ADDRESS.toLowerCase() && to === WETH_ADDRESS.toLowerCase()) {
+    return {
+      legs: [
+        {
+          dex: "aerodrome",
+          fromToken: SPRINKLES_ADDRESS,
+          toToken: DONUT_ADDRESS,
+          routes: [{
+            from: SPRINKLES_ADDRESS,
+            to: DONUT_ADDRESS,
+            stable: false,
+            factory: AERODROME_FACTORY,
+          }],
+        },
+        {
+          dex: "uniswap",
+          fromToken: DONUT_ADDRESS,
+          toToken: WETH_ADDRESS,
+          path: [DONUT_ADDRESS, WETH_ADDRESS],
+        },
+      ],
+      displayPath: ["SPRINKLES", "DONUT", "ETH"],
+      isMultiHop: true,
+    };
+  }
+
+  // Default: try Uniswap direct (may fail)
+  return {
+    legs: [{
+      dex: "uniswap",
+      fromToken,
+      toToken,
+      path: [fromToken, toToken],
+    }],
+    displayPath: ["?", "?"],
+    isMultiHop: false,
   };
-
-  const pairKey = `${fromToken.toLowerCase()}-${toToken.toLowerCase()}`;
-  
-  // Check if direct pair exists
-  if (pairKey in directPairs) {
-    return [{
-      from: fromToken,
-      to: toToken,
-      stable: directPairs[pairKey],
-      factory: AERODROME_FACTORY,
-    }];
-  }
-
-  // Multi-hop through WETH or DONUT
-  // USDC -> DONUT: USDC -> WETH -> DONUT
-  if (fromToken.toLowerCase() === USDC_ADDRESS.toLowerCase() && toToken.toLowerCase() === DONUT_ADDRESS.toLowerCase()) {
-    return [
-      { from: USDC_ADDRESS, to: WETH_ADDRESS, stable: false, factory: AERODROME_FACTORY },
-      { from: WETH_ADDRESS, to: DONUT_ADDRESS, stable: false, factory: AERODROME_FACTORY },
-    ];
-  }
-  
-  // DONUT -> USDC: DONUT -> WETH -> USDC
-  if (fromToken.toLowerCase() === DONUT_ADDRESS.toLowerCase() && toToken.toLowerCase() === USDC_ADDRESS.toLowerCase()) {
-    return [
-      { from: DONUT_ADDRESS, to: WETH_ADDRESS, stable: false, factory: AERODROME_FACTORY },
-      { from: WETH_ADDRESS, to: USDC_ADDRESS, stable: false, factory: AERODROME_FACTORY },
-    ];
-  }
-
-  // SPRINKLES -> WETH: SPRINKLES -> DONUT -> WETH
-  if (fromToken.toLowerCase() === SPRINKLES_ADDRESS.toLowerCase() && toToken.toLowerCase() === WETH_ADDRESS.toLowerCase()) {
-    return [
-      { from: SPRINKLES_ADDRESS, to: DONUT_ADDRESS, stable: false, factory: AERODROME_FACTORY },
-      { from: DONUT_ADDRESS, to: WETH_ADDRESS, stable: false, factory: AERODROME_FACTORY },
-    ];
-  }
-
-  // WETH -> SPRINKLES: WETH -> DONUT -> SPRINKLES
-  if (fromToken.toLowerCase() === WETH_ADDRESS.toLowerCase() && toToken.toLowerCase() === SPRINKLES_ADDRESS.toLowerCase()) {
-    return [
-      { from: WETH_ADDRESS, to: DONUT_ADDRESS, stable: false, factory: AERODROME_FACTORY },
-      { from: DONUT_ADDRESS, to: SPRINKLES_ADDRESS, stable: false, factory: AERODROME_FACTORY },
-    ];
-  }
-
-  // USDC -> SPRINKLES: USDC -> WETH -> DONUT -> SPRINKLES
-  if (fromToken.toLowerCase() === USDC_ADDRESS.toLowerCase() && toToken.toLowerCase() === SPRINKLES_ADDRESS.toLowerCase()) {
-    return [
-      { from: USDC_ADDRESS, to: WETH_ADDRESS, stable: false, factory: AERODROME_FACTORY },
-      { from: WETH_ADDRESS, to: DONUT_ADDRESS, stable: false, factory: AERODROME_FACTORY },
-      { from: DONUT_ADDRESS, to: SPRINKLES_ADDRESS, stable: false, factory: AERODROME_FACTORY },
-    ];
-  }
-
-  // SPRINKLES -> USDC: SPRINKLES -> DONUT -> WETH -> USDC
-  if (fromToken.toLowerCase() === SPRINKLES_ADDRESS.toLowerCase() && toToken.toLowerCase() === USDC_ADDRESS.toLowerCase()) {
-    return [
-      { from: SPRINKLES_ADDRESS, to: DONUT_ADDRESS, stable: false, factory: AERODROME_FACTORY },
-      { from: DONUT_ADDRESS, to: WETH_ADDRESS, stable: false, factory: AERODROME_FACTORY },
-      { from: WETH_ADDRESS, to: USDC_ADDRESS, stable: false, factory: AERODROME_FACTORY },
-    ];
-  }
-
-  // Default: try direct (may fail)
-  return [{
-    from: fromToken,
-    to: toToken,
-    stable: false,
-    factory: AERODROME_FACTORY,
-  }];
 }
 
 export default function SwapPage() {
@@ -273,9 +341,20 @@ export default function SwapPage() {
   const [showSettings, setShowSettings] = useState(false);
   
   // Transaction state
-  const [txStep, setTxStep] = useState<"idle" | "approving" | "transferring_fee" | "swapping">("idle");
+  // For multi-hop: approving_leg1, swapping_leg1, approving_leg2, swapping_leg2
+  const [txStep, setTxStep] = useState<
+    "idle" | 
+    "approving" | 
+    "transferring_fee" | 
+    "swapping_leg1" | 
+    "approving_leg2" | 
+    "swapping_leg2"
+  >("idle");
   const [swapResult, setSwapResult] = useState<"success" | "failure" | null>(null);
   const swapResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // Track intermediate DONUT balance for multi-hop swaps
+  const [intermediateAmount, setIntermediateAmount] = useState<bigint>(0n);
 
   const resetSwapResult = useCallback(() => {
     if (swapResultTimeoutRef.current) {
@@ -382,16 +461,55 @@ export default function SwapPage() {
     },
   });
 
-  // Read input token allowance for router
+  // Get swap info to determine routing
+  const swapInfo = useMemo(() => {
+    return getSwapInfo(inputToken.address, outputToken.address);
+  }, [inputToken.address, outputToken.address]);
+
+  // First leg info
+  const firstLeg = swapInfo.legs[0];
+  const secondLeg = swapInfo.legs[1]; // May be undefined for single-hop
+
+  // Determine which router to approve for the first leg
+  const routerForLeg1 = firstLeg.dex === "uniswap" ? UNISWAP_V2_ROUTER : AERODROME_ROUTER;
+  const routerForLeg2 = secondLeg?.dex === "uniswap" ? UNISWAP_V2_ROUTER : AERODROME_ROUTER;
+
+  // Read allowance for first leg router
   const { data: inputAllowance, refetch: refetchAllowance } = useReadContract({
     address: inputToken.address,
     abi: ERC20_ABI,
     functionName: "allowance",
-    args: [address ?? zeroAddress, AERODROME_ROUTER],
+    args: [address ?? zeroAddress, routerForLeg1],
     chainId: base.id,
     query: {
       enabled: !!address,
       refetchInterval: 10_000,
+    },
+  });
+
+  // Read DONUT allowance for second leg (for multi-hop)
+  const { data: donutAllowanceForLeg2, refetch: refetchDonutAllowance } = useReadContract({
+    address: DONUT_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: [address ?? zeroAddress, routerForLeg2 ?? zeroAddress],
+    chainId: base.id,
+    query: {
+      enabled: !!address && swapInfo.isMultiHop,
+      refetchInterval: 5_000,
+    },
+  });
+
+  // Read DONUT balance (for multi-hop intermediate)
+  const { data: donutBalance, refetch: refetchDonutBalance } = useReadContract({
+    address: DONUT_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "balanceOf",
+    args: [address ?? zeroAddress],
+    chainId: base.id,
+    query: {
+      enabled: !!address && swapInfo.isMultiHop,
+      refetchInterval: 5_000,
     },
   });
 
@@ -411,35 +529,96 @@ export default function SwapPage() {
     return (inputAmountWei * BigInt(SWAP_FEE_BPS)) / BigInt(FEE_DENOMINATOR);
   }, [inputAmountWei]);
 
-  // Amount after fee (what gets swapped)
+  // Amount after fee (what gets swapped in first leg)
   const amountAfterFee = useMemo(() => {
     if (inputAmountWei === 0n) return 0n;
     return inputAmountWei - feeAmount;
   }, [inputAmountWei, feeAmount]);
 
-  // Get route for swap
-  const route = useMemo(() => {
-    return getRoute(inputToken.address, outputToken.address);
-  }, [inputToken.address, outputToken.address]);
-
-  // Get quote from Aerodrome
-  const { data: quoteData, refetch: refetchQuote } = useReadContract({
-    address: AERODROME_ROUTER,
-    abi: AERODROME_ROUTER_ABI,
+  // Get quote for first leg (Uniswap)
+  const { data: leg1UniswapQuote, refetch: refetchLeg1Uniswap } = useReadContract({
+    address: UNISWAP_V2_ROUTER,
+    abi: UNISWAP_V2_ROUTER_ABI,
     functionName: "getAmountsOut",
-    args: [amountAfterFee, route],
+    args: [amountAfterFee, firstLeg.path ?? []],
     chainId: base.id,
     query: {
-      enabled: amountAfterFee > 0n && route.length > 0,
+      enabled: amountAfterFee > 0n && firstLeg.dex === "uniswap" && !!firstLeg.path?.length,
       refetchInterval: 10_000,
     },
   });
 
-  const outputAmount = useMemo(() => {
+  // Get quote for first leg (Aerodrome)
+  const { data: leg1AerodromeQuote, refetch: refetchLeg1Aerodrome } = useReadContract({
+    address: AERODROME_ROUTER,
+    abi: AERODROME_ROUTER_ABI,
+    functionName: "getAmountsOut",
+    args: [amountAfterFee, firstLeg.routes ?? []],
+    chainId: base.id,
+    query: {
+      enabled: amountAfterFee > 0n && firstLeg.dex === "aerodrome" && !!firstLeg.routes?.length,
+      refetchInterval: 10_000,
+    },
+  });
+
+  // First leg output (intermediate DONUT amount for multi-hop)
+  const leg1Output = useMemo(() => {
+    const quoteData = firstLeg.dex === "uniswap" ? leg1UniswapQuote : leg1AerodromeQuote;
     if (!quoteData || !Array.isArray(quoteData) || quoteData.length < 2) return 0n;
-    // Last element is the final output amount
     return quoteData[quoteData.length - 1] as bigint;
-  }, [quoteData]);
+  }, [firstLeg.dex, leg1UniswapQuote, leg1AerodromeQuote]);
+
+  // Get quote for second leg (if multi-hop)
+  const { data: leg2UniswapQuote, refetch: refetchLeg2Uniswap } = useReadContract({
+    address: UNISWAP_V2_ROUTER,
+    abi: UNISWAP_V2_ROUTER_ABI,
+    functionName: "getAmountsOut",
+    args: [leg1Output, secondLeg?.path ?? []],
+    chainId: base.id,
+    query: {
+      enabled: leg1Output > 0n && swapInfo.isMultiHop && secondLeg?.dex === "uniswap" && !!secondLeg?.path?.length,
+      refetchInterval: 10_000,
+    },
+  });
+
+  const { data: leg2AerodromeQuote, refetch: refetchLeg2Aerodrome } = useReadContract({
+    address: AERODROME_ROUTER,
+    abi: AERODROME_ROUTER_ABI,
+    functionName: "getAmountsOut",
+    args: [leg1Output, secondLeg?.routes ?? []],
+    chainId: base.id,
+    query: {
+      enabled: leg1Output > 0n && swapInfo.isMultiHop && secondLeg?.dex === "aerodrome" && !!secondLeg?.routes?.length,
+      refetchInterval: 10_000,
+    },
+  });
+
+  // Final output amount
+  const outputAmount = useMemo(() => {
+    if (!swapInfo.isMultiHop) {
+      // Single hop - just return leg1 output
+      return leg1Output;
+    }
+    // Multi-hop - return leg2 output
+    const leg2Quote = secondLeg?.dex === "uniswap" ? leg2UniswapQuote : leg2AerodromeQuote;
+    if (!leg2Quote || !Array.isArray(leg2Quote) || leg2Quote.length < 2) return 0n;
+    return leg2Quote[leg2Quote.length - 1] as bigint;
+  }, [swapInfo.isMultiHop, leg1Output, secondLeg?.dex, leg2UniswapQuote, leg2AerodromeQuote]);
+
+  const refetchQuote = useCallback(() => {
+    if (firstLeg.dex === "uniswap") {
+      refetchLeg1Uniswap();
+    } else {
+      refetchLeg1Aerodrome();
+    }
+    if (swapInfo.isMultiHop && secondLeg) {
+      if (secondLeg.dex === "uniswap") {
+        refetchLeg2Uniswap();
+      } else {
+        refetchLeg2Aerodrome();
+      }
+    }
+  }, [firstLeg.dex, swapInfo.isMultiHop, secondLeg, refetchLeg1Uniswap, refetchLeg1Aerodrome, refetchLeg2Uniswap, refetchLeg2Aerodrome]);
 
   const outputAmountDisplay = useMemo(() => {
     if (outputAmount === 0n) return "0";
@@ -447,14 +626,21 @@ export default function SwapPage() {
     return formatted.toLocaleString(undefined, { maximumFractionDigits: 6 });
   }, [outputAmount, outputToken.decimals]);
 
-  // Minimum output with slippage
+  // Minimum output with slippage (applied to final output)
   const minOutputAmount = useMemo(() => {
     if (outputAmount === 0n) return 0n;
     const slippageBps = BigInt(Math.floor(slippage * 100));
     return outputAmount - (outputAmount * slippageBps) / 10000n;
   }, [outputAmount, slippage]);
 
-  // Check if needs approval
+  // Minimum intermediate amount for leg1 (with slippage)
+  const minLeg1Output = useMemo(() => {
+    if (leg1Output === 0n) return 0n;
+    const slippageBps = BigInt(Math.floor(slippage * 100));
+    return leg1Output - (leg1Output * slippageBps) / 10000n;
+  }, [leg1Output, slippage]);
+
+  // Check if needs approval for first leg
   const needsApproval = useMemo(() => {
     if (!inputAllowance || inputAmountWei === 0n) return true;
     return (inputAllowance as bigint) < inputAmountWei;
@@ -480,7 +666,7 @@ export default function SwapPage() {
 
   // Handle swap process
   const handleSwap = useCallback(async () => {
-    console.log("handleSwap called", { address, inputAmountWei: inputAmountWei.toString(), txStep, needsApproval });
+    console.log("handleSwap called", { address, inputAmountWei: inputAmountWei.toString(), txStep, needsApproval, isMultiHop: swapInfo.isMultiHop });
     
     if (!address) {
       console.log("No address, attempting to connect");
@@ -495,6 +681,7 @@ export default function SwapPage() {
         });
       } catch (e) {
         console.error("Connect failed:", e);
+        setTxStep("idle");
       }
       return;
     }
@@ -505,17 +692,18 @@ export default function SwapPage() {
     }
     
     resetSwapResult();
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
 
     try {
-      // Step 1: Approve if needed
+      // Step 1: Approve input token for first leg router (if needed)
       if (needsApproval && txStep === "idle") {
-        console.log("Starting approval");
+        console.log("Starting approval for leg 1 on", firstLeg.dex);
         setTxStep("approving");
         await writeContract({
           address: inputToken.address,
           abi: ERC20_ABI,
           functionName: "approve",
-          args: [AERODROME_ROUTER, inputAmountWei],
+          args: [routerForLeg1, inputAmountWei],
           chainId: base.id,
         });
         return;
@@ -536,7 +724,7 @@ export default function SwapPage() {
       }
 
       if (txStep === "transferring_fee") {
-        console.log("Continuing fee transfer");
+        console.log("Executing fee transfer");
         await writeContract({
           address: inputToken.address,
           abi: ERC20_ABI,
@@ -547,29 +735,85 @@ export default function SwapPage() {
         return;
       }
 
-      // Step 3: Execute swap
-      if (txStep === "swapping") {
-        console.log("Executing swap");
-        const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
+      // Step 3: Execute first leg swap
+      if (txStep === "swapping_leg1") {
+        console.log("Executing leg 1 swap via", firstLeg.dex);
         
+        if (firstLeg.dex === "uniswap" && firstLeg.path) {
+          // For single-hop, use final minOutput. For multi-hop, use intermediate minOutput
+          const minOut = swapInfo.isMultiHop ? minLeg1Output : minOutputAmount;
+          await writeContract({
+            address: UNISWAP_V2_ROUTER,
+            abi: UNISWAP_V2_ROUTER_ABI,
+            functionName: "swapExactTokensForTokens",
+            args: [amountAfterFee, minOut, firstLeg.path, address, deadline],
+            chainId: base.id,
+          });
+        } else if (firstLeg.dex === "aerodrome" && firstLeg.routes) {
+          const minOut = swapInfo.isMultiHop ? minLeg1Output : minOutputAmount;
+          await writeContract({
+            address: AERODROME_ROUTER,
+            abi: AERODROME_ROUTER_ABI,
+            functionName: "swapExactTokensForTokens",
+            args: [amountAfterFee, minOut, firstLeg.routes, address, deadline],
+            chainId: base.id,
+          });
+        }
+        return;
+      }
+
+      // Step 4: Approve DONUT for second leg router (multi-hop only)
+      if (txStep === "approving_leg2" && swapInfo.isMultiHop && secondLeg) {
+        console.log("Approving DONUT for leg 2 on", secondLeg.dex);
+        // Approve max uint256 for convenience
         await writeContract({
-          address: AERODROME_ROUTER,
-          abi: AERODROME_ROUTER_ABI,
-          functionName: "swapExactTokensForTokens",
-          args: [
-            amountAfterFee,
-            minOutputAmount,
-            route,
-            address,
-            deadline,
-          ],
+          address: DONUT_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: "approve",
+          args: [routerForLeg2!, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
           chainId: base.id,
         });
+        return;
       }
-    } catch (error) {
+
+      // Step 5: Execute second leg swap (multi-hop only)
+      if (txStep === "swapping_leg2" && swapInfo.isMultiHop && secondLeg) {
+        console.log("Executing leg 2 swap via", secondLeg.dex);
+        
+        // Get current DONUT balance to swap all of it
+        const donutBal = donutBalance as bigint ?? 0n;
+        // Use the intermediate amount we tracked, or current balance
+        const swapAmount = intermediateAmount > 0n ? intermediateAmount : donutBal;
+        
+        if (secondLeg.dex === "uniswap" && secondLeg.path) {
+          await writeContract({
+            address: UNISWAP_V2_ROUTER,
+            abi: UNISWAP_V2_ROUTER_ABI,
+            functionName: "swapExactTokensForTokens",
+            args: [swapAmount, minOutputAmount, secondLeg.path, address, deadline],
+            chainId: base.id,
+          });
+        } else if (secondLeg.dex === "aerodrome" && secondLeg.routes) {
+          await writeContract({
+            address: AERODROME_ROUTER,
+            abi: AERODROME_ROUTER_ABI,
+            functionName: "swapExactTokensForTokens",
+            args: [swapAmount, minOutputAmount, secondLeg.routes, address, deadline],
+            chainId: base.id,
+          });
+        }
+        return;
+      }
+    } catch (error: any) {
       console.error("Swap failed:", error);
-      showSwapResultFn("failure");
+      // Check if user rejected/cancelled
+      if (error?.message?.includes("User rejected") || error?.message?.includes("cancelled") || error?.code === 4001) {
+        console.log("User cancelled transaction");
+      } else {
+        showSwapResultFn("failure");
+      }
       setTxStep("idle");
+      setIntermediateAmount(0n);
       resetWrite();
     }
   }, [
@@ -580,7 +824,14 @@ export default function SwapPage() {
     feeAmount,
     amountAfterFee,
     minOutputAmount,
-    route,
+    minLeg1Output,
+    swapInfo,
+    firstLeg,
+    secondLeg,
+    routerForLeg1,
+    routerForLeg2,
+    intermediateAmount,
+    donutBalance,
     inputToken.address,
     writeContract,
     resetSwapResult,
@@ -597,6 +848,7 @@ export default function SwapPage() {
     if (receipt.status === "reverted") {
       showSwapResultFn("failure");
       setTxStep("idle");
+      setIntermediateAmount(0n);
       resetWrite();
       return;
     }
@@ -610,26 +862,83 @@ export default function SwapPage() {
 
       if (txStep === "transferring_fee") {
         resetWrite();
-        setTxStep("swapping");
+        setTxStep("swapping_leg1");
         return;
       }
 
-      if (txStep === "swapping") {
+      if (txStep === "swapping_leg1") {
+        if (swapInfo.isMultiHop) {
+          // After leg1, check if we need to approve DONUT for leg2
+          resetWrite();
+          refetchDonutBalance();
+          refetchDonutAllowance();
+          // Store intermediate amount (will be updated when balance refetches)
+          setIntermediateAmount(leg1Output);
+          
+          // Check if DONUT is already approved for leg2 router
+          const donutAllowance = donutAllowanceForLeg2 as bigint ?? 0n;
+          if (donutAllowance < leg1Output) {
+            setTxStep("approving_leg2");
+          } else {
+            setTxStep("swapping_leg2");
+          }
+          return;
+        } else {
+          // Single hop complete
+          showSwapResultFn("success");
+          setTxStep("idle");
+          setInputAmount("");
+          refetchInputBalance();
+          refetchAllowance();
+          resetWrite();
+          return;
+        }
+      }
+
+      if (txStep === "approving_leg2") {
+        resetWrite();
+        refetchDonutAllowance();
+        setTxStep("swapping_leg2");
+        return;
+      }
+
+      if (txStep === "swapping_leg2") {
+        // Multi-hop complete!
         showSwapResultFn("success");
         setTxStep("idle");
+        setIntermediateAmount(0n);
         setInputAmount("");
         refetchInputBalance();
         refetchAllowance();
+        refetchDonutBalance();
         resetWrite();
         return;
       }
     }
-  }, [receipt, txStep, resetWrite, showSwapResultFn, refetchInputBalance, refetchAllowance]);
+  }, [receipt, txStep, swapInfo.isMultiHop, leg1Output, donutAllowanceForLeg2, resetWrite, showSwapResultFn, refetchInputBalance, refetchAllowance, refetchDonutBalance, refetchDonutAllowance]);
 
-  // Auto-continue swap after approval/fee transfer
+  // Auto-continue swap after approval/fee transfer - only if we have a pending step
+  const pendingStepRef = useRef(false);
+  
   useEffect(() => {
-    if ((txStep === "transferring_fee" || txStep === "swapping") && !isWriting && !isConfirming && !txHash) {
-      handleSwap();
+    // Only auto-continue if we're in a middle step and not already processing
+    if (
+      (txStep === "transferring_fee" || txStep === "swapping_leg1" || txStep === "approving_leg2" || txStep === "swapping_leg2") && 
+      !isWriting && 
+      !isConfirming && 
+      !txHash &&
+      !pendingStepRef.current
+    ) {
+      pendingStepRef.current = true;
+      // Small delay to prevent rapid re-firing
+      const timer = setTimeout(() => {
+        handleSwap();
+        pendingStepRef.current = false;
+      }, 500);
+      return () => {
+        clearTimeout(timer);
+        pendingStepRef.current = false;
+      };
     }
   }, [txStep, isWriting, isConfirming, txHash, handleSwap]);
 
@@ -648,14 +957,16 @@ export default function SwapPage() {
     if (isWriting || isConfirming) {
       if (txStep === "approving") return "Approving...";
       if (txStep === "transferring_fee") return "Processing Fee...";
-      if (txStep === "swapping") return "Swapping...";
+      if (txStep === "swapping_leg1") return swapInfo.isMultiHop ? "Swapping (1/2)..." : "Swapping...";
+      if (txStep === "approving_leg2") return "Approving DONUT...";
+      if (txStep === "swapping_leg2") return "Swapping (2/2)...";
       return "Processing...";
     }
     if (!inputAmount || inputAmount === "0") return "Enter Amount";
     if (!hasSufficientBalance) return "Insufficient Balance";
-    if (needsApproval) return "Approve & Swap";
-    return "Swap";
-  }, [swapResult, isWriting, isConfirming, txStep, inputAmount, hasSufficientBalance, needsApproval]);
+    if (needsApproval) return swapInfo.isMultiHop ? "Approve & Multi-Swap" : "Approve & Swap";
+    return swapInfo.isMultiHop ? "Multi-Swap" : "Swap";
+  }, [swapResult, isWriting, isConfirming, txStep, inputAmount, hasSufficientBalance, needsApproval, swapInfo.isMultiHop]);
 
   const isSwapDisabled =
     !inputAmount ||
@@ -834,15 +1145,16 @@ export default function SwapPage() {
             <div className="flex items-center justify-between text-xs mt-1">
               <span className="text-gray-400">Route</span>
               <span className="text-white text-[10px]">
-                {route.map((r, i) => {
-                  const fromToken = TOKENS.find(t => t.address.toLowerCase() === r.from.toLowerCase());
-                  const toToken = TOKENS.find(t => t.address.toLowerCase() === r.to.toLowerCase());
-                  return (
-                    <span key={i}>
-                      {i === 0 ? fromToken?.symbol : ""}{i === 0 ? " → " : ""}{toToken?.symbol}{i < route.length - 1 ? " → " : ""}
-                    </span>
-                  );
-                })}
+                {swapInfo.displayPath.join(" → ")}
+                {swapInfo.isMultiHop ? (
+                  <span className="text-gray-500 ml-1">
+                    ({firstLeg.dex === "uniswap" ? "Uni" : "Aero"} → {secondLeg?.dex === "uniswap" ? "Uni" : "Aero"})
+                  </span>
+                ) : (
+                  <span className="text-gray-500 ml-1">
+                    ({firstLeg.dex === "uniswap" ? "Uniswap" : "Aerodrome"})
+                  </span>
+                )}
               </span>
             </div>
           </div>
@@ -875,7 +1187,7 @@ export default function SwapPage() {
           {/* Powered by notice */}
           <div className="text-center mt-3">
             <span className="text-[10px] text-gray-600">
-              Powered by Aerodrome • 0.3% fee supports Donut Labs
+              Powered by {swapInfo.isMultiHop ? "Uniswap + Aerodrome" : (firstLeg.dex === "uniswap" ? "Uniswap" : "Aerodrome")} • 0.3% fee supports Donut Labs
             </span>
           </div>
 
