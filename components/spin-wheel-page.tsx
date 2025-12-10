@@ -624,34 +624,44 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   }, [buyReceipt, address, hasProcessedBuy, onSpinComplete, refetchAuction, resetBuy]);
 
   // Continuous rotation animation - ALWAYS spinning, speed varies by stage
+  // Use refs to avoid jerky re-renders
+  const speedRef = useRef(15);
+  const targetSpeedRef = useRef(15);
+  
+  useEffect(() => {
+    // Update target speed based on stage
+    switch (stage) {
+      case "committing":
+        targetSpeedRef.current = 120;
+        break;
+      case "waiting":
+        targetSpeedRef.current = 200;
+        break;
+      case "revealing":
+        targetSpeedRef.current = 250;
+        break;
+      case "spinning":
+      case "result":
+        targetSpeedRef.current = 0; // CSS handles this
+        break;
+      default:
+        targetSpeedRef.current = 15; // Slow idle
+    }
+  }, [stage]);
+
   useEffect(() => {
     let lastTime = performance.now();
-    let currentSpeed = 15; // degrees per second
-    
-    const getTargetSpeed = () => {
-      switch (stage) {
-        case "committing":
-        case "waiting":
-        case "revealing":
-          return 180; // Fast spin during blockchain operations
-        case "spinning":
-        case "result":
-          return 0; // CSS transition handles this
-        default:
-          return 15; // Slow idle spin
-      }
-    };
 
     const animate = (currentTime: number) => {
       const delta = (currentTime - lastTime) / 1000;
       lastTime = currentTime;
       
-      // Smoothly interpolate speed
-      const targetSpeed = getTargetSpeed();
-      currentSpeed += (targetSpeed - currentSpeed) * 0.05;
+      // Smoothly interpolate speed (ease toward target)
+      const diff = targetSpeedRef.current - speedRef.current;
+      speedRef.current += diff * 0.02; // Very smooth transition
       
       if (stage !== "spinning" && stage !== "result") {
-        setContinuousRotation(prev => prev + delta * currentSpeed);
+        setContinuousRotation(prev => prev + delta * speedRef.current);
       }
       
       animationRef.current = requestAnimationFrame(animate);
@@ -1300,36 +1310,29 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
             <div className="flex flex-col items-center justify-center gap-1 py-3">
               <div className="flex items-center gap-2 text-amber-400">
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span className="text-sm font-bold">Confirm in wallet...</span>
+                <span className="text-sm font-bold">Starting spin...</span>
               </div>
-              <span className="text-[10px] text-gray-500">Sign to start spinning</span>
+              <span className="text-[10px] text-gray-500">Confirm in wallet</span>
             </div>
           )}
 
           {stage === "waiting" && (
             <div className="flex flex-col items-center justify-center gap-1 py-3">
-              <div className="flex items-center gap-2 text-amber-400">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span className="text-sm font-bold">Building suspense...</span>
-              </div>
-              <span className="text-[10px] text-gray-500">Waiting for blockchain</span>
+              <span className="text-amber-400 text-lg font-bold animate-pulse">🎰 Spinning... 🎰</span>
+              <span className="text-[10px] text-gray-500">Generating random result</span>
             </div>
           )}
 
           {stage === "revealing" && (
             <div className="flex flex-col items-center justify-center gap-1 py-3">
-              <div className="flex items-center gap-2 text-amber-400">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span className="text-sm font-bold">Confirm to reveal...</span>
-              </div>
-              <span className="text-[10px] text-gray-500">Sign to see your prize!</span>
+              <span className="text-amber-400 text-lg font-bold animate-pulse">🎰 Spinning... 🎰</span>
+              <span className="text-[10px] text-gray-500">Confirm to lock in result</span>
             </div>
           )}
 
           {stage === "spinning" && (
             <div className="flex flex-col items-center justify-center gap-1 py-3">
               <span className="text-amber-400 text-lg font-bold animate-pulse">🎰 Good luck! 🎰</span>
-              <span className="text-[10px] text-gray-500">Wheel is spinning...</span>
             </div>
           )}
 
