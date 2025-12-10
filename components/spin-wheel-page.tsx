@@ -213,6 +213,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   const animationRef = useRef<number | null>(null);
   const isProcessingRef = useRef(false);
   const hasStartedRef = useRef(false);
+  const hasTriggeredRevealRef = useRef(false);
 
   // Sync local spins with prop
   useEffect(() => {
@@ -434,8 +435,23 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
 
   // Handle spin
   const handleSpin = useCallback(async () => {
-    if (!address || localSpins <= 0 || hasStartedRef.current) return;
+    // Multiple guards to prevent double-triggering
+    if (!address || localSpins <= 0) return;
+    if (hasStartedRef.current) {
+      console.log("Spin already started, ignoring");
+      return;
+    }
+    if (stage !== "idle") {
+      console.log("Not in idle stage, ignoring spin request");
+      return;
+    }
+    if (isCommitting || commitHash) {
+      console.log("Already committing, ignoring");
+      return;
+    }
+    
     hasStartedRef.current = true;
+    hasTriggeredRevealRef.current = false;
     setError(null);
     setStage("committing");
 
@@ -467,7 +483,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
       hasStartedRef.current = false;
       clearSecret(address);
     }
-  }, [address, localSpins, writeCommit]);
+  }, [address, localSpins, stage, isCommitting, commitHash, writeCommit]);
 
   // Handle reveal
   const handleReveal = useCallback(async () => {
@@ -545,6 +561,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     if (commitReceipt?.status === "success" && stage === "committing") {
       console.log("Commit confirmed, waiting for reveal eligibility...");
       setStage("waiting");
+      hasTriggeredRevealRef.current = false; // Reset for new spin
       
       // Poll for reveal eligibility
       const checkReveal = setInterval(async () => {
@@ -566,14 +583,24 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
       setError("Commit transaction failed");
       setStage("idle");
       hasStartedRef.current = false;
+      hasTriggeredRevealRef.current = false;
       if (address) clearSecret(address);
     }
   }, [commitReceipt, stage, address, refetchCommitment]);
 
   // Auto-reveal when canReveal becomes true
   useEffect(() => {
-    if (stage === "waiting" && canRevealPending && !isRevealing && !revealHash) {
+    // Only trigger once, and only when in waiting stage with valid conditions
+    if (
+      stage === "waiting" && 
+      canRevealPending && 
+      !isRevealing && 
+      !revealHash && 
+      !hasTriggeredRevealRef.current
+    ) {
       console.log("Can reveal now! Triggering reveal...");
+      hasTriggeredRevealRef.current = true;
+      
       // Small delay to ensure state is settled
       const timer = setTimeout(() => {
         setStage("revealing");
