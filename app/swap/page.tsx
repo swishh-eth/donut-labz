@@ -379,9 +379,10 @@ export default function SwapPage() {
   const [showInputDropdown, setShowInputDropdown] = useState(false);
   
   // Transaction state
-  const [txStep, setTxStep] = useState<"idle" | "approving" | "transferring_fee" | "swapping">("idle");
+  const [txStep, setTxStep] = useState<"idle" | "approving" | "approving_leg2" | "transferring_fee" | "swapping_leg1" | "swapping_leg2">("idle");
   const [swapResult, setSwapResult] = useState<"success" | "failure" | null>(null);
   const swapResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [leg1Complete, setLeg1Complete] = useState(false);
 
   // Create infinite scroll items (3x the tiles for seamless looping)
   const infiniteItems = useMemo(() => {
@@ -539,6 +540,16 @@ export default function SwapPage() {
 
   const needsApproval = !inputToken.isNative && (inputAllowance ?? 0n) < inputAmountWei;
 
+  // For multi-hop: check if DONUT needs approval for Aerodrome (leg2)
+  const { data: donutAllowanceForAero, refetch: refetchDonutAllowanceForAero } = useReadContract({
+    address: DONUT_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: [address ?? zeroAddress, AERODROME_ROUTER],
+    chainId: base.id,
+    query: { enabled: !!address && route?.dex === "multiHop", refetchInterval: 10_000 },
+  });
+
   // Quote for single-hop V2
   const { data: v2Quote } = useReadContract({
     address: UNISWAP_V2_ROUTER,
@@ -573,6 +584,9 @@ export default function SwapPage() {
     if (!multiLeg1Quote || !Array.isArray(multiLeg1Quote)) return 0n;
     return multiLeg1Quote[multiLeg1Quote.length - 1] as bigint;
   }, [multiLeg1Quote]);
+
+  // Check if DONUT needs approval for Aerodrome (leg2 of multi-hop)
+  const needsLeg2Approval = route?.dex === "multiHop" && (donutAllowanceForAero ?? 0n) < leg1Output;
 
   // Multi-hop: leg2 quote (Aerodrome)
   const { data: multiLeg2AeroQuote } = useReadContract({
@@ -658,6 +672,7 @@ export default function SwapPage() {
     setSelectedToken(null);
     setInputAmount("");
     setTxStep("idle");
+    setLeg1Complete(false);
     setShowInputDropdown(false);
     resetTx();
   };
@@ -669,7 +684,7 @@ export default function SwapPage() {
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
 
     try {
-      // Step 1: Approve if needed
+      // Step 1: Approve input token if needed (for non-ETH inputs)
       if (needsApproval && txStep === "idle") {
         setTxStep("approving");
         await writeContract({
@@ -703,11 +718,10 @@ export default function SwapPage() {
         return;
       }
 
-      // Step 3: Execute swap
+      // Step 3: Execute swap (single-hop or first leg of multi-hop)
       if (txStep === "transferring_fee") {
-        setTxStep("swapping");
-        
         if (route.dex === "uniswapV2") {
+          setTxStep("swapping_leg1");
           if (inputToken.isNative) {
             await writeContract({
               address: UNISWAP_V2_ROUTER,
@@ -727,6 +741,7 @@ export default function SwapPage() {
             });
           }
         } else if (route.dex === "aerodrome") {
+          setTxStep("swapping_leg1");
           await writeContract({
             address: AERODROME_ROUTER,
             abi: AERODROME_ROUTER_ABI,
@@ -734,22 +749,67 @@ export default function SwapPage() {
             args: [amountToSwap, minOutputAmount, route.routes, address, deadline],
             chainId: base.id,
           });
+        } else if (route.dex === "multiHop") {
+          // Multi-hop leg 1: ETH -> DONUT via Uniswap V2
+          setTxStep("swapping_leg1");
+          // Calculate min output for leg1 with slippage
+          const leg1MinOutput = leg1Output - (leg1Output * BigInt(Math.round(slippage * 100))) / 10000n;
+          await writeContract({
+            address: UNISWAP_V2_ROUTER,
+            abi: UNISWAP_V2_ROUTER_ABI,
+            functionName: "swapExactETHForTokens",
+            args: [leg1MinOutput, route.leg1.path, address, deadline],
+            value: amountToSwap,
+            chainId: base.id,
+          });
         }
-        // Multi-hop needs more complex handling
-        else if (route.dex === "multiHop") {
-          console.log("Multi-hop swaps require multiple transactions");
+        return;
+      }
+
+      // Step 4 (multi-hop only): Approve DONUT for Aerodrome if needed
+      if (txStep === "swapping_leg1" && route.dex === "multiHop" && leg1Complete) {
+        if (needsLeg2Approval) {
+          setTxStep("approving_leg2");
+          await writeContract({
+            address: DONUT_ADDRESS,
+            abi: ERC20_ABI,
+            functionName: "approve",
+            args: [AERODROME_ROUTER, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
+            chainId: base.id,
+          });
+          return;
         }
+        // If no approval needed, go straight to leg2
+        setTxStep("approving_leg2");
+      }
+
+      // Step 5 (multi-hop only): Execute leg 2 (DONUT -> SPRINKLES via Aerodrome)
+      if ((txStep === "approving_leg2" || (txStep === "swapping_leg1" && leg1Complete && !needsLeg2Approval)) && route.dex === "multiHop") {
+        setTxStep("swapping_leg2");
+        // Get current DONUT balance to swap
+        const donutToSwap = donutBalance as bigint;
+        if (!donutToSwap || donutToSwap === 0n) {
+          throw new Error("No DONUT balance for leg2");
+        }
+        await writeContract({
+          address: AERODROME_ROUTER,
+          abi: AERODROME_ROUTER_ABI,
+          functionName: "swapExactTokensForTokens",
+          args: [donutToSwap, minOutputAmount, route.leg2.routes, address, deadline],
+          chainId: base.id,
+        });
         return;
       }
     } catch (error) {
       console.error("Swap error:", error);
       showSwapResultFn("failure");
       setTxStep("idle");
+      setLeg1Complete(false);
       resetTx();
     }
   }, [
-    address, selectedToken, route, amountToSwap, needsApproval, txStep,
-    inputToken, feeAmount, minOutputAmount, routerForApproval,
+    address, selectedToken, route, amountToSwap, needsApproval, needsLeg2Approval, txStep, leg1Complete,
+    inputToken, feeAmount, minOutputAmount, routerForApproval, leg1Output, donutBalance, slippage,
     writeContract, sendTransaction, showSwapResultFn, resetTx
   ]);
 
@@ -760,6 +820,7 @@ export default function SwapPage() {
     if (receipt.status === "reverted") {
       showSwapResultFn("failure");
       setTxStep("idle");
+      setLeg1Complete(false);
       resetTx();
       return;
     }
@@ -779,16 +840,45 @@ export default function SwapPage() {
         return;
       }
 
-      if (txStep === "swapping") {
+      if (txStep === "swapping_leg1") {
+        // For single-hop swaps, we're done
+        if (route?.dex !== "multiHop") {
+          showSwapResultFn("success");
+          setTxStep("idle");
+          setInputAmount("");
+          refetchInputBalance();
+          resetTx();
+          return;
+        }
+        // For multi-hop, mark leg1 complete and continue
+        resetTx();
+        refetchDonutBalance(); // Refresh DONUT balance after leg1
+        refetchDonutAllowanceForAero(); // Check if we need approval for leg2
+        setLeg1Complete(true);
+        // Small delay to let balances refresh
+        setTimeout(() => handleSwap(), 500);
+        return;
+      }
+
+      if (txStep === "approving_leg2") {
+        resetTx();
+        refetchDonutAllowanceForAero();
+        handleSwap();
+        return;
+      }
+
+      if (txStep === "swapping_leg2") {
         showSwapResultFn("success");
         setTxStep("idle");
+        setLeg1Complete(false);
         setInputAmount("");
         refetchInputBalance();
+        refetchDonutBalance();
         resetTx();
         return;
       }
     }
-  }, [receipt, txStep, handleSwap, showSwapResultFn, resetTx, refetchAllowance, refetchInputBalance]);
+  }, [receipt, txStep, route, handleSwap, showSwapResultFn, resetTx, refetchAllowance, refetchInputBalance, refetchDonutBalance, refetchDonutAllowanceForAero]);
 
   const isSwapDisabled =
     !isConnected ||
@@ -804,8 +894,10 @@ export default function SwapPage() {
     if (!isConnected) return "Connect Wallet";
     if (isWriting || isSending || isConfirming) {
       if (txStep === "approving") return "Approving...";
+      if (txStep === "approving_leg2") return "Approving DONUT...";
       if (txStep === "transferring_fee") return "Transferring Fee...";
-      if (txStep === "swapping") return "Swapping...";
+      if (txStep === "swapping_leg1") return route?.dex === "multiHop" ? "Swapping to DONUT..." : "Swapping...";
+      if (txStep === "swapping_leg2") return "Swapping to SPRINKLES...";
       return "Processing...";
     }
     if (swapResult === "success") return "Success!";
@@ -814,7 +906,7 @@ export default function SwapPage() {
     if (amountToSwap === 0n) return "Enter Amount";
     if (needsApproval) return "Approve & Swap";
     return "Swap";
-  }, [isConnected, isWriting, isSending, isConfirming, txStep, swapResult, inputBalance, inputAmountWei, amountToSwap, needsApproval]);
+  }, [isConnected, isWriting, isSending, isConfirming, txStep, route, swapResult, inputBalance, inputAmountWei, amountToSwap, needsApproval]);
 
   // Available input tokens for selected token
   const availableInputs = selectedToken?.allowedInputs ?? ["ETH"];
@@ -830,7 +922,7 @@ export default function SwapPage() {
         </div>
 
         {/* Scrollable token list with fade */}
-        <div className="relative flex-1 overflow-hidden">
+        <div className="relative flex-1 min-h-0">
           {/* Top fade */}
           <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-black to-transparent z-10 pointer-events-none" />
           
@@ -840,8 +932,12 @@ export default function SwapPage() {
           {/* Scrollable list */}
           <div
             ref={scrollRef}
-            className="h-full overflow-y-auto px-4 py-8 space-y-3 scrollbar-hide"
-            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            className="h-full overflow-y-scroll px-4 py-8 space-y-3 touch-pan-y"
+            style={{ 
+              WebkitOverflowScrolling: "touch",
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+            }}
           >
             {infiniteItems.map((tile, index) => (
               <TokenTileCard
