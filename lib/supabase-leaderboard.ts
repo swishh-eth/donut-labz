@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -19,14 +19,51 @@ export function getCurrentWeek(): number {
   return weeksElapsed + 1;
 }
 
-// Record a glaze for a user
-export async function recordGlaze(address: string) {
+// Record a glaze for a user (with transaction deduplication)
+export async function recordGlaze(address: string, txHash?: string) {
   const weekNumber = getCurrentWeek();
+  const normalizedAddress = address.toLowerCase();
   
+  // If txHash provided, check for duplicates
+  if (txHash) {
+    const normalizedTxHash = txHash.toLowerCase();
+    
+    // Check if this transaction was already recorded
+    const { data: existingTx } = await supabase
+      .from('glaze_transactions')
+      .select('id')
+      .eq('tx_hash', normalizedTxHash)
+      .single();
+    
+    if (existingTx) {
+      console.log('Transaction already recorded:', normalizedTxHash);
+      return { alreadyRecorded: true };
+    }
+    
+    // Record the transaction
+    const { error: txError } = await supabase
+      .from('glaze_transactions')
+      .insert({
+        tx_hash: normalizedTxHash,
+        address: normalizedAddress,
+        week_number: weekNumber,
+      });
+    
+    if (txError) {
+      // If unique constraint violation, it was already recorded
+      if (txError.code === '23505') {
+        console.log('Transaction already recorded (race condition):', normalizedTxHash);
+        return { alreadyRecorded: true };
+      }
+      throw txError;
+    }
+  }
+  
+  // Now update the leaderboard
   const { data: existing } = await supabase
     .from('leaderboard_entries')
     .select('*')
-    .eq('address', address.toLowerCase())
+    .eq('address', normalizedAddress)
     .eq('week_number', weekNumber)
     .single();
 
@@ -39,7 +76,7 @@ export async function recordGlaze(address: string) {
         last_glaze_timestamp: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('address', address.toLowerCase())
+      .eq('address', normalizedAddress)
       .eq('week_number', weekNumber);
 
     if (error) throw error;
@@ -47,7 +84,7 @@ export async function recordGlaze(address: string) {
     const { error } = await supabase
       .from('leaderboard_entries')
       .insert({
-        address: address.toLowerCase(),
+        address: normalizedAddress,
         points: 1,
         total_glazes: 1,
         week_number: weekNumber,
@@ -56,6 +93,8 @@ export async function recordGlaze(address: string) {
 
     if (error) throw error;
   }
+  
+  return { alreadyRecorded: false };
 }
 
 // Get current week's leaderboard

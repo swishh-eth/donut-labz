@@ -129,8 +129,17 @@ export async function POST(request: Request) {
       );
     }
 
-    // All checks passed - record the glaze!
-    await recordGlaze(address);
+    // All checks passed - record the glaze with txHash for deduplication!
+    const result = await recordGlaze(address, txHash);
+
+    if (result.alreadyRecorded) {
+      console.log('Glaze already recorded:', { address, txHash });
+      return NextResponse.json({
+        success: true,
+        message: 'Glaze already recorded',
+        alreadyRecorded: true,
+      });
+    }
 
     console.log('Valid glaze recorded:', { address, txHash });
 
