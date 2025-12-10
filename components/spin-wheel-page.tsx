@@ -330,7 +330,12 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   const isBoostActive = boostInfo ? boostInfo[0] : false;
   const boostMultiplier = boostInfo ? Number(boostInfo[1]) : 1;
 
-  const hasPendingCommit = commitmentData ? (commitmentData[0] !== "0x0000000000000000000000000000000000000000000000000000000000000000" && !commitmentData[2]) : false;
+  // blocksUntilExpiry === 0 means the commitment is expired and can be overwritten
+  const hasPendingCommit = commitmentData 
+    ? (commitmentData[0] !== "0x0000000000000000000000000000000000000000000000000000000000000000" 
+       && !commitmentData[2] 
+       && Number(commitmentData[4]) > 0)  // Only pending if blocks remaining > 0
+    : false;
   const canRevealPending = commitmentData ? commitmentData[3] : false;
   const blocksUntilExpiry = commitmentData ? Number(commitmentData[4]) : 0;
   
@@ -356,7 +361,21 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     }
   }, [isCorruptedSpin, canRevealPending, hasShownIssuePopup]);
   
-  // Debug logging
+  // Debug logging - always log to understand state
+  useEffect(() => {
+    console.log("Spin wheel state:", {
+      address,
+      isConnected: !!address,
+      commitmentData: commitmentData || "undefined",
+      hasPendingCommit,
+      isCorruptedSpin,
+      hasValidSecret,
+      storedSecret: storedSecret ? "exists" : "null",
+      stage,
+    });
+  }, [address, commitmentData, hasPendingCommit, isCorruptedSpin, hasValidSecret, storedSecret, stage]);
+  
+  // Debug logging for commitment data specifically
   useEffect(() => {
     if (commitmentData) {
       console.log("Commitment data:", {
@@ -980,13 +999,34 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                     <span className="text-amber-400 text-sm font-mono">
                       {blocksUntilExpiry > 0 
                         ? `~${Math.ceil(blocksUntilExpiry * 2 / 60)} min until reset` 
-                        : "Waiting for blockchain to clear..."}
+                        : "Commitment expired - trying new spin..."}
                     </span>
-                    <div className="text-[10px] text-gray-500 mt-1">
-                      {blocksUntilExpiry > 0 
-                        ? `${blocksUntilExpiry} blocks remaining`
-                        : "This may take a few more blocks"}
-                    </div>
+                    {blocksUntilExpiry > 0 && (
+                      <div className="text-[10px] text-gray-500 mt-1">
+                        {blocksUntilExpiry} blocks remaining
+                      </div>
+                    )}
+                    {blocksUntilExpiry === 0 && (
+                      <button
+                        onClick={() => {
+                          // Clear local state and try to spin fresh
+                          if (address) {
+                            clearSecret(address);
+                            setSecret(null);
+                            setError(null);
+                            hasStartedRef.current = false;
+                            setHasShownIssuePopup(false);
+                            // Force a fresh refetch
+                            setTimeout(() => {
+                              refetchCommitment();
+                            }, 500);
+                          }
+                        }}
+                        className="mt-2 text-green-400 text-sm font-bold hover:text-green-300 transition-colors"
+                      >
+                        ✓ Try spinning again
+                      </button>
+                    )}
                   </div>
                 </>
               ) : (
