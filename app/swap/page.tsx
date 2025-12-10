@@ -16,7 +16,7 @@ import { formatUnits, parseUnits, zeroAddress, type Address } from "viem";
 
 import { cn, getEthPrice } from "@/lib/utils";
 import { NavBar } from "@/components/nav-bar";
-import { ArrowLeft, ArrowDown, Loader2, ChevronDown, Plus } from "lucide-react";
+import { ArrowLeft, ArrowDown, Loader2, ChevronDown, Plus, Shield, X, ArrowUpDown } from "lucide-react";
 
 // Contract addresses
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as Address;
@@ -30,8 +30,8 @@ const UNISWAP_V2_ROUTER = "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24" as Addres
 const AERODROME_ROUTER = "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43" as Address;
 const AERODROME_FACTORY = "0x420DD381b31aEf6683db6B902084cB0FFECe40Da" as Address;
 
-// Fee configuration (0.05% = 5 basis points)
-const SWAP_FEE_BPS = 5;
+// Fee configuration (0.1% = 10 basis points)
+const SWAP_FEE_BPS = 10;
 const FEE_DENOMINATOR = 10000;
 
 // DexScreener image helpers
@@ -280,37 +280,77 @@ const AERODROME_ROUTER_ABI = [
 ] as const;
 
 // Get swap route info
-function getSwapRoute(inputSymbol: InputSymbol, outputAddress: Address) {
+// When isSelling = true, we're selling the token (output becomes input)
+function getSwapRoute(inputSymbol: InputSymbol, outputAddress: Address, isSelling: boolean = false) {
   const output = outputAddress.toLowerCase();
   
-  // ETH -> DONUT: Uniswap V2
-  if (inputSymbol === "ETH" && output === DONUT_ADDRESS.toLowerCase()) {
-    return {
-      dex: "uniswapV2" as const,
-      router: UNISWAP_V2_ROUTER,
-      path: [WETH_ADDRESS, DONUT_ADDRESS],
-      isMultiHop: false,
-    };
-  }
-  
-  // DONUT -> SPRINKLES: Aerodrome
-  if (inputSymbol === "DONUT" && output === SPRINKLES_ADDRESS.toLowerCase()) {
-    return {
-      dex: "aerodrome" as const,
-      router: AERODROME_ROUTER,
-      routes: [{ from: DONUT_ADDRESS, to: SPRINKLES_ADDRESS, stable: false, factory: AERODROME_FACTORY }],
-      isMultiHop: false,
-    };
-  }
-  
-  // ETH -> SPRINKLES: Multi-hop ETH -> DONUT -> SPRINKLES
-  if (inputSymbol === "ETH" && output === SPRINKLES_ADDRESS.toLowerCase()) {
-    return {
-      dex: "multiHop" as const,
-      leg1: { dex: "uniswapV2", router: UNISWAP_V2_ROUTER, path: [WETH_ADDRESS, DONUT_ADDRESS] },
-      leg2: { dex: "aerodrome", router: AERODROME_ROUTER, routes: [{ from: DONUT_ADDRESS, to: SPRINKLES_ADDRESS, stable: false, factory: AERODROME_FACTORY }] },
-      isMultiHop: true,
-    };
+  if (!isSelling) {
+    // BUYING MODE - existing routes
+    
+    // ETH -> DONUT: Uniswap V2
+    if (inputSymbol === "ETH" && output === DONUT_ADDRESS.toLowerCase()) {
+      return {
+        dex: "uniswapV2" as const,
+        router: UNISWAP_V2_ROUTER,
+        path: [WETH_ADDRESS, DONUT_ADDRESS],
+        isMultiHop: false,
+      };
+    }
+    
+    // DONUT -> SPRINKLES: Aerodrome
+    if (inputSymbol === "DONUT" && output === SPRINKLES_ADDRESS.toLowerCase()) {
+      return {
+        dex: "aerodrome" as const,
+        router: AERODROME_ROUTER,
+        routes: [{ from: DONUT_ADDRESS, to: SPRINKLES_ADDRESS, stable: false, factory: AERODROME_FACTORY }],
+        isMultiHop: false,
+      };
+    }
+    
+    // ETH -> SPRINKLES: Multi-hop ETH -> DONUT -> SPRINKLES
+    if (inputSymbol === "ETH" && output === SPRINKLES_ADDRESS.toLowerCase()) {
+      return {
+        dex: "multiHop" as const,
+        leg1: { dex: "uniswapV2", router: UNISWAP_V2_ROUTER, path: [WETH_ADDRESS, DONUT_ADDRESS] },
+        leg2: { dex: "aerodrome", router: AERODROME_ROUTER, routes: [{ from: DONUT_ADDRESS, to: SPRINKLES_ADDRESS, stable: false, factory: AERODROME_FACTORY }] },
+        isMultiHop: true,
+      };
+    }
+  } else {
+    // SELLING MODE - reverse routes
+    
+    // Sell DONUT -> ETH: Uniswap V2 (reverse path)
+    if (output === DONUT_ADDRESS.toLowerCase() && inputSymbol === "ETH") {
+      return {
+        dex: "uniswapV2" as const,
+        router: UNISWAP_V2_ROUTER,
+        path: [DONUT_ADDRESS, WETH_ADDRESS],
+        isMultiHop: false,
+        isSellRoute: true,
+      };
+    }
+    
+    // Sell SPRINKLES -> DONUT: Aerodrome (reverse)
+    if (output === SPRINKLES_ADDRESS.toLowerCase() && inputSymbol === "DONUT") {
+      return {
+        dex: "aerodrome" as const,
+        router: AERODROME_ROUTER,
+        routes: [{ from: SPRINKLES_ADDRESS, to: DONUT_ADDRESS, stable: false, factory: AERODROME_FACTORY }],
+        isMultiHop: false,
+        isSellRoute: true,
+      };
+    }
+    
+    // Sell SPRINKLES -> ETH: Multi-hop SPRINKLES -> DONUT -> ETH
+    if (output === SPRINKLES_ADDRESS.toLowerCase() && inputSymbol === "ETH") {
+      return {
+        dex: "multiHopSell" as const,
+        leg1: { dex: "aerodrome", router: AERODROME_ROUTER, routes: [{ from: SPRINKLES_ADDRESS, to: DONUT_ADDRESS, stable: false, factory: AERODROME_FACTORY }] },
+        leg2: { dex: "uniswapV2", router: UNISWAP_V2_ROUTER, path: [DONUT_ADDRESS, WETH_ADDRESS] },
+        isMultiHop: true,
+        isSellRoute: true,
+      };
+    }
   }
   
   return null;
@@ -417,6 +457,8 @@ export default function SwapPage() {
   // Approval management state
   const [showApprovalSection, setShowApprovalSection] = useState(false);
   const [customApprovalAmount, setCustomApprovalAmount] = useState("");
+  const [showApprovalPopup, setShowApprovalPopup] = useState(false);
+  const [isSellingMode, setIsSellingMode] = useState(false); // false = buying token, true = selling token
 
   // Just use the regular token tiles (no infinite duplication)
   const displayItems = TOKEN_TILES;
@@ -487,7 +529,7 @@ export default function SwapPage() {
   }, []);
 
   const inputToken = INPUT_TOKENS[inputSymbol];
-  const route = selectedToken?.address ? getSwapRoute(inputSymbol, selectedToken.address) : null;
+  const route = selectedToken?.address ? getSwapRoute(inputSymbol, selectedToken.address, isSellingMode) : null;
 
   // Balances
   const { data: nativeEthBalance, refetch: refetchNativeEthBalance } = useBalance({
@@ -505,23 +547,57 @@ export default function SwapPage() {
     query: { enabled: !!address, refetchInterval: 10_000 },
   });
 
-  const inputBalance = inputSymbol === "ETH" ? nativeEthBalance?.value : (donutBalance as bigint | undefined);
+  const { data: sprinklesBalance, refetch: refetchSprinklesBalance } = useReadContract({
+    address: SPRINKLES_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "balanceOf",
+    args: [address ?? zeroAddress],
+    chainId: base.id,
+    query: { enabled: !!address, refetchInterval: 10_000 },
+  });
+
+  // In selling mode, input is the selected token; in buying mode, input is ETH/DONUT
+  const inputBalance = useMemo(() => {
+    if (isSellingMode) {
+      // Selling: input is the selected token
+      if (selectedToken?.address?.toLowerCase() === DONUT_ADDRESS.toLowerCase()) {
+        return donutBalance as bigint | undefined;
+      }
+      if (selectedToken?.address?.toLowerCase() === SPRINKLES_ADDRESS.toLowerCase()) {
+        return sprinklesBalance as bigint | undefined;
+      }
+      return undefined;
+    }
+    // Buying: input is ETH or DONUT
+    return inputSymbol === "ETH" ? nativeEthBalance?.value : (donutBalance as bigint | undefined);
+  }, [isSellingMode, selectedToken, inputSymbol, nativeEthBalance, donutBalance, sprinklesBalance]);
 
   const refetchInputBalance = useCallback(() => {
-    if (inputSymbol === "ETH") refetchNativeEthBalance();
-    else refetchDonutBalance();
-  }, [inputSymbol, refetchNativeEthBalance, refetchDonutBalance]);
+    if (isSellingMode) {
+      if (selectedToken?.address?.toLowerCase() === DONUT_ADDRESS.toLowerCase()) {
+        refetchDonutBalance();
+      } else if (selectedToken?.address?.toLowerCase() === SPRINKLES_ADDRESS.toLowerCase()) {
+        refetchSprinklesBalance();
+      }
+    } else {
+      if (inputSymbol === "ETH") refetchNativeEthBalance();
+      else refetchDonutBalance();
+    }
+  }, [isSellingMode, selectedToken, inputSymbol, refetchNativeEthBalance, refetchDonutBalance, refetchSprinklesBalance]);
+
+  // Get the correct decimals for input in selling mode
+  const effectiveInputDecimals = isSellingMode ? (selectedToken?.decimals ?? 18) : inputToken.decimals;
 
   // Calculate amounts
   const inputAmountWei = useMemo(() => {
     if (!inputAmount || inputAmount === "" || isNaN(parseFloat(inputAmount))) return 0n;
     try {
       const normalized = inputAmount.startsWith(".") ? `0${inputAmount}` : inputAmount;
-      return parseUnits(normalized, inputToken.decimals);
+      return parseUnits(normalized, effectiveInputDecimals);
     } catch {
       return 0n;
     }
-  }, [inputAmount, inputToken.decimals]);
+  }, [inputAmount, effectiveInputDecimals]);
 
   const feeAmount = useMemo(() => {
     if (inputAmountWei === 0n) return 0n;
@@ -531,10 +607,12 @@ export default function SwapPage() {
   const amountToSwap = useMemo(() => inputAmountWei - feeAmount, [inputAmountWei, feeAmount]);
 
   // Get router for approval
-  const routerForApproval = useMemo(() => {
+  const routerForApproval: Address = useMemo(() => {
     if (!route) return UNISWAP_V2_ROUTER;
     if (route.dex === "multiHop") return route.leg1.router;
-    return route.router;
+    if (route.dex === "multiHopSell") return route.leg1.router;
+    if ("router" in route) return route.router;
+    return UNISWAP_V2_ROUTER;
   }, [route]);
 
   // Allowance check
@@ -556,8 +634,35 @@ export default function SwapPage() {
     functionName: "allowance",
     args: [address ?? zeroAddress, AERODROME_ROUTER],
     chainId: base.id,
-    query: { enabled: !!address && route?.dex === "multiHop", refetchInterval: 10_000 },
+    query: { enabled: !!address, refetchInterval: 10_000 },
   });
+
+  // Allowance queries for approval management popup
+  const { data: donutAllowanceForV2, refetch: refetchDonutAllowanceForV2 } = useReadContract({
+    address: DONUT_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: [address ?? zeroAddress, UNISWAP_V2_ROUTER],
+    chainId: base.id,
+    query: { enabled: !!address, refetchInterval: 10_000 },
+  });
+
+  const { data: sprinklesAllowanceForAero, refetch: refetchSprinklesAllowanceForAero } = useReadContract({
+    address: SPRINKLES_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: [address ?? zeroAddress, AERODROME_ROUTER],
+    chainId: base.id,
+    query: { enabled: !!address, refetchInterval: 10_000 },
+  });
+
+  // Helper to format allowance display
+  const formatAllowance = (allowance: bigint | undefined, decimals: number) => {
+    if (!allowance || allowance === 0n) return "0";
+    const formatted = Number(formatUnits(allowance, decimals));
+    if (formatted > 1e12) return "Unlimited";
+    return formatted.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  };
 
   // Quote for single-hop V2
   const { data: v2Quote } = useReadContract({
@@ -657,63 +762,39 @@ export default function SwapPage() {
     }, 3000);
   }, []);
 
-  // Handle set custom approval
-  const handleSetApproval = useCallback(async () => {
-    if (!address || !selectedToken || !customApprovalAmount) return;
-    
-    try {
-      setTxStep("setting_approval");
-      const approvalAmountWei = parseUnits(customApprovalAmount, selectedToken.decimals ?? 18);
-      await writeContract({
-        address: selectedToken.address!,
-        abi: ERC20_ABI,
-        functionName: "approve",
-        args: [routerForApproval, approvalAmountWei],
-        chainId: base.id,
-      });
-    } catch (error) {
-      console.error("Approval error:", error);
-      setTxStep("idle");
-    }
-  }, [address, selectedToken, customApprovalAmount, routerForApproval, writeContract]);
-
-  // Handle revoke approval
-  const handleRevokeApproval = useCallback(async () => {
-    if (!address || !selectedToken) return;
+  // Handle revoke approval for any token/router combo
+  const handleRevokeTokenApproval = useCallback(async (tokenAddress: Address, routerAddress: Address) => {
+    if (!address) return;
     
     try {
       setTxStep("revoking_approval");
       await writeContract({
-        address: selectedToken.address!,
+        address: tokenAddress,
         abi: ERC20_ABI,
         functionName: "approve",
-        args: [routerForApproval, 0n],
+        args: [routerAddress, 0n],
         chainId: base.id,
       });
     } catch (error) {
       console.error("Revoke error:", error);
       setTxStep("idle");
     }
-  }, [address, selectedToken, routerForApproval, writeContract]);
+  }, [address, writeContract]);
 
-  // Get current approval for the output token (what the user is buying)
-  const { data: outputTokenAllowance, refetch: refetchOutputAllowance } = useReadContract({
-    address: selectedToken?.address ?? zeroAddress,
-    abi: ERC20_ABI,
-    functionName: "allowance",
-    args: [address ?? zeroAddress, routerForApproval],
-    chainId: base.id,
-    query: { enabled: !!address && !!selectedToken?.address, refetchInterval: 10_000 },
-  });
+  // Refetch all allowances
+  const refetchAllAllowances = useCallback(() => {
+    refetchDonutAllowanceForAero();
+    refetchDonutAllowanceForV2();
+    refetchSprinklesAllowanceForAero();
+    refetchAllowance();
+  }, [refetchDonutAllowanceForAero, refetchDonutAllowanceForV2, refetchSprinklesAllowanceForAero, refetchAllowance]);
 
-  const currentApprovalDisplay = useMemo(() => {
-    if (!outputTokenAllowance || outputTokenAllowance === 0n) return "0";
-    const formatted = Number(formatUnits(outputTokenAllowance as bigint, selectedToken?.decimals ?? 18));
-    if (formatted > 1e12) return "Unlimited";
-    return formatted.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  }, [outputTokenAllowance, selectedToken]);
-
-  const hasApproval = (outputTokenAllowance ?? 0n) > 0n;
+  // Handle flip swap direction (selling not yet implemented)
+  const handleFlipDirection = () => {
+    // For now, just toggle the visual - full sell implementation coming later
+    setIsSellingMode(!isSellingMode);
+    setInputAmount("");
+  };
 
   // Handle tile click
   const handleTileClick = async (tile: TokenTile) => {
@@ -744,6 +825,8 @@ export default function SwapPage() {
     setShowInputDropdown(false);
     setShowApprovalSection(false);
     setCustomApprovalAmount("");
+    setShowApprovalPopup(false);
+    setIsSellingMode(false);
     resetTx();
   };
 
@@ -755,13 +838,14 @@ export default function SwapPage() {
 
     try {
       // Step 1: Approve input token if needed (for non-ETH inputs)
+      // IMPORTANT: Only approve the exact amount needed, never max/unlimited
       if (needsApproval && txStep === "idle") {
         setTxStep("approving");
         await writeContract({
           address: inputToken.address,
           abi: ERC20_ABI,
           functionName: "approve",
-          args: [routerForApproval, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
+          args: [routerForApproval, inputAmountWei], // Exact amount only!
           chainId: base.id,
         });
         return;
@@ -843,12 +927,12 @@ export default function SwapPage() {
         const donutToSwap = donutBalance as bigint ?? 0n;
         
         if (currentAllowance < donutToSwap && donutToSwap > 0n) {
-          // Need approval first
+          // Need approval first - approve exact amount only!
           await writeContract({
             address: DONUT_ADDRESS,
             abi: ERC20_ABI,
             functionName: "approve",
-            args: [AERODROME_ROUTER, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
+            args: [AERODROME_ROUTER, donutToSwap], // Exact amount only!
             chainId: base.id,
           });
           return;
@@ -895,7 +979,7 @@ export default function SwapPage() {
       resetTx();
     }
   }, [
-    address, selectedToken, route, amountToSwap, needsApproval, txStep,
+    address, selectedToken, route, amountToSwap, inputAmountWei, needsApproval, txStep,
     inputToken, feeAmount, minOutputAmount, routerForApproval, leg1Output, donutBalance, donutAllowanceForAero, slippage,
     writeContract, sendTransaction, showSwapResultFn, resetTx
   ]);
@@ -1046,7 +1130,7 @@ export default function SwapPage() {
                 address: DONUT_ADDRESS,
                 abi: ERC20_ABI,
                 functionName: "approve",
-                args: [AERODROME_ROUTER, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
+                args: [AERODROME_ROUTER, amountToSwapInLeg2], // Exact amount only!
                 chainId: base.id,
               });
               return;
@@ -1129,12 +1213,12 @@ export default function SwapPage() {
       if (txStep === "setting_approval" || txStep === "revoking_approval") {
         setTxStep("idle");
         setCustomApprovalAmount("");
-        refetchOutputAllowance();
+        refetchAllAllowances();
         resetTx();
         return;
       }
     }
-  }, [receipt, txStep, route, address, minOutputAmount, amountToSwap, leg1Output, leg1ReceivedAmount, slippage, inputToken, showSwapResultFn, resetTx, refetchAllowance, refetchInputBalance, refetchDonutBalance, refetchDonutAllowanceForAero, refetchOutputAllowance, writeContract]);
+  }, [receipt, txStep, route, address, minOutputAmount, amountToSwap, leg1Output, leg1ReceivedAmount, slippage, inputToken, showSwapResultFn, resetTx, refetchAllowance, refetchInputBalance, refetchDonutBalance, refetchDonutAllowanceForAero, refetchAllAllowances, writeContract]);
 
   const isSwapDisabled =
     !isConnected ||
@@ -1144,10 +1228,12 @@ export default function SwapPage() {
     txStep !== "idle" ||
     isWriting ||
     isSending ||
-    isConfirming;
+    isConfirming ||
+    isSellingMode; // Selling not fully implemented yet
 
   const buttonText = useMemo(() => {
     if (!isConnected) return "Connect Wallet";
+    if (isSellingMode) return "Selling Coming Soon";
     if (isWriting || isSending || isConfirming) {
       if (txStep === "approving") return "Approving...";
       if (txStep === "approving_leg2") return "Approving DONUT...";
@@ -1162,7 +1248,7 @@ export default function SwapPage() {
     if (amountToSwap === 0n) return "Enter Amount";
     if (needsApproval) return "Approve & Swap";
     return "Swap";
-  }, [isConnected, isWriting, isSending, isConfirming, txStep, route, swapResult, inputBalance, inputAmountWei, amountToSwap, needsApproval]);
+  }, [isConnected, isSellingMode, isWriting, isSending, isConfirming, txStep, route, swapResult, inputBalance, inputAmountWei, amountToSwap, needsApproval]);
 
   // Available input tokens for selected token
   const availableInputs = selectedToken?.allowedInputs ?? ["ETH"];
@@ -1260,7 +1346,7 @@ export default function SwapPage() {
               >
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
-              <h1 className="text-2xl font-bold tracking-wide">BUY {selectedToken.symbol}</h1>
+              <h1 className="text-2xl font-bold tracking-wide">{isSellingMode ? "SELL" : "BUY"} {selectedToken.symbol}</h1>
             </div>
             {context?.user && (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
@@ -1284,9 +1370,16 @@ export default function SwapPage() {
           {/* Token info row */}
           <div className="flex items-center gap-3 mb-4 px-2">
             <img src={selectedToken.icon} alt={selectedToken.symbol} className="w-12 h-12 rounded-full border border-zinc-700" />
-            <div>
+            <div className="flex-1">
               <p className="text-sm text-zinc-400">{selectedToken.description}</p>
             </div>
+            {/* Shield icon for approval management */}
+            <button
+              onClick={() => setShowApprovalPopup(true)}
+              className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+            >
+              <Shield className="w-5 h-5 text-amber-500" />
+            </button>
           </div>
 
           {/* Swap Card */}
@@ -1298,52 +1391,61 @@ export default function SwapPage() {
                   <span className="text-sm text-zinc-500">You Pay</span>
                   <span className="text-sm text-zinc-500">
                     Balance: {inputBalance !== undefined 
-                      ? Number(formatUnits(inputBalance as bigint, inputToken.decimals)).toLocaleString(undefined, { maximumFractionDigits: 4 })
+                      ? Number(formatUnits(inputBalance as bigint, effectiveInputDecimals)).toLocaleString(undefined, { maximumFractionDigits: 4 })
                       : "0"
                     }
                   </span>
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  {/* Input token dropdown */}
-                  <div className="relative">
-                    <button
-                      onClick={() => availableInputs.length > 1 && setShowInputDropdown(!showInputDropdown)}
-                      className={cn(
-                        "flex items-center gap-2 bg-zinc-800 rounded-xl px-3 py-2.5 min-w-[120px]",
-                        availableInputs.length > 1 && "hover:bg-zinc-700 cursor-pointer"
+                  {/* Token display - changes based on mode */}
+                  {isSellingMode ? (
+                    // Selling: input is the selected token (fixed)
+                    <div className="flex items-center gap-2 bg-zinc-800 rounded-xl px-3 py-2.5 min-w-[120px]">
+                      <img src={selectedToken.icon} alt={selectedToken.symbol} className="w-6 h-6 rounded-full" />
+                      <span className="font-semibold">{selectedToken.symbol}</span>
+                    </div>
+                  ) : (
+                    // Buying: input token dropdown
+                    <div className="relative">
+                      <button
+                        onClick={() => availableInputs.length > 1 && !isSellingMode && setShowInputDropdown(!showInputDropdown)}
+                        className={cn(
+                          "flex items-center gap-2 bg-zinc-800 rounded-xl px-3 py-2.5 min-w-[120px]",
+                          availableInputs.length > 1 && !isSellingMode && "hover:bg-zinc-700 cursor-pointer"
+                        )}
+                      >
+                        <img src={inputToken.icon} alt={inputToken.symbol} className="w-6 h-6 rounded-full" />
+                        <span className="font-semibold">{inputToken.symbol}</span>
+                        {availableInputs.length > 1 && !isSellingMode && (
+                          <ChevronDown className={cn("w-4 h-4 text-zinc-400 transition-transform", showInputDropdown && "rotate-180")} />
+                        )}
+                      </button>
+                      
+                      {/* Dropdown */}
+                      {showInputDropdown && availableInputs.length > 1 && !isSellingMode && (
+                        <div className="absolute top-full left-0 mt-2 w-full bg-zinc-800 rounded-xl border border-zinc-700 overflow-hidden z-20">
+                          {availableInputs.map((sym) => (
+                            <button
+                              key={sym}
+                              onClick={() => {
+                                setInputSymbol(sym);
+                                setShowInputDropdown(false);
+                                setInputAmount("");
+                              }}
+                              className={cn(
+                                "w-full flex items-center gap-2 px-3 py-2.5 hover:bg-zinc-700 transition-colors",
+                                inputSymbol === sym && "bg-zinc-700"
+                              )}
+                            >
+                              <img src={INPUT_TOKENS[sym].icon} alt={sym} className="w-6 h-6 rounded-full" />
+                              <span className="font-semibold">{sym}</span>
+                            </button>
+                          ))}
+                        </div>
                       )}
-                    >
-                      <img src={inputToken.icon} alt={inputToken.symbol} className="w-6 h-6 rounded-full" />
-                      <span className="font-semibold">{inputToken.symbol}</span>
-                      {availableInputs.length > 1 && (
-                        <ChevronDown className={cn("w-4 h-4 text-zinc-400 transition-transform", showInputDropdown && "rotate-180")} />
-                      )}
-                    </button>
-                    
-                    {/* Dropdown */}
-                    {showInputDropdown && availableInputs.length > 1 && (
-                      <div className="absolute top-full left-0 mt-2 w-full bg-zinc-800 rounded-xl border border-zinc-700 overflow-hidden z-20">
-                        {availableInputs.map((sym) => (
-                          <button
-                            key={sym}
-                            onClick={() => {
-                              setInputSymbol(sym);
-                              setShowInputDropdown(false);
-                              setInputAmount("");
-                            }}
-                            className={cn(
-                              "w-full flex items-center gap-2 px-3 py-2.5 hover:bg-zinc-700 transition-colors",
-                              inputSymbol === sym && "bg-zinc-700"
-                            )}
-                          >
-                            <img src={INPUT_TOKENS[sym].icon} alt={sym} className="w-6 h-6 rounded-full" />
-                            <span className="font-semibold">{sym}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   
                   <input
                     type="text"
@@ -1373,11 +1475,14 @@ export default function SwapPage() {
             </div>
           </div>
 
-          {/* Arrow */}
+          {/* Arrow - Click to flip */}
           <div className="flex justify-center -my-1 relative z-10">
-            <div className="bg-zinc-800 rounded-full p-2 border-4 border-zinc-950">
-              <ArrowDown className="w-4 h-4 text-zinc-400" />
-            </div>
+            <button 
+              onClick={handleFlipDirection}
+              className="bg-zinc-800 rounded-full p-2 border-4 border-zinc-950 hover:bg-zinc-700 transition-colors"
+            >
+              <ArrowUpDown className="w-4 h-4 text-zinc-400" />
+            </button>
           </div>
 
           {/* Output Section */}
@@ -1387,13 +1492,56 @@ export default function SwapPage() {
             </div>
             
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-zinc-800 rounded-xl px-3 py-2.5 min-w-[120px]">
-                <img src={selectedToken.icon} alt={selectedToken.symbol} className="w-6 h-6 rounded-full" />
-                <span className="font-semibold">{selectedToken.symbol}</span>
-              </div>
+              {isSellingMode ? (
+                // Selling: output is ETH/DONUT (can select)
+                <div className="relative">
+                  <button
+                    onClick={() => availableInputs.length > 1 && setShowInputDropdown(!showInputDropdown)}
+                    className={cn(
+                      "flex items-center gap-2 bg-zinc-800 rounded-xl px-3 py-2.5 min-w-[120px]",
+                      availableInputs.length > 1 && "hover:bg-zinc-700 cursor-pointer"
+                    )}
+                  >
+                    <img src={inputToken.icon} alt={inputToken.symbol} className="w-6 h-6 rounded-full" />
+                    <span className="font-semibold">{inputToken.symbol}</span>
+                    {availableInputs.length > 1 && (
+                      <ChevronDown className={cn("w-4 h-4 text-zinc-400 transition-transform", showInputDropdown && "rotate-180")} />
+                    )}
+                  </button>
+                  
+                  {/* Dropdown */}
+                  {showInputDropdown && availableInputs.length > 1 && (
+                    <div className="absolute top-full left-0 mt-2 w-full bg-zinc-800 rounded-xl border border-zinc-700 overflow-hidden z-20">
+                      {availableInputs.map((sym) => (
+                        <button
+                          key={sym}
+                          onClick={() => {
+                            setInputSymbol(sym);
+                            setShowInputDropdown(false);
+                            setInputAmount("");
+                          }}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-3 py-2.5 hover:bg-zinc-700 transition-colors",
+                            inputSymbol === sym && "bg-zinc-700"
+                          )}
+                        >
+                          <img src={INPUT_TOKENS[sym].icon} alt={sym} className="w-6 h-6 rounded-full" />
+                          <span className="font-semibold">{sym}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Buying: output is the selected token (fixed)
+                <div className="flex items-center gap-2 bg-zinc-800 rounded-xl px-3 py-2.5 min-w-[120px]">
+                  <img src={selectedToken.icon} alt={selectedToken.symbol} className="w-6 h-6 rounded-full" />
+                  <span className="font-semibold">{selectedToken.symbol}</span>
+                </div>
+              )}
               
               <div className="flex-1 text-right text-2xl font-bold text-zinc-300 min-w-0 truncate">
-                {outputAmountDisplay}
+                {isSellingMode && !route ? "Coming Soon" : outputAmountDisplay}
               </div>
             </div>
           </div>
@@ -1401,8 +1549,8 @@ export default function SwapPage() {
           {/* Fee Info */}
           <div className="mt-4 pt-4 border-t border-zinc-800 space-y-2 text-sm">
             <div className="flex justify-between text-zinc-500">
-              <span>Fee (0.05%)</span>
-              <span>{feeAmount > 0n ? Number(formatUnits(feeAmount, inputToken.decimals)).toFixed(6) : "0"} {inputToken.symbol}</span>
+              <span>Fee (0.1%)</span>
+              <span>{feeAmount > 0n ? Number(formatUnits(feeAmount, effectiveInputDecimals)).toFixed(6) : "0"} {isSellingMode ? selectedToken.symbol : inputToken.symbol}</span>
             </div>
             <div className="flex justify-between text-zinc-500">
               <span>Route</span>
@@ -1410,6 +1558,8 @@ export default function SwapPage() {
                 {route?.dex === "uniswapV2" && "Uniswap V2"}
                 {route?.dex === "aerodrome" && "Aerodrome"}
                 {route?.dex === "multiHop" && "V2 → Aerodrome"}
+                {route?.dex === "multiHopSell" && "Aerodrome → V2"}
+                {isSellingMode && !route && "—"}
               </span>
             </div>
           </div>
@@ -1434,86 +1584,115 @@ export default function SwapPage() {
             )}
             {buttonText}
           </button>
-
-          {/* Approval Management Section */}
-          <div className="mt-4 pt-4 border-t border-zinc-800">
-            <button
-              onClick={() => setShowApprovalSection(!showApprovalSection)}
-              className="flex items-center justify-between w-full text-sm text-zinc-400 hover:text-zinc-300 transition-colors"
-            >
-              <span>Manage {selectedToken.symbol} Approval</span>
-              <ChevronDown className={cn("w-4 h-4 transition-transform", showApprovalSection && "rotate-180")} />
-            </button>
-            
-            {showApprovalSection && (
-              <div className="mt-3 space-y-3">
-                {/* Current Approval Display */}
-                <div className="flex justify-between text-sm">
-                  <span className="text-zinc-500">Current Approval</span>
-                  <span className="text-zinc-300">{currentApprovalDisplay} {selectedToken.symbol}</span>
-                </div>
-                
-                {/* Set Custom Approval */}
-                <div className="space-y-2">
-                  <label className="text-xs text-zinc-500">Set New Approval Amount</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="0.0"
-                      value={customApprovalAmount}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === "" || /^[0-9]*\.?[0-9]*$/.test(val)) {
-                          setCustomApprovalAmount(val);
-                        }
-                      }}
-                      className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
-                    />
-                    <button
-                      onClick={handleSetApproval}
-                      disabled={!customApprovalAmount || txStep !== "idle" || isWriting || isConfirming}
-                      className={cn(
-                        "px-4 py-2 rounded-lg text-sm font-semibold transition-all",
-                        !customApprovalAmount || txStep !== "idle" || isWriting || isConfirming
-                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                          : "bg-green-600 text-white hover:bg-green-500"
-                      )}
-                    >
-                      {txStep === "setting_approval" ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        "Set"
-                      )}
-                    </button>
-                  </div>
-                </div>
-                
-                {/* Revoke Approval */}
-                {hasApproval && (
-                  <button
-                    onClick={handleRevokeApproval}
-                    disabled={txStep !== "idle" || isWriting || isConfirming}
-                    className={cn(
-                      "w-full py-2.5 rounded-lg text-sm font-semibold transition-all",
-                      txStep !== "idle" || isWriting || isConfirming
-                        ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                        : "bg-amber-600/20 text-amber-500 border border-amber-600/50 hover:bg-amber-600/30"
-                    )}
-                  >
-                    {txStep === "revoking_approval" ? (
-                      <Loader2 className="w-4 h-4 inline mr-2 animate-spin" />
-                    ) : null}
-                    Revoke Approval
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Approval Management Popup */}
+      {showApprovalPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+          <div className="w-[90%] max-w-[400px] bg-zinc-900 rounded-2xl border border-zinc-700 p-4">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-amber-500" />
+                <h3 className="text-lg font-bold">Token Approvals</h3>
+              </div>
+              <button
+                onClick={() => setShowApprovalPopup(false)}
+                className="p-1 rounded-lg hover:bg-zinc-800 transition-colors"
+              >
+                <X className="w-5 h-5 text-zinc-400" />
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-500 mb-4">
+              Manage token approvals for DEX routers. Revoke unused approvals to protect your funds.
+            </p>
+
+            {/* Token Approvals List */}
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+              {/* DONUT Approvals */}
+              <div className="rounded-xl bg-zinc-800 p-3">
+                <div className="flex items-center gap-2 mb-3">
+                  <img src={getDexScreenerIcon(DONUT_ADDRESS)} alt="DONUT" className="w-6 h-6 rounded-full" />
+                  <span className="font-semibold">DONUT</span>
+                </div>
+                
+                {/* DONUT -> Uniswap V2 */}
+                <div className="flex items-center justify-between py-2 border-t border-zinc-700">
+                  <div>
+                    <div className="text-xs text-zinc-400">Uniswap V2</div>
+                    <div className="text-sm">{formatAllowance(donutAllowanceForV2 as bigint, 18)}</div>
+                  </div>
+                  {(donutAllowanceForV2 as bigint ?? 0n) > 0n && (
+                    <button
+                      onClick={() => handleRevokeTokenApproval(DONUT_ADDRESS, UNISWAP_V2_ROUTER)}
+                      disabled={txStep !== "idle" || isWriting || isConfirming}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-500 border border-amber-600/50 hover:bg-amber-600/30 disabled:opacity-50"
+                    >
+                      {txStep === "revoking_approval" ? <Loader2 className="w-3 h-3 animate-spin" /> : "Revoke"}
+                    </button>
+                  )}
+                </div>
+                
+                {/* DONUT -> Aerodrome */}
+                <div className="flex items-center justify-between py-2 border-t border-zinc-700">
+                  <div>
+                    <div className="text-xs text-zinc-400">Aerodrome</div>
+                    <div className="text-sm">{formatAllowance(donutAllowanceForAero as bigint, 18)}</div>
+                  </div>
+                  {(donutAllowanceForAero as bigint ?? 0n) > 0n && (
+                    <button
+                      onClick={() => handleRevokeTokenApproval(DONUT_ADDRESS, AERODROME_ROUTER)}
+                      disabled={txStep !== "idle" || isWriting || isConfirming}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-500 border border-amber-600/50 hover:bg-amber-600/30 disabled:opacity-50"
+                    >
+                      {txStep === "revoking_approval" ? <Loader2 className="w-3 h-3 animate-spin" /> : "Revoke"}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* SPRINKLES Approvals - only show on SPRINKLES page */}
+              {selectedToken.symbol === "SPRINKLES" && (
+                <div className="rounded-xl bg-zinc-800 p-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <img src={getDexScreenerIcon(SPRINKLES_ADDRESS)} alt="SPRINKLES" className="w-6 h-6 rounded-full" />
+                    <span className="font-semibold">SPRINKLES</span>
+                  </div>
+                  
+                  {/* SPRINKLES -> Aerodrome */}
+                  <div className="flex items-center justify-between py-2 border-t border-zinc-700">
+                    <div>
+                      <div className="text-xs text-zinc-400">Aerodrome</div>
+                      <div className="text-sm">{formatAllowance(sprinklesAllowanceForAero as bigint, 18)}</div>
+                    </div>
+                    {(sprinklesAllowanceForAero as bigint ?? 0n) > 0n && (
+                      <button
+                        onClick={() => handleRevokeTokenApproval(SPRINKLES_ADDRESS, AERODROME_ROUTER)}
+                        disabled={txStep !== "idle" || isWriting || isConfirming}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-500 border border-amber-600/50 hover:bg-amber-600/30 disabled:opacity-50"
+                      >
+                        {txStep === "revoking_approval" ? <Loader2 className="w-3 h-3 animate-spin" /> : "Revoke"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Close button */}
+            <button
+              onClick={() => setShowApprovalPopup(false)}
+              className="w-full mt-4 py-3 rounded-xl bg-zinc-800 text-zinc-300 font-semibold hover:bg-zinc-700 transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Click outside to close dropdown */}
       {showInputDropdown && (
