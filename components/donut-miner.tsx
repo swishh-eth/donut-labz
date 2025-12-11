@@ -173,10 +173,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
   }, []);
 
   useEffect(() => {
-    // Video uses native loop attribute, no JS needed
-  }, []);
-
-  useEffect(() => {
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
 
@@ -261,6 +257,17 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             address: address,
+            txHash: receipt.transactionHash,
+          }),
+        }).catch(console.error);
+
+        // Post mining activity to chat
+        fetch("/api/chat/mining", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            address: address,
+            type: "mine_donut",
             txHash: receipt.transactionHash,
           }),
         }).catch(console.error);
@@ -563,7 +570,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     ? (occupantInitialsSource?.slice(-2) ?? "??").toUpperCase()
     : initialsFrom(occupantInitialsSource);
 
-  // Whole donuts only (no decimals)
   const donutBalanceDisplay =
     minerState && minerState.donutBalance !== undefined
       ? Math.floor(Number(formatUnits(minerState.donutBalance, DONUT_DECIMALS))).toLocaleString()
@@ -604,7 +610,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
 
   return (
     <>
-      {/* Video Player - Seamless Loop */}
       <div className="-mx-2 w-[calc(100%+1rem)] overflow-hidden flex-1">
         <video
           ref={videoRef}
@@ -618,9 +623,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
         />
       </div>
 
-      {/* Bottom Content */}
       <div className="mt-auto flex flex-col gap-2">
-        {/* Scrolling Global Message */}
         <div className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-lg">
           <div
             ref={scrollRef}
@@ -634,7 +637,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           </div>
         </div>
 
-        {/* King Glazer Card */}
         <div
           className={cn(
             "bg-zinc-900 border rounded-lg p-2",
@@ -723,7 +725,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           </div>
         </div>
 
-        {/* Stats Cards - Centered */}
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-center">
             <div className="flex items-center justify-center gap-1 mb-0.5">
@@ -760,7 +761,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           </div>
         </div>
 
-        {/* Dutch Auction Info */}
         <button
           onClick={() => setShowHelpDialog(true)}
           className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5 hover:bg-zinc-800 transition-colors"
@@ -779,7 +779,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           </div>
         </button>
 
-        {/* Help Dialog */}
         {showHelpDialog && (
           <div className="fixed inset-0 z-50">
             <div
@@ -802,50 +801,34 @@ export default function DonutMiner({ context }: DonutMinerProps) {
 
                 <div className="space-y-4">
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                      1
-                    </div>
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">1</div>
                     <div>
                       <div className="font-semibold text-white text-sm">Become King Glazer</div>
-                      <div className="text-xs text-gray-400 mt-0.5">
-                        Pay the current glaze price to take control of the donut mine.
-                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">Pay the current glaze price to take control of the donut mine.</div>
                     </div>
                   </div>
 
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                      2
-                    </div>
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">2</div>
                     <div>
                       <div className="font-semibold text-white text-sm">Earn $DONUT</div>
-                      <div className="text-xs text-gray-400 mt-0.5">
-                        While you are King Glazer, you earn $DONUT tokens every second.
-                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">While you are King Glazer, you earn $DONUT tokens every second.</div>
                     </div>
                   </div>
 
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                      3
-                    </div>
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">3</div>
                     <div>
                       <div className="font-semibold text-white text-sm">Dutch Auction</div>
-                      <div className="text-xs text-gray-400 mt-0.5">
-                        The glaze price starts high and decreases over time.
-                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">The glaze price starts high and decreases over time.</div>
                     </div>
                   </div>
 
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                      4
-                    </div>
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">4</div>
                     <div>
                       <div className="font-semibold text-white text-sm">Get Refunded</div>
-                      <div className="text-xs text-gray-400 mt-0.5">
-                        When someone else glazes, you get 80% of their payment back.
-                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">When someone else glazes, you get 80% of their payment back.</div>
                     </div>
                   </div>
                 </div>
@@ -865,7 +848,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           </div>
         )}
 
-        {/* Message Input */}
         <input
           type="text"
           value={customMessage}
@@ -877,7 +859,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           disabled={isGlazeDisabled}
         />
 
-        {/* Glaze Button */}
         <button
           className={cn(
             "w-full rounded-xl py-4 text-lg font-bold transition-all duration-300",
@@ -896,7 +877,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           {buttonLabel}
         </button>
 
-        {/* Balances Card */}
         <button
           onClick={() => setShowStats(!showStats)}
           className={cn(

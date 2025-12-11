@@ -26,6 +26,8 @@ type ChatMessage = {
   timestamp: bigint;
   transactionHash: string;
   blockNumber: bigint;
+  isSystemMessage?: boolean;
+  systemType?: "mine_donut" | "mine_sprinkles";
 };
 
 type FarcasterProfile = {
@@ -220,10 +222,12 @@ export default function ChatPage() {
         timestamp: BigInt(m.timestamp),
         transactionHash: m.transaction_hash,
         blockNumber: BigInt(m.block_number),
+        isSystemMessage: m.is_system_message || false,
+        systemType: m.system_type || null,
       })) as ChatMessage[];
     },
-    refetchInterval: 30000,
-    staleTime: 10000,
+    refetchInterval: 10000, // Faster refresh to catch mining messages
+    staleTime: 5000,
   });
 
   const { data: statsData } = useQuery({
@@ -619,6 +623,35 @@ export default function ChatPage() {
                   const isTipping = tippingMessageHash === msg.transactionHash;
                   const tipCount = tipCounts[msg.transactionHash] || 0;
 
+                  // System message (mining notifications)
+                  if (msg.isSystemMessage) {
+                    const isMiningDonut = msg.systemType === "mine_donut";
+                    const icon = isMiningDonut ? "🍩" : "✨";
+                    
+                    return (
+                      <div
+                        key={`${msg.transactionHash}-${index}`}
+                        className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30"
+                      >
+                        <span className="text-base">{icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-amber-400">
+                            <button
+                              onClick={() => openUserProfile(username)}
+                              disabled={!username}
+                              className={`font-bold ${username ? "hover:underline" : ""}`}
+                            >
+                              {displayName}
+                            </button>
+                            {" "}{msg.message}
+                          </p>
+                        </div>
+                        <span className="text-[10px] text-amber-400/60 flex-shrink-0">{timeAgo(msg.timestamp)}</span>
+                      </div>
+                    );
+                  }
+
+                  // Regular message
                   return (
                     <div
                       key={`${msg.transactionHash}-${index}`}

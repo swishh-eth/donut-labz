@@ -39,7 +39,6 @@ type Slot0 = {
 const SPRINKLES_DECIMALS = 18;
 const DONUT_DECIMALS = 18;
 const DEADLINE_BUFFER_SECONDS = 15 * 60;
-const EPOCH_PERIOD = 3600; // 1 hour in seconds
 
 // DEXScreener pair address for SPRINKLES/DONUT pricing
 const SPRINKLES_DONUT_PAIR = "0x47E8b03017d8b8d058bA5926838cA4dD4531e668";
@@ -133,15 +132,11 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   useEffect(() => {
     const fetchPrices = async () => {
       try {
-        // Fetch from specific SPRINKLES/DONUT pair
         const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/base/${SPRINKLES_DONUT_PAIR}`);
         const data = await res.json();
         if (data.pair) {
-          // priceNative is the price of SPRINKLES in DONUT (the quote token)
-          // This tells us how many DONUT 1 SPRINKLES is worth
           const priceInDonut = parseFloat(data.pair.priceNative || "0");
           if (priceInDonut > 0) {
-            // sprinklesPerDonut = how many SPRINKLES you get for 1 DONUT
             setSprinklesPerDonut(1 / priceInDonut);
           }
         }
@@ -231,7 +226,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     }).catch(() => {});
   }, [connectAsync, isConnected, isConnecting, primaryConnector]);
 
-  // Read slot0 from Sprinkles miner
   const { data: rawSlot0, refetch: refetchSlot0 } = useReadContract({
     address: SPRINKLES_MINER_ADDRESS,
     abi: SPRINKLES_MINER_ABI,
@@ -242,7 +236,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     },
   });
 
-  // Read current price
   const { data: currentPrice, refetch: refetchPrice } = useReadContract({
     address: SPRINKLES_MINER_ADDRESS,
     abi: SPRINKLES_MINER_ABI,
@@ -253,7 +246,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     },
   });
 
-  // Read DPS
   const { data: currentDps } = useReadContract({
     address: SPRINKLES_MINER_ADDRESS,
     abi: SPRINKLES_MINER_ABI,
@@ -264,7 +256,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     },
   });
 
-  // Read user's DONUT balance
   const { data: donutBalance } = useReadContract({
     address: DONUT_ADDRESS,
     abi: DONUT_ABI,
@@ -277,7 +268,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     },
   });
 
-  // Read user's DONUT allowance for miner
   const { data: donutAllowance, refetch: refetchAllowance } = useReadContract({
     address: DONUT_ADDRESS,
     abi: DONUT_ABI,
@@ -323,7 +313,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     if (!receipt) return;
     
     const txType = pendingTxTypeRef.current;
-    console.log("Receipt received:", { status: receipt.status, txType, address, txHash: receipt.transactionHash });
     
     if (receipt.status === "success" || receipt.status === "reverted") {
       showMineResult(receipt.status === "success" ? "success" : "failure");
@@ -331,15 +320,13 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       refetchPrice();
       refetchAllowance();
       
-      // Reset approval mode on successful approval
       if (receipt.status === "success" && txType === "approve") {
         setIsApprovalMode(false);
         setApprovalAmount("");
       }
       
-      // Award a spin for successful sprinkles mine (not approval)
+      // Award spin and post to chat for successful mine
       if (receipt.status === "success" && txType === "mine" && address) {
-        console.log("Awarding spin for sprinkles mine:", { address, txHash: receipt.transactionHash });
         fetch("/api/spins/award-sprinkles-mine", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -347,13 +334,20 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             address: address,
             txHash: receipt.transactionHash,
           }),
-        })
-          .then(res => res.json())
-          .then(data => console.log("Spin award result:", data))
-          .catch(err => console.error("Spin award error:", err));
+        }).catch(console.error);
+        
+        // Post mining activity to chat
+        fetch("/api/chat/mining", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            address: address,
+            type: "mine_sprinkles",
+            txHash: receipt.transactionHash,
+          }),
+        }).catch(console.error);
       }
       
-      // Reset pending tx type
       setPendingTxType(null);
       pendingTxTypeRef.current = null;
       
@@ -400,7 +394,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     return (donutAllowance as bigint) < price;
   }, [price, donutAllowance]);
 
-  // Parse approval amount to bigint
   const parsedApprovalAmount = useMemo(() => {
     if (!approvalAmount || approvalAmount === "") return 0n;
     try {
@@ -465,8 +458,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         abi: SPRINKLES_MINER_ABI,
         functionName: "mine",
         args: [
-          targetAddress as Address, // miner
-          zeroAddress, // provider
+          targetAddress as Address,
+          zeroAddress,
           BigInt(epochId),
           deadline,
           maxPrice,
@@ -514,7 +507,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     return () => clearInterval(interval);
   }, [slot0]);
 
-  // Calculate earned SPRINKLES
   const earnedSprinkles = useMemo(() => {
     if (!slot0 || !dps) return 0n;
     return BigInt(mineElapsedSeconds) * dps;
@@ -589,12 +581,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       isUnknown,
       addressLabel,
     };
-  }, [
-    address,
-    context?.user,
-    slot0,
-    neynarUser?.user,
-  ]);
+  }, [address, context?.user, slot0, neynarUser?.user]);
 
   const mineRateDisplay = dps
     ? formatTokenAmount(dps, SPRINKLES_DECIMALS, 4)
@@ -604,21 +591,15 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     : "—";
   const earnedDisplay = formatTokenAmount(earnedSprinkles, SPRINKLES_DECIMALS, 2);
 
-  // Calculate what the current miner paid (initPrice / 2 since contract doubles it)
   const minerPaidDisplay = useMemo(() => {
     if (!slot0 || !slot0.initPrice) return "—";
     const actualPaid = slot0.initPrice / 2n;
     return Math.floor(Number(formatUnits(actualPaid, DONUT_DECIMALS))).toLocaleString();
   }, [slot0]);
 
-  // Calculate DONUT per second equivalent based on SPRINKLES/DONUT ratio from the pair
   const donutPerSecondDisplay = useMemo(() => {
     if (!dps || sprinklesPerDonut === 0) return null;
-    // dps is SPRINKLES per second (in wei)
     const sprinklesPerSecond = Number(dps) / 1e18;
-    // Convert SPRINKLES to DONUT using the direct pair ratio
-    // sprinklesPerDonut = how many SPRINKLES you get for 1 DONUT
-    // So donutEquivalent = sprinklesPerSecond / sprinklesPerDonut
     const donutEquivalent = sprinklesPerSecond / sprinklesPerDonut;
     
     if (donutEquivalent < 0.0001) return null;
@@ -655,7 +636,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     ? (occupantInitialsSource?.slice(-2) ?? "??").toUpperCase()
     : initialsFrom(occupantInitialsSource);
 
-  // Show whole donuts only (no decimals)
   const donutBalanceDisplay = donutBalance
     ? Math.floor(Number(formatUnits(donutBalance as bigint, DONUT_DECIMALS))).toLocaleString()
     : "—";
@@ -697,11 +677,9 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       ? slot0.uri
       : "Every donut needs sprinkles - Donut Labs";
 
-  // Handle clicking APPROVE button - enter approval mode
   const handleApproveClick = useCallback(() => {
     if (needsApproval && !isApprovalMode) {
       setIsApprovalMode(true);
-      // Focus the input after state update
       setTimeout(() => {
         approvalInputRef.current?.focus();
       }, 100);
@@ -710,7 +688,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
   return (
     <>
-      {/* Video Player - Seamless Loop (like donut miner) */}
       <div className="-mx-2 w-[calc(100%+1rem)] overflow-hidden flex-1">
         <video
           ref={videoRef}
@@ -724,9 +701,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         />
       </div>
 
-      {/* Bottom Content */}
       <div className="mt-auto flex flex-col gap-2">
-        {/* Scrolling Global Message */}
         <div className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-lg">
           <div
             ref={scrollRef}
@@ -740,7 +715,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           </div>
         </div>
 
-        {/* Current Miner Card */}
         <div
           className={cn(
             "bg-zinc-900 border rounded-lg p-2",
@@ -808,7 +782,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           </div>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-center">
             <div className="flex items-center justify-center gap-1 mb-0.5">
@@ -841,7 +814,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           </div>
         </div>
 
-        {/* Dutch Auction Info */}
         <button
           onClick={() => setShowHelpDialog(true)}
           className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5 hover:bg-zinc-800 transition-colors"
@@ -860,7 +832,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           </div>
         </button>
 
-        {/* Help Dialog */}
         {showHelpDialog && (
           <div className="fixed inset-0 z-50">
             <div
@@ -883,50 +854,34 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
                 <div className="space-y-4">
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                      1
-                    </div>
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">1</div>
                     <div>
                       <div className="font-semibold text-white text-sm">Pay 🍩DONUT to Mine</div>
-                      <div className="text-xs text-gray-400 mt-0.5">
-                        Pay the current price in DONUT to become the miner.
-                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">Pay the current price in DONUT to become the miner.</div>
                     </div>
                   </div>
 
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                      2
-                    </div>
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">2</div>
                     <div>
                       <div className="font-semibold text-white text-sm flex items-center gap-1">Earn <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES</div>
-                      <div className="text-xs text-gray-400 mt-0.5">
-                        While you are the miner, you earn SPRINKLES every second.
-                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">While you are the miner, you earn SPRINKLES every second.</div>
                     </div>
                   </div>
 
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                      3
-                    </div>
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">3</div>
                     <div>
                       <div className="font-semibold text-white text-sm">Dutch Auction</div>
-                      <div className="text-xs text-gray-400 mt-0.5">
-                        Price starts high and drops to 1 🍩DONUT over 1 hour.
-                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">Price starts high and drops to 1 🍩DONUT over 1 hour.</div>
                     </div>
                   </div>
 
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">
-                      4
-                    </div>
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">4</div>
                     <div>
                       <div className="font-semibold text-white text-sm">Get Paid Back</div>
-                      <div className="text-xs text-gray-400 mt-0.5">
-                        When someone outbids you, you get 80% of their 🍩DONUT payment.
-                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">When someone outbids you, you get 80% of their 🍩DONUT payment.</div>
                     </div>
                   </div>
                 </div>
@@ -946,7 +901,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           </div>
         )}
 
-        {/* Message Input */}
         <input
           type="text"
           value={customMessage}
@@ -958,9 +912,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           disabled={isMineDisabled}
         />
 
-        {/* Mine/Approve Button */}
         {needsApproval && isApprovalMode ? (
-          /* Approval Input Mode - Split Button */
           <div className="flex w-full rounded-xl overflow-hidden">
             <input
               ref={approvalInputRef}
@@ -968,9 +920,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               inputMode="decimal"
               value={approvalAmount}
               onChange={(e) => {
-                // Only allow numbers and decimal point
                 const value = e.target.value.replace(/[^0-9.]/g, '');
-                // Prevent multiple decimal points
                 const parts = value.split('.');
                 if (parts.length > 2) return;
                 setApprovalAmount(value);
@@ -996,7 +946,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             </button>
           </div>
         ) : (
-          /* Normal Button */
           <button
             className={cn(
               "w-full rounded-xl py-4 text-lg font-bold transition-all duration-300",
@@ -1018,7 +967,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           </button>
         )}
 
-        {/* Balances Card */}
         <div className="w-full border border-zinc-800 rounded-lg p-2 bg-zinc-900">
           <div className="flex items-center justify-between mb-1.5">
             <div className="text-[9px] text-gray-400 uppercase tracking-wider">
