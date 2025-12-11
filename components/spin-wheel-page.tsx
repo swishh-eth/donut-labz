@@ -17,8 +17,8 @@ const DONUT_ADDRESS_LOWER = DONUT_ADDRESS.toLowerCase();
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D".toLowerCase();
 
 // DEXScreener pair addresses for accurate pricing
-const SPRINKLES_DONUT_PAIR = "0x47E8b03017d8b8d058bA5926838cA4dD4531e668";
-const DONUT_WETH_PAIR = "0xB7484CdC25c2a11572632e76e6160B05F9E3b3f0";
+const SPRINKLES_DONUT_PAIR = "0x47e8b03017d8b8d058ba5926838ca4dd4531e668";
+const DONUT_WETH_PAIR = "0xb7484cdc25c2a11572632e76e6160b05f9e3b3f0";
 
 const AUCTION_MIN_PRICE = 10;
 const AUCTION_DECAY_PERIOD = 60 * 60;
@@ -236,18 +236,22 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         // Fetch DONUT price from specific DONUT/WETH pair
         const donutRes = await fetch(`https://api.dexscreener.com/latest/dex/pairs/base/${DONUT_WETH_PAIR}`);
         const donutData = await donutRes.json();
+        console.log("DONUT pair response:", donutData);
         // Handle both response structures: { pair: {...} } or { pairs: [...] }
         const donutPair = donutData.pair || donutData.pairs?.[0];
         if (donutPair) {
+          console.log("DONUT price USD:", donutPair.priceUsd);
           setDonutPrice(parseFloat(donutPair.priceUsd || "0"));
         }
         
         // Fetch SPRINKLES price from specific SPRINKLES/DONUT pair
         const sprinklesRes = await fetch(`https://api.dexscreener.com/latest/dex/pairs/base/${SPRINKLES_DONUT_PAIR}`);
         const sprinklesData = await sprinklesRes.json();
+        console.log("SPRINKLES pair response:", sprinklesData);
         // Handle both response structures: { pair: {...} } or { pairs: [...] }
         const sprinklesPair = sprinklesData.pair || sprinklesData.pairs?.[0];
         if (sprinklesPair) {
+          console.log("SPRINKLES price USD:", sprinklesPair.priceUsd);
           setSprinklesPrice(parseFloat(sprinklesPair.priceUsd || "0"));
         }
       } catch (e) {
