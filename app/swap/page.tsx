@@ -1354,22 +1354,22 @@ export default function SwapPage() {
             </p>
 
             {/* Approvals List */}
-            <div className="flex-1 overflow-y-auto px-2 space-y-4">
+            <div className="flex-1 overflow-y-auto px-2 space-y-3">
               {/* DONUT Approvals */}
-              <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-4">
-                <div className="flex items-center gap-3 mb-4">
-                  <img src={getDexScreenerIcon(DONUT_ADDRESS)} alt="DONUT" className="w-10 h-10 rounded-full border border-zinc-700" />
+              <div className="rounded-xl bg-amber-500/10 border border-amber-500/50 p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <img src={getDexScreenerIcon(DONUT_ADDRESS)} alt="DONUT" className="w-10 h-10 rounded-full border border-amber-500/50" />
                   <div>
-                    <div className="font-bold text-lg">DONUT</div>
-                    <div className="text-xs text-zinc-500">Token Approvals</div>
+                    <div className="font-bold text-lg text-amber-400">DONUT</div>
+                    <div className="text-[10px] text-gray-400 uppercase">Token Approvals</div>
                   </div>
                 </div>
                 
                 {/* DONUT -> Uniswap V2 */}
-                <div className="flex items-center justify-between py-3 border-t border-zinc-800">
+                <div className="flex items-center justify-between py-3 border-t border-amber-500/30">
                   <div className="flex-1">
-                    <div className="text-sm text-zinc-400">Uniswap V2 Router</div>
-                    <div className="text-lg font-semibold">{formatAllowance(donutAllowanceForV2 as bigint, 18)}</div>
+                    <div className="text-xs text-gray-400">Uniswap V2 Router</div>
+                    <div className="text-base font-bold text-white">{formatAllowance(donutAllowanceForV2 as bigint, 18)}</div>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -1380,7 +1380,7 @@ export default function SwapPage() {
                         router: UNISWAP_V2_ROUTER,
                         routerName: "Uniswap V2"
                       })}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors"
                     >
                       Set
                     </button>
@@ -1388,7 +1388,7 @@ export default function SwapPage() {
                       <button
                         onClick={() => handleRevokeTokenApproval(DONUT_ADDRESS, UNISWAP_V2_ROUTER)}
                         disabled={txStep !== "idle" || isWriting || isConfirming}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-500 border border-amber-600/50 hover:bg-amber-600/30 disabled:opacity-50"
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-600/20 text-red-400 border border-red-600/50 hover:bg-red-600/30 disabled:opacity-50 transition-colors"
                       >
                         {txStep === "revoking_approval" ? <Loader2 className="w-3 h-3 animate-spin" /> : "Revoke"}
                       </button>
@@ -1397,10 +1397,10 @@ export default function SwapPage() {
                 </div>
                 
                 {/* DONUT -> Aerodrome */}
-                <div className="flex items-center justify-between py-3 border-t border-zinc-800">
+                <div className="flex items-center justify-between py-3 border-t border-amber-500/30">
                   <div className="flex-1">
-                    <div className="text-sm text-zinc-400">Aerodrome Router</div>
-                    <div className="text-lg font-semibold">{formatAllowance(donutAllowanceForAero as bigint, 18)}</div>
+                    <div className="text-xs text-gray-400">Aerodrome Router</div>
+                    <div className="text-base font-bold text-white">{formatAllowance(donutAllowanceForAero as bigint, 18)}</div>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -1411,7 +1411,7 @@ export default function SwapPage() {
                         router: AERODROME_ROUTER,
                         routerName: "Aerodrome"
                       })}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors"
                     >
                       Set
                     </button>
@@ -1419,7 +1419,7 @@ export default function SwapPage() {
                       <button
                         onClick={() => handleRevokeTokenApproval(DONUT_ADDRESS, AERODROME_ROUTER)}
                         disabled={txStep !== "idle" || isWriting || isConfirming}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-500 border border-amber-600/50 hover:bg-amber-600/30 disabled:opacity-50"
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-600/20 text-red-400 border border-red-600/50 hover:bg-red-600/30 disabled:opacity-50 transition-colors"
                       >
                         {txStep === "revoking_approval" ? <Loader2 className="w-3 h-3 animate-spin" /> : "Revoke"}
                       </button>
@@ -1429,20 +1429,20 @@ export default function SwapPage() {
               </div>
 
               {/* SPRINKLES Approvals */}
-              <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-4">
-                <div className="flex items-center gap-3 mb-4">
-                  <img src={getDexScreenerIcon(SPRINKLES_ADDRESS)} alt="SPRINKLES" className="w-10 h-10 rounded-full border border-zinc-700" />
+              <div className="rounded-xl bg-amber-500/10 border border-amber-500/50 p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <img src={getDexScreenerIcon(SPRINKLES_ADDRESS)} alt="SPRINKLES" className="w-10 h-10 rounded-full border border-amber-500/50" />
                   <div>
-                    <div className="font-bold text-lg">SPRINKLES</div>
-                    <div className="text-xs text-zinc-500">Token Approvals</div>
+                    <div className="font-bold text-lg text-amber-400">SPRINKLES</div>
+                    <div className="text-[10px] text-gray-400 uppercase">Token Approvals</div>
                   </div>
                 </div>
                 
                 {/* SPRINKLES -> Aerodrome */}
-                <div className="flex items-center justify-between py-3 border-t border-zinc-800">
+                <div className="flex items-center justify-between py-3 border-t border-amber-500/30">
                   <div className="flex-1">
-                    <div className="text-sm text-zinc-400">Aerodrome Router</div>
-                    <div className="text-lg font-semibold">{formatAllowance(sprinklesAllowanceForAero as bigint, 18)}</div>
+                    <div className="text-xs text-gray-400">Aerodrome Router</div>
+                    <div className="text-base font-bold text-white">{formatAllowance(sprinklesAllowanceForAero as bigint, 18)}</div>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -1453,7 +1453,7 @@ export default function SwapPage() {
                         router: AERODROME_ROUTER,
                         routerName: "Aerodrome"
                       })}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors"
                     >
                       Set
                     </button>
@@ -1461,7 +1461,7 @@ export default function SwapPage() {
                       <button
                         onClick={() => handleRevokeTokenApproval(SPRINKLES_ADDRESS, AERODROME_ROUTER)}
                         disabled={txStep !== "idle" || isWriting || isConfirming}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-500 border border-amber-600/50 hover:bg-amber-600/30 disabled:opacity-50"
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-600/20 text-red-400 border border-red-600/50 hover:bg-red-600/30 disabled:opacity-50 transition-colors"
                       >
                         {txStep === "revoking_approval" ? <Loader2 className="w-3 h-3 animate-spin" /> : "Revoke"}
                       </button>
