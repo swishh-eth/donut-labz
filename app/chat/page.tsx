@@ -132,7 +132,7 @@ export default function ChatPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [currentMultiplier, setCurrentMultiplier] = useState(getCurrentMultiplier());
   const [timeUntilHalving, setTimeUntilHalving] = useState(getTimeUntilNextHalving());
-  const [tippingAddress, setTippingAddress] = useState<string | null>(null);
+  const [tippingMessageHash, setTippingMessageHash] = useState<string | null>(null);
 
   const COOLDOWN_SECONDS = 30;
 
@@ -148,14 +148,6 @@ export default function ChatPage() {
     reset: resetTip 
   } = useWriteContract();
   const { isLoading: isTipConfirming, isSuccess: isTipSuccess } = useWaitForTransactionReceipt({ hash: tipHash });
-
-  // Reset tip state after success
-  useEffect(() => {
-    if (isTipSuccess) {
-      setTippingAddress(null);
-      resetTip();
-    }
-  }, [isTipSuccess, resetTip]);
 
   // Update halving countdown every minute
   useEffect(() => {
@@ -266,6 +258,52 @@ export default function ChatPage() {
     staleTime: 30 * 60 * 1000,
   });
 
+  // Fetch tip counts for messages
+  const messageHashes = messages?.map(m => m.transactionHash) || [];
+  const { data: tipCountsData, refetch: refetchTipCounts } = useQuery<{ tips: Record<string, number> }>({
+    queryKey: ["chat-tips", messageHashes.join(",")],
+    queryFn: async () => {
+      if (messageHashes.length === 0) return { tips: {} };
+      const res = await fetch(`/api/chat/tips?hashes=${encodeURIComponent(messageHashes.join(","))}`);
+      if (!res.ok) return { tips: {} };
+      return res.json();
+    },
+    enabled: messageHashes.length > 0,
+    staleTime: 30000,
+  });
+
+  const tipCounts = tipCountsData?.tips || {};
+
+  // Reset tip state after success and record the tip
+  useEffect(() => {
+    if (isTipSuccess && tippingMessageHash) {
+      // Record the tip in the database
+      const recordTip = async () => {
+        try {
+          const msg = messages?.find(m => m.transactionHash === tippingMessageHash);
+          if (msg) {
+            await fetch("/api/chat/tips", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                messageHash: tippingMessageHash,
+                fromAddress: address,
+                toAddress: msg.sender,
+                amount: "1",
+              }),
+            });
+            refetchTipCounts();
+          }
+        } catch (e) {
+          console.error("Failed to record tip:", e);
+        }
+      };
+      recordTip();
+      setTippingMessageHash(null);
+      resetTip();
+    }
+  }, [isTipSuccess, tippingMessageHash, resetTip, refetchTipCounts, messages, address]);
+
   const profiles = profilesData?.profiles || {};
 
   const recordPoints = useCallback(async () => {
@@ -355,11 +393,11 @@ export default function ChatPage() {
     }
   };
 
-  const handleTip = (recipientAddress: string) => {
+  const handleTip = (recipientAddress: string, messageHash: string) => {
     if (!isConnected || isTipPending || isTipConfirming) return;
     if (recipientAddress.toLowerCase() === address?.toLowerCase()) return; // Can't tip yourself
     
-    setTippingAddress(recipientAddress);
+    setTippingMessageHash(messageHash);
     
     // Send 1 DONUT (18 decimals)
     const amount = parseUnits("1", 18);
@@ -504,11 +542,11 @@ export default function ChatPage() {
                     </div>
 
                     <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-pink-500 flex items-center justify-center text-[10px] font-bold text-white">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">
                         <Heart className="w-3 h-3" />
                       </div>
                       <div>
-                        <div className="font-semibold text-pink-400 text-xs">Tip with DONUT</div>
+                        <div className="font-semibold text-amber-400 text-xs">Tip with DONUT</div>
                         <div className="text-[11px] text-gray-400 mt-0.5">
                           Love a message? Tap the heart to send 1 🍩DONUT directly to that person!
                         </div>
@@ -580,7 +618,8 @@ export default function ChatPage() {
                   const username = profile?.username ? `@${profile.username}` : null;
                   const avatarUrl = profile?.pfpUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${msg.sender.toLowerCase()}`;
                   const isOwnMessage = address?.toLowerCase() === msg.sender.toLowerCase();
-                  const isTipping = tippingAddress?.toLowerCase() === msg.sender.toLowerCase();
+                  const isTipping = tippingMessageHash === msg.transactionHash;
+                  const tipCount = tipCounts[msg.transactionHash] || 0;
 
                   return (
                     <div
@@ -606,19 +645,42 @@ export default function ChatPage() {
                       {/* Tip button - only show for other people's messages */}
                       {!isOwnMessage && isConnected && (
                         <button
-                          onClick={() => handleTip(msg.sender)}
+                          onClick={() => handleTip(msg.sender, msg.transactionHash)}
                           disabled={isTipPending || isTipConfirming}
-                          className={`flex-shrink-0 p-1.5 rounded-lg transition-all ${
+                          className={`flex-shrink-0 flex flex-col items-center justify-center min-w-[32px] p-1 rounded-lg transition-all ${
                             isTipping
-                              ? "bg-pink-500/20 text-pink-400"
-                              : "hover:bg-pink-500/10 text-gray-500 hover:text-pink-400"
+                              ? "bg-amber-500/20"
+                              : tipCount > 0
+                                ? "bg-amber-500/10"
+                                : "hover:bg-amber-500/10"
                           }`}
                           title="Tip 1 DONUT"
                         >
                           <Heart 
-                            className={`w-4 h-4 ${isTipping ? "animate-pulse fill-pink-400" : ""}`} 
+                            className={`w-4 h-4 transition-colors ${
+                              isTipping 
+                                ? "text-amber-400 animate-pulse fill-amber-400" 
+                                : tipCount > 0
+                                  ? "text-amber-400 fill-amber-400/50"
+                                  : "text-gray-500 hover:text-amber-400"
+                            }`} 
                           />
+                          {tipCount > 0 && (
+                            <span className="text-[9px] font-bold text-amber-400 mt-0.5">
+                              {tipCount}
+                            </span>
+                          )}
                         </button>
+                      )}
+
+                      {/* Show tip count for own messages only if they have tips */}
+                      {isOwnMessage && tipCount > 0 && (
+                        <div className="flex-shrink-0 flex flex-col items-center justify-center min-w-[32px] p-1">
+                          <Heart className="w-4 h-4 text-amber-400 fill-amber-400/50" />
+                          <span className="text-[9px] font-bold text-amber-400 mt-0.5">
+                            {tipCount}
+                          </span>
+                        </div>
                       )}
                     </div>
                   );
@@ -679,9 +741,9 @@ export default function ChatPage() {
 
                 {/* Tip confirmation toast */}
                 {(isTipPending || isTipConfirming) && (
-                  <div className="mb-2 bg-pink-500/10 border border-pink-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
-                    <Heart className="w-4 h-4 text-pink-400 animate-pulse" />
-                    <span className="text-xs text-pink-400">
+                  <div className="mb-2 bg-amber-500/10 border border-amber-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
+                    <Heart className="w-4 h-4 text-amber-400 animate-pulse" />
+                    <span className="text-xs text-amber-400">
                       {isTipPending ? "Confirm tip in wallet..." : "Sending 1 🍩DONUT..."}
                     </span>
                   </div>
