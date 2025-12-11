@@ -41,6 +41,9 @@ const DONUT_DECIMALS = 18;
 const DEADLINE_BUFFER_SECONDS = 15 * 60;
 const EPOCH_PERIOD = 3600; // 1 hour in seconds
 
+// DEXScreener pair address for SPRINKLES/DONUT pricing
+const SPRINKLES_DONUT_PAIR = "0x47E8b03017d8b8d058bA5926838cA4dD4531e668";
+
 const ANON_PFPS = [
   "/media/anonpfp1.png",
   "/media/anonpfp2.png",
@@ -94,8 +97,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const autoConnectAttempted = useRef(false);
   const [customMessage, setCustomMessage] = useState("");
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
-  const [sprinklesPrice, setSprinklesPrice] = useState<number>(0);
-  const [donutPrice, setDonutPrice] = useState<number>(0);
+  const [sprinklesPerDonut, setSprinklesPerDonut] = useState<number>(0);
   const [mineResult, setMineResult] = useState<"success" | "failure" | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
@@ -107,9 +109,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const mineResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const approvalInputRef = useRef<HTMLInputElement>(null);
-
-  // Token addresses for price fetching
-  const SPRINKLES_TOKEN_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
 
   const resetMineResult = useCallback(() => {
     if (mineResultTimeoutRef.current) {
@@ -130,25 +129,24 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     }, 3000);
   }, []);
 
-  // Fetch token prices from DEXScreener
+  // Fetch SPRINKLES/DONUT price ratio from DEXScreener using specific pair
   useEffect(() => {
     const fetchPrices = async () => {
       try {
-        // Fetch SPRINKLES price
-        const sprinklesRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${SPRINKLES_TOKEN_ADDRESS}`);
-        const sprinklesData = await sprinklesRes.json();
-        if (sprinklesData.pairs && sprinklesData.pairs.length > 0) {
-          setSprinklesPrice(parseFloat(sprinklesData.pairs[0].priceUsd || "0"));
-        }
-
-        // Fetch DONUT price
-        const donutRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${DONUT_ADDRESS}`);
-        const donutData = await donutRes.json();
-        if (donutData.pairs && donutData.pairs.length > 0) {
-          setDonutPrice(parseFloat(donutData.pairs[0].priceUsd || "0"));
+        // Fetch from specific SPRINKLES/DONUT pair
+        const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/base/${SPRINKLES_DONUT_PAIR}`);
+        const data = await res.json();
+        if (data.pair) {
+          // priceNative is the price of SPRINKLES in DONUT (the quote token)
+          // This tells us how many DONUT 1 SPRINKLES is worth
+          const priceInDonut = parseFloat(data.pair.priceNative || "0");
+          if (priceInDonut > 0) {
+            // sprinklesPerDonut = how many SPRINKLES you get for 1 DONUT
+            setSprinklesPerDonut(1 / priceInDonut);
+          }
         }
       } catch (e) {
-        console.error("Failed to fetch token prices:", e);
+        console.error("Failed to fetch SPRINKLES/DONUT price:", e);
       }
     };
 
@@ -613,18 +611,19 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     return Math.floor(Number(formatUnits(actualPaid, DONUT_DECIMALS))).toLocaleString();
   }, [slot0]);
 
-  // Calculate DONUT per second equivalent based on SPRINKLES/DONUT price ratio
+  // Calculate DONUT per second equivalent based on SPRINKLES/DONUT ratio from the pair
   const donutPerSecondDisplay = useMemo(() => {
-    if (!dps || sprinklesPrice === 0 || donutPrice === 0) return null;
+    if (!dps || sprinklesPerDonut === 0) return null;
     // dps is SPRINKLES per second (in wei)
     const sprinklesPerSecond = Number(dps) / 1e18;
-    // Convert SPRINKLES value to DONUT value
-    const sprinklesValueUsd = sprinklesPerSecond * sprinklesPrice;
-    const donutEquivalent = sprinklesValueUsd / donutPrice;
+    // Convert SPRINKLES to DONUT using the direct pair ratio
+    // sprinklesPerDonut = how many SPRINKLES you get for 1 DONUT
+    // So donutEquivalent = sprinklesPerSecond / sprinklesPerDonut
+    const donutEquivalent = sprinklesPerSecond / sprinklesPerDonut;
     
     if (donutEquivalent < 0.0001) return null;
     return donutEquivalent.toFixed(4);
-  }, [dps, sprinklesPrice, donutPrice]);
+  }, [dps, sprinklesPerDonut]);
 
   const formatMineTime = (seconds: number): string => {
     if (seconds < 0) return "0s";
