@@ -327,16 +327,43 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       
       // Award spin and post to chat for successful mine
       if (receipt.status === "success" && txType === "mine" && address) {
-        fetch("/api/spins/award-sprinkles-mine", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        // Helper function for retry logic
+        const fetchWithRetry = async (url: string, body: object, attempt = 1, maxAttempts = 3) => {
+          try {
+            const res = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+            const data = await res.json();
+            
+            if (!res.ok && attempt < maxAttempts) {
+              console.log(`${url} attempt ${attempt} failed, retrying in 3s...`);
+              setTimeout(() => fetchWithRetry(url, body, attempt + 1, maxAttempts), 3000);
+            } else if (res.ok) {
+              console.log(`${url} success:`, data);
+            } else {
+              console.error(`${url} failed after retries:`, data);
+            }
+          } catch (err) {
+            if (attempt < maxAttempts) {
+              console.log(`${url} attempt ${attempt} error, retrying in 3s...`);
+              setTimeout(() => fetchWithRetry(url, body, attempt + 1, maxAttempts), 3000);
+            } else {
+              console.error(`${url} error after retries:`, err);
+            }
+          }
+        };
+
+        // Initial delay of 2 seconds before first attempt
+        setTimeout(() => {
+          fetchWithRetry("/api/spins/award-sprinkles-mine", {
             address: address,
             txHash: receipt.transactionHash,
-          }),
-        }).catch(console.error);
+          });
+        }, 2000);
         
-        // Post mining activity to chat
+        // Post mining activity to chat (no retry needed, less critical)
         fetch("/api/chat/mining", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

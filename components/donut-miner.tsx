@@ -252,14 +252,39 @@ export default function DonutMiner({ context }: DonutMinerProps) {
       showGlazeResult(receipt.status === "success" ? "success" : "failure");
 
       if (receipt.status === "success" && address) {
-        fetch("/api/record-glaze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            address: address,
-            txHash: receipt.transactionHash,
-          }),
-        }).catch(console.error);
+        // Delay to allow RPC to index the tx, then retry if needed
+        const recordGlazeWithRetry = async (attempt = 1, maxAttempts = 3) => {
+          try {
+            const res = await fetch("/api/record-glaze", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                address: address,
+                txHash: receipt.transactionHash,
+              }),
+            });
+            const data = await res.json();
+            
+            if (!res.ok && attempt < maxAttempts) {
+              console.log(`record-glaze attempt ${attempt} failed, retrying in 3s...`);
+              setTimeout(() => recordGlazeWithRetry(attempt + 1, maxAttempts), 3000);
+            } else if (res.ok) {
+              console.log("record-glaze success:", data);
+            } else {
+              console.error("record-glaze failed after retries:", data);
+            }
+          } catch (err) {
+            if (attempt < maxAttempts) {
+              console.log(`record-glaze attempt ${attempt} error, retrying in 3s...`);
+              setTimeout(() => recordGlazeWithRetry(attempt + 1, maxAttempts), 3000);
+            } else {
+              console.error("record-glaze error after retries:", err);
+            }
+          }
+        };
+
+        // Initial delay of 2 seconds before first attempt
+        setTimeout(() => recordGlazeWithRetry(), 2000);
 
         // Post mining activity to chat
         fetch("/api/chat/mining", {
