@@ -236,15 +236,19 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         // Fetch DONUT price from specific DONUT/WETH pair
         const donutRes = await fetch(`https://api.dexscreener.com/latest/dex/pairs/base/${DONUT_WETH_PAIR}`);
         const donutData = await donutRes.json();
-        if (donutData.pair) {
-          setDonutPrice(parseFloat(donutData.pair.priceUsd || "0"));
+        // Handle both response structures: { pair: {...} } or { pairs: [...] }
+        const donutPair = donutData.pair || donutData.pairs?.[0];
+        if (donutPair) {
+          setDonutPrice(parseFloat(donutPair.priceUsd || "0"));
         }
         
         // Fetch SPRINKLES price from specific SPRINKLES/DONUT pair
         const sprinklesRes = await fetch(`https://api.dexscreener.com/latest/dex/pairs/base/${SPRINKLES_DONUT_PAIR}`);
         const sprinklesData = await sprinklesRes.json();
-        if (sprinklesData.pair) {
-          setSprinklesPrice(parseFloat(sprinklesData.pair.priceUsd || "0"));
+        // Handle both response structures: { pair: {...} } or { pairs: [...] }
+        const sprinklesPair = sprinklesData.pair || sprinklesData.pairs?.[0];
+        if (sprinklesPair) {
+          setSprinklesPrice(parseFloat(sprinklesPair.priceUsd || "0"));
         }
       } catch (e) {
         console.error("Failed to fetch prices:", e);
