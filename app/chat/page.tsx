@@ -625,28 +625,44 @@ export default function ChatPage() {
 
                   // System message (mining notifications)
                   if (msg.isSystemMessage) {
-                    const isMiningDonut = msg.systemType === "mine_donut";
-                    const icon = isMiningDonut ? "🍩" : "✨";
+                    const tokenName = msg.systemType === "mine_donut" ? "DONUT" : "SPRINKLES";
                     
                     return (
                       <div
                         key={`${msg.transactionHash}-${index}`}
-                        className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30"
+                        className="flex gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30"
                       >
-                        <span className="text-base">{icon}</span>
+                        <button
+                          onClick={() => openUserProfile(username)}
+                          disabled={!username}
+                          className={`flex-shrink-0 ${username ? "cursor-pointer hover:opacity-80 transition-opacity" : "cursor-default"}`}
+                        >
+                          <Avatar className="h-8 w-8 border border-amber-500/50">
+                            <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+                            <AvatarFallback className="bg-amber-500/20 text-amber-400 text-xs">{initialsFrom(displayName)}</AvatarFallback>
+                          </Avatar>
+                        </button>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs text-amber-400">
+                          <div className="flex items-center gap-2 mb-0.5">
                             <button
                               onClick={() => openUserProfile(username)}
                               disabled={!username}
-                              className={`font-bold ${username ? "hover:underline" : ""}`}
+                              className={`font-semibold text-amber-400 text-xs truncate ${username ? "hover:text-amber-300 transition-colors" : ""}`}
                             >
                               {displayName}
                             </button>
-                            {" "}{msg.message}
-                          </p>
+                            {username && (
+                              <button
+                                onClick={() => openUserProfile(username)}
+                                className="text-[10px] text-amber-400/60 truncate hover:text-amber-400 transition-colors"
+                              >
+                                {username}
+                              </button>
+                            )}
+                            <span className="text-[10px] text-amber-400/40 ml-auto flex-shrink-0">{timeAgo(msg.timestamp)}</span>
+                          </div>
+                          <p className="text-xs text-amber-400">started mining {tokenName}</p>
                         </div>
-                        <span className="text-[10px] text-amber-400/60 flex-shrink-0">{timeAgo(msg.timestamp)}</span>
                       </div>
                     );
                   }
