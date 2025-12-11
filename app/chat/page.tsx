@@ -410,6 +410,14 @@ export default function ChatPage() {
     });
   };
 
+  const openUserProfile = (username: string | null) => {
+    if (!username) return;
+    // Remove @ if present
+    const cleanUsername = username.startsWith("@") ? username.slice(1) : username;
+    // Use Farcaster SDK to open profile (minimizes miniapp and opens profile)
+    sdk.actions.openUrl(`https://warpcast.com/${cleanUsername}`);
+  };
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -494,7 +502,7 @@ export default function ChatPage() {
                 <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
                   <button
                     onClick={() => setShowHelpDialog(false)}
-                    className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
+                    className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white z-10"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -549,16 +557,6 @@ export default function ChatPage() {
                         <div className="font-semibold text-amber-400 text-xs">Tip with DONUT</div>
                         <div className="text-[11px] text-gray-400 mt-0.5">
                           Love a message? Tap the heart to send 1 🍩DONUT directly to that person!
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">6</div>
-                      <div>
-                        <div className="font-semibold text-white text-xs">Mine SPRINKLES Tokens</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">
-                          You can also mine real SPRINKLES tokens! Pay DONUT in the miner to earn tokens with the same halving schedule.
                         </div>
                       </div>
                     </div>
@@ -628,15 +626,34 @@ export default function ChatPage() {
                         isOwnMessage ? "bg-zinc-800 border border-zinc-700" : "bg-zinc-900 border border-zinc-800"
                       }`}
                     >
-                      <Avatar className="h-8 w-8 border border-zinc-700 flex-shrink-0">
-                        <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
-                        <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(displayName)}</AvatarFallback>
-                      </Avatar>
+                      <button
+                        onClick={() => openUserProfile(username)}
+                        disabled={!username}
+                        className={`flex-shrink-0 ${username ? "cursor-pointer hover:opacity-80 transition-opacity" : "cursor-default"}`}
+                      >
+                        <Avatar className="h-8 w-8 border border-zinc-700">
+                          <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+                          <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(displayName)}</AvatarFallback>
+                        </Avatar>
+                      </button>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <span className="font-semibold text-white text-xs truncate">{displayName}</span>
-                          {username && <span className="text-[10px] text-gray-500 truncate">{username}</span>}
+                          <button
+                            onClick={() => openUserProfile(username)}
+                            disabled={!username}
+                            className={`font-semibold text-white text-xs truncate ${username ? "hover:text-amber-400 transition-colors" : ""}`}
+                          >
+                            {displayName}
+                          </button>
+                          {username && (
+                            <button
+                              onClick={() => openUserProfile(username)}
+                              className="text-[10px] text-gray-500 truncate hover:text-amber-400 transition-colors"
+                            >
+                              {username}
+                            </button>
+                          )}
                           <span className="text-[10px] text-gray-600 ml-auto flex-shrink-0">{timeAgo(msg.timestamp)}</span>
                         </div>
                         <p className="text-xs text-gray-300 break-words">{msg.message}</p>
