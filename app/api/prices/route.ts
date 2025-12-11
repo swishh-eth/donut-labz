@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// DEXScreener pair addresses for accurate pricing
-const SPRINKLES_DONUT_PAIR = "0x47e8b03017d8b8d058ba5926838ca4dd4531e668";
-const DONUT_WETH_PAIR = "0xb7484cdc25c2a11572632e76e6160b05f9e3b3f0";
+// Token addresses
+const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C";
+const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
+
+// Specific pair addresses for filtering
+const SPRINKLES_DONUT_PAIR = "0x47e8b03017d8b8d058ba5926838ca4dd4531e668".toLowerCase();
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,32 +16,79 @@ export async function GET(request: NextRequest) {
     );
     const ethData = await ethRes.json();
     const ethPrice = ethData.ethereum?.usd || 0;
+    console.log("[prices] ETH price:", ethPrice);
 
-    // Fetch DONUT price from specific pair
-    const donutRes = await fetch(
-      `https://api.dexscreener.com/latest/dex/pairs/base/${DONUT_WETH_PAIR}`,
-      { next: { revalidate: 60 } }
-    );
-    const donutData = await donutRes.json();
-    const donutPair = donutData.pair || donutData.pairs?.[0];
-    const donutPrice = donutPair ? parseFloat(donutPair.priceUsd || "0") : 0;
+    // Fetch DONUT price using token endpoint (returns all pairs for token)
+    let donutPrice = 0;
+    try {
+      const donutRes = await fetch(
+        `https://api.dexscreener.com/latest/dex/tokens/${DONUT_ADDRESS}`,
+        { next: { revalidate: 60 } }
+      );
+      const donutData = await donutRes.json();
+      console.log("[prices] DONUT pairs count:", donutData.pairs?.length || 0);
+      
+      // Find the pair with highest liquidity (usually the main one)
+      if (donutData.pairs && donutData.pairs.length > 0) {
+        // Sort by liquidity and get the best one
+        const sortedPairs = donutData.pairs
+          .filter((p: any) => p.chainId === "base" && p.priceUsd)
+          .sort((a: any, b: any) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
+        
+        if (sortedPairs.length > 0) {
+          donutPrice = parseFloat(sortedPairs[0].priceUsd || "0");
+          console.log("[prices] DONUT best pair:", sortedPairs[0].pairAddress, "price:", donutPrice);
+        }
+      }
+    } catch (e) {
+      console.error("[prices] DONUT fetch error:", e);
+    }
 
-    // Fetch SPRINKLES price from specific pair
-    const sprinklesRes = await fetch(
-      `https://api.dexscreener.com/latest/dex/pairs/base/${SPRINKLES_DONUT_PAIR}`,
-      { next: { revalidate: 60 } }
-    );
-    const sprinklesData = await sprinklesRes.json();
-    const sprinklesPair = sprinklesData.pair || sprinklesData.pairs?.[0];
-    const sprinklesPrice = sprinklesPair ? parseFloat(sprinklesPair.priceUsd || "0") : 0;
+    // Fetch SPRINKLES price using token endpoint
+    let sprinklesPrice = 0;
+    try {
+      const sprinklesRes = await fetch(
+        `https://api.dexscreener.com/latest/dex/tokens/${SPRINKLES_ADDRESS}`,
+        { next: { revalidate: 60 } }
+      );
+      const sprinklesData = await sprinklesRes.json();
+      console.log("[prices] SPRINKLES pairs count:", sprinklesData.pairs?.length || 0);
+      
+      if (sprinklesData.pairs && sprinklesData.pairs.length > 0) {
+        // Try to find the specific SPRINKLES/DONUT pair first
+        const specificPair = sprinklesData.pairs.find(
+          (p: any) => p.pairAddress?.toLowerCase() === SPRINKLES_DONUT_PAIR
+        );
+        
+        if (specificPair && specificPair.priceUsd) {
+          sprinklesPrice = parseFloat(specificPair.priceUsd);
+          console.log("[prices] SPRINKLES specific pair found, price:", sprinklesPrice);
+        } else {
+          // Fallback to highest liquidity pair
+          const sortedPairs = sprinklesData.pairs
+            .filter((p: any) => p.chainId === "base" && p.priceUsd)
+            .sort((a: any, b: any) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
+          
+          if (sortedPairs.length > 0) {
+            sprinklesPrice = parseFloat(sortedPairs[0].priceUsd || "0");
+            console.log("[prices] SPRINKLES best pair:", sortedPairs[0].pairAddress, "price:", sprinklesPrice);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[prices] SPRINKLES fetch error:", e);
+    }
 
-    return NextResponse.json({
+    const result = {
       ethPrice,
       donutPrice,
       sprinklesPrice,
-    });
+    };
+    console.log("[prices] Final result:", result);
+    
+    return NextResponse.json(result);
   } catch (error) {
-    console.error("Failed to fetch prices:", error);
+    console.error("[prices] Failed to fetch prices:", error);
     return NextResponse.json(
       { ethPrice: 0, donutPrice: 0, sprinklesPrice: 0 },
       { status: 500 }
