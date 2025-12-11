@@ -7,12 +7,18 @@ import { base } from "wagmi/chains";
 import { keccak256, encodePacked, formatEther, formatUnits, parseUnits } from "viem";
 import { Loader2, Sparkles, ArrowLeft, Coins, Trophy, HelpCircle, X } from "lucide-react";
 
-const SPIN_WHEEL_ADDRESS = "0x855F3E6F870C4D4dEB4959523484be3b147c4c0C" as `0x${string}`;
-const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as `0x${string}`;
-const SPIN_AUCTION_ADDRESS = "0x3f22C2258365a97FB319d23e053faB6f76d5F1b4" as `0x${string}`;
+type HexString = `0x${string}`;
+
+const SPIN_WHEEL_ADDRESS: HexString = "0x855F3E6F870C4D4dEB4959523484be3b147c4c0C";
+const DONUT_ADDRESS: HexString = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C";
+const SPIN_AUCTION_ADDRESS: HexString = "0x3f22C2258365a97FB319d23e053faB6f76d5F1b4";
 
 const DONUT_ADDRESS_LOWER = DONUT_ADDRESS.toLowerCase();
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D".toLowerCase();
+
+// DEXScreener pair addresses for accurate pricing
+const SPRINKLES_DONUT_PAIR = "0x47E8b03017d8b8d058bA5926838cA4dD4531e668";
+const DONUT_WETH_PAIR = "0xB7484CdC25c2a11572632e76e6160B05F9E3b3f0";
 
 const AUCTION_MIN_PRICE = 10;
 const AUCTION_DECAY_PERIOD = 60 * 60;
@@ -141,40 +147,16 @@ const SEGMENTS = [
   { label: "5%", color: "#b45309", glowColor: "#f59e0b", chance: 2, prize: 5 },
 ];
 
-// Each segment is 72° wide (360/5)
-// Segment i is drawn starting at angle: i * 72 - 90 degrees
-// Segment i CENTER is at: i * 72 - 90 + 36 = i * 72 - 54 degrees
-// 
-// At rotation 0°:
-// - Segment 0 (💀) center is at -54° (slightly left of top)
-// - Segment 1 (0.1%) center is at 18° (right of top)
-// - Segment 2 (0.5%) center is at 90° (right side)
-// - Segment 3 (1%) center is at 162° (bottom-left)
-// - Segment 4 (5%) center is at 234° (left side)
-//
-// The pointer is at the TOP of the screen (at angle -90° or 270° in standard coords)
-// To bring segment i's center to angle -90° (top), we need to rotate by:
-// rotation = -90 - (i * 72 - 54) = -90 - i*72 + 54 = -36 - i*72
-// 
-// In positive degrees (mod 360):
-// Segment 0: (-36 - 0) mod 360 = 324°
-// Segment 1: (-36 - 72) mod 360 = (-108) mod 360 = 252°
-// Segment 2: (-36 - 144) mod 360 = (-180) mod 360 = 180°
-// Segment 3: (-36 - 216) mod 360 = (-252) mod 360 = 108°
-// Segment 4: (-36 - 288) mod 360 = (-324) mod 360 = 36°
-
-// Rotation needed to land pointer on each segment's center
 const SEGMENT_TARGET_ROTATION = [324, 252, 180, 108, 36];
 const SPIN_SPEED = 8;
 
-// Secret management
 const saveSecret = (address: string, secret: string) => {
   localStorage.setItem(`spin-secret-${address}`, secret);
 };
 
-const getSecret = (address: string): `0x${string}` | null => {
+const getSecret = (address: string): HexString | null => {
   const secret = localStorage.getItem(`spin-secret-${address}`);
-  return secret as `0x${string}` | null;
+  return secret as HexString | null;
 };
 
 const clearSecret = (address: string) => {
@@ -190,7 +172,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   const router = useRouter();
   const { address } = useAccount();
   const [stage, setStage] = useState<"idle" | "committing" | "waiting" | "revealing" | "spinning" | "result">("idle");
-  const [secret, setSecret] = useState<`0x${string}` | null>(null);
+  const [secret, setSecret] = useState<HexString | null>(null);
   const [rotation, setRotation] = useState(0);
   const [resultSegment, setResultSegment] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -215,12 +197,10 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   const hasStartedRef = useRef(false);
   const hasTriggeredRevealRef = useRef(false);
 
-  // Sync local spins with prop
   useEffect(() => {
     setLocalSpins(availableSpins);
   }, [availableSpins]);
 
-  // Floating animation
   useEffect(() => {
     let frame = 0;
     const animate = () => {
@@ -232,12 +212,10 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     return () => cancelAnimationFrame(id);
   }, []);
 
-  // Pulse animation for button and title
   useEffect(() => {
     let frame = 0;
     const animate = () => {
       frame++;
-      // Gentle pulse between 0.97 and 1.03
       const scale = 1 + Math.sin(frame * 0.03) * 0.03;
       setPulseScale(scale);
       requestAnimationFrame(animate);
@@ -246,7 +224,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     return () => cancelAnimationFrame(id);
   }, []);
 
-  // Fetch prices
+  // Fetch prices from specific DEXScreener pairs
   useEffect(() => {
     const fetchPrices = async () => {
       try {
@@ -255,18 +233,18 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         const ethData = await ethRes.json();
         setEthPrice(ethData.ethereum?.usd || 0);
         
-        // Fetch DONUT price from DEXScreener
-        const donutRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${DONUT_ADDRESS}`);
+        // Fetch DONUT price from specific DONUT/WETH pair
+        const donutRes = await fetch(`https://api.dexscreener.com/latest/dex/pairs/base/${DONUT_WETH_PAIR}`);
         const donutData = await donutRes.json();
-        if (donutData.pairs && donutData.pairs.length > 0) {
-          setDonutPrice(parseFloat(donutData.pairs[0].priceUsd || "0"));
+        if (donutData.pair) {
+          setDonutPrice(parseFloat(donutData.pair.priceUsd || "0"));
         }
         
-        // Fetch SPRINKLES price from DEXScreener
-        const sprinklesRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${SPRINKLES_ADDRESS}`);
+        // Fetch SPRINKLES price from specific SPRINKLES/DONUT pair
+        const sprinklesRes = await fetch(`https://api.dexscreener.com/latest/dex/pairs/base/${SPRINKLES_DONUT_PAIR}`);
         const sprinklesData = await sprinklesRes.json();
-        if (sprinklesData.pairs && sprinklesData.pairs.length > 0) {
-          setSprinklesPrice(parseFloat(sprinklesData.pairs[0].priceUsd || "0"));
+        if (sprinklesData.pair) {
+          setSprinklesPrice(parseFloat(sprinklesData.pair.priceUsd || "0"));
         }
       } catch (e) {
         console.error("Failed to fetch prices:", e);
@@ -277,7 +255,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     return () => clearInterval(interval);
   }, []);
 
-  // Check for existing secret on mount
   useEffect(() => {
     if (address) {
       const existingSecret = getSecret(address);
@@ -287,7 +264,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     }
   }, [address]);
 
-  // Auction state
   const { data: auctionState, refetch: refetchAuction } = useReadContract({
     address: SPIN_AUCTION_ADDRESS,
     abi: SPIN_AUCTION_ABI,
@@ -296,7 +272,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     query: { refetchInterval: 5000 },
   });
 
-  // Pool balances
   const { data: poolBalances, refetch: refetchPool } = useReadContract({
     address: SPIN_WHEEL_ADDRESS,
     abi: SPIN_WHEEL_ABI,
@@ -305,7 +280,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     query: { refetchInterval: 10000 },
   });
 
-  // Boost info
   const { data: boostInfo } = useReadContract({
     address: SPIN_WHEEL_ADDRESS,
     abi: SPIN_WHEEL_ABI,
@@ -314,7 +288,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     query: { refetchInterval: 10000 },
   });
 
-  // User DONUT balance
   const { data: userDonutBalanceRaw } = useReadContract({
     address: DONUT_ADDRESS,
     abi: ERC20_ABI,
@@ -324,7 +297,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     query: { enabled: !!address, refetchInterval: 10000 },
   });
 
-  // User DONUT allowance for auction
   const { data: userAllowanceRaw, refetch: refetchAllowance } = useReadContract({
     address: DONUT_ADDRESS,
     abi: ERC20_ABI,
@@ -334,7 +306,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     query: { enabled: !!address, refetchInterval: 5000 },
   });
 
-  // Commitment status
   const { data: commitmentData, refetch: refetchCommitment } = useReadContract({
     address: SPIN_WHEEL_ADDRESS,
     abi: SPIN_WHEEL_ABI,
@@ -353,30 +324,24 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   const isBoostActive = boostInfo ? boostInfo[0] : false;
   const boostMultiplier = boostInfo ? Number(boostInfo[1]) : 1;
 
-  // blocksUntilExpiry === 0 means the commitment is expired and can be overwritten
   const hasPendingCommit = commitmentData 
     ? (commitmentData[0] !== "0x0000000000000000000000000000000000000000000000000000000000000000" 
        && !commitmentData[2] 
-       && Number(commitmentData[4]) > 0)  // Only pending if blocks remaining > 0
+       && Number(commitmentData[4]) > 0)
     : false;
   const canRevealPending = commitmentData ? commitmentData[3] : false;
   const blocksUntilExpiry = commitmentData ? Number(commitmentData[4]) : 0;
   
-  // The commitment is truly expired only when there's no commit hash at all
-  // blocksUntilExpiry === 0 just means we're past the reveal window, but commit might still block new ones
   const storedCommitHash = commitmentData ? commitmentData[0] : "0x0000000000000000000000000000000000000000000000000000000000000000";
   const isCommitmentCleared = storedCommitHash === "0x0000000000000000000000000000000000000000000000000000000000000000";
   
-  // Check if we have a valid secret for the pending commit
   const storedSecret = address ? getSecret(address) : null;
   const hasValidSecret = !!storedSecret;
   const isCorruptedSpin = hasPendingCommit && !hasValidSecret;
   
-  // State for showing the "spin issue" popup
   const [showSpinIssuePopup, setShowSpinIssuePopup] = useState(false);
   const [hasShownIssuePopup, setHasShownIssuePopup] = useState(false);
   
-  // Auto-show popup when we detect a corrupted spin
   useEffect(() => {
     if (isCorruptedSpin && canRevealPending && !hasShownIssuePopup) {
       setShowSpinIssuePopup(true);
@@ -384,7 +349,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     }
   }, [isCorruptedSpin, canRevealPending, hasShownIssuePopup]);
   
-  // Debug logging - always log to understand state
   useEffect(() => {
     console.log("Spin wheel state:", {
       address,
@@ -398,7 +362,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     });
   }, [address, commitmentData, hasPendingCommit, isCorruptedSpin, hasValidSecret, storedSecret, stage]);
   
-  // Debug logging for commitment data specifically
   useEffect(() => {
     if (commitmentData) {
       console.log("Commitment data:", {
@@ -422,7 +385,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     }
   }, [auctionState]);
 
-  // Write contracts
   const { writeContract: writeCommit, data: commitHash, isPending: isCommitting, reset: resetCommit } = useWriteContract();
   const { writeContract: writeReveal, data: revealHash, isPending: isRevealing, reset: resetReveal } = useWriteContract();
   const { writeContract: writeApprove, data: approveHash, isPending: isApproving, reset: resetApprove } = useWriteContract();
@@ -433,9 +395,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   const { data: approveReceipt, isLoading: isApproveConfirming } = useWaitForTransactionReceipt({ hash: approveHash, chainId: base.id });
   const { data: buyReceipt, isLoading: isBuyConfirming } = useWaitForTransactionReceipt({ hash: buyHash, chainId: base.id });
 
-  // Handle spin
   const handleSpin = useCallback(async () => {
-    // Multiple guards to prevent double-triggering
     if (!address || localSpins <= 0) return;
     if (hasStartedRef.current) {
       console.log("Spin already started, ignoring");
@@ -455,17 +415,12 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     setError(null);
     setStage("committing");
 
-    // Generate a random secret
     const newSecret = keccak256(encodePacked(["address", "uint256"], [address, BigInt(Date.now())]));
-    
-    // IMPORTANT: Contract expects keccak256(abi.encodePacked(_secret, msg.sender))
-    // So it's: secret FIRST, then address
     const commitHashValue = keccak256(encodePacked(["bytes32", "address"], [newSecret, address]));
 
     console.log("Generated secret:", newSecret);
     console.log("Commit hash (secret + address):", commitHashValue);
 
-    // Save secret BEFORE sending tx
     saveSecret(address, newSecret);
     setSecret(newSecret);
 
@@ -477,24 +432,23 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         args: [commitHashValue],
         chainId: base.id,
       });
-    } catch (err: any) {
-      setError(err.message || "Failed to commit");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to commit";
+      setError(errorMessage);
       setStage("idle");
       hasStartedRef.current = false;
       clearSecret(address);
     }
   }, [address, localSpins, stage, isCommitting, commitHash, writeCommit]);
 
-  // Handle reveal
   const handleReveal = useCallback(async () => {
     if (!address) return;
     
-    // Always get secret from localStorage to ensure we have the right one
-    const storedSecret = getSecret(address);
-    console.log("Revealing with stored secret:", storedSecret);
+    const storedSecretLocal = getSecret(address);
+    console.log("Revealing with stored secret:", storedSecretLocal);
     console.log("Current state secret:", secret);
     
-    const secretToUse = storedSecret || secret;
+    const secretToUse = storedSecretLocal || secret;
     
     if (!secretToUse) {
       setError("No secret found. Please try spinning again.");
@@ -511,13 +465,13 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         args: [secretToUse],
         chainId: base.id,
       });
-    } catch (err: any) {
-      setError(err.message || "Failed to reveal");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to reveal";
+      setError(errorMessage);
       setStage("idle");
     }
   }, [address, secret, writeReveal]);
 
-  // Handle approval
   const handleApprove = useCallback(async () => {
     if (!address || !approvalAmount) return;
     
@@ -530,12 +484,12 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         args: [SPIN_AUCTION_ADDRESS, amount],
         chainId: base.id,
       });
-    } catch (err: any) {
-      setError(err.message || "Failed to approve");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to approve";
+      setError(errorMessage);
     }
   }, [address, approvalAmount, writeApprove]);
 
-  // Handle buy spin
   const handleBuySpin = useCallback(async () => {
     if (!address || isBuying) return;
     setIsBuying(true);
@@ -550,26 +504,24 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         args: [maxPrice],
         chainId: base.id,
       });
-    } catch (err: any) {
-      setError(err.message || "Failed to buy spin");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to buy spin";
+      setError(errorMessage);
       setIsBuying(false);
     }
   }, [address, auctionPrice, isBuying, writeBuy]);
 
-  // Commit confirmation
   useEffect(() => {
     if (commitReceipt?.status === "success" && stage === "committing") {
       console.log("Commit confirmed, waiting for reveal eligibility...");
       setStage("waiting");
-      hasTriggeredRevealRef.current = false; // Reset for new spin
+      hasTriggeredRevealRef.current = false;
       
-      // Poll for reveal eligibility
       const checkReveal = setInterval(async () => {
         console.log("Checking if can reveal...");
         await refetchCommitment();
       }, 2000);
 
-      // Set a max timeout of 30 seconds
       const timeout = setTimeout(() => {
         clearInterval(checkReveal);
         console.log("Timeout reached, checking final state");
@@ -588,9 +540,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     }
   }, [commitReceipt, stage, address, refetchCommitment]);
 
-  // Auto-reveal when canReveal becomes true
   useEffect(() => {
-    // Only trigger once, and only when in waiting stage with valid conditions
     if (
       stage === "waiting" && 
       canRevealPending && 
@@ -601,7 +551,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
       console.log("Can reveal now! Triggering reveal...");
       hasTriggeredRevealRef.current = true;
       
-      // Small delay to ensure state is settled
       const timer = setTimeout(() => {
         setStage("revealing");
         handleReveal();
@@ -610,7 +559,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     }
   }, [stage, canRevealPending, isRevealing, revealHash, handleReveal]);
 
-  // Approval confirmation
   useEffect(() => {
     if (approveReceipt?.status === "success") {
       refetchAllowance();
@@ -619,7 +567,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     }
   }, [approveReceipt, refetchAllowance, resetApprove]);
 
-  // Buy confirmation
   useEffect(() => {
     if (buyReceipt?.status === "success" && !hasProcessedBuy) {
       setHasProcessedBuy(true);
@@ -650,13 +597,10 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     }
   }, [buyReceipt, address, hasProcessedBuy, onSpinComplete, refetchAuction, resetBuy]);
 
-  // Continuous rotation animation - ALWAYS spinning, speed varies by stage
-  // Use refs to avoid jerky re-renders
   const speedRef = useRef(15);
   const targetSpeedRef = useRef(15);
   
   useEffect(() => {
-    // Update target speed based on stage
     switch (stage) {
       case "committing":
         targetSpeedRef.current = 120;
@@ -669,10 +613,10 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         break;
       case "spinning":
       case "result":
-        targetSpeedRef.current = 0; // CSS handles this
+        targetSpeedRef.current = 0;
         break;
       default:
-        targetSpeedRef.current = 15; // Slow idle
+        targetSpeedRef.current = 15;
     }
   }, [stage]);
 
@@ -683,9 +627,8 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
       const delta = (currentTime - lastTime) / 1000;
       lastTime = currentTime;
       
-      // Smoothly interpolate speed (ease toward target)
       const diff = targetSpeedRef.current - speedRef.current;
-      speedRef.current += diff * 0.02; // Very smooth transition
+      speedRef.current += diff * 0.02;
       
       if (stage !== "spinning" && stage !== "result") {
         setContinuousRotation(prev => prev + delta * speedRef.current);
@@ -700,8 +643,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
     };
   }, [stage]);
 
-  // Reveal confirmation and animation
-  // The reveal transaction gives us the result, but we animate FIRST, then show result
   const pendingResultRef = useRef<number | null>(null);
   
   useEffect(() => {
@@ -723,13 +664,11 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         }
       }
 
-      // Store the segment in a ref - DON'T set state yet
       pendingResultRef.current = segment;
       
-      // Calculate final rotation to land on winning segment
       const currentRotation = continuousRotation % 360;
       const targetAngle = SEGMENT_TARGET_ROTATION[segment];
-      const spins = 5; // Number of full rotations for dramatic effect
+      const spins = 5;
       
       let additionalRotation = targetAngle - currentRotation;
       if (additionalRotation < 0) {
@@ -747,17 +686,13 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         finalRotation 
       });
 
-      // Start the spin animation FIRST
       setRotation(finalRotation);
       setStage("spinning");
 
-      // After wheel lands (4.5s), THEN reveal the result
       setTimeout(() => {
-        // NOW show the result
         setResultSegment(pendingResultRef.current);
         setStage("result");
 
-        // Record the spin usage
         if (!hasRecordedSpin && address && pendingResultRef.current !== null) {
           setHasRecordedSpin(true);
           fetch("/api/spins/use", {
@@ -769,19 +704,17 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
             .then(() => onSpinComplete?.())
             .catch(err => console.error("Spin use error:", err));
         }
-      }, 4500); // Wait for animation to complete
+      }, 4500);
     } else if (revealReceipt?.status === "reverted") {
       setError("Reveal transaction failed");
       setStage("idle");
     }
   }, [revealReceipt, address, onSpinComplete, hasRecordedSpin, stage, continuousRotation]);
 
-  // Navigate back
   const handleBack = () => {
     router.back();
   };
 
-  // Calculate pool values
   let ethBalance = 0n;
   let donutBalance = 0n;
   let sprinklesBalance = 0n;
@@ -802,7 +735,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
   const sprinklesValue = Number(formatUnits(sprinklesBalance, 18));
   const totalUsdValue = (ethValue * ethPrice) + (donutValue * donutPrice) + (sprinklesValue * sprinklesPrice);
 
-  // Calculate prize breakdown for each segment
   const prizeBreakdown = SEGMENTS.map(seg => ({
     label: seg.label,
     prize: seg.prize,
@@ -813,7 +745,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
-      {/* Header - No border */}
       <div className="flex items-center justify-between p-4">
         <button onClick={handleBack} className="p-2 rounded-lg hover:bg-zinc-800 transition-colors">
           <ArrowLeft className="w-6 h-6" />
@@ -831,9 +762,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
         <div className="w-10" />
       </div>
 
-      {/* Content */}
       <div className="flex-1 flex flex-col p-4 overflow-auto pb-safe">
-        {/* Boost Banner */}
         {isBoostActive && (
           <div className="mb-3 p-2 rounded-xl bg-amber-500/10 border border-amber-500/50">
             <div className="flex items-center justify-center gap-2">
@@ -844,9 +773,7 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
           </div>
         )}
 
-        {/* Two Column Stats */}
         <div className="grid grid-cols-2 gap-2 mb-2">
-          {/* Prize Breakdown */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2">
             <div className="flex items-center justify-center gap-1 mb-2">
               <Trophy className="w-3 h-3 text-amber-400" />
@@ -869,7 +796,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
             </div>
           </div>
 
-          {/* Prize Pool Toggle */}
           <button
             onClick={() => setShowUsdPrize(!showUsdPrize)}
             className={`border rounded-xl p-2 flex flex-col items-center justify-center text-center transition-all ${
@@ -901,7 +827,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
           </button>
         </div>
 
-        {/* How to get free spins button */}
         <button
           onClick={() => setShowHelpDialog(true)}
           className="w-full mb-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
@@ -910,7 +835,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
           <span className="text-sm text-gray-400">How to get free spins</span>
         </button>
 
-        {/* Help Dialog */}
         {showHelpDialog && (
           <div className="fixed inset-0 z-50">
             <div
@@ -997,14 +921,11 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
           </div>
         )}
 
-        {/* Wheel */}
         <div className={`relative w-56 h-56 mx-auto mb-3 ${isBoostActive ? "drop-shadow-[0_0_20px_rgba(251,191,36,0.4)]" : ""}`}>
-          {/* Pointer */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-20">
             <div className="w-0 h-0 border-l-[10px] border-r-[10px] border-t-[16px] border-l-transparent border-r-transparent border-t-amber-500 drop-shadow-lg" />
           </div>
 
-          {/* Wheel SVG */}
           <div
             className="w-full h-full"
             style={{
@@ -1066,7 +987,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
               <circle cx="100" cy="100" r="33" fill="none" stroke="#3f3f46" strokeWidth="2" />
             </svg>
 
-            {/* Center donut */}
             <div
               className="absolute inset-0 flex items-center justify-center pointer-events-none"
               style={{
@@ -1081,7 +1001,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
           </div>
         </div>
 
-        {/* Status / Actions */}
         <div className="text-center flex flex-col">
           {error && (
             <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-2 mb-2">
@@ -1093,7 +1012,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
           {stage === "idle" && hasPendingCommit && (
             <div className="mb-2">
               {isCorruptedSpin ? (
-                // Corrupted spin - show help button style
                 <>
                   <button
                     onClick={() => setShowSpinIssuePopup(true)}
@@ -1116,14 +1034,12 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                     {blocksUntilExpiry === 0 && (
                       <button
                         onClick={() => {
-                          // Clear local state and try to spin fresh
                           if (address) {
                             clearSecret(address);
                             setSecret(null);
                             setError(null);
                             hasStartedRef.current = false;
                             setHasShownIssuePopup(false);
-                            // Force a fresh refetch
                             setTimeout(() => {
                               refetchCommitment();
                             }, 500);
@@ -1137,7 +1053,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                   </div>
                 </>
               ) : (
-                // Valid spin - show reveal button
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2">
                   <div className="text-amber-400 text-sm font-medium mb-1">🎰 Spin Ready!</div>
                   <div className="text-gray-300 text-xs mb-2">You have a pending spin waiting to be revealed.</div>
@@ -1165,7 +1080,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
             </div>
           )}
           
-          {/* Spin Issue Popup */}
           {showSpinIssuePopup && (
             <div className="fixed inset-0 z-50">
               <div
@@ -1275,14 +1189,12 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                 {localSpins > 0 ? "SPIN!" : "No Spins Available"}
               </button>
 
-              {/* Buy Spin Section */}
               <div className="mt-2">
                 {!auctionBuyingEnabled ? (
                   <div className="w-full py-3 rounded-xl text-base font-bold bg-zinc-800 border border-zinc-700 text-gray-500 text-center">
                     Buying Temporarily Disabled
                   </div>
                 ) : needsApproval ? (
-                  /* Show only approval UI when approval needed */
                   <div className="space-y-2">
                     <input
                       type="number"
@@ -1308,7 +1220,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                     </button>
                   </div>
                 ) : (
-                  /* Show buy button only when approval is set */
                   <button
                     onClick={handleBuySpin}
                     disabled={isBuying || isBuyingOnChain || isBuyConfirming || userDonutBalance < auctionPrice}
@@ -1382,7 +1293,6 @@ export default function SpinWheelPage({ availableSpins, onSpinComplete }: SpinWh
                 )}
               </div>
               
-              {/* Spin Again / Done button - same style as other buttons */}
               <button
                 onClick={() => {
                   setStage("idle");
