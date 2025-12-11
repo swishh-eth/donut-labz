@@ -5,8 +5,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer } from "lucide-react";
+import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer, Heart } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { parseUnits } from "viem";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
 import { SprinklesClaimButton } from "@/components/sprinkles-claim-button";
 
@@ -33,13 +34,30 @@ type FarcasterProfile = {
   displayName: string | null;
   pfpUrl: string | null;
   neynarScore: number | null;
+  custodyAddress?: string | null;
+  verifiedAddresses?: string[] | null;
 };
 
-// Sprinkles chat reward constants - matches SPRINKLES token halving
+// DONUT token contract
+const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as `0x${string}`;
+const ERC20_ABI = [
+  {
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    name: "transfer",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
+
+// Sprinkles chat reward constants - NOW STARTS AT 10x
 const CHAT_REWARDS_START_TIME = 1765163000; // Approx when sprinkles miner deployed
 const HALVING_PERIOD = 30 * 24 * 60 * 60; // 30 days in seconds
-const INITIAL_MULTIPLIER = 1.0;
-const MIN_MULTIPLIER = 0.1;
+const INITIAL_MULTIPLIER = 10.0; // Changed from 1.0 to 10.0
+const MIN_MULTIPLIER = 1.0; // Changed from 0.1 to 1.0
 
 const getCurrentMultiplier = () => {
   const now = Math.floor(Date.now() / 1000);
@@ -114,12 +132,30 @@ export default function ChatPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [currentMultiplier, setCurrentMultiplier] = useState(getCurrentMultiplier());
   const [timeUntilHalving, setTimeUntilHalving] = useState(getTimeUntilNextHalving());
+  const [tippingAddress, setTippingAddress] = useState<string | null>(null);
 
   const COOLDOWN_SECONDS = 30;
 
   const { address, isConnected } = useAccount();
-  const { data: hash, writeContract, isPending } = useWriteContract();
+  const { data: hash, writeContract, isPending, reset: resetWrite } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  // Separate hook for tip transactions
+  const { 
+    data: tipHash, 
+    writeContract: writeTip, 
+    isPending: isTipPending,
+    reset: resetTip 
+  } = useWriteContract();
+  const { isLoading: isTipConfirming, isSuccess: isTipSuccess } = useWaitForTransactionReceipt({ hash: tipHash });
+
+  // Reset tip state after success
+  useEffect(() => {
+    if (isTipSuccess) {
+      setTippingAddress(null);
+      resetTip();
+    }
+  }, [isTipSuccess, resetTip]);
 
   // Update halving countdown every minute
   useEffect(() => {
@@ -319,6 +355,23 @@ export default function ChatPage() {
     }
   };
 
+  const handleTip = (recipientAddress: string) => {
+    if (!isConnected || isTipPending || isTipConfirming) return;
+    if (recipientAddress.toLowerCase() === address?.toLowerCase()) return; // Can't tip yourself
+    
+    setTippingAddress(recipientAddress);
+    
+    // Send 1 DONUT (18 decimals)
+    const amount = parseUnits("1", 18);
+    
+    writeTip({
+      address: DONUT_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "transfer",
+      args: [recipientAddress as `0x${string}`, amount],
+    });
+  };
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -365,7 +418,7 @@ export default function ChatPage() {
               <div className="flex items-center gap-1 mt-1">
                 <Timer className="w-2.5 h-2.5 text-amber-400" />
                 <span className="text-[9px] text-amber-400">
-                  {currentMultiplier.toFixed(2)}x • Halving in {timeUntilHalving}
+                  {currentMultiplier.toFixed(1)}x • Halving in {timeUntilHalving}
                 </span>
               </div>
             </div>
@@ -435,7 +488,7 @@ export default function ChatPage() {
                       <div>
                         <div className="font-semibold text-amber-400 text-xs">Halving Schedule</div>
                         <div className="text-[11px] text-gray-400 mt-0.5">
-                          Rewards halve every 30 days: 1x → 0.5x → 0.25x → 0.1x min. Chat early to earn more!
+                          Rewards halve every 30 days: 10x → 5x → 2.5x → 1.25x → 1x min. Chat early to earn more!
                         </div>
                       </div>
                     </div>
@@ -451,7 +504,19 @@ export default function ChatPage() {
                     </div>
 
                     <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">5</div>
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-pink-500 flex items-center justify-center text-[10px] font-bold text-white">
+                        <Heart className="w-3 h-3" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-pink-400 text-xs">Tip with DONUT</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">
+                          Love a message? Tap the heart to send 1 🍩DONUT directly to that person!
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">6</div>
                       <div>
                         <div className="font-semibold text-white text-xs">Mine SPRINKLES Tokens</div>
                         <div className="text-[11px] text-gray-400 mt-0.5">
@@ -465,7 +530,7 @@ export default function ChatPage() {
                     <div className="text-[10px] text-gray-500 uppercase mb-1">Current Rewards</div>
                     <div className="flex items-center justify-between">
                       <div className="text-xs text-gray-300">
-                        <span className="text-amber-400 font-bold">{currentMultiplier.toFixed(2)}x</span> × 0.8 score = <span className="text-white font-bold">{(currentMultiplier * 0.8).toFixed(2)}</span> sprinkles
+                        <span className="text-amber-400 font-bold">{currentMultiplier.toFixed(1)}x</span> × 0.8 score = <span className="text-white font-bold">{(currentMultiplier * 0.8).toFixed(1)}</span> sprinkles
                       </div>
                     </div>
                   </div>
@@ -515,6 +580,7 @@ export default function ChatPage() {
                   const username = profile?.username ? `@${profile.username}` : null;
                   const avatarUrl = profile?.pfpUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${msg.sender.toLowerCase()}`;
                   const isOwnMessage = address?.toLowerCase() === msg.sender.toLowerCase();
+                  const isTipping = tippingAddress?.toLowerCase() === msg.sender.toLowerCase();
 
                   return (
                     <div
@@ -536,6 +602,24 @@ export default function ChatPage() {
                         </div>
                         <p className="text-xs text-gray-300 break-words">{msg.message}</p>
                       </div>
+
+                      {/* Tip button - only show for other people's messages */}
+                      {!isOwnMessage && isConnected && (
+                        <button
+                          onClick={() => handleTip(msg.sender)}
+                          disabled={isTipPending || isTipConfirming}
+                          className={`flex-shrink-0 p-1.5 rounded-lg transition-all ${
+                            isTipping
+                              ? "bg-pink-500/20 text-pink-400"
+                              : "hover:bg-pink-500/10 text-gray-500 hover:text-pink-400"
+                          }`}
+                          title="Tip 1 DONUT"
+                        >
+                          <Heart 
+                            className={`w-4 h-4 ${isTipping ? "animate-pulse fill-pink-400" : ""}`} 
+                          />
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -590,6 +674,23 @@ export default function ChatPage() {
                     >
                       <X className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
                     </button>
+                  </div>
+                )}
+
+                {/* Tip confirmation toast */}
+                {(isTipPending || isTipConfirming) && (
+                  <div className="mb-2 bg-pink-500/10 border border-pink-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
+                    <Heart className="w-4 h-4 text-pink-400 animate-pulse" />
+                    <span className="text-xs text-pink-400">
+                      {isTipPending ? "Confirm tip in wallet..." : "Sending 1 🍩DONUT..."}
+                    </span>
+                  </div>
+                )}
+
+                {isTipSuccess && (
+                  <div className="mb-2 bg-green-500/10 border border-green-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
+                    <Heart className="w-4 h-4 text-green-400 fill-green-400" />
+                    <span className="text-xs text-green-400">Tip sent! 🍩</span>
                   </div>
                 )}
 
