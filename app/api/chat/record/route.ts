@@ -20,11 +20,11 @@ const MIN_MESSAGE_LENGTH = 3;
 // Only refresh Neynar score if cache is older than 7 days
 const SCORE_CACHE_DAYS = 7;
 
-// Sprinkles chat reward halving constants
+// Sprinkles chat reward halving constants - STARTS AT 4x
 const CHAT_REWARDS_START_TIME = 1765163000; // Approx when sprinkles miner deployed
 const HALVING_PERIOD = 30 * 24 * 60 * 60; // 30 days in seconds
-const INITIAL_MULTIPLIER = 1.0;
-const MIN_MULTIPLIER = 0.1;
+const INITIAL_MULTIPLIER = 4.0; // Changed to 4.0
+const MIN_MULTIPLIER = 0.5; // Min 0.5x
 
 const getCurrentMultiplier = () => {
   const now = Math.floor(Date.now() / 1000);

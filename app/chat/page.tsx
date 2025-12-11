@@ -53,11 +53,11 @@ const ERC20_ABI = [
   },
 ] as const;
 
-// Sprinkles chat reward constants - NOW STARTS AT 10x
+// Sprinkles chat reward constants - STARTS AT 4x
 const CHAT_REWARDS_START_TIME = 1765163000; // Approx when sprinkles miner deployed
 const HALVING_PERIOD = 30 * 24 * 60 * 60; // 30 days in seconds
-const INITIAL_MULTIPLIER = 10.0; // Changed from 1.0 to 10.0
-const MIN_MULTIPLIER = 1.0; // Changed from 0.1 to 1.0
+const INITIAL_MULTIPLIER = 4.0; // Changed to 4.0
+const MIN_MULTIPLIER = 0.5; // Min 0.5x
 
 const getCurrentMultiplier = () => {
   const now = Math.floor(Date.now() / 1000);
@@ -526,7 +526,7 @@ export default function ChatPage() {
                       <div>
                         <div className="font-semibold text-amber-400 text-xs">Halving Schedule</div>
                         <div className="text-[11px] text-gray-400 mt-0.5">
-                          Rewards halve every 30 days: 10x → 5x → 2.5x → 1.25x → 1x min. Chat early to earn more!
+                          Rewards halve every 30 days: 4x → 2x → 1x → 0.5x min. Chat early to earn more!
                         </div>
                       </div>
                     </div>
