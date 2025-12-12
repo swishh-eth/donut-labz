@@ -388,13 +388,13 @@ export default function HomePage() {
 
             <button
               onClick={() => router.push("/burn")}
-              className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 p-2 flex flex-col items-center justify-center transition-colors"
+              className="h-24 rounded-xl border border-white/50 bg-zinc-900 hover:bg-zinc-800 p-2 flex flex-col items-center justify-center transition-colors shadow-[0_0_15px_rgba(255,255,255,0.3)]"
             >
-              <Flame className="w-6 h-6 mb-1 text-orange-500" />
-              <div className="text-[10px] font-bold text-orange-500">
+              <Flame className="w-6 h-6 mb-1 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+              <div className="text-[10px] font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]">
                 Burn
               </div>
-              <div className="text-[9px] text-gray-600">
+              <div className="text-[9px] text-gray-400">
                 $0.00
               </div>
             </button>
