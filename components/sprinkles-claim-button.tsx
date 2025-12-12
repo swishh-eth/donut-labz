@@ -9,7 +9,8 @@ import {
 } from "wagmi";
 import { base } from "wagmi/chains";
 import { formatUnits, parseUnits } from "viem";
-import { Sparkles, Gift, Loader2, CheckCircle, Clock, Calendar } from "lucide-react";
+import { sdk } from "@farcaster/miniapp-sdk";
+import { Sparkles, Gift, Loader2, CheckCircle, Clock, Calendar, Share2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Contract address - DEPLOYED
@@ -97,6 +98,12 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
   const [isGettingSignature, setIsGettingSignature] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number>(0);
+  
+  // Share flow states
+  const [hasShared, setHasShared] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
   // Read if claim window is open
   const { data: isClaimOpen, refetch: refetchClaimOpen } = useReadContract({
@@ -198,7 +205,6 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     };
 
     fetchPoints();
-    // Refresh every 30 seconds
     const interval = setInterval(fetchPoints, 30_000);
     return () => clearInterval(interval);
   }, [address]);
@@ -229,7 +235,6 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
   useEffect(() => {
     if (isSuccess && address) {
       console.log("Claim successful! Resetting points...");
-      // Call API to reset user's points
       fetch("/api/sprinkles-claim/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -239,15 +244,88 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
         refetchClaimed();
         setClaimSignature(null);
         setClaimError(null);
+        // Reset share states for next time
+        setHasShared(false);
+        setIsVerified(false);
       });
     }
   }, [isSuccess, address, refetchClaimed]);
 
+  // Share to qualify
+  const handleShare = async () => {
+    if (!userPoints) return;
+    
+    const hoursLeft = Math.floor(countdown / 3600);
+    const minsLeft = Math.floor((countdown % 3600) / 60);
+    const timeLeftText = hoursLeft > 0 ? `${hoursLeft}h ${minsLeft}m` : `${minsLeft}m`;
+    
+    const shareText = `I just claimed my weekly airdrop of ${userPoints.toFixed(2)} $SPRINKLES from @donutlabs by @swishh.eth! ✨🍩\n\nOnly ${timeLeftText} left to claim yours! 👇`;
+
+    try {
+      await sdk.actions.composeCast({
+        text: shareText,
+        embeds: ["https://donutlabs.vercel.app"],
+      });
+      setHasShared(true);
+    } catch (e) {
+      try {
+        const encodedText = encodeURIComponent(shareText);
+        await sdk.actions.openUrl({
+          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
+        });
+        setHasShared(true);
+      } catch {
+        const encodedText = encodeURIComponent(shareText);
+        window.open(
+          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
+          "_blank"
+        );
+        setHasShared(true);
+      }
+    }
+  };
+
+  // Verify share
+  const handleVerify = async () => {
+    if (!userFid || !address) {
+      setVerifyError("Wallet or Farcaster not connected");
+      return;
+    }
+
+    setIsVerifying(true);
+    setVerifyError(null);
+
+    try {
+      const res = await fetch("/api/sprinkles-claim/verify-share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          fid: userFid,
+          address,
+          expectedAmount: userPoints 
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setVerifyError(data.error || "Verification failed");
+        return;
+      }
+
+      // Verified! Now they can claim
+      setIsVerified(true);
+      setVerifyError(null);
+    } catch (e) {
+      setVerifyError("Failed to verify share");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  // Claim after verification
   const handleClaim = async () => {
     console.log("handleClaim called");
-    console.log("address:", address);
-    console.log("userPoints:", userPoints);
-    console.log("currentEpoch:", currentEpoch?.toString());
 
     if (!address) {
       setClaimError("Wallet not connected");
@@ -265,7 +343,6 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     try {
       console.log("Fetching signature from /api/sprinkles-claim/sign...");
       
-      // Get signature from backend
       const res = await fetch("/api/sprinkles-claim/sign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -290,7 +367,6 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
       setClaimSignature(signature);
       setIsGettingSignature(false);
 
-      // Execute claim
       const amountWei = parseUnits(userPoints.toString(), 18);
       console.log("Calling writeContract with amount:", amountWei.toString());
       
@@ -310,6 +386,14 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
 
   const hasClaimableAmount = userPoints !== null && userPoints > 0;
   const isClaimingInProgress = isWriting || isConfirming || isGettingSignature;
+
+  // Reset states
+  const handleReset = () => {
+    setVerifyError(null);
+    setClaimError(null);
+    setHasShared(false);
+    setIsVerified(false);
+  };
 
   // COMPACT VIEW (for chat page stats row)
   if (compact) {
@@ -331,41 +415,121 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
 
     // Claim window is open (it's Friday!) and user has points
     if (isClaimOpen && hasClaimableAmount) {
-      return (
-        <div className="flex flex-col">
+      
+      // Show error state
+      if (verifyError || claimError) {
+        return (
+          <div className="flex flex-col">
+            <div className="flex rounded-lg overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+              <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-lg p-2">
+                <div className="flex items-start gap-1.5">
+                  <XCircle className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-[9px] text-red-300/90 leading-relaxed break-words">
+                    {verifyError || claimError}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={handleReset}
+                className="flex items-center justify-center px-2.5 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-lg hover:bg-red-900/50 transition-colors"
+              >
+                <svg
+                  className="w-3.5 h-3.5 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] animate-[spin_3s_linear_infinite_reverse]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      // Step 1: Share first
+      if (!hasShared) {
+        return (
+          <button
+            onClick={handleShare}
+            className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border border-amber-400/50 rounded-lg p-2 transition-all shadow-[0_0_15px_rgba(251,191,36,0.3)] flex flex-col items-center justify-center text-center"
+          >
+            <div className="flex items-center gap-1 mb-0.5">
+              <Share2 className="w-3 h-3 text-white" />
+              <span className="text-[9px] text-white/80 uppercase font-semibold">It's Friday!</span>
+            </div>
+            <div className="text-sm font-bold text-white">
+              Share to Claim ✨
+            </div>
+            <div className="text-[9px] text-white/60 mt-0.5">
+              {userPoints?.toFixed(2)} SPRINKLES
+            </div>
+          </button>
+        );
+      }
+
+      // Step 2: Verify share
+      if (hasShared && !isVerified) {
+        return (
+          <button
+            onClick={handleVerify}
+            disabled={isVerifying}
+            className={cn(
+              "bg-amber-500 hover:bg-amber-400 border border-amber-400 rounded-lg p-2 transition-all flex flex-col items-center justify-center text-center",
+              isVerifying && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            <div className="flex items-center gap-1 mb-0.5">
+              {isVerifying ? (
+                <Loader2 className="w-3 h-3 text-black animate-spin" />
+              ) : (
+                <CheckCircle className="w-3 h-3 text-black" />
+              )}
+              <span className="text-[9px] text-black/80 uppercase font-semibold">Shared!</span>
+            </div>
+            <div className="text-sm font-bold text-black">
+              {isVerifying ? "Verifying..." : "Verify Share"}
+            </div>
+            <div className="text-[9px] text-black/60 mt-0.5">
+              Tap to continue
+            </div>
+          </button>
+        );
+      }
+
+      // Step 3: Claim (after verified)
+      if (isVerified) {
+        return (
           <button
             onClick={handleClaim}
             disabled={isClaimingInProgress}
             className={cn(
-              "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border border-amber-400/50 rounded-lg p-2 transition-all shadow-[0_0_15px_rgba(251,191,36,0.3)] flex flex-col items-center justify-center text-center",
+              "bg-green-500 hover:bg-green-400 border border-green-400 rounded-lg p-2 transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] flex flex-col items-center justify-center text-center",
               isClaimingInProgress && "opacity-50 cursor-not-allowed"
             )}
           >
             <div className="flex items-center gap-1 mb-0.5">
-              <Gift className="w-3 h-3 text-white animate-pulse" />
-              <span className="text-[9px] text-white/80 uppercase font-semibold">It's Friday!</span>
-            </div>
-            <div className="text-sm font-bold text-white">
               {isClaimingInProgress ? (
-                <span className="flex items-center gap-1">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  {isGettingSignature ? "Signing..." : isWriting ? "Confirm..." : "Claiming..."}
-                </span>
+                <Loader2 className="w-3 h-3 text-black animate-spin" />
               ) : (
-                `Claim ${userPoints?.toFixed(2)} ✨`
+                <Gift className="w-3 h-3 text-black" />
               )}
+              <span className="text-[9px] text-black/80 uppercase font-semibold">Verified!</span>
             </div>
-            <div className="text-[9px] text-white/60 mt-0.5">
+            <div className="text-sm font-bold text-black">
+              {isGettingSignature ? "Signing..." : isWriting ? "Confirm..." : isConfirming ? "Claiming..." : `Claim ${userPoints?.toFixed(2)} ✨`}
+            </div>
+            <div className="text-[9px] text-black/60 mt-0.5">
               {formatCountdown(countdown)} left today
             </div>
           </button>
-          {claimError && (
-            <div className="mt-1 text-[9px] text-red-400 text-center px-1">
-              {claimError}
-            </div>
-          )}
-        </div>
-      );
+        );
+      }
     }
 
     // Claim window open (Friday) but no points
@@ -424,9 +588,12 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
         )}
       </div>
 
-      {claimError && (
+      {(claimError || verifyError) && (
         <div className="bg-red-950/50 border border-red-500/50 rounded-lg p-2 mb-2">
-          <p className="text-xs text-red-400">{claimError}</p>
+          <p className="text-xs text-red-400">{claimError || verifyError}</p>
+          <button onClick={handleReset} className="text-xs text-red-300 underline mt-1">
+            Try again
+          </button>
         </div>
       )}
 
@@ -435,26 +602,49 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
           ✓ You've claimed this week's SPRINKLES! See you next Friday.
         </p>
       ) : isClaimOpen && hasClaimableAmount ? (
-        <button
-          onClick={handleClaim}
-          disabled={isClaimingInProgress}
-          className={cn(
-            "w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-2.5 px-3 rounded-lg transition-all text-sm",
-            isClaimingInProgress && "opacity-50 cursor-not-allowed"
-          )}
-        >
-          {isClaimingInProgress ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Claiming...
-            </>
+        <div className="space-y-2">
+          {!hasShared ? (
+            <button
+              onClick={handleShare}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-2.5 px-3 rounded-lg transition-all text-sm"
+            >
+              <Share2 className="w-4 h-4" />
+              Share to Claim {userPoints?.toFixed(2)} SPRINKLES
+            </button>
+          ) : !isVerified ? (
+            <button
+              onClick={handleVerify}
+              disabled={isVerifying}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold py-2.5 px-3 rounded-lg transition-all text-sm",
+                isVerifying && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {isVerifying ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle className="w-4 h-4" />
+              )}
+              {isVerifying ? "Verifying..." : "Verify Share"}
+            </button>
           ) : (
-            <>
-              <Sparkles className="w-4 h-4" />
-              Claim {userPoints?.toFixed(2)} SPRINKLES
-            </>
+            <button
+              onClick={handleClaim}
+              disabled={isClaimingInProgress}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-400 text-black font-bold py-2.5 px-3 rounded-lg transition-all text-sm",
+                isClaimingInProgress && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {isClaimingInProgress ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Gift className="w-4 h-4" />
+              )}
+              {isClaimingInProgress ? "Claiming..." : `Claim ${userPoints?.toFixed(2)} SPRINKLES`}
+            </button>
           )}
-        </button>
+        </div>
       ) : (
         <p className="text-xs text-gray-400">
           {hasClaimableAmount
