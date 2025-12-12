@@ -13,7 +13,9 @@ export const wagmiConfig = createConfig({
   ssr: true,
   connectors: [
     farcasterMiniApp(),
-    injected(), // MetaMask, Rabby, etc.
+    injected({
+      shimDisconnect: true,
+    }),
     coinbaseWallet({ appName: "Donut Labs" }),
   ],
   transports: {
