@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CircleUserRound, HelpCircle, X, Coins, Timer, TrendingUp } from "lucide-react";
+import { CircleUserRound, HelpCircle, X, Coins, Timer, TrendingUp, Trophy, Sparkles } from "lucide-react";
 import {
   useAccount,
   useConnect,
@@ -115,6 +115,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
   const [glazeResult, setGlazeResult] = useState<"success" | "failure" | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
+  const [showCompeteDialog, setShowCompeteDialog] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -261,6 +262,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
               body: JSON.stringify({
                 address: address,
                 txHash: receipt.transactionHash,
+                mineType: "donut",
               }),
             });
             const data = await res.json();
@@ -797,23 +799,33 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           </div>
         </div>
 
-        <button
-          onClick={() => setShowHelpDialog(true)}
-          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5 hover:bg-zinc-800 transition-colors"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setShowHelpDialog(true)}
+            className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5 hover:bg-zinc-800 transition-colors"
+          >
+            <div className="flex items-center justify-center gap-1.5">
               <Timer className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
               <span className="text-xs font-semibold text-white">
                 Dutch Auction
               </span>
               <HelpCircle className="w-3 h-3 text-gray-400" />
             </div>
-            <div className="text-[10px] text-gray-400">
-              Price drops over time
+          </button>
+
+          <button
+            onClick={() => setShowCompeteDialog(true)}
+            className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5 hover:bg-zinc-800 transition-colors"
+          >
+            <div className="flex items-center justify-center gap-1.5">
+              <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+              <span className="text-xs font-semibold text-white">
+                Compete Weekly
+              </span>
+              <HelpCircle className="w-3 h-3 text-gray-400" />
             </div>
-          </div>
-        </button>
+          </button>
+        </div>
 
         {showHelpDialog && (
           <div className="fixed inset-0 z-50">
@@ -847,8 +859,8 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                   <div className="flex gap-3">
                     <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">2</div>
                     <div>
-                      <div className="font-semibold text-white text-sm">Earn $DONUT</div>
-                      <div className="text-xs text-gray-400 mt-0.5">While you are King Glazer, you earn $DONUT tokens every second.</div>
+                      <div className="font-semibold text-white text-sm">Earn 🍩DONUT</div>
+                      <div className="text-xs text-gray-400 mt-0.5">While you are King Glazer, you earn DONUT tokens every second.</div>
                     </div>
                   </div>
 
@@ -869,12 +881,77 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                   </div>
                 </div>
 
-                <p className="text-[10px] text-gray-500 text-center mt-4">
-                  Compete on the leaderboard by glazing to earn points and win weekly ETH prizes!
+                <button
+                  onClick={() => setShowHelpDialog(false)}
+                  className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showCompeteDialog && (
+          <div className="fixed inset-0 z-50">
+            <div
+              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+              onClick={() => setShowCompeteDialog(false)}
+            />
+            <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+              <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
+                <button
+                  onClick={() => setShowCompeteDialog(false)}
+                  className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+
+                <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                  Compete for Weekly Rewards
+                </h2>
+
+                <div className="space-y-4">
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-black">1</div>
+                    <div>
+                      <div className="font-semibold text-amber-400 text-sm">Mine 🍩DONUT = 2 Points</div>
+                      <div className="text-xs text-gray-400 mt-0.5">Pay ETH to glaze the factory and earn 2 leaderboard points.</div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">2</div>
+                    <div>
+                      <div className="font-semibold text-white text-sm flex items-center gap-1">Mine <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES = 1 Point</div>
+                      <div className="text-xs text-gray-400 mt-0.5">Pay DONUT to mine SPRINKLES and earn 1 leaderboard point.</div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">3</div>
+                    <div>
+                      <div className="font-semibold text-white text-sm">Weekly Leaderboard</div>
+                      <div className="text-xs text-gray-400 mt-0.5">Compete with other miners. Resets every Friday at 12pm UTC.</div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-black">4</div>
+                    <div>
+                      <div className="font-semibold text-amber-400 text-sm">Win Prizes</div>
+                      <div className="text-xs text-gray-400 mt-0.5">Top 3 miners split the prize pool: 50% / 30% / 20%</div>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-gray-500 text-center mt-4 flex items-center justify-center gap-1">
+                  Prize pool includes ETH, 🍩DONUT, and <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES!
                 </p>
 
                 <button
-                  onClick={() => setShowHelpDialog(false)}
+                  onClick={() => setShowCompeteDialog(false)}
                   className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
                 >
                   Got it
