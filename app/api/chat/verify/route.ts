@@ -17,6 +17,10 @@ const RATE_LIMIT_SECONDS = 30;
 const MAX_SAME_MESSAGE = 3;
 const SCORE_CACHE_DAYS = 7;
 
+// New rate limit: 5 messages per 5 minutes
+const RATE_LIMIT_MESSAGES = 5;
+const RATE_LIMIT_WINDOW = 5 * 60; // 5 minutes in seconds
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -64,7 +68,7 @@ export async function POST(request: Request) {
       .eq("address", address)
       .single();
 
-    // === CHECK 4: Rate limiting ===
+    // === CHECK 4: Rate limiting (30s between messages) ===
     if (existing?.last_message_at) {
       const lastMessageTime = new Date(existing.last_message_at).getTime();
       const now = Date.now();
@@ -76,6 +80,37 @@ export async function POST(request: Request) {
       }
     }
 
+    // === CHECK 4.5: 5 messages per 5 minutes rate limit ===
+    const windowStart = Math.floor(Date.now() / 1000) - RATE_LIMIT_WINDOW;
+    
+    const { data: recentMessages, error: rateLimitError } = await supabase
+      .from("chat_messages")
+      .select("timestamp")
+      .eq("sender", address)
+      .eq("is_system_message", false)
+      .gte("timestamp", windowStart)
+      .order("timestamp", { ascending: false });
+
+    if (rateLimitError) {
+      console.error("Rate limit check error:", rateLimitError);
+    }
+
+    const messageCount = recentMessages?.length || 0;
+
+    if (messageCount >= RATE_LIMIT_MESSAGES) {
+      // Calculate when the ban expires (5 min from the 5th most recent message)
+      const fifthMessageTimestamp = recentMessages?.[RATE_LIMIT_MESSAGES - 1]?.timestamp || Math.floor(Date.now() / 1000);
+      const banEndsAt = fifthMessageTimestamp + RATE_LIMIT_WINDOW;
+      const banSecondsRemaining = Math.max(0, banEndsAt - Math.floor(Date.now() / 1000));
+
+      return NextResponse.json({
+        eligible: false,
+        reasons: [`Rate limited: max ${RATE_LIMIT_MESSAGES} messages per ${RATE_LIMIT_WINDOW / 60} minutes`],
+        rateLimitBan: true,
+        banSecondsRemaining,
+      });
+    }
+
     // === CHECK 5: Duplicate consecutive message ===
     if (trimmedMessage && existing?.last_message === trimmedMessage) {
       reasons.push("Cannot send the same message twice in a row");
@@ -83,8 +118,8 @@ export async function POST(request: Request) {
 
     // === CHECK 6: Repeated message abuse ===
     if (trimmedMessage && existing?.recent_messages) {
-      const recentMessages = existing.recent_messages as string[];
-      const sameMessageCount = recentMessages.filter(m => m === trimmedMessage).length;
+      const recentMsgs = existing.recent_messages as string[];
+      const sameMessageCount = recentMsgs.filter(m => m === trimmedMessage).length;
 
       if (sameMessageCount >= MAX_SAME_MESSAGE) {
         reasons.push("Message used too frequently, try something different");
@@ -185,6 +220,7 @@ export async function POST(request: Request) {
       eligible: true,
       neynarScore,
       followerCount,
+      messagesRemaining: RATE_LIMIT_MESSAGES - messageCount - 1,
     });
   } catch (error) {
     console.error("Error verifying eligibility:", error);

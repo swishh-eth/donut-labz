@@ -5,11 +5,10 @@ import { base } from "viem/chains";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 const GLAZERY_CHAT_ADDRESS = "0x543832Fe5EFB216a79f64BE52A24547D6d875685";
-const CACHE_DURATION_HOURS = 12;
 const SYNC_BLOCKS = 300n;
 
 const baseClient = createPublicClient({
@@ -48,31 +47,22 @@ async function syncRecentMessages() {
   }
 }
 
-async function cleanupOldMessages() {
-  const twelveHoursAgo = Math.floor(Date.now() / 1000) - (CACHE_DURATION_HOURS * 60 * 60);
-  await supabase
-    .from("chat_messages")
-    .delete()
-    .lt("timestamp", twelveHoursAgo);
-}
-
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const sync = searchParams.get("sync") === "true";
+    const limit = parseInt(searchParams.get("limit") || "20", 10);
 
     if (sync) {
       await syncRecentMessages();
-      await cleanupOldMessages();
     }
 
-    const twelveHoursAgo = Math.floor(Date.now() / 1000) - (CACHE_DURATION_HOURS * 60 * 60);
-    
+    // Fetch last N messages, ordered by timestamp descending
     const { data: messages, error } = await supabase
       .from("chat_messages")
       .select("*")
-      .gte("timestamp", twelveHoursAgo)
-      .order("timestamp", { ascending: false });
+      .order("timestamp", { ascending: false })
+      .limit(Math.min(limit, 100)); // Cap at 100 max
 
     if (error) throw error;
 
