@@ -194,7 +194,22 @@ export default function BurnPage() {
 
   const { address, isConnected } = useAccount();
   const { connectors, connectAsync, isPending: isConnecting } = useConnect();
-  const primaryConnector = connectors[0];
+  
+  // Find the best connector - prefer injected (MetaMask) for desktop, farcaster for mobile
+  const getConnector = useCallback(() => {
+    // Look for injected wallet (MetaMask, etc) first for desktop
+    const injected = connectors.find(c => c.id === 'injected' || c.name === 'MetaMask');
+    if (injected) return injected;
+    
+    // Then try coinbase wallet
+    const coinbase = connectors.find(c => c.id === 'coinbaseWalletSDK' || c.name === 'Coinbase Wallet');
+    if (coinbase) return coinbase;
+    
+    // Fall back to first available
+    return connectors[0];
+  }, [connectors]);
+
+  const primaryConnector = getConnector();
 
   // Auto connect
   useEffect(() => {
@@ -582,9 +597,11 @@ export default function BurnPage() {
   const hasInsufficientDonutLP = donutAuctionState && donutAuctionState.paymentTokenBalance < donutAuctionState.price;
   const hasInsufficientSprinklesLP = sprinklesAuctionState && sprinklesAuctionState.userLPBalance < sprinklesAuctionState.price;
   const hasNoSprinklesRewards = sprinklesAuctionState && sprinklesAuctionState.rewardsAvailable === 0n;
+  const sprinklesPriceIsZero = sprinklesAuctionState && sprinklesAuctionState.price === 0n;
+  const donutPriceIsZero = donutAuctionState && donutAuctionState.price === 0n;
 
-  const isDonutBurnDisabled = !donutAuctionState || isDonutWriting || isDonutConfirming || donutBurnResult !== null || hasInsufficientDonutLP;
-  const isSprinklesBurnDisabled = !sprinklesAuctionState || isSprinklesWriting || isSprinklesConfirming || sprinklesBurnResult !== null || hasInsufficientSprinklesLP || hasNoSprinklesRewards;
+  const isDonutBurnDisabled = !donutAuctionState || isDonutWriting || isDonutConfirming || donutBurnResult !== null || hasInsufficientDonutLP || donutPriceIsZero;
+  const isSprinklesBurnDisabled = !sprinklesAuctionState || isSprinklesWriting || isSprinklesConfirming || sprinklesBurnResult !== null || hasInsufficientSprinklesLP || hasNoSprinklesRewards || sprinklesPriceIsZero;
   const isSplitDisabled = !pendingDonut || pendingDonut === 0n || isSplitting || isSplitWriting || isSplitConfirming || splitResult !== null;
 
   const donutProfitLoss = useMemo(() => {
@@ -603,13 +620,28 @@ export default function BurnPage() {
 
   // Manual connect for desktop users
   const handleConnect = useCallback(async () => {
-    if (!primaryConnector) return;
+    console.log("Connect clicked!");
+    console.log("Primary connector:", primaryConnector);
+    console.log("All connectors:", connectors);
+    
+    if (!primaryConnector) {
+      alert("No wallet connector available. Do you have MetaMask or Rabby installed?");
+      return;
+    }
     try {
-      await connectAsync({ connector: primaryConnector, chainId: base.id });
+      console.log("Connecting with:", primaryConnector.name, primaryConnector.id);
+      const result = await connectAsync({ connector: primaryConnector, chainId: base.id });
+      console.log("Connect result:", result);
     } catch (error) {
       console.error("Failed to connect:", error);
+      alert("Failed to connect: " + (error as Error).message);
     }
-  }, [connectAsync, primaryConnector]);
+  }, [connectAsync, primaryConnector, connectors]);
+
+  // Debug: log available connectors
+  useEffect(() => {
+    console.log("Available connectors:", connectors.map(c => ({ id: c.id, name: c.name })));
+  }, [connectors]);
 
   return (
     <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -644,7 +676,7 @@ export default function BurnPage() {
                 </div>
               </div>
             )}
-            {!context?.user && !isConnected && (
+            {!isConnected && !context?.user && (
               <button
                 onClick={handleConnect}
                 disabled={isConnecting}
@@ -653,7 +685,7 @@ export default function BurnPage() {
                 {isConnecting ? "Connecting…" : "Connect"}
               </button>
             )}
-            {!context?.user && isConnected && address && (
+            {isConnected && address && !context?.user && (
               <div className="flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1.5">
                 <div className="w-2 h-2 rounded-full bg-green-500" />
                 <span className="text-xs font-mono text-white">
@@ -716,6 +748,13 @@ export default function BurnPage() {
                   <div className="text-base font-semibold text-white">🍩 {sprinklesRewardsDisplay}</div>
                 </div>
               </div>
+
+              {/* Price Zero Warning */}
+              {sprinklesPriceIsZero && (
+                <div className="text-center text-[9px] text-gray-400 mb-2">
+                  Epoch ended - waiting for next auction
+                </div>
+              )}
 
               {/* Burn Button */}
               <button
