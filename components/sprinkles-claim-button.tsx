@@ -1,4 +1,3 @@
-// components/sprinkles-claim-button.tsx
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -209,6 +208,7 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     data: txHash,
     writeContract,
     isPending: isWriting,
+    error: writeError,
     reset: resetWrite,
   } = useWriteContract();
 
@@ -216,9 +216,19 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     hash: txHash,
   });
 
+  // Log write errors
+  useEffect(() => {
+    if (writeError) {
+      console.error("Write contract error:", writeError);
+      setClaimError(writeError.message || "Transaction failed");
+      setIsGettingSignature(false);
+    }
+  }, [writeError]);
+
   // Handle successful claim - reset points in Supabase
   useEffect(() => {
     if (isSuccess && address) {
+      console.log("Claim successful! Resetting points...");
       // Call API to reset user's points
       fetch("/api/sprinkles-claim/reset", {
         method: "POST",
@@ -234,12 +244,27 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
   }, [isSuccess, address, refetchClaimed]);
 
   const handleClaim = async () => {
-    if (!address || !userPoints || userPoints <= 0) return;
+    console.log("handleClaim called");
+    console.log("address:", address);
+    console.log("userPoints:", userPoints);
+    console.log("currentEpoch:", currentEpoch?.toString());
+
+    if (!address) {
+      setClaimError("Wallet not connected");
+      return;
+    }
+    
+    if (!userPoints || userPoints <= 0) {
+      setClaimError("No points to claim");
+      return;
+    }
 
     setClaimError(null);
     setIsGettingSignature(true);
 
     try {
+      console.log("Fetching signature from /api/sprinkles-claim/sign...");
+      
       // Get signature from backend
       const res = await fetch("/api/sprinkles-claim/sign", {
         method: "POST",
@@ -251,17 +276,24 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
         }),
       });
 
+      console.log("Sign API response status:", res.status);
+
       if (!res.ok) {
         const data = await res.json();
+        console.error("Sign API error:", data);
         throw new Error(data.error || "Failed to get signature");
       }
 
       const { signature } = await res.json();
+      console.log("Got signature:", signature);
+      
       setClaimSignature(signature);
       setIsGettingSignature(false);
 
       // Execute claim
       const amountWei = parseUnits(userPoints.toString(), 18);
+      console.log("Calling writeContract with amount:", amountWei.toString());
+      
       writeContract({
         address: SPRINKLES_CLAIM_ADDRESS as `0x${string}`,
         abi: SPRINKLES_CLAIM_ABI,
@@ -300,32 +332,39 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     // Claim window is open (it's Friday!) and user has points
     if (isClaimOpen && hasClaimableAmount) {
       return (
-        <button
-          onClick={handleClaim}
-          disabled={isClaimingInProgress}
-          className={cn(
-            "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border border-amber-400/50 rounded-lg p-2 transition-all shadow-[0_0_15px_rgba(251,191,36,0.3)] flex flex-col items-center justify-center text-center",
-            isClaimingInProgress && "opacity-50 cursor-not-allowed"
-          )}
-        >
-          <div className="flex items-center gap-1 mb-0.5">
-            <Gift className="w-3 h-3 text-white animate-pulse" />
-            <span className="text-[9px] text-white/80 uppercase font-semibold">It's Friday!</span>
-          </div>
-          <div className="text-sm font-bold text-white">
-            {isClaimingInProgress ? (
-              <span className="flex items-center gap-1">
-                <Loader2 className="w-3 h-3 animate-spin" />
-                {isGettingSignature ? "Signing..." : isWriting ? "Confirm..." : "Claiming..."}
-              </span>
-            ) : (
-              `Claim ${userPoints?.toFixed(2)} ✨`
+        <div className="flex flex-col">
+          <button
+            onClick={handleClaim}
+            disabled={isClaimingInProgress}
+            className={cn(
+              "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border border-amber-400/50 rounded-lg p-2 transition-all shadow-[0_0_15px_rgba(251,191,36,0.3)] flex flex-col items-center justify-center text-center",
+              isClaimingInProgress && "opacity-50 cursor-not-allowed"
             )}
-          </div>
-          <div className="text-[9px] text-white/60 mt-0.5">
-            {formatCountdown(countdown)} left today
-          </div>
-        </button>
+          >
+            <div className="flex items-center gap-1 mb-0.5">
+              <Gift className="w-3 h-3 text-white animate-pulse" />
+              <span className="text-[9px] text-white/80 uppercase font-semibold">It's Friday!</span>
+            </div>
+            <div className="text-sm font-bold text-white">
+              {isClaimingInProgress ? (
+                <span className="flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  {isGettingSignature ? "Signing..." : isWriting ? "Confirm..." : "Claiming..."}
+                </span>
+              ) : (
+                `Claim ${userPoints?.toFixed(2)} ✨`
+              )}
+            </div>
+            <div className="text-[9px] text-white/60 mt-0.5">
+              {formatCountdown(countdown)} left today
+            </div>
+          </button>
+          {claimError && (
+            <div className="mt-1 text-[9px] text-red-400 text-center px-1">
+              {claimError}
+            </div>
+          )}
+        </div>
       );
     }
 
