@@ -342,8 +342,10 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               setTimeout(() => fetchWithRetry(url, body, attempt + 1, maxAttempts), 3000);
             } else if (res.ok) {
               console.log(`${url} success:`, data);
+              return true; // Signal success
             } else {
               console.error(`${url} failed after retries:`, data);
+              return false;
             }
           } catch (err) {
             if (attempt < maxAttempts) {
@@ -352,27 +354,30 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             } else {
               console.error(`${url} error after retries:`, err);
             }
+            return false;
           }
         };
 
         // Initial delay of 2 seconds before first attempt
-        setTimeout(() => {
-          fetchWithRetry("/api/spins/award-sprinkles-mine", {
+        setTimeout(async () => {
+          const success = await fetchWithRetry("/api/spins/award-sprinkles-mine", {
             address: address,
             txHash: receipt.transactionHash,
           });
+          
+          // Only post to chat AFTER successful verification
+          if (success) {
+            fetch("/api/chat/mining", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                address: address,
+                type: "mine_sprinkles",
+                txHash: receipt.transactionHash,
+              }),
+            }).catch(console.error);
+          }
         }, 2000);
-        
-        // Post mining activity to chat (no retry needed, less critical)
-        fetch("/api/chat/mining", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            address: address,
-            type: "mine_sprinkles",
-            txHash: receipt.transactionHash,
-          }),
-        }).catch(console.error);
       }
       
       setPendingTxType(null);

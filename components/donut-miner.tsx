@@ -270,6 +270,17 @@ export default function DonutMiner({ context }: DonutMinerProps) {
               setTimeout(() => recordGlazeWithRetry(attempt + 1, maxAttempts), 3000);
             } else if (res.ok) {
               console.log("record-glaze success:", data);
+              
+              // Only post to chat AFTER successful verification
+              fetch("/api/chat/mining", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  address: address,
+                  type: "mine_donut",
+                  txHash: receipt.transactionHash,
+                }),
+              }).catch(console.error);
             } else {
               console.error("record-glaze failed after retries:", data);
             }
@@ -285,17 +296,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
 
         // Initial delay of 2 seconds before first attempt
         setTimeout(() => recordGlazeWithRetry(), 2000);
-
-        // Post mining activity to chat
-        fetch("/api/chat/mining", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            address: address,
-            type: "mine_donut",
-            txHash: receipt.transactionHash,
-          }),
-        }).catch(console.error);
       }
 
       refetchMinerState();
