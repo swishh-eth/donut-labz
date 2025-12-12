@@ -12,7 +12,7 @@ import {
 } from "wagmi";
 import { base } from "wagmi/chains";
 import { formatEther, zeroAddress, type Address } from "viem";
-import { ArrowLeft, Flame, Sparkles, RefreshCw } from "lucide-react";
+import { ArrowLeft, Sparkles, RefreshCw } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { cn } from "@/lib/utils";
@@ -601,6 +601,16 @@ export default function BurnPage() {
   const userHandle = context?.user?.username ? `@${context.user.username}` : context?.user?.fid ? `fid ${context.user.fid}` : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
+  // Manual connect for desktop users
+  const handleConnect = useCallback(async () => {
+    if (!primaryConnector) return;
+    try {
+      await connectAsync({ connector: primaryConnector, chainId: base.id });
+    } catch (error) {
+      console.error("Failed to connect:", error);
+    }
+  }, [connectAsync, primaryConnector]);
+
   return (
     <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <div
@@ -620,10 +630,7 @@ export default function BurnPage() {
               >
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
-              <h1 className="text-2xl font-bold tracking-wide flex items-center gap-2">
-                <Flame className="w-6 h-6 text-amber-400" />
-                BURN
-              </h1>
+              <h1 className="text-2xl font-bold tracking-wide">BURN</h1>
             </div>
             {context?.user && (
               <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
@@ -635,6 +642,23 @@ export default function BurnPage() {
                   <div className="text-sm font-bold">{userDisplayName}</div>
                   {userHandle && <div className="text-xs text-gray-400">{userHandle}</div>}
                 </div>
+              </div>
+            )}
+            {!context?.user && !isConnected && (
+              <button
+                onClick={handleConnect}
+                disabled={isConnecting}
+                className="px-4 py-2 rounded-lg bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 transition-colors disabled:opacity-50"
+              >
+                {isConnecting ? "Connecting…" : "Connect"}
+              </button>
+            )}
+            {!context?.user && isConnected && address && (
+              <div className="flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1.5">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-xs font-mono text-white">
+                  {address.slice(0, 6)}…{address.slice(-4)}
+                </span>
               </div>
             )}
           </div>
@@ -675,17 +699,17 @@ export default function BurnPage() {
           {/* Two Section Layout */}
           <div className="flex-1 flex flex-col gap-3">
             {/* SPRINKLES LP Burn Section */}
-            <div className="flex-1 rounded-xl border border-purple-500/30 bg-zinc-900 p-3 flex flex-col">
+            <div className="flex-1 rounded-xl border border-amber-500/30 bg-zinc-900 p-3 flex flex-col">
               <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-5 h-5 text-purple-400" />
-                <h2 className="text-base font-bold text-purple-400">SPRINKLES LP Burn</h2>
+                <Sparkles className="w-5 h-5 text-amber-400" />
+                <h2 className="text-base font-bold text-amber-400">SPRINKLES LP Burn</h2>
               </div>
 
               {/* Pay / Get Cards */}
               <div className="grid grid-cols-2 gap-2 mb-2">
-                <div className="rounded-lg border border-purple-500/50 bg-black p-2">
+                <div className="rounded-lg border border-amber-500/50 bg-black p-2">
                   <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">PAY</div>
-                  <div className="text-base font-semibold text-purple-400">{sprinklesPriceDisplay} LP</div>
+                  <div className="text-base font-semibold text-amber-400">{sprinklesPriceDisplay} LP</div>
                 </div>
                 <div className="rounded-lg border border-zinc-700 bg-black p-2">
                   <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">GET</div>
@@ -705,7 +729,7 @@ export default function BurnPage() {
                       ? "bg-red-500 text-white"
                       : isSprinklesBurnDisabled
                         ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
-                        : "bg-purple-500 text-white hover:bg-purple-400"
+                        : "bg-amber-500 text-black hover:bg-amber-400"
                 )}
               >
                 {sprinklesButtonLabel}
@@ -720,7 +744,7 @@ export default function BurnPage() {
                   href="https://aerodrome.finance/deposit?token0=0xa890060BE1788a676dBC3894160f5dc5DeD2C98D&token1=0xAE4a37d554C6D6F3E398546d8566B25052e0169C&type=-1"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[10px] text-purple-400 hover:text-purple-300 font-semibold transition-colors"
+                  className="text-[10px] text-amber-400 hover:text-amber-300 font-semibold transition-colors"
                 >
                   Get LP →
                 </a>
