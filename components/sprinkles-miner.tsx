@@ -721,16 +721,27 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const isApproveButtonDisabled = 
     isMineDisabled || parsedApprovalAmount === 0n || !approvalAmount;
 
-  const handleViewMinerProfile = useCallback(() => {
-    const fid = neynarUser?.user?.fid;
-    const username = neynarUser?.user?.username;
+  const handleViewMinerProfile = useCallback(async () => {
+  const fid = neynarUser?.user?.fid;
+  const username = neynarUser?.user?.username;
 
-    if (username) {
-      window.open(`https://warpcast.com/${username}`, "_blank", "noopener,noreferrer");
-    } else if (fid) {
-      window.open(`https://warpcast.com/~/profiles/${fid}`, "_blank", "noopener,noreferrer");
-    }
-  }, [neynarUser?.user?.fid, neynarUser?.user?.username]);
+  const url = username 
+    ? `https://warpcast.com/${username}`
+    : fid 
+      ? `https://warpcast.com/~/profiles/${fid}`
+      : null;
+
+  if (!url) return;
+
+  try {
+    // Use Farcaster SDK to open URL (minimizes miniapp and opens in Warpcast)
+    const { sdk } = await import("@farcaster/miniapp-sdk");
+    await sdk.actions.openUrl(url);
+  } catch (e) {
+    // Fallback for non-Farcaster environment
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}, [neynarUser?.user?.fid, neynarUser?.user?.username]);
 
   const scrollMessage =
     slot0?.uri && slot0.uri.trim() !== ""
