@@ -308,10 +308,10 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     // Just claimed success
     if (showClaimSuccess && claimedAmount) {
       return (
-        <div className="h-24 rounded-xl border border-green-500/30 bg-zinc-900 p-3 flex flex-col items-center justify-center">
+        <div className="h-24 rounded-xl border border-green-500/30 bg-zinc-900 p-2 flex flex-col items-center justify-center">
           <CheckCircle className="w-6 h-6 text-green-400 mb-1" />
-          <div className="text-xs font-bold text-green-400">Claimed!</div>
-          <div className="text-[10px] text-green-500">+{claimedAmount} {tokenSymbol}</div>
+          <div className="text-[10px] font-bold text-green-400">Claimed!</div>
+          <div className="text-[9px] text-green-500">+{claimedAmount} {tokenSymbol}</div>
         </div>
       );
     }
@@ -319,10 +319,10 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     // Already claimed
     if (hasClaimed && isActive) {
       return (
-        <div className="h-24 rounded-xl border border-green-500/30 bg-zinc-900 p-3 flex flex-col items-center justify-center">
+        <div className="h-24 rounded-xl border border-green-500/30 bg-zinc-900 p-2 flex flex-col items-center justify-center">
           <CheckCircle className="w-6 h-6 text-green-400 mb-1" />
-          <div className="text-xs font-bold text-green-400">Claimed!</div>
-          <div className="text-[10px] text-gray-500">Check back later</div>
+          <div className="text-[10px] font-bold text-green-400">Claimed!</div>
+          <div className="text-[9px] text-gray-500">Check back later</div>
         </div>
       );
     }
@@ -330,10 +330,10 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     // No active campaign
     if (!isActive) {
       return (
-        <div className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex flex-col items-center justify-center">
-          <Gift className="w-8 h-8 text-gray-500 mb-1" />
-          <div className="text-xs font-bold text-gray-500">Share The Glaze</div>
-          <div className="text-[10px] text-gray-600">No active campaign</div>
+        <div className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 p-2 flex flex-col items-center justify-center">
+          <Gift className="w-6 h-6 text-gray-500 mb-1" />
+          <div className="text-[10px] font-bold text-gray-500">Share</div>
+          <div className="text-[9px] text-gray-600">No campaign</div>
         </div>
       );
     }
@@ -345,7 +345,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
           onClick={handleClaim}
           disabled={isWriting || isConfirming}
           className={cn(
-            "h-24 rounded-xl border border-green-500/30 bg-zinc-900 p-3 flex flex-col items-center justify-center transition-all",
+            "h-24 rounded-xl border border-green-500/30 bg-zinc-900 p-2 flex flex-col items-center justify-center transition-all",
             (isWriting || isConfirming) && "opacity-50 cursor-not-allowed"
           )}
         >
@@ -354,10 +354,10 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
           ) : (
             <Gift className="w-6 h-6 text-green-400 mb-1" />
           )}
-          <div className="text-xs font-bold text-green-400">
+          <div className="text-[10px] font-bold text-green-400">
             {isWriting ? "Confirm..." : isConfirming ? "Claiming..." : "Claim Now"}
           </div>
-          <div className="text-[10px] text-gray-400">Tap to claim</div>
+          <div className="text-[9px] text-gray-400">Tap to claim</div>
         </button>
       );
     }
@@ -371,7 +371,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
             className="flex-1 w-full bg-purple-500 hover:bg-purple-400 rounded-lg flex items-center justify-center gap-1 transition-all"
           >
             <UserPlus className="w-4 h-4 text-white" />
-            <span className="font-bold text-xs text-white">Follow</span>
+            <span className="font-bold text-[10px] text-white">Follow</span>
           </button>
           <button
             onClick={handleVerifyAndClaim}
@@ -383,7 +383,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
             ) : (
               <CheckCircle className="w-3 h-3 text-white" />
             )}
-            <span className="font-bold text-xs text-white">Verify</span>
+            <span className="font-bold text-[10px] text-white">Verify</span>
           </button>
         </div>
       );
@@ -399,13 +399,13 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
               setVerifyError(null);
               setHasShared(false);
             }}
-            className="h-24 rounded-xl border border-red-500/50 bg-red-950/30 p-3 flex flex-col items-center justify-center transition-colors"
+            className="h-24 rounded-xl border border-red-500/50 bg-red-950/30 p-2 flex flex-col items-center justify-center transition-colors"
           >
             <XCircle className="w-6 h-6 text-red-400 mb-1" />
-            <div className="text-[10px] font-bold text-red-400 text-center line-clamp-2">
+            <div className="text-[9px] font-bold text-red-400 text-center line-clamp-2">
               {verifyError}
             </div>
-            <div className="text-[9px] text-red-400/70">Tap to retry</div>
+            <div className="text-[8px] text-red-400/70">Tap to retry</div>
           </button>
         );
       }
@@ -415,7 +415,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
           onClick={handleVerifyAndClaim}
           disabled={isVerifying}
           className={cn(
-            "h-24 rounded-xl border border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20 p-3 flex flex-col items-center justify-center transition-colors",
+            "h-24 rounded-xl border border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20 p-2 flex flex-col items-center justify-center transition-colors",
             isVerifying && "opacity-50 cursor-not-allowed"
           )}
         >
@@ -424,10 +424,10 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
           ) : (
             <CheckCircle className="w-6 h-6 text-amber-400 mb-1" />
           )}
-          <div className="text-xs font-bold text-amber-400">
-            {isVerifying ? "Checking..." : "Verify Share"}
+          <div className="text-[10px] font-bold text-amber-400">
+            {isVerifying ? "Checking..." : "Verify"}
           </div>
-          <div className="text-[10px] text-amber-400/80">Tap to verify</div>
+          <div className="text-[9px] text-amber-400/80">Tap to verify</div>
         </button>
       );
     }
@@ -438,16 +438,16 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
         onClick={handleShareToQualify}
         disabled={!userFid}
         className={cn(
-          "h-24 rounded-xl border p-3 flex flex-col items-center justify-center transition-colors",
+          "h-24 rounded-xl border p-2 flex flex-col items-center justify-center transition-colors",
           isActive && claimsRemaining > 0
             ? "border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20"
             : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800",
           !userFid && "opacity-50 cursor-not-allowed"
         )}
       >
-        <Gift className="w-8 h-8 text-amber-400 mb-1" />
-        <div className="text-xs font-bold text-amber-400">Share The Glaze</div>
-        <div className="text-[10px] text-amber-400/80">{claimsRemaining} claims left</div>
+        <Gift className="w-6 h-6 text-amber-400 mb-1" />
+        <div className="text-[10px] font-bold text-amber-400">Share</div>
+        <div className="text-[9px] text-amber-400/80">{claimsRemaining} left</div>
       </button>
     );
   }

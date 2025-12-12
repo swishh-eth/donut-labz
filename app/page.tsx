@@ -13,7 +13,7 @@ import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
 import { ShareRewardButton } from "@/components/share-reward-button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Flame } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
 import { useAccount } from "wagmi";
@@ -84,19 +84,13 @@ const RouletteIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// Video tile component with lazy loading and gradient fallback
+// Video tile component with lazy loading
 function VideoTile({ 
   videoSrc, 
-  gradientFrom, 
-  gradientVia, 
-  gradientTo,
   onClick,
   children 
 }: { 
   videoSrc: string;
-  gradientFrom: string;
-  gradientVia: string;
-  gradientTo: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -126,8 +120,8 @@ function VideoTile({
       onClick={onClick}
       className="relative flex-1 rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
     >
-      {/* Gradient fallback - always visible behind video */}
-      <div className={`absolute inset-0 bg-gradient-to-br ${gradientFrom} ${gradientVia} ${gradientTo}`} />
+      {/* Black background fallback */}
+      <div className="absolute inset-0 bg-black" />
       
       <video
         ref={videoRef}
@@ -139,7 +133,6 @@ function VideoTile({
         preload="none"
         src={videoSrc}
       />
-      <div className="absolute inset-0 bg-black/60" />
       
       <div className="relative z-10 flex flex-col items-center justify-center h-full p-4">
         {children}
@@ -371,7 +364,7 @@ export default function HomePage() {
           <div className="grid grid-cols-3 gap-2 px-2 mb-3">
             <button
               onClick={() => router.push("/wheel")}
-              className={`h-24 rounded-xl border p-3 flex flex-col items-center justify-center transition-colors relative ${
+              className={`h-24 rounded-xl border p-2 flex flex-col items-center justify-center transition-colors relative ${
                 isWheelBoostActive
                   ? "border-amber-400 bg-gradient-to-br from-amber-500/40 to-orange-500/40 shadow-[0_0_20px_rgba(251,191,36,0.4)]"
                   : availableSpins > 0
@@ -380,11 +373,11 @@ export default function HomePage() {
               }`}
             >
               {isWheelBoostActive && (
-                <div className="absolute top-1 right-1 text-[9px] font-bold text-black bg-amber-400 px-1.5 py-0.5 rounded-full">
-                  🔥 {wheelBoostMultiplier}x
+                <div className="absolute top-1 right-1 text-[8px] font-bold text-black bg-amber-400 px-1 py-0.5 rounded-full">
+                  🔥{wheelBoostMultiplier}x
                 </div>
               )}
-              <RouletteIcon className={`w-7 h-7 mb-1 ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`} />
+              <RouletteIcon className={`w-6 h-6 mb-1 ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`} />
               <div className={`text-[10px] font-bold ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`}>
                 Glaze Wheel
               </div>
@@ -395,25 +388,14 @@ export default function HomePage() {
 
             <button
               onClick={() => router.push("/burn")}
-              className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 p-3 flex flex-col items-center justify-center transition-colors"
+              className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 p-2 flex flex-col items-center justify-center transition-colors"
             >
-              <svg 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="1.5" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-                className="w-7 h-7 mb-1 text-orange-500"
-              >
-                <path d="M12 22c4-4 8-7.582 8-12a8 8 0 1 0-16 0c0 4.418 4 8 8 12z" />
-                <path d="M12 14c1.5-1.5 3-2.791 3-5a3 3 0 0 0-6 0c0 2.209 1.5 3.5 3 5z" />
-              </svg>
+              <Flame className="w-6 h-6 mb-1 text-orange-500" />
               <div className="text-[10px] font-bold text-orange-500">
                 Burn
               </div>
               <div className="text-[9px] text-gray-600">
-                Burn tokens
+                $0.00
               </div>
             </button>
 
@@ -423,9 +405,6 @@ export default function HomePage() {
           <div className="flex-1 flex flex-col gap-3 px-2">
             <VideoTile
               videoSrc="/media/donut-loop.mp4"
-              gradientFrom="from-amber-900/80"
-              gradientVia="via-orange-800/60"
-              gradientTo="to-yellow-900/80"
               onClick={() => setSelectedMiner("donut")}
             >
               <div className="text-base font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
@@ -443,9 +422,6 @@ export default function HomePage() {
 
             <VideoTile
               videoSrc="/media/sprinkles-loop.mp4"
-              gradientFrom="from-pink-900/80"
-              gradientVia="via-purple-800/60"
-              gradientTo="to-fuchsia-900/80"
               onClick={() => setSelectedMiner("sprinkles")}
             >
               <div className="text-base font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
