@@ -629,6 +629,34 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     return Math.floor(Number(formatUnits(actualPaid, DONUT_DECIMALS))).toLocaleString();
   }, [slot0]);
 
+  // PNL calculation: (SPRINKLES earned in DONUT) + (80% of current price) - (what they paid)
+  const pnlData = useMemo(() => {
+    if (!slot0 || !slot0.initPrice || !price || sprinklesPerDonut === 0) {
+      return { donut: "0", isPositive: true };
+    }
+    
+    // What they paid (initPrice / 2)
+    const paid = slot0.initPrice / 2n;
+    const paidNumber = Number(formatUnits(paid, DONUT_DECIMALS));
+    
+    // What they'd get back (80% of current price)
+    const refund = (price * 80n) / 100n;
+    const refundNumber = Number(formatUnits(refund, DONUT_DECIMALS));
+    
+    // SPRINKLES earned converted to DONUT value
+    const sprinklesEarnedNumber = Number(formatUnits(earnedSprinkles, SPRINKLES_DECIMALS));
+    const sprinklesValueInDonut = sprinklesEarnedNumber / sprinklesPerDonut;
+    
+    // Total PNL
+    const pnl = sprinklesValueInDonut + refundNumber - paidNumber;
+    const isPositive = pnl >= 0;
+    
+    return {
+      donut: `${isPositive ? "+" : ""}${Math.floor(pnl).toLocaleString()}`,
+      isPositive,
+    };
+  }, [slot0, price, earnedSprinkles, sprinklesPerDonut]);
+
   const donutPerSecondDisplay = useMemo(() => {
     if (!dps || sprinklesPerDonut === 0) return null;
     const sprinklesPerSecond = Number(dps) / 1e18;
@@ -791,11 +819,20 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-x-3 gap-y-0.5 text-right flex-shrink-0">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-right flex-shrink-0">
               <div>
                 <div className="text-[8px] text-gray-500">PAID</div>
                 <div className="text-xs font-bold text-amber-400">
                   🍩{minerPaidDisplay}
+                </div>
+              </div>
+              <div>
+                <div className="text-[8px] text-gray-500">PNL</div>
+                <div className={cn(
+                  "text-xs font-bold",
+                  pnlData.isPositive ? "text-green-400" : "text-red-400"
+                )}>
+                  🍩{pnlData.donut}
                 </div>
               </div>
               <div>
@@ -806,7 +843,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               </div>
               <div>
                 <div className="text-[8px] text-gray-500">EARNED</div>
-                <div className="text-xs font-bold text-white flex items-center gap-0.5">
+                <div className="text-xs font-bold text-white flex items-center justify-end gap-0.5">
                   <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />{earnedDisplay}
                 </div>
               </div>
