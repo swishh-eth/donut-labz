@@ -764,8 +764,8 @@ export default function BurnPage() {
                   <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">PAY</div>
                   <div className="text-base font-semibold text-amber-400">{sprinklesPriceDisplay} LP</div>
                   <div className="text-[9px] text-gray-400">
-                    ${sprinklesAuctionState && donutUsdPrice > 0
-                      ? (Number(formatEther(sprinklesAuctionState.price)) * donutUsdPrice * 2).toFixed(2)
+                    ${sprinklesAuctionState
+                      ? (Number(formatEther(sprinklesAuctionState.price)) * 0.022).toFixed(2)
                       : "0.00"}
                   </div>
                 </div>
