@@ -19,125 +19,112 @@ export function getCurrentWeek(): number {
   return weeksElapsed + 1;
 }
 
-// Record a glaze for a user (with transaction deduplication)
+// Record a glaze/mine transaction
 // mineType: 'donut' = 2 points, 'sprinkles' = 1 point
 export async function recordGlaze(address: string, txHash?: string, mineType: 'donut' | 'sprinkles' = 'donut') {
   const weekNumber = getCurrentWeek();
   const normalizedAddress = address.toLowerCase();
-  const pointsToAdd = mineType === 'donut' ? 2 : 1;
+  const points = mineType === 'donut' ? 2 : 1;
   
-  // If txHash provided, check for duplicates
-  if (txHash) {
-    const normalizedTxHash = txHash.toLowerCase();
-    
-    // Check if this transaction was already recorded
-    const { data: existingTx } = await supabase
-      .from('glaze_transactions')
-      .select('id')
-      .eq('tx_hash', normalizedTxHash)
-      .single();
-    
-    if (existingTx) {
-      console.log('Transaction already recorded:', normalizedTxHash);
+  if (!txHash) {
+    return { alreadyRecorded: false, pointsAdded: 0 };
+  }
+
+  const normalizedTxHash = txHash.toLowerCase();
+  
+  // Check if this transaction was already recorded
+  const { data: existingTx } = await supabase
+    .from('glaze_transactions')
+    .select('id')
+    .eq('tx_hash', normalizedTxHash)
+    .single();
+  
+  if (existingTx) {
+    console.log('Transaction already recorded:', normalizedTxHash);
+    return { alreadyRecorded: true };
+  }
+  
+  // Record the transaction with points
+  const { error: txError } = await supabase
+    .from('glaze_transactions')
+    .insert({
+      tx_hash: normalizedTxHash,
+      address: normalizedAddress,
+      week_number: weekNumber,
+      mine_type: mineType,
+      points: points,
+    });
+  
+  if (txError) {
+    // If unique constraint violation, it was already recorded
+    if (txError.code === '23505') {
+      console.log('Transaction already recorded (race condition):', normalizedTxHash);
       return { alreadyRecorded: true };
     }
-    
-    // Record the transaction
-    const { error: txError } = await supabase
-      .from('glaze_transactions')
-      .insert({
-        tx_hash: normalizedTxHash,
-        address: normalizedAddress,
-        week_number: weekNumber,
-        mine_type: mineType,
-      });
-    
-    if (txError) {
-      // If unique constraint violation, it was already recorded
-      if (txError.code === '23505') {
-        console.log('Transaction already recorded (race condition):', normalizedTxHash);
-        return { alreadyRecorded: true };
-      }
-      throw txError;
-    }
+    throw txError;
   }
   
-  // Now update the leaderboard
-  const { data: existing } = await supabase
-    .from('leaderboard_entries')
-    .select('*')
-    .eq('address', normalizedAddress)
-    .eq('week_number', weekNumber)
-    .single();
-
-  if (existing) {
-    const { error } = await supabase
-      .from('leaderboard_entries')
-      .update({
-        points: existing.points + pointsToAdd,
-        total_glazes: existing.total_glazes + 1,
-        last_glaze_timestamp: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('address', normalizedAddress)
-      .eq('week_number', weekNumber);
-
-    if (error) throw error;
-  } else {
-    const { error } = await supabase
-      .from('leaderboard_entries')
-      .insert({
-        address: normalizedAddress,
-        points: pointsToAdd,
-        total_glazes: 1,
-        week_number: weekNumber,
-        last_glaze_timestamp: new Date().toISOString(),
-      });
-
-    if (error) throw error;
-  }
-  
-  return { alreadyRecorded: false, pointsAdded: pointsToAdd };
+  return { alreadyRecorded: false, pointsAdded: points };
 }
 
-// Get current week's leaderboard
+// Get current week's leaderboard by aggregating glaze_transactions
 export async function getLeaderboard(limit: number = 10) {
   const weekNumber = getCurrentWeek();
   
+  // Use raw SQL to aggregate points by address for current week
   const { data, error } = await supabase
-    .from('leaderboard_entries')
-    .select('*')
-    .eq('week_number', weekNumber)
-    .order('points', { ascending: false })
-    .order('last_glaze_timestamp', { ascending: true })
-    .limit(limit);
+    .rpc('get_leaderboard', { 
+      week_num: weekNumber, 
+      limit_count: limit 
+    });
 
-  if (error) throw error;
+  if (error) {
+    // Fallback: manual query if RPC doesn't exist
+    console.error('RPC error, using fallback query:', error);
+    
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('glaze_transactions')
+      .select('address, points')
+      .eq('week_number', weekNumber);
+    
+    if (fallbackError) throw fallbackError;
+    
+    // Aggregate manually
+    const aggregated: Record<string, { address: string; total_points: number; total_mines: number }> = {};
+    
+    for (const row of fallbackData || []) {
+      const addr = row.address.toLowerCase();
+      if (!aggregated[addr]) {
+        aggregated[addr] = { address: addr, total_points: 0, total_mines: 0 };
+      }
+      aggregated[addr].total_points += row.points || 0;
+      aggregated[addr].total_mines += 1;
+    }
+    
+    // Sort by points descending
+    const sorted = Object.values(aggregated)
+      .sort((a, b) => b.total_points - a.total_points)
+      .slice(0, limit);
+    
+    return sorted;
+  }
+  
   return data;
 }
 
 // Get top 3 winners for distribution
 export async function getTop3Winners() {
   const weekNumber = getCurrentWeek();
+  const leaderboard = await getLeaderboard(3);
   
-  const { data, error } = await supabase
-    .from('leaderboard_entries')
-    .select('*')
-    .eq('week_number', weekNumber)
-    .order('points', { ascending: false })
-    .order('last_glaze_timestamp', { ascending: true })
-    .limit(3);
-
-  if (error) throw error;
-  
-  if (!data || data.length === 0) {
+  if (!leaderboard || leaderboard.length === 0) {
     return null;
   }
 
   return {
-    first: data[0]?.address || null,
-    second: data[1]?.address || null,
-    third: data[2]?.address || null,
+    first: leaderboard[0]?.address || null,
+    second: leaderboard[1]?.address || null,
+    third: leaderboard[2]?.address || null,
     weekNumber,
   };
 }

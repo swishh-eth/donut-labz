@@ -20,9 +20,8 @@ type MiniAppContext = {
 type LeaderboardEntry = {
   address: string;
   total_points: number;
-  total_glazes?: number;
-  week_number?: number;
-  last_glaze_timestamp?: string;
+  total_mines: number;
+  last_mine_timestamp?: string;
 };
 
 type FarcasterProfile = {
@@ -620,7 +619,7 @@ export default function LeaderboardPage() {
 
                     <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                       <div className="text-xs font-bold text-white">
-                        {entry.total_glazes ?? entry.total_points ?? 0} <span className="text-[10px] font-normal text-gray-400">pts</span>
+                        {entry.total_points} <span className="text-[10px] font-normal text-gray-400">pts</span>
                       </div>
                       {isWinner && (
                         <div className="flex flex-col items-end">
