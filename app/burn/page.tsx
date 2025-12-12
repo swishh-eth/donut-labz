@@ -178,6 +178,7 @@ export default function BurnPage() {
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
   const [donutUsdPrice, setDonutUsdPrice] = useState<number>(0);
+  const [sprinklesLpPrice, setSprinklesLpPrice] = useState<number>(0);
   
   // DONUT LP Burn state
   const [donutBurnResult, setDonutBurnResult] = useState<"success" | "failure" | null>(null);
@@ -272,6 +273,26 @@ export default function BurnPage() {
     };
     fetchDonutPrice();
     const interval = setInterval(fetchDonutPrice, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // SPRINKLES LP token price from pool reserves
+  useEffect(() => {
+    const fetchLpPrice = async () => {
+      try {
+        const res = await fetch("/api/lp-price");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.lpTokenPrice) {
+            setSprinklesLpPrice(data.lpTokenPrice);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch LP price:", error);
+      }
+    };
+    fetchLpPrice();
+    const interval = setInterval(fetchLpPrice, 30_000); // Refresh every 30s
     return () => clearInterval(interval);
   }, []);
 
@@ -764,8 +785,8 @@ export default function BurnPage() {
                   <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">PAY</div>
                   <div className="text-base font-semibold text-amber-400">{sprinklesPriceDisplay} LP</div>
                   <div className="text-[9px] text-gray-400">
-                    ${sprinklesAuctionState
-                      ? (Number(formatEther(sprinklesAuctionState.price)) * 0.022).toFixed(2)
+                    ${sprinklesAuctionState && sprinklesLpPrice > 0
+                      ? (Number(formatEther(sprinklesAuctionState.price)) * sprinklesLpPrice).toFixed(2)
                       : "0.00"}
                   </div>
                 </div>
@@ -781,9 +802,9 @@ export default function BurnPage() {
               </div>
 
               {/* Profit/Loss Indicator */}
-              {sprinklesAuctionState && donutUsdPrice > 0 && (
+              {sprinklesAuctionState && sprinklesLpPrice > 0 && donutUsdPrice > 0 && (
                 (() => {
-                  const lpValueUsd = Number(formatEther(sprinklesAuctionState.price)) * 0.022;
+                  const lpValueUsd = Number(formatEther(sprinklesAuctionState.price)) * sprinklesLpPrice;
                   const rewardsValueUsd = Number(formatEther(sprinklesAuctionState.rewardsAvailable)) * donutUsdPrice;
                   const profitLoss = rewardsValueUsd - lpValueUsd;
                   const isProfitable = profitLoss > 0;
