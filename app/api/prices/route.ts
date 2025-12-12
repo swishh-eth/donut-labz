@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C";
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
 
-// Specific pair addresses for filtering
+// Specific pair addresses
+const DONUT_WETH_PAIR = "0xd1dbb2e56533c55c3a637d13c53aeef65c5d5703".toLowerCase();
 const SPRINKLES_DONUT_PAIR = "0x47e8b03017d8b8d058ba5926838ca4dd4531e668".toLowerCase();
 
 export async function GET(request: NextRequest) {
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
     const ethPrice = ethData.ethereum?.usd || 0;
     console.log("[prices] ETH price:", ethPrice);
 
-    // Fetch DONUT price using token endpoint (returns all pairs for token)
+    // Fetch DONUT price using token endpoint
     let donutPrice = 0;
     try {
       const donutRes = await fetch(
@@ -28,16 +29,33 @@ export async function GET(request: NextRequest) {
       const donutData = await donutRes.json();
       console.log("[prices] DONUT pairs count:", donutData.pairs?.length || 0);
       
-      // Find the pair with highest liquidity (usually the main one)
       if (donutData.pairs && donutData.pairs.length > 0) {
-        // Sort by liquidity and get the best one
-        const sortedPairs = donutData.pairs
-          .filter((p: any) => p.chainId === "base" && p.priceUsd)
-          .sort((a: any, b: any) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
+        // First try to find the specific DONUT/WETH pair on Base
+        const specificPair = donutData.pairs.find(
+          (p: any) => p.pairAddress?.toLowerCase() === DONUT_WETH_PAIR && p.chainId === "base"
+        );
         
-        if (sortedPairs.length > 0) {
-          donutPrice = parseFloat(sortedPairs[0].priceUsd || "0");
-          console.log("[prices] DONUT best pair:", sortedPairs[0].pairAddress, "price:", donutPrice);
+        if (specificPair && specificPair.priceUsd) {
+          donutPrice = parseFloat(specificPair.priceUsd);
+          console.log("[prices] DONUT specific pair found, price:", donutPrice);
+        } else {
+          // Fallback: filter for Base chain AND valid 42-char addresses only
+          const validBasePairs = donutData.pairs.filter((p: any) => 
+            p.chainId === "base" && 
+            p.priceUsd &&
+            p.pairAddress?.length === 42 && // Valid ETH address length
+            p.pairAddress?.startsWith("0x")
+          );
+          
+          // Sort by liquidity
+          const sortedPairs = validBasePairs.sort(
+            (a: any, b: any) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
+          );
+          
+          if (sortedPairs.length > 0) {
+            donutPrice = parseFloat(sortedPairs[0].priceUsd || "0");
+            console.log("[prices] DONUT best valid pair:", sortedPairs[0].pairAddress, "price:", donutPrice);
+          }
         }
       }
     } catch (e) {
@@ -57,21 +75,28 @@ export async function GET(request: NextRequest) {
       if (sprinklesData.pairs && sprinklesData.pairs.length > 0) {
         // Try to find the specific SPRINKLES/DONUT pair first
         const specificPair = sprinklesData.pairs.find(
-          (p: any) => p.pairAddress?.toLowerCase() === SPRINKLES_DONUT_PAIR
+          (p: any) => p.pairAddress?.toLowerCase() === SPRINKLES_DONUT_PAIR && p.chainId === "base"
         );
         
         if (specificPair && specificPair.priceUsd) {
           sprinklesPrice = parseFloat(specificPair.priceUsd);
           console.log("[prices] SPRINKLES specific pair found, price:", sprinklesPrice);
         } else {
-          // Fallback to highest liquidity pair
-          const sortedPairs = sprinklesData.pairs
-            .filter((p: any) => p.chainId === "base" && p.priceUsd)
-            .sort((a: any, b: any) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
+          // Fallback: filter for Base chain AND valid addresses
+          const validBasePairs = sprinklesData.pairs.filter((p: any) => 
+            p.chainId === "base" && 
+            p.priceUsd &&
+            p.pairAddress?.length === 42 &&
+            p.pairAddress?.startsWith("0x")
+          );
+          
+          const sortedPairs = validBasePairs.sort(
+            (a: any, b: any) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
+          );
           
           if (sortedPairs.length > 0) {
             sprinklesPrice = parseFloat(sortedPairs[0].priceUsd || "0");
-            console.log("[prices] SPRINKLES best pair:", sortedPairs[0].pairAddress, "price:", sprinklesPrice);
+            console.log("[prices] SPRINKLES best valid pair:", sortedPairs[0].pairAddress, "price:", sprinklesPrice);
           }
         }
       }
