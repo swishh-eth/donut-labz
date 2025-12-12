@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/split-weth",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/split-donut",
+      "schedule": "0 * * * *"
     }
   ]
 }
