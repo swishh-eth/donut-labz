@@ -255,6 +255,25 @@ export default function HomePage() {
     },
   });
 
+  // SPRINKLES auction current price (LP tokens required)
+  const { data: sprinklesAuctionPrice } = useReadContract({
+    address: "0xaCCeeB232556f20Ec6c0690938DBda936D153630" as `0x${string}`,
+    abi: [
+      {
+        inputs: [],
+        name: "getPrice",
+        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+        stateMutability: "view",
+        type: "function",
+      },
+    ] as const,
+    functionName: "getPrice",
+    chainId: base.id,
+    query: {
+      refetchInterval: 10_000,
+    },
+  });
+
   // Pending DONUT in splitter (half goes to burn pool)
   const { data: pendingSplitterDonut } = useReadContract({
     address: "0x99DABA873CC4c701280624603B28d3e3F286b590" as `0x${string}`,
@@ -307,7 +326,16 @@ export default function HomePage() {
   const burnPoolUsd = donutUsdPrice > 0 
     ? (totalBurnPoolDonut * donutUsdPrice).toFixed(2) 
     : "0.00";
-  const hasBurnPoolValue = totalBurnPoolDonut > 0 && donutUsdPrice > 0;
+  
+  // Calculate if burn is profitable
+  // LP price ≈ $0.022 per token (hardcoded estimate)
+  const LP_PRICE_USD = 0.022;
+  const auctionPriceValue = sprinklesAuctionPrice 
+    ? Number(formatEther(sprinklesAuctionPrice as bigint)) 
+    : 0;
+  const lpCostUsd = auctionPriceValue * LP_PRICE_USD;
+  const rewardsValueUsd = auctionRewardsValue * donutUsdPrice;
+  const isBurnProfitable = rewardsValueUsd > lpCostUsd && auctionRewardsValue > 0 && donutUsdPrice > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -537,20 +565,20 @@ export default function HomePage() {
             <button
               onClick={() => router.push("/burn")}
               className={`h-24 rounded-xl border p-2 flex flex-col items-center justify-center transition-all ${
-                hasBurnPoolValue
-                  ? "border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20 animate-pulse-subtle"
+                isBurnProfitable
+                  ? "border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20"
                   : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
               }`}
-              style={hasBurnPoolValue ? {
+              style={isBurnProfitable ? {
                 animation: "pulse-scale 2s ease-in-out infinite"
               } : undefined}
             >
-              <Flame className={`w-6 h-6 mb-1 ${hasBurnPoolValue ? "text-amber-400" : "text-gray-500"}`} />
-              <div className={`text-[10px] font-bold ${hasBurnPoolValue ? "text-amber-400" : "text-gray-500"}`}>
+              <Flame className={`w-6 h-6 mb-1 ${isBurnProfitable ? "text-amber-400" : "text-gray-500"}`} />
+              <div className={`text-[10px] font-bold ${isBurnProfitable ? "text-amber-400" : "text-gray-500"}`}>
                 Burn
               </div>
-              <div className={`text-[9px] ${hasBurnPoolValue ? "text-amber-400/80" : "text-gray-600"}`}>
-                {hasBurnPoolValue ? `Earn $${burnPoolUsd}` : "No rewards"}
+              <div className={`text-[9px] ${isBurnProfitable ? "text-amber-400/80" : "text-gray-600"}`}>
+                {parseFloat(burnPoolUsd) > 0 ? `$${burnPoolUsd}` : "No rewards"}
               </div>
             </button>
 
