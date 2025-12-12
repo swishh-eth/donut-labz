@@ -194,7 +194,7 @@ export default function LeaderboardPage() {
   useEffect(() => {
     const updateCountdown = () => {
       const now = new Date();
-      const firstDistribution = new Date("2025-12-12T12:00:00Z");
+      const firstDistribution = new Date("2025-12-05T12:00:00Z"); // Week 1 started Dec 5
       
       const weeksSinceFirst = Math.floor(
         (now.getTime() - firstDistribution.getTime()) / (7 * 24 * 60 * 60 * 1000)

@@ -7,7 +7,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Get current week number (resets Friday 12pm UTC)
 function getCurrentWeek(): number {
-  const epochStart = new Date('2025-12-12T12:00:00Z');
+  const epochStart = new Date('2025-12-05T12:00:00Z'); // Week 1 started Dec 5
   const now = new Date();
   const secondsElapsed = Math.floor((now.getTime() - epochStart.getTime()) / 1000);
   
@@ -25,11 +25,12 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const weekNumber = getCurrentWeek();
 
+    console.log('Fetching leaderboard for week:', weekNumber);
+
     // Query glaze_transactions and aggregate points by address
     const { data, error } = await supabase
       .from('glaze_transactions')
-      .select('address, points, created_at')
-      .eq('week_number', weekNumber);
+      .select('address, points, recorded_at, week_number');
 
     if (error) {
       console.error('Supabase error:', error);
@@ -39,7 +40,10 @@ export async function GET(request: Request) {
       );
     }
 
-    // Aggregate points by address
+    console.log('Total records found:', data?.length || 0);
+    console.log('Sample records:', data?.slice(0, 3));
+
+    // Aggregate points by address (for current week only)
     const aggregated: Record<string, { 
       address: string; 
       total_points: number; 
@@ -48,22 +52,27 @@ export async function GET(request: Request) {
     }> = {};
     
     for (const row of data || []) {
+      // Filter by week number (handle potential string/number mismatch)
+      if (Number(row.week_number) !== weekNumber) continue;
+      
       const addr = row.address.toLowerCase();
       if (!aggregated[addr]) {
         aggregated[addr] = { 
           address: addr, 
           total_points: 0, 
           total_mines: 0,
-          last_mine_timestamp: row.created_at || new Date().toISOString()
+          last_mine_timestamp: row.recorded_at || new Date().toISOString()
         };
       }
       aggregated[addr].total_points += row.points || 0;
       aggregated[addr].total_mines += 1;
       // Track latest mine timestamp
-      if (row.created_at && row.created_at > aggregated[addr].last_mine_timestamp) {
-        aggregated[addr].last_mine_timestamp = row.created_at;
+      if (row.recorded_at && row.recorded_at > aggregated[addr].last_mine_timestamp) {
+        aggregated[addr].last_mine_timestamp = row.recorded_at;
       }
     }
+    
+    console.log('Aggregated entries:', Object.keys(aggregated).length);
     
     // Sort by points descending, then by earliest last_mine_timestamp (tiebreaker)
     const sorted = Object.values(aggregated)
