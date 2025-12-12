@@ -57,11 +57,10 @@ const getAnonPfp = (address: string): string => {
   return ANON_PFPS[index];
 };
 
-// Generate random rotation animation for each avatar
 const getRandomRotation = (seed: string) => {
   const hash = seed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const duration = 8 + (hash % 7); // 8-15 seconds
-  const direction = hash % 2 === 0 ? 1 : -1; // clockwise or counter-clockwise
+  const duration = 8 + (hash % 7);
+  const direction = hash % 2 === 0 ? 1 : -1;
   return { duration, direction };
 };
 
@@ -155,11 +154,10 @@ export default function LeaderboardPage() {
       if (!res.ok) throw new Error("Failed to fetch leaderboard");
       return res.json();
     },
-    refetchInterval: 60_000, // 1 minute
-    staleTime: 30_000, // Consider fresh for 30 seconds
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   });
 
-  // Fetch prize pool from cached API endpoint
   const { data: prizePoolData } = useQuery<{
     ethBalance: string;
     donutBalance: string;
@@ -171,8 +169,8 @@ export default function LeaderboardPage() {
       if (!res.ok) throw new Error("Failed to fetch prize pool");
       return res.json();
     },
-    refetchInterval: 60_000, // 1 minute
-    staleTime: 30_000, // Consider fresh for 30 seconds
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   });
 
   const addresses: string[] = leaderboardData?.leaderboard?.map((entry) => entry.address) || [];
@@ -309,19 +307,16 @@ export default function LeaderboardPage() {
         }}
       >
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {/* ETH symbols - white glowing */}
           <span className="absolute left-[5%] top-0 text-white/20 text-lg glow-symbol falling-1" style={{ animationDelay: '-2s' }}>Ξ</span>
           <span className="absolute left-[25%] top-0 text-white/15 text-xl glow-symbol falling-2" style={{ animationDelay: '-5s' }}>Ξ</span>
           <span className="absolute left-[80%] top-0 text-white/20 text-base glow-symbol falling-3" style={{ animationDelay: '-8s' }}>Ξ</span>
           <span className="absolute left-[60%] top-0 text-white/10 text-lg glow-symbol falling-4" style={{ animationDelay: '-3s' }}>Ξ</span>
           
-          {/* Donut symbols - white glowing */}
           <span className="absolute left-[15%] top-0 text-white/20 text-lg glow-symbol falling-2" style={{ animationDelay: '-1s' }}>🍩</span>
           <span className="absolute left-[45%] top-0 text-white/15 text-base glow-symbol falling-4" style={{ animationDelay: '-6s' }}>🍩</span>
           <span className="absolute left-[70%] top-0 text-white/20 text-xl glow-symbol falling-1" style={{ animationDelay: '-4s' }}>🍩</span>
           <span className="absolute left-[90%] top-0 text-white/10 text-lg glow-symbol falling-5" style={{ animationDelay: '-7s' }}>🍩</span>
           
-          {/* Sprinkles - white Sparkles icons */}
           <Sparkles className="absolute left-[10%] top-0 w-4 h-4 text-white/20 glow-symbol falling-3" style={{ animationDelay: '-2.5s' }} />
           <Sparkles className="absolute left-[35%] top-0 w-5 h-5 text-white/25 glow-symbol falling-5" style={{ animationDelay: '-5.5s' }} />
           <Sparkles className="absolute left-[55%] top-0 w-6 h-6 text-white/15 glow-symbol falling-6" style={{ animationDelay: '-1.5s' }} />
@@ -353,9 +348,7 @@ export default function LeaderboardPage() {
             )}
           </div>
 
-          {/* Stats Cards - 3 Column Grid - CENTERED */}
           <div className="grid grid-cols-3 gap-2 mb-3">
-            {/* Week Number */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
               <div className="flex items-center gap-1 mb-0.5">
                 <Trophy className="w-3 h-3 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
@@ -364,7 +357,6 @@ export default function LeaderboardPage() {
               <div className="text-lg font-bold text-white">#{weekNumber}</div>
             </div>
 
-            {/* Timer */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
               <div className="flex items-center gap-1 mb-0.5">
                 <Clock className="w-3 h-3 text-amber-400" />
@@ -373,7 +365,6 @@ export default function LeaderboardPage() {
               <div className="text-sm font-bold text-amber-400">{timeUntilDistribution}</div>
             </div>
 
-            {/* Prize Pool - Tappable Toggle - Fixed Height */}
             <button
               onClick={() => setShowUsdPrize(!showUsdPrize)}
               className={`border rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all h-[72px] ${
@@ -404,7 +395,6 @@ export default function LeaderboardPage() {
             </button>
           </div>
 
-          {/* How to Win Button */}
           <button
             onClick={() => setShowHelpDialog(true)}
             className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-3 hover:bg-zinc-800 transition-colors"
@@ -416,7 +406,6 @@ export default function LeaderboardPage() {
             </div>
           </button>
 
-          {/* Help Dialog */}
           {showHelpDialog && (
             <div className="fixed inset-0 z-50">
               <div
@@ -441,16 +430,16 @@ export default function LeaderboardPage() {
                     <div className="flex gap-2.5">
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">1</div>
                       <div>
-                        <div className="font-semibold text-amber-400 text-xs">Mine DONUT Only</div>
-                        <div className="text-[11px] text-gray-400">Only DONUT mining counts for the leaderboard. Pay ETH to glaze the factory and earn DONUT tokens.</div>
+                        <div className="font-semibold text-amber-400 text-xs">Mine DONUT = 2 Points</div>
+                        <div className="text-[11px] text-gray-400">Pay ETH to glaze the factory and earn 2 leaderboard points per mine.</div>
                       </div>
                     </div>
 
                     <div className="flex gap-2.5">
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
                       <div>
-                        <div className="font-semibold text-white text-xs">SPRINKLES Mining ≠ Points</div>
-                        <div className="text-[11px] text-gray-400">Mining SPRINKLES does NOT give you leaderboard points. Only ETH glazes count!</div>
+                        <div className="font-semibold text-white text-xs flex items-center gap-1">Mine <Sparkles className="w-3 h-3 drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />SPRINKLES = 1 Point</div>
+                        <div className="text-[11px] text-gray-400">Pay DONUT to mine SPRINKLES and earn 1 leaderboard point per mine.</div>
                       </div>
                     </div>
 
@@ -508,7 +497,6 @@ export default function LeaderboardPage() {
             </div>
           )}
 
-          {/* Leaderboard List */}
           <div className="flex-1 overflow-y-auto space-y-2 pb-2 scrollbar-hide">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
@@ -572,7 +560,7 @@ export default function LeaderboardPage() {
 
                       <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                         <div className="text-xs font-bold text-white">
-                          0 <span className="text-[10px] font-normal text-gray-400">glazes</span>
+                          0 <span className="text-[10px] font-normal text-gray-400">pts</span>
                         </div>
                         {isWinner && (
                           <div className="flex flex-col items-end">
@@ -632,7 +620,7 @@ export default function LeaderboardPage() {
 
                     <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                       <div className="text-xs font-bold text-white">
-                        {entry.total_glazes ?? entry.total_points ?? 0} <span className="text-[10px] font-normal text-gray-400">glazes</span>
+                        {entry.total_glazes ?? entry.total_points ?? 0} <span className="text-[10px] font-normal text-gray-400">pts</span>
                       </div>
                       {isWinner && (
                         <div className="flex flex-col items-end">

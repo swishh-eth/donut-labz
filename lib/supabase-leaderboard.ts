@@ -20,9 +20,11 @@ export function getCurrentWeek(): number {
 }
 
 // Record a glaze for a user (with transaction deduplication)
-export async function recordGlaze(address: string, txHash?: string) {
+// mineType: 'donut' = 2 points, 'sprinkles' = 1 point
+export async function recordGlaze(address: string, txHash?: string, mineType: 'donut' | 'sprinkles' = 'donut') {
   const weekNumber = getCurrentWeek();
   const normalizedAddress = address.toLowerCase();
+  const pointsToAdd = mineType === 'donut' ? 2 : 1;
   
   // If txHash provided, check for duplicates
   if (txHash) {
@@ -47,6 +49,7 @@ export async function recordGlaze(address: string, txHash?: string) {
         tx_hash: normalizedTxHash,
         address: normalizedAddress,
         week_number: weekNumber,
+        mine_type: mineType,
       });
     
     if (txError) {
@@ -71,7 +74,7 @@ export async function recordGlaze(address: string, txHash?: string) {
     const { error } = await supabase
       .from('leaderboard_entries')
       .update({
-        points: existing.points + 1,
+        points: existing.points + pointsToAdd,
         total_glazes: existing.total_glazes + 1,
         last_glaze_timestamp: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -85,7 +88,7 @@ export async function recordGlaze(address: string, txHash?: string) {
       .from('leaderboard_entries')
       .insert({
         address: normalizedAddress,
-        points: 1,
+        points: pointsToAdd,
         total_glazes: 1,
         week_number: weekNumber,
         last_glaze_timestamp: new Date().toISOString(),
@@ -94,7 +97,7 @@ export async function recordGlaze(address: string, txHash?: string) {
     if (error) throw error;
   }
   
-  return { alreadyRecorded: false };
+  return { alreadyRecorded: false, pointsAdded: pointsToAdd };
 }
 
 // Get current week's leaderboard

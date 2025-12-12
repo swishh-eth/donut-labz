@@ -40,7 +40,6 @@ const SPRINKLES_DECIMALS = 18;
 const DONUT_DECIMALS = 18;
 const DEADLINE_BUFFER_SECONDS = 15 * 60;
 
-// DEXScreener pair address for SPRINKLES/DONUT pricing
 const SPRINKLES_DONUT_PAIR = "0x47E8b03017d8b8d058bA5926838cA4dD4531e668";
 
 const ANON_PFPS = [
@@ -128,7 +127,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     }, 3000);
   }, []);
 
-  // Fetch SPRINKLES/DONUT price ratio from DEXScreener using specific pair
   useEffect(() => {
     const fetchPrices = async () => {
       try {
@@ -325,10 +323,9 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         setApprovalAmount("");
       }
       
-      // Award spin and post to chat for successful mine
+      // Award spin, record leaderboard points, and post to chat for successful mine
       if (receipt.status === "success" && txType === "mine" && address) {
-        // Helper function for retry logic
-        const fetchWithRetry = async (url: string, body: object, attempt = 1, maxAttempts = 3) => {
+        const fetchWithRetry = async (url: string, body: object, attempt = 1, maxAttempts = 3): Promise<boolean> => {
           try {
             const res = await fetch(url, {
               method: "POST",
@@ -339,10 +336,14 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             
             if (!res.ok && attempt < maxAttempts) {
               console.log(`${url} attempt ${attempt} failed, retrying in 3s...`);
-              setTimeout(() => fetchWithRetry(url, body, attempt + 1, maxAttempts), 3000);
+              return new Promise((resolve) => {
+                setTimeout(async () => {
+                  resolve(await fetchWithRetry(url, body, attempt + 1, maxAttempts));
+                }, 3000);
+              });
             } else if (res.ok) {
               console.log(`${url} success:`, data);
-              return true; // Signal success
+              return true;
             } else {
               console.error(`${url} failed after retries:`, data);
               return false;
@@ -350,23 +351,34 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           } catch (err) {
             if (attempt < maxAttempts) {
               console.log(`${url} attempt ${attempt} error, retrying in 3s...`);
-              setTimeout(() => fetchWithRetry(url, body, attempt + 1, maxAttempts), 3000);
+              return new Promise((resolve) => {
+                setTimeout(async () => {
+                  resolve(await fetchWithRetry(url, body, attempt + 1, maxAttempts));
+                }, 3000);
+              });
             } else {
               console.error(`${url} error after retries:`, err);
+              return false;
             }
-            return false;
           }
         };
 
-        // Initial delay of 2 seconds before first attempt
         setTimeout(async () => {
-          const success = await fetchWithRetry("/api/spins/award-sprinkles-mine", {
+          // Award spin
+          const spinSuccess = await fetchWithRetry("/api/spins/award-sprinkles-mine", {
             address: address,
             txHash: receipt.transactionHash,
           });
           
+          // Record leaderboard points (1 point for SPRINKLES mining)
+          const leaderboardSuccess = await fetchWithRetry("/api/record-glaze", {
+            address: address,
+            txHash: receipt.transactionHash,
+            mineType: "sprinkles",
+          });
+          
           // Only post to chat AFTER successful verification
-          if (success) {
+          if (spinSuccess || leaderboardSuccess) {
             fetch("/api/chat/mining", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -629,25 +641,20 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     return Math.floor(Number(formatUnits(actualPaid, DONUT_DECIMALS))).toLocaleString();
   }, [slot0]);
 
-  // PNL calculation: (SPRINKLES earned in DONUT) + (80% of current price) - (what they paid)
   const pnlData = useMemo(() => {
     if (!slot0 || !slot0.initPrice || !price || sprinklesPerDonut === 0) {
       return { donut: "0", isPositive: true };
     }
     
-    // What they paid (initPrice / 2)
     const paid = slot0.initPrice / 2n;
     const paidNumber = Number(formatUnits(paid, DONUT_DECIMALS));
     
-    // What they'd get back (80% of current price)
     const refund = (price * 80n) / 100n;
     const refundNumber = Number(formatUnits(refund, DONUT_DECIMALS));
     
-    // SPRINKLES earned converted to DONUT value
     const sprinklesEarnedNumber = Number(formatUnits(earnedSprinkles, SPRINKLES_DECIMALS));
     const sprinklesValueInDonut = sprinklesEarnedNumber / sprinklesPerDonut;
     
-    // Total PNL
     const pnl = sprinklesValueInDonut + refundNumber - paidNumber;
     const isPositive = pnl >= 0;
     
@@ -722,26 +729,24 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     isMineDisabled || parsedApprovalAmount === 0n || !approvalAmount;
 
   const handleViewMinerProfile = useCallback(async () => {
-  const fid = neynarUser?.user?.fid;
-  const username = neynarUser?.user?.username;
+    const fid = neynarUser?.user?.fid;
+    const username = neynarUser?.user?.username;
 
-  const url = username 
-    ? `https://warpcast.com/${username}`
-    : fid 
-      ? `https://warpcast.com/~/profiles/${fid}`
-      : null;
+    const url = username 
+      ? `https://warpcast.com/${username}`
+      : fid 
+        ? `https://warpcast.com/~/profiles/${fid}`
+        : null;
 
-  if (!url) return;
+    if (!url) return;
 
-  try {
-    // Use Farcaster SDK to open URL (minimizes miniapp and opens in Warpcast)
-    const { sdk } = await import("@farcaster/miniapp-sdk");
-    await sdk.actions.openUrl(url);
-  } catch (e) {
-    // Fallback for non-Farcaster environment
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
-}, [neynarUser?.user?.fid, neynarUser?.user?.username]);
+    try {
+      const { sdk } = await import("@farcaster/miniapp-sdk");
+      await sdk.actions.openUrl(url);
+    } catch (e) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }, [neynarUser?.user?.fid, neynarUser?.user?.username]);
 
   const scrollMessage =
     slot0?.uri && slot0.uri.trim() !== ""
