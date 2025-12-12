@@ -259,7 +259,7 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     const minsLeft = Math.floor((countdown % 3600) / 60);
     const timeLeftText = hoursLeft > 0 ? `${hoursLeft}h ${minsLeft}m` : `${minsLeft}m`;
     
-    const shareText = `I just claimed my weekly airdrop of ${userPoints.toFixed(2)} $SPRINKLES from @donutlabs by @swishh.eth! ✨🍩\n\nOnly ${timeLeftText} left to claim yours! 👇`;
+    const shareText = `I just claimed my weekly airdrop of ${userPoints.toFixed(2)} $SPRINKLES by @swishh.eth! ✨🍩\n\nOnly ${timeLeftText} left to claim yours! 👇`;
 
     try {
       await sdk.actions.composeCast({
