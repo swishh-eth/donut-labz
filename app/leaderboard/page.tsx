@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -190,6 +190,24 @@ export default function LeaderboardPage() {
   });
 
   const profiles = profilesData?.profiles || {};
+
+  const handleViewProfile = useCallback(async (profile: FarcasterProfile | null) => {
+    if (!profile) return;
+    
+    const url = profile.username 
+      ? `https://warpcast.com/${profile.username}`
+      : profile.fid 
+        ? `https://warpcast.com/~/profiles/${profile.fid}`
+        : null;
+
+    if (!url) return;
+
+    try {
+      await sdk.actions.openUrl(url);
+    } catch (e) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }, []);
 
   useEffect(() => {
     const updateCountdown = () => {
@@ -600,7 +618,10 @@ export default function LeaderboardPage() {
                         {rank}
                       </span>
 
-                      <div className={spinClass}>
+                      <div 
+                        className={`${spinClass} ${profile?.fid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                        onClick={() => handleViewProfile(profile)}
+                      >
                         <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
                           <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
                           <AvatarFallback className="bg-zinc-800 text-white text-xs">
