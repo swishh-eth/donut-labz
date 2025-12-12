@@ -9,7 +9,7 @@ const YOUR_PROVIDER_ADDRESS = '0x30cb501B97c6b87B7b240755C730A9795dBB84f5'.toLow
 const MULTICALL_ADDRESS = '0x3ec144554b484C6798A683E34c8e8E222293f323'.toLowerCase();
 
 // The SPRINKLES miner contract address
-const SPRINKLES_MINER_ADDRESS = '0xce16101458D81Ba6e89535C475e938528ba02d64'.toLowerCase();
+const SPRINKLES_MINER_ADDRESS = '0x924b2d4a89b84a37510950031dcdb6552dc97bcc'.toLowerCase();
 
 // Calculate the mine function selectors
 // DONUT: mine(address,uint256,uint256,uint256,string)
