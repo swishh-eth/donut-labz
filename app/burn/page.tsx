@@ -780,6 +780,25 @@ export default function BurnPage() {
                 </div>
               </div>
 
+              {/* Profit/Loss Indicator */}
+              {sprinklesAuctionState && donutUsdPrice > 0 && (
+                (() => {
+                  const lpValueUsd = Number(formatEther(sprinklesAuctionState.price)) * 0.022;
+                  const rewardsValueUsd = Number(formatEther(sprinklesAuctionState.rewardsAvailable)) * donutUsdPrice;
+                  const profitLoss = rewardsValueUsd - lpValueUsd;
+                  const isProfitable = profitLoss > 0;
+                  return (
+                    <div className={cn(
+                      "text-center text-[9px] font-semibold px-2 py-1 rounded mb-2",
+                      isProfitable ? "text-green-400 bg-green-500/10" : "text-red-400 bg-red-500/10"
+                    )}>
+                      {isProfitable ? "💰 " : "⚠️ "}
+                      {isProfitable ? "+" : ""}${profitLoss.toFixed(2)}
+                    </div>
+                  );
+                })()
+              )}
+
               {/* Price Zero Warning */}
               {sprinklesPriceIsZero && (
                 <div className="text-center text-[9px] text-gray-400 mb-2">

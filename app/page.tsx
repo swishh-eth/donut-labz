@@ -255,6 +255,25 @@ export default function HomePage() {
     },
   });
 
+  // Pending DONUT in splitter (half goes to burn pool)
+  const { data: pendingSplitterDonut } = useReadContract({
+    address: "0x99DABA873CC4c701280624603B28d3e3F286b590" as `0x${string}`,
+    abi: [
+      {
+        inputs: [],
+        name: "pendingDonut",
+        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+        stateMutability: "view",
+        type: "function",
+      },
+    ] as const,
+    functionName: "pendingDonut",
+    chainId: base.id,
+    query: {
+      refetchInterval: 10_000,
+    },
+  });
+
   // DONUT price for USD conversion
   const [donutUsdPrice, setDonutUsdPrice] = useState<number>(0);
 
@@ -277,9 +296,18 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
-  const burnPoolUsd = sprinklesAuctionRewards && donutUsdPrice > 0
-    ? (Number(formatEther(sprinklesAuctionRewards as bigint)) * donutUsdPrice).toFixed(2)
+  // Calculate total burn pool value: auction rewards + half of pending splitter
+  const auctionRewardsValue = sprinklesAuctionRewards 
+    ? Number(formatEther(sprinklesAuctionRewards as bigint)) 
+    : 0;
+  const pendingSplitterValue = pendingSplitterDonut 
+    ? Number(formatEther(pendingSplitterDonut as bigint)) / 2 
+    : 0;
+  const totalBurnPoolDonut = auctionRewardsValue + pendingSplitterValue;
+  const burnPoolUsd = donutUsdPrice > 0 
+    ? (totalBurnPoolDonut * donutUsdPrice).toFixed(2) 
     : "0.00";
+  const hasBurnPoolValue = totalBurnPoolDonut > 0 && donutUsdPrice > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -508,19 +536,38 @@ export default function HomePage() {
 
             <button
               onClick={() => router.push("/burn")}
-              className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 p-2 flex flex-col items-center justify-center transition-colors"
+              className={`h-24 rounded-xl border p-2 flex flex-col items-center justify-center transition-all ${
+                hasBurnPoolValue
+                  ? "border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20 animate-pulse-subtle"
+                  : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
+              }`}
+              style={hasBurnPoolValue ? {
+                animation: "pulse-scale 2s ease-in-out infinite"
+              } : undefined}
             >
-              <Flame className="w-6 h-6 mb-1 text-amber-400" />
-              <div className="text-[10px] font-bold text-amber-400">
+              <Flame className={`w-6 h-6 mb-1 ${hasBurnPoolValue ? "text-amber-400" : "text-gray-500"}`} />
+              <div className={`text-[10px] font-bold ${hasBurnPoolValue ? "text-amber-400" : "text-gray-500"}`}>
                 Burn
               </div>
-              <div className="text-[9px] text-gray-600">
-                ${burnPoolUsd}
+              <div className={`text-[9px] ${hasBurnPoolValue ? "text-amber-400/80" : "text-gray-600"}`}>
+                {hasBurnPoolValue ? `Earn $${burnPoolUsd}` : "No rewards"}
               </div>
             </button>
 
             <ShareRewardButton userFid={context?.user?.fid} tile />
           </div>
+
+          {/* Add the keyframes for the subtle pulse animation */}
+          <style jsx>{`
+            @keyframes pulse-scale {
+              0%, 100% {
+                transform: scale(1);
+              }
+              50% {
+                transform: scale(1.02);
+              }
+            }
+          `}</style>
 
           <div className="flex-1 flex flex-col gap-3 px-2">
             <VideoTile
