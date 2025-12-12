@@ -293,11 +293,31 @@ export default function HomePage() {
     },
   });
 
+  // Wheel pot ETH balance
+  const { data: wheelPotBalance } = useReadContract({
+    address: "0x855F3E6F870C4D4dEB4959523484be3b147c4c0C" as `0x${string}`,
+    abi: [
+      {
+        inputs: [],
+        name: "getBalance",
+        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+        stateMutability: "view",
+        type: "function",
+      },
+    ] as const,
+    functionName: "getBalance",
+    chainId: base.id,
+    query: {
+      refetchInterval: 10_000,
+    },
+  });
+
   // DONUT price for USD conversion
   const [donutUsdPrice, setDonutUsdPrice] = useState<number>(0);
+  const [ethUsdPrice, setEthUsdPrice] = useState<number>(0);
 
   useEffect(() => {
-    const fetchDonutPrice = async () => {
+    const fetchPrices = async () => {
       try {
         const res = await fetch("/api/prices");
         if (res.ok) {
@@ -305,13 +325,16 @@ export default function HomePage() {
           if (data.donutPrice) {
             setDonutUsdPrice(data.donutPrice);
           }
+          if (data.ethPrice) {
+            setEthUsdPrice(data.ethPrice);
+          }
         }
       } catch (error) {
-        console.error("Failed to fetch DONUT price:", error);
+        console.error("Failed to fetch prices:", error);
       }
     };
-    fetchDonutPrice();
-    const interval = setInterval(fetchDonutPrice, 60_000);
+    fetchPrices();
+    const interval = setInterval(fetchPrices, 60_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -336,6 +359,10 @@ export default function HomePage() {
   const lpCostUsd = auctionPriceValue * LP_PRICE_USD;
   const rewardsValueUsd = auctionRewardsValue * donutUsdPrice;
   const isBurnProfitable = rewardsValueUsd > lpCostUsd && auctionRewardsValue > 0 && donutUsdPrice > 0;
+
+  // Calculate wheel pot USD value
+  const wheelPotEth = wheelPotBalance ? Number(formatEther(wheelPotBalance as bigint)) : 0;
+  const wheelPotUsd = ethUsdPrice > 0 ? (wheelPotEth * ethUsdPrice).toFixed(0) : "0";
 
   useEffect(() => {
     let cancelled = false;
@@ -558,7 +585,7 @@ export default function HomePage() {
                 Glaze Wheel
               </div>
               <div className={`text-[9px] ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400/80" : "text-gray-600"}`}>
-                {availableSpins > 0 ? `${availableSpins} spin${availableSpins !== 1 ? "s" : ""}!` : "Earn spins"}
+                {availableSpins > 0 ? `${availableSpins} spin${availableSpins !== 1 ? "s" : ""}!` : `$${wheelPotUsd} pot`}
               </div>
             </button>
 
