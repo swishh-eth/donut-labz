@@ -18,6 +18,8 @@ export async function POST(request: NextRequest) {
   try {
     const { address, amount, epoch } = await request.json();
 
+    console.log("Claim sign request:", { address, amount, epoch });
+
     if (!address || amount === undefined || epoch === undefined) {
       return NextResponse.json(
         { error: "Missing required fields" },
@@ -25,9 +27,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!SIGNER_PRIVATE_KEY || !SPRINKLES_CLAIM_ADDRESS) {
+    if (!SIGNER_PRIVATE_KEY) {
+      console.error("SPRINKLES_CLAIM_SIGNER_KEY not set");
       return NextResponse.json(
-        { error: "Server not configured" },
+        { error: "Server not configured: missing signer key" },
+        { status: 500 }
+      );
+    }
+
+    if (!SPRINKLES_CLAIM_ADDRESS) {
+      console.error("NEXT_PUBLIC_SPRINKLES_CLAIM_ADDRESS not set");
+      return NextResponse.json(
+        { error: "Server not configured: missing contract address" },
         { status: 500 }
       );
     }
@@ -39,7 +50,15 @@ export async function POST(request: NextRequest) {
       .eq("address", address.toLowerCase())
       .single();
 
-    if (error || !userData) {
+    if (error) {
+      console.error("Supabase error:", error);
+      return NextResponse.json(
+        { error: "Database error: " + error.message },
+        { status: 500 }
+      );
+    }
+
+    if (!userData) {
       return NextResponse.json(
         { error: "User not found in leaderboard" },
         { status: 404 }
@@ -48,9 +67,11 @@ export async function POST(request: NextRequest) {
 
     // Verify the requested amount matches database (with small tolerance for rounding)
     const dbPoints = userData.total_points;
+    console.log("DB points:", dbPoints, "Requested:", amount);
+    
     if (Math.abs(dbPoints - amount) > 0.01) {
       return NextResponse.json(
-        { error: "Amount mismatch with database" },
+        { error: `Amount mismatch: DB has ${dbPoints}, requested ${amount}` },
         { status: 400 }
       );
     }
@@ -73,11 +94,17 @@ export async function POST(request: NextRequest) {
       )
     );
 
+    console.log("Message hash:", messageHash);
+
     // Sign the message
     const account = privateKeyToAccount(SIGNER_PRIVATE_KEY);
+    console.log("Signer address:", account.address);
+    
     const signature = await account.signMessage({
       message: { raw: messageHash },
     });
+
+    console.log("Signature generated:", signature.slice(0, 20) + "...");
 
     return NextResponse.json({
       signature,
