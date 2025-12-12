@@ -870,7 +870,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             )}
           </div>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-center">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-center flex flex-col items-center justify-center">
             <div className="flex items-center justify-center gap-1 mb-0.5">
               <Coins className="w-3 h-3 text-white" />
               <span className="text-[9px] text-gray-400 uppercase">
