@@ -318,6 +318,7 @@ export default function HomePage() {
   // DONUT price for USD conversion
   const [donutUsdPrice, setDonutUsdPrice] = useState<number>(0);
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(0);
+  const [sprinklesUsdPrice, setSprinklesUsdPrice] = useState<number>(0);
 
   useEffect(() => {
     const fetchPrices = async () => {
@@ -330,6 +331,9 @@ export default function HomePage() {
           }
           if (data.ethPrice) {
             setEthUsdPrice(data.ethPrice);
+          }
+          if (data.sprinklesPrice) {
+            setSprinklesUsdPrice(data.sprinklesPrice);
           }
         }
       } catch (error) {
@@ -363,11 +367,32 @@ export default function HomePage() {
   const rewardsValueUsd = auctionRewardsValue * donutUsdPrice;
   const isBurnProfitable = rewardsValueUsd > lpCostUsd && auctionRewardsValue > 0 && donutUsdPrice > 0;
 
-  // Calculate wheel pot USD value
-  const wheelPotEth = wheelPoolBalances 
-    ? Number(formatEther((wheelPoolBalances as [bigint, `0x${string}`[], bigint[]])[0])) 
-    : 0;
-  const wheelPotUsd = ethUsdPrice > 0 ? (wheelPotEth * ethUsdPrice).toFixed(0) : "0";
+  // Calculate wheel pot USD value (includes ETH, DONUT, and SPRINKLES)
+  let wheelPotUsd = "0";
+  if (wheelPoolBalances && (ethUsdPrice > 0 || donutUsdPrice > 0)) {
+    const poolData = wheelPoolBalances as [bigint, `0x${string}`[], bigint[]];
+    const ethBalance = Number(formatEther(poolData[0]));
+    const tokens = poolData[1];
+    const balances = poolData[2];
+    
+    let totalUsd = ethBalance * ethUsdPrice;
+    
+    // Add token values
+    for (let i = 0; i < tokens.length; i++) {
+      const tokenAddr = tokens[i].toLowerCase();
+      const balance = Number(formatEther(balances[i]));
+      
+      if (tokenAddr === "0xae4a37d554c6d6f3e398546d8566b25052e0169c") {
+        // DONUT
+        totalUsd += balance * donutUsdPrice;
+      } else if (tokenAddr === "0xa890060be1788a676dbc3894160f5dc5ded2c98d") {
+        // SPRINKLES - use same price endpoint
+        totalUsd += balance * sprinklesUsdPrice;
+      }
+    }
+    
+    wheelPotUsd = Math.floor(totalUsd).toString();
+  }
 
   useEffect(() => {
     let cancelled = false;
