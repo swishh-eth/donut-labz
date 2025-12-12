@@ -578,7 +578,11 @@ export default function HomePage() {
                 Burn
               </div>
               <div className={`text-[9px] ${isBurnProfitable ? "text-amber-400/80" : "text-gray-600"}`}>
-                {parseFloat(burnPoolUsd) > 0 ? `$${burnPoolUsd}` : "No rewards"}
+                {isBurnProfitable 
+                  ? `Earn $${burnPoolUsd}` 
+                  : parseFloat(burnPoolUsd) > 0 
+                    ? `$${burnPoolUsd} in rewards` 
+                    : "No rewards"}
               </div>
             </button>
 
