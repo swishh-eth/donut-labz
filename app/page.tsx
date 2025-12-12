@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useReadContract } from "wagmi";
@@ -16,7 +16,7 @@ import { ShareRewardButton } from "@/components/share-reward-button";
 import { ArrowLeft, Flame } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
-import { useAccount } from "wagmi";
+import { useAccount, useConnect } from "wagmi";
 
 type MiniAppContext = {
   user?: {
@@ -147,7 +147,31 @@ export default function HomePage() {
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [selectedMiner, setSelectedMiner] = useState<"donut" | "sprinkles" | null>(null);
 
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
+  const { connectors, connectAsync, isPending: isConnecting } = useConnect();
+
+  // Find the best connector for desktop
+  const getConnector = useCallback(() => {
+    const injected = connectors.find(c => c.id === 'injected' || c.name === 'MetaMask');
+    if (injected) return injected;
+    const coinbase = connectors.find(c => c.id === 'coinbaseWalletSDK' || c.name === 'Coinbase Wallet');
+    if (coinbase) return coinbase;
+    return connectors[0];
+  }, [connectors]);
+
+  const primaryConnector = getConnector();
+
+  const handleConnect = useCallback(async () => {
+    if (!primaryConnector) {
+      alert("No wallet connector available. Do you have MetaMask or Rabby installed?");
+      return;
+    }
+    try {
+      await connectAsync({ connector: primaryConnector, chainId: base.id });
+    } catch (error) {
+      console.error("Failed to connect:", error);
+    }
+  }, [connectAsync, primaryConnector]);
 
   const { data: spinsData, refetch: refetchSpins } = useQuery<{ availableSpins: number }>({
     queryKey: ["user-spins", address],
@@ -211,6 +235,51 @@ export default function HomePage() {
 
   const donutPrice = rawMinerState ? (rawMinerState as any).price as bigint : undefined;
   const sprinklesPriceValue = sprinklesPrice as bigint | undefined;
+
+  // SPRINKLES auction rewards for burn tile
+  const { data: sprinklesAuctionRewards } = useReadContract({
+    address: "0xaCCeeB232556f20Ec6c0690938DBda936D153630" as `0x${string}`,
+    abi: [
+      {
+        inputs: [],
+        name: "getRewardsAvailable",
+        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+        stateMutability: "view",
+        type: "function",
+      },
+    ] as const,
+    functionName: "getRewardsAvailable",
+    chainId: base.id,
+    query: {
+      refetchInterval: 10_000,
+    },
+  });
+
+  // DONUT price for USD conversion
+  const [donutUsdPrice, setDonutUsdPrice] = useState<number>(0);
+
+  useEffect(() => {
+    const fetchDonutPrice = async () => {
+      try {
+        const res = await fetch("/api/prices");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.donutPrice) {
+            setDonutUsdPrice(data.donutPrice);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch DONUT price:", error);
+      }
+    };
+    fetchDonutPrice();
+    const interval = setInterval(fetchDonutPrice, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const burnPoolUsd = sprinklesAuctionRewards && donutUsdPrice > 0
+    ? (Number(formatEther(sprinklesAuctionRewards as bigint)) * donutUsdPrice).toFixed(2)
+    : "0.00";
 
   useEffect(() => {
     let cancelled = false;
@@ -282,6 +351,23 @@ export default function HomePage() {
                   </div>
                 </div>
               )}
+              {!isConnected && !context?.user && (
+                <button
+                  onClick={handleConnect}
+                  disabled={isConnecting}
+                  className="px-4 py-2 rounded-lg bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 transition-colors disabled:opacity-50"
+                >
+                  {isConnecting ? "Connecting…" : "Connect"}
+                </button>
+              )}
+              {isConnected && address && !context?.user && (
+                <div className="flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1.5">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span className="text-xs font-mono text-white">
+                    {address.slice(0, 6)}…{address.slice(-4)}
+                  </span>
+                </div>
+              )}
             </div>
             <DonutMiner context={context} />
           </div>
@@ -325,6 +411,23 @@ export default function HomePage() {
                   </div>
                 </div>
               )}
+              {!isConnected && !context?.user && (
+                <button
+                  onClick={handleConnect}
+                  disabled={isConnecting}
+                  className="px-4 py-2 rounded-lg bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 transition-colors disabled:opacity-50"
+                >
+                  {isConnecting ? "Connecting…" : "Connect"}
+                </button>
+              )}
+              {isConnected && address && !context?.user && (
+                <div className="flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1.5">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span className="text-xs font-mono text-white">
+                    {address.slice(0, 6)}…{address.slice(-4)}
+                  </span>
+                </div>
+              )}
             </div>
             <SprinklesMiner context={context} />
           </div>
@@ -357,6 +460,23 @@ export default function HomePage() {
                   <div className="text-sm font-bold">{userDisplayName}</div>
                   {userHandle && <div className="text-xs text-gray-400">{userHandle}</div>}
                 </div>
+              </div>
+            )}
+            {!isConnected && !context?.user && (
+              <button
+                onClick={handleConnect}
+                disabled={isConnecting}
+                className="px-4 py-2 rounded-lg bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 transition-colors disabled:opacity-50"
+              >
+                {isConnecting ? "Connecting…" : "Connect"}
+              </button>
+            )}
+            {isConnected && address && !context?.user && (
+              <div className="flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1.5">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-xs font-mono text-white">
+                  {address.slice(0, 6)}…{address.slice(-4)}
+                </span>
               </div>
             )}
           </div>
@@ -395,7 +515,7 @@ export default function HomePage() {
                 Burn
               </div>
               <div className="text-[9px] text-gray-600">
-                $0.00
+                ${burnPoolUsd}
               </div>
             </button>
 

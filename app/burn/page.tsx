@@ -177,6 +177,7 @@ export default function BurnPage() {
   const autoConnectAttempted = useRef(false);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
+  const [donutUsdPrice, setDonutUsdPrice] = useState<number>(0);
   
   // DONUT LP Burn state
   const [donutBurnResult, setDonutBurnResult] = useState<"success" | "failure" | null>(null);
@@ -251,6 +252,26 @@ export default function BurnPage() {
     };
     fetchPrice();
     const interval = setInterval(fetchPrice, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // DONUT price from prices API
+  useEffect(() => {
+    const fetchDonutPrice = async () => {
+      try {
+        const res = await fetch("/api/prices");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.donutPrice) {
+            setDonutUsdPrice(data.donutPrice);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch DONUT price:", error);
+      }
+    };
+    fetchDonutPrice();
+    const interval = setInterval(fetchDonutPrice, 60_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -742,10 +763,20 @@ export default function BurnPage() {
                 <div className="rounded-lg border border-amber-500/50 bg-black p-2">
                   <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">PAY</div>
                   <div className="text-base font-semibold text-amber-400">{sprinklesPriceDisplay} LP</div>
+                  <div className="text-[9px] text-gray-400">
+                    ${sprinklesAuctionState && donutUsdPrice > 0
+                      ? (Number(formatEther(sprinklesAuctionState.price)) * donutUsdPrice * 2).toFixed(2)
+                      : "0.00"}
+                  </div>
                 </div>
                 <div className="rounded-lg border border-zinc-700 bg-black p-2">
                   <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">GET</div>
                   <div className="text-base font-semibold text-white">🍩 {sprinklesRewardsDisplay}</div>
+                  <div className="text-[9px] text-gray-400">
+                    ${sprinklesAuctionState && donutUsdPrice > 0
+                      ? (Number(formatEther(sprinklesAuctionState.rewardsAvailable)) * donutUsdPrice).toFixed(2)
+                      : "0.00"}
+                  </div>
                 </div>
               </div>
 
