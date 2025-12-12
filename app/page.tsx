@@ -16,7 +16,7 @@ import { ShareRewardButton } from "@/components/share-reward-button";
 import { ArrowLeft, Flame } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
-import { useAccount, useConnect } from "wagmi";
+import { useAccount, useConnect, useReadContract } from "wagmi";
 
 type MiniAppContext = {
   user?: {
@@ -293,19 +293,23 @@ export default function HomePage() {
     },
   });
 
-  // Wheel pot ETH balance
-  const { data: wheelPotBalance } = useReadContract({
+  // Wheel pot balances (ETH is first element)
+  const { data: wheelPoolBalances } = useReadContract({
     address: "0x855F3E6F870C4D4dEB4959523484be3b147c4c0C" as `0x${string}`,
     abi: [
       {
         inputs: [],
-        name: "getBalance",
-        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+        name: "getPoolBalances",
+        outputs: [
+          { name: "ethBalance", type: "uint256" },
+          { name: "tokens", type: "address[]" },
+          { name: "balances", type: "uint256[]" },
+        ],
         stateMutability: "view",
         type: "function",
       },
     ] as const,
-    functionName: "getBalance",
+    functionName: "getPoolBalances",
     chainId: base.id,
     query: {
       refetchInterval: 10_000,
@@ -361,7 +365,9 @@ export default function HomePage() {
   const isBurnProfitable = rewardsValueUsd > lpCostUsd && auctionRewardsValue > 0 && donutUsdPrice > 0;
 
   // Calculate wheel pot USD value
-  const wheelPotEth = wheelPotBalance ? Number(formatEther(wheelPotBalance as bigint)) : 0;
+  const wheelPotEth = wheelPoolBalances 
+    ? Number(formatEther((wheelPoolBalances as [bigint, `0x${string}`[], bigint[]])[0])) 
+    : 0;
   const wheelPotUsd = ethUsdPrice > 0 ? (wheelPotEth * ethUsdPrice).toFixed(0) : "0";
 
   useEffect(() => {
