@@ -3,8 +3,8 @@ import { createPublicClient, createWalletClient, http } from "viem";
 import { base } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 
-// Contract addresses - UPDATE AFTER DEPLOYMENT
-const SPLITTER_ADDRESS = "0x_SPLITTER_CONTRACT_ADDRESS" as `0x${string}`;
+// Contract addresses
+const SPLITTER_ADDRESS = "0x99DABA873CC4c701280624603B28d3e3F286b590" as `0x${string}`;
 
 // Bot wallet private key - same as other cron jobs (distribute, split-weth)
 // NOT treasury - this is a separate hot wallet with minimal ETH for gas
