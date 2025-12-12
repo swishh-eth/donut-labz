@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { useReadContract } from "wagmi";
+import { useAccount, useConnect, useReadContract } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
 import { base } from "wagmi/chains";
 import { formatEther, formatUnits, zeroAddress } from "viem";
@@ -16,7 +16,6 @@ import { ShareRewardButton } from "@/components/share-reward-button";
 import { ArrowLeft, Flame } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
-import { useAccount, useConnect, useReadContract } from "wagmi";
 
 type MiniAppContext = {
   user?: {
