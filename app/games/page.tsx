@@ -104,27 +104,27 @@ function GameTile({
         </div>
         
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`font-semibold text-base ${!comingSoon ? "text-white" : "text-gray-400"}`}>
+          <div className="flex items-center gap-2">
+            <span className={`font-semibold text-base ${!comingSoon ? "text-white" : "text-gray-400"} flex-shrink-0`}>
               {title}
             </span>
             {comingSoon && (
-              <span className="text-[9px] bg-zinc-700 text-gray-400 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+              <span className="text-[9px] bg-zinc-700 text-gray-400 px-1.5 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0">
                 <Lock className="w-2.5 h-2.5" />
                 Soon
               </span>
             )}
             {!comingSoon && (
-              <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">
+              <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full flex-shrink-0">
                 LIVE
               </span>
             )}
             {!comingSoon && lastWinner && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 flex items-center gap-1">
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 flex items-center gap-1 truncate">
                 {lastWinner.pfpUrl && (
-                  <img src={lastWinner.pfpUrl} alt="" className="w-3 h-3 rounded-full" />
+                  <img src={lastWinner.pfpUrl} alt="" className="w-3 h-3 rounded-full flex-shrink-0" />
                 )}
-                @{lastWinner.username} +{lastWinner.amount}
+                <span className="truncate">@{lastWinner.username} +{lastWinner.amount}</span>
               </span>
             )}
           </div>
@@ -328,7 +328,7 @@ export default function GamesPage() {
     },
     {
       id: "dice",
-      title: "Dice Roll",
+      title: "Sugar Cubes",
       description: "Roll over/under, win big multipliers",
       icon: Dices,
       comingSoon: false,
