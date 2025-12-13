@@ -205,15 +205,22 @@ export default function LeaderboardPage() {
     }
   }, []);
 
-  // Handle scroll to detect focused item
+  // Handle scroll to detect focused item based on scroll percentage
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
     const handleScroll = () => {
       const scrollTop = container.scrollTop;
-      const itemHeight = 88; // Height of each item including gap
-      const newIndex = Math.round(scrollTop / itemHeight);
+      const scrollHeight = container.scrollHeight - container.clientHeight;
+      
+      // Calculate which item should be focused based on scroll percentage
+      let newIndex = 0;
+      if (scrollHeight > 0) {
+        const scrollPercentage = scrollTop / scrollHeight;
+        newIndex = Math.round(scrollPercentage * 9); // 0-9 for 10 items
+      }
+      
       const clampedIndex = Math.max(0, Math.min(9, newIndex));
       
       if (clampedIndex !== lastFocusedRef.current) {
@@ -556,7 +563,7 @@ export default function LeaderboardPage() {
             ref={scrollContainerRef}
             className="flex-1 overflow-y-auto overflow-x-hidden leaderboard-scroll"
           >
-            <div className="space-y-2 pb-4">
+            <div className="space-y-2">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="text-gray-400">Loading leaderboard...</div>
