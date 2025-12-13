@@ -198,15 +198,10 @@ export default function BurnPage() {
   
   // Find the best connector - prefer injected (MetaMask) for desktop, farcaster for mobile
   const getConnector = useCallback(() => {
-    // Look for injected wallet (MetaMask, etc) first for desktop
     const injected = connectors.find(c => c.id === 'injected' || c.name === 'MetaMask');
     if (injected) return injected;
-    
-    // Then try coinbase wallet
     const coinbase = connectors.find(c => c.id === 'coinbaseWalletSDK' || c.name === 'Coinbase Wallet');
     if (coinbase) return coinbase;
-    
-    // Fall back to first available
     return connectors[0];
   }, [connectors]);
 
@@ -281,6 +276,15 @@ export default function BurnPage() {
       if (donutResultTimeoutRef.current) clearTimeout(donutResultTimeoutRef.current);
       if (sprinklesResultTimeoutRef.current) clearTimeout(sprinklesResultTimeoutRef.current);
     };
+  }, []);
+
+  // ============== EXTERNAL LINK HANDLER ==============
+  const handleExternalLink = useCallback(async (url: string) => {
+    try {
+      await sdk.actions.openUrl(url);
+    } catch (e) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
   }, []);
 
   // ============== DONUT LP BURN (existing Blazery) ==============
@@ -641,28 +645,17 @@ export default function BurnPage() {
 
   // Manual connect for desktop users
   const handleConnect = useCallback(async () => {
-    console.log("Connect clicked!");
-    console.log("Primary connector:", primaryConnector);
-    console.log("All connectors:", connectors);
-    
     if (!primaryConnector) {
       alert("No wallet connector available. Do you have MetaMask or Rabby installed?");
       return;
     }
     try {
-      console.log("Connecting with:", primaryConnector.name, primaryConnector.id);
-      const result = await connectAsync({ connector: primaryConnector, chainId: base.id });
-      console.log("Connect result:", result);
+      await connectAsync({ connector: primaryConnector, chainId: base.id });
     } catch (error) {
       console.error("Failed to connect:", error);
       alert("Failed to connect: " + (error as Error).message);
     }
-  }, [connectAsync, primaryConnector, connectors]);
-
-  // Debug: log available connectors
-  useEffect(() => {
-    console.log("Available connectors:", connectors.map(c => ({ id: c.id, name: c.name })));
-  }, [connectors]);
+  }, [connectAsync, primaryConnector]);
 
   return (
     <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -829,14 +822,12 @@ export default function BurnPage() {
                 <div className="text-[10px] text-gray-400">
                   Balance: <span className="text-white font-semibold">{sprinklesUserLPDisplay}</span> LP
                 </div>
-                <a
-                  href="https://aerodrome.finance/deposit?token0=0xa890060BE1788a676dBC3894160f5dc5DeD2C98D&token1=0xAE4a37d554C6D6F3E398546d8566B25052e0169C&type=-1"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => handleExternalLink("https://aerodrome.finance/deposit?token0=0xa890060BE1788a676dBC3894160f5dc5DeD2C98D&token1=0xAE4a37d554C6D6F3E398546d8566B25052e0169C&type=-1")}
                   className="text-[10px] text-amber-400 hover:text-amber-300 font-semibold transition-colors"
                 >
                   Get LP →
-                </a>
+                </button>
               </div>
             </div>
 
@@ -901,14 +892,12 @@ export default function BurnPage() {
                 <div className="text-[10px] text-gray-400">
                   Balance: <span className="text-white font-semibold">{address && donutAuctionState?.paymentTokenBalance ? formatTokenAmount(donutAuctionState.paymentTokenBalance, 4) : "0"}</span> LP
                 </div>
-                <a
-                  href="https://app.uniswap.org/explore/pools/base/0xD1DbB2E56533C55C3A637D13C53aeEf65c5D5703"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => handleExternalLink("https://app.uniswap.org/explore/pools/base/0xD1DbB2E56533C55C3A637D13C53aeEf65c5D5703")}
                   className="text-[10px] text-amber-400 hover:text-amber-300 font-semibold transition-colors"
                 >
                   Get LP →
-                </a>
+                </button>
               </div>
             </div>
           </div>
