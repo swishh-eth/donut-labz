@@ -121,7 +121,6 @@ export default function ChatPage() {
   const [currentMultiplier, setCurrentMultiplier] = useState(getCurrentMultiplier());
   const [timeUntilHalving, setTimeUntilHalving] = useState(getTimeUntilNextHalving());
   const [tippingMessageHash, setTippingMessageHash] = useState<string | null>(null);
-  const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const [buttonPosition, setButtonPosition] = useState<'left' | 'right'>('left');
   const [isDragging, setIsDragging] = useState(false);
@@ -137,23 +136,6 @@ export default function ChatPage() {
 
   const { data: tipHash, writeContract: writeTip, isPending: isTipPending, reset: resetTip } = useWriteContract();
   const { isLoading: isTipConfirming, isSuccess: isTipSuccess } = useWaitForTransactionReceipt({ hash: tipHash });
-
-  // Handle scroll fade - only top fade when scrolled down
-  useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-
-    const handleScroll = () => {
-      const scrollTop = container.scrollTop;
-      // Top fade increases as you scroll down (more content above)
-      const topFade = Math.min(1, scrollTop / 100);
-      setScrollFade({ top: topFade, bottom: 0 });
-    };
-
-    handleScroll();
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, []);
 
   // Focus input when chat expands and scroll to bottom smoothly
   useEffect(() => {
@@ -627,10 +609,10 @@ export default function ChatPage() {
           {/* Messages container - extends to bottom */}
           <div 
             ref={messagesContainerRef} 
-            className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll pb-16"
+            className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll pt-12 pb-16"
             style={{
-              WebkitMaskImage: `linear-gradient(to bottom, transparent 0%, black ${Math.max(1, scrollFade.top * 12)}%, black 100%)`,
-              maskImage: `linear-gradient(to bottom, transparent 0%, black ${Math.max(1, scrollFade.top * 12)}%, black 100%)`,
+              WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 12%, black 100%)',
+              maskImage: 'linear-gradient(to bottom, transparent 0%, black 12%, black 100%)',
             }}
           >
             {messagesLoading ? (
@@ -819,36 +801,35 @@ export default function ChatPage() {
                       )}
                       </button>
                     </div>
+                  </div>
                     
-                    {/* Expanded input - positioned absolutely when open */}
-                    {isChatExpanded && (
-                      <div 
-                        className="absolute left-0 right-0 top-0 flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300"
-                        style={{ paddingLeft: buttonPosition === 'left' ? '52px' : '0', paddingRight: buttonPosition === 'right' ? '52px' : '0' }}
+                  {/* Expanded input - full width bar */}
+                  <div 
+                    className={`overflow-hidden transition-all duration-300 ease-out ${
+                      isChatExpanded ? "max-h-20 opacity-100 mt-2" : "max-h-0 opacity-0 mt-0"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2">
+                      <input
+                        ref={inputRef}
+                        type="text"
+                        value={message}
+                        onChange={(e) => { setMessage(e.target.value.slice(0, 280)); if (eligibilityError) setEligibilityError(null); }}
+                        onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
+                        placeholder="Type a message..."
+                        disabled={isPending || isConfirming || isVerifying}
+                        className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-2 py-1 outline-none disabled:opacity-50 min-w-0"
+                        style={{ fontSize: '16px' }}
+                      />
+                      <span className="text-[10px] text-gray-500 flex-shrink-0">{message.length}/280</span>
+                      <button 
+                        onClick={handleSendMessage} 
+                        disabled={!message.trim() || isPending || isConfirming || isVerifying} 
+                        className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
                       >
-                        <div className="flex-1 flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2">
-                          <input
-                            ref={inputRef}
-                            type="text"
-                            value={message}
-                            onChange={(e) => { setMessage(e.target.value.slice(0, 280)); if (eligibilityError) setEligibilityError(null); }}
-                            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                            placeholder="Type a message..."
-                            disabled={isPending || isConfirming || isVerifying}
-                            className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-2 py-1 outline-none disabled:opacity-50 min-w-0"
-                            style={{ fontSize: '16px' }}
-                          />
-                          <span className="text-[10px] text-gray-500 flex-shrink-0">{message.length}/280</span>
-                          <button 
-                            onClick={handleSendMessage} 
-                            disabled={!message.trim() || isPending || isConfirming || isVerifying} 
-                            className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                          >
-                            {isVerifying ? <span className="text-xs font-bold">...</span> : <Send className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                        {isVerifying ? <span className="text-xs font-bold">...</span> : <Send className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                   
                   {(isPending || isConfirming) && <p className="text-[10px] text-gray-400 text-center mt-1">{isPending ? "Confirm in wallet..." : "Confirming transaction..."}</p>}
