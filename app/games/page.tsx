@@ -78,7 +78,7 @@ function GameTile({
   description: string;
   icon: React.ElementType;
   comingSoon?: boolean;
-  lastWinner?: { username: string; amount: string } | null;
+  lastWinner?: { username: string; amount: string; pfpUrl?: string } | null;
   onClick?: () => void;
 }) {
   const [isFocused, setIsFocused] = useState(false);
@@ -120,7 +120,10 @@ function GameTile({
               </span>
             )}
             {!comingSoon && lastWinner && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400">
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 flex items-center gap-1">
+                {lastWinner.pfpUrl && (
+                  <img src={lastWinner.pfpUrl} alt="" className="w-3 h-3 rounded-full" />
+                )}
                 @{lastWinner.username} +{lastWinner.amount}
               </span>
             )}
@@ -140,8 +143,8 @@ export default function GamesPage() {
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showBuyTicketsDialog, setShowBuyTicketsDialog] = useState(false);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
-  const [diceLastWinner, setDiceLastWinner] = useState<{ username: string; amount: string } | null>(null);
-  const [wheelLastWinner, setWheelLastWinner] = useState<{ username: string; amount: string } | null>(null);
+  const [diceLastWinner, setDiceLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
+  const [wheelLastWinner, setWheelLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
 
   // Mock data - replace with real contract reads later
   const [poolData, setPoolData] = useState({
@@ -161,6 +164,11 @@ export default function GamesPage() {
       console.log("Fetching dice last winner via events...");
       
       try {
+        // Get current block number first
+        const currentBlock = await publicClient.getBlockNumber();
+        // Only look at last ~1800 blocks (~1 hour on Base, 2 sec per block)
+        const fromBlock = currentBlock > 1800n ? currentBlock - 1800n : 0n;
+        
         // Get recent BetRevealed events
         const logs = await publicClient.getLogs({
           address: DONUT_DICE_ADDRESS,
@@ -177,7 +185,7 @@ export default function GamesPage() {
               { name: 'payout', type: 'uint256', indexed: false },
             ],
           },
-          fromBlock: 'earliest',
+          fromBlock,
           toBlock: 'latest',
         });
 
@@ -219,7 +227,8 @@ export default function GamesPage() {
             if (profile?.username) {
               setDiceLastWinner({
                 username: profile.username,
-                amount: `${parseFloat(formatUnits(lastWin.payout, 18)).toFixed(2)} 🍩`
+                amount: `${parseFloat(formatUnits(lastWin.payout, 18)).toFixed(2)} 🍩`,
+                pfpUrl: profile.pfpUrl || undefined
               });
               return;
             }
