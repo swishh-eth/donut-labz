@@ -216,13 +216,13 @@ export default function LeaderboardPage() {
       const scrollTop = container.scrollTop;
       const scrollHeight = container.scrollHeight - container.clientHeight;
       
-      // Calculate fade amounts based on scroll position
+      // Calculate fade amounts based on scroll position (smoother with larger threshold)
       if (scrollHeight > 0) {
         const scrollPercentage = scrollTop / scrollHeight;
-        // Top fade: 0 at top, 1 when scrolled down
-        const topFade = Math.min(1, scrollTop / 50);
-        // Bottom fade: 1 at top, 0 at bottom
-        const bottomFade = Math.min(1, (scrollHeight - scrollTop) / 50);
+        // Top fade: 0 at top, 1 when scrolled down (smooth over 100px)
+        const topFade = Math.min(1, scrollTop / 100);
+        // Bottom fade: 1 at top, 0 at bottom (smooth over 100px)
+        const bottomFade = Math.min(1, (scrollHeight - scrollTop) / 100);
         setScrollFade({ top: topFade, bottom: bottomFade });
         
         // Calculate which item should be focused
@@ -320,29 +320,6 @@ export default function LeaderboardPage() {
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style jsx global>{`
-        @keyframes fall-1 {
-          0% { transform: translateY(-50px) rotate(0deg); }
-          100% { transform: translateY(calc(100vh + 50px)) rotate(360deg); }
-        }
-        @keyframes fall-2 {
-          0% { transform: translateY(-50px) rotate(0deg); }
-          100% { transform: translateY(calc(100vh + 50px)) rotate(-360deg); }
-        }
-        @keyframes fall-3 {
-          0% { transform: translateY(-50px) rotate(0deg); }
-          100% { transform: translateY(calc(100vh + 50px)) rotate(180deg); }
-        }
-        .falling-1 { animation: fall-1 8s linear infinite; }
-        .falling-2 { animation: fall-2 10s linear infinite; }
-        .falling-3 { animation: fall-3 12s linear infinite; }
-        .falling-4 { animation: fall-1 9s linear infinite; }
-        .falling-5 { animation: fall-2 11s linear infinite; }
-        .falling-6 { animation: fall-3 7s linear infinite; }
-        
-        .glow-symbol {
-          filter: drop-shadow(0 0 4px rgba(255,255,255,0.8));
-        }
-        
         @keyframes spin-slow-cw { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes spin-slow-ccw { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
         .spin-avatar-1 { animation: spin-slow-cw 12s linear infinite; }
@@ -356,6 +333,7 @@ export default function LeaderboardPage() {
           -ms-overflow-style: none;
           scroll-snap-type: y mandatory;
           scroll-behavior: smooth;
+          scroll-snap-stop: always;
         }
         .leaderboard-scroll::-webkit-scrollbar {
           display: none;
@@ -373,24 +351,6 @@ export default function LeaderboardPage() {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)",
         }}
       >
-        {/* Background animations */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <span className="absolute left-[5%] top-0 text-white/20 text-lg glow-symbol falling-1" style={{ animationDelay: '-2s' }}>Ξ</span>
-          <span className="absolute left-[25%] top-0 text-white/15 text-xl glow-symbol falling-2" style={{ animationDelay: '-5s' }}>Ξ</span>
-          <span className="absolute left-[80%] top-0 text-white/20 text-base glow-symbol falling-3" style={{ animationDelay: '-8s' }}>Ξ</span>
-          <span className="absolute left-[60%] top-0 text-white/10 text-lg glow-symbol falling-4" style={{ animationDelay: '-3s' }}>Ξ</span>
-          
-          <span className="absolute left-[15%] top-0 text-white/20 text-lg glow-symbol falling-2" style={{ animationDelay: '-1s' }}>🍩</span>
-          <span className="absolute left-[45%] top-0 text-white/15 text-base glow-symbol falling-4" style={{ animationDelay: '-6s' }}>🍩</span>
-          <span className="absolute left-[70%] top-0 text-white/20 text-xl glow-symbol falling-1" style={{ animationDelay: '-4s' }}>🍩</span>
-          <span className="absolute left-[90%] top-0 text-white/10 text-lg glow-symbol falling-5" style={{ animationDelay: '-7s' }}>🍩</span>
-          
-          <Sparkles className="absolute left-[10%] top-0 w-4 h-4 text-white/20 glow-symbol falling-3" style={{ animationDelay: '-2.5s' }} />
-          <Sparkles className="absolute left-[35%] top-0 w-5 h-5 text-white/25 glow-symbol falling-5" style={{ animationDelay: '-5.5s' }} />
-          <Sparkles className="absolute left-[55%] top-0 w-6 h-6 text-white/15 glow-symbol falling-6" style={{ animationDelay: '-1.5s' }} />
-          <Sparkles className="absolute left-[85%] top-0 w-4 h-4 text-white/20 glow-symbol falling-1" style={{ animationDelay: '-4.5s' }} />
-        </div>
-
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
           {/* Fixed Header Section */}
           <div className="flex-shrink-0">
@@ -575,12 +535,9 @@ export default function LeaderboardPage() {
             ref={scrollContainerRef}
             className="flex-1 overflow-y-auto overflow-x-hidden leaderboard-scroll"
             style={{
-              WebkitMaskImage: scrollFade.top === 0 && scrollFade.bottom === 0 
-                ? 'none'
-                : `linear-gradient(to bottom, ${scrollFade.top > 0 ? 'transparent' : 'black'} 0%, black ${scrollFade.top > 0 ? '6%' : '0%'}, black ${scrollFade.bottom > 0 ? '94%' : '100%'}, ${scrollFade.bottom > 0 ? 'transparent' : 'black'} 100%)`,
-              maskImage: scrollFade.top === 0 && scrollFade.bottom === 0 
-                ? 'none'
-                : `linear-gradient(to bottom, ${scrollFade.top > 0 ? 'transparent' : 'black'} 0%, black ${scrollFade.top > 0 ? '6%' : '0%'}, black ${scrollFade.bottom > 0 ? '94%' : '100%'}, ${scrollFade.bottom > 0 ? 'transparent' : 'black'} 100%)`,
+              WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
+              maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
+              transition: 'mask-image 0.3s ease-out, -webkit-mask-image 0.3s ease-out',
             }}
           >
             <div className="space-y-2 pb-4">
