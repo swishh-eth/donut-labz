@@ -3,14 +3,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { usePublicClient } from "wagmi";
-import { formatUnits } from "viem";
+import { createPublicClient, http, formatUnits } from "viem";
+import { base } from "viem/chains";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Target, Zap, Trophy, Lock } from "lucide-react";
 
 // Contract addresses
 const DONUT_DICE_ADDRESS = "0x49826C6C884ed7A828c06f75814Acf8bd658bb76" as const;
+
+// Create a public client for Base
+const publicClient = createPublicClient({
+  chain: base,
+  transport: http(),
+});
 
 // Minimal ABI for reading bets
 const DICE_ABI = [
@@ -137,8 +143,6 @@ export default function GamesPage() {
   const [diceLastWinner, setDiceLastWinner] = useState<{ username: string; amount: string } | null>(null);
   const [wheelLastWinner, setWheelLastWinner] = useState<{ username: string; amount: string } | null>(null);
 
-  const publicClient = usePublicClient();
-
   // Mock data - replace with real contract reads later
   const [poolData, setPoolData] = useState({
     totalTickets: 0,
@@ -151,11 +155,10 @@ export default function GamesPage() {
 
   // Fetch last winner for dice game
   useEffect(() => {
+    console.log("Dice winner effect running");
+    
     const fetchLastDiceWinner = async () => {
-      if (!publicClient) {
-        console.log("No public client");
-        return;
-      }
+      console.log("Fetching dice last winner...");
       
       try {
         // Get total number of bets
@@ -247,7 +250,7 @@ export default function GamesPage() {
     // Refresh every 5 minutes
     const interval = setInterval(fetchLastDiceWinner, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [publicClient]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
