@@ -46,6 +46,19 @@ type MinerState = {
 const DONUT_DECIMALS = 18;
 const DEADLINE_BUFFER_SECONDS = 15 * 60;
 
+const DEFAULT_MESSAGES = [
+  "Every donut needs sprinkles - Donut Labs",
+  "Sprinkling magic on Base - Donut Labs",
+  "Powered by Chromium Donut Tech - Donut Labs",
+  "Stay glazed, stay based - Donut Labs",
+  "The donut shop never closes - Donut Labs",
+  "More sprinkles, more fun - Donut Labs",
+];
+
+const getRandomDefaultMessage = () => {
+  return DEFAULT_MESSAGES[Math.floor(Math.random() * DEFAULT_MESSAGES.length)];
+};
+
 const ANON_PFPS = [
   "/media/anonpfp1.png",
   "/media/anonpfp2.png",
@@ -121,6 +134,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const glazeResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const defaultMessageRef = useRef<string>(getRandomDefaultMessage());
 
   const resetGlazeResult = useCallback(() => {
     if (glazeResultTimeoutRef.current) {
@@ -253,6 +267,9 @@ export default function DonutMiner({ context }: DonutMinerProps) {
       showGlazeResult(receipt.status === "success" ? "success" : "failure");
 
       if (receipt.status === "success" && address) {
+        // Pick a new random message for next time
+        defaultMessageRef.current = getRandomDefaultMessage();
+        
         // Delay to allow RPC to index the tx, then retry if needed
         const recordGlazeWithRetry = async (attempt = 1, maxAttempts = 3) => {
           try {
@@ -365,6 +382,10 @@ export default function DonutMiner({ context }: DonutMinerProps) {
         Math.floor(Date.now() / 1000) + DEADLINE_BUFFER_SECONDS
       );
       const maxPrice = price === 0n ? 0n : (price * 105n) / 100n;
+      
+      // Use custom message if provided, otherwise use the random default
+      const messageToSend = customMessage.trim() || defaultMessageRef.current;
+      
       await writeContract({
         account: targetAddress as Address,
         address: CONTRACT_ADDRESSES.multicall as Address,
@@ -375,7 +396,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           epochId,
           deadline,
           maxPrice,
-          customMessage.trim() || "DONUT LABS - RESEARCH DEPARTMENT",
+          messageToSend,
         ],
         value: price,
         chainId: base.id,
