@@ -350,8 +350,9 @@ export default function GamesPage() {
       title: "Donut Mines",
       description: "Avoid the bombs, cash out anytime",
       icon: Bomb,
-      comingSoon: true,
+      comingSoon: false,
       lastWinner: null,
+      onClick: () => router.push("/mines"),
     },
     {
       id: "lottery",

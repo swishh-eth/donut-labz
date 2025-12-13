@@ -8,8 +8,8 @@ import { NavBar } from "@/components/nav-bar";
 import { Bomb, Trophy, History, HelpCircle, X, Loader2, DollarSign, Gem } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Contract addresses - UPDATE AFTER DEPLOYMENT
-const DONUT_MINES_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
+// Contract addresses
+const DONUT_MINES_ADDRESS = "0x9f83a0103eb385cDA21D32dfD3D6C628d591e667" as const;
 const DONUT_TOKEN_ADDRESS = "0x376237C31E24A1eaF4F135B8B8F7c197073a70ee" as const;
 
 const ERC20_ABI = [
@@ -45,7 +45,7 @@ const MINES_ABI = [
       { name: "commitHash", type: "bytes32" }
     ],
     name: "startGame",
-    outputs: [],
+    outputs: [{ type: "uint256" }],
     stateMutability: "nonpayable",
     type: "function"
   },
@@ -69,32 +69,26 @@ const MINES_ABI = [
   },
   {
     inputs: [{ name: "player", type: "address" }],
-    name: "activeGame",
-    outputs: [{ type: "uint256" }],
+    name: "getActiveGames",
+    outputs: [{ type: "uint256[]" }],
     stateMutability: "view",
     type: "function"
   },
   {
     inputs: [{ name: "gameId", type: "uint256" }],
     name: "getGame",
-    outputs: [{
-      components: [
-        { name: "player", type: "address" },
-        { name: "token", type: "address" },
-        { name: "betAmount", type: "uint256" },
-        { name: "mineCount", type: "uint8" },
-        { name: "commitHash", type: "bytes32" },
-        { name: "commitBlock", type: "uint256" },
-        { name: "status", type: "uint8" },
-        { name: "revealedTiles", type: "uint256" },
-        { name: "safeRevealed", type: "uint8" },
-        { name: "currentMultiplier", type: "uint256" },
-        { name: "payout", type: "uint256" },
-        { name: "revealedSecret", type: "bytes32" },
-        { name: "minePositions", type: "uint256" }
-      ],
-      type: "tuple"
-    }],
+    outputs: [
+      { name: "player", type: "address" },
+      { name: "token", type: "address" },
+      { name: "betAmount", type: "uint256" },
+      { name: "commitBlock", type: "uint256" },
+      { name: "mineCount", type: "uint8" },
+      { name: "safeRevealed", type: "uint8" },
+      { name: "status", type: "uint8" },
+      { name: "revealedTiles", type: "uint32" },
+      { name: "minePositions", type: "uint32" },
+      { name: "payout", type: "uint256" }
+    ],
     stateMutability: "view",
     type: "function"
   },
@@ -106,27 +100,10 @@ const MINES_ABI = [
     type: "function"
   },
   {
-    inputs: [{ name: "player", type: "address" }, { name: "count", type: "uint256" }],
-    name: "getPlayerRecentGames",
-    outputs: [{
-      components: [
-        { name: "player", type: "address" },
-        { name: "token", type: "address" },
-        { name: "betAmount", type: "uint256" },
-        { name: "mineCount", type: "uint8" },
-        { name: "commitHash", type: "bytes32" },
-        { name: "commitBlock", type: "uint256" },
-        { name: "status", type: "uint8" },
-        { name: "revealedTiles", type: "uint256" },
-        { name: "safeRevealed", type: "uint8" },
-        { name: "currentMultiplier", type: "uint256" },
-        { name: "payout", type: "uint256" },
-        { name: "revealedSecret", type: "bytes32" },
-        { name: "minePositions", type: "uint256" }
-      ],
-      type: "tuple[]"
-    }],
-    stateMutability: "view",
+    inputs: [{ name: "gameId", type: "uint256" }],
+    name: "claimExpired",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function"
   }
 ] as const;
@@ -142,21 +119,18 @@ const STATUS_MAP: Record<number, GameStatus> = {
   5: "Expired"
 };
 
-type OnchainGame = {
-  player: `0x${string}`;
-  token: `0x${string}`;
-  betAmount: bigint;
-  mineCount: number;
-  commitHash: `0x${string}`;
-  commitBlock: bigint;
-  status: number;
-  revealedTiles: bigint;
-  safeRevealed: number;
-  currentMultiplier: bigint;
-  payout: bigint;
-  revealedSecret: `0x${string}`;
-  minePositions: bigint;
-};
+type OnchainGame = [
+  `0x${string}`, // player
+  `0x${string}`, // token
+  bigint,        // betAmount
+  bigint,        // commitBlock
+  number,        // mineCount
+  number,        // safeRevealed
+  number,        // status
+  number,        // revealedTiles
+  number,        // minePositions
+  bigint         // payout
+];
 
 type PendingGame = {
   secret: `0x${string}`;
@@ -291,29 +265,26 @@ export default function MinesPage() {
     args: address ? [address, DONUT_MINES_ADDRESS] : undefined,
   });
 
-  // Read active game
-  const { data: activeGameId, refetch: refetchActiveGame } = useReadContract({
+  // Read active games
+  const { data: activeGameIds, refetch: refetchActiveGames } = useReadContract({
     address: DONUT_MINES_ADDRESS,
     abi: MINES_ABI,
-    functionName: "activeGame",
+    functionName: "getActiveGames",
     args: address ? [address] : undefined,
   });
+
+  // Get first active game ID (if any)
+  const activeGameId = activeGameIds && (activeGameIds as bigint[]).length > 0 
+    ? (activeGameIds as bigint[])[0] 
+    : undefined;
 
   // Read game details if active
   const { data: activeGameData, refetch: refetchGameData } = useReadContract({
     address: DONUT_MINES_ADDRESS,
     abi: MINES_ABI,
     functionName: "getGame",
-    args: activeGameId && activeGameId > BigInt(0) ? [activeGameId] : undefined,
-    query: { enabled: !!activeGameId && activeGameId > BigInt(0) }
-  });
-
-  // Read recent games for history
-  const { data: recentGames, refetch: refetchGames } = useReadContract({
-    address: DONUT_MINES_ADDRESS,
-    abi: MINES_ABI,
-    functionName: "getPlayerRecentGames",
-    args: address ? [address, BigInt(10)] : undefined,
+    args: activeGameId ? [activeGameId] : undefined,
+    query: { enabled: !!activeGameId }
   });
 
   // Write contracts
@@ -385,7 +356,7 @@ export default function MinesPage() {
   useEffect(() => {
     if (isStartSuccess && gameStep === "starting") {
       setGameStep("playing");
-      refetchActiveGame();
+      refetchActiveGames();
       refetchGameData();
       try { sdk.haptics.impactOccurred("medium"); } catch {}
     }
@@ -396,18 +367,7 @@ export default function MinesPage() {
     if (isRevealSuccess && gameStep === "revealing") {
       setGameStep("playing");
       refetchGameData();
-      
-      // Check if game ended
-      if (activeGameData) {
-        const game = activeGameData as OnchainGame;
-        if (game.status === 3) { // Lost
-          try { sdk.haptics.impactOccurred("heavy"); } catch {}
-          setErrorMessage("BOOM! 💥");
-          setTimeout(() => setErrorMessage(null), 2000);
-        } else {
-          try { sdk.haptics.impactOccurred("light"); } catch {}
-        }
-      }
+      try { sdk.haptics.impactOccurred("light"); } catch {}
     }
   }, [isRevealSuccess, gameStep]);
 
@@ -418,8 +378,8 @@ export default function MinesPage() {
       setPendingGame(null);
       setShowConfetti(true);
       refetchBalance();
-      refetchActiveGame();
-      refetchGames();
+      refetchActiveGames();
+      
       
       // Celebration haptics
       try {
@@ -505,13 +465,15 @@ export default function MinesPage() {
   };
 
   const isProcessing = gameStep !== "idle" && gameStep !== "playing";
-  const hasActiveGame = activeGameId && activeGameId > BigInt(0);
+  const hasActiveGame = activeGameId !== undefined;
   const game = activeGameData as OnchainGame | undefined;
-  const isGameActive = game?.status === 1;
-  const revealedTiles = game ? Number(game.revealedTiles) : 0;
-  const safeRevealed = game?.safeRevealed || 0;
-  const displayMultiplier = game ? Number(game.currentMultiplier) / 100 : 1.0;
-  const minePositions = game?.minePositions || BigInt(0);
+  const isGameActive = game ? game[6] === 1 : false; // status is index 6
+  const revealedTiles = game ? game[7] : 0; // revealedTiles is index 7
+  const safeRevealed = game ? game[5] : 0; // safeRevealed is index 5
+  const gameMineCount = game ? game[4] : mineCount; // mineCount is index 4
+  const displayMultiplier = calculateDisplayMultiplier(gameMineCount, safeRevealed);
+  const minePositions = game ? BigInt(game[8]) : BigInt(0); // minePositions is index 8
+  const gameBetAmount = game ? game[2] : BigInt(0); // betAmount is index 2
 
   const formattedBalance = tokenBalance 
     ? parseFloat(formatUnits(tokenBalance, 18)).toFixed(2)
@@ -617,7 +579,8 @@ export default function MinesPage() {
           <div className="grid grid-cols-5 gap-2 w-full max-w-[300px] mb-4">
             {Array.from({ length: 25 }).map((_, i) => {
               const isRevealed = (revealedTiles & (1 << i)) !== 0;
-              const isMine = isRevealed && game?.status === 3 && (Number(minePositions) & (1 << i)) !== 0;
+              const isMine = isRevealed && game !== undefined && game[6] === 3 && (Number(minePositions) & (1 << i)) !== 0;
+              const isGameOver = game !== undefined && (game[6] === 3 || game[6] === 4);
               
               return (
                 <Tile
@@ -625,7 +588,7 @@ export default function MinesPage() {
                   index={i}
                   isRevealed={isRevealed}
                   isMine={isMine}
-                  isGameOver={game?.status === 3 || game?.status === 4}
+                  isGameOver={isGameOver}
                   minePositions={minePositions}
                   onClick={() => handleRevealTile(i)}
                   disabled={!isGameActive || gameStep === "revealing"}
@@ -644,7 +607,7 @@ export default function MinesPage() {
             <div className="text-center mb-4">
               <div className="text-sm text-gray-400">Current Payout</div>
               <div className="text-2xl font-bold text-green-400">
-                🍩 {(parseFloat(game?.betAmount ? formatUnits(game.betAmount, 18) : "0") * displayMultiplier * 0.98).toFixed(2)}
+                🍩 {(parseFloat(formatUnits(gameBetAmount, 18)) * displayMultiplier).toFixed(2)}
               </div>
             </div>
           )}
@@ -742,7 +705,7 @@ export default function MinesPage() {
             <button
               onClick={() => {
                 setPendingGame(null);
-                refetchActiveGame();
+                refetchActiveGames();
                 resetStart();
                 resetReveal();
                 resetCashOut();
@@ -844,45 +807,10 @@ export default function MinesPage() {
                 <p className="text-[10px] text-gray-500 mb-3">Your recent mines games</p>
 
                 <div className="flex-1 overflow-y-auto space-y-2">
-                  {recentGames && (recentGames as OnchainGame[]).length > 0 ? (
-                    (recentGames as OnchainGame[]).map((g, index) => (
-                      <div
-                        key={index}
-                        className={cn(
-                          "p-2 rounded-lg border",
-                          g.status === 4 ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className={cn(
-                              "text-sm font-bold",
-                              g.status === 4 ? "text-green-400" : "text-red-400"
-                            )}>
-                              {g.status === 4 ? "Won" : "Lost"}
-                            </span>
-                            <span className="text-xs text-gray-400">
-                              {g.mineCount} mines • {g.safeRevealed} revealed
-                            </span>
-                          </div>
-                          <div className="text-right">
-                            <div className={cn(
-                              "text-sm font-bold",
-                              g.status === 4 ? "text-green-400" : "text-red-400"
-                            )}>
-                              {g.status === 4
-                                ? `+${parseFloat(formatUnits(g.payout, 18)).toFixed(2)}`
-                                : `-${parseFloat(formatUnits(g.betAmount, 18)).toFixed(2)}`
-                              }
-                            </div>
-                            <div className="text-[9px] text-gray-600">🍩 DONUT</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center text-gray-500 py-8">No games yet</div>
-                  )}
+                  <div className="text-center text-gray-500 py-8">
+                    <p>History coming soon</p>
+                    <p className="text-xs mt-2">Check BaseScan for now</p>
+                  </div>
                 </div>
 
                 <button
