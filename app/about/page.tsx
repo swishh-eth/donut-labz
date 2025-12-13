@@ -430,7 +430,7 @@ export default function AboutPage() {
                 >
                   <p>Donut Labs is an independent donut shop operating inside the $DONUT ecosystem.</p>
                   <p>We build fun ways to interact with $DONUT and $SPRINKLES, including mining interfaces, games, and social features.</p>
-                  <p className="text-gray-500 italic">Your friendly neighborhood donut shop on Base.</p>
+                  <p className="text-gray-500 italic">An onchain donut shop on Base.</p>
                 </Section>
 
                 {/* Leaderboard */}
