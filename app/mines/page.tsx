@@ -346,23 +346,36 @@ export default function MinesPage() {
     if (error) {
       const msg = error.message || "";
       console.log("Transaction error:", msg);
+      
+      // Try to extract the revert reason
+      let displayMsg = "Transaction failed";
+      
       if (msg.includes("User rejected") || msg.includes("rejected")) {
-        setErrorMessage("Transaction cancelled");
+        displayMsg = "Transaction cancelled";
       } else if (msg.includes("insufficient") || msg.includes("Insufficient")) {
-        setErrorMessage("Insufficient balance");
+        displayMsg = "Insufficient balance";
       } else if (msg.includes("Insufficient pool")) {
-        setErrorMessage("Pool empty - try smaller bet");
+        displayMsg = "Pool empty - try smaller bet";
       } else if (msg.includes("Token not supported")) {
-        setErrorMessage("Token not enabled on contract");
+        displayMsg = "Token not enabled";
       } else if (msg.includes("Invalid amount")) {
-        setErrorMessage("Bet amount out of range");
+        displayMsg = "Bet out of range (0.1-1)";
       } else if (msg.includes("Paused")) {
-        setErrorMessage("Game is paused");
-      } else {
-        // Show first part of error for debugging
-        const shortMsg = msg.slice(0, 50);
-        setErrorMessage(shortMsg || "Transaction failed");
+        displayMsg = "Game is paused";
+      } else if (msg.includes("reverted")) {
+        // Try to find the reason after "reverted"
+        const match = msg.match(/reverted[:\s]*([^"]+)/i);
+        if (match) {
+          displayMsg = match[1].slice(0, 40);
+        }
+      } else if (msg.includes("reason:")) {
+        const match = msg.match(/reason:\s*([^\n]+)/i);
+        if (match) {
+          displayMsg = match[1].slice(0, 40);
+        }
       }
+      
+      setErrorMessage(displayMsg);
       setGameStep("idle");
       setTimeout(() => setErrorMessage(null), 5000);
     }
