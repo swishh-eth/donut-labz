@@ -474,8 +474,13 @@ export default function MinesPage() {
 
   // When active game is detected with secret, set gameStep to playing
   useEffect(() => {
-    if (currentGameId && gameStep === "idle" && getSecretForGame()) {
-      setGameStep("playing");
+    if (currentGameId && gameStep === "idle") {
+      const secret = getSecretForGame();
+      console.log("Auto-resume check - gameId:", currentGameId?.toString(), "secret:", secret ? "found" : "not found");
+      if (secret) {
+        console.log("Auto-resuming game with secret from", pendingGame?.secret ? "state" : "localStorage");
+        setGameStep("playing");
+      }
     }
   }, [currentGameId, gameStep, pendingGame, activeGameCore]);
 
@@ -579,6 +584,8 @@ export default function MinesPage() {
 
   const handleStartGame = async () => {
     if (!isConnected || !address) return;
+    // Prevent double clicks - check if already starting
+    if (gameStep === "starting" || gameStep === "approving" || isStartPending || isApprovePending) return;
     
     const amountWei = parseUnits(betAmount, 18);
     
@@ -653,12 +660,19 @@ export default function MinesPage() {
 
   // Check if we have a playable game (with secret)
   const getSecretForGame = (): `0x${string}` | null => {
-    if (pendingGame?.secret) return pendingGame.secret;
+    if (pendingGame?.secret) {
+      console.log("getSecretForGame - using pendingGame secret");
+      return pendingGame.secret;
+    }
     if (activeGameCore) {
       const coreData = activeGameCore as [`0x${string}`, `0x${string}`, bigint, bigint, `0x${string}`, `0x${string}`];
       const commitHash = coreData[4];
-      return getGameSecret(commitHash);
+      console.log("getSecretForGame - looking up commitHash:", commitHash);
+      const secret = getGameSecret(commitHash);
+      console.log("getSecretForGame - found in localStorage:", secret ? "yes" : "no");
+      return secret;
     }
+    console.log("getSecretForGame - no activeGameCore yet");
     return null;
   };
 
@@ -996,13 +1010,13 @@ export default function MinesPage() {
               {/* Start Game Button */}
               <button
                 onClick={handleStartGame}
-                disabled={isProcessing || !isConnected}
+                disabled={isProcessing || !isConnected || isStartPending || isApprovePending}
                 className="w-full py-3 rounded-xl bg-white hover:bg-gray-100 text-black font-bold text-lg tracking-wide disabled:opacity-50 transition-colors"
               >
-                {isProcessing ? (
+                {isProcessing || isStartPending || isApprovePending ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    {gameStep === "approving" ? "Approving..." : "Starting..."}
+                    {gameStep === "approving" || isApprovePending ? "Approving..." : "Starting..."}
                   </span>
                 ) : (
                   "START GAME"
