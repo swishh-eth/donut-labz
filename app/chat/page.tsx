@@ -123,6 +123,7 @@ export default function ChatPage() {
   const [tippingMessageHash, setTippingMessageHash] = useState<string | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [isChatExpanded, setIsChatExpanded] = useState(false);
+  const [buttonPosition, setButtonPosition] = useState<'left' | 'right'>('left');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const COOLDOWN_SECONDS = 30;
@@ -704,22 +705,25 @@ export default function ChatPage() {
                   )}
                   
                   {/* Sliding input container */}
-                  <div className="flex items-center gap-2">
+                  <div className={`flex items-center gap-2 ${buttonPosition === 'right' ? 'flex-row-reverse' : ''}`}>
                     <button 
                       onClick={toggleChatInput}
+                      onDoubleClick={() => !isChatExpanded && setButtonPosition(prev => prev === 'left' ? 'right' : 'left')}
                       disabled={cooldownRemaining > 0 || rateLimitBanRemaining > 0}
                       className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 overflow-visible ${
                         isChatExpanded 
                           ? "bg-zinc-700 text-white" 
-                          : cooldownRemaining > 0 || rateLimitBanRemaining > 0
-                            ? "bg-zinc-800 text-gray-500"
-                            : "bg-white text-black hover:bg-gray-200"
+                          : cooldownRemaining > 0
+                            ? "bg-amber-500 text-black"
+                            : rateLimitBanRemaining > 0
+                              ? "bg-red-500 text-white"
+                              : "bg-white text-black hover:bg-gray-200"
                       }`}
                     >
                       {cooldownRemaining > 0 ? (
-                        <span className="text-xs font-bold">{cooldownRemaining}</span>
+                        <span className="text-xs font-bold text-black">{cooldownRemaining}</span>
                       ) : rateLimitBanRemaining > 0 ? (
-                        <Timer className="w-5 h-5" />
+                        <Timer className="w-5 h-5 text-white" />
                       ) : (
                         <Plus className={`w-5 h-5 transition-transform duration-300 ${isChatExpanded ? "rotate-45" : ""}`} />
                       )}
