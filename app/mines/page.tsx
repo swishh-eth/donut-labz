@@ -262,6 +262,8 @@ export default function MinesPage() {
   const [showHelp, setShowHelp] = useState(false);
   const [showApprovals, setShowApprovals] = useState(false);
   const [showBetaPopup, setShowBetaPopup] = useState(false);
+  const [showApprovalArrow, setShowApprovalArrow] = useState(false);
+  const [dismissedGameId, setDismissedGameId] = useState<bigint | null>(null);
   const [pendingGame, setPendingGame] = useState<PendingGame | null>(null);
   const [gameStep, setGameStep] = useState<"idle" | "approving" | "starting" | "playing" | "revealing" | "cashing">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -457,8 +459,10 @@ export default function MinesPage() {
   useEffect(() => {
     if (isApproveSuccess && gameStep === "approving") {
       refetchAllowance();
-      // Continue to start game
-      startNewGame();
+      setGameStep("idle");
+      // Show bouncing arrow to guide user to click START GAME
+      setShowApprovalArrow(true);
+      try { sdk.haptics.notificationOccurred("success"); } catch {}
     }
   }, [isApproveSuccess, gameStep]);
 
@@ -551,6 +555,9 @@ export default function MinesPage() {
 
   const startNewGame = async () => {
     if (!address) return;
+    
+    // Clear any dismissed game since we're starting fresh
+    setDismissedGameId(null);
     
     const amountWei = parseUnits(betAmount, 18);
     const secret = generateSecret();
@@ -681,8 +688,10 @@ export default function MinesPage() {
   const game = activeGameData as OnchainGame | undefined;
   const isGameActive = game ? game[6] === 1 : false; // status is index 6
   const isGameOver = game ? (game[6] === 3 || game[6] === 4) : false; // Lost or CashedOut
-  // Show grid if: we have a secret for active game, OR game just ended (but only if we were playing it)
-  const hasPlayableGame = (hasSecretForGame && isGameActive) || (isGameOver && gameStep === "playing");
+  // Don't show game if user dismissed it
+  const isGameDismissed = currentGameId !== undefined && dismissedGameId === currentGameId;
+  // Show grid if: we have a secret for active game, OR game just ended (but only if we were playing it and haven't dismissed)
+  const hasPlayableGame = !isGameDismissed && ((hasSecretForGame && isGameActive) || (isGameOver && gameStep === "playing"));
   const revealedTiles = game ? game[7] : 0; // revealedTiles is index 7
   const safeRevealed = game ? game[5] : 0; // safeRevealed is index 5
   const gameMineCount = game ? game[4] : mineCount; // mineCount is index 4
@@ -711,8 +720,19 @@ export default function MinesPage() {
           0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
           100% { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
+        @keyframes bounce-down {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(8px); }
+        }
+        @keyframes fade-in {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
+        }
         .confetti { animation: confetti-fall 3s ease-out forwards; }
         .toast-animate { animation: toast-in 0.2s ease-out forwards; }
+        .arrow-bounce { 
+          animation: fade-in 0.3s ease-out forwards, bounce-down 0.8s ease-in-out infinite;
+        }
       `}</style>
 
       {/* Donut Confetti */}
@@ -901,13 +921,16 @@ export default function MinesPage() {
                   </div>
                   <button
                     onClick={() => {
+                      // Mark this game as dismissed so we don't show it again
+                      if (currentGameId) {
+                        setDismissedGameId(currentGameId);
+                      }
                       // Clear all game state to go back to "buy" screen
                       setPendingGame(null);
                       setGameStep("idle");
                       // Clear the current game from active games by refetching
                       // The contract will have removed this game from active list
                       refetchActiveGames();
-                      refetchGameData();
                       refetchBalance();
                     }}
                     className="w-full py-3 rounded-xl bg-white hover:bg-gray-100 text-black font-bold text-lg tracking-wide transition-colors"
@@ -1007,9 +1030,22 @@ export default function MinesPage() {
                 />
               </div>
 
+              {/* Bouncing Arrow after Approval */}
+              {showApprovalArrow && (
+                <div className="flex flex-col items-center arrow-bounce">
+                  <span className="text-amber-400 text-xs font-bold mb-1">Approved! Now start your game</span>
+                  <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                  </svg>
+                </div>
+              )}
+
               {/* Start Game Button */}
               <button
-                onClick={handleStartGame}
+                onClick={() => {
+                  setShowApprovalArrow(false);
+                  handleStartGame();
+                }}
                 disabled={isProcessing || !isConnected || isStartPending || isApprovePending}
                 className="w-full py-3 rounded-xl bg-white hover:bg-gray-100 text-black font-bold text-lg tracking-wide disabled:opacity-50 transition-colors"
               >
