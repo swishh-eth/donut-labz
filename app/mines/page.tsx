@@ -257,10 +257,11 @@ export default function MinesPage() {
   
   const [context, setContext] = useState<{ user?: { fid: number; username?: string; pfpUrl?: string } } | null>(null);
   const [betAmount, setBetAmount] = useState<string>("1");
-  const [mineCount, setMineCount] = useState<number>(5);
+  const [mineCount, setMineCount] = useState<number>(1);
   const [showHistory, setShowHistory] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showApprovals, setShowApprovals] = useState(false);
+  const [showBetaPopup, setShowBetaPopup] = useState(false);
   const [pendingGame, setPendingGame] = useState<PendingGame | null>(null);
   const [gameStep, setGameStep] = useState<"idle" | "approving" | "starting" | "playing" | "revealing" | "cashing">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -739,6 +740,18 @@ export default function MinesPage() {
         </div>
       )}
 
+      {/* Beta Popup */}
+      {showBetaPopup && (
+        <div 
+          className="fixed left-1/2 -translate-x-1/2 z-[100] toast-animate"
+          style={{ top: "calc(env(safe-area-inset-top, 0px) + 60px)" }}
+        >
+          <div className="bg-amber-500 text-black px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 border border-amber-400">
+            <span className="text-sm font-bold">🚧 Beta: Only 1 mine available</span>
+          </div>
+        </div>
+      )}
+
       <div
         className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 shadow-inner"
         style={{
@@ -931,9 +944,11 @@ export default function MinesPage() {
                   value={mineCount}
                   onChange={(e) => {
                     const newValue = parseInt(e.target.value);
-                    if (newValue !== mineCount) {
-                      setMineCount(newValue);
-                      try { sdk.haptics.selectionChanged(); } catch {}
+                    if (newValue > 1) {
+                      // Beta version - only allow 1 mine
+                      setShowBetaPopup(true);
+                      setTimeout(() => setShowBetaPopup(false), 2000);
+                      try { sdk.haptics.notificationOccurred("warning"); } catch {}
                     }
                   }}
                   className="w-full accent-amber-500"
