@@ -133,24 +133,16 @@ export default function ChatPage() {
   const { data: tipHash, writeContract: writeTip, isPending: isTipPending, reset: resetTip } = useWriteContract();
   const { isLoading: isTipConfirming, isSuccess: isTipSuccess } = useWaitForTransactionReceipt({ hash: tipHash });
 
-  // Handle scroll fade - top fade when scrolled down, bottom fade when scrolled up
+  // Handle scroll fade - only top fade when scrolled down
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
 
     const handleScroll = () => {
       const scrollTop = container.scrollTop;
-      const scrollHeight = container.scrollHeight - container.clientHeight;
-      
-      if (scrollHeight > 0) {
-        // Top fade increases as you scroll down (more content above)
-        const topFade = Math.min(1, scrollTop / 100);
-        // Bottom fade increases as you scroll up (more content below)
-        const bottomFade = Math.min(1, (scrollHeight - scrollTop) / 100);
-        setScrollFade({ top: topFade, bottom: bottomFade });
-      } else {
-        setScrollFade({ top: 0, bottom: 0 });
-      }
+      // Top fade increases as you scroll down (more content above)
+      const topFade = Math.min(1, scrollTop / 100);
+      setScrollFade({ top: topFade, bottom: 0 });
     };
 
     handleScroll();
@@ -158,14 +150,25 @@ export default function ChatPage() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Focus input when chat expands and scroll to bottom
+  // Focus input when chat expands and scroll to bottom smoothly
   useEffect(() => {
     if (isChatExpanded) {
-      // Scroll to bottom smoothly when expanding
+      // Smooth scroll to bottom synced with slide animation
+      const container = messagesContainerRef.current;
+      if (container) {
+        const scrollToBottom = () => {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: 'smooth'
+          });
+        };
+        // Start scroll immediately, it will animate alongside the input slide
+        scrollToBottom();
+      }
+      // Focus input after animation
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
         inputRef.current?.focus();
-      }, 50);
+      }, 300);
     }
   }, [isChatExpanded]);
 
@@ -550,11 +553,10 @@ export default function ChatPage() {
           {/* Messages container - extends to bottom */}
           <div 
             ref={messagesContainerRef} 
-            className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll transition-all duration-300"
+            className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll pb-16"
             style={{
-              paddingBottom: isChatExpanded ? '80px' : '16px',
-              WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.05 ? 'transparent' : 'black'} 0%, black ${Math.max(8, scrollFade.top * 12)}%, black ${100 - Math.max(8, scrollFade.bottom * 12)}%, ${scrollFade.bottom > 0.05 ? 'transparent' : 'black'} 100%)`,
-              maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.05 ? 'transparent' : 'black'} 0%, black ${Math.max(8, scrollFade.top * 12)}%, black ${100 - Math.max(8, scrollFade.bottom * 12)}%, ${scrollFade.bottom > 0.05 ? 'transparent' : 'black'} 100%)`,
+              WebkitMaskImage: scrollFade.top > 0.05 ? `linear-gradient(to bottom, transparent 0%, black ${Math.max(8, scrollFade.top * 12)}%, black 100%)` : undefined,
+              maskImage: scrollFade.top > 0.05 ? `linear-gradient(to bottom, transparent 0%, black ${Math.max(8, scrollFade.top * 12)}%, black 100%)` : undefined,
             }}
           >
             {messagesLoading ? (
@@ -651,12 +653,11 @@ export default function ChatPage() {
           </div>
 
           {/* Floating chat input - positioned absolutely at bottom */}
-          <div className="absolute bottom-0 left-0 right-0 pointer-events-none px-2">
-            {/* Subtle gradient behind button */}
-            <div className="h-16 bg-gradient-to-t from-black to-transparent" />
-            
-            <div className="bg-black pointer-events-auto">
-              {!isConnected ? (
+          <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
+            <div className="px-2 pointer-events-auto">
+              {/* Safe tap zone wrapper - extra padding prevents accidental taps on messages */}
+              <div className="pt-8 pb-2">
+                {!isConnected ? (
                 <div className="flex items-center justify-center bg-zinc-900 border border-zinc-800 rounded-xl p-3">
                   <p className="text-sm text-gray-400">Connect wallet to send messages</p>
                 </div>
@@ -756,6 +757,7 @@ export default function ChatPage() {
                   {(isPending || isConfirming) && <p className="text-[10px] text-gray-400 text-center mt-1">{isPending ? "Confirm in wallet..." : "Confirming transaction..."}</p>}
                 </>
               )}
+              </div>
             </div>
           </div>
         </div>
