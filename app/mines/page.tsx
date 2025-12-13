@@ -93,6 +93,20 @@ const MINES_ABI = [
     type: "function"
   },
   {
+    inputs: [{ name: "gameId", type: "uint256" }],
+    name: "gameCore",
+    outputs: [
+      { name: "player", type: "address" },
+      { name: "token", type: "address" },
+      { name: "betAmount", type: "uint256" },
+      { name: "commitBlock", type: "uint256" },
+      { name: "commitHash", type: "bytes32" },
+      { name: "revealedSecret", type: "bytes32" }
+    ],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
     inputs: [{ name: "mineCount", type: "uint8" }, { name: "safeRevealed", type: "uint8" }],
     name: "calculateMultiplier",
     outputs: [{ type: "uint256" }],
@@ -332,6 +346,15 @@ export default function MinesPage() {
     query: { enabled: !!activeGameId }
   });
 
+  // Read game core (for commitHash) if active
+  const { data: activeGameCore } = useReadContract({
+    address: DONUT_MINES_ADDRESS,
+    abi: MINES_ABI,
+    functionName: "gameCore",
+    args: activeGameId ? [activeGameId] : undefined,
+    query: { enabled: !!activeGameId }
+  });
+
   // Write contracts
   const { 
     writeContract: writeApprove, 
@@ -365,15 +388,23 @@ export default function MinesPage() {
     reset: resetCashOut
   } = useWriteContract();
 
+  const { 
+    writeContract: writeClaimExpired, 
+    data: claimExpiredHash,
+    isPending: isClaimPending,
+    error: claimExpiredError
+  } = useWriteContract();
+
   // Transaction receipts
   const { isSuccess: isApproveSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
   const { isSuccess: isStartSuccess } = useWaitForTransactionReceipt({ hash: startHash });
   const { isSuccess: isRevealSuccess } = useWaitForTransactionReceipt({ hash: revealHash });
   const { isSuccess: isCashOutSuccess } = useWaitForTransactionReceipt({ hash: cashOutHash });
+  const { isSuccess: isClaimExpiredSuccess } = useWaitForTransactionReceipt({ hash: claimExpiredHash });
 
   // Handle errors
   useEffect(() => {
-    const error = approveError || startError || revealError || cashOutError;
+    const error = approveError || startError || revealError || cashOutError || claimExpiredError;
     if (error) {
       const msg = error.message || "";
       console.log("Transaction error:", msg);
@@ -410,7 +441,7 @@ export default function MinesPage() {
       setGameStep("idle");
       setTimeout(() => setErrorMessage(null), 5000);
     }
-  }, [approveError, startError, revealError, cashOutError]);
+  }, [approveError, startError, revealError, cashOutError, claimExpiredError]);
 
   // Handle approval success
   useEffect(() => {
@@ -437,6 +468,18 @@ export default function MinesPage() {
       setGameStep("playing");
     }
   }, [activeGameId, gameStep]);
+
+  // Handle claim expired success
+  useEffect(() => {
+    if (isClaimExpiredSuccess) {
+      setGameStep("idle");
+      setPendingGame(null);
+      refetchBalance();
+      refetchActiveGames();
+      setErrorMessage(null);
+      try { sdk.haptics.impactOccurred("medium"); } catch {}
+    }
+  }, [isClaimExpiredSuccess]);
 
   // Handle reveal success
   useEffect(() => {
@@ -522,24 +565,15 @@ export default function MinesPage() {
     if (!activeGameId || gameStep !== "playing") return;
     
     // Try to get secret from pendingGame state first, then localStorage
-    let secret = pendingGame?.secret;
+    let secret: `0x${string}` | null = pendingGame?.secret || null;
     
-    if (!secret && game) {
-      // Try to find secret using the commit hash from the game data
-      // Game data is a tuple: [player, token, betAmount, commitBlock, mineCount, safeRevealed, status, revealedTiles, minePositions, payout]
-      // We stored the secret with commitHash as key when starting
-      const gameCore = activeGameData as OnchainGame | undefined;
-      if (gameCore) {
-        // We need to check localStorage for any stored secrets
-        const secrets = JSON.parse(localStorage.getItem(GAME_SECRETS_KEY) || "{}");
-        // Find a secret that matches by checking each one
-        for (const [key, storedSecret] of Object.entries(secrets)) {
-          if (hashSecret(storedSecret as `0x${string}`) === key) {
-            secret = storedSecret as `0x${string}`;
-            break;
-          }
-        }
-      }
+    if (!secret && activeGameCore) {
+      // gameCore returns: [player, token, betAmount, commitBlock, commitHash, revealedSecret]
+      const coreData = activeGameCore as [`0x${string}`, `0x${string}`, bigint, bigint, `0x${string}`, `0x${string}`];
+      const commitHash = coreData[4]; // commitHash is index 4
+      
+      // Look up secret by commitHash in localStorage
+      secret = getGameSecret(commitHash);
     }
     
     if (!secret) {
@@ -808,20 +842,47 @@ export default function MinesPage() {
               )}
             </button>
           ) : isGameActive ? (
-            <button
-              onClick={handleCashOut}
-              disabled={safeRevealed === 0 || gameStep === "revealing" || gameStep === "cashing"}
-              className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-400 text-black font-bold text-lg tracking-wide disabled:opacity-50 transition-colors"
-            >
-              {gameStep === "cashing" ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Cashing Out...
-                </span>
-              ) : (
-                `CASH OUT ${displayMultiplier.toFixed(2)}x`
+            <>
+              {/* Show Claim Expired if no secret found */}
+              {!pendingGame?.secret && !getGameSecret(activeGameCore ? (activeGameCore as [`0x${string}`, `0x${string}`, bigint, bigint, `0x${string}`, `0x${string}`])[4] : "") && (
+                <button
+                  onClick={() => {
+                    if (!activeGameId) return;
+                    writeClaimExpired({
+                      address: DONUT_MINES_ADDRESS,
+                      abi: MINES_ABI,
+                      functionName: "claimExpired",
+                      args: [activeGameId]
+                    });
+                  }}
+                  disabled={isClaimPending}
+                  className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-lg tracking-wide disabled:opacity-50 transition-colors mb-2"
+                >
+                  {isClaimPending ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Claiming...
+                    </span>
+                  ) : (
+                    "CLAIM 98% BACK"
+                  )}
+                </button>
               )}
-            </button>
+              <button
+                onClick={handleCashOut}
+                disabled={safeRevealed === 0 || gameStep === "revealing" || gameStep === "cashing"}
+                className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-400 text-black font-bold text-lg tracking-wide disabled:opacity-50 transition-colors"
+              >
+                {gameStep === "cashing" ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Cashing Out...
+                  </span>
+                ) : (
+                  `CASH OUT ${displayMultiplier.toFixed(2)}x`
+                )}
+              </button>
+            </>
           ) : (
             <button
               onClick={() => {
