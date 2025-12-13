@@ -508,6 +508,8 @@ export default function GamesPage() {
         .winner-container {
           overflow: hidden;
           max-width: 140px;
+          -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+          mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
         }
         .winner-track {
           display: flex;
