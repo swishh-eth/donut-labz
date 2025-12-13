@@ -480,9 +480,7 @@ export default function MinesPage() {
   useEffect(() => {
     if (currentGameId && gameStep === "idle") {
       const secret = getSecretForGame();
-      console.log("Auto-resume check - gameId:", currentGameId?.toString(), "secret:", secret ? "found" : "not found");
       if (secret) {
-        console.log("Auto-resuming game with secret from", pendingGame?.secret ? "state" : "localStorage");
         setGameStep("playing");
       }
     }
@@ -568,9 +566,6 @@ export default function MinesPage() {
     const secret = generateSecret();
     const commitHash = hashSecret(secret);
     
-    console.log("startNewGame - secret:", secret);
-    console.log("startNewGame - commitHash:", commitHash);
-    
     // Store secret temporarily - we'll save to localStorage with gameId after tx confirms
     setPendingGame({
       secret,
@@ -582,7 +577,6 @@ export default function MinesPage() {
     
     // Also save to localStorage with commitHash as temp key
     saveGameSecret(commitHash, secret);
-    console.log("startNewGame - saved to localStorage, all secrets:", localStorage.getItem(GAME_SECRETS_KEY));
     
     setGameStep("starting");
     
@@ -598,6 +592,13 @@ export default function MinesPage() {
     if (!isConnected || !address) return;
     // Prevent double clicks - check if already starting
     if (gameStep === "starting" || gameStep === "approving" || isStartPending || isApprovePending) return;
+    
+    // Validate bet amount
+    const betNum = parseFloat(betAmount);
+    if (isNaN(betNum) || betNum < 0.1 || betNum > 1) {
+      setErrorMessage("Bet must be between 0.1 and 1 DONUT");
+      return;
+    }
     
     const amountWei = parseUnits(betAmount, 18);
     
@@ -622,30 +623,20 @@ export default function MinesPage() {
     
     // Try to get secret from pendingGame state first, then localStorage
     let secret: `0x${string}` | null = pendingGame?.secret || null;
-    console.log("handleRevealTile - pendingGame secret:", secret);
     
     if (!secret && activeGameCore) {
       // gameCore returns: [player, token, betAmount, commitBlock, commitHash, revealedSecret]
       const coreData = activeGameCore as [`0x${string}`, `0x${string}`, bigint, bigint, `0x${string}`, `0x${string}`];
       const commitHash = coreData[4]; // commitHash is index 4
-      console.log("handleRevealTile - commitHash from contract:", commitHash);
       
       // Look up secret by commitHash in localStorage
       secret = getGameSecret(commitHash);
-      console.log("handleRevealTile - secret from localStorage:", secret);
-      
-      // Debug: show all stored secrets
-      console.log("handleRevealTile - all stored secrets:", localStorage.getItem(GAME_SECRETS_KEY));
     }
     
     if (!secret) {
       setErrorMessage("Secret not found - check history to claim");
       return;
     }
-    
-    // Verify the secret matches
-    const verifyHash = hashSecret(secret);
-    console.log("handleRevealTile - verifyHash:", verifyHash);
     
     setGameStep("revealing");
     
@@ -673,18 +664,13 @@ export default function MinesPage() {
   // Check if we have a playable game (with secret)
   const getSecretForGame = (): `0x${string}` | null => {
     if (pendingGame?.secret) {
-      console.log("getSecretForGame - using pendingGame secret");
       return pendingGame.secret;
     }
     if (activeGameCore) {
       const coreData = activeGameCore as [`0x${string}`, `0x${string}`, bigint, bigint, `0x${string}`, `0x${string}`];
       const commitHash = coreData[4];
-      console.log("getSecretForGame - looking up commitHash:", commitHash);
-      const secret = getGameSecret(commitHash);
-      console.log("getSecretForGame - found in localStorage:", secret ? "yes" : "no");
-      return secret;
+      return getGameSecret(commitHash);
     }
-    console.log("getSecretForGame - no activeGameCore yet");
     return null;
   };
 
@@ -1028,8 +1014,15 @@ export default function MinesPage() {
                 </div>
                 <input
                   type="text"
+                  inputMode="decimal"
                   value={betAmount}
-                  onChange={(e) => setBetAmount(e.target.value)}
+                  onChange={(e) => {
+                    // Only allow valid decimal numbers
+                    const val = e.target.value;
+                    if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                      setBetAmount(val);
+                    }
+                  }}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-center text-base font-bold"
                   disabled={isProcessing}
                 />
