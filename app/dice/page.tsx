@@ -250,6 +250,7 @@ export default function DicePage() {
   const [lastResult, setLastResult] = useState<{ result: number; won: boolean; payout: bigint } | null>(null);
   const [streak, setStreak] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [currentBlock, setCurrentBlock] = useState<number>(0);
 
   const { address, isConnected } = useAccount();
 
@@ -263,6 +264,22 @@ export default function DicePage() {
     };
     loadContext();
   }, []);
+
+  // Fetch current block number (for pending bet timer)
+  useEffect(() => {
+    const fetchBlock = async () => {
+      if (!publicClient) return;
+      try {
+        const block = await publicClient.getBlockNumber();
+        setCurrentBlock(Number(block));
+      } catch {}
+    };
+    
+    fetchBlock();
+    // Update every 10 seconds
+    const interval = setInterval(fetchBlock, 10000);
+    return () => clearInterval(interval);
+  }, [publicClient]);
 
   // Calculate multiplier based on win chance
   const winChance = prediction === "over" ? 100 - target : target;
@@ -969,6 +986,13 @@ export default function DicePage() {
                         const betIds = playerBetIds as bigint[] | undefined;
                         const betId = betIds ? betIds[betIds.length - 1 - index] : null;
                         
+                        const expiryBlock = Number(bet.commitBlock) + 256;
+                        const blocksRemaining = Math.max(0, expiryBlock - currentBlock);
+                        const isExpired = currentBlock > 0 && blocksRemaining === 0;
+                        // Base produces blocks every ~2 seconds
+                        const secondsRemaining = blocksRemaining * 2;
+                        const minutesRemaining = Math.ceil(secondsRemaining / 60);
+                        
                         return (
                           <div 
                             key={index}
@@ -989,16 +1013,39 @@ export default function DicePage() {
                                 <div className="text-[9px] text-gray-600">🍩 DONUT</div>
                               </div>
                             </div>
-                            <p className="text-[9px] text-gray-500 mt-1 mb-2">
-                              Expires at block {Number(bet.commitBlock) + 256}. After expiry, claim 98% back.
-                            </p>
+                            
+                            {/* Timer and explanation */}
+                            <div className="mt-2 p-2 bg-zinc-900/50 rounded-lg">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[9px] text-gray-400">
+                                  {isExpired ? "Ready to claim!" : `~${minutesRemaining} min remaining`}
+                                </span>
+                                <span className="text-[9px] text-gray-500">
+                                  {blocksRemaining} blocks left
+                                </span>
+                              </div>
+                              <div className="w-full bg-zinc-800 rounded-full h-1.5">
+                                <div 
+                                  className={`h-1.5 rounded-full transition-all ${isExpired ? "bg-green-500" : "bg-amber-500"}`}
+                                  style={{ width: `${Math.min(100, ((256 - blocksRemaining) / 256) * 100)}%` }}
+                                />
+                              </div>
+                              <p className="text-[8px] text-gray-500 mt-1.5">
+                                Your secret was lost when you left. The bet must wait 256 blocks (~8 min) to expire before you can claim 98% back. 2% covers the house edge.
+                              </p>
+                            </div>
+                            
                             {betId && (
                               <button
                                 onClick={() => handleClaimExpired(betId)}
-                                disabled={isClaimPending}
-                                className="w-full py-1.5 rounded-lg bg-amber-500 text-black text-xs font-bold disabled:opacity-50"
+                                disabled={isClaimPending || !isExpired}
+                                className={`w-full py-1.5 rounded-lg text-xs font-bold mt-2 ${
+                                  isExpired 
+                                    ? "bg-green-500 text-black disabled:opacity-50" 
+                                    : "bg-zinc-700 text-gray-400 cursor-not-allowed"
+                                }`}
                               >
-                                {isClaimPending ? "Claiming..." : "Claim 98% Back"}
+                                {isClaimPending ? "Claiming..." : isExpired ? "Claim 98% Back" : `Wait ${minutesRemaining} min...`}
                               </button>
                             )}
                           </div>
