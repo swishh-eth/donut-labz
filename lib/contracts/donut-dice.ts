@@ -1,4 +1,4 @@
-export const DONUT_DICE_ADDRESS = "0xb0D437d51ab7fB33ab9f36b4A7d7DA8E878F5303" as const;
+export const DONUT_DICE_ADDRESS = "0x49826C6C884ed7A828c06f75814Acf8bd658bb76" as const;
 
 export const DONUT_DICE_ABI = [
   {
