@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits, keccak256, encodePacked } from "viem";
 import { NavBar } from "@/components/nav-bar";
-import { Bomb, Trophy, History, HelpCircle, X, Loader2, DollarSign, Gem } from "lucide-react";
+import { Bomb, Trophy, History, HelpCircle, X, Loader2, DollarSign, Gem, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Contract addresses
@@ -215,6 +215,7 @@ export default function MinesPage() {
   const [mineCount, setMineCount] = useState<number>(5);
   const [showHistory, setShowHistory] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showApprovals, setShowApprovals] = useState(false);
   const [pendingGame, setPendingGame] = useState<PendingGame | null>(null);
   const [gameStep, setGameStep] = useState<"idle" | "approving" | "starting" | "playing" | "revealing" | "cashing">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -543,23 +544,29 @@ export default function MinesPage() {
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-3 gap-2 mb-3 flex-shrink-0">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
-            <span className="text-[9px] text-gray-500 uppercase">Balance</span>
-            <span className="text-base font-bold text-white">🍩{formattedBalance}</span>
+        <div className="grid grid-cols-3 gap-2 mb-2 flex-shrink-0">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 flex flex-col items-center justify-center text-center">
+            <span className="text-[8px] text-gray-500 uppercase">Balance</span>
+            <span className="text-sm font-bold text-white">🍩{formattedBalance}</span>
           </div>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
-            <span className="text-[9px] text-gray-500 uppercase">Mines</span>
-            <span className="text-base font-bold text-white">💣 {mineCount}</span>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 flex flex-col items-center justify-center text-center">
+            <span className="text-[8px] text-gray-500 uppercase">Mines</span>
+            <span className="text-sm font-bold text-white">💣 {gameMineCount}</span>
           </div>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
-            <span className="text-[9px] text-gray-500 uppercase">Multiplier</span>
-            <span className="text-base font-bold text-amber-400">{displayMultiplier.toFixed(2)}x</span>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 flex flex-col items-center justify-center text-center">
+            <span className="text-[8px] text-gray-500 uppercase">Multiplier</span>
+            <span className="text-sm font-bold text-amber-400">{displayMultiplier.toFixed(2)}x</span>
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center justify-end gap-2 mb-2 flex-shrink-0">
+          <button
+            onClick={() => setShowApprovals(true)}
+            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors"
+          >
+            <Shield className="w-4 h-4 text-gray-400" />
+          </button>
           <button
             onClick={() => setShowHistory(true)}
             className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors"
@@ -575,8 +582,8 @@ export default function MinesPage() {
         </div>
 
         {/* Game Grid */}
-        <div className="flex-1 flex flex-col items-center justify-center">
-          <div className="grid grid-cols-5 gap-2 w-full max-w-[300px] mb-4">
+        <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+          <div className="grid grid-cols-5 gap-1.5 w-full max-w-[260px] mb-2">
             {Array.from({ length: 25 }).map((_, i) => {
               const isRevealed = (revealedTiles & (1 << i)) !== 0;
               const isMine = isRevealed && game !== undefined && game[6] === 3 && (Number(minePositions) & (1 << i)) !== 0;
@@ -604,9 +611,9 @@ export default function MinesPage() {
 
           {/* Game Status */}
           {isGameActive && safeRevealed > 0 && (
-            <div className="text-center mb-4">
-              <div className="text-sm text-gray-400">Current Payout</div>
-              <div className="text-2xl font-bold text-green-400">
+            <div className="text-center mb-2">
+              <div className="text-xs text-gray-400">Current Payout</div>
+              <div className="text-xl font-bold text-green-400">
                 🍩 {(parseFloat(formatUnits(gameBetAmount, 18)) * displayMultiplier).toFixed(2)}
               </div>
             </div>
@@ -618,37 +625,46 @@ export default function MinesPage() {
           {/* Mine Count Selector */}
           {!hasActiveGame && (
             <>
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs text-gray-400">Mines</span>
-                  <span className="text-sm font-bold text-white">{mineCount}</span>
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] text-gray-400">Mines</span>
+                  <span className="text-xs font-bold text-white">{mineCount}</span>
                 </div>
                 <input
                   type="range"
                   min="1"
                   max="24"
                   value={mineCount}
-                  onChange={(e) => setMineCount(parseInt(e.target.value))}
+                  onChange={(e) => {
+                    const newValue = parseInt(e.target.value);
+                    if (newValue !== mineCount) {
+                      setMineCount(newValue);
+                      try { sdk.haptics.selectionChanged(); } catch {}
+                    }
+                  }}
                   className="w-full accent-amber-500"
                   disabled={isProcessing}
                 />
-                <div className="flex justify-between text-[9px] text-gray-500 mt-1">
+                <div className="flex justify-between text-[8px] text-gray-500 mt-0.5">
                   <span>1 (Safe)</span>
                   <span>24 (Risky)</span>
                 </div>
               </div>
 
               {/* Bet Amount */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs text-gray-400">Bet (max 1 DONUT)</span>
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] text-gray-400">Bet Amount</span>
                   <div className="flex gap-1">
                     {["0.25", "0.5", "0.75", "1"].map((val) => (
                       <button
                         key={val}
-                        onClick={() => setBetAmount(val)}
+                        onClick={() => {
+                          setBetAmount(val);
+                          try { sdk.haptics.selectionChanged(); } catch {}
+                        }}
                         className={cn(
-                          "px-2 py-0.5 text-[10px] rounded border transition-colors",
+                          "px-1.5 py-0.5 text-[9px] rounded border transition-colors",
                           betAmount === val
                             ? "bg-amber-500 text-black border-amber-500"
                             : "bg-zinc-800 text-gray-400 border-zinc-700 hover:border-zinc-600"
@@ -663,7 +679,7 @@ export default function MinesPage() {
                   type="text"
                   value={betAmount}
                   onChange={(e) => setBetAmount(e.target.value)}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-center text-lg font-bold"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-center text-base font-bold"
                   disabled={isProcessing}
                 />
               </div>
@@ -815,6 +831,77 @@ export default function MinesPage() {
 
                 <button
                   onClick={() => setShowHistory(false)}
+                  className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Approvals Modal */}
+        {showApprovals && (
+          <div className="fixed inset-0 z-50">
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowApprovals(false)} />
+            <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+              <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
+                <button
+                  onClick={() => setShowApprovals(false)}
+                  className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+
+                <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  Token Approvals
+                </h2>
+                <p className="text-[10px] text-gray-500 mb-3">Manage DONUT approval for Mines</p>
+
+                <div className="space-y-3">
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-bold text-white">🍩 DONUT</span>
+                      <span className="text-xs text-gray-400">
+                        {allowance ? parseFloat(formatUnits(allowance, 18)).toFixed(2) : "0"} approved
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          writeApprove({
+                            address: DONUT_TOKEN_ADDRESS,
+                            abi: ERC20_ABI,
+                            functionName: "approve",
+                            args: [DONUT_MINES_ADDRESS, parseUnits("10", 18)]
+                          });
+                        }}
+                        disabled={isApprovePending}
+                        className="flex-1 py-1.5 rounded-lg bg-amber-500 text-black text-xs font-bold disabled:opacity-50"
+                      >
+                        {isApprovePending ? "..." : "Approve 10"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          writeApprove({
+                            address: DONUT_TOKEN_ADDRESS,
+                            abi: ERC20_ABI,
+                            functionName: "approve",
+                            args: [DONUT_MINES_ADDRESS, BigInt(0)]
+                          });
+                        }}
+                        disabled={isApprovePending}
+                        className="flex-1 py-1.5 rounded-lg bg-zinc-800 text-gray-400 text-xs font-bold disabled:opacity-50"
+                      >
+                        Revoke
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowApprovals(false)}
                   className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black"
                 >
                   Close
