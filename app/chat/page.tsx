@@ -124,6 +124,10 @@ export default function ChatPage() {
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const [buttonPosition, setButtonPosition] = useState<'left' | 'right'>('left');
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragX, setDragX] = useState(0);
+  const [dragStartX, setDragStartX] = useState(0);
+  const buttonContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const COOLDOWN_SECONDS = 30;
@@ -429,6 +433,75 @@ export default function ChatPage() {
     }
   };
 
+  // Drag handlers for button repositioning
+  const handleDragStart = (clientX: number) => {
+    if (isChatExpanded) return;
+    setDragStartX(clientX);
+  };
+
+  const handleDragMove = (clientX: number) => {
+    if (isChatExpanded || dragStartX === 0) return;
+    
+    const delta = Math.abs(clientX - dragStartX);
+    // Only start dragging after moving 10px (prevents accidental drags)
+    if (!isDragging && delta > 10) {
+      setIsDragging(true);
+    }
+    
+    if (!isDragging) return;
+    
+    const container = buttonContainerRef.current;
+    if (!container) return;
+    
+    const containerWidth = container.offsetWidth - 44; // subtract button width
+    const moveDelta = clientX - dragStartX;
+    const currentPos = buttonPosition === 'left' ? 0 : containerWidth;
+    let newX = currentPos + moveDelta;
+    
+    // Clamp to bounds
+    newX = Math.max(0, Math.min(containerWidth, newX));
+    setDragX(newX);
+  };
+
+  const handleDragEnd = () => {
+    if (!isDragging && dragStartX !== 0) {
+      // It was a tap, not a drag
+      setDragStartX(0);
+      return;
+    }
+    
+    if (!isDragging) return;
+    
+    setIsDragging(false);
+    setDragStartX(0);
+    
+    const container = buttonContainerRef.current;
+    if (!container) return;
+    
+    const containerWidth = container.offsetWidth - 44;
+    const threshold = containerWidth / 2;
+    
+    // Snap to nearest position
+    if (dragX > threshold) {
+      setButtonPosition('right');
+    } else {
+      setButtonPosition('left');
+    }
+    setDragX(0);
+  };
+
+  // Get button transform based on drag state
+  const getButtonTransform = () => {
+    if (isChatExpanded) return 'translateX(0)';
+    if (isDragging) return `translateX(${dragX}px)`;
+    
+    const container = buttonContainerRef.current;
+    if (!container) return 'translateX(0)';
+    
+    const containerWidth = container.offsetWidth - 44;
+    return buttonPosition === 'right' ? `translateX(${containerWidth}px)` : 'translateX(0)';
+  };
+
   return (
     <main className="flex h-[100dvh] w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style jsx global>{`
@@ -556,8 +629,8 @@ export default function ChatPage() {
             ref={messagesContainerRef} 
             className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll pb-16"
             style={{
-              WebkitMaskImage: scrollFade.top > 0.05 ? `linear-gradient(to bottom, transparent 0%, black ${Math.max(8, scrollFade.top * 12)}%, black 100%)` : undefined,
-              maskImage: scrollFade.top > 0.05 ? `linear-gradient(to bottom, transparent 0%, black ${Math.max(8, scrollFade.top * 12)}%, black 100%)` : undefined,
+              WebkitMaskImage: `linear-gradient(to bottom, transparent 0%, black ${Math.max(1, scrollFade.top * 12)}%, black 100%)`,
+              maskImage: `linear-gradient(to bottom, transparent 0%, black ${Math.max(1, scrollFade.top * 12)}%, black 100%)`,
             }}
           >
             {messagesLoading ? (
@@ -705,21 +778,38 @@ export default function ChatPage() {
                   )}
                   
                   {/* Sliding input container */}
-                  <div className={`flex items-center gap-2 ${buttonPosition === 'right' ? 'flex-row-reverse' : ''}`}>
-                    <button 
-                      onClick={toggleChatInput}
-                      onDoubleClick={() => !isChatExpanded && setButtonPosition(prev => prev === 'left' ? 'right' : 'left')}
-                      disabled={cooldownRemaining > 0 || rateLimitBanRemaining > 0}
-                      className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 overflow-visible ${
-                        isChatExpanded 
-                          ? "bg-zinc-700 text-white" 
-                          : cooldownRemaining > 0
-                            ? "bg-amber-500 text-black"
-                            : rateLimitBanRemaining > 0
-                              ? "bg-red-500 text-white"
-                              : "bg-white text-black hover:bg-gray-200"
-                      }`}
+                  <div 
+                    ref={buttonContainerRef}
+                    className="relative w-full"
+                    onTouchMove={(e) => handleDragMove(e.touches[0].clientX)}
+                    onTouchEnd={handleDragEnd}
+                    onMouseMove={(e) => isDragging && handleDragMove(e.clientX)}
+                    onMouseUp={handleDragEnd}
+                    onMouseLeave={handleDragEnd}
+                  >
+                    {/* Button wrapper for positioning */}
+                    <div 
+                      className={`flex items-center gap-2 ${isDragging ? '' : 'transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]'}`}
+                      style={{ 
+                        transform: getButtonTransform(),
+                        width: 'fit-content'
+                      }}
                     >
+                      <button 
+                        onClick={() => !isDragging && toggleChatInput()}
+                        onTouchStart={(e) => handleDragStart(e.touches[0].clientX)}
+                        onMouseDown={(e) => handleDragStart(e.clientX)}
+                        disabled={(cooldownRemaining > 0 || rateLimitBanRemaining > 0) && !isDragging}
+                        className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-colors duration-300 overflow-visible touch-none select-none ${
+                          isChatExpanded 
+                            ? "bg-zinc-700 text-white" 
+                            : cooldownRemaining > 0
+                              ? "bg-amber-500 text-black"
+                              : rateLimitBanRemaining > 0
+                                ? "bg-red-500 text-white"
+                                : "bg-white text-black hover:bg-gray-200"
+                        }`}
+                      >
                       {cooldownRemaining > 0 ? (
                         <span className="text-xs font-bold text-black">{cooldownRemaining}</span>
                       ) : rateLimitBanRemaining > 0 ? (
@@ -727,35 +817,38 @@ export default function ChatPage() {
                       ) : (
                         <Plus className={`w-5 h-5 transition-transform duration-300 ${isChatExpanded ? "rotate-45" : ""}`} />
                       )}
-                    </button>
-                    
-                    <div 
-                      className={`flex-1 overflow-hidden transition-all duration-300 ease-out ${
-                        isChatExpanded ? "max-w-full opacity-100" : "max-w-0 opacity-0"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2">
-                        <input
-                          ref={inputRef}
-                          type="text"
-                          value={message}
-                          onChange={(e) => { setMessage(e.target.value.slice(0, 280)); if (eligibilityError) setEligibilityError(null); }}
-                          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                          placeholder="Type a message..."
-                          disabled={isPending || isConfirming || isVerifying}
-                          className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-2 py-1 outline-none disabled:opacity-50 min-w-0"
-                          style={{ fontSize: '16px' }}
-                        />
-                        <span className="text-[10px] text-gray-500 flex-shrink-0">{message.length}/280</span>
-                        <button 
-                          onClick={handleSendMessage} 
-                          disabled={!message.trim() || isPending || isConfirming || isVerifying} 
-                          className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                        >
-                          {isVerifying ? <span className="text-xs font-bold">...</span> : <Send className="w-4 h-4" />}
-                        </button>
-                      </div>
+                      </button>
                     </div>
+                    
+                    {/* Expanded input - positioned absolutely when open */}
+                    {isChatExpanded && (
+                      <div 
+                        className="absolute left-0 right-0 top-0 flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300"
+                        style={{ paddingLeft: buttonPosition === 'left' ? '52px' : '0', paddingRight: buttonPosition === 'right' ? '52px' : '0' }}
+                      >
+                        <div className="flex-1 flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2">
+                          <input
+                            ref={inputRef}
+                            type="text"
+                            value={message}
+                            onChange={(e) => { setMessage(e.target.value.slice(0, 280)); if (eligibilityError) setEligibilityError(null); }}
+                            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
+                            placeholder="Type a message..."
+                            disabled={isPending || isConfirming || isVerifying}
+                            className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-2 py-1 outline-none disabled:opacity-50 min-w-0"
+                            style={{ fontSize: '16px' }}
+                          />
+                          <span className="text-[10px] text-gray-500 flex-shrink-0">{message.length}/280</span>
+                          <button 
+                            onClick={handleSendMessage} 
+                            disabled={!message.trim() || isPending || isConfirming || isVerifying} 
+                            className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                          >
+                            {isVerifying ? <span className="text-xs font-bold">...</span> : <Send className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   {(isPending || isConfirming) && <p className="text-[10px] text-gray-400 text-center mt-1">{isPending ? "Confirm in wallet..." : "Confirming transaction..."}</p>}
