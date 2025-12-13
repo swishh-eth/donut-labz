@@ -351,7 +351,7 @@ export default function AboutPage() {
                   />
                 </div>
                 <div className="text-xs text-gray-400 space-y-1.5">
-                  <p>$SPRINKLES is a companion token to $DONUT, mined by paying $DONUT in a separate auction.</p>
+                  <p>$SPRINKLES is a companion token to $DONUT making $DONUT liquidity even stickier, Sprinkles must be mined by paying $DONUT in a separate auction.</p>
                   <p className="text-white font-semibold">Max Supply: 210,000,000 SPRINKLES (10x DONUT)</p>
                   <p className="text-gray-500 text-[10px]">10M preminted & seeded with 1,000 DONUT for permanent LP</p>
                   
@@ -359,10 +359,10 @@ export default function AboutPage() {
                     <p className="text-white font-semibold text-[11px] mb-1">SPRINKLES Revenue Split:</p>
                     <div className="pl-2 border-l border-amber-500/30 ml-1 space-y-1">
                       <p><span className="text-amber-400 font-semibold">80%</span> → Previous Miner (rewards active miners)</p>
-                      <p><span className="text-amber-400 font-semibold">10%</span> → Buy & Burn SPRINKLES (increases scarcity)</p>
+                      <p><span className="text-amber-400 font-semibold">10%</span> → Buy & Burn SPRINKLES</p>
                       <p><span className="text-amber-400 font-semibold">2.5%</span> → Leaderboard Prizes (weekly rewards)</p>
                       <p><span className="text-amber-400 font-semibold">2.5%</span> → SPRINKLES/DONUT LP Burn Reward Pool</p>
-                      <p><span className="text-amber-400 font-semibold">5%</span> → Donut Labs (prize mechanics & buybacks)</p>
+                      <p><span className="text-amber-400 font-semibold">5%</span> → Donut Labs (Treausry / Funding / Buybacks)</p>
                     </div>
                   </div>
 
