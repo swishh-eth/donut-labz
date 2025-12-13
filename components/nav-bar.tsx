@@ -50,10 +50,11 @@ export function NavBar({ onMineClick }: NavBarProps) {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-black border-t border-zinc-800"
+      className="fixed bottom-0 left-0 right-0 z-50"
       style={{
         paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
-        paddingTop: "8px",
+        paddingTop: "20px",
+        background: "linear-gradient(to bottom, transparent 0%, black 30%, black 100%)",
       }}
     >
       <div className="flex justify-around items-center max-w-[520px] mx-auto px-4 relative">
@@ -61,32 +62,38 @@ export function NavBar({ onMineClick }: NavBarProps) {
         <Link
           href="/leaderboard"
           className={cn(
-            "flex items-center justify-center p-3 transition-all",
+            "flex items-center justify-center p-3 transition-colors duration-200",
             pathname === "/leaderboard"
               ? "text-white"
               : "text-gray-400 hover:text-gray-300"
           )}
         >
-          <Trophy className={cn(
-            "transition-all",
-            pathname === "/leaderboard" ? "w-7 h-7" : "w-5 h-5"
-          )} />
+          <Trophy 
+            className="transition-all duration-300 ease-out"
+            style={{
+              width: pathname === "/leaderboard" ? 28 : 20,
+              height: pathname === "/leaderboard" ? 28 : 20,
+            }}
+          />
         </Link>
 
         {/* Chat - Onchain Messages */}
         <Link
           href="/chat"
           className={cn(
-            "flex items-center justify-center p-3 transition-all",
+            "flex items-center justify-center p-3 transition-colors duration-200",
             pathname === "/chat"
               ? "text-white"
               : "text-gray-400 hover:text-gray-300"
           )}
         >
-          <MessageCircle className={cn(
-            "transition-all",
-            pathname === "/chat" ? "w-7 h-7" : "w-5 h-5"
-          )} />
+          <MessageCircle 
+            className="transition-all duration-300 ease-out"
+            style={{
+              width: pathname === "/chat" ? 28 : 20,
+              height: pathname === "/chat" ? 28 : 20,
+            }}
+          />
         </Link>
 
         {/* Main Mine Page - Pickaxe */}
@@ -94,20 +101,18 @@ export function NavBar({ onMineClick }: NavBarProps) {
           href="/"
           onClick={handleMineClick}
           className={cn(
-            "flex items-center justify-center p-3 transition-all",
+            "flex items-center justify-center p-3 transition-colors duration-200",
             pathname === "/"
               ? "text-white"
               : "text-gray-400 hover:text-gray-300"
           )}
         >
           <Pickaxe 
-            className={cn(
-              "transition-all",
-              pathname === "/" ? "w-7 h-7" : "w-5 h-5"
-            )}
+            className="transition-all duration-300 ease-out"
             style={{
+              width: pathname === "/" ? 28 : 20,
+              height: pathname === "/" ? 28 : 20,
               transform: isSwinging ? 'rotate(15deg)' : 'rotate(0deg)',
-              transition: 'transform 0.15s ease-in-out'
             }}
           />
         </Link>
@@ -116,32 +121,38 @@ export function NavBar({ onMineClick }: NavBarProps) {
         <Link
           href="/swap"
           className={cn(
-            "flex items-center justify-center p-3 transition-all",
+            "flex items-center justify-center p-3 transition-colors duration-200",
             pathname === "/swap"
               ? "text-white"
               : "text-gray-400 hover:text-gray-300"
           )}
         >
-          <ArrowLeftRight className={cn(
-            "transition-all",
-            pathname === "/swap" ? "w-7 h-7" : "w-5 h-5"
-          )} />
+          <ArrowLeftRight 
+            className="transition-all duration-300 ease-out"
+            style={{
+              width: pathname === "/swap" ? 28 : 20,
+              height: pathname === "/swap" ? 28 : 20,
+            }}
+          />
         </Link>
 
         {/* About */}
         <Link
           href="/about"
           className={cn(
-            "flex items-center justify-center p-3 transition-all",
+            "flex items-center justify-center p-3 transition-colors duration-200",
             pathname === "/about"
               ? "text-white"
               : "text-gray-400 hover:text-gray-300"
           )}
         >
-          <Info className={cn(
-            "transition-all",
-            pathname === "/about" ? "w-7 h-7" : "w-5 h-5"
-          )} />
+          <Info 
+            className="transition-all duration-300 ease-out"
+            style={{
+              width: pathname === "/about" ? 28 : 20,
+              height: pathname === "/about" ? 28 : 20,
+            }}
+          />
         </Link>
       </div>
     </nav>
