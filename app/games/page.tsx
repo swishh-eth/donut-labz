@@ -152,7 +152,10 @@ export default function GamesPage() {
   // Fetch last winner for dice game
   useEffect(() => {
     const fetchLastDiceWinner = async () => {
-      if (!publicClient) return;
+      if (!publicClient) {
+        console.log("No public client");
+        return;
+      }
       
       try {
         // Get total number of bets
@@ -161,6 +164,8 @@ export default function GamesPage() {
           abi: DICE_ABI,
           functionName: "totalBets",
         }) as bigint;
+
+        console.log("Total bets:", totalBets.toString());
 
         if (totalBets === BigInt(0)) {
           setDiceLastWinner(null);
@@ -180,6 +185,8 @@ export default function GamesPage() {
               args: [i]
             }) as [string, string, bigint, number, boolean, string, bigint, number, boolean, bigint, number, string];
 
+            console.log(`Bet ${i}:`, { player: bet[0], won: bet[8], status: bet[10], payout: bet[9].toString() });
+
             // bet[8] = won, bet[10] = status (2 = revealed)
             const won = bet[8];
             const status = bet[10];
@@ -188,14 +195,17 @@ export default function GamesPage() {
 
             if (won && status === 2) {
               lastWin = { player, payout };
+              console.log("Found last win:", lastWin);
               break;
             }
-          } catch {
+          } catch (e) {
+            console.log(`Error fetching bet ${i}:`, e);
             continue;
           }
         }
         
         if (!lastWin) {
+          console.log("No wins found in last 20 bets");
           setDiceLastWinner(null);
           return;
         }
@@ -203,8 +213,10 @@ export default function GamesPage() {
         // Get profile from our cached profiles API
         try {
           const response = await fetch(`/api/profiles?addresses=${lastWin.player}`);
+          console.log("Profile response:", response.status);
           if (response.ok) {
             const data = await response.json();
+            console.log("Profile data:", data);
             const profile = data.profiles[lastWin.player.toLowerCase()];
             
             if (profile?.username) {
@@ -215,8 +227,8 @@ export default function GamesPage() {
               return;
             }
           }
-        } catch {
-          // Fall back to truncated address
+        } catch (e) {
+          console.log("Error fetching profile:", e);
         }
         
         // Fallback to truncated address
