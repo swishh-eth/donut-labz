@@ -666,7 +666,8 @@ export default function MinesPage() {
   const game = activeGameData as OnchainGame | undefined;
   const isGameActive = game ? game[6] === 1 : false; // status is index 6
   const isGameOver = game ? (game[6] === 3 || game[6] === 4) : false; // Lost or CashedOut
-  const hasPlayableGame = hasSecretForGame || isGameOver; // Show grid if we have secret OR game just ended
+  // Show grid if: we have a secret for active game, OR game just ended (but only if we were playing it)
+  const hasPlayableGame = (hasSecretForGame && isGameActive) || (isGameOver && gameStep === "playing");
   const revealedTiles = game ? game[7] : 0; // revealedTiles is index 7
   const safeRevealed = game ? game[5] : 0; // safeRevealed is index 5
   const gameMineCount = game ? game[4] : mineCount; // mineCount is index 4
@@ -722,12 +723,15 @@ export default function MinesPage() {
 
       {/* Error Toast */}
       {errorMessage && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 toast-animate">
-          <div className="bg-red-500/90 backdrop-blur-sm text-white px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 border border-red-400/50">
-            <span className="text-sm font-medium">{errorMessage}</span>
+        <div 
+          className="fixed left-1/2 -translate-x-1/2 z-[100] toast-animate"
+          style={{ top: "calc(env(safe-area-inset-top, 0px) + 60px)" }}
+        >
+          <div className="bg-red-500 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 border border-red-400">
+            <span className="text-sm font-bold">{errorMessage}</span>
             <button 
               onClick={() => setErrorMessage(null)}
-              className="ml-1 hover:bg-red-400/30 rounded-full p-0.5"
+              className="ml-1 hover:bg-red-400/30 rounded-full p-1"
             >
               <X className="w-4 h-4" />
             </button>
@@ -870,9 +874,13 @@ export default function MinesPage() {
                   </div>
                   <button
                     onClick={() => {
+                      // Clear all game state to go back to "buy" screen
                       setPendingGame(null);
                       setGameStep("idle");
+                      // Clear the current game from active games by refetching
+                      // The contract will have removed this game from active list
                       refetchActiveGames();
+                      refetchGameData();
                       refetchBalance();
                     }}
                     className="w-full py-3 rounded-xl bg-white hover:bg-gray-100 text-black font-bold text-lg tracking-wide transition-colors"

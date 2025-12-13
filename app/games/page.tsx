@@ -11,6 +11,7 @@ import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Target, Zap, Trop
 
 // Contract addresses
 const DONUT_DICE_ADDRESS = "0x49826C6C884ed7A828c06f75814Acf8bd658bb76" as const;
+const DONUT_MINES_ADDRESS = "0x9f83a0103eb385cDA21D32dfD3D6C628d591e667" as const;
 
 // Create a public client for Base
 const publicClient = createPublicClient({
@@ -46,6 +47,20 @@ const DICE_ABI = [
     ],
     stateMutability: "view",
     type: "function"
+  }
+] as const;
+
+// Minimal ABI for reading mines events
+const MINES_ABI = [
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "gameId", type: "uint256" },
+      { indexed: true, name: "player", type: "address" },
+      { indexed: false, name: "payout", type: "uint256" }
+    ],
+    name: "GameCashedOut",
+    type: "event"
   }
 ] as const;
 
@@ -155,6 +170,7 @@ export default function GamesPage() {
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [diceLastWinner, setDiceLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
   const [wheelLastWinner, setWheelLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
+  const [minesLastWinner, setMinesLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
 
   // Mock data - replace with real contract reads later
   const [poolData, setPoolData] = useState({
@@ -265,6 +281,75 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch last mines winner
+  useEffect(() => {
+    const fetchLastMinesWinner = async () => {
+      try {
+        // Get recent GameCashedOut events from Mines contract
+        const logs = await publicClient.getLogs({
+          address: DONUT_MINES_ADDRESS,
+          event: {
+            type: 'event',
+            name: 'GameCashedOut',
+            inputs: [
+              { type: 'uint256', name: 'gameId', indexed: true },
+              { type: 'address', name: 'player', indexed: true },
+              { type: 'uint256', name: 'payout', indexed: false }
+            ]
+          },
+          fromBlock: BigInt(Math.max(0, Number(await publicClient.getBlockNumber()) - 10000)),
+          toBlock: 'latest'
+        });
+
+        console.log("Found", logs.length, "GameCashedOut events");
+
+        if (logs.length === 0) {
+          setMinesLastWinner(null);
+          return;
+        }
+
+        // Get most recent cashout
+        const lastLog = logs[logs.length - 1];
+        const player = lastLog.args.player as string;
+        const payout = lastLog.args.payout as bigint;
+
+        // Get profile from our cached profiles API
+        try {
+          const response = await fetch(`/api/profiles?addresses=${player}`);
+          if (response.ok) {
+            const data = await response.json();
+            const profile = data.profiles[player.toLowerCase()];
+            
+            if (profile?.username) {
+              setMinesLastWinner({
+                username: profile.username,
+                amount: `${parseFloat(formatUnits(payout, 18)).toFixed(2)} 🍩`,
+                pfpUrl: profile.pfpUrl || undefined
+              });
+              return;
+            }
+          }
+        } catch (e) {
+          console.log("Error fetching mines profile:", e);
+        }
+        
+        // Fallback to truncated address
+        const truncatedAddress = `${player.slice(0, 6)}...${player.slice(-4)}`;
+        setMinesLastWinner({
+          username: truncatedAddress,
+          amount: `${parseFloat(formatUnits(payout, 18)).toFixed(2)} 🍩`
+        });
+      } catch (error) {
+        console.error("Failed to fetch mines last winner:", error);
+        setMinesLastWinner(null);
+      }
+    };
+
+    fetchLastMinesWinner();
+    const interval = setInterval(fetchLastMinesWinner, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const hydrateContext = async () => {
@@ -351,7 +436,7 @@ export default function GamesPage() {
       description: "Avoid the bombs, cash out anytime",
       icon: Bomb,
       comingSoon: false,
-      lastWinner: null,
+      lastWinner: minesLastWinner,
       onClick: () => router.push("/mines"),
     },
     {
