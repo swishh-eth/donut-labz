@@ -238,14 +238,14 @@ function Tile({
       disabled={disabled || isRevealed}
       className={cn(
         "aspect-square rounded-lg border-2 transition-all duration-200 flex items-center justify-center text-lg font-bold",
-        isRevealed && !isMine && "bg-green-500/30 border-green-500 text-green-400",
+        isRevealed && !isMine && "bg-amber-500/30 border-amber-500 text-amber-400",
         isExploded && "bg-red-500/30 border-red-500 text-red-400 animate-pulse",
         showMine && !isExploded && "bg-red-500/10 border-red-500/50 text-red-400/50",
         !isRevealed && !showMine && "bg-zinc-800 border-zinc-700 hover:bg-zinc-700 hover:border-zinc-600 active:scale-95",
         disabled && !isRevealed && "opacity-50 cursor-not-allowed hover:bg-zinc-800 hover:border-zinc-700"
       )}
     >
-      {isRevealed && !isMine && <Gem className="w-5 h-5" />}
+      {isRevealed && !isMine && <span className="text-xl">🍩</span>}
       {(isExploded || showMine) && <Bomb className="w-5 h-5" />}
     </button>
   );
@@ -494,7 +494,12 @@ export default function MinesPage() {
   useEffect(() => {
     if (isRevealSuccess && gameStep === "revealing") {
       setGameStep("playing");
+      // Refetch immediately and again after a short delay to ensure state is updated
       refetchGameData();
+      setTimeout(() => refetchGameData(), 500);
+      setTimeout(() => refetchGameData(), 1500);
+      // Reset reveal so we can reveal again
+      setTimeout(() => resetReveal(), 100);
       try { sdk.haptics.impactOccurred("light"); } catch {}
     }
   }, [isRevealSuccess, gameStep]);
@@ -757,40 +762,88 @@ export default function MinesPage() {
 
         {/* Game Grid */}
         <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-          <div className="grid grid-cols-5 gap-2 w-full max-w-[320px] mb-2">
-            {Array.from({ length: 25 }).map((_, i) => {
-              const isRevealed = (revealedTiles & (1 << i)) !== 0;
-              const isMine = isRevealed && game !== undefined && game[6] === 3 && (Number(minePositions) & (1 << i)) !== 0;
-              const isGameOver = game !== undefined && (game[6] === 3 || game[6] === 4);
-              
-              return (
-                <Tile
-                  key={i}
-                  index={i}
-                  isRevealed={isRevealed}
-                  isMine={isMine}
-                  isGameOver={isGameOver}
-                  minePositions={minePositions}
-                  onClick={() => handleRevealTile(i)}
-                  disabled={!isGameActive || gameStep === "revealing"}
-                />
-              );
-            })}
-          </div>
-
-          {/* Error Message */}
-          {errorMessage && (
-            <div className="text-red-400 text-sm font-bold mb-2">{errorMessage}</div>
-          )}
-
-          {/* Game Status */}
-          {isGameActive && safeRevealed > 0 && (
-            <div className="text-center mb-2">
-              <div className="text-xs text-gray-400">Current Payout</div>
-              <div className="text-xl font-bold text-green-400">
-                🍩 {(parseFloat(formatUnits(gameBetAmount, 18)) * displayMultiplier).toFixed(2)}
+          {hasPlayableGame ? (
+            <>
+              <div className="grid grid-cols-5 gap-2 w-full max-w-[320px] mb-2">
+                {Array.from({ length: 25 }).map((_, i) => {
+                  const isRevealed = (revealedTiles & (1 << i)) !== 0;
+                  const isMine = isRevealed && game !== undefined && game[6] === 3 && (Number(minePositions) & (1 << i)) !== 0;
+                  const isGameOver = game !== undefined && (game[6] === 3 || game[6] === 4);
+                  
+                  return (
+                    <Tile
+                      key={i}
+                      index={i}
+                      isRevealed={isRevealed}
+                      isMine={isMine}
+                      isGameOver={isGameOver}
+                      minePositions={minePositions}
+                      onClick={() => handleRevealTile(i)}
+                      disabled={!isGameActive || gameStep === "revealing"}
+                    />
+                  );
+                })}
               </div>
-            </div>
+
+              {/* Error Message */}
+              {errorMessage && (
+                <div className="text-red-400 text-sm font-bold mb-2">{errorMessage}</div>
+              )}
+
+              {/* Game Status & Cash Out */}
+              {isGameActive && (
+                <div className="w-full max-w-[320px] mt-2">
+                  {safeRevealed > 0 && (
+                    <div className="text-center mb-2">
+                      <div className="text-xs text-gray-400">Current Payout</div>
+                      <div className="text-xl font-bold text-green-400">
+                        🍩 {(parseFloat(formatUnits(gameBetAmount, 18)) * displayMultiplier).toFixed(2)}
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleCashOut}
+                    disabled={safeRevealed === 0 || gameStep === "revealing" || gameStep === "cashing"}
+                    className="w-full py-3 rounded-xl bg-white hover:bg-gray-100 text-black font-bold text-lg tracking-wide disabled:opacity-50 transition-colors"
+                  >
+                    {gameStep === "cashing" ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Cashing Out...
+                      </span>
+                    ) : (
+                      `CASH OUT ${displayMultiplier.toFixed(2)}x`
+                    )}
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Empty grid preview */}
+              <div className="grid grid-cols-5 gap-2 w-full max-w-[320px] mb-2 opacity-50">
+                {Array.from({ length: 25 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="aspect-square rounded-lg border-2 bg-zinc-800 border-zinc-700"
+                  />
+                ))}
+              </div>
+
+              {/* Error Message */}
+              {errorMessage && (
+                <div className="text-red-400 text-sm font-bold mb-2">{errorMessage}</div>
+              )}
+
+              {/* Pending Games Notice */}
+              {pendingGamesCount > 0 && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 mb-2 w-full max-w-[320px]">
+                  <p className="text-[10px] text-amber-400 text-center">
+                    {pendingGamesCount} pending game(s) - check history to claim 98% back
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -857,49 +910,23 @@ export default function MinesPage() {
                   disabled={isProcessing}
                 />
               </div>
+
+              {/* Start Game Button */}
+              <button
+                onClick={handleStartGame}
+                disabled={isProcessing || !isConnected}
+                className="w-full py-3 rounded-xl bg-white hover:bg-gray-100 text-black font-bold text-lg tracking-wide disabled:opacity-50 transition-colors"
+              >
+                {isProcessing ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    {gameStep === "approving" ? "Approving..." : "Starting..."}
+                  </span>
+                ) : (
+                  "START GAME"
+                )}
+              </button>
             </>
-          )}
-
-          {/* Pending Games Notice */}
-          {pendingGamesCount > 0 && !hasPlayableGame && (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 mb-2">
-              <p className="text-[10px] text-amber-400 text-center">
-                {pendingGamesCount} pending game(s) without secret. Check history to claim back.
-              </p>
-            </div>
-          )}
-
-          {/* Action Button */}
-          {hasPlayableGame && isGameActive ? (
-            <button
-              onClick={handleCashOut}
-              disabled={safeRevealed === 0 || gameStep === "revealing" || gameStep === "cashing"}
-              className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-400 text-black font-bold text-lg tracking-wide disabled:opacity-50 transition-colors"
-            >
-              {gameStep === "cashing" ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Cashing Out...
-                </span>
-              ) : (
-                `CASH OUT ${displayMultiplier.toFixed(2)}x`
-              )}
-            </button>
-          ) : (
-            <button
-              onClick={handleStartGame}
-              disabled={isProcessing || !isConnected}
-              className="w-full py-3 rounded-xl bg-white hover:bg-gray-100 text-black font-bold text-lg tracking-wide disabled:opacity-50 transition-colors"
-            >
-              {isProcessing ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  {gameStep === "approving" ? "Approving..." : "Starting..."}
-                </span>
-              ) : (
-                "START GAME"
-              )}
-            </button>
           )}
         </div>
 
