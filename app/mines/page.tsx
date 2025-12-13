@@ -493,14 +493,32 @@ export default function MinesPage() {
   // Handle reveal success
   useEffect(() => {
     if (isRevealSuccess && gameStep === "revealing") {
-      setGameStep("playing");
       // Refetch immediately and again after a short delay to ensure state is updated
-      refetchGameData();
+      refetchGameData().then((result) => {
+        const gameData = result.data as OnchainGame | undefined;
+        if (gameData) {
+          const status = gameData[6]; // status index
+          if (status === 1) {
+            // Still active - safe tile revealed!
+            setShowConfetti(true);
+            setTimeout(() => setShowConfetti(false), 2000);
+            try {
+              sdk.haptics.impactOccurred("medium");
+              setTimeout(() => sdk.haptics.impactOccurred("light"), 100);
+            } catch {}
+          } else if (status === 3) {
+            // Lost - hit a mine
+            try {
+              sdk.haptics.impactOccurred("heavy");
+            } catch {}
+          }
+        }
+        setGameStep("playing");
+      });
       setTimeout(() => refetchGameData(), 500);
       setTimeout(() => refetchGameData(), 1500);
       // Reset reveal so we can reveal again
       setTimeout(() => resetReveal(), 100);
-      try { sdk.haptics.impactOccurred("light"); } catch {}
     }
   }, [isRevealSuccess, gameStep]);
 
@@ -644,9 +662,11 @@ export default function MinesPage() {
   };
 
   const isProcessing = gameStep !== "idle" && gameStep !== "playing";
-  const hasPlayableGame = currentGameId !== undefined && getSecretForGame() !== null;
+  const hasSecretForGame = currentGameId !== undefined && getSecretForGame() !== null;
   const game = activeGameData as OnchainGame | undefined;
   const isGameActive = game ? game[6] === 1 : false; // status is index 6
+  const isGameOver = game ? (game[6] === 3 || game[6] === 4) : false; // Lost or CashedOut
+  const hasPlayableGame = hasSecretForGame || isGameOver; // Show grid if we have secret OR game just ended
   const revealedTiles = game ? game[7] : 0; // revealedTiles is index 7
   const safeRevealed = game ? game[5] : 0; // safeRevealed is index 5
   const gameMineCount = game ? game[4] : mineCount; // mineCount is index 4
@@ -671,7 +691,12 @@ export default function MinesPage() {
           0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
           100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
         }
+        @keyframes toast-in {
+          0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+          100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
         .confetti { animation: confetti-fall 3s ease-out forwards; }
+        .toast-animate { animation: toast-in 0.2s ease-out forwards; }
       `}</style>
 
       {/* Donut Confetti */}
@@ -692,6 +717,21 @@ export default function MinesPage() {
               🍩
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Error Toast */}
+      {errorMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 toast-animate">
+          <div className="bg-red-500/90 backdrop-blur-sm text-white px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 border border-red-400/50">
+            <span className="text-sm font-medium">{errorMessage}</span>
+            <button 
+              onClick={() => setErrorMessage(null)}
+              className="ml-1 hover:bg-red-400/30 rounded-full p-0.5"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -785,13 +825,8 @@ export default function MinesPage() {
                 })}
               </div>
 
-              {/* Error Message */}
-              {errorMessage && (
-                <div className="text-red-400 text-sm font-bold mb-2">{errorMessage}</div>
-              )}
-
               {/* Game Status & Cash Out */}
-              {isGameActive && (
+              {isGameActive ? (
                 <div className="w-full max-w-[320px] mt-2">
                   {safeRevealed > 0 && (
                     <div className="text-center mb-2">
@@ -816,7 +851,36 @@ export default function MinesPage() {
                     )}
                   </button>
                 </div>
-              )}
+              ) : game && (game[6] === 3 || game[6] === 4) ? (
+                /* Game Over - Lost or Cashed Out */
+                <div className="w-full max-w-[320px] mt-2">
+                  <div className="text-center mb-3">
+                    <div className={cn(
+                      "text-xl font-bold",
+                      game[6] === 3 ? "text-red-400" : "text-green-400"
+                    )}>
+                      {game[6] === 3 ? "💥 BOOM!" : "🎉 CASHED OUT!"}
+                    </div>
+                    <div className="text-sm text-gray-400 mt-1">
+                      {game[6] === 3 
+                        ? `Lost ${parseFloat(formatUnits(gameBetAmount, 18)).toFixed(2)} DONUT`
+                        : `Won ${parseFloat(formatUnits(game[9], 18)).toFixed(2)} DONUT`
+                      }
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setPendingGame(null);
+                      setGameStep("idle");
+                      refetchActiveGames();
+                      refetchBalance();
+                    }}
+                    className="w-full py-3 rounded-xl bg-white hover:bg-gray-100 text-black font-bold text-lg tracking-wide transition-colors"
+                  >
+                    NEW GAME
+                  </button>
+                </div>
+              ) : null}
             </>
           ) : (
             <>
@@ -829,11 +893,6 @@ export default function MinesPage() {
                   />
                 ))}
               </div>
-
-              {/* Error Message */}
-              {errorMessage && (
-                <div className="text-red-400 text-sm font-bold mb-2">{errorMessage}</div>
-              )}
 
               {/* Pending Games Notice */}
               {pendingGamesCount > 0 && (
