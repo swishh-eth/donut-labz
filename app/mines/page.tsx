@@ -256,6 +256,7 @@ export default function MinesPage() {
     abi: ERC20_ABI,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
+    query: { enabled: !!address }
   });
 
   // Read allowance
@@ -264,6 +265,7 @@ export default function MinesPage() {
     abi: ERC20_ABI,
     functionName: "allowance",
     args: address ? [address, DONUT_MINES_ADDRESS] : undefined,
+    query: { enabled: !!address }
   });
 
   // Read active games
@@ -583,7 +585,7 @@ export default function MinesPage() {
 
         {/* Game Grid */}
         <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-          <div className="grid grid-cols-5 gap-1.5 w-full max-w-[260px] mb-2">
+          <div className="grid grid-cols-5 gap-2 w-full max-w-[320px] mb-2">
             {Array.from({ length: 25 }).map((_, i) => {
               const isRevealed = (revealedTiles & (1 << i)) !== 0;
               const isMine = isRevealed && game !== undefined && game[6] === 3 && (Number(minePositions) & (1 << i)) !== 0;
