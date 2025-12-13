@@ -308,7 +308,7 @@ export default function LeaderboardPage() {
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
   return (
-    <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
+    <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style jsx global>{`
         @keyframes fall-1 {
           0% { transform: translateY(-50px) rotate(0deg); }
@@ -346,6 +346,20 @@ export default function LeaderboardPage() {
           -ms-overflow-style: none;
           scroll-snap-type: y mandatory;
           scroll-behavior: smooth;
+          -webkit-mask-image: linear-gradient(
+            to bottom,
+            transparent 0%,
+            black 8%,
+            black 92%,
+            transparent 100%
+          );
+          mask-image: linear-gradient(
+            to bottom,
+            transparent 0%,
+            black 8%,
+            black 92%,
+            transparent 100%
+          );
         }
         .leaderboard-scroll::-webkit-scrollbar {
           display: none;

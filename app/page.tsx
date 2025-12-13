@@ -432,7 +432,7 @@ export default function HomePage() {
 
   if (selectedMiner === "donut") {
     return (
-      <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
+      <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
         <AddToFarcasterDialog showOnFirstVisit={true} />
         <div
           className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 pb-4 shadow-inner"
@@ -492,7 +492,7 @@ export default function HomePage() {
 
   if (selectedMiner === "sprinkles") {
     return (
-      <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
+      <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
         <AddToFarcasterDialog showOnFirstVisit={true} />
         <div
           className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 pb-4 shadow-inner"
@@ -551,7 +551,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className="page-transition flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
+    <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <AddToFarcasterDialog showOnFirstVisit={true} />
       <div
         className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 pb-4 shadow-inner"
