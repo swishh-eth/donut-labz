@@ -54,9 +54,9 @@ function GameTile({
     >
       <div className="flex items-center gap-4 min-w-0 flex-1">
         <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-zinc-800 ${
-          !comingSoon ? "icon-pulse" : ""
+          !comingSoon ? "border border-white" : ""
         }`}>
-          <Icon className={`w-6 h-6 ${!comingSoon ? "text-amber-400 icon-float" : "text-gray-400"}`} />
+          <Icon className={`w-6 h-6 ${!comingSoon ? "text-amber-400 icon-breathe" : "text-gray-400"}`} />
         </div>
         
         <div className="min-w-0 flex-1">
@@ -230,19 +230,12 @@ export default function GamesPage() {
         .game-tile {
           scroll-snap-align: start;
         }
-        @keyframes icon-float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-3px); }
+        @keyframes icon-breathe {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.15); }
         }
-        @keyframes icon-pulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
-          50% { box-shadow: 0 0 12px 2px rgba(251, 191, 36, 0.3); }
-        }
-        .icon-float {
-          animation: icon-float 2s ease-in-out infinite;
-        }
-        .icon-pulse {
-          animation: icon-pulse 2s ease-in-out infinite;
+        .icon-breathe {
+          animation: icon-breathe 2s ease-in-out infinite;
         }
       `}</style>
 
