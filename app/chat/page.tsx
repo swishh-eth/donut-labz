@@ -747,7 +747,7 @@ export default function ChatPage() {
 
           {/* Floating chat input - positioned absolutely at bottom */}
           <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
-            <div className="px-2 pointer-events-auto">
+            <div className="pointer-events-auto">
               {/* Safe tap zone wrapper - extra padding prevents accidental taps on messages */}
               <div className="pt-4 pb-2">
                 {!isConnected ? (
