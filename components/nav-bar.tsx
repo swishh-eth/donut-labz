@@ -69,7 +69,7 @@ export function NavBar({ onMineClick }: NavBarProps) {
           )}
         >
           <Trophy 
-            className="transition-all duration-300 ease-out"
+            className="transition-all duration-500 ease-out"
             style={{
               width: pathname === "/leaderboard" ? 28 : 20,
               height: pathname === "/leaderboard" ? 28 : 20,
@@ -88,7 +88,7 @@ export function NavBar({ onMineClick }: NavBarProps) {
           )}
         >
           <MessageCircle 
-            className="transition-all duration-300 ease-out"
+            className="transition-all duration-500 ease-out"
             style={{
               width: pathname === "/chat" ? 28 : 20,
               height: pathname === "/chat" ? 28 : 20,
@@ -108,7 +108,7 @@ export function NavBar({ onMineClick }: NavBarProps) {
           )}
         >
           <Pickaxe 
-            className="transition-all duration-300 ease-out"
+            className="transition-all duration-500 ease-out"
             style={{
               width: pathname === "/" ? 28 : 20,
               height: pathname === "/" ? 28 : 20,
@@ -128,7 +128,7 @@ export function NavBar({ onMineClick }: NavBarProps) {
           )}
         >
           <ArrowLeftRight 
-            className="transition-all duration-300 ease-out"
+            className="transition-all duration-500 ease-out"
             style={{
               width: pathname === "/swap" ? 28 : 20,
               height: pathname === "/swap" ? 28 : 20,
@@ -147,7 +147,7 @@ export function NavBar({ onMineClick }: NavBarProps) {
           )}
         >
           <Info 
-            className="transition-all duration-300 ease-out"
+            className="transition-all duration-500 ease-out"
             style={{
               width: pathname === "/about" ? 28 : 20,
               height: pathname === "/about" ? 28 : 20,
