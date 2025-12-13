@@ -362,7 +362,7 @@ export default function AboutPage() {
                       <p><span className="text-amber-400 font-semibold">10%</span> → Buy & Burn SPRINKLES</p>
                       <p><span className="text-amber-400 font-semibold">2.5%</span> → Leaderboard Prizes (weekly rewards)</p>
                       <p><span className="text-amber-400 font-semibold">2.5%</span> → SPRINKLES/DONUT LP Burn Reward Pool</p>
-                      <p><span className="text-amber-400 font-semibold">5%</span> → Donut Labs (Treausry / Funding / Buybacks)</p>
+                      <p><span className="text-amber-400 font-semibold">5%</span> → Donut Labs (Funding / Buybacks)</p>
                     </div>
                   </div>
 
