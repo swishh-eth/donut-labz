@@ -120,9 +120,15 @@ function GameTile({
               </span>
             )}
             {!comingSoon && lastWinner && (
-              <div className="winner-container flex-1 min-w-0">
+              <div className="winner-container flex-1 min-w-0 max-w-[180px]">
                 <div className="winner-marquee">
-                  <span className="text-[9px] text-green-400 bg-green-500/20 px-1.5 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
+                  <span className="text-[9px] text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
+                    {lastWinner.pfpUrl && (
+                      <img src={lastWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
+                    )}
+                    @{lastWinner.username} +{lastWinner.amount}
+                  </span>
+                  <span className="text-[9px] text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap ml-4">
                     {lastWinner.pfpUrl && (
                       <img src={lastWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
                     )}
@@ -399,20 +405,21 @@ export default function GamesPage() {
           50% { transform: scale(1.15); }
         }
         @keyframes marquee {
-          0% { transform: translateX(100%); }
-          100% { transform: translateX(-100%); }
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
         }
         .icon-breathe {
           animation: icon-breathe 2s ease-in-out infinite;
         }
         .winner-container {
           overflow: hidden;
-          mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
-          -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+          mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+          -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
         }
         .winner-marquee {
-          display: inline-block;
-          animation: marquee 10s linear infinite;
+          display: inline-flex;
+          align-items: center;
+          animation: marquee 8s linear infinite;
         }
       `}</style>
 
