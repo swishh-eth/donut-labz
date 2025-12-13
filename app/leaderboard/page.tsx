@@ -427,12 +427,7 @@ export default function LeaderboardPage() {
 
               <button
                 onClick={() => setShowUsdPrize(!showUsdPrize)}
-                className={`relative border rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all h-[72px] ${
-                  showUsdPrize 
-                    ? "border-amber-500/50" 
-                    : "border-zinc-800"
-                }`}
-                style={{ backgroundColor: showUsdPrize ? '#2a1f0a' : '#18181b' }}
+                className="border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all h-[72px] bg-zinc-900"
               >
                 {showUsdPrize ? (
                   <>
