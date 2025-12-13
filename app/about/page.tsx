@@ -351,7 +351,7 @@ export default function AboutPage() {
                   />
                 </div>
                 <div className="text-xs text-gray-400 space-y-1.5">
-                  <p>$SPRINKLES is a companion token to $DONUT making $DONUT liquidity even stickier, Sprinkles must be mined by paying $DONUT in a separate auction.</p>
+                  <p>$SPRINKLES is a companion token to $DONUT making $DONUT liquidity even stickier, Sprinkles must be mined by paying $DONUT in a separate dutch auction on Donut Labs.</p>
                   <p className="text-white font-semibold">Max Supply: 210,000,000 SPRINKLES (10x DONUT)</p>
                   <p className="text-gray-500 text-[10px]">10M preminted & seeded with 1,000 DONUT for permanent LP</p>
                   
