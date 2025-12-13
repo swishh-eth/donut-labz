@@ -663,13 +663,13 @@ export default function HomePage() {
               videoSrc="/media/donut-loop.mp4"
               onClick={() => setSelectedMiner("donut")}
             >
-              <div className="text-base font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
+              <div className="text-lg font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
                 Pay ETH
               </div>
-              <div className="text-xl font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 10px rgba(251,191,36,0.8)' }}>
+              <div className="text-2xl font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 10px rgba(251,191,36,0.8)' }}>
                 Mine DONUT
               </div>
-              <div className="text-sm text-white/80">
+              <div className="text-base text-white/80">
                 Price: <span className="font-bold text-white" style={{ textShadow: '0 0 8px rgba(255,255,255,0.6)' }}>
                   Ξ{donutPrice ? formatEth(donutPrice, 2) : "—"}
                 </span>
@@ -680,13 +680,13 @@ export default function HomePage() {
               videoSrc="/media/sprinkles-loop.mp4"
               onClick={() => setSelectedMiner("sprinkles")}
             >
-              <div className="text-base font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
+              <div className="text-lg font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
                 Pay DONUT
               </div>
-              <div className="text-xl font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 10px rgba(251,191,36,0.8)' }}>
+              <div className="text-2xl font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 10px rgba(251,191,36,0.8)' }}>
                 Mine SPRINKLES
               </div>
-              <div className="text-sm text-white/80">
+              <div className="text-base text-white/80">
                 Price: <span className="font-bold text-white" style={{ textShadow: '0 0 8px rgba(255,255,255,0.6)' }}>
                   🍩{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18, 2) : "—"}
                 </span>
