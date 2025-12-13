@@ -256,7 +256,6 @@ export default function MinesPage() {
     abi: ERC20_ABI,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    query: { enabled: !!address }
   });
 
   // Read allowance
@@ -265,8 +264,20 @@ export default function MinesPage() {
     abi: ERC20_ABI,
     functionName: "allowance",
     args: address ? [address, DONUT_MINES_ADDRESS] : undefined,
-    query: { enabled: !!address }
   });
+
+  // Refetch balance when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refetchBalance();
+        refetchAllowance();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [refetchBalance, refetchAllowance]);
 
   // Read active games
   const { data: activeGameIds, refetch: refetchActiveGames } = useReadContract({
@@ -333,16 +344,27 @@ export default function MinesPage() {
   useEffect(() => {
     const error = approveError || startError || revealError || cashOutError;
     if (error) {
-      const msg = error.message;
-      if (msg.includes("User rejected")) {
+      const msg = error.message || "";
+      console.log("Transaction error:", msg);
+      if (msg.includes("User rejected") || msg.includes("rejected")) {
         setErrorMessage("Transaction cancelled");
-      } else if (msg.includes("insufficient")) {
+      } else if (msg.includes("insufficient") || msg.includes("Insufficient")) {
         setErrorMessage("Insufficient balance");
+      } else if (msg.includes("Insufficient pool")) {
+        setErrorMessage("Pool empty - try smaller bet");
+      } else if (msg.includes("Token not supported")) {
+        setErrorMessage("Token not enabled on contract");
+      } else if (msg.includes("Invalid amount")) {
+        setErrorMessage("Bet amount out of range");
+      } else if (msg.includes("Paused")) {
+        setErrorMessage("Game is paused");
       } else {
-        setErrorMessage("Transaction failed");
+        // Show first part of error for debugging
+        const shortMsg = msg.slice(0, 50);
+        setErrorMessage(shortMsg || "Transaction failed");
       }
       setGameStep("idle");
-      setTimeout(() => setErrorMessage(null), 3000);
+      setTimeout(() => setErrorMessage(null), 5000);
     }
   }, [approveError, startError, revealError, cashOutError]);
 
