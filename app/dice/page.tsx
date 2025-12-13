@@ -429,13 +429,27 @@ export default function DicePage() {
           });
           
           if (betRevealedLog && betRevealedLog.data) {
-            // Decode the event data (secret, blockHash, result, won, payout)
-            // result is at byte offset 64 (after secret and blockHash)
-            const data = betRevealedLog.data;
-            const result = parseInt(data.slice(130, 132), 16); // uint8 result
-            const won = data.slice(132, 134) !== "00"; // bool won
-            const payoutHex = data.slice(134, 198); // uint256 payout
+            // Decode the event data properly
+            // BetRevealed event: (bytes32 secret, bytes32 blockHash, uint8 result, bool won, uint256 payout)
+            // data format: 0x + 64 chars (secret) + 64 chars (blockHash) + 64 chars (result padded) + 64 chars (won padded) + 64 chars (payout)
+            const data = betRevealedLog.data.slice(2); // remove 0x
+            
+            // Each field is 32 bytes (64 hex chars)
+            // secret: 0-64
+            // blockHash: 64-128
+            // result: 128-192 (uint8 but padded to 32 bytes)
+            // won: 192-256 (bool padded to 32 bytes)
+            // payout: 256-320
+            
+            const resultHex = data.slice(128, 192);
+            const wonHex = data.slice(192, 256);
+            const payoutHex = data.slice(256, 320);
+            
+            const result = parseInt(resultHex, 16);
+            const won = parseInt(wonHex, 16) === 1;
             const payout = BigInt("0x" + payoutHex);
+            
+            console.log("Bet result:", { result, won, payout: payout.toString() });
             
             setLastResult({ result, won, payout });
             
@@ -611,8 +625,8 @@ export default function DicePage() {
           </button>
         </div>
 
-        {/* Stats Row with Buttons */}
-        <div className="grid grid-cols-4 gap-2 mb-2 flex-shrink-0">
+        {/* Stats Row */}
+        <div className="grid grid-cols-3 gap-2 mb-2 flex-shrink-0">
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-center">
             <div className="text-[8px] text-gray-500 uppercase">Balance</div>
             <div className="text-sm font-bold text-white">{currentToken.emoji}{balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
@@ -627,27 +641,28 @@ export default function DicePage() {
             <div className="text-[8px] text-gray-500 uppercase">Multiplier</div>
             <div className="text-sm font-bold text-green-400">{multiplier}x</div>
           </div>
-          {/* Buttons */}
-          <div className="flex items-center justify-center gap-1">
-            <button
-              onClick={() => setShowApprovals(true)}
-              className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800"
-            >
-              <Shield className="w-4 h-4 text-white" />
-            </button>
-            <button
-              onClick={() => setShowHistory(true)}
-              className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800"
-            >
-              <History className="w-4 h-4 text-white" />
-            </button>
-            <button
-              onClick={() => setShowHelp(true)}
-              className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800"
-            >
-              <HelpCircle className="w-4 h-4 text-white" />
-            </button>
-          </div>
+        </div>
+
+        {/* Action Buttons Row */}
+        <div className="flex items-center justify-center gap-2 mb-2 flex-shrink-0">
+          <button
+            onClick={() => setShowApprovals(true)}
+            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800"
+          >
+            <Shield className="w-4 h-4 text-white" />
+          </button>
+          <button
+            onClick={() => setShowHistory(true)}
+            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800"
+          >
+            <History className="w-4 h-4 text-white" />
+          </button>
+          <button
+            onClick={() => setShowHelp(true)}
+            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800"
+          >
+            <HelpCircle className="w-4 h-4 text-white" />
+          </button>
         </div>
 
         {/* Dice Result - Compact */}
