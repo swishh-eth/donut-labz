@@ -415,50 +415,94 @@ export default function DicePage() {
     if (isRevealSuccess && betStep === "revealing" && revealHash) {
       setBetStep("complete");
       
-      // Get result from contract by refetching bets
+      // Get result from event or contract
       const getResult = async () => {
         try {
-          // Wait a moment for the chain to update
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          const receipt = await publicClient?.getTransactionReceipt({ hash: revealHash });
           
-          // Refetch bets to get the latest data
-          const { data: updatedBets } = await refetchBets();
+          console.log("Receipt logs:", receipt?.logs);
           
-          if (updatedBets && (updatedBets as OnchainBet[]).length > 0) {
-            // Get the most recent bet (first in the array)
-            const latestBet = (updatedBets as OnchainBet[])[0];
+          // Find BetRevealed event - it should have 2 indexed topics (event sig + betId + player)
+          const betRevealedLog = receipt?.logs.find(log => {
+            return log.address.toLowerCase() === DONUT_DICE_ADDRESS.toLowerCase() && 
+                   log.topics.length === 3; // BetRevealed has 2 indexed params
+          });
+          
+          console.log("Found log:", betRevealedLog);
+          
+          let result = 0;
+          let won = false;
+          let payout = BigInt(0);
+          
+          if (betRevealedLog && betRevealedLog.data) {
+            try {
+              // Use viem to properly decode the event data
+              const decoded = decodeAbiParameters(
+                [
+                  { name: 'secret', type: 'bytes32' },
+                  { name: 'blockHash', type: 'bytes32' },
+                  { name: 'result', type: 'uint8' },
+                  { name: 'won', type: 'bool' },
+                  { name: 'payout', type: 'uint256' }
+                ],
+                betRevealedLog.data as `0x${string}`
+              );
+              
+              result = Number(decoded[2]);
+              won = decoded[3] as boolean;
+              payout = decoded[4] as bigint;
+              
+              console.log("Decoded from event:", { result, won, payout: payout.toString() });
+            } catch (parseError) {
+              console.error("Failed to parse event:", parseError);
+            }
+          }
+          
+          // If event parsing failed, get from contract
+          if (result === 0) {
+            console.log("Falling back to contract data...");
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            const { data: updatedBets } = await refetchBets();
             
-            console.log("Latest bet from contract:", latestBet);
-            
-            if (latestBet.status === 2) { // Status.Revealed = 2
-              const result = Number(latestBet.result);
-              const won = latestBet.won;
-              const payout = latestBet.payout;
+            if (updatedBets && (updatedBets as OnchainBet[]).length > 0) {
+              const latestBet = (updatedBets as OnchainBet[])[0];
+              console.log("Latest bet from contract:", latestBet);
               
-              console.log("Setting result:", { result, won, payout: payout.toString() });
-              
-              setLastResult({ result, won, payout });
-              
-              if (won) {
-                setStreak(prev => prev + 1);
-                try { await sdk.haptics.impactOccurred("medium"); } catch {}
-              } else {
-                setStreak(0);
-                try { await sdk.haptics.impactOccurred("heavy"); } catch {}
+              if (latestBet.result > 0) {
+                result = Number(latestBet.result);
+                won = latestBet.won;
+                payout = latestBet.payout;
+                console.log("Got from contract:", { result, won, payout: payout.toString() });
               }
             }
           }
           
+          // Set the result
+          if (result > 0) {
+            setLastResult({ result, won, payout });
+            
+            if (won) {
+              setStreak(prev => prev + 1);
+              try { await sdk.haptics.impactOccurred("medium"); } catch {}
+            } else {
+              setStreak(0);
+              try { await sdk.haptics.impactOccurred("heavy"); } catch {}
+            }
+          } else {
+            console.error("Could not get result from event or contract");
+            setLastResult({ result: 0, won: false, payout: BigInt(0) });
+          }
+          
+          refetchBets();
           refetchBalance();
           
-          // Reset after showing result (but keep lastResult visible)
+          // Reset after showing result
           setTimeout(() => {
             setBetStep("idle");
             setPendingBet(null);
             resetApprove();
             resetCommit();
             resetReveal();
-            // Don't clear lastResult - let it stay visible until next bet
           }, 3000);
           
         } catch (e) {
@@ -468,7 +512,7 @@ export default function DicePage() {
       
       getResult();
     }
-  }, [isRevealSuccess, betStep, revealHash, refetchBets, refetchBalance, resetApprove, resetCommit, resetReveal]);
+  }, [isRevealSuccess, betStep, revealHash, publicClient, refetchBets, refetchBalance, resetApprove, resetCommit, resetReveal]);
 
   const handleRoll = async () => {
     if (!isConnected || !address) return;
