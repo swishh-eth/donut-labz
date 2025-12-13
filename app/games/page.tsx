@@ -12,27 +12,32 @@ import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Target, Zap, Trop
 // Contract addresses
 const DONUT_DICE_ADDRESS = "0x49826C6C884ed7A828c06f75814Acf8bd658bb76" as const;
 
-// Minimal ABI for reading recent bets
+// Minimal ABI for reading bets
 const DICE_ABI = [
   {
-    inputs: [{ name: "count", type: "uint256" }],
-    name: "getRecentBets",
-    outputs: [{
-      components: [
-        { name: "player", type: "address" },
-        { name: "token", type: "address" },
-        { name: "amount", type: "uint256" },
-        { name: "target", type: "uint8" },
-        { name: "isOver", type: "bool" },
-        { name: "commitHash", type: "bytes32" },
-        { name: "commitBlock", type: "uint256" },
-        { name: "result", type: "uint8" },
-        { name: "won", type: "bool" },
-        { name: "payout", type: "uint256" },
-        { name: "status", type: "uint8" }
-      ],
-      type: "tuple[]"
-    }],
+    inputs: [],
+    name: "totalBets",
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "betId", type: "uint256" }],
+    name: "bets",
+    outputs: [
+      { name: "player", type: "address" },
+      { name: "token", type: "address" },
+      { name: "amount", type: "uint256" },
+      { name: "target", type: "uint8" },
+      { name: "isOver", type: "bool" },
+      { name: "commitHash", type: "bytes32" },
+      { name: "commitBlock", type: "uint256" },
+      { name: "result", type: "uint8" },
+      { name: "won", type: "bool" },
+      { name: "payout", type: "uint256" },
+      { name: "status", type: "uint8" },
+      { name: "revealedSecret", type: "bytes32" }
+    ],
     stateMutability: "view",
     type: "function"
   }
@@ -150,18 +155,47 @@ export default function GamesPage() {
       if (!publicClient) return;
       
       try {
-        const recentBets = await publicClient.readContract({
+        // Get total number of bets
+        const totalBets = await publicClient.readContract({
           address: DONUT_DICE_ADDRESS,
           abi: DICE_ABI,
-          functionName: "getRecentBets",
-          args: [BigInt(20)]
-        });
+          functionName: "totalBets",
+        }) as bigint;
 
-        // Find the most recent win (status = 2 means revealed)
-        const lastWin = recentBets.find(bet => bet.won && bet.status === 2);
+        if (totalBets === BigInt(0)) {
+          setDiceLastWinner(null);
+          return;
+        }
+
+        // Check the last 20 bets for a win
+        const startBet = totalBets > BigInt(20) ? totalBets - BigInt(20) : BigInt(1);
+        let lastWin: { player: string; payout: bigint } | null = null;
+
+        for (let i = totalBets; i >= startBet; i--) {
+          try {
+            const bet = await publicClient.readContract({
+              address: DONUT_DICE_ADDRESS,
+              abi: DICE_ABI,
+              functionName: "bets",
+              args: [i]
+            }) as [string, string, bigint, number, boolean, string, bigint, number, boolean, bigint, number, string];
+
+            // bet[8] = won, bet[10] = status (2 = revealed)
+            const won = bet[8];
+            const status = bet[10];
+            const payout = bet[9];
+            const player = bet[0];
+
+            if (won && status === 2) {
+              lastWin = { player, payout };
+              break;
+            }
+          } catch {
+            continue;
+          }
+        }
         
         if (!lastWin) {
-          // No wins found, clear the display
           setDiceLastWinner(null);
           return;
         }

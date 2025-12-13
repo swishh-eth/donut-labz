@@ -711,7 +711,7 @@ export default function DicePage() {
         .confetti-slow { animation: confetti-fall-slow 4s ease-out forwards; }
       `}</style>
 
-      {/* Donut Confetti */}
+      {/* Token Confetti */}
       {showConfetti && (
         <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
           {[...Array(20)].map((_, i) => (
@@ -726,7 +726,7 @@ export default function DicePage() {
                 animationDelay: `${Math.random() * 0.5}s`,
               }}
             >
-              🍩
+              {currentToken.emoji}
             </div>
           ))}
         </div>
