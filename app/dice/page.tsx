@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
-import { parseUnits, formatUnits, keccak256, encodePacked, toHex } from "viem";
+import { parseUnits, formatUnits, keccak256, encodePacked, toHex, decodeAbiParameters } from "viem";
 import { NavBar } from "@/components/nav-bar";
 import { Dices, TrendingUp, TrendingDown, Trophy, History, HelpCircle, X, Loader2, ExternalLink, CheckCircle, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -430,40 +430,26 @@ export default function DicePage() {
           
           if (betRevealedLog && betRevealedLog.data) {
             try {
-              // Decode the event data properly
-              // BetRevealed event: (bytes32 secret, bytes32 blockHash, uint8 result, bool won, uint256 payout)
-              // data format: 0x + 64 chars (secret) + 64 chars (blockHash) + 64 chars (result padded) + 64 chars (won padded) + 64 chars (payout)
-              const data = betRevealedLog.data.slice(2); // remove 0x
-              
               console.log("Raw event data:", betRevealedLog.data);
-              console.log("Data length:", data.length);
               
-              // Each field is 32 bytes (64 hex chars)
-              // secret: 0-64
-              // blockHash: 64-128
-              // result: 128-192 (uint8 but padded to 32 bytes)
-              // won: 192-256 (bool padded to 32 bytes)
-              // payout: 256-320
+              // Use viem to properly decode the event data
+              // BetRevealed event non-indexed params: (bytes32 secret, bytes32 blockHash, uint8 result, bool won, uint256 payout)
+              const decoded = decodeAbiParameters(
+                [
+                  { name: 'secret', type: 'bytes32' },
+                  { name: 'blockHash', type: 'bytes32' },
+                  { name: 'result', type: 'uint8' },
+                  { name: 'won', type: 'bool' },
+                  { name: 'payout', type: 'uint256' }
+                ],
+                betRevealedLog.data as `0x${string}`
+              );
               
-              const resultHex = data.slice(128, 192);
-              const wonHex = data.slice(192, 256);
-              const payoutHex = data.slice(256, 320);
+              const [secret, blockHash, result, won, payout] = decoded;
               
-              console.log("Parsed hex:", { resultHex, wonHex, payoutHex });
+              console.log("Decoded result:", { secret, blockHash, result, won, payout: payout.toString() });
               
-              const result = parseInt(resultHex, 16);
-              const won = parseInt(wonHex, 16) === 1;
-              const payout = BigInt("0x" + (payoutHex || "0"));
-              
-              console.log("Bet result:", { result, won, payout: payout.toString() });
-              
-              if (result > 0 && result <= 100) {
-                setLastResult({ result, won, payout });
-              } else {
-                console.error("Invalid result:", result);
-                // Fallback - show something went wrong but with a placeholder
-                setLastResult({ result: 0, won: false, payout: BigInt(0) });
-              }
+              setLastResult({ result: Number(result), won, payout });
               
               if (won) {
                 setStreak(prev => prev + 1);
