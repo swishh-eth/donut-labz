@@ -42,6 +42,20 @@ const DEADLINE_BUFFER_SECONDS = 15 * 60;
 
 const SPRINKLES_DONUT_PAIR = "0x47E8b03017d8b8d058bA5926838cA4dD4531e668";
 
+const DEFAULT_MESSAGES = [
+  "Every donut needs sprinkles - Donut Labs",
+  "Sprinkling magic on Base - Donut Labs",
+  "Powered by Chromium Donut Tech - Donut Labs",
+  "Stay glazed, stay based - Donut Labs",
+  "Sprinkles make everything better - Donut Labs",
+  "The donut shop never closes - Donut Labs",
+  "More sprinkles, more fun - Donut Labs",
+];
+
+const getRandomDefaultMessage = () => {
+  return DEFAULT_MESSAGES[Math.floor(Math.random() * DEFAULT_MESSAGES.length)];
+};
+
 const ANON_PFPS = [
   "/media/anonpfp1.png",
   "/media/anonpfp2.png",
@@ -108,6 +122,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const mineResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const approvalInputRef = useRef<HTMLInputElement>(null);
+  const defaultMessageRef = useRef<string>(getRandomDefaultMessage());
 
   const resetMineResult = useCallback(() => {
     if (mineResultTimeoutRef.current) {
@@ -326,6 +341,9 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       
       // Award spin, record leaderboard points, and post to chat for successful mine
       if (receipt.status === "success" && txType === "mine" && address) {
+        // Pick a new random message for next time
+        defaultMessageRef.current = getRandomDefaultMessage();
+        
         const fetchWithRetry = async (url: string, body: object, attempt = 1, maxAttempts = 3): Promise<boolean> => {
           try {
             const res = await fetch(url, {
@@ -497,6 +515,9 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       );
       const maxPrice = price === 0n ? 0n : (price * 105n) / 100n;
 
+      // Use custom message if provided, otherwise use the random default
+      const messageToSend = customMessage.trim() || defaultMessageRef.current;
+
       await writeContract({
         account: targetAddress as Address,
         address: SPRINKLES_MINER_ADDRESS,
@@ -508,7 +529,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           BigInt(epochId),
           deadline,
           maxPrice,
-          customMessage.trim() || "Every donut needs sprinkles - Donut Labs",
+          messageToSend,
         ],
         chainId: base.id,
       });
@@ -752,7 +773,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const scrollMessage =
     slot0?.uri && slot0.uri.trim() !== ""
       ? slot0.uri
-      : "Every donut needs sprinkles - Donut Labs";
+      : defaultMessageRef.current;
 
   const handleApproveClick = useCallback(() => {
     if (needsApproval && !isApprovalMode) {
