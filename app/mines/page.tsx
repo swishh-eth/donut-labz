@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 
 // Contract addresses
 const DONUT_MINES_ADDRESS = "0x9f83a0103eb385cDA21D32dfD3D6C628d591e667" as const;
-const DONUT_TOKEN_ADDRESS = "0x376237C31E24A1eaF4F135B8B8F7c197073a70ee" as const;
+const DONUT_TOKEN_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
 
 const ERC20_ABI = [
   {
