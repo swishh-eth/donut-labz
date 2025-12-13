@@ -429,49 +429,69 @@ export default function DicePage() {
           });
           
           if (betRevealedLog && betRevealedLog.data) {
-            // Decode the event data properly
-            // BetRevealed event: (bytes32 secret, bytes32 blockHash, uint8 result, bool won, uint256 payout)
-            // data format: 0x + 64 chars (secret) + 64 chars (blockHash) + 64 chars (result padded) + 64 chars (won padded) + 64 chars (payout)
-            const data = betRevealedLog.data.slice(2); // remove 0x
-            
-            // Each field is 32 bytes (64 hex chars)
-            // secret: 0-64
-            // blockHash: 64-128
-            // result: 128-192 (uint8 but padded to 32 bytes)
-            // won: 192-256 (bool padded to 32 bytes)
-            // payout: 256-320
-            
-            const resultHex = data.slice(128, 192);
-            const wonHex = data.slice(192, 256);
-            const payoutHex = data.slice(256, 320);
-            
-            const result = parseInt(resultHex, 16);
-            const won = parseInt(wonHex, 16) === 1;
-            const payout = BigInt("0x" + payoutHex);
-            
-            console.log("Bet result:", { result, won, payout: payout.toString() });
-            
-            setLastResult({ result, won, payout });
-            
-            if (won) {
-              setStreak(prev => prev + 1);
-              try { await sdk.haptics.impactOccurred("medium"); } catch {}
-            } else {
-              setStreak(0);
-              try { await sdk.haptics.impactOccurred("heavy"); } catch {}
+            try {
+              // Decode the event data properly
+              // BetRevealed event: (bytes32 secret, bytes32 blockHash, uint8 result, bool won, uint256 payout)
+              // data format: 0x + 64 chars (secret) + 64 chars (blockHash) + 64 chars (result padded) + 64 chars (won padded) + 64 chars (payout)
+              const data = betRevealedLog.data.slice(2); // remove 0x
+              
+              console.log("Raw event data:", betRevealedLog.data);
+              console.log("Data length:", data.length);
+              
+              // Each field is 32 bytes (64 hex chars)
+              // secret: 0-64
+              // blockHash: 64-128
+              // result: 128-192 (uint8 but padded to 32 bytes)
+              // won: 192-256 (bool padded to 32 bytes)
+              // payout: 256-320
+              
+              const resultHex = data.slice(128, 192);
+              const wonHex = data.slice(192, 256);
+              const payoutHex = data.slice(256, 320);
+              
+              console.log("Parsed hex:", { resultHex, wonHex, payoutHex });
+              
+              const result = parseInt(resultHex, 16);
+              const won = parseInt(wonHex, 16) === 1;
+              const payout = BigInt("0x" + (payoutHex || "0"));
+              
+              console.log("Bet result:", { result, won, payout: payout.toString() });
+              
+              if (result > 0 && result <= 100) {
+                setLastResult({ result, won, payout });
+              } else {
+                console.error("Invalid result:", result);
+                // Fallback - show something went wrong but with a placeholder
+                setLastResult({ result: 0, won: false, payout: BigInt(0) });
+              }
+              
+              if (won) {
+                setStreak(prev => prev + 1);
+                try { await sdk.haptics.impactOccurred("medium"); } catch {}
+              } else {
+                setStreak(0);
+                try { await sdk.haptics.impactOccurred("heavy"); } catch {}
+              }
+            } catch (parseError) {
+              console.error("Failed to parse event data:", parseError);
+              setLastResult({ result: 0, won: false, payout: BigInt(0) });
             }
+          } else {
+            console.error("No BetRevealed log found");
+            setLastResult({ result: 0, won: false, payout: BigInt(0) });
           }
           
           refetchBets();
           refetchBalance();
           
-          // Reset after showing result
+          // Reset after showing result (but keep lastResult visible)
           setTimeout(() => {
             setBetStep("idle");
             setPendingBet(null);
             resetApprove();
             resetCommit();
             resetReveal();
+            // Don't clear lastResult - let it stay visible until next bet
           }, 3000);
           
         } catch (e) {
@@ -643,8 +663,8 @@ export default function DicePage() {
           </div>
         </div>
 
-        {/* Action Buttons Row */}
-        <div className="flex items-center justify-center gap-2 mb-2 flex-shrink-0">
+        {/* Action Buttons Row - Right aligned */}
+        <div className="flex items-center justify-end gap-2 mb-2 flex-shrink-0">
           <button
             onClick={() => setShowApprovals(true)}
             className="p-2 rounded-lg bg-zinc-900 border border-zinc-800"
@@ -681,7 +701,7 @@ export default function DicePage() {
             ) : lastResult ? (
               <div className="number-reveal flex flex-col items-center">
                 <span className={cn("text-3xl font-black", lastResult.won ? "text-green-400" : "text-red-400")}>
-                  {lastResult.result}
+                  {lastResult.result > 0 ? lastResult.result : "?"}
                 </span>
                 <span className={cn("text-[10px] font-bold", lastResult.won ? "text-green-400" : "text-red-400")}>
                   {lastResult.won ? "WIN!" : "LOSE"}
@@ -812,10 +832,10 @@ export default function DicePage() {
             onClick={handleRoll}
             disabled={isProcessing || !isConnected || parseFloat(betAmount || "0") <= 0 || parseFloat(betAmount || "0") > MAX_BET || parseFloat(betAmount || "0") > balance}
             className={cn(
-              "w-full py-3 rounded-xl font-bold text-base transition-all",
+              "w-full py-3 rounded-xl font-bold text-lg tracking-wide transition-all",
               isProcessing
-                ? "bg-amber-500/50 text-amber-200 cursor-not-allowed"
-                : "bg-amber-500 hover:bg-amber-400 text-black"
+                ? "bg-zinc-500 text-zinc-300 cursor-not-allowed"
+                : "bg-white hover:bg-gray-100 text-black"
             )}
           >
             {isProcessing ? (
@@ -824,7 +844,7 @@ export default function DicePage() {
                 {getStepMessage()}
               </span>
             ) : (
-              "🎲 ROLL DICE"
+              "ROLL DICE"
             )}
           </button>
         </div>
@@ -978,8 +998,9 @@ export default function DicePage() {
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
                     <div>
                       <div className="font-semibold text-amber-400 text-xs">2% House Edge</div>
-                      <div className="text-[11px] text-gray-400">1% → SPRINKLES LP Burn Rewards</div>
-                      <div className="text-[11px] text-gray-400">1% → Donut Labs Treasury</div>
+                      <div className="text-[11px] text-gray-400">1% → House (Grows the Pool)</div>
+                      <div className="text-[11px] text-gray-400">0.5% → LP Burn Rewards</div>
+                      <div className="text-[11px] text-gray-400">0.5% → Treasury</div>
                     </div>
                   </div>
                 </div>
