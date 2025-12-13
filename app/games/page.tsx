@@ -29,14 +29,12 @@ function GameTile({
   description, 
   icon: Icon, 
   comingSoon = true,
-  highlighted = false,
   onClick 
 }: { 
   title: string;
   description: string;
   icon: React.ElementType;
   comingSoon?: boolean;
-  highlighted?: boolean;
   onClick?: () => void;
 }) {
   const [isFocused, setIsFocused] = useState(false);
@@ -48,26 +46,22 @@ function GameTile({
       onMouseLeave={() => setIsFocused(false)}
       disabled={comingSoon}
       className={`game-tile flex items-center justify-between rounded-xl p-4 border transition-all duration-200 w-full text-left ${
-        highlighted
-          ? "border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20"
-          : isFocused && !comingSoon
-            ? "border-amber-400 bg-amber-500/10"
-            : "bg-zinc-900 border-zinc-800"
+        isFocused && !comingSoon
+          ? "border-amber-400 bg-amber-500/10"
+          : "bg-zinc-900 border-zinc-800"
       } ${comingSoon ? "opacity-60 cursor-not-allowed" : "hover:border-zinc-600 active:scale-[0.98]"}`}
       style={{ minHeight: '90px' }}
     >
       <div className="flex items-center gap-4 min-w-0 flex-1">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-          highlighted 
-            ? "bg-amber-500/20" 
-            : "bg-zinc-800"
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-zinc-800 ${
+          !comingSoon ? "icon-pulse" : ""
         }`}>
-          <Icon className={`w-6 h-6 ${highlighted ? "text-amber-400" : "text-gray-400"}`} />
+          <Icon className={`w-6 h-6 ${!comingSoon ? "text-amber-400 icon-float" : "text-gray-400"}`} />
         </div>
         
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className={`font-semibold text-base ${highlighted ? "text-amber-400" : "text-white"}`}>
+            <span className={`font-semibold text-base ${!comingSoon ? "text-white" : "text-gray-400"}`}>
               {title}
             </span>
             {comingSoon && (
@@ -76,18 +70,15 @@ function GameTile({
                 Soon
               </span>
             )}
+            {!comingSoon && (
+              <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">
+                LIVE
+              </span>
+            )}
           </div>
           <div className="text-xs text-gray-400 mt-0.5">{description}</div>
         </div>
       </div>
-
-      {!comingSoon && (
-        <div className="flex-shrink-0 ml-2">
-          <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center">
-            <Zap className="w-4 h-4 text-amber-400" />
-          </div>
-        </div>
-      )}
     </button>
   );
 }
@@ -179,7 +170,6 @@ export default function GamesPage() {
       description: "Spin to win ETH, DONUT & SPRINKLES",
       icon: Target,
       comingSoon: false,
-      highlighted: true,
       onClick: () => router.push("/wheel"),
     },
     {
@@ -188,7 +178,6 @@ export default function GamesPage() {
       description: "Roll over/under, win big multipliers",
       icon: Dices,
       comingSoon: false,
-      highlighted: false,
       onClick: () => router.push("/dice"),
     },
     {
@@ -197,7 +186,6 @@ export default function GamesPage() {
       description: "Buy tickets for the daily DONUT pool",
       icon: Ticket,
       comingSoon: true,
-      highlighted: false,
     },
     {
       id: "tournaments",
@@ -205,7 +193,6 @@ export default function GamesPage() {
       description: "Compete in weekly mining tournaments",
       icon: Trophy,
       comingSoon: true,
-      highlighted: false,
     },
     {
       id: "slots",
@@ -213,7 +200,6 @@ export default function GamesPage() {
       description: "Match symbols to win big",
       icon: Sparkles,
       comingSoon: true,
-      highlighted: false,
     },
     {
       id: "coinflip",
@@ -221,7 +207,6 @@ export default function GamesPage() {
       description: "Heads or tails, 50/50 odds",
       icon: Coins,
       comingSoon: true,
-      highlighted: false,
     },
     {
       id: "mystery",
@@ -229,7 +214,6 @@ export default function GamesPage() {
       description: "Something special coming...",
       icon: HelpCircle,
       comingSoon: true,
-      highlighted: false,
     },
   ];
 
@@ -245,6 +229,20 @@ export default function GamesPage() {
         }
         .game-tile {
           scroll-snap-align: start;
+        }
+        @keyframes icon-float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-3px); }
+        }
+        @keyframes icon-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+          50% { box-shadow: 0 0 12px 2px rgba(251, 191, 36, 0.3); }
+        }
+        .icon-float {
+          animation: icon-float 2s ease-in-out infinite;
+        }
+        .icon-pulse {
+          animation: icon-pulse 2s ease-in-out infinite;
         }
       `}</style>
 
@@ -370,15 +368,17 @@ export default function GamesPage() {
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
                       <div>
                         <div className="font-semibold text-amber-400 text-xs">Transparent Fees</div>
-                        <div className="text-[11px] text-gray-400">All games have a 1% DONUT fee that funds the SPRINKLES LP burn rewards pool.</div>
+                        <div className="text-[11px] text-gray-400">Games have a 2% house edge: 1% grows the pool, 0.5% LP burn, 0.5% treasury.</div>
                       </div>
                     </div>
                   </div>
 
                   <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-xl">
                     <div className="text-[9px] text-gray-500 uppercase mb-1.5 text-center">Fee Distribution</div>
-                    <div className="text-center">
-                      <span className="text-base font-bold text-amber-400">1% → SPRINKLES LP Burn</span>
+                    <div className="text-center space-y-0.5">
+                      <div className="text-xs text-white">1% → House (Pool Growth)</div>
+                      <div className="text-xs text-amber-400">0.5% → LP Burn Rewards</div>
+                      <div className="text-xs text-gray-400">0.5% → Treasury</div>
                     </div>
                   </div>
 
@@ -486,7 +486,6 @@ export default function GamesPage() {
                   description={game.description}
                   icon={game.icon}
                   comingSoon={game.comingSoon}
-                  highlighted={game.highlighted}
                   onClick={game.onClick}
                 />
               ))}
