@@ -364,26 +364,10 @@ export default function GamesPage() {
                     </div>
 
                     <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">3</div>
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
                       <div>
-                        <div className="font-semibold text-white text-xs">Transparent Fees</div>
+                        <div className="font-semibold text-amber-400 text-xs">Transparent Fees</div>
                         <div className="text-[11px] text-gray-400">All games have a 1% DONUT fee that funds the SPRINKLES LP burn rewards pool.</div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
-                      <div>
-                        <div className="font-semibold text-amber-400 text-xs">Non-Custodial</div>
-                        <div className="text-[11px] text-gray-400">Your funds stay in your wallet until you play. Winnings are sent directly to you.</div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">5</div>
-                      <div>
-                        <div className="font-semibold text-white text-xs">Open Source</div>
-                        <div className="text-[11px] text-gray-400">All smart contracts are verified and open source. Trust the code, not us.</div>
                       </div>
                     </div>
                   </div>
