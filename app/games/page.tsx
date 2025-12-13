@@ -299,17 +299,19 @@ export default function GamesPage() {
                 <div className="text-xs font-bold text-gray-500">Coming Soon</div>
               </div>
 
-              <div
-                className="border border-zinc-800 bg-zinc-900 rounded-lg p-2 flex flex-col items-center justify-center text-center h-[72px]"
+              <button
+                onClick={() => setShowBuyTicketsDialog(true)}
+                className="border border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20 rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all hover:from-amber-600/30 hover:to-orange-600/30 active:scale-[0.98] h-[72px]"
               >
                 <div className="flex items-center gap-1 mb-0.5">
-                  <Coins className="w-3 h-3 text-gray-500" />
+                  <Coins className="w-3 h-3 text-amber-400" />
                   <span className="text-[9px] text-gray-400 uppercase">Prize Pool</span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-sm font-bold text-gray-500">Coming Soon</span>
+                  <span className="text-sm font-bold text-amber-400">Coming Soon</span>
+                  <span className="text-[8px] text-amber-400/80">tap for details</span>
                 </div>
-              </div>
+              </button>
             </div>
 
             {/* How It Works Button */}
