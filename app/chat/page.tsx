@@ -144,8 +144,7 @@ export default function ChatPage() {
       
       if (scrollHeight > 0) {
         const topFade = Math.min(1, scrollTop / 100);
-        const bottomFade = Math.min(1, (scrollHeight - scrollTop) / 100);
-        setScrollFade({ top: topFade, bottom: bottomFade });
+        setScrollFade({ top: topFade, bottom: 0 });
       }
     };
 
@@ -365,9 +364,17 @@ export default function ChatPage() {
     }
   };
 
-  const handleTip = (recipientAddress: string, messageHash: string) => {
+  const handleTip = async (recipientAddress: string, messageHash: string) => {
     if (!isConnected || isTipPending || isTipConfirming) return;
     if (recipientAddress.toLowerCase() === address?.toLowerCase()) return;
+    
+    // Light haptic feedback
+    try {
+      await sdk.haptics.impactOccurred("light");
+    } catch {
+      // Silent fail if haptics not supported
+    }
+    
     setTippingMessageHash(messageHash);
     writeTip({
       address: DONUT_ADDRESS,
@@ -428,7 +435,7 @@ export default function ChatPage() {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" 
         }}
       >
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden relative">
           <div className="flex items-center justify-between mb-3 flex-shrink-0">
             <h1 className="text-2xl font-bold tracking-wide">CHAT</h1>
             {context?.user && (
@@ -531,13 +538,13 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Messages container with dynamic fade */}
+          {/* Messages container - extends to bottom */}
           <div 
             ref={messagesContainerRef} 
             className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll"
             style={{
-              WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
-              maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
+              WebkitMaskImage: scrollFade.top > 0.1 ? `linear-gradient(to bottom, transparent 0%, black ${scrollFade.top * 8}%, black 100%)` : undefined,
+              maskImage: scrollFade.top > 0.1 ? `linear-gradient(to bottom, transparent 0%, black ${scrollFade.top * 8}%, black 100%)` : undefined,
             }}
           >
             {messagesLoading ? (
@@ -627,113 +634,119 @@ export default function ChatPage() {
                     </div>
                   </div>
                 )}
-                <div ref={messagesEndRef} className="pb-4" />
+                {/* Padding at bottom for floating button */}
+                <div ref={messagesEndRef} className="pb-16" />
               </>
             )}
           </div>
 
-          {/* Sliding chat input */}
-          <div className="flex-shrink-0 pt-2 pb-2">
-            {!isConnected ? (
-              <div className="flex items-center justify-center bg-zinc-900 border border-zinc-800 rounded-xl p-3">
-                <p className="text-sm text-gray-400">Connect wallet to send messages</p>
-              </div>
-            ) : (
-              <>
-                {eligibilityError && (
-                  <div className="mb-2 flex rounded-xl overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-                    <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-xl p-3">
-                      <div className="flex items-start gap-2">
-                        <X className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-xs font-semibold text-red-400 mb-1">Cannot Send Message</p>
-                          <ul className="space-y-1">
-                            {eligibilityError.map((reason, i) => <li key={i} className="text-[11px] text-red-300/80 leading-relaxed">{reason}</li>)}
-                          </ul>
+          {/* Floating chat input - positioned absolutely at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
+            {/* Gradient fade from navbar */}
+            <div className="h-20 bg-gradient-to-t from-black via-black/80 to-transparent" />
+            
+            <div className="bg-black pb-2 pointer-events-auto">
+              {!isConnected ? (
+                <div className="flex items-center justify-center bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+                  <p className="text-sm text-gray-400">Connect wallet to send messages</p>
+                </div>
+              ) : (
+                <>
+                  {eligibilityError && (
+                    <div className="mb-2 flex rounded-xl overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+                      <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-xl p-3">
+                        <div className="flex items-start gap-2">
+                          <X className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-xs font-semibold text-red-400 mb-1">Cannot Send Message</p>
+                            <ul className="space-y-1">
+                              {eligibilityError.map((reason, i) => <li key={i} className="text-[11px] text-red-300/80 leading-relaxed">{reason}</li>)}
+                            </ul>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <button onClick={() => setEligibilityError(null)} className="flex items-center justify-center px-4 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-xl hover:bg-red-900/50 transition-colors">
-                      <X className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
-                    </button>
-                  </div>
-                )}
-                {rateLimitBanRemaining > 0 && (
-                  <div className="mb-2 bg-red-500/10 border border-red-500/30 rounded-xl p-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Timer className="w-4 h-4 text-red-400" />
-                      <span className="text-xs text-red-400">Rate limited! Too many messages.</span>
-                    </div>
-                    <div className="text-sm font-bold text-red-400">{formatBanTime(rateLimitBanRemaining)}</div>
-                  </div>
-                )}
-                {(isTipPending || isTipConfirming) && (
-                  <div className="mb-2 bg-amber-500/10 border border-amber-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
-                    <Heart className="w-4 h-4 text-amber-400 animate-pulse" />
-                    <span className="text-xs text-amber-400">{isTipPending ? "Confirm tip in wallet..." : "Sending 1 🍩DONUT..."}</span>
-                  </div>
-                )}
-                {isTipSuccess && (
-                  <div className="mb-2 bg-green-500/10 border border-green-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
-                    <Heart className="w-4 h-4 text-green-400 fill-green-400" />
-                    <span className="text-xs text-green-400">Tip sent! 🍩</span>
-                  </div>
-                )}
-                
-                {/* Sliding input container */}
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={toggleChatInput}
-                    disabled={cooldownRemaining > 0 || rateLimitBanRemaining > 0}
-                    className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 ${
-                      isChatExpanded 
-                        ? "bg-zinc-700 text-white rotate-45" 
-                        : cooldownRemaining > 0 || rateLimitBanRemaining > 0
-                          ? "bg-zinc-800 text-gray-500"
-                          : "bg-white text-black hover:bg-gray-200"
-                    }`}
-                  >
-                    {cooldownRemaining > 0 ? (
-                      <span className="text-xs font-bold">{cooldownRemaining}</span>
-                    ) : rateLimitBanRemaining > 0 ? (
-                      <Timer className="w-5 h-5" />
-                    ) : (
-                      <Plus className="w-5 h-5 transition-transform duration-300" />
-                    )}
-                  </button>
-                  
-                  <div 
-                    className={`flex-1 overflow-hidden transition-all duration-300 ease-out ${
-                      isChatExpanded ? "max-w-full opacity-100" : "max-w-0 opacity-0"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2">
-                      <input
-                        ref={inputRef}
-                        type="text"
-                        value={message}
-                        onChange={(e) => { setMessage(e.target.value.slice(0, 280)); if (eligibilityError) setEligibilityError(null); }}
-                        onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                        placeholder="Type a message..."
-                        disabled={isPending || isConfirming || isVerifying}
-                        className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-2 py-1 outline-none disabled:opacity-50 min-w-0"
-                        style={{ fontSize: '16px' }}
-                      />
-                      <span className="text-[10px] text-gray-500 flex-shrink-0">{message.length}/280</span>
-                      <button 
-                        onClick={handleSendMessage} 
-                        disabled={!message.trim() || isPending || isConfirming || isVerifying} 
-                        className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                      >
-                        {isVerifying ? <span className="text-xs font-bold">...</span> : <Send className="w-4 h-4" />}
+                      <button onClick={() => setEligibilityError(null)} className="flex items-center justify-center px-4 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-xl hover:bg-red-900/50 transition-colors">
+                        <X className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
                       </button>
                     </div>
+                  )}
+                  {rateLimitBanRemaining > 0 && (
+                    <div className="mb-2 bg-red-500/10 border border-red-500/30 rounded-xl p-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Timer className="w-4 h-4 text-red-400" />
+                        <span className="text-xs text-red-400">Rate limited! Too many messages.</span>
+                      </div>
+                      <div className="text-sm font-bold text-red-400">{formatBanTime(rateLimitBanRemaining)}</div>
+                    </div>
+                  )}
+                  {(isTipPending || isTipConfirming) && (
+                    <div className="mb-2 bg-amber-500/10 border border-amber-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
+                      <Heart className="w-4 h-4 text-amber-400 animate-pulse" />
+                      <span className="text-xs text-amber-400">{isTipPending ? "Confirm tip in wallet..." : "Sending 1 🍩DONUT..."}</span>
+                    </div>
+                  )}
+                  {isTipSuccess && (
+                    <div className="mb-2 bg-green-500/10 border border-green-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
+                      <Heart className="w-4 h-4 text-green-400 fill-green-400" />
+                      <span className="text-xs text-green-400">Tip sent! 🍩</span>
+                    </div>
+                  )}
+                  
+                  {/* Sliding input container */}
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={toggleChatInput}
+                      disabled={cooldownRemaining > 0 || rateLimitBanRemaining > 0}
+                      className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 ${
+                        isChatExpanded 
+                          ? "bg-zinc-700 text-white rotate-45" 
+                          : cooldownRemaining > 0 || rateLimitBanRemaining > 0
+                            ? "bg-zinc-800 text-gray-500"
+                            : "bg-white text-black hover:bg-gray-200"
+                      }`}
+                    >
+                      {cooldownRemaining > 0 ? (
+                        <span className="text-xs font-bold">{cooldownRemaining}</span>
+                      ) : rateLimitBanRemaining > 0 ? (
+                        <Timer className="w-5 h-5" />
+                      ) : (
+                        <Plus className="w-5 h-5 transition-transform duration-300" />
+                      )}
+                    </button>
+                    
+                    <div 
+                      className={`flex-1 overflow-hidden transition-all duration-300 ease-out ${
+                        isChatExpanded ? "max-w-full opacity-100" : "max-w-0 opacity-0"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2">
+                        <input
+                          ref={inputRef}
+                          type="text"
+                          value={message}
+                          onChange={(e) => { setMessage(e.target.value.slice(0, 280)); if (eligibilityError) setEligibilityError(null); }}
+                          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
+                          placeholder="Type a message..."
+                          disabled={isPending || isConfirming || isVerifying}
+                          className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-2 py-1 outline-none disabled:opacity-50 min-w-0"
+                          style={{ fontSize: '16px' }}
+                        />
+                        <span className="text-[10px] text-gray-500 flex-shrink-0">{message.length}/280</span>
+                        <button 
+                          onClick={handleSendMessage} 
+                          disabled={!message.trim() || isPending || isConfirming || isVerifying} 
+                          className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                        >
+                          {isVerifying ? <span className="text-xs font-bold">...</span> : <Send className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                
-                {(isPending || isConfirming) && <p className="text-[10px] text-gray-400 text-center mt-1">{isPending ? "Confirm in wallet..." : "Confirming transaction..."}</p>}
-              </>
-            )}
+                  
+                  {(isPending || isConfirming) && <p className="text-[10px] text-gray-400 text-center mt-1">{isPending ? "Confirm in wallet..." : "Confirming transaction..."}</p>}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
