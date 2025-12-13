@@ -140,6 +140,37 @@ type PendingGame = {
   amount: string;
 };
 
+// Local storage key for game secrets
+const GAME_SECRETS_KEY = "donut-mines-secrets";
+
+// Save game secret to localStorage
+const saveGameSecret = (gameId: string, secret: string) => {
+  try {
+    const secrets = JSON.parse(localStorage.getItem(GAME_SECRETS_KEY) || "{}");
+    secrets[gameId] = secret;
+    localStorage.setItem(GAME_SECRETS_KEY, JSON.stringify(secrets));
+  } catch {}
+};
+
+// Get game secret from localStorage
+const getGameSecret = (gameId: string): `0x${string}` | null => {
+  try {
+    const secrets = JSON.parse(localStorage.getItem(GAME_SECRETS_KEY) || "{}");
+    return secrets[gameId] || null;
+  } catch {
+    return null;
+  }
+};
+
+// Clear game secret from localStorage
+const clearGameSecret = (gameId: string) => {
+  try {
+    const secrets = JSON.parse(localStorage.getItem(GAME_SECRETS_KEY) || "{}");
+    delete secrets[gameId];
+    localStorage.setItem(GAME_SECRETS_KEY, JSON.stringify(secrets));
+  } catch {}
+};
+
 // Generate a random bytes32 secret
 const generateSecret = (): `0x${string}` => {
   const array = new Uint8Array(32);
@@ -400,6 +431,13 @@ export default function MinesPage() {
     }
   }, [isStartSuccess, gameStep]);
 
+  // When active game is detected, set gameStep to playing
+  useEffect(() => {
+    if (activeGameId && gameStep === "idle") {
+      setGameStep("playing");
+    }
+  }, [activeGameId, gameStep]);
+
   // Handle reveal success
   useEffect(() => {
     if (isRevealSuccess && gameStep === "revealing") {
@@ -437,6 +475,7 @@ export default function MinesPage() {
     const secret = generateSecret();
     const commitHash = hashSecret(secret);
     
+    // Store secret temporarily - we'll save to localStorage with gameId after tx confirms
     setPendingGame({
       secret,
       commitHash,
@@ -444,6 +483,9 @@ export default function MinesPage() {
       mineCount,
       amount: betAmount
     });
+    
+    // Also save to localStorage with commitHash as temp key
+    saveGameSecret(commitHash, secret);
     
     setGameStep("starting");
     
@@ -477,7 +519,33 @@ export default function MinesPage() {
   };
 
   const handleRevealTile = (tileIndex: number) => {
-    if (!pendingGame || !activeGameId || gameStep !== "playing") return;
+    if (!activeGameId || gameStep !== "playing") return;
+    
+    // Try to get secret from pendingGame state first, then localStorage
+    let secret = pendingGame?.secret;
+    
+    if (!secret && game) {
+      // Try to find secret using the commit hash from the game data
+      // Game data is a tuple: [player, token, betAmount, commitBlock, mineCount, safeRevealed, status, revealedTiles, minePositions, payout]
+      // We stored the secret with commitHash as key when starting
+      const gameCore = activeGameData as OnchainGame | undefined;
+      if (gameCore) {
+        // We need to check localStorage for any stored secrets
+        const secrets = JSON.parse(localStorage.getItem(GAME_SECRETS_KEY) || "{}");
+        // Find a secret that matches by checking each one
+        for (const [key, storedSecret] of Object.entries(secrets)) {
+          if (hashSecret(storedSecret as `0x${string}`) === key) {
+            secret = storedSecret as `0x${string}`;
+            break;
+          }
+        }
+      }
+    }
+    
+    if (!secret) {
+      setErrorMessage("Secret not found - game may have expired");
+      return;
+    }
     
     setGameStep("revealing");
     
@@ -485,7 +553,7 @@ export default function MinesPage() {
       address: DONUT_MINES_ADDRESS,
       abi: MINES_ABI,
       functionName: "revealTile",
-      args: [activeGameId, tileIndex, pendingGame.secret]
+      args: [activeGameId, tileIndex, secret]
     });
   };
 
