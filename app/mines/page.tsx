@@ -493,32 +493,32 @@ export default function MinesPage() {
   // Handle reveal success
   useEffect(() => {
     if (isRevealSuccess && gameStep === "revealing") {
-      // Refetch immediately and again after a short delay to ensure state is updated
-      refetchGameData().then((result) => {
-        const gameData = result.data as OnchainGame | undefined;
-        if (gameData) {
-          const status = gameData[6]; // status index
-          if (status === 1) {
-            // Still active - safe tile revealed!
-            setShowConfetti(true);
-            setTimeout(() => setShowConfetti(false), 2000);
-            try {
-              sdk.haptics.impactOccurred("medium");
-              setTimeout(() => sdk.haptics.impactOccurred("light"), 100);
-            } catch {}
-          } else if (status === 3) {
-            // Lost - hit a mine
-            try {
-              sdk.haptics.impactOccurred("heavy");
-            } catch {}
-          }
-        }
-        setGameStep("playing");
-      });
-      setTimeout(() => refetchGameData(), 500);
-      setTimeout(() => refetchGameData(), 1500);
+      // Immediately set back to playing so user can click another tile
+      setGameStep("playing");
+      
+      // Show confetti and haptics immediately (optimistic - assume safe)
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 1500);
+      try {
+        sdk.haptics.impactOccurred("medium");
+      } catch {}
+      
       // Reset reveal so we can reveal again
-      setTimeout(() => resetReveal(), 100);
+      resetReveal();
+      
+      // Refetch game data multiple times to catch the update
+      refetchGameData();
+      setTimeout(() => refetchGameData(), 300);
+      setTimeout(() => refetchGameData(), 800);
+      setTimeout(() => {
+        refetchGameData().then((result) => {
+          const gameData = result.data as OnchainGame | undefined;
+          if (gameData && gameData[6] === 3) {
+            // Actually lost - heavy haptic
+            try { sdk.haptics.impactOccurred("heavy"); } catch {}
+          }
+        });
+      }, 1500);
     }
   }, [isRevealSuccess, gameStep]);
 
