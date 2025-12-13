@@ -2,13 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
+import { useReadContract } from "wagmi";
+import { base } from "wagmi/chains";
+import { formatEther } from "viem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { AddToFarcasterButton } from "@/components/add-to-farcaster-button";
 import { DuneDashboardButton } from "@/components/dune-dashboard-button";
 import { CommunityLPButton } from "@/components/community-lp-button";
 import { LearnMoreButton } from "@/components/learn-more-button";
-import { Info, Pickaxe, Clock, Flame, Building, Beaker, Code, Sparkles, MessageCircle, Timer } from "lucide-react";
+import { Info, Pickaxe, Flame, Building, Beaker, Code, Sparkles, MessageCircle, Timer, Dices, Trophy } from "lucide-react";
+
+const SPRINKLES_ADDRESS = "0xa890060bE1788A676dBc3894160f5Dc5deD2C98D" as const;
+const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD" as const;
 
 type MiniAppContext = {
   user?: {
@@ -30,20 +36,18 @@ type SectionProps = {
   icon: React.ReactNode;
   title: string;
   children: React.ReactNode;
-  variant?: 'default' | 'amber' | 'glow';
+  variant?: 'default' | 'amber';
 };
 
 const Section = ({ icon, title, children, variant = 'default' }: SectionProps) => {
   const styles = {
     default: 'bg-zinc-900 border border-zinc-800',
-    amber: 'bg-amber-950/30 border border-amber-500/30',
-    glow: 'bg-zinc-900 border border-white/50 shadow-[0_0_20px_rgba(255,255,255,0.3),inset_0_0_20px_rgba(255,255,255,0.05)]',
+    amber: 'border border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20',
   };
 
   const titleStyles = {
     default: 'text-white',
-    amber: 'text-amber-300',
-    glow: 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]',
+    amber: 'text-amber-400',
   };
 
   return (
@@ -64,6 +68,30 @@ export default function AboutPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
+
+  // Read SPRINKLES balance of dead address (burned tokens)
+  const { data: sprinklesBurned } = useReadContract({
+    address: SPRINKLES_ADDRESS,
+    abi: [
+      {
+        inputs: [{ name: "account", type: "address" }],
+        name: "balanceOf",
+        outputs: [{ name: "", type: "uint256" }],
+        stateMutability: "view",
+        type: "function",
+      },
+    ] as const,
+    functionName: "balanceOf",
+    args: [DEAD_ADDRESS],
+    chainId: base.id,
+    query: {
+      refetchInterval: 30_000,
+    },
+  });
+
+  const formattedBurned = sprinklesBurned 
+    ? Math.floor(Number(formatEther(sprinklesBurned))).toLocaleString()
+    : "0";
 
   useEffect(() => {
     let cancelled = false;
@@ -193,7 +221,7 @@ export default function AboutPage() {
             <div className="space-y-2 pb-4">
               {/* What is $DONUT - Now Amber Highlight */}
               <Section
-                icon={<Info className="w-4 h-4 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]" />}
+                icon={<Info className="w-4 h-4 text-amber-400" />}
                 title="What Is $DONUT"
                 variant="amber"
               >
@@ -227,7 +255,7 @@ export default function AboutPage() {
 
               {/* What is $SPRINKLES */}
               <Section
-                icon={<Sparkles className="w-4 h-4 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]" />}
+                icon={<Sparkles className="w-4 h-4 text-amber-400" />}
                 title="What Is $SPRINKLES"
                 variant="amber"
               >
@@ -260,29 +288,21 @@ export default function AboutPage() {
                     <div className="text-[10px] text-gray-500">Tail Rate</div>
                   </div>
                 </div>
-              </Section>
 
-              {/* Chat to Earn - Now White Glow */}
-              <Section
-                icon={<MessageCircle className="w-4 h-4 text-white drop-shadow-[0_0_8px_rgba(255,255,255,1)]" />}
-                title="Chat to Earn Sprinkles"
-                variant="glow"
-              >
-                <p>Send onchain messages in the Chat tab to earn sprinkles points!</p>
-                <p>Your earnings per message = <span className="text-white font-semibold drop-shadow-[0_0_4px_rgba(255,255,255,0.6)]">Multiplier × Neynar Score</span></p>
-                <div className="mt-2 p-2 bg-white/5 border border-white/20 rounded-lg">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Timer className="w-3 h-3 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                    <span className="text-[10px] text-white font-semibold drop-shadow-[0_0_4px_rgba(255,255,255,0.6)]">Halving Schedule</span>
+                <div className="mt-3 p-2 bg-amber-900/30 border border-amber-500/30 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Flame className="w-3 h-3 text-amber-400" />
+                      <span className="text-[10px] text-amber-400 font-semibold">Total SPRINKLES Burned</span>
+                    </div>
+                    <span className="text-sm font-bold text-amber-300">{formattedBurned}</span>
                   </div>
-                  <p className="text-[10px] text-gray-400">Multiplier halves every 30 days: 1x → 0.5x → 0.25x → min 0.1x</p>
-                  <p className="text-[10px] text-gray-500 mt-1">Chat early to earn more sprinkles!</p>
                 </div>
               </Section>
 
               {/* How Mining Works */}
               <Section
-                icon={<Pickaxe className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
+                icon={<Pickaxe className="w-4 h-4 text-white" />}
                 title="How Mining Works"
               >
                 <p>Only one active miner at a time, called the <span className="text-white font-semibold">King Glazer</span>.</p>
@@ -296,7 +316,7 @@ export default function AboutPage() {
 
               {/* Proof of Just-In-Time Stake */}
               <Section
-                icon={<Flame className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
+                icon={<Flame className="w-4 h-4 text-white" />}
                 title="Proof of Just-In-Time Stake"
               >
                 <p>ETH is "staked" only while controlling emissions.</p>
@@ -306,7 +326,7 @@ export default function AboutPage() {
 
               {/* Treasury */}
               <Section
-                icon={<Building className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
+                icon={<Building className="w-4 h-4 text-white" />}
                 title="Treasury"
               >
                 <p>Treasury ETH is used to buy and burn DONUT-WETH LP in the Blazery.</p>
@@ -315,18 +335,78 @@ export default function AboutPage() {
 
               {/* What is Donut Labs? */}
               <Section
-                icon={<Beaker className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
+                icon={<Beaker className="w-4 h-4 text-white" />}
                 title="What is Donut Labs?"
               >
                 <p>Donut Labs is an independent donut shop operating inside the $DONUT ecosystem.</p>
-                <p>When you Glaze through this mini-app, you're automatically entered into the <span className="text-white font-semibold">weekly rewards leaderboard</span>.</p>
-                <p>Top 3 Glazers of the week split the prize pool: ETH, DONUT, and SPRINKLES!</p>
-                <p className="text-gray-500 italic">More Glazes = More Entries = Higher Rank</p>
+                <p>We build fun ways to interact with $DONUT and $SPRINKLES, including mining interfaces, games, and social features.</p>
+                <p className="text-gray-500 italic">Your friendly neighborhood donut shop on Base.</p>
+              </Section>
+
+              {/* Games */}
+              <Section
+                icon={<Dices className="w-4 h-4 text-white" />}
+                title="Games"
+              >
+                <p>Donut Labs features onchain games where you can win ETH, DONUT, and SPRINKLES.</p>
+                <p>All games are <span className="text-white font-semibold">100% onchain</span> and <span className="text-white font-semibold">provably fair</span> — every bet, spin, and outcome is recorded on Base and verifiable.</p>
+                <div className="pl-2 border-l border-zinc-700 ml-1 space-y-1 mt-2">
+                  <p>• <span className="text-white">Glaze Wheel</span> — Spin to win from the prize pool</p>
+                  <p>• <span className="text-white">Daily Lottery</span> — Buy tickets for daily draws</p>
+                  <p>• <span className="text-gray-500">More games coming soon...</span></p>
+                </div>
+                <p className="mt-2 text-gray-500 text-[10px]">All games have a 1% DONUT fee that funds the SPRINKLES LP burn rewards pool.</p>
+              </Section>
+
+              {/* Leaderboard */}
+              <Section
+                icon={<Trophy className="w-4 h-4 text-white" />}
+                title="Leaderboard"
+              >
+                <p>Compete weekly on the Donut Labs leaderboard for a share of the prize pool!</p>
+                <p>Earn points by mining:</p>
+                <div className="pl-2 border-l border-zinc-700 ml-1 space-y-1 mt-1">
+                  <p>• <span className="text-white font-semibold">Mine DONUT</span> = 2 points per mine</p>
+                  <p>• <span className="text-white font-semibold">Mine SPRINKLES</span> = 1 point per mine</p>
+                </div>
+                <p className="mt-2">Top 3 glazers split the weekly prize pool:</p>
+                <div className="grid grid-cols-3 gap-2 text-center mt-2">
+                  <div className="bg-zinc-800 rounded-lg p-2">
+                    <div className="text-sm font-bold text-white">🥇 1st</div>
+                    <div className="text-[10px] text-gray-400">50%</div>
+                  </div>
+                  <div className="bg-zinc-800 rounded-lg p-2">
+                    <div className="text-sm font-bold text-white">🥈 2nd</div>
+                    <div className="text-[10px] text-gray-400">30%</div>
+                  </div>
+                  <div className="bg-zinc-800 rounded-lg p-2">
+                    <div className="text-sm font-bold text-white">🥉 3rd</div>
+                    <div className="text-[10px] text-gray-400">20%</div>
+                  </div>
+                </div>
+                <p className="mt-2 text-gray-500 text-[10px]">Leaderboard resets every Friday at 12pm UTC. Prizes include ETH, DONUT, and SPRINKLES!</p>
+              </Section>
+
+              {/* Chat to Earn */}
+              <Section
+                icon={<MessageCircle className="w-4 h-4 text-white" />}
+                title="Chat to Earn Sprinkles"
+              >
+                <p>Send onchain messages in the Chat tab to earn sprinkles points!</p>
+                <p>Your earnings per message = <span className="text-white font-semibold">Multiplier × Neynar Score</span></p>
+                <div className="mt-2 p-2 bg-zinc-800 border border-zinc-700 rounded-lg">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Timer className="w-3 h-3 text-white" />
+                    <span className="text-[10px] text-white font-semibold">Halving Schedule</span>
+                  </div>
+                  <p className="text-[10px] text-gray-400">Multiplier halves every 30 days: 1x → 0.5x → 0.25x → min 0.1x</p>
+                  <p className="text-[10px] text-gray-500 mt-1">Chat early to earn more sprinkles!</p>
+                </div>
               </Section>
 
               {/* Builder Codes */}
               <Section
-                icon={<Code className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />}
+                icon={<Code className="w-4 h-4 text-white" />}
                 title="Builder Codes"
               >
                 <p>Anyone can host their own Donut Shop by deploying a frontend.</p>
