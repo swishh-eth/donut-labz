@@ -120,13 +120,15 @@ function GameTile({
               </span>
             )}
             {!comingSoon && lastWinner && (
-              <div className="overflow-hidden max-w-[140px] flex-shrink">
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 flex items-center gap-1 whitespace-nowrap winner-marquee">
-                  {lastWinner.pfpUrl && (
-                    <img src={lastWinner.pfpUrl} alt="" className="w-3 h-3 rounded-full flex-shrink-0" />
-                  )}
-                  <span>@{lastWinner.username} +{lastWinner.amount}</span>
-                </span>
+              <div className="winner-container flex-1 min-w-0">
+                <div className="winner-marquee">
+                  <span className="text-[9px] text-green-400 bg-green-500/20 px-1.5 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
+                    {lastWinner.pfpUrl && (
+                      <img src={lastWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
+                    )}
+                    @{lastWinner.username} +{lastWinner.amount}
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -396,23 +398,21 @@ export default function GamesPage() {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.15); }
         }
-        @keyframes winner-scroll {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        @keyframes winner-fade-in {
-          0% { opacity: 0; }
-          100% { opacity: 1; }
+        @keyframes marquee {
+          0% { transform: translateX(100%); }
+          100% { transform: translateX(-100%); }
         }
         .icon-breathe {
           animation: icon-breathe 2s ease-in-out infinite;
         }
-        .winner-marquee {
-          display: inline-flex;
-          animation: winner-scroll 8s linear infinite, winner-fade-in 0.5s ease-out;
+        .winner-container {
+          overflow: hidden;
+          mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+          -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
         }
-        .winner-marquee:hover {
-          animation-play-state: paused;
+        .winner-marquee {
+          display: inline-block;
+          animation: marquee 10s linear infinite;
         }
       `}</style>
 
