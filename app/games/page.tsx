@@ -80,9 +80,9 @@ function GameTile({
       disabled={comingSoon}
       className={`game-tile flex items-center justify-between rounded-xl p-4 border transition-all duration-200 w-full text-left ${
         isFocused && !comingSoon
-          ? "border-amber-400 bg-amber-500/10"
+          ? "border-zinc-700 bg-zinc-800"
           : "bg-zinc-900 border-zinc-800"
-      } ${comingSoon ? "opacity-60 cursor-not-allowed" : "hover:border-zinc-600 active:scale-[0.98]"}`}
+      } ${comingSoon ? "opacity-60 cursor-not-allowed" : "hover:border-zinc-700 hover:bg-zinc-800 active:scale-[0.98]"}`}
       style={{ minHeight: '90px' }}
     >
       <div className="flex items-center gap-4 min-w-0 flex-1">
