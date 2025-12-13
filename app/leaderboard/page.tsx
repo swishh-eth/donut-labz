@@ -36,9 +36,7 @@ type LeaderboardResponse = {
   weekNumber: number;
 };
 
-const LEADERBOARD_CONTRACT = "0x4681A6DeEe2D74f5DE48CEcd2A572979EA641586";
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C";
-const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
 
 const ANON_PFPS = [
   "/media/anonpfp1.png",
@@ -56,13 +54,6 @@ const getAnonPfp = (address: string): string => {
   return ANON_PFPS[index];
 };
 
-const getRandomRotation = (seed: string) => {
-  const hash = seed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const duration = 8 + (hash % 7);
-  const direction = hash % 2 === 0 ? 1 : -1;
-  return { duration, direction };
-};
-
 const initialsFrom = (label?: string) => {
   if (!label) return "";
   const stripped = label.replace(/[^a-zA-Z0-9]/g, "");
@@ -74,21 +65,17 @@ const formatAddress = (addr: string) => {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 };
 
-const getRankStyles = () => {
-  return {
-    bg: "bg-zinc-900",
-    border: "border-zinc-800",
-  };
-};
-
 export default function LeaderboardPage() {
   const readyRef = useRef(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [timeUntilDistribution, setTimeUntilDistribution] = useState("");
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
   const [donutPrice, setDonutPrice] = useState<number>(0);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showUsdPrize, setShowUsdPrize] = useState(true);
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const lastFocusedRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,7 +136,7 @@ export default function LeaderboardPage() {
   const { data: leaderboardData, isLoading } = useQuery<LeaderboardResponse>({
     queryKey: ["leaderboard"],
     queryFn: async () => {
-      const res = await fetch("/api/leaderboard?limit=5");
+      const res = await fetch("/api/leaderboard?limit=10");
       if (!res.ok) throw new Error("Failed to fetch leaderboard");
       return res.json();
     },
@@ -209,10 +196,44 @@ export default function LeaderboardPage() {
     }
   }, []);
 
+  // Haptic feedback helper
+  const triggerHaptic = useCallback(() => {
+    try {
+      // Try Farcaster SDK vibration
+      if ('vibrate' in navigator) {
+        navigator.vibrate(10);
+      }
+    } catch {
+      // Silent fail if vibration not supported
+    }
+  }, []);
+
+  // Handle scroll to detect focused item
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const scrollTop = container.scrollTop;
+      const itemHeight = 88; // Height of each item including gap
+      const newIndex = Math.round(scrollTop / itemHeight);
+      const clampedIndex = Math.max(0, Math.min(9, newIndex));
+      
+      if (clampedIndex !== lastFocusedRef.current) {
+        lastFocusedRef.current = clampedIndex;
+        setFocusedIndex(clampedIndex);
+        triggerHaptic();
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [triggerHaptic]);
+
   useEffect(() => {
     const updateCountdown = () => {
       const now = new Date();
-      const firstDistribution = new Date("2025-12-05T12:00:00Z"); // Week 1 started Dec 5
+      const firstDistribution = new Date("2025-12-05T12:00:00Z");
       
       const weeksSinceFirst = Math.floor(
         (now.getTime() - firstDistribution.getTime()) / (7 * 24 * 60 * 60 * 1000)
@@ -231,11 +252,8 @@ export default function LeaderboardPage() {
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
       const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-      setTimeUntilDistribution(
-        `${days}d ${hours}h ${minutes}m`
-      );
+      setTimeUntilDistribution(`${days}d ${hours}h ${minutes}m`);
     };
 
     updateCountdown();
@@ -271,6 +289,10 @@ export default function LeaderboardPage() {
   const firstPlaceSprinkles = (sprinklesBalance * 0.5).toFixed(0);
   const secondPlaceSprinkles = (sprinklesBalance * 0.3).toFixed(0);
   const thirdPlaceSprinkles = (sprinklesBalance * 0.2).toFixed(0);
+
+  const firstPlaceUsd = Math.floor(totalPrizeUsd * 0.5);
+  const secondPlaceUsd = Math.floor(totalPrizeUsd * 0.3);
+  const thirdPlaceUsd = Math.floor(totalPrizeUsd * 0.2);
 
   const userDisplayName =
     context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
@@ -314,6 +336,14 @@ export default function LeaderboardPage() {
         .spin-avatar-3 { animation: spin-slow-cw 14s linear infinite; }
         .spin-avatar-4 { animation: spin-slow-ccw 11s linear infinite; }
         .spin-avatar-5 { animation: spin-slow-cw 9s linear infinite; }
+        
+        .leaderboard-scroll {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .leaderboard-scroll::-webkit-scrollbar {
+          display: none;
+        }
       `}</style>
 
       <div
@@ -323,6 +353,7 @@ export default function LeaderboardPage() {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
         }}
       >
+        {/* Background animations */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <span className="absolute left-[5%] top-0 text-white/20 text-lg glow-symbol falling-1" style={{ animationDelay: '-2s' }}>Ξ</span>
           <span className="absolute left-[25%] top-0 text-white/15 text-xl glow-symbol falling-2" style={{ animationDelay: '-5s' }}>Ξ</span>
@@ -341,88 +372,97 @@ export default function LeaderboardPage() {
         </div>
 
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold tracking-wide">LEADERBOARD</h1>
-            {context?.user && (
-              <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
-                <Avatar className="h-8 w-8 border border-zinc-800">
-                  <AvatarImage
-                    src={userAvatarUrl || undefined}
-                    alt={userDisplayName}
-                    className="object-cover"
-                  />
-                  <AvatarFallback className="bg-zinc-800 text-white">
-                    {initialsFrom(userDisplayName)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="leading-tight text-left">
-                  <div className="text-sm font-bold">{userDisplayName}</div>
-                  {userHandle && (
-                    <div className="text-xs text-gray-400">{userHandle}</div>
-                  )}
+          {/* Fixed Header Section */}
+          <div className="flex-shrink-0">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-2xl font-bold tracking-wide">LEADERBOARD</h1>
+              {context?.user && (
+                <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
+                  <Avatar className="h-8 w-8 border border-zinc-800">
+                    <AvatarImage
+                      src={userAvatarUrl || undefined}
+                      alt={userDisplayName}
+                      className="object-cover"
+                    />
+                    <AvatarFallback className="bg-zinc-800 text-white">
+                      {initialsFrom(userDisplayName)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="leading-tight text-left">
+                    <div className="text-sm font-bold">{userDisplayName}</div>
+                    {userHandle && (
+                      <div className="text-xs text-gray-400">{userHandle}</div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
-              <div className="flex items-center gap-1 mb-0.5">
-                <Trophy className="w-3 h-3 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                <span className="text-[9px] text-gray-400 uppercase">Week</span>
-              </div>
-              <div className="text-lg font-bold text-white">#{weekNumber}</div>
+              )}
             </div>
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
-              <div className="flex items-center gap-1 mb-0.5">
-                <Clock className="w-3 h-3 text-amber-400" />
-                <span className="text-[9px] text-gray-400 uppercase">Ends In</span>
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <Trophy className="w-3 h-3 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                  <span className="text-[9px] text-gray-400 uppercase">Week</span>
+                </div>
+                <div className="text-lg font-bold text-white">#{weekNumber}</div>
               </div>
-              <div className="text-sm font-bold text-amber-400">{timeUntilDistribution}</div>
+
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <Clock className="w-3 h-3 text-amber-400" />
+                  <span className="text-[9px] text-gray-400 uppercase">Ends In</span>
+                </div>
+                <div className="text-sm font-bold text-amber-400">{timeUntilDistribution}</div>
+              </div>
+
+              <button
+                onClick={() => setShowUsdPrize(!showUsdPrize)}
+                className={`border rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all h-[72px] ${
+                  showUsdPrize 
+                    ? "bg-amber-500/10 border-amber-500/50" 
+                    : "bg-zinc-900 border-zinc-800"
+                }`}
+              >
+                {showUsdPrize ? (
+                  <>
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <Coins className="w-3 h-3 text-amber-400" />
+                      <span className="text-[9px] text-gray-400 uppercase">Prizes</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-xl font-bold text-amber-400">${Math.floor(totalPrizeUsd).toLocaleString()}</span>
+                      <span className="text-[8px] text-gray-500">tap to see tokens</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className="text-[10px] font-bold text-green-400">Ξ{ethBalance.toFixed(3)}</span>
+                      <span className="text-[10px] font-bold text-amber-400">🍩{Math.floor(donutBalance)}</span>
+                      <span className="text-[10px] font-bold text-white flex items-center drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
+                        <Sparkles className="w-2.5 h-2.5" />
+                        {Math.floor(sprinklesBalance/1000)}k
+                      </span>
+                    </div>
+                    <span className="text-[8px] text-gray-500 mt-1">tap to see USD</span>
+                  </div>
+                )}
+              </button>
             </div>
 
             <button
-              onClick={() => setShowUsdPrize(!showUsdPrize)}
-              className={`border rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all h-[72px] ${
-                showUsdPrize 
-                  ? "bg-amber-500/10 border-amber-500/50" 
-                  : "bg-zinc-900 border-zinc-800"
-              }`}
+              onClick={() => setShowHelpDialog(true)}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-3 hover:bg-zinc-800 transition-colors"
             >
-              <div className="flex items-center gap-1 mb-0.5">
-                <Coins className={`w-3 h-3 ${showUsdPrize ? "text-amber-400" : "text-green-400"}`} />
-                <span className="text-[9px] text-gray-400 uppercase">Prizes</span>
+              <div className="flex items-center justify-center gap-2">
+                <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <span className="text-xs font-semibold text-white">Claim Your Share</span>
+                <HelpCircle className="w-3 h-3 text-gray-400" />
               </div>
-              {showUsdPrize ? (
-                <div className="flex flex-col items-center">
-                  <span className="text-xl font-bold text-amber-400">${Math.floor(totalPrizeUsd).toLocaleString()}</span>
-                  <span className="text-[8px] text-gray-500">tap to see tokens</span>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center gap-1.5">
-                  <span className="text-[10px] font-bold text-green-400">Ξ{ethBalance.toFixed(3)}</span>
-                  <span className="text-[10px] font-bold text-amber-400">🍩{Math.floor(donutBalance)}</span>
-                  <span className="text-[10px] font-bold text-white flex items-center drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
-                    <Sparkles className="w-2.5 h-2.5" />
-                    {Math.floor(sprinklesBalance/1000)}k
-                  </span>
-                </div>
-              )}
             </button>
           </div>
 
-          <button
-            onClick={() => setShowHelpDialog(true)}
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-3 hover:bg-zinc-800 transition-colors"
-          >
-            <div className="flex items-center justify-center gap-2">
-              <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-              <span className="text-xs font-semibold text-white">Claim Your Share</span>
-              <HelpCircle className="w-3 h-3 text-gray-400" />
-            </div>
-          </button>
-
+          {/* Help Dialog */}
           {showHelpDialog && (
             <div className="fixed inset-0 z-50">
               <div
@@ -514,30 +554,133 @@ export default function LeaderboardPage() {
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto space-y-2 pb-2 scrollbar-hide">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-gray-400">Loading leaderboard...</div>
-              </div>
-            ) : (
-              [0, 1, 2, 3, 4].map((index) => {
-                const rank = index + 1;
-                const entry = leaderboard[index];
-                const isWinner = rank <= 3;
-                let prizeEth: string | null = null;
-                let prizeDonut: string | null = null;
-                let prizeSprinkles: string | null = null;
-                if (rank === 1) { prizeEth = firstPlaceEth; prizeDonut = firstPlaceDonut; prizeSprinkles = firstPlaceSprinkles; }
-                if (rank === 2) { prizeEth = secondPlaceEth; prizeDonut = secondPlaceDonut; prizeSprinkles = secondPlaceSprinkles; }
-                if (rank === 3) { prizeEth = thirdPlaceEth; prizeDonut = thirdPlaceDonut; prizeSprinkles = thirdPlaceSprinkles; }
-                const styles = getRankStyles();
-                const spinClass = `spin-avatar-${(rank % 5) + 1}`;
+          {/* Scrollable Leaderboard */}
+          <div 
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto leaderboard-scroll"
+          >
+            <div className="space-y-2 pb-4">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-gray-400">Loading leaderboard...</div>
+                </div>
+              ) : (
+                Array.from({ length: 10 }).map((_, index) => {
+                  const rank = index + 1;
+                  const entry = leaderboard[index];
+                  const isWinner = rank <= 3;
+                  const isFocused = focusedIndex === index;
+                  
+                  let prizeEth: string | null = null;
+                  let prizeDonut: string | null = null;
+                  let prizeSprinkles: string | null = null;
+                  let prizeUsd: number = 0;
+                  
+                  if (rank === 1) { 
+                    prizeEth = firstPlaceEth; 
+                    prizeDonut = firstPlaceDonut; 
+                    prizeSprinkles = firstPlaceSprinkles; 
+                    prizeUsd = firstPlaceUsd; 
+                  }
+                  if (rank === 2) { 
+                    prizeEth = secondPlaceEth; 
+                    prizeDonut = secondPlaceDonut; 
+                    prizeSprinkles = secondPlaceSprinkles; 
+                    prizeUsd = secondPlaceUsd; 
+                  }
+                  if (rank === 3) { 
+                    prizeEth = thirdPlaceEth; 
+                    prizeDonut = thirdPlaceDonut; 
+                    prizeSprinkles = thirdPlaceSprinkles; 
+                    prizeUsd = thirdPlaceUsd; 
+                  }
+                  
+                  const spinClass = `spin-avatar-${(rank % 5) + 1}`;
 
-                if (!entry) {
+                  if (!entry) {
+                    return (
+                      <div
+                        key={`empty-${rank}`}
+                        className={`flex items-center justify-between rounded-xl p-3 border transition-all duration-200 ${
+                          isFocused 
+                            ? "bg-zinc-800 border-zinc-600 scale-[1.02] shadow-lg" 
+                            : "bg-zinc-900 border-zinc-800"
+                        }`}
+                        style={{ minHeight: '80px' }}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <span
+                            className={`text-xl font-bold w-7 flex-shrink-0 text-center ${
+                              rank === 1
+                                ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]"
+                                : rank === 2
+                                  ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]"
+                                  : rank === 3
+                                    ? "text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]"
+                                    : "text-gray-500"
+                            }`}
+                          >
+                            {rank}
+                          </span>
+
+                          <div className={spinClass}>
+                            <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
+                              <AvatarImage
+                                src={ANON_PFPS[rank % ANON_PFPS.length]}
+                                alt="Empty spot"
+                                className="object-cover"
+                              />
+                              <AvatarFallback className="bg-zinc-800 text-white text-xs">
+                                --
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-white truncate text-sm">No one yet</span>
+                              {isWinner && prizeUsd > 0 && (
+                                <span className="text-amber-400 text-xs font-bold">+${prizeUsd}</span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-gray-400 truncate">
+                              {isWinner ? "Claim this spot!" : "Keep grinding"}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                          <div className="text-xs font-bold text-white">
+                            0 <span className="text-[10px] font-normal text-gray-400">pts</span>
+                          </div>
+                          {isWinner && (
+                            <div className="flex flex-col items-end">
+                              <div className="text-[10px] text-green-400 font-medium">+Ξ{prizeEth}</div>
+                              <div className="text-[10px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
+                              <div className="text-[10px] text-white font-medium flex items-center gap-0.5 drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
+                                +<Sparkles className="w-2.5 h-2.5" />{prizeSprinkles}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const profile = profiles?.[entry.address];
+                  const displayName = profile?.displayName || formatAddress(entry.address);
+                  const username = profile?.username ? `@${profile.username}` : "";
+                  const avatarUrl = profile?.pfpUrl || getAnonPfp(entry.address);
+
                   return (
                     <div
-                      key={`empty-${rank}`}
-                      className={`flex items-center justify-between rounded-xl p-3 border min-h-[72px] ${styles.bg} ${styles.border}`}
+                      key={entry.address}
+                      className={`flex items-center justify-between rounded-xl p-3 border transition-all duration-200 ${
+                        isFocused 
+                          ? "bg-zinc-800 border-zinc-600 scale-[1.02] shadow-lg" 
+                          : "bg-zinc-900 border-zinc-800"
+                      }`}
+                      style={{ minHeight: '80px' }}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <span
@@ -554,30 +697,34 @@ export default function LeaderboardPage() {
                           {rank}
                         </span>
 
-                        <div className={spinClass}>
+                        <div 
+                          className={`${spinClass} ${profile?.fid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                          onClick={() => handleViewProfile(profile)}
+                        >
                           <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
-                            <AvatarImage
-                              src={ANON_PFPS[rank % ANON_PFPS.length]}
-                              alt="Empty spot"
-                              className="object-cover"
-                            />
+                            <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
                             <AvatarFallback className="bg-zinc-800 text-white text-xs">
-                              --
+                              {displayName.slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-white truncate text-sm">No one yet</div>
-                          <div className="text-[10px] text-gray-400 truncate">
-                            {isWinner ? "Claim this spot!" : "Keep grinding"}
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-white truncate text-sm">{displayName}</span>
+                            {isWinner && prizeUsd > 0 && (
+                              <span className="text-amber-400 text-xs font-bold">+${prizeUsd}</span>
+                            )}
                           </div>
+                          {username && (
+                            <div className="text-[10px] text-gray-400 truncate">{username}</div>
+                          )}
                         </div>
                       </div>
 
                       <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                         <div className="text-xs font-bold text-white">
-                          0 <span className="text-[10px] font-normal text-gray-400">pts</span>
+                          {entry.total_points} <span className="text-[10px] font-normal text-gray-400">pts</span>
                         </div>
                         {isWinner && (
                           <div className="flex flex-col items-end">
@@ -591,71 +738,9 @@ export default function LeaderboardPage() {
                       </div>
                     </div>
                   );
-                }
-
-                const profile = profiles?.[entry.address];
-                const displayName = profile?.displayName || formatAddress(entry.address);
-                const username = profile?.username ? `@${profile.username}` : "";
-                const avatarUrl = profile?.pfpUrl || getAnonPfp(entry.address);
-
-                return (
-                  <div
-                    key={entry.address}
-                    className={`flex items-center justify-between rounded-xl p-3 border min-h-[72px] ${styles.bg} ${styles.border}`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span
-                        className={`text-xl font-bold w-7 flex-shrink-0 text-center ${
-                          rank === 1
-                            ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]"
-                            : rank === 2
-                              ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]"
-                              : rank === 3
-                                ? "text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]"
-                                : "text-gray-500"
-                        }`}
-                      >
-                        {rank}
-                      </span>
-
-                      <div 
-                        className={`${spinClass} ${profile?.fid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
-                        onClick={() => handleViewProfile(profile)}
-                      >
-                        <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
-                          <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
-                          <AvatarFallback className="bg-zinc-800 text-white text-xs">
-                            {displayName.slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-white truncate text-sm">{displayName}</div>
-                        {username && (
-                          <div className="text-[10px] text-gray-400 truncate">{username}</div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                      <div className="text-xs font-bold text-white">
-                        {entry.total_points} <span className="text-[10px] font-normal text-gray-400">pts</span>
-                      </div>
-                      {isWinner && (
-                        <div className="flex flex-col items-end">
-                          <div className="text-[10px] text-green-400 font-medium">+Ξ{prizeEth}</div>
-                          <div className="text-[10px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
-                          <div className="text-[10px] text-white font-medium flex items-center gap-0.5 drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
-                            +<Sparkles className="w-2.5 h-2.5" />{prizeSprinkles}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
+                })
+              )}
+            </div>
           </div>
         </div>
       </div>
