@@ -535,12 +535,17 @@ export default function MinesPage() {
   // Handle cash out success
   useEffect(() => {
     if (isCashOutSuccess && gameStep === "cashing") {
+      // Dismiss the current game so we don't show it anymore
+      if (currentGameId) {
+        setDismissedGameId(currentGameId);
+      }
       setGameStep("idle");
       setPendingGame(null);
       setShowConfetti(true);
       refetchBalance();
       refetchActiveGames();
-      
+      // Reset cash out state so it can be used again
+      resetCashOut();
       
       // Celebration haptics
       try {
