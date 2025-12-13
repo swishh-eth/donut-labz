@@ -236,6 +236,7 @@ export default function DicePage() {
   const readyRef = useRef(false);
   const publicClient = usePublicClient();
   
+  const [context, setContext] = useState<{ user?: { fid: number; username?: string; pfpUrl?: string } } | null>(null);
   const [betAmount, setBetAmount] = useState<string>("1");
   const [target, setTarget] = useState<number>(50);
   const [prediction, setPrediction] = useState<"over" | "under">("over");
@@ -250,6 +251,17 @@ export default function DicePage() {
   const [streak, setStreak] = useState(0);
 
   const { address, isConnected } = useAccount();
+
+  // Load Farcaster context
+  useEffect(() => {
+    const loadContext = async () => {
+      try {
+        const ctx = await sdk.context;
+        setContext(ctx as { user?: { fid: number; username?: string; pfpUrl?: string } });
+      } catch {}
+    };
+    loadContext();
+  }, []);
 
   // Calculate multiplier based on win chance
   const winChance = prediction === "over" ? 100 - target : target;
@@ -375,8 +387,8 @@ export default function DicePage() {
             const betId = BigInt(betCommittedLog.topics[1] || "0");
             setPendingBet(prev => prev ? { ...prev, betId } : null);
             
-            // Wait for 1 block
-            await new Promise(resolve => setTimeout(resolve, 2500));
+            // Wait for 1 block (~2s on Base, but wait 4s to be safe)
+            await new Promise(resolve => setTimeout(resolve, 4000));
             
             setBetStep("revealing");
             
@@ -491,7 +503,7 @@ export default function DicePage() {
         address: currentTokenAddress,
         abi: ERC20_ABI,
         functionName: "approve",
-        args: [DONUT_DICE_ADDRESS, amountWei]
+        args: [DONUT_DICE_ADDRESS, parseUnits("10", 18)] // Approve 10 tokens
       });
     } else {
       setBetStep("committing");
@@ -550,7 +562,7 @@ export default function DicePage() {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)",
         }}
       >
-        {/* Header */}
+        {/* Header Row 1 - Title and User */}
         <div className="flex items-center justify-between mb-2 flex-shrink-0">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-wide">DICE</h1>
@@ -558,25 +570,21 @@ export default function DicePage() {
               BETA
             </span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setShowApprovals(true)}
-              className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800"
-            >
-              <Shield className="w-4 h-4 text-white" />
-            </button>
-            <button
-              onClick={() => setShowHistory(true)}
-              className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800"
-            >
-              <History className="w-4 h-4 text-white" />
-            </button>
-            <button
-              onClick={() => setShowHelp(true)}
-              className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800"
-            >
-              <HelpCircle className="w-4 h-4 text-white" />
-            </button>
+          <div className="flex items-center gap-2">
+            {/* XP Bar */}
+            <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-full px-2 py-1 opacity-50">
+              <span className="text-[8px] text-gray-500 whitespace-nowrap">Earn GLAZE soon</span>
+            </div>
+            {/* User PFP */}
+            {context?.user?.pfpUrl ? (
+              <img 
+                src={context.user.pfpUrl} 
+                alt="pfp" 
+                className="w-7 h-7 rounded-full border border-zinc-700"
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700" />
+            )}
           </div>
         </div>
 
@@ -603,8 +611,8 @@ export default function DicePage() {
           </button>
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-3 gap-2 mb-2 flex-shrink-0">
+        {/* Stats Row with Buttons */}
+        <div className="grid grid-cols-4 gap-2 mb-2 flex-shrink-0">
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-center">
             <div className="text-[8px] text-gray-500 uppercase">Balance</div>
             <div className="text-sm font-bold text-white">{currentToken.emoji}{balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
@@ -618,6 +626,27 @@ export default function DicePage() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-center">
             <div className="text-[8px] text-gray-500 uppercase">Multiplier</div>
             <div className="text-sm font-bold text-green-400">{multiplier}x</div>
+          </div>
+          {/* Buttons */}
+          <div className="flex items-center justify-center gap-1">
+            <button
+              onClick={() => setShowApprovals(true)}
+              className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800"
+            >
+              <Shield className="w-4 h-4 text-white" />
+            </button>
+            <button
+              onClick={() => setShowHistory(true)}
+              className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800"
+            >
+              <History className="w-4 h-4 text-white" />
+            </button>
+            <button
+              onClick={() => setShowHelp(true)}
+              className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800"
+            >
+              <HelpCircle className="w-4 h-4 text-white" />
+            </button>
           </div>
         </div>
 
