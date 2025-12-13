@@ -536,8 +536,8 @@ export default function AboutPage() {
                       <Timer className="w-3 h-3 text-white" />
                       <span className="text-[10px] text-white font-semibold">Halving Schedule</span>
                     </div>
-                    <p className="text-[10px] text-gray-400">Multiplier halves every 30 days: 1x → 0.5x → 0.25x → min 0.1x</p>
-                    <p className="text-[10px] text-gray-500 mt-1">Chat early to earn more sprinkles!</p>
+                    <p className="text-[10px] text-gray-400">Multiplier halves every 30 days: 2x → 1x → 0.5x → 0.25x → 0 (ends)</p>
+                    <p className="text-[10px] text-gray-500 mt-1">Chat rewards are limited — earn while you can!</p>
                   </div>
                 </Section>
               </div>
