@@ -3,9 +3,40 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
+import { usePublicClient } from "wagmi";
+import { formatUnits } from "viem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Target, Zap, Trophy, Lock } from "lucide-react";
+
+// Contract addresses
+const DONUT_DICE_ADDRESS = "0x49826C6C884ed7A828c06f75814Acf8bd658bb76" as const;
+
+// Minimal ABI for reading recent bets
+const DICE_ABI = [
+  {
+    inputs: [{ name: "count", type: "uint256" }],
+    name: "getRecentBets",
+    outputs: [{
+      components: [
+        { name: "player", type: "address" },
+        { name: "token", type: "address" },
+        { name: "amount", type: "uint256" },
+        { name: "target", type: "uint8" },
+        { name: "isOver", type: "bool" },
+        { name: "commitHash", type: "bytes32" },
+        { name: "commitBlock", type: "uint256" },
+        { name: "result", type: "uint8" },
+        { name: "won", type: "bool" },
+        { name: "payout", type: "uint256" },
+        { name: "status", type: "uint8" }
+      ],
+      type: "tuple[]"
+    }],
+    stateMutability: "view",
+    type: "function"
+  }
+] as const;
 
 type MiniAppContext = {
   user?: {
@@ -29,12 +60,14 @@ function GameTile({
   description, 
   icon: Icon, 
   comingSoon = true,
+  lastWinner,
   onClick 
 }: { 
   title: string;
   description: string;
   icon: React.ElementType;
   comingSoon?: boolean;
+  lastWinner?: { username: string; amount: string } | null;
   onClick?: () => void;
 }) {
   const [isFocused, setIsFocused] = useState(false);
@@ -54,13 +87,13 @@ function GameTile({
     >
       <div className="flex items-center gap-4 min-w-0 flex-1">
         <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-zinc-800 ${
-          !comingSoon ? "border border-white" : ""
+          !comingSoon ? "border border-zinc-600" : ""
         }`}>
-          <Icon className={`w-6 h-6 ${!comingSoon ? "text-amber-400 icon-breathe" : "text-gray-400"}`} />
+          <Icon className={`w-6 h-6 ${!comingSoon ? "text-white icon-breathe" : "text-gray-400"}`} />
         </div>
         
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className={`font-semibold text-base ${!comingSoon ? "text-white" : "text-gray-400"}`}>
               {title}
             </span>
@@ -73,6 +106,11 @@ function GameTile({
             {!comingSoon && (
               <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">
                 LIVE
+              </span>
+            )}
+            {!comingSoon && lastWinner && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400">
+                @{lastWinner.username} +{lastWinner.amount}
               </span>
             )}
           </div>
@@ -91,6 +129,10 @@ export default function GamesPage() {
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showBuyTicketsDialog, setShowBuyTicketsDialog] = useState(false);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
+  const [diceLastWinner, setDiceLastWinner] = useState<{ username: string; amount: string } | null>(null);
+  const [wheelLastWinner, setWheelLastWinner] = useState<{ username: string; amount: string } | null>(null);
+
+  const publicClient = usePublicClient();
 
   // Mock data - replace with real contract reads later
   const [poolData, setPoolData] = useState({
@@ -101,6 +143,65 @@ export default function GamesPage() {
   });
 
   const isLotteryLive = false; // Set to true when lottery launches
+
+  // Fetch last winner for dice game
+  useEffect(() => {
+    const fetchLastDiceWinner = async () => {
+      if (!publicClient) return;
+      
+      try {
+        const recentBets = await publicClient.readContract({
+          address: DONUT_DICE_ADDRESS,
+          abi: DICE_ABI,
+          functionName: "getRecentBets",
+          args: [BigInt(20)]
+        });
+
+        // Find the most recent win (status = 2 means revealed)
+        const lastWin = recentBets.find(bet => bet.won && bet.status === 2);
+        
+        if (!lastWin) {
+          // No wins found, clear the display
+          setDiceLastWinner(null);
+          return;
+        }
+        
+        // Get profile from our cached profiles API
+        try {
+          const response = await fetch(`/api/profiles?addresses=${lastWin.player}`);
+          if (response.ok) {
+            const data = await response.json();
+            const profile = data.profiles[lastWin.player.toLowerCase()];
+            
+            if (profile?.username) {
+              setDiceLastWinner({
+                username: profile.username,
+                amount: `${parseFloat(formatUnits(lastWin.payout, 18)).toFixed(2)} 🍩`
+              });
+              return;
+            }
+          }
+        } catch {
+          // Fall back to truncated address
+        }
+        
+        // Fallback to truncated address
+        const truncatedAddress = `${lastWin.player.slice(0, 6)}...${lastWin.player.slice(-4)}`;
+        setDiceLastWinner({
+          username: truncatedAddress,
+          amount: `${parseFloat(formatUnits(lastWin.payout, 18)).toFixed(2)} 🍩`
+        });
+      } catch (error) {
+        console.error("Failed to fetch dice last winner:", error);
+        setDiceLastWinner(null);
+      }
+    };
+
+    fetchLastDiceWinner();
+    // Refresh every 5 minutes
+    const interval = setInterval(fetchLastDiceWinner, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [publicClient]);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,6 +271,7 @@ export default function GamesPage() {
       description: "Spin to win ETH, DONUT & SPRINKLES",
       icon: Target,
       comingSoon: false,
+      lastWinner: wheelLastWinner,
       onClick: () => router.push("/wheel"),
     },
     {
@@ -178,6 +280,7 @@ export default function GamesPage() {
       description: "Roll over/under, win big multipliers",
       icon: Dices,
       comingSoon: false,
+      lastWinner: diceLastWinner,
       onClick: () => router.push("/dice"),
     },
     {
@@ -186,6 +289,7 @@ export default function GamesPage() {
       description: "Buy tickets for the daily DONUT pool",
       icon: Ticket,
       comingSoon: true,
+      lastWinner: null,
     },
     {
       id: "tournaments",
@@ -193,6 +297,7 @@ export default function GamesPage() {
       description: "Compete in weekly mining tournaments",
       icon: Trophy,
       comingSoon: true,
+      lastWinner: null,
     },
     {
       id: "slots",
@@ -200,6 +305,7 @@ export default function GamesPage() {
       description: "Match symbols to win big",
       icon: Sparkles,
       comingSoon: true,
+      lastWinner: null,
     },
     {
       id: "coinflip",
@@ -207,6 +313,7 @@ export default function GamesPage() {
       description: "Heads or tails, 50/50 odds",
       icon: Coins,
       comingSoon: true,
+      lastWinner: null,
     },
     {
       id: "mystery",
@@ -214,6 +321,7 @@ export default function GamesPage() {
       description: "Something special coming...",
       icon: HelpCircle,
       comingSoon: true,
+      lastWinner: null,
     },
   ];
 
@@ -251,26 +359,25 @@ export default function GamesPage() {
           <div className="flex-shrink-0">
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl font-bold tracking-wide">GAMES</h1>
-              {context?.user && (
-                <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
-                  <Avatar className="h-8 w-8 border border-zinc-800">
+              <div className="flex items-center gap-2">
+                {/* XP Bar */}
+                <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-full px-2 py-1 opacity-50">
+                  <span className="text-[8px] text-gray-500 whitespace-nowrap">Earn GLAZE soon</span>
+                </div>
+                {/* User PFP */}
+                {context?.user && (
+                  <Avatar className="h-7 w-7 border border-zinc-700">
                     <AvatarImage
                       src={userAvatarUrl || undefined}
                       alt={userDisplayName}
                       className="object-cover"
                     />
-                    <AvatarFallback className="bg-zinc-800 text-white">
+                    <AvatarFallback className="bg-zinc-800 text-white text-xs">
                       {initialsFrom(userDisplayName)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="leading-tight text-left">
-                    <div className="text-sm font-bold">{userDisplayName}</div>
-                    {userHandle && (
-                      <div className="text-xs text-gray-400">{userHandle}</div>
-                    )}
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Daily Pool Stats */}
@@ -479,6 +586,7 @@ export default function GamesPage() {
                   description={game.description}
                   icon={game.icon}
                   comingSoon={game.comingSoon}
+                  lastWinner={game.lastWinner}
                   onClick={game.onClick}
                 />
               ))}
