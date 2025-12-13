@@ -251,6 +251,7 @@ export default function DicePage() {
   const [streak, setStreak] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentBlock, setCurrentBlock] = useState<number>(0);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const { address, isConnected } = useAccount();
 
@@ -572,7 +573,16 @@ export default function DicePage() {
             
             if (won) {
               setStreak(prev => prev + 1);
-              try { await sdk.haptics.impactOccurred("medium"); } catch {}
+              setShowConfetti(true);
+              // Multiple haptic pulses for win celebration
+              try { 
+                await sdk.haptics.impactOccurred("heavy");
+                setTimeout(() => sdk.haptics.impactOccurred("medium"), 100);
+                setTimeout(() => sdk.haptics.impactOccurred("light"), 200);
+                setTimeout(() => sdk.haptics.impactOccurred("medium"), 300);
+              } catch {}
+              // Hide confetti after animation
+              setTimeout(() => setShowConfetti(false), 3000);
             } else {
               setStreak(0);
               try { await sdk.haptics.impactOccurred("heavy"); } catch {}
@@ -686,10 +696,41 @@ export default function DicePage() {
           50% { transform: scale(1.2); }
           100% { transform: scale(1); opacity: 1; }
         }
+        @keyframes confetti-fall {
+          0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+          100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        @keyframes confetti-fall-slow {
+          0% { transform: translateY(-100vh) rotate(0deg) scale(1); opacity: 1; }
+          100% { transform: translateY(100vh) rotate(360deg) scale(0.5); opacity: 0; }
+        }
         .dice-shake { animation: shake 0.1s infinite; }
         .glow-pulse { animation: glow-pulse 1s ease-in-out infinite; }
         .number-reveal { animation: number-reveal 0.3s ease-out forwards; }
+        .confetti { animation: confetti-fall 3s ease-out forwards; }
+        .confetti-slow { animation: confetti-fall-slow 4s ease-out forwards; }
       `}</style>
+
+      {/* Donut Confetti */}
+      {showConfetti && (
+        <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className={i % 2 === 0 ? "confetti" : "confetti-slow"}
+              style={{
+                position: 'absolute',
+                left: `${Math.random() * 100}%`,
+                top: '-50px',
+                fontSize: `${20 + Math.random() * 20}px`,
+                animationDelay: `${Math.random() * 0.5}s`,
+              }}
+            >
+              🍩
+            </div>
+          ))}
+        </div>
+      )}
 
       <div
         className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 shadow-inner"
@@ -977,7 +1018,8 @@ export default function DicePage() {
                   ) : (
                     (recentBets as OnchainBet[]).map((bet, index) => {
                       // Status: 0 = None, 1 = Committed, 2 = Revealed, 3 = Expired
-                      const isPending = bet.status === 1;
+                      // A bet is truly pending only if status is 1 AND result is 0
+                      const isPending = bet.status === 1 && bet.result === 0;
                       const isExpired = bet.status === 3;
                       
                       if (isPending) {
