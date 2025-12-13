@@ -446,13 +446,17 @@ export default function ChatPage() {
     const container = buttonContainerRef.current;
     if (!container) return;
     
-    const containerWidth = container.offsetWidth - 44; // subtract button width
+    const containerWidth = container.offsetWidth - 44;
     const moveDelta = clientX - dragStartX;
-    const currentPos = buttonPosition === 'left' ? 0 : containerWidth;
-    let newX = currentPos + moveDelta;
     
-    // Clamp to bounds
-    newX = Math.max(0, Math.min(containerWidth, newX));
+    // Calculate drag position based on current side
+    let newX: number;
+    if (buttonPosition === 'left') {
+      newX = Math.max(0, Math.min(containerWidth, moveDelta));
+    } else {
+      newX = Math.max(0, Math.min(containerWidth, -moveDelta));
+    }
+    
     setDragX(newX);
   };
 
@@ -474,24 +478,11 @@ export default function ChatPage() {
     const containerWidth = container.offsetWidth - 44;
     const threshold = containerWidth / 2;
     
-    // Snap to nearest position
+    // Snap to opposite position if dragged past threshold
     if (dragX > threshold) {
-      setButtonPosition('right');
-    } else {
-      setButtonPosition('left');
+      setButtonPosition(buttonPosition === 'left' ? 'right' : 'left');
     }
     setDragX(0);
-  };
-
-  // Get button transform based on drag state
-  const getButtonTransform = () => {
-    if (isDragging) return `translateX(${dragX}px)`;
-    
-    const container = buttonContainerRef.current;
-    if (!container) return 'translateX(0)';
-    
-    const containerWidth = container.offsetWidth - 44;
-    return buttonPosition === 'right' ? `translateX(${containerWidth}px)` : 'translateX(0)';
   };
 
   return (
@@ -772,27 +763,29 @@ export default function ChatPage() {
                   {/* Sliding input container */}
                   <div 
                     ref={buttonContainerRef}
-                    className="relative w-full"
+                    className="relative w-full h-11"
                     onTouchMove={(e) => handleDragMove(e.touches[0].clientX)}
                     onTouchEnd={handleDragEnd}
                     onMouseMove={(e) => isDragging && handleDragMove(e.clientX)}
                     onMouseUp={handleDragEnd}
                     onMouseLeave={handleDragEnd}
                   >
-                    {/* Button wrapper for positioning */}
+                    {/* Input bar - expands from button */}
                     <div 
-                      className={`flex items-center ${buttonPosition === 'right' ? 'flex-row-reverse' : ''} ${isDragging ? '' : 'transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]'}`}
-                      style={{ 
-                        transform: getButtonTransform(),
-                        width: 'fit-content'
+                      className={`absolute top-0 h-11 flex items-center transition-all duration-300 ease-out ${
+                        buttonPosition === 'left' ? 'left-0 flex-row' : 'right-0 flex-row-reverse'
+                      }`}
+                      style={{
+                        width: isChatExpanded ? '100%' : '44px',
                       }}
                     >
+                      {/* The + button */}
                       <button 
                         onClick={() => !isDragging && toggleChatInput()}
                         onTouchStart={(e) => handleDragStart(e.touches[0].clientX)}
                         onMouseDown={(e) => handleDragStart(e.clientX)}
                         disabled={(cooldownRemaining > 0 || rateLimitBanRemaining > 0) && !isDragging}
-                        className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-colors duration-300 overflow-visible touch-none select-none ${
+                        className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-colors duration-300 overflow-visible touch-none select-none z-10 ${
                           isChatExpanded 
                             ? "bg-zinc-700 text-white" 
                             : cooldownRemaining > 0
@@ -801,25 +794,29 @@ export default function ChatPage() {
                                 ? "bg-red-500 text-white"
                                 : "bg-white text-black hover:bg-gray-200"
                         }`}
+                        style={{
+                          transform: isDragging ? `translateX(${buttonPosition === 'left' ? dragX : -dragX}px)` : undefined,
+                          transition: isDragging ? 'none' : 'transform 0.5s cubic-bezier(0.34,1.56,0.64,1)',
+                        }}
                       >
-                      {cooldownRemaining > 0 ? (
-                        <span className="text-xs font-bold text-black">{cooldownRemaining}</span>
-                      ) : rateLimitBanRemaining > 0 ? (
-                        <Timer className="w-5 h-5 text-white" />
-                      ) : (
-                        <Plus className={`w-5 h-5 transition-transform duration-300 ${isChatExpanded ? "rotate-45" : ""}`} />
-                      )}
+                        {cooldownRemaining > 0 ? (
+                          <span className="text-xs font-bold text-black">{cooldownRemaining}</span>
+                        ) : rateLimitBanRemaining > 0 ? (
+                          <Timer className="w-5 h-5 text-white" />
+                        ) : (
+                          <Plus className={`w-5 h-5 transition-transform duration-300 ${isChatExpanded ? "rotate-45" : ""}`} />
+                        )}
                       </button>
                       
-                      {/* Expanded input - slides out horizontally from button */}
+                      {/* Expanded input */}
                       <div 
-                        className={`overflow-hidden transition-all duration-300 ease-out ${
+                        className={`flex-1 overflow-hidden transition-all duration-300 ease-out ${
                           isChatExpanded 
-                            ? `w-[calc(100vw-100px)] max-w-[420px] opacity-100 ${buttonPosition === 'right' ? 'mr-2' : 'ml-2'}` 
-                            : "w-0 opacity-0"
+                            ? `opacity-100 ${buttonPosition === 'left' ? 'ml-2' : 'mr-2'}` 
+                            : "opacity-0 w-0"
                         }`}
                       >
-                        <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2 min-w-[280px]">
+                        <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2 h-11">
                           <input
                             ref={inputRef}
                             type="text"
