@@ -320,14 +320,42 @@ export default function DicePage() {
   });
 
   // Contract writes
-  const { data: approveHash, writeContract: writeApprove, isPending: isApprovePending, reset: resetApprove } = useWriteContract();
+  const { data: approveHash, writeContract: writeApprove, isPending: isApprovePending, reset: resetApprove, error: approveError } = useWriteContract();
   const { isLoading: isApproveConfirming, isSuccess: isApproveSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
 
-  const { data: commitHash, writeContract: writeCommit, isPending: isCommitPending, reset: resetCommit } = useWriteContract();
+  const { data: commitHash, writeContract: writeCommit, isPending: isCommitPending, reset: resetCommit, error: commitError } = useWriteContract();
   const { isLoading: isCommitConfirming, isSuccess: isCommitSuccess } = useWaitForTransactionReceipt({ hash: commitHash });
 
-  const { data: revealHash, writeContract: writeReveal, isPending: isRevealPending, reset: resetReveal } = useWriteContract();
+  const { data: revealHash, writeContract: writeReveal, isPending: isRevealPending, reset: resetReveal, error: revealError } = useWriteContract();
   const { isLoading: isRevealConfirming, isSuccess: isRevealSuccess } = useWaitForTransactionReceipt({ hash: revealHash });
+
+  // Handle user rejection or errors - reset state
+  useEffect(() => {
+    if (approveError && betStep === "approving") {
+      console.log("Approve cancelled or failed:", approveError);
+      setBetStep("idle");
+      setPendingBet(null);
+      resetApprove();
+    }
+  }, [approveError, betStep, resetApprove]);
+
+  useEffect(() => {
+    if (commitError && betStep === "committing") {
+      console.log("Commit cancelled or failed:", commitError);
+      setBetStep("idle");
+      setPendingBet(null);
+      resetCommit();
+    }
+  }, [commitError, betStep, resetCommit]);
+
+  useEffect(() => {
+    if (revealError && betStep === "revealing") {
+      console.log("Reveal cancelled or failed:", revealError);
+      setBetStep("idle");
+      setPendingBet(null);
+      resetReveal();
+    }
+  }, [revealError, betStep, resetReveal]);
 
   // Initialize SDK
   useEffect(() => {
@@ -878,15 +906,46 @@ export default function DicePage() {
                   {!recentBets || (recentBets as OnchainBet[]).length === 0 ? (
                     <p className="text-sm text-gray-500 text-center py-8">No bets yet</p>
                   ) : (
-                    (recentBets as OnchainBet[]).map((bet, index) => (
-                      <div 
-                        key={index}
-                        className={cn(
-                          "p-2 rounded-lg border cursor-pointer transition-all hover:opacity-80", 
-                          bet.won ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"
-                        )}
-                        onClick={() => setShowVerify(bet)}
-                      >
+                    (recentBets as OnchainBet[]).map((bet, index) => {
+                      // Status: 0 = None, 1 = Committed, 2 = Revealed, 3 = Expired
+                      const isPending = bet.status === 1;
+                      const isExpired = bet.status === 3;
+                      
+                      if (isPending) {
+                        return (
+                          <div 
+                            key={index}
+                            className="p-2 rounded-lg border bg-amber-500/10 border-amber-500/30"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
+                                <div>
+                                  <span className="text-xs text-amber-400 font-bold">Pending Reveal</span>
+                                  <div className="text-[9px] text-gray-500">{bet.isOver ? ">" : "<"} {bet.target}</div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-bold text-amber-400">
+                                  {parseFloat(formatUnits(bet.amount, 18)).toFixed(2)}
+                                </div>
+                                <div className="text-[9px] text-gray-600">🍩 DONUT</div>
+                              </div>
+                            </div>
+                            <p className="text-[9px] text-amber-400/70 mt-1">Return to complete this bet or wait for expiry to claim 98% back</p>
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <div 
+                          key={index}
+                          className={cn(
+                            "p-2 rounded-lg border cursor-pointer transition-all hover:opacity-80", 
+                            bet.won ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"
+                          )}
+                          onClick={() => setShowVerify(bet)}
+                        >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className={cn("text-xl font-bold", bet.won ? "text-green-400" : "text-red-400")}>{bet.result}</span>
@@ -897,13 +956,14 @@ export default function DicePage() {
                           </div>
                           <div className="text-right">
                             <div className={cn("text-sm font-bold", bet.won ? "text-green-400" : "text-red-400")}>
-                              {bet.won ? `+${parseFloat(formatUnits(bet.payout, 18)).toFixed(0)}` : `-${parseFloat(formatUnits(bet.amount, 18)).toFixed(0)}`}
+                              {bet.won ? `+${parseFloat(formatUnits(bet.payout, 18)).toFixed(2)}` : `-${parseFloat(formatUnits(bet.amount, 18)).toFixed(2)}`}
                             </div>
                             <div className="text-[9px] text-gray-600">🍩 DONUT</div>
                           </div>
                         </div>
                       </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
                 <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
