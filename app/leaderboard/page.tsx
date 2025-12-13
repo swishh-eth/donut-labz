@@ -344,9 +344,15 @@ export default function LeaderboardPage() {
         .leaderboard-scroll {
           scrollbar-width: none;
           -ms-overflow-style: none;
+          scroll-snap-type: y mandatory;
+          scroll-behavior: smooth;
         }
         .leaderboard-scroll::-webkit-scrollbar {
           display: none;
+        }
+        .leaderboard-item {
+          scroll-snap-align: start;
+          scroll-snap-stop: always;
         }
       `}</style>
 
@@ -421,11 +427,12 @@ export default function LeaderboardPage() {
 
               <button
                 onClick={() => setShowUsdPrize(!showUsdPrize)}
-                className={`border rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all h-[72px] ${
+                className={`relative border rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all h-[72px] ${
                   showUsdPrize 
                     ? "bg-amber-500/10 border-amber-500/50" 
                     : "bg-zinc-900 border-zinc-800"
                 }`}
+                style={{ backgroundColor: showUsdPrize ? 'rgba(245, 158, 11, 0.1)' : '#18181b' }}
               >
                 {showUsdPrize ? (
                   <>
@@ -605,9 +612,9 @@ export default function LeaderboardPage() {
                     return (
                       <div
                         key={`empty-${rank}`}
-                        className={`flex items-center justify-between rounded-xl p-3 border transition-all duration-200 ${
+                        className={`leaderboard-item flex items-center justify-between rounded-xl p-3 border transition-all duration-200 ${
                           isFocused 
-                            ? "bg-zinc-800 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.15)]" 
+                            ? "bg-zinc-800 border-white/50 shadow-[0_0_15px_rgba(255,255,255,0.3)]" 
                             : "bg-zinc-900 border-zinc-800"
                         }`}
                         style={{ minHeight: '80px' }}
@@ -679,9 +686,9 @@ export default function LeaderboardPage() {
                   return (
                     <div
                       key={entry.address}
-                      className={`flex items-center justify-between rounded-xl p-3 border transition-all duration-200 ${
+                      className={`leaderboard-item flex items-center justify-between rounded-xl p-3 border transition-all duration-200 ${
                         isFocused 
-                          ? "bg-zinc-800 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.15)]" 
+                          ? "bg-zinc-800 border-white/50 shadow-[0_0_15px_rgba(255,255,255,0.3)]" 
                           : "bg-zinc-900 border-zinc-800"
                       }`}
                       style={{ minHeight: '80px' }}
