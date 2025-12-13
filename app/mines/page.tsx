@@ -518,6 +518,9 @@ export default function MinesPage() {
     const secret = generateSecret();
     const commitHash = hashSecret(secret);
     
+    console.log("startNewGame - secret:", secret);
+    console.log("startNewGame - commitHash:", commitHash);
+    
     // Store secret temporarily - we'll save to localStorage with gameId after tx confirms
     setPendingGame({
       secret,
@@ -529,6 +532,7 @@ export default function MinesPage() {
     
     // Also save to localStorage with commitHash as temp key
     saveGameSecret(commitHash, secret);
+    console.log("startNewGame - saved to localStorage, all secrets:", localStorage.getItem(GAME_SECRETS_KEY));
     
     setGameStep("starting");
     
@@ -566,20 +570,30 @@ export default function MinesPage() {
     
     // Try to get secret from pendingGame state first, then localStorage
     let secret: `0x${string}` | null = pendingGame?.secret || null;
+    console.log("handleRevealTile - pendingGame secret:", secret);
     
     if (!secret && activeGameCore) {
       // gameCore returns: [player, token, betAmount, commitBlock, commitHash, revealedSecret]
       const coreData = activeGameCore as [`0x${string}`, `0x${string}`, bigint, bigint, `0x${string}`, `0x${string}`];
       const commitHash = coreData[4]; // commitHash is index 4
+      console.log("handleRevealTile - commitHash from contract:", commitHash);
       
       // Look up secret by commitHash in localStorage
       secret = getGameSecret(commitHash);
+      console.log("handleRevealTile - secret from localStorage:", secret);
+      
+      // Debug: show all stored secrets
+      console.log("handleRevealTile - all stored secrets:", localStorage.getItem(GAME_SECRETS_KEY));
     }
     
     if (!secret) {
       setErrorMessage("Secret not found - game may have expired");
       return;
     }
+    
+    // Verify the secret matches
+    const verifyHash = hashSecret(secret);
+    console.log("handleRevealTile - verifyHash:", verifyHash);
     
     setGameStep("revealing");
     
