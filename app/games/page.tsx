@@ -120,12 +120,14 @@ function GameTile({
               </span>
             )}
             {!comingSoon && lastWinner && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 flex items-center gap-1 truncate">
-                {lastWinner.pfpUrl && (
-                  <img src={lastWinner.pfpUrl} alt="" className="w-3 h-3 rounded-full flex-shrink-0" />
-                )}
-                <span className="truncate">@{lastWinner.username} +{lastWinner.amount}</span>
-              </span>
+              <div className="overflow-hidden max-w-[140px] flex-shrink">
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 flex items-center gap-1 whitespace-nowrap winner-marquee">
+                  {lastWinner.pfpUrl && (
+                    <img src={lastWinner.pfpUrl} alt="" className="w-3 h-3 rounded-full flex-shrink-0" />
+                  )}
+                  <span>@{lastWinner.username} +{lastWinner.amount}</span>
+                </span>
+              </div>
             )}
           </div>
           <div className="text-xs text-gray-400 mt-0.5">{description}</div>
@@ -394,8 +396,23 @@ export default function GamesPage() {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.15); }
         }
+        @keyframes winner-scroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        @keyframes winner-fade-in {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
+        }
         .icon-breathe {
           animation: icon-breathe 2s ease-in-out infinite;
+        }
+        .winner-marquee {
+          display: inline-flex;
+          animation: winner-scroll 8s linear infinite, winner-fade-in 0.5s ease-out;
+        }
+        .winner-marquee:hover {
+          animation-play-state: paused;
         }
       `}</style>
 
