@@ -153,62 +153,56 @@ export default function GamesPage() {
 
   const isLotteryLive = false; // Set to true when lottery launches
 
-  // Fetch last winner for dice game
+  // Fetch last winner for dice game using events
   useEffect(() => {
     console.log("Dice winner effect running");
     
     const fetchLastDiceWinner = async () => {
-      console.log("Fetching dice last winner...");
+      console.log("Fetching dice last winner via events...");
       
       try {
-        // Get total number of bets
-        const totalBets = await publicClient.readContract({
+        // Get recent BetRevealed events
+        const logs = await publicClient.getLogs({
           address: DONUT_DICE_ADDRESS,
-          abi: DICE_ABI,
-          functionName: "totalBets",
-        }) as bigint;
+          event: {
+            type: 'event',
+            name: 'BetRevealed',
+            inputs: [
+              { name: 'betId', type: 'uint256', indexed: true },
+              { name: 'player', type: 'address', indexed: true },
+              { name: 'secret', type: 'bytes32', indexed: false },
+              { name: 'blockHash', type: 'bytes32', indexed: false },
+              { name: 'result', type: 'uint8', indexed: false },
+              { name: 'won', type: 'bool', indexed: false },
+              { name: 'payout', type: 'uint256', indexed: false },
+            ],
+          },
+          fromBlock: 'earliest',
+          toBlock: 'latest',
+        });
 
-        console.log("Total bets:", totalBets.toString());
+        console.log("Found", logs.length, "BetRevealed events");
 
-        if (totalBets === BigInt(0)) {
-          setDiceLastWinner(null);
-          return;
-        }
-
-        // Check the last 20 bets for a win
-        const startBet = totalBets > BigInt(20) ? totalBets - BigInt(20) : BigInt(1);
+        // Find the most recent win (iterate backwards)
         let lastWin: { player: string; payout: bigint } | null = null;
-
-        for (let i = totalBets; i >= startBet; i--) {
-          try {
-            const bet = await publicClient.readContract({
-              address: DONUT_DICE_ADDRESS,
-              abi: DICE_ABI,
-              functionName: "bets",
-              args: [i]
-            }) as [string, string, bigint, number, boolean, string, bigint, number, boolean, bigint, number, string];
-
-            console.log(`Bet ${i}:`, { player: bet[0], won: bet[8], status: bet[10], payout: bet[9].toString() });
-
-            // bet[8] = won, bet[10] = status (2 = revealed)
-            const won = bet[8];
-            const status = bet[10];
-            const payout = bet[9];
-            const player = bet[0];
-
-            if (won && status === 2) {
-              lastWin = { player, payout };
-              console.log("Found last win:", lastWin);
-              break;
-            }
-          } catch (e) {
-            console.log(`Error fetching bet ${i}:`, e);
-            continue;
+        
+        for (let i = logs.length - 1; i >= 0 && i >= logs.length - 50; i--) {
+          const log = logs[i];
+          const won = log.args.won;
+          const payout = log.args.payout;
+          const player = log.args.player;
+          
+          console.log(`Event ${i}:`, { player, won, payout: payout?.toString() });
+          
+          if (won && player && payout) {
+            lastWin = { player, payout };
+            console.log("Found last win:", lastWin);
+            break;
           }
         }
         
         if (!lastWin) {
-          console.log("No wins found in last 20 bets");
+          console.log("No wins found in recent events");
           setDiceLastWinner(null);
           return;
         }
