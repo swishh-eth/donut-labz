@@ -58,6 +58,8 @@ const hashSecret = (secret: `0x${string}`): `0x${string}` => {
 // Approvals Modal Component
 function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; refetchAllowance: () => void }) {
   const { address } = useAccount();
+  const [donutApprovalAmount, setDonutApprovalAmount] = useState<string>("100");
+  const [sprinklesApprovalAmount, setSprinklesApprovalAmount] = useState<string>("100");
   
   // Read DONUT allowance
   const { data: donutAllowance, refetch: refetchDonut } = useReadContract({
@@ -92,12 +94,15 @@ function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; re
     });
   };
 
-  const handleApprove = (tokenAddress: `0x${string}`) => {
+  const handleApprove = (tokenAddress: `0x${string}`, amount: string) => {
+    const parsedAmount = parseFloat(amount || "0");
+    if (parsedAmount <= 0) return;
+    
     writeContract({
       address: tokenAddress,
       abi: ERC20_ABI,
       functionName: "approve",
-      args: [DONUT_DICE_ADDRESS, parseUnits("1000000", 18)] // 1M approval
+      args: [DONUT_DICE_ADDRESS, parseUnits(amount, 18)]
     }, {
       onSuccess: () => {
         refetchDonut();
@@ -133,7 +138,7 @@ function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; re
                     <div className="text-sm font-bold text-white">DONUT</div>
                     <div className="text-[10px] text-gray-500">
                       {donutApproved 
-                        ? `Approved: ${parseFloat(formatUnits(donutAllowance, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                        ? `Approved: ${parseFloat(formatUnits(donutAllowance, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
                         : "Not approved"
                       }
                     </div>
@@ -144,22 +149,37 @@ function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; re
                   donutApproved ? "bg-green-500" : "bg-red-500"
                 )} />
               </div>
+              
+              {/* Approval Amount Input */}
+              <div className="mb-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={donutApprovalAmount}
+                    onChange={(e) => setDonutApprovalAmount(e.target.value)}
+                    placeholder="Amount"
+                    className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-sm text-center font-bold focus:outline-none focus:border-amber-500"
+                    style={{ fontSize: '14px' }}
+                  />
+                  <span className="text-xs text-gray-500">DONUT</span>
+                </div>
+              </div>
+              
               <div className="flex gap-2">
-                {donutApproved ? (
+                <button
+                  onClick={() => handleApprove(DONUT_TOKEN_ADDRESS, donutApprovalAmount)}
+                  disabled={isPending || parseFloat(donutApprovalAmount || "0") <= 0}
+                  className="flex-1 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-bold hover:bg-green-500/30 transition-colors disabled:opacity-50"
+                >
+                  {isPending ? "..." : "Approve"}
+                </button>
+                {donutApproved && (
                   <button
                     onClick={() => handleRevoke(DONUT_TOKEN_ADDRESS)}
                     disabled={isPending}
                     className="flex-1 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold hover:bg-red-500/30 transition-colors disabled:opacity-50"
                   >
                     {isPending ? "..." : "Revoke"}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleApprove(DONUT_TOKEN_ADDRESS)}
-                    disabled={isPending}
-                    className="flex-1 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-bold hover:bg-green-500/30 transition-colors disabled:opacity-50"
-                  >
-                    {isPending ? "..." : "Approve"}
                   </button>
                 )}
               </div>
@@ -174,7 +194,7 @@ function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; re
                     <div className="text-sm font-bold text-white">SPRINKLES</div>
                     <div className="text-[10px] text-gray-500">
                       {sprinklesApproved 
-                        ? `Approved: ${parseFloat(formatUnits(sprinklesAllowance, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                        ? `Approved: ${parseFloat(formatUnits(sprinklesAllowance, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
                         : "Not approved"
                       }
                     </div>
@@ -201,7 +221,7 @@ function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; re
 
           <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
             <p className="text-[9px] text-gray-500 text-center">
-              Revoking approval prevents the contract from spending your tokens.
+              Set a custom approval amount or revoke to prevent spending.
             </p>
           </div>
           
@@ -240,7 +260,7 @@ export default function DicePage() {
   const currentTokenAddress = currentToken.address;
 
   // Read token balance
-  const { data: tokenBalance } = useReadContract({
+  const { data: tokenBalance, refetch: refetchBalance } = useReadContract({
     address: currentTokenAddress,
     abi: ERC20_ABI,
     functionName: "balanceOf",
@@ -254,6 +274,22 @@ export default function DicePage() {
     functionName: "allowance",
     args: address ? [address, DONUT_DICE_ADDRESS] : undefined,
   });
+
+  // Refetch balance when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refetchBalance();
+        refetchAllowance();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refetchBalance, refetchAllowance]);
 
   // Read contract balance for selected token (max payout available)
   const { data: contractBalance } = useReadContract({
@@ -401,6 +437,7 @@ export default function DicePage() {
           }
           
           refetchBets();
+          refetchBalance();
           
           // Reset after showing result
           setTimeout(() => {
@@ -418,7 +455,7 @@ export default function DicePage() {
       
       getResult();
     }
-  }, [isRevealSuccess, betStep, revealHash, publicClient, refetchBets, resetApprove, resetCommit, resetReveal]);
+  }, [isRevealSuccess, betStep, revealHash, publicClient, refetchBets, refetchBalance, resetApprove, resetCommit, resetReveal]);
 
   const handleRoll = async () => {
     if (!isConnected || !address) return;
