@@ -577,7 +577,7 @@ export default function LeaderboardPage() {
           {/* Scrollable Leaderboard */}
           <div 
             ref={scrollContainerRef}
-            className="flex-1 overflow-y-auto overflow-x-hidden leaderboard-scroll"
+            className="flex-1 overflow-y-auto overflow-x-hidden leaderboard-scroll -mx-2 px-2"
           >
             <div className="space-y-2">
               {isLoading ? (
