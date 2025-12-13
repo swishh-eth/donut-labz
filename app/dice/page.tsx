@@ -249,6 +249,7 @@ export default function DicePage() {
   const [betStep, setBetStep] = useState<"idle" | "approving" | "committing" | "waiting" | "revealing" | "complete">("idle");
   const [lastResult, setLastResult] = useState<{ result: number; won: boolean; payout: bigint } | null>(null);
   const [streak, setStreak] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { address, isConnected } = useAccount();
 
@@ -333,27 +334,45 @@ export default function DicePage() {
   useEffect(() => {
     if (approveError && betStep === "approving") {
       console.log("Approve cancelled or failed:", approveError);
+      const msg = approveError.message || "Approval failed";
+      if (msg.includes("User rejected") || msg.includes("rejected")) {
+        setErrorMessage("Transaction cancelled");
+      } else {
+        setErrorMessage("Approval failed - try again");
+      }
       setBetStep("idle");
       setPendingBet(null);
       resetApprove();
+      setTimeout(() => setErrorMessage(null), 3000);
     }
   }, [approveError, betStep, resetApprove]);
 
   useEffect(() => {
     if (commitError && betStep === "committing") {
       console.log("Commit cancelled or failed:", commitError);
+      const msg = commitError.message || "Bet failed";
+      if (msg.includes("User rejected") || msg.includes("rejected")) {
+        setErrorMessage("Transaction cancelled");
+      } else if (msg.includes("Insufficient contract balance")) {
+        setErrorMessage("Pool is empty - try a smaller bet");
+      } else {
+        setErrorMessage("Bet failed - try again");
+      }
       setBetStep("idle");
       setPendingBet(null);
       resetCommit();
+      setTimeout(() => setErrorMessage(null), 3000);
     }
   }, [commitError, betStep, resetCommit]);
 
   useEffect(() => {
     if (revealError && betStep === "revealing") {
       console.log("Reveal cancelled or failed:", revealError);
+      setErrorMessage("Reveal failed - check history for pending bets");
       setBetStep("idle");
       setPendingBet(null);
       resetReveal();
+      setTimeout(() => setErrorMessage(null), 3000);
     }
   }, [revealError, betStep, resetReveal]);
 
@@ -566,18 +585,19 @@ export default function DicePage() {
       token: currentTokenAddress,
     });
     setLastResult(null);
+    setErrorMessage(null);
 
     // Check if we need approval - only if allowance is less than bet amount
     const needsApproval = !allowance || allowance < amountWei;
     
     if (needsApproval) {
       setBetStep("approving");
-      // Approve just slightly more than 1 DONUT (1.05) for the bet
+      // Approve 10 DONUT so they don't have to approve every bet
       writeApprove({
         address: currentTokenAddress,
         abi: ERC20_ABI,
         functionName: "approve",
-        args: [DONUT_DICE_ADDRESS, parseUnits("1.05", 18)]
+        args: [DONUT_DICE_ADDRESS, parseUnits("10", 18)]
       });
     } else {
       setBetStep("committing");
@@ -761,6 +781,13 @@ export default function DicePage() {
               {isProcessing && <Loader2 className="w-3 h-3 animate-spin" />}
               {betStep === "complete" && lastResult?.won && <CheckCircle className="w-3 h-3 text-green-400" />}
               {getStepMessage()}
+            </div>
+          )}
+
+          {/* Error Message */}
+          {errorMessage && (
+            <div className="mt-2 text-xs text-red-400 flex items-center justify-center gap-1">
+              {errorMessage}
             </div>
           )}
 
