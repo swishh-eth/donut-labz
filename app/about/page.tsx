@@ -393,7 +393,7 @@ export default function AboutPage() {
                   <p>The right to mine is bought through a continuous Dutch auction:</p>
                   <div className="pl-2 border-l border-zinc-700 ml-1 space-y-1">
                     <p>• Price doubles after each purchase</p>
-                    <p>• Then decays to 0 over one hour</p>
+                    <p>• Then decays to 1 DONUT over one hour</p>
                     <p>• Anyone can purchase control at current price</p>
                   </div>
                 </Section>
@@ -416,21 +416,6 @@ export default function AboutPage() {
                   <p>Donut Labs is an independent donut shop operating inside the $DONUT ecosystem.</p>
                   <p>We build fun ways to interact with $DONUT and $SPRINKLES, including mining interfaces, games, and social features.</p>
                   <p className="text-gray-500 italic">Your friendly neighborhood donut shop on Base.</p>
-                </Section>
-
-                {/* Games */}
-                <Section
-                  icon={<Dices className="w-4 h-4 text-white" />}
-                  title="Games"
-                >
-                  <p>Donut Labs features onchain games where you can win ETH, DONUT, and SPRINKLES.</p>
-                  <p>All games are <span className="text-white font-semibold">100% onchain</span> and <span className="text-white font-semibold">provably fair</span> — every bet, spin, and outcome is recorded on Base and verifiable.</p>
-                  <div className="pl-2 border-l border-zinc-700 ml-1 space-y-1 mt-2">
-                    <p>• <span className="text-white">Glaze Wheel</span> — Spin to win from the prize pool</p>
-                    <p>• <span className="text-white">Daily Lottery</span> — Buy tickets for daily draws</p>
-                    <p>• <span className="text-gray-500">More games coming soon...</span></p>
-                  </div>
-                  <p className="mt-2 text-gray-500 text-[10px]">All games have a 1% DONUT fee that funds the SPRINKLES LP burn rewards pool.</p>
                 </Section>
 
                 {/* Leaderboard */}
@@ -460,6 +445,21 @@ export default function AboutPage() {
                     </div>
                   </div>
                   <p className="mt-2 text-gray-500 text-[10px]">Leaderboard resets every Friday at 12pm UTC. Prizes include ETH, DONUT, and SPRINKLES!</p>
+                </Section>
+
+                {/* Games */}
+                <Section
+                  icon={<Dices className="w-4 h-4 text-white" />}
+                  title="Games"
+                >
+                  <p>Donut Labs features onchain games where you can win ETH, DONUT, and SPRINKLES.</p>
+                  <p>All games are <span className="text-white font-semibold">100% onchain</span> and <span className="text-white font-semibold">provably fair</span> — every bet, spin, and outcome is recorded on Base and verifiable.</p>
+                  <div className="pl-2 border-l border-zinc-700 ml-1 space-y-1 mt-2">
+                    <p>• <span className="text-white">Glaze Wheel</span> — Spin to win from the prize pool</p>
+                    <p>• <span className="text-white">Daily Lottery</span> — Buy tickets for daily draws</p>
+                    <p>• <span className="text-gray-500">More games coming soon...</span></p>
+                  </div>
+                  <p className="mt-2 text-gray-500 text-[10px]">All games have a 1% DONUT fee that funds the SPRINKLES LP burn rewards pool.</p>
                 </Section>
 
                 {/* Chat to Earn */}
