@@ -539,16 +539,17 @@ export default function DicePage() {
     });
     setLastResult(null);
 
-    // Check if we need approval
+    // Check if we need approval - only if allowance is less than bet amount
     const needsApproval = !allowance || allowance < amountWei;
     
     if (needsApproval) {
       setBetStep("approving");
+      // Approve just slightly more than 1 DONUT (1.05) for the bet
       writeApprove({
         address: currentTokenAddress,
         abi: ERC20_ABI,
         functionName: "approve",
-        args: [DONUT_DICE_ADDRESS, parseUnits("10", 18)] // Approve 10 tokens
+        args: [DONUT_DICE_ADDRESS, parseUnits("1.05", 18)]
       });
     } else {
       setBetStep("committing");
