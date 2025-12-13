@@ -196,6 +196,8 @@ export default function LeaderboardPage() {
     }
   }, []);
 
+  const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
+
   // Haptic feedback helper
   const triggerHaptic = useCallback(async () => {
     try {
@@ -214,21 +216,29 @@ export default function LeaderboardPage() {
       const scrollTop = container.scrollTop;
       const scrollHeight = container.scrollHeight - container.clientHeight;
       
-      // Calculate which item should be focused based on scroll percentage
-      let newIndex = 0;
+      // Calculate fade amounts based on scroll position
       if (scrollHeight > 0) {
         const scrollPercentage = scrollTop / scrollHeight;
-        newIndex = Math.round(scrollPercentage * 9); // 0-9 for 10 items
-      }
-      
-      const clampedIndex = Math.max(0, Math.min(9, newIndex));
-      
-      if (clampedIndex !== lastFocusedRef.current) {
-        lastFocusedRef.current = clampedIndex;
-        setFocusedIndex(clampedIndex);
-        triggerHaptic();
+        // Top fade: 0 at top, 1 when scrolled down
+        const topFade = Math.min(1, scrollTop / 50);
+        // Bottom fade: 1 at top, 0 at bottom
+        const bottomFade = Math.min(1, (scrollHeight - scrollTop) / 50);
+        setScrollFade({ top: topFade, bottom: bottomFade });
+        
+        // Calculate which item should be focused
+        const newIndex = Math.round(scrollPercentage * 9);
+        const clampedIndex = Math.max(0, Math.min(9, newIndex));
+        
+        if (clampedIndex !== lastFocusedRef.current) {
+          lastFocusedRef.current = clampedIndex;
+          setFocusedIndex(clampedIndex);
+          triggerHaptic();
+        }
       }
     };
+
+    // Initial call to set fade state
+    handleScroll();
 
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
@@ -346,20 +356,6 @@ export default function LeaderboardPage() {
           -ms-overflow-style: none;
           scroll-snap-type: y mandatory;
           scroll-behavior: smooth;
-          -webkit-mask-image: linear-gradient(
-            to bottom,
-            transparent 0%,
-            black 5%,
-            black 95%,
-            transparent 100%
-          );
-          mask-image: linear-gradient(
-            to bottom,
-            transparent 0%,
-            black 5%,
-            black 95%,
-            transparent 100%
-          );
         }
         .leaderboard-scroll::-webkit-scrollbar {
           display: none;
@@ -578,6 +574,14 @@ export default function LeaderboardPage() {
           <div 
             ref={scrollContainerRef}
             className="flex-1 overflow-y-auto overflow-x-hidden leaderboard-scroll"
+            style={{
+              WebkitMaskImage: scrollFade.top === 0 && scrollFade.bottom === 0 
+                ? 'none'
+                : `linear-gradient(to bottom, ${scrollFade.top > 0 ? 'transparent' : 'black'} 0%, black ${scrollFade.top > 0 ? '6%' : '0%'}, black ${scrollFade.bottom > 0 ? '94%' : '100%'}, ${scrollFade.bottom > 0 ? 'transparent' : 'black'} 100%)`,
+              maskImage: scrollFade.top === 0 && scrollFade.bottom === 0 
+                ? 'none'
+                : `linear-gradient(to bottom, ${scrollFade.top > 0 ? 'transparent' : 'black'} 0%, black ${scrollFade.top > 0 ? '6%' : '0%'}, black ${scrollFade.bottom > 0 ? '94%' : '100%'}, ${scrollFade.bottom > 0 ? 'transparent' : 'black'} 100%)`,
+            }}
           >
             <div className="space-y-2 pb-4">
               {isLoading ? (
