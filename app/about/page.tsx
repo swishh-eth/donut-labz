@@ -71,11 +71,12 @@ export default function AboutPage() {
 
   // Read SPRINKLES balance of dead address (burned tokens)
   const [burnedBalance, setBurnedBalance] = useState<string>("0");
+  const [donutBurnedInLP, setDonutBurnedInLP] = useState<string>("0");
   
   useEffect(() => {
     const fetchBurnedBalance = async () => {
       try {
-        // Use Base public RPC to fetch balance
+        // Use Base public RPC to fetch SPRINKLES burned balance
         const response = await fetch('https://mainnet.base.org', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -103,8 +104,43 @@ export default function AboutPage() {
       }
     };
 
+    const fetchDonutBurnedInLP = async () => {
+      try {
+        // Fetch DONUT balance in the LP pool fee address (0x710e042d4F13f5c649dBb1774A3695BFcAC253ce)
+        // DONUT token: 0x8cb68b0bc8a8f50a4f0b2BfC3e36e20c53450b1D
+        const response = await fetch('https://mainnet.base.org', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'eth_call',
+            params: [
+              {
+                to: '0x8cb68b0bc8a8f50a4f0b2BfC3e36e20c53450b1D',
+                data: '0x70a08231000000000000000000000000710e042d4F13f5c649dBb1774A3695BFcAC253ce'
+              },
+              'latest'
+            ]
+          })
+        });
+        const data = await response.json();
+        if (data.result) {
+          const balanceBigInt = BigInt(data.result);
+          const formatted = Math.floor(Number(formatEther(balanceBigInt))).toLocaleString();
+          setDonutBurnedInLP(formatted);
+        }
+      } catch (error) {
+        console.error('Failed to fetch DONUT burned in LP:', error);
+      }
+    };
+
     fetchBurnedBalance();
-    const interval = setInterval(fetchBurnedBalance, 30000);
+    fetchDonutBurnedInLP();
+    const interval = setInterval(() => {
+      fetchBurnedBalance();
+      fetchDonutBurnedInLP();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -354,7 +390,8 @@ export default function AboutPage() {
                   <p>$SPRINKLES is a companion token to $DONUT making $DONUT liquidity even stickier, Sprinkles must be mined by paying $DONUT in a separate dutch auction on Donut Labs.</p>
                   <p className="text-white font-semibold">Max Supply: 210,000,000 SPRINKLES (10x DONUT)</p>
                   <p className="text-gray-500 text-[10px]">10M preminted & seeded with 1,000 DONUT for permanent LP</p>
-                  
+                  <p className="text-gray-500 text-[10px]">500k preminted for Donut Labs Treasury</p>
+
                   <div className="mt-2 mb-2">
                     <p className="text-white font-semibold text-[11px] mb-1">SPRINKLES Revenue Split:</p>
                     <div className="pl-2 border-l border-amber-500/30 ml-1 space-y-1">
@@ -388,6 +425,16 @@ export default function AboutPage() {
                         <span className="text-[10px] text-amber-400 font-semibold">Total SPRINKLES Burned</span>
                       </div>
                       <span className="text-sm font-bold text-amber-300">{formattedBurned}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 p-2 bg-amber-900/30 border border-amber-500/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Flame className="w-3 h-3 text-amber-400" />
+                        <span className="text-[10px] text-amber-400 font-semibold">Total DONUT Burned (LP Fees)</span>
+                      </div>
+                      <span className="text-sm font-bold text-amber-300">🍩{donutBurnedInLP}</span>
                     </div>
                   </div>
                 </div>
@@ -471,10 +518,10 @@ export default function AboutPage() {
                   <p>All games are <span className="text-white font-semibold">100% onchain</span> and <span className="text-white font-semibold">provably fair</span> — every bet, spin, and outcome is recorded on Base and verifiable.</p>
                   <div className="pl-2 border-l border-zinc-700 ml-1 space-y-1 mt-2">
                     <p>• <span className="text-white">Glaze Wheel</span> — Spin to win from the prize pool</p>
-                    <p>• <span className="text-white">Daily Lottery</span> — Buy tickets for daily draws</p>
+                    <p>• <span className="text-white">Daily Lottery</span> — Buy tickets for daily glaze</p>
                     <p>• <span className="text-gray-500">More games coming soon...</span></p>
                   </div>
-                  <p className="mt-2 text-gray-500 text-[10px]">All games have a 1% DONUT fee that funds the SPRINKLES LP burn rewards pool.</p>
+                  <p className="mt-2 text-gray-500 text-[10px]">Games may have a 1% DONUT fee that funds the SPRINKLES LP burn rewards pool.</p>
                 </Section>
 
                 {/* Chat to Earn */}

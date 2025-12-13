@@ -20,27 +20,21 @@ const MIN_MESSAGE_LENGTH = 3;
 // Only refresh Neynar score if cache is older than 7 days
 const SCORE_CACHE_DAYS = 7;
 
-// Sprinkles chat reward halving constants - STARTS AT 4x
+// Sprinkles chat reward halving constants - STARTS AT 2x, ends at 0
 const CHAT_REWARDS_START_TIME = 1765163000; // Approx when sprinkles miner deployed
 const HALVING_PERIOD = 30 * 24 * 60 * 60; // 30 days in seconds
-const INITIAL_MULTIPLIER = 4.0; // Changed to 4.0
-const MIN_MULTIPLIER = 0.5; // Min 0.5x
+const MULTIPLIER_SCHEDULE = [2, 1, 0.5, 0.25, 0]; // After 4 halvings, rewards end
 
 const getCurrentMultiplier = () => {
   const now = Math.floor(Date.now() / 1000);
   const elapsed = now - CHAT_REWARDS_START_TIME;
   const halvings = Math.floor(elapsed / HALVING_PERIOD);
   
-  let multiplier = INITIAL_MULTIPLIER;
-  for (let i = 0; i < halvings; i++) {
-    multiplier = multiplier / 2;
-    if (multiplier < MIN_MULTIPLIER) {
-      multiplier = MIN_MULTIPLIER;
-      break;
-    }
+  // Use the schedule array, return 0 if past the end
+  if (halvings >= MULTIPLIER_SCHEDULE.length) {
+    return 0;
   }
-  
-  return multiplier;
+  return MULTIPLIER_SCHEDULE[halvings];
 };
 
 export async function POST(request: Request) {
@@ -56,6 +50,17 @@ export async function POST(request: Request) {
     }
 
     const address = senderAddress.toLowerCase();
+
+    // Check if rewards have ended
+    const currentMultiplier = getCurrentMultiplier();
+    if (currentMultiplier === 0) {
+      return NextResponse.json({
+        success: true,
+        pointsAwarded: 0,
+        multiplier: 0,
+        reason: "Chat rewards have ended",
+      });
+    }
 
     // === SPAM CHECK 1: Minimum message length ===
     if (message && message.trim().length < MIN_MESSAGE_LENGTH) {
@@ -181,7 +186,6 @@ export async function POST(request: Request) {
     }
 
     // Calculate points with halving multiplier
-    const currentMultiplier = getCurrentMultiplier();
     const pointsAwarded = neynarScore * currentMultiplier;
 
     // Update chat_points

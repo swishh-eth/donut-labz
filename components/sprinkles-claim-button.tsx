@@ -397,7 +397,28 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
 
   // COMPACT VIEW (for chat page stats row)
   if (compact) {
-    // Already claimed this epoch
+    // Claim window is CLOSED - show countdown to Friday regardless of claim status
+    if (!isClaimOpen) {
+      return (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
+          <div className="flex items-center gap-1 mb-0.5">
+            <Sparkles className="w-3 h-3 text-amber-400 drop-shadow-[0_0_3px_rgba(251,191,36,0.8)]" />
+            <span className="text-[9px] text-gray-400 uppercase">Friday Drop</span>
+          </div>
+          <div className="text-sm font-bold text-white flex items-center gap-1">
+            <Clock className="w-3 h-3 text-amber-400" />
+            <span className="text-amber-400">{formatCountdown(countdown)}</span>
+          </div>
+          {hasClaimableAmount && (
+            <div className="text-[9px] text-gray-500 mt-0.5">
+              {userPoints?.toFixed(2)} to claim
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Claim window is OPEN (Friday!) - check if already claimed this epoch
     if (hasClaimed) {
       return (
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
@@ -407,14 +428,14 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
           </div>
           <div className="text-sm font-bold text-green-400">Claimed!</div>
           <div className="text-[9px] text-gray-500 mt-0.5">
-            Next Friday in {formatCountdown(countdown)}
+            {formatCountdown(countdown)} left today
           </div>
         </div>
       );
     }
 
     // Claim window is open (it's Friday!) and user has points
-    if (isClaimOpen && hasClaimableAmount) {
+    if (hasClaimableAmount) {
       
       // Show error state
       if (verifyError || claimError) {
@@ -533,37 +554,16 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     }
 
     // Claim window open (Friday) but no points
-    if (isClaimOpen && !hasClaimableAmount) {
-      return (
-        <div className="bg-zinc-900 border border-amber-500/30 rounded-lg p-2 flex flex-col items-center justify-center text-center">
-          <div className="flex items-center gap-1 mb-0.5">
-            <Calendar className="w-3 h-3 text-amber-400" />
-            <span className="text-[9px] text-gray-400 uppercase">It's Friday!</span>
-          </div>
-          <div className="text-sm font-bold text-gray-500">0 points</div>
-          <div className="text-[9px] text-gray-600 mt-0.5">
-            Chat this week to earn!
-          </div>
-        </div>
-      );
-    }
-
-    // Countdown to Friday
     return (
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
+      <div className="bg-zinc-900 border border-amber-500/30 rounded-lg p-2 flex flex-col items-center justify-center text-center">
         <div className="flex items-center gap-1 mb-0.5">
-          <Sparkles className="w-3 h-3 text-amber-400 drop-shadow-[0_0_3px_rgba(251,191,36,0.8)]" />
-          <span className="text-[9px] text-gray-400 uppercase">Friday Drop</span>
+          <Calendar className="w-3 h-3 text-amber-400" />
+          <span className="text-[9px] text-gray-400 uppercase">It's Friday!</span>
         </div>
-        <div className="text-sm font-bold text-white flex items-center gap-1">
-          <Clock className="w-3 h-3 text-amber-400" />
-          <span className="text-amber-400">{formatCountdown(countdown)}</span>
+        <div className="text-sm font-bold text-gray-500">0 points</div>
+        <div className="text-[9px] text-gray-600 mt-0.5">
+          Chat this week to earn!
         </div>
-        {hasClaimableAmount && (
-          <div className="text-[9px] text-gray-500 mt-0.5">
-            {userPoints?.toFixed(2)} to claim
-          </div>
-        )}
       </div>
     );
   }

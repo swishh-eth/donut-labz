@@ -54,28 +54,31 @@ const ERC20_ABI = [
 
 const CHAT_REWARDS_START_TIME = 1765163000;
 const HALVING_PERIOD = 30 * 24 * 60 * 60;
-const INITIAL_MULTIPLIER = 4.0;
-const MIN_MULTIPLIER = 0.5;
+const INITIAL_MULTIPLIER = 2.0;
+const MULTIPLIER_SCHEDULE = [2, 1, 0.5, 0.25, 0]; // After 4 halvings, rewards end
 
 const getCurrentMultiplier = () => {
   const now = Math.floor(Date.now() / 1000);
   const elapsed = now - CHAT_REWARDS_START_TIME;
   const halvings = Math.floor(elapsed / HALVING_PERIOD);
-  let multiplier = INITIAL_MULTIPLIER;
-  for (let i = 0; i < halvings; i++) {
-    multiplier = multiplier / 2;
-    if (multiplier < MIN_MULTIPLIER) {
-      multiplier = MIN_MULTIPLIER;
-      break;
-    }
+  
+  // Use the schedule array, return 0 if past the end
+  if (halvings >= MULTIPLIER_SCHEDULE.length) {
+    return 0;
   }
-  return multiplier;
+  return MULTIPLIER_SCHEDULE[halvings];
 };
 
 const getTimeUntilNextHalving = () => {
   const now = Math.floor(Date.now() / 1000);
   const elapsed = now - CHAT_REWARDS_START_TIME;
   const currentPeriod = Math.floor(elapsed / HALVING_PERIOD);
+  
+  // If rewards have ended, return null
+  if (currentPeriod >= MULTIPLIER_SCHEDULE.length - 1) {
+    return null;
+  }
+  
   const nextHalvingTime = CHAT_REWARDS_START_TIME + ((currentPeriod + 1) * HALVING_PERIOD);
   const secondsRemaining = nextHalvingTime - now;
   const days = Math.floor(secondsRemaining / 86400);
@@ -367,6 +370,14 @@ export default function ChatPage() {
 
   const handleSendMessage = async () => {
     if (!message.trim() || !isConnected || isPending || isConfirming || cooldownRemaining > 0 || rateLimitBanRemaining > 0 || isVerifying) return;
+    
+    // Check if rewards have ended
+    if (currentMultiplier === 0) {
+      setEligibilityError(["Chat rewards have ended. You can still send messages but won't earn sprinkles."]);
+      // Still allow sending, just clear the error after showing
+      setTimeout(() => setEligibilityError(null), 3000);
+    }
+    
     setEligibilityError(null);
     setIsVerifying(true);
     try {
@@ -520,6 +531,9 @@ export default function ChatPage() {
     setDragX(0);
   };
 
+  // Check if rewards have ended
+  const rewardsEnded = currentMultiplier === 0;
+
   return (
     <main className="flex h-[100dvh] w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style jsx global>{`
@@ -565,7 +579,11 @@ export default function ChatPage() {
               <div className="text-lg font-bold text-white">{typeof userPoints === 'number' ? userPoints.toFixed(2) : '0.00'}</div>
               <div className="flex items-center gap-1 mt-1">
                 <Timer className="w-2.5 h-2.5 text-amber-400" />
-                <span className="text-[9px] text-amber-400">{currentMultiplier.toFixed(1)}x • Halving in {timeUntilHalving}</span>
+                {rewardsEnded ? (
+                  <span className="text-[9px] text-red-400">Rewards ended</span>
+                ) : (
+                  <span className="text-[9px] text-amber-400">{currentMultiplier.toFixed(1)}x • {timeUntilHalving ? `Halving in ${timeUntilHalving}` : 'Final period'}</span>
+                )}
               </div>
             </div>
             <SprinklesClaimButton userFid={context?.user?.fid} compact />
@@ -618,7 +636,7 @@ export default function ChatPage() {
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
                       <div>
                         <div className="font-semibold text-amber-400 text-xs">Halving Schedule</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">Rewards halve every 30 days: 4x → 2x → 1x → 0.5x min.</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">Rewards halve every 30 days: 2x → 1x → 0.5x → 0.25x → 0 (ends).</div>
                       </div>
                     </div>
                     <div className="flex gap-2.5">
