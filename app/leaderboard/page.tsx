@@ -197,14 +197,11 @@ export default function LeaderboardPage() {
   }, []);
 
   // Haptic feedback helper
-  const triggerHaptic = useCallback(() => {
+  const triggerHaptic = useCallback(async () => {
     try {
-      // Try Farcaster SDK vibration
-      if ('vibrate' in navigator) {
-        navigator.vibrate(10);
-      }
+      await sdk.haptics.impactOccurred("light");
     } catch {
-      // Silent fail if vibration not supported
+      // Silent fail if haptics not supported
     }
   }, []);
 
@@ -557,7 +554,7 @@ export default function LeaderboardPage() {
           {/* Scrollable Leaderboard */}
           <div 
             ref={scrollContainerRef}
-            className="flex-1 overflow-y-auto leaderboard-scroll"
+            className="flex-1 overflow-y-auto overflow-x-hidden leaderboard-scroll"
           >
             <div className="space-y-2 pb-4">
               {isLoading ? (
@@ -603,7 +600,7 @@ export default function LeaderboardPage() {
                         key={`empty-${rank}`}
                         className={`flex items-center justify-between rounded-xl p-3 border transition-all duration-200 ${
                           isFocused 
-                            ? "bg-zinc-800 border-zinc-600 scale-[1.02] shadow-lg" 
+                            ? "bg-zinc-800 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.15)]" 
                             : "bg-zinc-900 border-zinc-800"
                         }`}
                         style={{ minHeight: '80px' }}
@@ -677,7 +674,7 @@ export default function LeaderboardPage() {
                       key={entry.address}
                       className={`flex items-center justify-between rounded-xl p-3 border transition-all duration-200 ${
                         isFocused 
-                          ? "bg-zinc-800 border-zinc-600 scale-[1.02] shadow-lg" 
+                          ? "bg-zinc-800 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.15)]" 
                           : "bg-zinc-900 border-zinc-800"
                       }`}
                       style={{ minHeight: '80px' }}
