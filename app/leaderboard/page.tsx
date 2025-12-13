@@ -429,10 +429,10 @@ export default function LeaderboardPage() {
                 onClick={() => setShowUsdPrize(!showUsdPrize)}
                 className={`relative border rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all h-[72px] ${
                   showUsdPrize 
-                    ? "bg-amber-500/10 border-amber-500/50" 
-                    : "bg-zinc-900 border-zinc-800"
+                    ? "border-amber-500/50" 
+                    : "border-zinc-800"
                 }`}
-                style={{ backgroundColor: showUsdPrize ? 'rgba(245, 158, 11, 0.1)' : '#18181b' }}
+                style={{ backgroundColor: showUsdPrize ? '#2a1f0a' : '#18181b' }}
               >
                 {showUsdPrize ? (
                   <>
@@ -614,10 +614,13 @@ export default function LeaderboardPage() {
                         key={`empty-${rank}`}
                         className={`leaderboard-item flex items-center justify-between rounded-xl p-3 border transition-all duration-200 ${
                           isFocused 
-                            ? "bg-zinc-800 border-white/50 shadow-[0_0_15px_rgba(255,255,255,0.3)]" 
+                            ? "border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.4)]" 
                             : "bg-zinc-900 border-zinc-800"
                         }`}
-                        style={{ minHeight: '80px' }}
+                        style={{ 
+                          minHeight: '80px',
+                          backgroundColor: isFocused ? 'rgba(245, 158, 11, 0.1)' : undefined
+                        }}
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           <span
@@ -688,10 +691,13 @@ export default function LeaderboardPage() {
                       key={entry.address}
                       className={`leaderboard-item flex items-center justify-between rounded-xl p-3 border transition-all duration-200 ${
                         isFocused 
-                          ? "bg-zinc-800 border-white/50 shadow-[0_0_15px_rgba(255,255,255,0.3)]" 
+                          ? "border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.4)]" 
                           : "bg-zinc-900 border-zinc-800"
                       }`}
-                      style={{ minHeight: '80px' }}
+                      style={{ 
+                        minHeight: '80px',
+                        backgroundColor: isFocused ? 'rgba(245, 158, 11, 0.1)' : undefined
+                      }}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <span
