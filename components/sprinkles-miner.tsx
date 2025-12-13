@@ -47,7 +47,6 @@ const DEFAULT_MESSAGES = [
   "Sprinkling magic on Base - Donut Labs",
   "Powered by Chromium Donut Tech - Donut Labs",
   "Stay glazed, stay based - Donut Labs",
-  "Sprinkles make everything better - Donut Labs",
   "The donut shop never closes - Donut Labs",
   "More sprinkles, more fun - Donut Labs",
 ];
