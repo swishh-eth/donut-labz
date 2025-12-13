@@ -15,7 +15,7 @@ const DONUT_DICE_ADDRESS = "0x49826C6C884ed7A828c06f75814Acf8bd658bb76" as const
 // Create a public client for Base
 const publicClient = createPublicClient({
   chain: base,
-  transport: http(),
+  transport: http(process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org'),
 });
 
 // Minimal ABI for reading bets
