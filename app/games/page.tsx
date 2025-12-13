@@ -2,12 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Target, Flame, Zap, Trophy, Lock } from "lucide-react";
-import { formatEther } from "viem";
+import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Target, Zap, Trophy, Lock } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -99,18 +97,19 @@ export default function GamesPage() {
   const readyRef = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
-  const [timeUntilReset, setTimeUntilReset] = useState("");
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showBuyTicketsDialog, setShowBuyTicketsDialog] = useState(false);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
 
   // Mock data - replace with real contract reads later
   const [poolData, setPoolData] = useState({
-    totalTickets: 1247,
-    prizePool: 5420, // in DONUT
+    totalTickets: 0,
+    prizePool: 0, // in DONUT
     ticketPrice: 10, // DONUT per ticket
     userTickets: 0,
   });
+
+  const isLotteryLive = false; // Set to true when lottery launches
 
   useEffect(() => {
     let cancelled = false;
@@ -140,33 +139,6 @@ export default function GamesPage() {
       }
     }, 1200);
     return () => clearTimeout(timeout);
-  }, []);
-
-  // Countdown to daily reset (midnight UTC)
-  useEffect(() => {
-    const updateCountdown = () => {
-      const now = new Date();
-      const tomorrow = new Date(now);
-      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-      tomorrow.setUTCHours(0, 0, 0, 0);
-
-      const diff = tomorrow.getTime() - now.getTime();
-      
-      if (diff <= 0) {
-        setTimeUntilReset("Resetting...");
-        return;
-      }
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setTimeUntilReset(`${hours}h ${minutes}m ${seconds}s`);
-    };
-
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
   }, []);
 
   // Handle scroll fade
@@ -227,18 +199,34 @@ export default function GamesPage() {
       highlighted: false,
     },
     {
-      id: "prediction",
-      title: "Price Prediction",
-      description: "Predict DONUT price movement",
-      icon: Flame,
-      comingSoon: true,
-      highlighted: false,
-    },
-    {
       id: "tournaments",
       title: "Tournaments",
       description: "Compete in weekly mining tournaments",
       icon: Trophy,
+      comingSoon: true,
+      highlighted: false,
+    },
+    {
+      id: "slots",
+      title: "Donut Slots",
+      description: "Match symbols to win big",
+      icon: Sparkles,
+      comingSoon: true,
+      highlighted: false,
+    },
+    {
+      id: "coinflip",
+      title: "Coin Flip",
+      description: "Heads or tails, 50/50 odds",
+      icon: Coins,
+      comingSoon: true,
+      highlighted: false,
+    },
+    {
+      id: "mystery",
+      title: "Mystery Game",
+      description: "Something special coming...",
+      icon: HelpCircle,
       comingSoon: true,
       highlighted: false,
     },
@@ -295,35 +283,33 @@ export default function GamesPage() {
 
             {/* Daily Pool Stats */}
             <div className="grid grid-cols-3 gap-2 mb-3">
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center h-[72px]">
                 <div className="flex items-center gap-1 mb-0.5">
-                  <Ticket className="w-3 h-3 text-amber-400" />
+                  <Ticket className="w-3 h-3 text-gray-500" />
                   <span className="text-[9px] text-gray-400 uppercase">Tickets</span>
                 </div>
-                <div className="text-lg font-bold text-white">{poolData.totalTickets.toLocaleString()}</div>
+                <div className="text-lg font-bold text-gray-500">0</div>
               </div>
 
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center h-[72px]">
                 <div className="flex items-center gap-1 mb-0.5">
-                  <Clock className="w-3 h-3 text-amber-400" />
+                  <Clock className="w-3 h-3 text-gray-500" />
                   <span className="text-[9px] text-gray-400 uppercase">Resets In</span>
                 </div>
-                <div className="text-sm font-bold text-amber-400">{timeUntilReset}</div>
+                <div className="text-xs font-bold text-gray-500">Coming Soon</div>
               </div>
 
-              <button
-                onClick={() => setShowBuyTicketsDialog(true)}
-                className="border border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20 rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all hover:from-amber-600/30 hover:to-orange-600/30 h-[72px]"
+              <div
+                className="border border-zinc-800 bg-zinc-900 rounded-lg p-2 flex flex-col items-center justify-center text-center h-[72px]"
               >
                 <div className="flex items-center gap-1 mb-0.5">
-                  <Coins className="w-3 h-3 text-amber-400" />
+                  <Coins className="w-3 h-3 text-gray-500" />
                   <span className="text-[9px] text-gray-400 uppercase">Prize Pool</span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-xl font-bold text-amber-400">🍩{poolData.prizePool.toLocaleString()}</span>
-                  <span className="text-[8px] text-amber-400/80">tap to buy tickets</span>
+                  <span className="text-sm font-bold text-gray-500">Coming Soon</span>
                 </div>
-              </button>
+              </div>
             </div>
 
             {/* How It Works Button */}
@@ -357,48 +343,55 @@ export default function GamesPage() {
 
                   <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2">
                     <Dices className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                    How Games Work
+                    Donut Labs Games
                   </h2>
 
                   <div className="space-y-2.5">
                     <div className="flex gap-2.5">
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">1</div>
                       <div>
-                        <div className="font-semibold text-amber-400 text-xs">Daily Lottery Pool</div>
-                        <div className="text-[11px] text-gray-400">Buy tickets with DONUT. Pool resets daily at midnight UTC.</div>
+                        <div className="font-semibold text-amber-400 text-xs">100% Onchain</div>
+                        <div className="text-[11px] text-gray-400">All games run entirely on Base. Every bet, spin, and outcome is recorded onchain.</div>
                       </div>
                     </div>
 
                     <div className="flex gap-2.5">
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
                       <div>
-                        <div className="font-semibold text-white text-xs">Fair Odds</div>
-                        <div className="text-[11px] text-gray-400">Your chance of winning = your tickets ÷ total tickets sold.</div>
+                        <div className="font-semibold text-white text-xs">Provably Fair</div>
+                        <div className="text-[11px] text-gray-400">All randomness is verifiable. Check any result yourself on the blockchain.</div>
                       </div>
                     </div>
 
                     <div className="flex gap-2.5">
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">3</div>
                       <div>
-                        <div className="font-semibold text-white text-xs">Provably Fair</div>
-                        <div className="text-[11px] text-gray-400">All randomness is on-chain and verifiable.</div>
+                        <div className="font-semibold text-white text-xs">Transparent Fees</div>
+                        <div className="text-[11px] text-gray-400">All games have a 1% DONUT fee that funds the SPRINKLES LP burn rewards pool.</div>
                       </div>
                     </div>
 
                     <div className="flex gap-2.5">
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
                       <div>
-                        <div className="font-semibold text-amber-400 text-xs">Win Big</div>
-                        <div className="text-[11px] text-gray-400">Winner takes 90% of the pool. 10% goes to DONUT buybacks.</div>
+                        <div className="font-semibold text-amber-400 text-xs">Non-Custodial</div>
+                        <div className="text-[11px] text-gray-400">Your funds stay in your wallet until you play. Winnings are sent directly to you.</div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">5</div>
+                      <div>
+                        <div className="font-semibold text-white text-xs">Open Source</div>
+                        <div className="text-[11px] text-gray-400">All smart contracts are verified and open source. Trust the code, not us.</div>
                       </div>
                     </div>
                   </div>
 
                   <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-xl">
-                    <div className="text-[9px] text-gray-500 uppercase mb-1.5 text-center">Ticket Price</div>
+                    <div className="text-[9px] text-gray-500 uppercase mb-1.5 text-center">Fee Distribution</div>
                     <div className="text-center">
-                      <span className="text-xl font-bold text-amber-400">🍩{poolData.ticketPrice}</span>
-                      <span className="text-xs text-gray-400 ml-1">per ticket</span>
+                      <span className="text-base font-bold text-amber-400">1% → SPRINKLES LP Burn</span>
                     </div>
                   </div>
 
@@ -431,30 +424,49 @@ export default function GamesPage() {
 
                   <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2">
                     <Ticket className="w-4 h-4 text-amber-400" />
-                    Buy Lottery Tickets
+                    Daily Lottery
                   </h2>
 
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 mb-3">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs text-gray-400">Current Pool</span>
-                      <span className="text-sm font-bold text-amber-400">🍩{poolData.prizePool.toLocaleString()}</span>
+                  <div className="space-y-2.5 mb-4">
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">1</div>
+                      <div>
+                        <div className="font-semibold text-amber-400 text-xs">Buy Tickets</div>
+                        <div className="text-[11px] text-gray-400">Purchase tickets with DONUT. More tickets = better odds.</div>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs text-gray-400">Total Tickets</span>
-                      <span className="text-sm font-bold text-white">{poolData.totalTickets.toLocaleString()}</span>
+
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
+                      <div>
+                        <div className="font-semibold text-white text-xs">Daily Reset</div>
+                        <div className="text-[11px] text-gray-400">Pool resets every day at midnight UTC. Winner is drawn automatically.</div>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-400">Your Tickets</span>
-                      <span className="text-sm font-bold text-white">{poolData.userTickets}</span>
+
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">3</div>
+                      <div>
+                        <div className="font-semibold text-white text-xs">Fair Odds</div>
+                        <div className="text-[11px] text-gray-400">Your chance = your tickets ÷ total tickets. Simple math.</div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
+                      <div>
+                        <div className="font-semibold text-amber-400 text-xs">Win 99%</div>
+                        <div className="text-[11px] text-gray-400">Winner takes 99% of the pool. 1% funds SPRINKLES LP burns.</div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="text-center py-6">
-                    <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-3">
-                      <Lock className="w-8 h-8 text-gray-500" />
+                  <div className="text-center py-4 bg-zinc-900 border border-zinc-800 rounded-xl">
+                    <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-2">
+                      <Lock className="w-6 h-6 text-gray-500" />
                     </div>
-                    <p className="text-sm text-gray-400">Coming Soon</p>
-                    <p className="text-xs text-gray-500 mt-1">Daily lottery launching next week!</p>
+                    <p className="text-sm font-semibold text-gray-400">Coming Soon</p>
+                    <p className="text-xs text-gray-500 mt-1">Daily lottery launching soon!</p>
                   </div>
 
                   <button
