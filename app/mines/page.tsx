@@ -332,18 +332,27 @@ export default function MinesPage() {
     args: address ? [address] : undefined,
   });
 
-  // Get first active game ID (if any)
-  const activeGameId = activeGameIds && (activeGameIds as bigint[]).length > 0 
-    ? (activeGameIds as bigint[])[0] 
-    : undefined;
+  // Find the current playable game (one we have the secret for)
+  const allActiveGameIds = (activeGameIds as bigint[]) || [];
+  
+  // Get the game we're currently playing (have secret for)
+  const currentGameId = pendingGame?.gameId || (allActiveGameIds.length > 0 ? allActiveGameIds[0] : undefined);
+  
+  // Check if we have a secret for current game
+  const hasSecretForCurrentGame = (): boolean => {
+    if (pendingGame?.secret) return true;
+    if (!currentGameId) return false;
+    // We'll check localStorage when needed
+    return false;
+  };
 
-  // Read game details if active
+  // Read game details if we have an active game
   const { data: activeGameData, refetch: refetchGameData } = useReadContract({
     address: DONUT_MINES_ADDRESS,
     abi: MINES_ABI,
     functionName: "getGame",
-    args: activeGameId ? [activeGameId] : undefined,
-    query: { enabled: !!activeGameId }
+    args: currentGameId ? [currentGameId] : undefined,
+    query: { enabled: !!currentGameId }
   });
 
   // Read game core (for commitHash) if active
@@ -351,8 +360,8 @@ export default function MinesPage() {
     address: DONUT_MINES_ADDRESS,
     abi: MINES_ABI,
     functionName: "gameCore",
-    args: activeGameId ? [activeGameId] : undefined,
-    query: { enabled: !!activeGameId }
+    args: currentGameId ? [currentGameId] : undefined,
+    query: { enabled: !!currentGameId }
   });
 
   // Write contracts
@@ -462,12 +471,12 @@ export default function MinesPage() {
     }
   }, [isStartSuccess, gameStep]);
 
-  // When active game is detected, set gameStep to playing
+  // When active game is detected with secret, set gameStep to playing
   useEffect(() => {
-    if (activeGameId && gameStep === "idle") {
+    if (currentGameId && gameStep === "idle" && getSecretForGame()) {
       setGameStep("playing");
     }
-  }, [activeGameId, gameStep]);
+  }, [currentGameId, gameStep, pendingGame, activeGameCore]);
 
   // Handle claim expired success
   useEffect(() => {
@@ -566,7 +575,7 @@ export default function MinesPage() {
   };
 
   const handleRevealTile = (tileIndex: number) => {
-    if (!activeGameId || gameStep !== "playing") return;
+    if (!currentGameId || gameStep !== "playing") return;
     
     // Try to get secret from pendingGame state first, then localStorage
     let secret: `0x${string}` | null = pendingGame?.secret || null;
@@ -587,7 +596,7 @@ export default function MinesPage() {
     }
     
     if (!secret) {
-      setErrorMessage("Secret not found - game may have expired");
+      setErrorMessage("Secret not found - check history to claim");
       return;
     }
     
@@ -601,12 +610,12 @@ export default function MinesPage() {
       address: DONUT_MINES_ADDRESS,
       abi: MINES_ABI,
       functionName: "revealTile",
-      args: [activeGameId, tileIndex, secret]
+      args: [currentGameId, tileIndex, secret]
     });
   };
 
   const handleCashOut = () => {
-    if (!activeGameId || gameStep !== "playing") return;
+    if (!currentGameId || gameStep !== "playing") return;
     
     setGameStep("cashing");
     
@@ -614,12 +623,23 @@ export default function MinesPage() {
       address: DONUT_MINES_ADDRESS,
       abi: MINES_ABI,
       functionName: "cashOut",
-      args: [activeGameId]
+      args: [currentGameId]
     });
   };
 
+  // Check if we have a playable game (with secret)
+  const getSecretForGame = (): `0x${string}` | null => {
+    if (pendingGame?.secret) return pendingGame.secret;
+    if (activeGameCore) {
+      const coreData = activeGameCore as [`0x${string}`, `0x${string}`, bigint, bigint, `0x${string}`, `0x${string}`];
+      const commitHash = coreData[4];
+      return getGameSecret(commitHash);
+    }
+    return null;
+  };
+
   const isProcessing = gameStep !== "idle" && gameStep !== "playing";
-  const hasActiveGame = activeGameId !== undefined;
+  const hasPlayableGame = currentGameId !== undefined && getSecretForGame() !== null;
   const game = activeGameData as OnchainGame | undefined;
   const isGameActive = game ? game[6] === 1 : false; // status is index 6
   const revealedTiles = game ? game[7] : 0; // revealedTiles is index 7
@@ -628,6 +648,7 @@ export default function MinesPage() {
   const displayMultiplier = calculateDisplayMultiplier(gameMineCount, safeRevealed);
   const minePositions = game ? BigInt(game[8]) : BigInt(0); // minePositions is index 8
   const gameBetAmount = game ? game[2] : BigInt(0); // betAmount is index 2
+  const pendingGamesCount = allActiveGameIds.length;
 
   const formattedBalance = tokenBalance 
     ? parseFloat(formatUnits(tokenBalance, 18)).toFixed(2)
@@ -775,8 +796,8 @@ export default function MinesPage() {
 
         {/* Bottom Controls */}
         <div className="flex-shrink-0 space-y-2">
-          {/* Mine Count Selector */}
-          {!hasActiveGame && (
+          {/* Mine Count Selector - show when no playable game */}
+          {!hasPlayableGame && (
             <>
               <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
                 <div className="flex justify-between items-center mb-1">
@@ -839,8 +860,32 @@ export default function MinesPage() {
             </>
           )}
 
+          {/* Pending Games Notice */}
+          {pendingGamesCount > 0 && !hasPlayableGame && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 mb-2">
+              <p className="text-[10px] text-amber-400 text-center">
+                {pendingGamesCount} pending game(s) without secret. Check history to claim back.
+              </p>
+            </div>
+          )}
+
           {/* Action Button */}
-          {!hasActiveGame ? (
+          {hasPlayableGame && isGameActive ? (
+            <button
+              onClick={handleCashOut}
+              disabled={safeRevealed === 0 || gameStep === "revealing" || gameStep === "cashing"}
+              className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-400 text-black font-bold text-lg tracking-wide disabled:opacity-50 transition-colors"
+            >
+              {gameStep === "cashing" ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Cashing Out...
+                </span>
+              ) : (
+                `CASH OUT ${displayMultiplier.toFixed(2)}x`
+              )}
+            </button>
+          ) : (
             <button
               onClick={handleStartGame}
               disabled={isProcessing || !isConnected}
@@ -854,61 +899,6 @@ export default function MinesPage() {
               ) : (
                 "START GAME"
               )}
-            </button>
-          ) : isGameActive ? (
-            <>
-              {/* Show Claim Expired if no secret found */}
-              {!pendingGame?.secret && !getGameSecret(activeGameCore ? (activeGameCore as [`0x${string}`, `0x${string}`, bigint, bigint, `0x${string}`, `0x${string}`])[4] : "") && (
-                <button
-                  onClick={() => {
-                    if (!activeGameId) return;
-                    writeClaimExpired({
-                      address: DONUT_MINES_ADDRESS,
-                      abi: MINES_ABI,
-                      functionName: "claimExpired",
-                      args: [activeGameId]
-                    });
-                  }}
-                  disabled={isClaimPending}
-                  className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-lg tracking-wide disabled:opacity-50 transition-colors mb-2"
-                >
-                  {isClaimPending ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Claiming...
-                    </span>
-                  ) : (
-                    "CLAIM 98% BACK"
-                  )}
-                </button>
-              )}
-              <button
-                onClick={handleCashOut}
-                disabled={safeRevealed === 0 || gameStep === "revealing" || gameStep === "cashing"}
-                className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-400 text-black font-bold text-lg tracking-wide disabled:opacity-50 transition-colors"
-              >
-                {gameStep === "cashing" ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Cashing Out...
-                  </span>
-                ) : (
-                  `CASH OUT ${displayMultiplier.toFixed(2)}x`
-                )}
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => {
-                setPendingGame(null);
-                refetchActiveGames();
-                resetStart();
-                resetReveal();
-                resetCashOut();
-              }}
-              className="w-full py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-lg tracking-wide transition-colors"
-            >
-              NEW GAME
             </button>
           )}
         </div>
@@ -1000,13 +990,59 @@ export default function MinesPage() {
                   <History className="w-4 h-4" />
                   Game History
                 </h2>
-                <p className="text-[10px] text-gray-500 mb-3">Your recent mines games</p>
+                <p className="text-[10px] text-gray-500 mb-3">Your mines games • Claim expired games here</p>
 
                 <div className="flex-1 overflow-y-auto space-y-2">
-                  <div className="text-center text-gray-500 py-8">
-                    <p>History coming soon</p>
-                    <p className="text-xs mt-2">Check BaseScan for now</p>
-                  </div>
+                  {allActiveGameIds.length === 0 ? (
+                    <div className="text-center text-gray-500 py-8">
+                      <p>No active games</p>
+                    </div>
+                  ) : (
+                    allActiveGameIds.map((gameId, index) => {
+                      const hasSecret = getGameSecret(activeGameCore ? (activeGameCore as [`0x${string}`, `0x${string}`, bigint, bigint, `0x${string}`, `0x${string}`])[4] : "") !== null || pendingGame?.secret;
+                      
+                      return (
+                        <div 
+                          key={index}
+                          className="p-2 rounded-lg border bg-amber-500/10 border-amber-500/30"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                              <div>
+                                <span className="text-xs text-amber-400 font-bold">
+                                  {hasSecret ? "Active Game" : "Pending (No Secret)"}
+                                </span>
+                                <div className="text-[9px] text-gray-500">Game #{gameId.toString()}</div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {!hasSecret && (
+                            <div className="mt-2">
+                              <p className="text-[9px] text-gray-400 mb-2">
+                                Secret was lost. Wait for expiry (~8 min) then claim 98% back.
+                              </p>
+                              <button
+                                onClick={() => {
+                                  writeClaimExpired({
+                                    address: DONUT_MINES_ADDRESS,
+                                    abi: MINES_ABI,
+                                    functionName: "claimExpired",
+                                    args: [gameId]
+                                  });
+                                }}
+                                disabled={isClaimPending}
+                                className="w-full py-1.5 rounded-lg bg-amber-500 text-black text-xs font-bold disabled:opacity-50"
+                              >
+                                {isClaimPending ? "Claiming..." : "Claim 98% Back"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
 
                 <button
