@@ -320,6 +320,14 @@ export default function DicePage() {
     args: address ? [address, BigInt(20)] : undefined,
   });
 
+  // Read player's bet IDs (to match with bets for claiming)
+  const { data: playerBetIds } = useReadContract({
+    address: DONUT_DICE_ADDRESS,
+    abi: DONUT_DICE_ABI,
+    functionName: "getPlayerBetIds",
+    args: address ? [address] : undefined,
+  });
+
   // Contract writes
   const { data: approveHash, writeContract: writeApprove, isPending: isApprovePending, reset: resetApprove, error: approveError } = useWriteContract();
   const { isLoading: isApproveConfirming, isSuccess: isApproveSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
@@ -329,6 +337,23 @@ export default function DicePage() {
 
   const { data: revealHash, writeContract: writeReveal, isPending: isRevealPending, reset: resetReveal, error: revealError } = useWriteContract();
   const { isLoading: isRevealConfirming, isSuccess: isRevealSuccess } = useWaitForTransactionReceipt({ hash: revealHash });
+
+  const { writeContract: writeClaim, isPending: isClaimPending } = useWriteContract();
+
+  // Function to claim expired bet
+  const handleClaimExpired = (betId: bigint) => {
+    writeClaim({
+      address: DONUT_DICE_ADDRESS,
+      abi: DONUT_DICE_ABI,
+      functionName: "claimExpiredBet",
+      args: [betId]
+    }, {
+      onSuccess: () => {
+        refetchBets();
+        refetchBalance();
+      }
+    });
+  };
 
   // Handle user rejection or errors - reset state
   useEffect(() => {
@@ -939,6 +964,11 @@ export default function DicePage() {
                       const isExpired = bet.status === 3;
                       
                       if (isPending) {
+                        // Get the bet ID from playerBetIds array
+                        // recentBets is in reverse order (newest first), so we need to map back
+                        const betIds = playerBetIds as bigint[] | undefined;
+                        const betId = betIds ? betIds[betIds.length - 1 - index] : null;
+                        
                         return (
                           <div 
                             key={index}
@@ -959,7 +989,18 @@ export default function DicePage() {
                                 <div className="text-[9px] text-gray-600">🍩 DONUT</div>
                               </div>
                             </div>
-                            <p className="text-[9px] text-amber-400/70 mt-1">Return to complete this bet or wait for expiry to claim 98% back</p>
+                            <p className="text-[9px] text-gray-500 mt-1 mb-2">
+                              Expires at block {Number(bet.commitBlock) + 256}. After expiry, claim 98% back.
+                            </p>
+                            {betId && (
+                              <button
+                                onClick={() => handleClaimExpired(betId)}
+                                disabled={isClaimPending}
+                                className="w-full py-1.5 rounded-lg bg-amber-500 text-black text-xs font-bold disabled:opacity-50"
+                              >
+                                {isClaimPending ? "Claiming..." : "Claim 98% Back"}
+                              </button>
+                            )}
                           </div>
                         );
                       }
