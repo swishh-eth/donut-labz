@@ -415,41 +415,29 @@ export default function DicePage() {
     if (isRevealSuccess && betStep === "revealing" && revealHash) {
       setBetStep("complete");
       
-      // Get result from event
+      // Get result from contract by refetching bets
       const getResult = async () => {
         try {
-          const receipt = await publicClient?.getTransactionReceipt({ hash: revealHash });
+          // Wait a moment for the chain to update
+          await new Promise(resolve => setTimeout(resolve, 1000));
           
-          const betRevealedLog = receipt?.logs.find(log => {
-            try {
-              return log.address.toLowerCase() === DONUT_DICE_ADDRESS.toLowerCase();
-            } catch {
-              return false;
-            }
-          });
+          // Refetch bets to get the latest data
+          const { data: updatedBets } = await refetchBets();
           
-          if (betRevealedLog && betRevealedLog.data) {
-            try {
-              console.log("Raw event data:", betRevealedLog.data);
+          if (updatedBets && (updatedBets as OnchainBet[]).length > 0) {
+            // Get the most recent bet (first in the array)
+            const latestBet = (updatedBets as OnchainBet[])[0];
+            
+            console.log("Latest bet from contract:", latestBet);
+            
+            if (latestBet.status === 2) { // Status.Revealed = 2
+              const result = Number(latestBet.result);
+              const won = latestBet.won;
+              const payout = latestBet.payout;
               
-              // Use viem to properly decode the event data
-              // BetRevealed event non-indexed params: (bytes32 secret, bytes32 blockHash, uint8 result, bool won, uint256 payout)
-              const decoded = decodeAbiParameters(
-                [
-                  { name: 'secret', type: 'bytes32' },
-                  { name: 'blockHash', type: 'bytes32' },
-                  { name: 'result', type: 'uint8' },
-                  { name: 'won', type: 'bool' },
-                  { name: 'payout', type: 'uint256' }
-                ],
-                betRevealedLog.data as `0x${string}`
-              );
+              console.log("Setting result:", { result, won, payout: payout.toString() });
               
-              const [secret, blockHash, result, won, payout] = decoded;
-              
-              console.log("Decoded result:", { secret, blockHash, result, won, payout: payout.toString() });
-              
-              setLastResult({ result: Number(result), won, payout });
+              setLastResult({ result, won, payout });
               
               if (won) {
                 setStreak(prev => prev + 1);
@@ -458,16 +446,9 @@ export default function DicePage() {
                 setStreak(0);
                 try { await sdk.haptics.impactOccurred("heavy"); } catch {}
               }
-            } catch (parseError) {
-              console.error("Failed to parse event data:", parseError);
-              setLastResult({ result: 0, won: false, payout: BigInt(0) });
             }
-          } else {
-            console.error("No BetRevealed log found");
-            setLastResult({ result: 0, won: false, payout: BigInt(0) });
           }
           
-          refetchBets();
           refetchBalance();
           
           // Reset after showing result (but keep lastResult visible)
@@ -487,7 +468,7 @@ export default function DicePage() {
       
       getResult();
     }
-  }, [isRevealSuccess, betStep, revealHash, publicClient, refetchBets, refetchBalance, resetApprove, resetCommit, resetReveal]);
+  }, [isRevealSuccess, betStep, revealHash, refetchBets, refetchBalance, resetApprove, resetCommit, resetReveal]);
 
   const handleRoll = async () => {
     if (!isConnected || !address) return;
