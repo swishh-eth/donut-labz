@@ -434,6 +434,15 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Scroll to bottom on initial load
+  useEffect(() => {
+    if (messages && messages.length > 0) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+      }, 100);
+    }
+  }, []);
+
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userHandle = context?.user?.username ? `@${context.user.username}` : context?.user?.fid ? `fid ${context.user.fid}` : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
@@ -636,7 +645,7 @@ export default function ChatPage() {
           {/* Messages container - extends to bottom */}
           <div 
             ref={messagesContainerRef} 
-            className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll pb-14"
+            className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll pb-16"
             style={{
               WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
               maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
@@ -816,7 +825,7 @@ export default function ChatPage() {
                           isChatExpanded 
                             ? "bg-zinc-700 text-white" 
                             : cooldownRemaining > 0
-                              ? "bg-amber-500 text-black"
+                              ? "bg-white text-black"
                               : rateLimitBanRemaining > 0
                                 ? "bg-red-500 text-white"
                                 : "bg-white text-black hover:bg-gray-200"
@@ -839,7 +848,7 @@ export default function ChatPage() {
                       <div 
                         className={`flex-1 overflow-hidden transition-all duration-300 ease-out ${
                           isChatExpanded 
-                            ? `opacity-100 ${buttonPosition === 'left' ? 'ml-2' : 'mr-2'}` 
+                            ? `opacity-100 ${buttonPosition === 'left' ? 'pl-2' : 'pr-2'}` 
                             : "opacity-0 w-0"
                         }`}
                       >
