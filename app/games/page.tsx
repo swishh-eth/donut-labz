@@ -7,7 +7,7 @@ import { createPublicClient, http, formatUnits } from "viem";
 import { base } from "viem/chains";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Target, Zap, Trophy, Lock } from "lucide-react";
+import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Target, Zap, Trophy, Lock, Bomb } from "lucide-react";
 
 // Contract addresses
 const DONUT_DICE_ADDRESS = "0x49826C6C884ed7A828c06f75814Acf8bd658bb76" as const;
@@ -120,19 +120,19 @@ function GameTile({
               </span>
             )}
             {!comingSoon && lastWinner && (
-              <div className="winner-container flex-1 min-w-0 max-w-[180px]">
-                <div className="winner-marquee">
-                  <span className="text-[9px] text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
+              <div className="winner-container min-w-0">
+                <div className="winner-track">
+                  <span className="winner-item">
                     {lastWinner.pfpUrl && (
                       <img src={lastWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
                     )}
-                    @{lastWinner.username} +{lastWinner.amount}
+                    +{lastWinner.amount} @{lastWinner.username}
                   </span>
-                  <span className="text-[9px] text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap ml-4">
+                  <span className="winner-item">
                     {lastWinner.pfpUrl && (
                       <img src={lastWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
                     )}
-                    @{lastWinner.username} +{lastWinner.amount}
+                    +{lastWinner.amount} @{lastWinner.username}
                   </span>
                 </div>
               </div>
@@ -346,6 +346,14 @@ export default function GamesPage() {
       onClick: () => router.push("/dice"),
     },
     {
+      id: "mines",
+      title: "Donut Mines",
+      description: "Avoid the bombs, cash out anytime",
+      icon: Bomb,
+      comingSoon: true,
+      lastWinner: null,
+    },
+    {
       id: "lottery",
       title: "Daily Lottery",
       description: "Buy tickets for the daily DONUT pool",
@@ -404,7 +412,7 @@ export default function GamesPage() {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.15); }
         }
-        @keyframes marquee {
+        @keyframes scroll-left {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
@@ -413,13 +421,24 @@ export default function GamesPage() {
         }
         .winner-container {
           overflow: hidden;
-          mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
-          -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+          max-width: 140px;
         }
-        .winner-marquee {
-          display: inline-flex;
+        .winner-track {
+          display: flex;
+          width: max-content;
+          animation: scroll-left 6s linear infinite;
+        }
+        .winner-item {
+          display: flex;
           align-items: center;
-          animation: marquee 8s linear infinite;
+          gap: 4px;
+          padding: 2px 8px;
+          margin-right: 16px;
+          font-size: 9px;
+          color: #4ade80;
+          background: rgba(34, 197, 94, 0.2);
+          border-radius: 9999px;
+          white-space: nowrap;
         }
       `}</style>
 
