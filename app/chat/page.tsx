@@ -636,7 +636,7 @@ export default function ChatPage() {
           {/* Messages container - extends to bottom */}
           <div 
             ref={messagesContainerRef} 
-            className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll pb-24"
+            className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll pb-14"
             style={{
               WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
               maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
@@ -740,7 +740,7 @@ export default function ChatPage() {
           <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
             <div className="px-2 pointer-events-auto">
               {/* Safe tap zone wrapper - extra padding prevents accidental taps on messages */}
-              <div className="pt-12 pb-2">
+              <div className="pt-4 pb-2">
                 {!isConnected ? (
                 <div className="flex items-center justify-center bg-zinc-900 border border-zinc-800 rounded-xl p-3">
                   <p className="text-sm text-gray-400">Connect wallet to send messages</p>
