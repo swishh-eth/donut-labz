@@ -349,15 +349,15 @@ export default function LeaderboardPage() {
           -webkit-mask-image: linear-gradient(
             to bottom,
             transparent 0%,
-            black 8%,
-            black 92%,
+            black 3%,
+            black 97%,
             transparent 100%
           );
           mask-image: linear-gradient(
             to bottom,
             transparent 0%,
-            black 8%,
-            black 92%,
+            black 3%,
+            black 97%,
             transparent 100%
           );
         }
