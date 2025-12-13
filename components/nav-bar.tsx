@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { cn } from "@/lib/utils";
-import { ArrowLeftRight, Info, Trophy, MessageCircle, Pickaxe } from "lucide-react";
+import { Info, Trophy, MessageCircle, Pickaxe, Dices } from "lucide-react";
 
 interface NavBarProps {
   onMineClick?: () => void;
@@ -130,22 +130,22 @@ export function NavBar({ onMineClick }: NavBarProps) {
           />
         </Link>
 
-        {/* Swap */}
+        {/* Games / Casino */}
         <Link
-          href="/swap"
+          href="/games"
           onClick={triggerHaptic}
           className={cn(
             "flex items-center justify-center p-3 transition-colors duration-200",
-            pathname === "/swap"
+            pathname === "/games"
               ? "text-white"
               : "text-gray-400 hover:text-gray-300"
           )}
         >
-          <ArrowLeftRight 
+          <Dices 
             className="transition-all duration-500 ease-out"
             style={{
-              width: pathname === "/swap" ? 28 : 20,
-              height: pathname === "/swap" ? 28 : 20,
+              width: pathname === "/games" ? 28 : 20,
+              height: pathname === "/games" ? 28 : 20,
             }}
           />
         </Link>
