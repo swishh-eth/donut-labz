@@ -349,15 +349,15 @@ export default function LeaderboardPage() {
           -webkit-mask-image: linear-gradient(
             to bottom,
             transparent 0%,
-            black 3%,
-            black 97%,
+            black 5%,
+            black 95%,
             transparent 100%
           );
           mask-image: linear-gradient(
             to bottom,
             transparent 0%,
-            black 3%,
-            black 97%,
+            black 5%,
+            black 95%,
             transparent 100%
           );
         }
@@ -374,7 +374,7 @@ export default function LeaderboardPage() {
         className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 pb-4 shadow-inner"
         style={{
           paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)",
         }}
       >
         {/* Background animations */}

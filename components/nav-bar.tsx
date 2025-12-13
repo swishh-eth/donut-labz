@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { sdk } from "@farcaster/miniapp-sdk";
 import { cn } from "@/lib/utils";
 import { ArrowLeftRight, Info, Trophy, MessageCircle, Pickaxe } from "lucide-react";
 
@@ -15,6 +16,15 @@ export function NavBar({ onMineClick }: NavBarProps) {
   const [isSwinging, setIsSwinging] = useState(false);
 
   const isMinePage = pathname === "/";
+
+  // Heavy haptic feedback for nav buttons
+  const triggerHaptic = useCallback(async () => {
+    try {
+      await sdk.haptics.impactOccurred("heavy");
+    } catch {
+      // Silent fail if haptics not supported
+    }
+  }, []);
 
   // Periodic mining swing animation
   useEffect(() => {
@@ -42,6 +52,7 @@ export function NavBar({ onMineClick }: NavBarProps) {
   }, [isMinePage]);
 
   const handleMineClick = (e: React.MouseEvent) => {
+    triggerHaptic();
     if (isMinePage && onMineClick) {
       e.preventDefault();
       onMineClick();
@@ -61,6 +72,7 @@ export function NavBar({ onMineClick }: NavBarProps) {
         {/* Leaderboard */}
         <Link
           href="/leaderboard"
+          onClick={triggerHaptic}
           className={cn(
             "flex items-center justify-center p-3 transition-colors duration-200",
             pathname === "/leaderboard"
@@ -80,6 +92,7 @@ export function NavBar({ onMineClick }: NavBarProps) {
         {/* Chat - Onchain Messages */}
         <Link
           href="/chat"
+          onClick={triggerHaptic}
           className={cn(
             "flex items-center justify-center p-3 transition-colors duration-200",
             pathname === "/chat"
@@ -120,6 +133,7 @@ export function NavBar({ onMineClick }: NavBarProps) {
         {/* Swap */}
         <Link
           href="/swap"
+          onClick={triggerHaptic}
           className={cn(
             "flex items-center justify-center p-3 transition-colors duration-200",
             pathname === "/swap"
@@ -139,6 +153,7 @@ export function NavBar({ onMineClick }: NavBarProps) {
         {/* About */}
         <Link
           href="/about"
+          onClick={triggerHaptic}
           className={cn(
             "flex items-center justify-center p-3 transition-colors duration-200",
             pathname === "/about"
