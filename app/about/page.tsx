@@ -2,8 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { useReadContract } from "wagmi";
-import { base } from "wagmi/chains";
 import { formatEther } from "viem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
@@ -13,7 +11,7 @@ import { CommunityLPButton } from "@/components/community-lp-button";
 import { LearnMoreButton } from "@/components/learn-more-button";
 import { Info, Pickaxe, Flame, Building, Beaker, Code, Sparkles, MessageCircle, Timer, Dices, Trophy, ChevronDown } from "lucide-react";
 
-const SPRINKLES_ADDRESS = "0xa890060bE1788A676dBc3894160f5Dc5deD2C98D" as const;
+const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as const;
 const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD" as const;
 
 type MiniAppContext = {
@@ -72,28 +70,45 @@ export default function AboutPage() {
   const [sprinklesExpanded, setSprinklesExpanded] = useState(false);
 
   // Read SPRINKLES balance of dead address (burned tokens)
-  const { data: sprinklesBurned } = useReadContract({
-    address: SPRINKLES_ADDRESS,
-    abi: [
-      {
-        inputs: [{ name: "account", type: "address" }],
-        name: "balanceOf",
-        outputs: [{ name: "", type: "uint256" }],
-        stateMutability: "view",
-        type: "function",
-      },
-    ] as const,
-    functionName: "balanceOf",
-    args: [DEAD_ADDRESS],
-    chainId: base.id,
-    query: {
-      refetchInterval: 30_000,
-    },
-  });
+  const [burnedBalance, setBurnedBalance] = useState<string>("0");
+  
+  useEffect(() => {
+    const fetchBurnedBalance = async () => {
+      try {
+        // Use Base public RPC to fetch balance
+        const response = await fetch('https://mainnet.base.org', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'eth_call',
+            params: [
+              {
+                to: '0xa890060BE1788a676dBC3894160f5dc5DeD2C98D',
+                data: '0x70a08231000000000000000000000000000000000000000000000000000000000000dEaD'
+              },
+              'latest'
+            ]
+          })
+        });
+        const data = await response.json();
+        if (data.result) {
+          const balanceBigInt = BigInt(data.result);
+          const formatted = Math.floor(Number(formatEther(balanceBigInt))).toLocaleString();
+          setBurnedBalance(formatted);
+        }
+      } catch (error) {
+        console.error('Failed to fetch burned balance:', error);
+      }
+    };
 
-  const formattedBurned = sprinklesBurned 
-    ? Math.floor(Number(formatEther(sprinklesBurned))).toLocaleString()
-    : "0";
+    fetchBurnedBalance();
+    const interval = setInterval(fetchBurnedBalance, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formattedBurned = burnedBalance;
 
   useEffect(() => {
     let cancelled = false;
