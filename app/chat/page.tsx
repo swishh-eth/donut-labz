@@ -121,6 +121,7 @@ export default function ChatPage() {
   const [currentMultiplier, setCurrentMultiplier] = useState(getCurrentMultiplier());
   const [timeUntilHalving, setTimeUntilHalving] = useState(getTimeUntilNextHalving());
   const [tippingMessageHash, setTippingMessageHash] = useState<string | null>(null);
+  const [scrollFade, setScrollFade] = useState({ top: 1, bottom: 1 });
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const [buttonPosition, setButtonPosition] = useState<'left' | 'right'>(() => {
     if (typeof window !== 'undefined') {
@@ -147,6 +148,31 @@ export default function ChatPage() {
 
   const { data: tipHash, writeContract: writeTip, isPending: isTipPending, reset: resetTip } = useWriteContract();
   const { isLoading: isTipConfirming, isSuccess: isTipSuccess } = useWaitForTransactionReceipt({ hash: tipHash });
+
+  // Handle scroll fade - matches leaderboard page behavior
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const scrollTop = container.scrollTop;
+      const scrollHeight = container.scrollHeight - container.clientHeight;
+      
+      if (scrollHeight > 0) {
+        // Top fade: 0 at top, 1 when scrolled down (smooth over 100px)
+        const topFade = Math.min(1, scrollTop / 100);
+        // Bottom fade: 1 at top, 0 at bottom (smooth over 100px)
+        const bottomFade = Math.min(1, (scrollHeight - scrollTop) / 100);
+        setScrollFade({ top: topFade, bottom: bottomFade });
+      } else {
+        setScrollFade({ top: 0, bottom: 0 });
+      }
+    };
+
+    handleScroll();
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Focus input when chat expands and scroll to bottom smoothly
   useEffect(() => {
@@ -610,10 +636,11 @@ export default function ChatPage() {
           {/* Messages container - extends to bottom */}
           <div 
             ref={messagesContainerRef} 
-            className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll pt-12 pb-24"
+            className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll pb-24"
             style={{
-              WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 12%, black 100%)',
-              maskImage: 'linear-gradient(to bottom, transparent 0%, black 12%, black 100%)',
+              WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
+              maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
+              transition: 'mask-image 0.3s ease-out, -webkit-mask-image 0.3s ease-out',
             }}
           >
             {messagesLoading ? (
