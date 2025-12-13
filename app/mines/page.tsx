@@ -999,7 +999,8 @@ export default function MinesPage() {
                     </div>
                   ) : (
                     allActiveGameIds.map((gameId, index) => {
-                      const hasSecret = getGameSecret(activeGameCore ? (activeGameCore as [`0x${string}`, `0x${string}`, bigint, bigint, `0x${string}`, `0x${string}`])[4] : "") !== null || pendingGame?.secret;
+                      // Check if this is the current game we're playing (have secret for)
+                      const isCurrentGame = pendingGame?.gameId === gameId || (pendingGame?.secret && index === 0);
                       
                       return (
                         <div 
@@ -1011,34 +1012,36 @@ export default function MinesPage() {
                               <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
                               <div>
                                 <span className="text-xs text-amber-400 font-bold">
-                                  {hasSecret ? "Active Game" : "Pending (No Secret)"}
+                                  {isCurrentGame ? "Active Game" : "Lost Secret"}
                                 </span>
                                 <div className="text-[9px] text-gray-500">Game #{gameId.toString()}</div>
                               </div>
                             </div>
                           </div>
                           
-                          {!hasSecret && (
-                            <div className="mt-2">
-                              <p className="text-[9px] text-gray-400 mb-2">
-                                Secret was lost. Wait for expiry (~8 min) then claim 98% back.
-                              </p>
-                              <button
-                                onClick={() => {
-                                  writeClaimExpired({
-                                    address: DONUT_MINES_ADDRESS,
-                                    abi: MINES_ABI,
-                                    functionName: "claimExpired",
-                                    args: [gameId]
-                                  });
-                                }}
-                                disabled={isClaimPending}
-                                className="w-full py-1.5 rounded-lg bg-amber-500 text-black text-xs font-bold disabled:opacity-50"
-                              >
-                                {isClaimPending ? "Claiming..." : "Claim 98% Back"}
-                              </button>
-                            </div>
-                          )}
+                          {/* Always show claim button - user can try to claim */}
+                          <div className="mt-2">
+                            <p className="text-[9px] text-gray-400 mb-2">
+                              {isCurrentGame 
+                                ? "You can continue playing this game on the main screen."
+                                : "Secret was lost. Claim 98% back after ~8 min expiry."
+                              }
+                            </p>
+                            <button
+                              onClick={() => {
+                                writeClaimExpired({
+                                  address: DONUT_MINES_ADDRESS,
+                                  abi: MINES_ABI,
+                                  functionName: "claimExpired",
+                                  args: [gameId]
+                                });
+                              }}
+                              disabled={isClaimPending}
+                              className="w-full py-1.5 rounded-lg bg-amber-500 text-black text-xs font-bold disabled:opacity-50"
+                            >
+                              {isClaimPending ? "Claiming..." : "Claim 98% Back"}
+                            </button>
+                          </div>
                         </div>
                       );
                     })
