@@ -371,7 +371,7 @@ export default function LeaderboardPage() {
       `}</style>
 
       <div
-        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 pb-4 shadow-inner"
+        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4 shadow-inner"
         style={{
           paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)",
@@ -577,9 +577,9 @@ export default function LeaderboardPage() {
           {/* Scrollable Leaderboard */}
           <div 
             ref={scrollContainerRef}
-            className="flex-1 overflow-y-auto overflow-x-hidden leaderboard-scroll -mx-2 px-2"
+            className="flex-1 overflow-y-auto overflow-x-hidden leaderboard-scroll"
           >
-            <div className="space-y-2">
+            <div className="space-y-2 pb-4">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="text-gray-400">Loading leaderboard...</div>
@@ -623,7 +623,7 @@ export default function LeaderboardPage() {
                         key={`empty-${rank}`}
                         className={`leaderboard-item flex items-center justify-between rounded-xl p-3 border transition-all duration-200 ${
                           isFocused 
-                            ? "border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.4)]" 
+                            ? "border-amber-400" 
                             : "bg-zinc-900 border-zinc-800"
                         }`}
                         style={{ 
@@ -700,7 +700,7 @@ export default function LeaderboardPage() {
                       key={entry.address}
                       className={`leaderboard-item flex items-center justify-between rounded-xl p-3 border transition-all duration-200 ${
                         isFocused 
-                          ? "border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.4)]" 
+                          ? "border-amber-400" 
                           : "bg-zinc-900 border-zinc-800"
                       }`}
                       style={{ 
