@@ -122,12 +122,23 @@ export default function ChatPage() {
   const [timeUntilHalving, setTimeUntilHalving] = useState(getTimeUntilNextHalving());
   const [tippingMessageHash, setTippingMessageHash] = useState<string | null>(null);
   const [isChatExpanded, setIsChatExpanded] = useState(false);
-  const [buttonPosition, setButtonPosition] = useState<'left' | 'right'>('left');
+  const [buttonPosition, setButtonPosition] = useState<'left' | 'right'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('chat-button-position');
+      return (saved === 'right' ? 'right' : 'left');
+    }
+    return 'left';
+  });
   const [isDragging, setIsDragging] = useState(false);
   const [dragX, setDragX] = useState(0);
   const [dragStartX, setDragStartX] = useState(0);
   const buttonContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Persist button position
+  useEffect(() => {
+    localStorage.setItem('chat-button-position', buttonPosition);
+  }, [buttonPosition]);
 
   const COOLDOWN_SECONDS = 30;
   const { address, isConnected } = useAccount();
@@ -474,7 +485,6 @@ export default function ChatPage() {
 
   // Get button transform based on drag state
   const getButtonTransform = () => {
-    if (isChatExpanded) return 'translateX(0)';
     if (isDragging) return `translateX(${dragX}px)`;
     
     const container = buttonContainerRef.current;
@@ -771,7 +781,7 @@ export default function ChatPage() {
                   >
                     {/* Button wrapper for positioning */}
                     <div 
-                      className={`flex items-center gap-2 ${isDragging ? '' : 'transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]'}`}
+                      className={`flex items-center ${buttonPosition === 'right' ? 'flex-row-reverse' : ''} ${isDragging ? '' : 'transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]'}`}
                       style={{ 
                         transform: getButtonTransform(),
                         width: 'fit-content'
@@ -800,35 +810,37 @@ export default function ChatPage() {
                         <Plus className={`w-5 h-5 transition-transform duration-300 ${isChatExpanded ? "rotate-45" : ""}`} />
                       )}
                       </button>
-                    </div>
-                  </div>
-                    
-                  {/* Expanded input - full width bar */}
-                  <div 
-                    className={`overflow-hidden transition-all duration-300 ease-out ${
-                      isChatExpanded ? "max-h-20 opacity-100 mt-2" : "max-h-0 opacity-0 mt-0"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2">
-                      <input
-                        ref={inputRef}
-                        type="text"
-                        value={message}
-                        onChange={(e) => { setMessage(e.target.value.slice(0, 280)); if (eligibilityError) setEligibilityError(null); }}
-                        onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                        placeholder="Type a message..."
-                        disabled={isPending || isConfirming || isVerifying}
-                        className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-2 py-1 outline-none disabled:opacity-50 min-w-0"
-                        style={{ fontSize: '16px' }}
-                      />
-                      <span className="text-[10px] text-gray-500 flex-shrink-0">{message.length}/280</span>
-                      <button 
-                        onClick={handleSendMessage} 
-                        disabled={!message.trim() || isPending || isConfirming || isVerifying} 
-                        className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                      
+                      {/* Expanded input - slides out horizontally from button */}
+                      <div 
+                        className={`overflow-hidden transition-all duration-300 ease-out ${
+                          isChatExpanded 
+                            ? `w-[calc(100vw-100px)] max-w-[420px] opacity-100 ${buttonPosition === 'right' ? 'mr-2' : 'ml-2'}` 
+                            : "w-0 opacity-0"
+                        }`}
                       >
-                        {isVerifying ? <span className="text-xs font-bold">...</span> : <Send className="w-4 h-4" />}
-                      </button>
+                        <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2 min-w-[280px]">
+                          <input
+                            ref={inputRef}
+                            type="text"
+                            value={message}
+                            onChange={(e) => { setMessage(e.target.value.slice(0, 280)); if (eligibilityError) setEligibilityError(null); }}
+                            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
+                            placeholder="Type a message..."
+                            disabled={isPending || isConfirming || isVerifying}
+                            className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-2 py-1 outline-none disabled:opacity-50 min-w-0"
+                            style={{ fontSize: '16px' }}
+                          />
+                          <span className="text-[10px] text-gray-500 flex-shrink-0">{message.length}/280</span>
+                          <button 
+                            onClick={handleSendMessage} 
+                            disabled={!message.trim() || isPending || isConfirming || isVerifying} 
+                            className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                          >
+                            {isVerifying ? <span className="text-xs font-bold">...</span> : <Send className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   
