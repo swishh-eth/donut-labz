@@ -322,6 +322,7 @@ export default function DicePage() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState<"none" | "bet">("none");
   const [isMuted, setIsMuted] = useState(false);
+  const [cooldown, setCooldown] = useState(false);
 
   const { address, isConnected } = useAccount();
 
@@ -530,7 +531,11 @@ export default function DicePage() {
               payout: bet.payout
             });
             setIsRolling(false);
+            setCooldown(true); // Start cooldown
           });
+          
+          // Clear cooldown after 3 seconds
+          setTimeout(() => setCooldown(false), 3000);
           
           if (won) {
             console.log("Player won! Showing confetti");
@@ -576,7 +581,7 @@ export default function DicePage() {
 
   const handleRoll = async () => {
     if (!isConnected || !address) return;
-    if (isRolling || isPlacePending) return;
+    if (isRolling || isPlacePending || cooldown) return;
     
     const amount = parseFloat(betAmount || "0");
     if (amount <= 0 || amount > 1) {
@@ -692,7 +697,7 @@ export default function DicePage() {
         .confetti { animation: confetti-fall 3s linear forwards; }
       `}</style>
 
-      {/* Confetti */}
+      {/* Confetti - positions are fixed per index to prevent re-randomizing on re-render */}
       {showConfetti && (
         <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
           {[...Array(30)].map((_, i) => (
@@ -700,9 +705,9 @@ export default function DicePage() {
               key={i}
               className="confetti absolute text-2xl"
               style={{
-                left: `${Math.random() * 100}%`,
+                left: `${(i * 37 + 13) % 100}%`,
                 top: '-60px',
-                animationDelay: `${Math.random() * 1}s`,
+                animationDelay: `${(i * 0.07) % 1}s`,
               }}
             >
               🍩
@@ -933,10 +938,10 @@ export default function DicePage() {
           {/* Roll button */}
           <button
             onClick={handleRoll}
-            disabled={isRolling || isPlacePending || !isConnected || parseFloat(betAmount || "0") <= 0}
+            disabled={isRolling || isPlacePending || cooldown || !isConnected || parseFloat(betAmount || "0") <= 0}
             className={cn(
               "w-full py-3 rounded-xl font-bold text-lg transition-all",
-              isRolling || isPlacePending ? "bg-zinc-500 text-zinc-300" : "bg-white text-black hover:bg-gray-100"
+              isRolling || isPlacePending || cooldown ? "bg-zinc-500 text-zinc-300" : "bg-white text-black hover:bg-gray-100"
             )}
           >
             {isRolling ? (
@@ -948,6 +953,10 @@ export default function DicePage() {
               <span className="flex items-center justify-center gap-2">
                 <Loader2 className="w-5 h-5 animate-spin" />
                 Confirm in wallet...
+              </span>
+            ) : cooldown && lastResult ? (
+              <span className={lastResult.won ? "text-green-400" : "text-red-400"}>
+                {lastResult.won ? `🎉 WON +${parseFloat(formatUnits(lastResult.payout, 18)).toFixed(2)} 🍩` : "Better luck next time!"}
               </span>
             ) : (
               "ROLL DICE"
