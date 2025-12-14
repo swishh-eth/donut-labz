@@ -6,7 +6,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
-import { History, HelpCircle, X, Loader2, Shield, Target, Volume2, VolumeX } from "lucide-react";
+import { History, HelpCircle, X, Loader2, Shield, Target, Volume2, VolumeX, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Contract addresses - V5
@@ -524,6 +524,7 @@ export default function GlazeWheelPage() {
   const [currentBlock, setCurrentBlock] = useState<number>(0);
   const [isMuted, setIsMuted] = useState(false);
   const [cooldown, setCooldown] = useState(false);
+  const [expandedSpinId, setExpandedSpinId] = useState<string | null>(null);
 
   const { address, isConnected } = useAccount();
   
@@ -1154,7 +1155,7 @@ export default function GlazeWheelPage() {
                 <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
                   <History className="w-4 h-4" /> Spin History
                 </h2>
-                <p className="text-[10px] text-gray-500 mb-3">All spins are provably fair. House reveals automatically.</p>
+                <p className="text-[10px] text-gray-500 mb-3">Tap any spin to verify. All results are provably fair.</p>
                 
                 <div className="flex-1 overflow-y-auto space-y-2">
                   {!recentSpins || (recentSpins as OnchainSpin[]).length === 0 ? (
@@ -1164,6 +1165,8 @@ export default function GlazeWheelPage() {
                       const isPending = spin.status === 1;
                       const spinIds = playerSpinIds as bigint[] | undefined;
                       const spinId = spinIds ? spinIds[spinIds.length - 1 - index] : null;
+                      const spinIdStr = spinId?.toString() || index.toString();
+                      const isExpanded = expandedSpinId === spinIdStr;
                       const riskName = spin.riskLevel === 0 ? "Low" : spin.riskLevel === 1 ? "Med" : "High";
                       
                       if (isPending) {
@@ -1187,7 +1190,7 @@ export default function GlazeWheelPage() {
                               </div>
                             </div>
                             
-                            {isExpiredNow && spinId && (
+                            {isExpiredNow && spinId ? (
                               <button
                                 onClick={() => handleClaimExpired(spinId)}
                                 disabled={isClaimPending}
@@ -1195,9 +1198,7 @@ export default function GlazeWheelPage() {
                               >
                                 {isClaimPending ? "Claiming..." : "Claim 98% Back"}
                               </button>
-                            )}
-                            
-                            {!isExpiredNow && (
+                            ) : (
                               <div className="mt-2 text-[9px] text-gray-500">
                                 House should reveal soon. If not, claim back in ~{minutesRemaining} min.
                               </div>
@@ -1212,9 +1213,10 @@ export default function GlazeWheelPage() {
                       return (
                         <div 
                           key={index}
+                          onClick={() => setExpandedSpinId(isExpanded ? null : spinIdStr)}
                           className={cn(
-                            "p-2 rounded-lg border", 
-                            isWin ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"
+                            "p-2 rounded-lg border cursor-pointer transition-all", 
+                            isWin ? "bg-green-500/10 border-green-500/30 hover:bg-green-500/20" : "bg-red-500/10 border-red-500/30 hover:bg-red-500/20"
                           )}
                         >
                           <div className="flex items-center justify-between">
@@ -1224,7 +1226,9 @@ export default function GlazeWheelPage() {
                               </span>
                               <div>
                                 <span className="text-xs text-gray-400">{riskName} • {spin.segments} seg</span>
-                                <div className="text-[9px] text-gray-600">Segment #{spin.result}</div>
+                                <div className="text-[9px] text-gray-500 flex items-center gap-1">
+                                  Segment #{spin.result} <ChevronDown className={cn("w-3 h-3 transition-transform", isExpanded && "rotate-180")} />
+                                </div>
                               </div>
                             </div>
                             <div className={cn("text-sm font-bold", isWin ? "text-green-400" : "text-red-400")}>
@@ -1234,6 +1238,54 @@ export default function GlazeWheelPage() {
                               } 🍩
                             </div>
                           </div>
+                          
+                          {/* Expanded verification info */}
+                          {isExpanded && (
+                            <div className="mt-3 p-2 bg-zinc-900/80 rounded-lg border border-zinc-700 space-y-2">
+                              <div className="text-[10px] text-amber-400 font-bold">🔐 Verification Data</div>
+                              
+                              <div className="space-y-1 text-[9px] font-mono">
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Spin ID:</span>
+                                  <span className="text-white">{spinId?.toString() || "N/A"}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Commit Block:</span>
+                                  <span className="text-white">{spin.commitBlock.toString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Segments:</span>
+                                  <span className="text-white">{spin.segments}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Risk Level:</span>
+                                  <span className="text-white">{riskName}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Result Segment:</span>
+                                  <span className={isWin ? "text-green-400" : "text-red-400"}>#{spin.result}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Multiplier:</span>
+                                  <span className={isWin ? "text-green-400" : "text-red-400"}>{multiplierDisplay}x</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Outcome:</span>
+                                  <span className={isWin ? "text-green-400" : "text-red-400"}>{isWin ? "WIN" : "LOSE"}</span>
+                                </div>
+                              </div>
+                              
+                              <div className="pt-2 border-t border-zinc-700">
+                                <div className="text-[9px] text-gray-400 mb-1">How to verify:</div>
+                                <div className="text-[8px] text-amber-400/80 font-mono bg-zinc-800 p-1.5 rounded break-all">
+                                  segment = keccak256(blockhash({spin.commitBlock.toString()}) + spinId) % {spin.segments}
+                                </div>
+                                <div className="text-[8px] text-gray-500 mt-1">
+                                  The blockhash was unknown when you placed your spin, making the result unpredictable and fair.
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })

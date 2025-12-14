@@ -6,7 +6,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
-import { Dices, TrendingUp, TrendingDown, Trophy, History, HelpCircle, X, Loader2, CheckCircle, Shield, Volume2, VolumeX } from "lucide-react";
+import { Dices, TrendingUp, TrendingDown, Trophy, History, HelpCircle, X, Loader2, CheckCircle, Shield, Volume2, VolumeX, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Contract addresses
@@ -323,6 +323,7 @@ export default function DicePage() {
   const [expandedPanel, setExpandedPanel] = useState<"none" | "bet">("none");
   const [isMuted, setIsMuted] = useState(false);
   const [cooldown, setCooldown] = useState(false);
+  const [expandedBetId, setExpandedBetId] = useState<string | null>(null);
 
   const { address, isConnected } = useAccount();
 
@@ -726,7 +727,7 @@ export default function DicePage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">SUGAR CUBES</h1>
+            <h1 className="text-xl font-bold">Sugar Cubes</h1>
             <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/30 animate-pulse">LIVE</span>
           </div>
           {context?.user?.pfpUrl ? (
@@ -973,9 +974,10 @@ export default function DicePage() {
                 <button onClick={() => setShowHistory(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white">
                   <X className="h-4 w-4" />
                 </button>
-                <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+                <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
                   <History className="w-4 h-4" /> Bet History
                 </h2>
+                <p className="text-[10px] text-gray-500 mb-3">Tap any bet to verify. All results are provably fair.</p>
                 
                 <div className="flex-1 overflow-y-auto space-y-2">
                   {!recentBets || (recentBets as OnchainBet[]).length === 0 ? (
@@ -985,22 +987,28 @@ export default function DicePage() {
                       const isPending = Number(bet.status) === 1;
                       const betIds = playerBetIds as bigint[] | undefined;
                       const betId = betIds ? betIds[betIds.length - 1 - index] : null;
+                      const betIdStr = betId?.toString() || index.toString();
+                      const isExpanded = expandedBetId === betIdStr;
                       
                       if (isPending) {
                         const expiryBlock = Number(bet.commitBlock) + 256;
                         const blocksRemaining = Math.max(0, expiryBlock - currentBlock);
                         const isExpired = currentBlock > 0 && blocksRemaining === 0;
+                        const minutesRemaining = Math.ceil(blocksRemaining * 2 / 60);
                         
                         return (
                           <div key={index} className="p-2 rounded-lg border bg-amber-500/10 border-amber-500/30">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                                <span className="text-xs text-amber-400 font-bold">Pending</span>
+                                <div>
+                                  <span className="text-xs text-amber-400 font-bold">Waiting for reveal...</span>
+                                  <div className="text-[9px] text-gray-500">{bet.isOver ? ">" : "<"} {bet.target}</div>
+                                </div>
                               </div>
                               <span className="text-sm font-bold">{parseFloat(formatUnits(bet.amount, 18)).toFixed(2)} 🍩</span>
                             </div>
-                            {isExpired && betId && (
+                            {isExpired && betId ? (
                               <button
                                 onClick={() => handleClaimExpired(betId)}
                                 disabled={isClaimPending}
@@ -1008,27 +1016,80 @@ export default function DicePage() {
                               >
                                 {isClaimPending ? "..." : "Claim 98% Back"}
                               </button>
+                            ) : (
+                              <div className="mt-2 text-[9px] text-gray-500">
+                                House should reveal soon. If not, claim back in ~{minutesRemaining} min.
+                              </div>
                             )}
                           </div>
                         );
                       }
                       
                       return (
-                        <div key={index} className={cn(
-                          "p-2 rounded-lg border",
-                          bet.won ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"
-                        )}>
+                        <div 
+                          key={index} 
+                          onClick={() => setExpandedBetId(isExpanded ? null : betIdStr)}
+                          className={cn(
+                            "p-2 rounded-lg border cursor-pointer transition-all",
+                            bet.won ? "bg-green-500/10 border-green-500/30 hover:bg-green-500/20" : "bg-red-500/10 border-red-500/30 hover:bg-red-500/20"
+                          )}
+                        >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <span className={cn("text-xl font-bold", bet.won ? "text-green-400" : "text-red-400")}>
                                 {bet.result}
                               </span>
-                              <span className="text-xs text-gray-400">{bet.isOver ? ">" : "<"} {bet.target}</span>
+                              <div>
+                                <span className="text-xs text-gray-400">{bet.isOver ? "Over" : "Under"} {bet.target}</span>
+                                <div className="text-[9px] text-gray-500 flex items-center gap-1">
+                                  Tap to verify <ChevronDown className={cn("w-3 h-3 transition-transform", isExpanded && "rotate-180")} />
+                                </div>
+                              </div>
                             </div>
                             <span className={cn("text-sm font-bold", bet.won ? "text-green-400" : "text-red-400")}>
                               {bet.won ? `+${parseFloat(formatUnits(bet.payout, 18)).toFixed(2)}` : `-${parseFloat(formatUnits(bet.amount, 18)).toFixed(2)}`} 🍩
                             </span>
                           </div>
+                          
+                          {/* Expanded verification info */}
+                          {isExpanded && (
+                            <div className="mt-3 p-2 bg-zinc-900/80 rounded-lg border border-zinc-700 space-y-2">
+                              <div className="text-[10px] text-amber-400 font-bold">🔐 Verification Data</div>
+                              
+                              <div className="space-y-1 text-[9px] font-mono">
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Bet ID:</span>
+                                  <span className="text-white">{betId?.toString() || "N/A"}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Commit Block:</span>
+                                  <span className="text-white">{bet.commitBlock.toString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Result:</span>
+                                  <span className={bet.won ? "text-green-400" : "text-red-400"}>{bet.result}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Target:</span>
+                                  <span className="text-white">{bet.isOver ? ">" : "<"} {bet.target}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Outcome:</span>
+                                  <span className={bet.won ? "text-green-400" : "text-red-400"}>{bet.won ? "WIN" : "LOSE"}</span>
+                                </div>
+                              </div>
+                              
+                              <div className="pt-2 border-t border-zinc-700">
+                                <div className="text-[9px] text-gray-400 mb-1">How to verify:</div>
+                                <div className="text-[8px] text-amber-400/80 font-mono bg-zinc-800 p-1.5 rounded break-all">
+                                  result = keccak256(blockhash({bet.commitBlock.toString()}) + betId) % 100 + 1
+                                </div>
+                                <div className="text-[8px] text-gray-500 mt-1">
+                                  The blockhash was unknown when you placed your bet, making the result unpredictable and fair.
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })
