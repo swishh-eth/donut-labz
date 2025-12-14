@@ -373,7 +373,7 @@ export default function DonutTowerPage() {
   const { data: startHash, writeContract: writeStartGame, isPending: isStartPending, reset: resetStart, error: startError } = useWriteContract();
   const { isSuccess: isStartSuccess } = useWaitForTransactionReceipt({ hash: startHash });
   
-  const { writeContract: writeClimb, isPending: isClimbPending } = useWriteContract();
+  const { writeContract: writeClimb, writeContractAsync: writeClimbAsync, isPending: isClimbPending } = useWriteContract();
   
   const { data: cashOutHash, writeContract: writeCashOut, isPending: isCashOutPending, error: cashOutError } = useWriteContract();
   const { isSuccess: isCashOutSuccess } = useWaitForTransactionReceipt({ hash: cashOutHash });
@@ -528,182 +528,141 @@ export default function DonutTowerPage() {
   // Ref to prevent double-taps on mobile
   const isProcessingClickRef = useRef(false);
   const lastClickTimeRef = useRef(0);
+  const pendingTxRef = useRef<string | null>(null);
 
-  // Handle tile click (climb)
-  const handleTileClick = (tileIndex: number) => {
-    // Debounce - ignore clicks within 500ms of each other
+  // Handle tile click (climb) - SIMPLIFIED for mobile
+  const handleTileClick = async (tileIndex: number) => {
+    // Hard debounce - 1 second minimum between clicks
     const now = Date.now();
-    if (now - lastClickTimeRef.current < 500) {
-      console.log("Ignoring click - too soon after last click");
+    if (now - lastClickTimeRef.current < 1000) {
+      console.log("Debounce: too soon");
       return;
     }
-    lastClickTimeRef.current = now;
     
-    // Prevent double-taps on mobile
+    // Check ref lock
     if (isProcessingClickRef.current) {
-      console.log("Ignoring double-tap");
+      console.log("Lock: already processing");
       return;
     }
     
-    console.log("Tile click:", { 
-      activeGameId: activeGameId?.toString(), 
-      gameStatus: gameState?.status,
-      currentLevel: gameState?.currentLevel,
-      isClimbing, 
-      isClimbPending 
-    });
-    
+    // Check state
     if (!activeGameId || !gameState || !publicClient) {
-      console.log("No active game");
+      console.log("No game");
       return;
     }
     if (gameState.status !== GameStatus.Active) {
-      console.log("Game not active, status:", gameState.status);
+      console.log("Not active");
       return;
     }
     if (isClimbing || isClimbPending) {
       console.log("Already climbing");
       return;
     }
-    if (gameState.currentLevel >= 9) {
-      console.log("Already at top");
-      return;
-    }
     
-    // Lock to prevent double processing
+    // Lock immediately
     isProcessingClickRef.current = true;
+    lastClickTimeRef.current = now;
     setIsClimbing(true);
     
     try { sdk.haptics.impactOccurred("light"); } catch {}
     
-    console.log("Sending climbLevel tx:", activeGameId.toString(), tileIndex);
+    const gameId = activeGameId;
+    const levelBefore = gameState.currentLevel;
     
-    const gameId = activeGameId; // Capture for closure
-    const currentLevelBeforeClimb = gameState.currentLevel; // Capture current level
+    console.log("=== CLIMB START ===", { gameId: gameId.toString(), tile: tileIndex, level: levelBefore });
     
-    writeClimb({
-      address: DONUT_TOWER_ADDRESS,
-      abi: TOWER_V5_ABI,
-      functionName: "climbLevel",
-      args: [gameId, tileIndex]
-    }, {
-      onSuccess: async (hash) => {
-        console.log("Climb tx submitted:", hash);
-        try {
-          // Wait for receipt
-          const receipt = await publicClient.waitForTransactionReceipt({ hash });
-          console.log("Climb tx confirmed:", receipt.status);
-          
-          // Unlock immediately after tx confirmed
-          isProcessingClickRef.current = false;
-          
-          if (receipt.status !== 'success') {
-            console.log("Climb tx failed");
-            setIsClimbing(false);
-            setErrorMessage("Transaction failed");
-            setTimeout(() => setErrorMessage(null), 3000);
-            return;
-          }
-          
-          // Small delay to ensure state is updated on chain
-          await new Promise(r => setTimeout(r, 500));
-          
-          // Read new game state
-          const game = await publicClient.readContract({
-            address: DONUT_TOWER_ADDRESS,
-            abi: TOWER_V5_ABI,
-            functionName: "games",
-            args: [gameId],
-            blockTag: 'latest',
-          }) as unknown as any[];
-          
-          console.log("Raw game data after climb:", game);
-          
-          const newGameState: OnchainGame = {
-            player: game[0] as `0x${string}`,
-            token: game[1] as `0x${string}`,
-            betAmount: game[2],
-            difficulty: Number(game[3]),
-            commitBlock: game[4],
-            status: Number(game[5]),
-            currentLevel: Number(game[6]),
-            trapPositions: game[7],
-            currentMultiplier: game[8],
-          };
-          
-          console.log("Parsed game state after climb:", { 
-            level: newGameState.currentLevel, 
-            status: newGameState.status,
-            statusName: newGameState.status === 2 ? "Active" : newGameState.status === 3 ? "Won" : newGameState.status === 4 ? "Lost" : "Other"
-          });
-          
-          // Update state synchronously
-          flushSync(() => {
-            setGameState(newGameState);
-            setIsClimbing(false);
-          });
-          
-          if (newGameState.status === GameStatus.Lost) {
-            playLoseSound();
-            try { sdk.haptics.impactOccurred("heavy"); } catch {}
-            flushSync(() => setGameResult("lost"));
-            setTimeout(() => {
-              flushSync(() => {
-                setActiveGameId(null);
-                setGameState(null);
-                setGameResult(null);
-              });
-              refetchActiveGame();
-              refetchBalance();
-            }, 4000);
-          } else if (newGameState.status === GameStatus.Won) {
-            playWinSound();
-            try { sdk.haptics.impactOccurred("heavy"); } catch {}
-            flushSync(() => {
-              setGameResult("won");
-              setShowConfetti(true);
-            });
-            setTimeout(() => {
-              flushSync(() => {
-                setShowConfetti(false);
-                setActiveGameId(null);
-                setGameState(null);
-                setGameResult(null);
-              });
-              refetchActiveGame();
-              refetchBalance();
-              refetchGameIds();
-            }, 4000);
-          } else {
-            // Successful climb to next level
-            playClimbSound();
-            try { sdk.haptics.impactOccurred("medium"); } catch {}
-          }
-        } catch (e) {
-          console.error("Error in climb handling:", e);
-          isProcessingClickRef.current = false;
-          setIsClimbing(false);
-          setErrorMessage("Error processing climb");
-          setTimeout(() => setErrorMessage(null), 3000);
-        }
-      },
-      onError: (error) => {
-        console.error("Climb tx error:", error);
-        isProcessingClickRef.current = false;
-        setIsClimbing(false);
-        
-        const msg = error.message || "";
-        if (msg.includes("rejected") || msg.includes("denied")) {
-          setErrorMessage("Transaction cancelled");
-        } else if (msg.includes("Game not active")) {
-          setErrorMessage("Game ended");
+    try {
+      // Use writeContractAsync for better control
+      const hash = await writeClimbAsync({
+        address: DONUT_TOWER_ADDRESS,
+        abi: TOWER_V5_ABI,
+        functionName: "climbLevel",
+        args: [gameId, tileIndex]
+      });
+      
+      console.log("TX HASH:", hash);
+      pendingTxRef.current = hash;
+      
+      // Wait for confirmation
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log("TX CONFIRMED:", receipt.status);
+      
+      // Wait a bit for state to propagate
+      await new Promise(r => setTimeout(r, 500));
+      
+      // Read fresh state
+      const game = await publicClient.readContract({
+        address: DONUT_TOWER_ADDRESS,
+        abi: TOWER_V5_ABI,
+        functionName: "games",
+        args: [gameId],
+        blockTag: 'latest',
+      }) as unknown as any[];
+      
+      const newState: OnchainGame = {
+        player: game[0],
+        token: game[1],
+        betAmount: game[2],
+        difficulty: Number(game[3]),
+        commitBlock: game[4],
+        status: Number(game[5]),
+        currentLevel: Number(game[6]),
+        trapPositions: game[7],
+        currentMultiplier: game[8],
+      };
+      
+      console.log("NEW STATE:", { level: newState.currentLevel, status: newState.status });
+      
+      // Update UI
+      setGameState(newState);
+      setIsClimbing(false);
+      
+      // Handle results
+      if (newState.status === GameStatus.Lost) {
+        playLoseSound();
+        try { sdk.haptics.impactOccurred("heavy"); } catch {}
+        setGameResult("lost");
+        setTimeout(() => {
+          setActiveGameId(null);
+          setGameState(null);
+          setGameResult(null);
           refetchActiveGame();
-        } else {
-          setErrorMessage("Failed to climb");
-        }
-        setTimeout(() => setErrorMessage(null), 3000);
+          refetchBalance();
+        }, 4000);
+      } else if (newState.status === GameStatus.Won) {
+        playWinSound();
+        try { sdk.haptics.impactOccurred("heavy"); } catch {}
+        setGameResult("won");
+        setShowConfetti(true);
+        setTimeout(() => {
+          setShowConfetti(false);
+          setActiveGameId(null);
+          setGameState(null);
+          setGameResult(null);
+          refetchActiveGame();
+          refetchBalance();
+        }, 4000);
+      } else {
+        playClimbSound();
+        try { sdk.haptics.impactOccurred("medium"); } catch {}
       }
-    });
+      
+    } catch (err: any) {
+      console.error("CLIMB ERROR:", err);
+      setIsClimbing(false);
+      
+      if (err?.message?.includes("rejected") || err?.message?.includes("denied")) {
+        setErrorMessage("Cancelled");
+      } else {
+        setErrorMessage("Failed");
+      }
+      setTimeout(() => setErrorMessage(null), 2000);
+    } finally {
+      // Always unlock after everything is done
+      isProcessingClickRef.current = false;
+      pendingTxRef.current = null;
+      console.log("=== CLIMB END ===");
+    }
   };
 
   // Handle cash out
@@ -824,29 +783,23 @@ export default function DonutTowerPage() {
         }
         
         tiles.push(
-          <button
+          <div
             key={tile}
-            onPointerUp={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              // Ignore if already processing
-              if (isProcessingClickRef.current) {
-                console.log("Ignoring - already processing");
-                return;
-              }
-              console.log("Tile pointer up:", { level, tile, isClickable, isClimbing, pointerType: e.pointerType });
+            role="button"
+            tabIndex={isClickable ? 0 : -1}
+            onClick={() => {
               if (isClickable) handleTileClick(tile);
             }}
-            disabled={!isClickable}
             className={cn(
               "tower-tile w-10 h-10 rounded-md border flex items-center justify-center font-bold transition-all",
-              tileStyle
+              tileStyle,
+              !isClickable && "pointer-events-none"
             )}
           >
             {isClimbing && isCurrentLevel ? (
               <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
             ) : content}
-          </button>
+          </div>
         );
       }
       
