@@ -527,7 +527,7 @@ export default function MinesPage() {
       
       // Show confetti and haptics immediately (optimistic - assume safe)
       setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 1500);
+      setTimeout(() => setShowConfetti(false), 4000);
       try {
         sdk.haptics.impactOccurred("medium");
       } catch {}
@@ -573,7 +573,7 @@ export default function MinesPage() {
         setTimeout(() => sdk.haptics.impactOccurred("light"), 200);
       } catch {}
       
-      setTimeout(() => setShowConfetti(false), 3000);
+      setTimeout(() => setShowConfetti(false), 5000);
     }
   }, [isCashOutSuccess, gameStep]);
 
@@ -739,8 +739,8 @@ export default function MinesPage() {
           75% { transform: translateX(2px); }
         }
         @keyframes confetti-fall {
-          0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
-          100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+          0% { transform: translateY(-50px) rotate(0deg); opacity: 1; }
+          100% { transform: translateY(120vh) rotate(1080deg); opacity: 1; }
         }
         @keyframes toast-in {
           0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
@@ -754,7 +754,7 @@ export default function MinesPage() {
           0% { opacity: 0; }
           100% { opacity: 1; }
         }
-        .confetti { animation: confetti-fall 3s ease-out forwards; }
+        .confetti { animation: confetti-fall 4s ease-in forwards; }
         .toast-animate { animation: toast-in 0.2s ease-out forwards; }
         .arrow-bounce { 
           animation: fade-in 0.3s ease-out forwards, bounce-down 0.8s ease-in-out infinite;
@@ -764,16 +764,17 @@ export default function MinesPage() {
       {/* Donut Confetti */}
       {showConfetti && (
         <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-          {[...Array(20)].map((_, i) => (
+          {[...Array(40)].map((_, i) => (
             <div
               key={i}
               className="confetti"
               style={{
                 position: 'absolute',
                 left: `${Math.random() * 100}%`,
-                top: '-50px',
-                fontSize: `${20 + Math.random() * 20}px`,
-                animationDelay: `${Math.random() * 0.5}s`,
+                top: '-60px',
+                fontSize: `${18 + Math.random() * 24}px`,
+                animationDelay: `${Math.random() * 1.5}s`,
+                animationDuration: `${3 + Math.random() * 2}s`,
               }}
             >
               🍩
@@ -837,6 +838,17 @@ export default function MinesPage() {
               <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700" />
             )}
           </div>
+        </div>
+
+        {/* Token Selector */}
+        <div className="flex gap-2 mb-2 flex-shrink-0">
+          <button className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-amber-500 text-black font-bold text-sm">
+            <span>🍩</span> DONUT
+          </button>
+          <button className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-500 font-bold text-sm opacity-50">
+            <span>✨</span> SPRINKLES
+            <span className="text-[8px] text-gray-600 ml-1">SOON</span>
+          </button>
         </div>
 
         {/* Stats Row */}
@@ -969,24 +981,37 @@ export default function MinesPage() {
             </>
           ) : (
             <>
-              {/* Empty grid preview */}
-              <div className="grid grid-cols-5 gap-2 w-full max-w-[320px] mb-2 opacity-50">
-                {Array.from({ length: 25 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="aspect-square rounded-lg border-2 bg-zinc-800 border-zinc-700"
-                  />
-                ))}
-              </div>
-
-              {/* Pending Games Notice */}
-              {pendingGamesCount > 0 && (
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 mb-2 w-full max-w-[320px]">
-                  <p className="text-[10px] text-amber-400 text-center">
-                    {pendingGamesCount} pending game(s) - check history to claim 98% back
-                  </p>
+              {/* Empty grid preview with pending overlay */}
+              <div className="relative w-full max-w-[320px]">
+                <div className="grid grid-cols-5 gap-2 w-full mb-2 opacity-30">
+                  {Array.from({ length: 25 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="aspect-square rounded-lg border-2 bg-zinc-800 border-zinc-700"
+                    />
+                  ))}
                 </div>
-              )}
+                
+                {/* Pending Games Notice - Overlay */}
+                {pendingGamesCount > 0 && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="bg-amber-500/20 border border-amber-500/50 rounded-xl p-4 backdrop-blur-sm">
+                      <p className="text-sm text-amber-400 text-center font-bold">
+                        {pendingGamesCount} pending game(s)
+                      </p>
+                      <p className="text-xs text-amber-400/70 text-center mt-1">
+                        Check history to claim 98% back
+                      </p>
+                      <button
+                        onClick={() => setShowHistory(true)}
+                        className="mt-2 w-full py-2 rounded-lg bg-amber-500 text-black text-xs font-bold"
+                      >
+                        VIEW HISTORY
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>
