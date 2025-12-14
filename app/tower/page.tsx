@@ -265,10 +265,31 @@ export default function DonutTowerPage() {
 
   // Fetch game state when active game ID changes
   useEffect(() => {
+    // Skip if we're climbing - we'll update state manually
+    if (isClimbing) {
+      return;
+    }
+    
     const fetchGameState = async () => {
-      if (!publicClient || !contractActiveGameId || contractActiveGameId === BigInt(0)) {
-        setActiveGameId(null);
-        setGameState(null);
+      // Only proceed if we have a definite value (including 0n)
+      // Skip if contractActiveGameId is undefined (still loading)
+      if (contractActiveGameId === undefined) {
+        console.log("FETCH - skipping, contractActiveGameId undefined");
+        return;
+      }
+      
+      if (!publicClient) {
+        return;
+      }
+      
+      // If it's explicitly 0, clear the game
+      if (contractActiveGameId === BigInt(0)) {
+        console.log("FETCH - clearing, no active game");
+        // Only clear if we're not in a game result state
+        if (!gameResult) {
+          setActiveGameId(null);
+          setGameState(null);
+        }
         return;
       }
       
@@ -280,19 +301,6 @@ export default function DonutTowerPage() {
           args: [contractActiveGameId],
           blockTag: 'latest',
         }) as unknown as any[];
-        
-        console.log("Raw game data:", game);
-        console.log("Parsed values:", {
-          player: game[0],
-          token: game[1],
-          betAmount: game[2]?.toString(),
-          difficulty: game[3],
-          commitBlock: game[4]?.toString(),
-          status: game[5],
-          currentLevel: game[6],
-          trapPositions: game[7]?.toString(),
-          currentMultiplier: game[8]?.toString(),
-        });
         
         const gameData: OnchainGame = {
           player: game[0] as `0x${string}`,
@@ -306,7 +314,7 @@ export default function DonutTowerPage() {
           currentMultiplier: game[8],
         };
         
-        console.log("Parsed gameData:", gameData);
+        console.log("FETCH - got data:", { level: gameData.currentLevel, status: gameData.status });
         
         setActiveGameId(contractActiveGameId);
         setGameState(gameData);
@@ -322,7 +330,7 @@ export default function DonutTowerPage() {
     };
     
     fetchGameState();
-  }, [publicClient, contractActiveGameId]);
+  }, [publicClient, contractActiveGameId, isClimbing, gameResult]);
 
   // Fetch game history
   useEffect(() => {
