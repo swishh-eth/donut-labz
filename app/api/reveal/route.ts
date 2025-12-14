@@ -8,6 +8,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 const DICE_ADDRESS = "0xD6f1Eb5858efF6A94B853251BE2C27c4038BB7CE" as const;
 const MINES_ADDRESS = "0xc5D771DaEEBCEdf8e7e53512eA533C9B07F8bE4f" as const;
 const WHEEL_ADDRESS = "0xDd89E2535e460aDb63adF09494AcfB99C33c43d8" as const;
+const TOWER_ADDRESS = "0x59c140b50FfBe620ea8d770478A833bdF60387bA" as const;
 
 // Revealer bot address: 0xccb3d6c0f171cb68d5521a483e9fb223a8adb94b
 // Make sure this matches what's set in each contract
@@ -339,6 +340,63 @@ export async function GET(request: NextRequest) {
         }
       } catch (e: any) {
         results.wheel = { error: e.message };
+      }
+    }
+    
+    // TOWER
+    if (game === 'tower' || game === 'all') {
+      try {
+        const revealable = await publicClient.readContract({
+          address: TOWER_ADDRESS,
+          abi: REVEAL_ABI,
+          functionName: 'getRevealableGames',
+        }) as bigint[];
+        
+        console.log('Revealable tower games:', revealable.map(id => id.toString()));
+        
+        if (revealable.length > 0) {
+          const walletClient = getWalletClient();
+          const revealed: string[] = [];
+          let lastHash = '';
+          
+          // Reveal one at a time with explicit gas limit
+          for (const gameId of revealable) {
+            try {
+              const hash = await walletClient.writeContract({
+                address: TOWER_ADDRESS,
+                abi: REVEAL_ABI,
+                functionName: 'revealGame',
+                args: [gameId],
+                gas: BigInt(500000),
+              });
+              
+              await publicClient.waitForTransactionReceipt({ hash });
+              revealed.push(gameId.toString());
+              lastHash = hash;
+            } catch (e: any) {
+              console.error('Failed to reveal tower game', gameId.toString(), e.message);
+            }
+          }
+          
+          results.tower = { 
+            revealed,
+            txHash: lastHash 
+          };
+        } else {
+          results.tower = { revealed: [], message: 'No pending games' };
+        }
+        
+        if (betId && game === 'tower') {
+          const towerGame = await publicClient.readContract({
+            address: TOWER_ADDRESS,
+            abi: REVEAL_ABI,
+            functionName: 'getGame',
+            args: [BigInt(betId)],
+          });
+          results.towerGame = towerGame;
+        }
+      } catch (e: any) {
+        results.tower = { error: e.message };
       }
     }
     

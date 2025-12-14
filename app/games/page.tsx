@@ -7,12 +7,13 @@ import { createPublicClient, http, formatUnits } from "viem";
 import { base } from "viem/chains";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Target, Zap, Trophy, Lock, Bomb } from "lucide-react";
+import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Target, Zap, Trophy, Lock, Bomb, TowerControl } from "lucide-react";
 
 // Contract addresses - V5 contracts
 const DONUT_DICE_ADDRESS = "0xD6f1Eb5858efF6A94B853251BE2C27c4038BB7CE" as const;
 const DONUT_MINES_ADDRESS = "0xc5D771DaEEBCEdf8e7e53512eA533C9B07F8bE4f" as const;
 const GLAZE_WHEEL_ADDRESS = "0xDd89E2535e460aDb63adF09494AcfB99C33c43d8" as const;
+const DONUT_TOWER_ADDRESS = "0x59c140b50FfBe620ea8d770478A833bdF60387bA" as const;
 
 // Create a public client for Base
 const publicClient = createPublicClient({
@@ -42,6 +43,7 @@ function GameTile({
   description, 
   icon: Icon, 
   comingSoon = true,
+  isNew = false,
   lastWinner,
   scrollDirection = "left",
   onClick 
@@ -50,6 +52,7 @@ function GameTile({
   description: string;
   icon: React.ElementType;
   comingSoon?: boolean;
+  isNew?: boolean;
   lastWinner?: { username: string; amount: string; pfpUrl?: string } | null;
   scrollDirection?: "left" | "right";
   onClick?: () => void;
@@ -87,7 +90,12 @@ function GameTile({
                 Soon
               </span>
             )}
-            {!comingSoon && (
+            {!comingSoon && isNew && (
+              <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold">
+                NEW
+              </span>
+            )}
+            {!comingSoon && !isNew && (
               <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full flex-shrink-0">
                 LIVE
               </span>
@@ -129,6 +137,7 @@ export default function GamesPage() {
   const [diceLastWinner, setDiceLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
   const [wheelLastWinner, setWheelLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
   const [minesLastWinner, setMinesLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
+  const [towerLastWinner, setTowerLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
 
   // Mock data - replace with real contract reads later
   const [poolData, setPoolData] = useState({
@@ -409,6 +418,87 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch last tower winner (V5 contract)
+  useEffect(() => {
+    const fetchLastTowerWinner = async () => {
+      try {
+        const currentBlock = await publicClient.getBlockNumber();
+        // Look back ~30 min on Base (900 blocks at 2 sec/block)
+        const fromBlock = currentBlock > 900n ? currentBlock - 900n : 0n;
+        
+        console.log("Fetching tower winner from block", fromBlock.toString(), "to latest");
+        
+        // Get recent GameCashedOut events from Tower V5 contract
+        const logs = await publicClient.getLogs({
+          address: DONUT_TOWER_ADDRESS,
+          event: {
+            type: 'event',
+            name: 'GameCashedOut',
+            inputs: [
+              { type: 'uint256', name: 'gameId', indexed: true },
+              { type: 'address', name: 'player', indexed: true },
+              { type: 'uint8', name: 'levelReached', indexed: false },
+              { type: 'uint256', name: 'multiplier', indexed: false },
+              { type: 'uint256', name: 'payout', indexed: false }
+            ]
+          },
+          fromBlock,
+          toBlock: 'latest'
+        });
+
+        console.log("Found", logs.length, "Tower GameCashedOut events");
+
+        if (logs.length === 0) {
+          setTowerLastWinner(null);
+          return;
+        }
+
+        // Get most recent cashout
+        const lastLog = logs[logs.length - 1];
+        const player = lastLog.args.player as string;
+        const payout = lastLog.args.payout as bigint;
+        
+        console.log("Last tower winner:", player, "payout:", formatUnits(payout, 18));
+
+        // Get profile from our cached profiles API
+        try {
+          const response = await fetch(`/api/profiles?addresses=${player}`);
+          console.log("Tower profile response:", response.status);
+          if (response.ok) {
+            const data = await response.json();
+            console.log("Tower profile data:", data);
+            const profile = data.profiles[player.toLowerCase()];
+            
+            if (profile?.username) {
+              setTowerLastWinner({
+                username: profile.username,
+                amount: `${parseFloat(formatUnits(payout, 18)).toFixed(2)} 🍩`,
+                pfpUrl: profile.pfpUrl || undefined
+              });
+              return;
+            }
+          }
+        } catch (e) {
+          console.log("Error fetching tower profile:", e);
+        }
+        
+        // Fallback to truncated address
+        const truncatedAddress = `${player.slice(0, 6)}...${player.slice(-4)}`;
+        setTowerLastWinner({
+          username: truncatedAddress,
+          amount: `${parseFloat(formatUnits(payout, 18)).toFixed(2)} 🍩`
+        });
+      } catch (error) {
+        console.error("Failed to fetch tower last winner:", error);
+        setTowerLastWinner(null);
+      }
+    };
+
+    fetchLastTowerWinner();
+    const interval = setInterval(fetchLastTowerWinner, 15 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const hydrateContext = async () => {
@@ -471,6 +561,16 @@ export default function GamesPage() {
 
   // Games list
   const games = [
+    {
+      id: "tower",
+      title: "Donut Tower",
+      description: "Climb 9 levels, cash out anytime",
+      icon: TowerControl,
+      comingSoon: false,
+      isNew: true,
+      lastWinner: towerLastWinner,
+      onClick: () => window.location.href = "/tower",
+    },
     {
       id: "wheel",
       title: "Glaze Wheel",
@@ -839,6 +939,7 @@ export default function GamesPage() {
                   description={game.description}
                   icon={game.icon}
                   comingSoon={game.comingSoon}
+                  isNew={(game as { isNew?: boolean }).isNew}
                   lastWinner={game.lastWinner}
                   scrollDirection={(game as { scrollDirection?: "left" | "right" }).scrollDirection}
                   onClick={game.onClick}
