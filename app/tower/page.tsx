@@ -190,11 +190,37 @@ export default function DonutTowerPage() {
     }
   }, [isConnected, allowance, showApprovals, hasShownApproval]);
 
-  // Load game state
+  // Load game state (only on initial load or when contractGameId changes)
   useEffect(() => {
-    if (!publicClient || !contractGameId || contractGameId === BigInt(0) || isClimbing) return;
+    // Skip if climbing - we manage state ourselves during climb
+    if (isClimbing) {
+      console.log("Load effect: skipping - isClimbing");
+      return;
+    }
+    
+    // If no game ID, clear state
+    if (!contractGameId || contractGameId === BigInt(0)) {
+      // Only clear if not showing a result
+      if (!gameResult) {
+        setActiveGameId(null);
+        setGameState(null);
+        setIsWaitingForReveal(false);
+        setIsStartingGame(false);
+      }
+      return;
+    }
+    
+    // Skip if we already have this game loaded with Active status
+    // This prevents overwriting state we just updated from a climb
+    if (activeGameId === contractGameId && gameState?.status === GameStatus.Active) {
+      console.log("Load effect: skipping - already have active game");
+      return;
+    }
+    
+    if (!publicClient) return;
 
     const load = async () => {
+      console.log("Load effect: loading game", contractGameId.toString());
       try {
         const game = await publicClient.readContract({
           address: DONUT_TOWER_ADDRESS,
@@ -213,6 +239,8 @@ export default function DonutTowerPage() {
           trapPositions: game[7],
           currentMultiplier: game[8],
         };
+        
+        console.log("Load effect: got state", { level: state.currentLevel, status: state.status });
 
         setActiveGameId(contractGameId);
         setGameState(state);
@@ -220,7 +248,8 @@ export default function DonutTowerPage() {
         if (state.status === GameStatus.Pending) {
           setIsWaitingForReveal(true);
           pollForReveal(contractGameId);
-        } else {
+        } else if (state.status === GameStatus.Active) {
+          // Already active - make sure loading states are cleared
           setIsWaitingForReveal(false);
           setIsStartingGame(false);
         }
@@ -230,7 +259,7 @@ export default function DonutTowerPage() {
     };
 
     load();
-  }, [publicClient, contractGameId, isClimbing]);
+  }, [publicClient, contractGameId]);
 
   // Poll for reveal
   const pollForReveal = async (gameId: bigint) => {
@@ -271,36 +300,70 @@ export default function DonutTowerPage() {
     if (!climbHash || !publicClient || !activeGameId) return;
     if (lastClimbHashRef.current === climbHash) return;
     lastClimbHashRef.current = climbHash;
+    
+    const previousLevel = gameState?.currentLevel ?? 0;
 
     const process = async () => {
       try {
+        console.log("Waiting for tx receipt...");
         await publicClient.waitForTransactionReceipt({ hash: climbHash });
+        console.log("Tx confirmed!");
         
-        // Wait for state to update
-        await new Promise(r => setTimeout(r, 1000));
+        // Retry loop to get updated state
+        let newState: GameState | null = null;
+        for (let attempt = 0; attempt < 10; attempt++) {
+          await new Promise(r => setTimeout(r, 500));
+          
+          console.log(`Reading state attempt ${attempt + 1}...`);
+          const game = await publicClient.readContract({
+            address: DONUT_TOWER_ADDRESS,
+            abi: TOWER_ABI,
+            functionName: "games",
+            args: [activeGameId],
+            blockTag: 'latest',
+          }) as unknown as any[];
 
-        // Read fresh state
-        const game = await publicClient.readContract({
-          address: DONUT_TOWER_ADDRESS,
-          abi: TOWER_ABI,
-          functionName: "games",
-          args: [activeGameId],
-          blockTag: 'latest',
-        }) as unknown as any[];
+          const state: GameState = {
+            player: game[0],
+            betAmount: game[2],
+            difficulty: Number(game[3]),
+            status: Number(game[5]),
+            currentLevel: Number(game[6]),
+            trapPositions: game[7],
+            currentMultiplier: game[8],
+          };
+          
+          console.log(`Got level: ${state.currentLevel}, status: ${state.status}`);
+          
+          // Check if state has changed (level increased or game ended)
+          if (state.currentLevel > previousLevel || state.status !== GameStatus.Active) {
+            newState = state;
+            break;
+          }
+        }
+        
+        if (!newState) {
+          console.log("Failed to get updated state after 10 attempts");
+          // Force refetch and reset
+          resetClimb();
+          refetchActiveGame();
+          // Small delay then clear climbing
+          setTimeout(() => setIsClimbing(false), 100);
+          return;
+        }
 
-        const newState: GameState = {
-          player: game[0],
-          betAmount: game[2],
-          difficulty: Number(game[3]),
-          status: Number(game[5]),
-          currentLevel: Number(game[6]),
-          trapPositions: game[7],
-          currentMultiplier: game[8],
-        };
-
+        console.log("Updating UI with new state:", newState.currentLevel);
+        
+        // IMPORTANT: Update game state BEFORE clearing isClimbing
+        // This prevents the load effect from overwriting with stale data
         setGameState(newState);
-        setIsClimbing(false);
+        
+        // Reset climb hook state
         resetClimb();
+        
+        // Clear climbing flag AFTER state is set
+        // Use setTimeout to ensure React has processed the state update
+        setTimeout(() => setIsClimbing(false), 50);
 
         // Scroll tower
         if (towerRef.current && newState.currentLevel > 0) {
@@ -412,10 +475,22 @@ export default function DonutTowerPage() {
   }, [isStartSuccess, isStartingGame, refetchActiveGame]);
 
   const handleTileClick = (tile: number) => {
-    if (!activeGameId || !gameState) return;
-    if (gameState.status !== GameStatus.Active) return;
-    if (isClimbing || isClimbPending) return;
+    console.log("Tile clicked:", tile, { activeGameId: activeGameId?.toString(), status: gameState?.status, isClimbing, isClimbPending });
+    
+    if (!activeGameId || !gameState) {
+      console.log("No game");
+      return;
+    }
+    if (gameState.status !== GameStatus.Active) {
+      console.log("Not active");
+      return;
+    }
+    if (isClimbing || isClimbPending) {
+      console.log("Already climbing");
+      return;
+    }
 
+    console.log("Sending climb tx for tile", tile);
     setIsClimbing(true);
     try { sdk.haptics.impactOccurred("light"); } catch {}
 
@@ -614,12 +689,7 @@ export default function DonutTowerPage() {
           
           {/* Tower */}
           <div ref={towerRef} className="h-full overflow-y-auto scrollbar-hide flex flex-col justify-end pb-2" style={{ scrollbarWidth: 'none' }}>
-            {isWaitingForReveal ? (
-              <div className="flex flex-col items-center justify-center py-8">
-                <Loader2 className="w-8 h-8 animate-spin text-amber-400 mb-2" />
-                <p className="text-sm text-gray-400">Building tower...</p>
-              </div>
-            ) : gameResult === "lost" ? (
+            {gameResult === "lost" ? (
               <div className="space-y-0.5">
                 <div className="text-center py-2">
                   <p className="text-red-400 font-bold">💀 You fell!</p>
@@ -633,7 +703,7 @@ export default function DonutTowerPage() {
                 </div>
                 {renderTower()}
               </div>
-            ) : gameState ? (
+            ) : gameState && gameState.status === GameStatus.Active ? (
               <div className="space-y-0.5">{renderTower()}</div>
             ) : (
               <div className="space-y-0.5 opacity-40">{renderTower()}</div>
