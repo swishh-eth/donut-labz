@@ -268,6 +268,7 @@ export default function MinesPage() {
   const [showBetaPopup, setShowBetaPopup] = useState(false);
   const [showApprovalArrow, setShowApprovalArrow] = useState(false);
   const [dismissedGameId, setDismissedGameId] = useState<bigint | null>(null);
+  const [dismissedPendingNotice, setDismissedPendingNotice] = useState(false);
   const [pendingGame, setPendingGame] = useState<PendingGame | null>(null);
   const [gameStep, setGameStep] = useState<"idle" | "approving" | "starting" | "playing" | "revealing" | "cashing">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -590,6 +591,7 @@ export default function MinesPage() {
     
     // Clear any dismissed game since we're starting fresh
     setDismissedGameId(null);
+    setDismissedPendingNotice(false);
     
     const amountWei = parseUnits(betAmount, 18);
     const secret = generateSecret();
@@ -724,7 +726,12 @@ export default function MinesPage() {
   const displayMultiplier = calculateDisplayMultiplier(gameMineCount, safeRevealed);
   const minePositions = game ? BigInt(game[8]) : BigInt(0); // minePositions is index 8
   const gameBetAmount = game ? game[2] : BigInt(0); // betAmount is index 2
-  const pendingGamesCount = allActiveGameIds.length;
+  // Only count games that are truly pending (not the current playable game)
+  const pendingGamesCount = allActiveGameIds.filter(id => {
+    // Exclude current game if we have a secret for it
+    if (currentGameId !== undefined && id === currentGameId && hasSecretForGame) return false;
+    return true;
+  }).length;
 
   const formattedBalance = tokenBalance 
     ? parseFloat(formatUnits(tokenBalance, 18)).toFixed(2)
@@ -739,8 +746,17 @@ export default function MinesPage() {
           75% { transform: translateX(2px); }
         }
         @keyframes confetti-fall {
-          0% { transform: translateY(-50px) rotate(0deg); opacity: 1; }
-          100% { transform: translateY(120vh) rotate(1080deg); opacity: 1; }
+          0% { 
+            transform: translateY(-60px) rotate(0deg); 
+            opacity: 1; 
+          }
+          75% { 
+            opacity: 1; 
+          }
+          100% { 
+            transform: translateY(100vh) rotate(720deg); 
+            opacity: 0; 
+          }
         }
         @keyframes toast-in {
           0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
@@ -754,7 +770,7 @@ export default function MinesPage() {
           0% { opacity: 0; }
           100% { opacity: 1; }
         }
-        .confetti { animation: confetti-fall 4s ease-in forwards; }
+        .confetti { animation: confetti-fall linear forwards; }
         .toast-animate { animation: toast-in 0.2s ease-out forwards; }
         .arrow-bounce { 
           animation: fade-in 0.3s ease-out forwards, bounce-down 0.8s ease-in-out infinite;
@@ -993,7 +1009,7 @@ export default function MinesPage() {
                 </div>
                 
                 {/* Pending Games Notice - Overlay */}
-                {pendingGamesCount > 0 && (
+                {pendingGamesCount > 0 && !dismissedPendingNotice && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="bg-amber-500/20 border border-amber-500/50 rounded-xl p-4 backdrop-blur-sm">
                       <p className="text-sm text-amber-400 text-center font-bold">
@@ -1002,12 +1018,20 @@ export default function MinesPage() {
                       <p className="text-xs text-amber-400/70 text-center mt-1">
                         Check history to claim 98% back
                       </p>
-                      <button
-                        onClick={() => setShowHistory(true)}
-                        className="mt-2 w-full py-2 rounded-lg bg-amber-500 text-black text-xs font-bold"
-                      >
-                        VIEW HISTORY
-                      </button>
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={() => setDismissedPendingNotice(true)}
+                          className="flex-1 py-2 rounded-lg bg-zinc-700 text-white text-xs font-bold"
+                        >
+                          DISMISS
+                        </button>
+                        <button
+                          onClick={() => setShowHistory(true)}
+                          className="flex-1 py-2 rounded-lg bg-amber-500 text-black text-xs font-bold"
+                        >
+                          VIEW
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
