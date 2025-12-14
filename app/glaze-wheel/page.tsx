@@ -240,7 +240,6 @@ function WheelDisplay({
   onTick: () => void;
   isMuted: boolean;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [displayRotation, setDisplayRotation] = useState(0);
   const lastSegmentRef = useRef<number>(-1);
   const animationRef = useRef<number | null>(null);
@@ -249,9 +248,9 @@ function WheelDisplay({
   
   // Idle rotation OR fast spin while waiting for result
   useEffect(() => {
-    if (isSpinning && rotation > 0) return; // Let the result animation handle it
+    if (isSpinning && rotation > 0) return;
     
-    const speed = isWaiting ? 3 : 0.3; // Fast spin while waiting, slow idle otherwise
+    const speed = isWaiting ? 4 : 0.2;
     
     const animate = () => {
       setDisplayRotation(prev => (prev + speed) % 360);
@@ -264,24 +263,18 @@ function WheelDisplay({
     };
   }, [isSpinning, rotation, isWaiting]);
   
-  // Spinning animation with easing and tick sounds (only when we have a target)
+  // Spinning animation with easing and tick sounds
   useEffect(() => {
     if (!isSpinning || rotation === 0) return;
     
-    // Cancel any idle animation
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
     
     startTimeRef.current = performance.now();
     startRotationRef.current = displayRotation;
     const targetRotation = rotation;
-    const duration = 5000; // 5 seconds
+    const duration = 5000;
     
-    const easeOut = (t: number) => {
-      // Custom easing for wheel feel
-      return 1 - Math.pow(1 - t, 4);
-    };
+    const easeOut = (t: number) => 1 - Math.pow(1 - t, 4);
     
     const animate = (currentTime: number) => {
       const elapsed = currentTime - startTimeRef.current;
@@ -291,7 +284,6 @@ function WheelDisplay({
       const currentRotation = startRotationRef.current + (targetRotation - startRotationRef.current) * eased;
       setDisplayRotation(currentRotation);
       
-      // Calculate which segment is at top and play tick
       const normalizedRotation = currentRotation % 360;
       const segmentAngle = 360 / segments;
       const currentSegment = Math.floor(((360 - normalizedRotation + segmentAngle / 2) % 360) / segmentAngle);
@@ -314,135 +306,129 @@ function WheelDisplay({
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
   }, [isSpinning, rotation, segments, onTick]);
+
+  // SVG wheel dimensions
+  const size = 240;
+  const center = size / 2;
+  const radius = size / 2 - 6;
+  const innerRadius = 22;
   
-  // Draw wheel
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    const size = canvas.width;
-    const center = size / 2;
-    const radius = size / 2 - 20;
-    
-    ctx.clearRect(0, 0, size, size);
-    
-    // Outer glow when spinning
-    if (isSpinning) {
-      const gradient = ctx.createRadialGradient(center, center, radius - 10, center, center, radius + 20);
-      gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
-      gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.2)');
-      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, size, size);
-    }
-    
+  const getSegmentPath = (index: number) => {
     const anglePerSegment = (2 * Math.PI) / segments;
+    const startAngle = index * anglePerSegment - Math.PI / 2;
+    const endAngle = startAngle + anglePerSegment;
     
-    for (let i = 0; i < segments; i++) {
-      const startAngle = i * anglePerSegment - Math.PI / 2;
-      const endAngle = startAngle + anglePerSegment;
-      const mult = multipliers[i];
-      
-      ctx.beginPath();
-      ctx.moveTo(center, center);
-      ctx.arc(center, center, radius, startAngle, endAngle);
-      ctx.closePath();
-      
-      // Color scheme: white/grey for wins, dark for losses
-      if (mult === 0) {
-        ctx.fillStyle = "#18181b"; // zinc-900 (loss - dark)
-      } else if (mult >= 50000) {
-        ctx.fillStyle = "#ffffff"; // white (jackpot)
-      } else if (mult >= 15000) {
-        ctx.fillStyle = "#e4e4e7"; // zinc-200
-      } else if (mult >= 10000) {
-        ctx.fillStyle = "#a1a1aa"; // zinc-400
-      } else {
-        ctx.fillStyle = "#71717a"; // zinc-500
-      }
-      ctx.fill();
-      
-      // Border
-      ctx.strokeStyle = "#000";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      
-      // Inner highlight line
-      ctx.beginPath();
-      ctx.moveTo(center, center);
-      ctx.lineTo(
-        center + Math.cos(startAngle) * radius,
-        center + Math.sin(startAngle) * radius
-      );
-      ctx.strokeStyle = "rgba(0,0,0,0.2)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      
-      // Draw multiplier text
-      if (segments <= 20) {
-        ctx.save();
-        ctx.translate(center, center);
-        ctx.rotate(startAngle + anglePerSegment / 2);
-        ctx.textAlign = "right";
-        ctx.textBaseline = "middle";
-        ctx.font = `bold ${segments <= 10 ? 14 : 11}px monospace`;
-        // Black text for light segments, grey for dark (loss) segments
-        ctx.fillStyle = mult > 0 ? "#000" : "#52525b";
-        const multText = mult > 0 ? `${(mult / 10000).toFixed(1)}x` : "0";
-        ctx.fillText(multText, radius - 12, 0);
-        ctx.restore();
-      }
-    }
+    const x1 = center + radius * Math.cos(startAngle);
+    const y1 = center + radius * Math.sin(startAngle);
+    const x2 = center + radius * Math.cos(endAngle);
+    const y2 = center + radius * Math.sin(endAngle);
+    const x3 = center + innerRadius * Math.cos(endAngle);
+    const y3 = center + innerRadius * Math.sin(endAngle);
+    const x4 = center + innerRadius * Math.cos(startAngle);
+    const y4 = center + innerRadius * Math.sin(startAngle);
     
-    // Outer ring
-    ctx.beginPath();
-    ctx.arc(center, center, radius, 0, 2 * Math.PI);
-    ctx.strokeStyle = "#f59e0b";
-    ctx.lineWidth = 4;
-    ctx.stroke();
+    const largeArc = anglePerSegment > Math.PI ? 1 : 0;
     
-    // Inner ring
-    ctx.beginPath();
-    ctx.arc(center, center, radius * 0.15, 0, 2 * Math.PI);
-    ctx.fillStyle = "#18181b";
-    ctx.fill();
-    ctx.strokeStyle = "#f59e0b";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    
-    // Donut emoji in center
-    ctx.font = "24px serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("🍩", center, center);
-    
-  }, [segments, multipliers, isSpinning]);
+    return `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} L ${x3} ${y3} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${x4} ${y4} Z`;
+  };
+  
+  const getSegmentColor = (mult: number) => {
+    if (mult === 0) return "#1f1f23";
+    if (mult >= 50000) return "#ffffff";
+    if (mult >= 15000) return "#e4e4e7";
+    if (mult >= 10000) return "#a1a1aa";
+    return "#71717a";
+  };
+  
+  const getTextPosition = (index: number) => {
+    const anglePerSegment = (2 * Math.PI) / segments;
+    const midAngle = index * anglePerSegment - Math.PI / 2 + anglePerSegment / 2;
+    const textRadius = radius * 0.68;
+    return {
+      x: center + textRadius * Math.cos(midAngle),
+      y: center + textRadius * Math.sin(midAngle),
+      rotation: (midAngle * 180 / Math.PI) + 90
+    };
+  };
   
   return (
-    <div className="relative">
+    <div className="relative flex items-center justify-center">
       {/* Pointer */}
       <div className="absolute -top-1 left-1/2 -translate-x-1/2 z-10">
         <div 
           className={cn(
-            "w-0 h-0 border-l-[16px] border-r-[16px] border-t-[28px] border-l-transparent border-r-transparent transition-all",
-            isSpinning ? "border-t-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]" : "border-t-amber-500"
+            "w-0 h-0 border-l-[12px] border-r-[12px] border-t-[20px] border-l-transparent border-r-transparent",
+            (isSpinning || isWaiting) ? "border-t-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" : "border-t-white/90"
           )}
         />
       </div>
       
-      {/* Wheel */}
-      <div 
+      {/* Wheel SVG */}
+      <svg 
+        width={size} 
+        height={size} 
+        viewBox={`0 0 ${size} ${size}`}
         style={{ transform: `rotate(${displayRotation}deg)` }}
-        className={cn(isSpinning && "drop-shadow-[0_0_30px_rgba(245,158,11,0.4)]")}
+        className={cn(
+          (isSpinning || isWaiting) && "drop-shadow-[0_0_15px_rgba(255,255,255,0.15)]"
+        )}
       >
-        <canvas 
-          ref={canvasRef} 
-          width={300} 
-          height={300}
+        {/* Segments */}
+        {multipliers.map((mult, i) => (
+          <path
+            key={i}
+            d={getSegmentPath(i)}
+            fill={getSegmentColor(mult)}
+            stroke="#000"
+            strokeWidth="1"
+          />
+        ))}
+        
+        {/* Text labels */}
+        {segments <= 20 && multipliers.map((mult, i) => {
+          const pos = getTextPosition(i);
+          return (
+            <text
+              key={`text-${i}`}
+              x={pos.x}
+              y={pos.y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              transform={`rotate(${pos.rotation}, ${pos.x}, ${pos.y})`}
+              fill={mult > 0 ? "#000" : "#52525b"}
+              fontSize={segments <= 10 ? "11" : "8"}
+              fontWeight="bold"
+              fontFamily="ui-monospace, monospace"
+            >
+              {mult > 0 ? `${(mult / 10000).toFixed(1)}x` : "0"}
+            </text>
+          );
+        })}
+        
+        {/* Outer ring - white */}
+        <circle
+          cx={center}
+          cy={center}
+          r={radius}
+          fill="none"
+          stroke="#fff"
+          strokeWidth="3"
         />
+        
+        {/* Inner circle */}
+        <circle
+          cx={center}
+          cy={center}
+          r={innerRadius}
+          fill="#18181b"
+          stroke="#fff"
+          strokeWidth="2"
+        />
+      </svg>
+      
+      {/* Center donut emoji */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <span className="text-lg">🍩</span>
       </div>
     </div>
   );
@@ -1067,7 +1053,7 @@ export default function GlazeWheelPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">GLAZE WHEEL</h1>
+            <h1 className="text-xl font-bold">Glaze Wheel</h1>
             <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full border border-green-500/30 animate-pulse">LIVE</span>
           </div>
           {context?.user?.pfpUrl ? (
