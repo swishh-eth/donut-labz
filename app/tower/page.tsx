@@ -156,7 +156,7 @@ export default function DonutTowerPage() {
   });
 
   // Contract writes
-  const { data: startHash, writeContract: writeStart, isPending: isStartPending } = useWriteContract();
+  const { data: startHash, writeContract: writeStart, isPending: isStartPending, reset: resetStart } = useWriteContract();
   const { isSuccess: isStartSuccess } = useWaitForTransactionReceipt({ hash: startHash });
 
   const { data: climbHash, writeContract: writeClimb, isPending: isClimbPending, error: climbError, reset: resetClimb } = useWriteContract();
@@ -164,6 +164,9 @@ export default function DonutTowerPage() {
 
   const { data: cashOutHash, writeContract: writeCashOut, isPending: isCashOutPending } = useWriteContract();
   const { isSuccess: isCashOutSuccess } = useWaitForTransactionReceipt({ hash: cashOutHash });
+  
+  // Track processed hashes to avoid double processing
+  const processedStartHash = useRef<string | null>(null);
 
   // Initialize
   useEffect(() => {
@@ -489,14 +492,22 @@ export default function DonutTowerPage() {
 
   // Handle start success
   useEffect(() => {
-    if (!isStartSuccess || !isStartingGame || !publicClient || !address) return;
+    // Need all conditions
+    if (!isStartSuccess || !startHash || !publicClient || !address) return;
     
-    console.log("Start tx confirmed, fetching game ID...");
+    // Don't process same hash twice
+    if (processedStartHash.current === startHash) {
+      console.log("Start: already processed this hash");
+      return;
+    }
+    processedStartHash.current = startHash;
+    
+    console.log("Start tx confirmed!", startHash);
     setIsWaitingForReveal(true);
     
     const startPolling = async () => {
       // Wait a moment then get the game ID
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 1000));
       
       try {
         const gameId = await publicClient.readContract({
@@ -514,19 +525,37 @@ export default function DonutTowerPage() {
           // Start polling for reveal
           pollForReveal(gameId);
         } else {
-          console.log("No game ID returned");
-          setIsWaitingForReveal(false);
-          setIsStartingGame(false);
+          console.log("No game ID returned, retrying...");
+          // Retry after a delay
+          await new Promise(r => setTimeout(r, 1000));
+          const retryGameId = await publicClient.readContract({
+            address: DONUT_TOWER_ADDRESS,
+            abi: TOWER_ABI,
+            functionName: "getPlayerActiveGame",
+            args: [address],
+            blockTag: 'latest',
+          }) as bigint;
+          
+          if (retryGameId && retryGameId > BigInt(0)) {
+            setActiveGameId(retryGameId);
+            pollForReveal(retryGameId);
+          } else {
+            console.log("Still no game ID after retry");
+            setIsWaitingForReveal(false);
+            setIsStartingGame(false);
+            resetStart();
+          }
         }
       } catch (e) {
         console.error("Error getting game ID:", e);
         setIsWaitingForReveal(false);
         setIsStartingGame(false);
+        resetStart();
       }
     };
     
     startPolling();
-  }, [isStartSuccess, isStartingGame, publicClient, address]);
+  }, [isStartSuccess, startHash, publicClient, address, resetStart]);
 
   const handleTileClick = (tile: number) => {
     console.log("Tile clicked:", tile, { activeGameId: activeGameId?.toString(), status: gameState?.status, isClimbing, isClimbPending });
