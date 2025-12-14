@@ -487,12 +487,14 @@ export default function DicePage() {
                   console.log("Bet status check:", {
                     betId: betId.toString(),
                     status: bet.status,
+                    statusType: typeof bet.status,
                     result: bet.result,
                     won: bet.won,
                     payout: bet.payout?.toString()
                   });
                   
-                  if (bet.status === 2) { // Revealed
+                  // Status might be BigInt, so compare with Number()
+                  if (Number(bet.status) === 2) { // Revealed
                     setLastResult({
                       result: bet.result,
                       won: bet.won,
