@@ -270,6 +270,8 @@ export default function MinesPage() {
   const [dismissedGameId, setDismissedGameId] = useState<bigint | null>(null);
   const [dismissedPendingNotice, setDismissedPendingNotice] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState<"none" | "mines" | "bet">("none");
+  const [showStartText, setShowStartText] = useState(true);
+  const [customApprovalAmount, setCustomApprovalAmount] = useState<string>("");
   const [pendingGame, setPendingGame] = useState<PendingGame | null>(null);
   const [gameStep, setGameStep] = useState<"idle" | "approving" | "starting" | "playing" | "revealing" | "cashing">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -333,6 +335,17 @@ export default function MinesPage() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [refetchBalance, refetchAllowance]);
+
+  // Auto-show approvals modal if user has no allowance set
+  useEffect(() => {
+    if (isConnected && allowance !== undefined && allowance === BigInt(0) && !showApprovals) {
+      // Small delay to let the page load first
+      const timer = setTimeout(() => {
+        setShowApprovals(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isConnected, allowance]);
 
   // Read active games
   const { data: activeGameIds, refetch: refetchActiveGames } = useReadContract({
@@ -463,20 +476,14 @@ export default function MinesPage() {
     }
   }, [approveError, startError, revealError, cashOutError, claimExpiredError]);
 
-  // Handle approval success - auto-start the game
+  // Handle approval success - just refetch allowance
   useEffect(() => {
-    if (isApproveSuccess && gameStep === "approving") {
-      // Reset approve state and refetch allowance
+    if (isApproveSuccess) {
       resetApprove();
       refetchAllowance();
-      // Automatically start the game after approval
       try { sdk.haptics.notificationOccurred("success"); } catch {}
-      // Small delay to ensure state is updated
-      setTimeout(() => {
-        startNewGame();
-      }, 100);
     }
-  }, [isApproveSuccess, gameStep]);
+  }, [isApproveSuccess]);
 
   // Handle start game success
   useEffect(() => {
@@ -635,20 +642,16 @@ export default function MinesPage() {
     
     const amountWei = parseUnits(betAmount, 18);
     
-    // Check if approval needed
+    // Check if approval needed - show modal instead of auto-approving
     const needsApproval = !allowance || allowance < amountWei;
     
     if (needsApproval) {
-      setGameStep("approving");
-      writeApprove({
-        address: DONUT_TOKEN_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "approve",
-        args: [DONUT_MINES_ADDRESS, parseUnits("10", 18)] // Approve 10 at a time
-      });
-    } else {
-      startNewGame();
+      setShowApprovals(true);
+      setErrorMessage("Need more approval - tap shield icon to add more");
+      return;
     }
+    
+    startNewGame();
   };
 
   const handleRevealTile = (tileIndex: number) => {
@@ -1062,7 +1065,10 @@ export default function MinesPage() {
                     // Expanded mines slider
                     <div className="flex-1 flex items-center gap-2">
                       <button
-                        onClick={() => setExpandedPanel("none")}
+                        onClick={() => {
+                          setExpandedPanel("none");
+                          setTimeout(() => setShowStartText(true), 300);
+                        }}
                         className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center flex-shrink-0"
                       >
                         <span className="text-[8px] text-gray-500">MINES</span>
@@ -1095,6 +1101,7 @@ export default function MinesPage() {
                     // Collapsed mines button
                     <button
                       onClick={() => {
+                        setShowStartText(false);
                         setExpandedPanel("mines");
                         try { sdk.haptics.selectionChanged(); } catch {}
                       }}
@@ -1115,13 +1122,15 @@ export default function MinesPage() {
                     onClick={() => {
                       if (expandedPanel !== "none") {
                         setExpandedPanel("none");
+                        // Delay showing text until animation completes
+                        setTimeout(() => setShowStartText(true), 300);
                       } else {
                         handleStartGame();
                       }
                     }}
                     disabled={expandedPanel === "none" && (isProcessing || !isConnected || isStartPending || isApprovePending)}
                     className={cn(
-                      "rounded-xl bg-white hover:bg-gray-100 text-black font-bold transition-all disabled:opacity-50 flex items-center justify-center",
+                      "rounded-xl bg-white hover:bg-gray-100 text-black font-bold transition-all disabled:opacity-50 flex items-center justify-center overflow-hidden",
                       expandedPanel === "none" 
                         ? "w-full h-12 text-base" 
                         : "w-12 h-12"
@@ -1134,7 +1143,12 @@ export default function MinesPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     ) : (
-                      "START GAME"
+                      <span className={cn(
+                        "transition-opacity duration-200 whitespace-nowrap",
+                        showStartText ? "opacity-100" : "opacity-0"
+                      )}>
+                        START GAME
+                      </span>
                     )}
                   </button>
                 </div>
@@ -1183,7 +1197,10 @@ export default function MinesPage() {
                         />
                       </div>
                       <button
-                        onClick={() => setExpandedPanel("none")}
+                        onClick={() => {
+                          setExpandedPanel("none");
+                          setTimeout(() => setShowStartText(true), 300);
+                        }}
                         className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center flex-shrink-0"
                       >
                         <span className="text-[8px] text-gray-500">BET</span>
@@ -1194,6 +1211,7 @@ export default function MinesPage() {
                     // Collapsed bet button
                     <button
                       onClick={() => {
+                        setShowStartText(false);
                         setExpandedPanel("bet");
                         try { sdk.haptics.selectionChanged(); } catch {}
                       }}
@@ -1382,30 +1400,38 @@ export default function MinesPage() {
                   <Shield className="w-4 h-4" />
                   Token Approvals
                 </h2>
-                <p className="text-[10px] text-gray-500 mb-3">Manage DONUT approval for Mines</p>
+                <p className="text-[10px] text-gray-500 mb-3">Approve DONUT tokens to play Mines</p>
 
                 <div className="space-y-3">
+                  {/* Current Approval Status */}
                   <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-3">
                       <span className="text-sm font-bold text-white">🍩 DONUT</span>
-                      <span className="text-xs text-gray-400">
+                      <span className={cn(
+                        "text-xs font-bold px-2 py-0.5 rounded-full",
+                        allowance && allowance > BigInt(0) 
+                          ? "bg-green-500/20 text-green-400" 
+                          : "bg-red-500/20 text-red-400"
+                      )}>
                         {allowance ? parseFloat(formatUnits(allowance, 18)).toFixed(2) : "0"} approved
                       </span>
                     </div>
-                    <div className="flex gap-2">
+                    
+                    {/* Quick Approve Buttons */}
+                    <div className="flex gap-2 mb-2">
                       <button
                         onClick={() => {
                           writeApprove({
                             address: DONUT_TOKEN_ADDRESS,
                             abi: ERC20_ABI,
                             functionName: "approve",
-                            args: [DONUT_MINES_ADDRESS, parseUnits("10", 18)]
+                            args: [DONUT_MINES_ADDRESS, parseUnits("100", 18)]
                           });
                         }}
                         disabled={isApprovePending}
-                        className="flex-1 py-1.5 rounded-lg bg-amber-500 text-black text-xs font-bold disabled:opacity-50"
+                        className="flex-1 py-2 rounded-lg bg-amber-500 text-black text-sm font-bold disabled:opacity-50"
                       >
-                        {isApprovePending ? "..." : "Approve 10"}
+                        {isApprovePending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Approve 100"}
                       </button>
                       <button
                         onClick={() => {
@@ -1417,10 +1443,58 @@ export default function MinesPage() {
                           });
                         }}
                         disabled={isApprovePending}
-                        className="flex-1 py-1.5 rounded-lg bg-zinc-800 text-gray-400 text-xs font-bold disabled:opacity-50"
+                        className="py-2 px-3 rounded-lg bg-zinc-800 text-gray-400 text-sm font-bold disabled:opacity-50"
                       >
                         Revoke
                       </button>
+                    </div>
+
+                    {/* Custom Amount */}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="Custom amount"
+                        value={customApprovalAmount}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                            setCustomApprovalAmount(val);
+                          }
+                        }}
+                        className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-center"
+                      />
+                      <button
+                        onClick={() => {
+                          const amount = parseFloat(customApprovalAmount);
+                          if (!isNaN(amount) && amount > 0) {
+                            writeApprove({
+                              address: DONUT_TOKEN_ADDRESS,
+                              abi: ERC20_ABI,
+                              functionName: "approve",
+                              args: [DONUT_MINES_ADDRESS, parseUnits(customApprovalAmount, 18)]
+                            });
+                            setCustomApprovalAmount("");
+                          }
+                        }}
+                        disabled={isApprovePending || !customApprovalAmount}
+                        className="py-1.5 px-3 rounded-lg bg-zinc-700 text-white text-sm font-bold disabled:opacity-50"
+                      >
+                        Set
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Info Box */}
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                    <div className="flex gap-2">
+                      <Shield className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs text-amber-400 font-bold mb-1">How approvals work</p>
+                        <p className="text-[10px] text-amber-400/70">
+                          Each game deducts from your approved amount. When you run out, tap the <span className="font-bold">shield icon</span> during gameplay to approve more.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1429,7 +1503,7 @@ export default function MinesPage() {
                   onClick={() => setShowApprovals(false)}
                   className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black"
                 >
-                  Close
+                  Done
                 </button>
               </div>
             </div>
