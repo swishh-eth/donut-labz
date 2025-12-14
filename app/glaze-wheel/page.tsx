@@ -228,6 +228,7 @@ function WheelDisplay({
   multipliers, 
   rotation, 
   isSpinning,
+  isWaiting,
   onTick,
   isMuted
 }: { 
@@ -235,6 +236,7 @@ function WheelDisplay({
   multipliers: number[];
   rotation: number;
   isSpinning: boolean;
+  isWaiting?: boolean;
   onTick: () => void;
   isMuted: boolean;
 }) {
@@ -245,12 +247,14 @@ function WheelDisplay({
   const startTimeRef = useRef<number>(0);
   const startRotationRef = useRef<number>(0);
   
-  // Idle rotation
+  // Idle rotation OR fast spin while waiting for result
   useEffect(() => {
-    if (isSpinning) return;
+    if (isSpinning && rotation > 0) return; // Let the result animation handle it
+    
+    const speed = isWaiting ? 3 : 0.3; // Fast spin while waiting, slow idle otherwise
     
     const animate = () => {
-      setDisplayRotation(prev => (prev + 0.3) % 360);
+      setDisplayRotation(prev => (prev + speed) % 360);
       animationRef.current = requestAnimationFrame(animate);
     };
     animationRef.current = requestAnimationFrame(animate);
@@ -258,11 +262,16 @@ function WheelDisplay({
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [isSpinning]);
+  }, [isSpinning, rotation, isWaiting]);
   
-  // Spinning animation with easing and tick sounds
+  // Spinning animation with easing and tick sounds (only when we have a target)
   useEffect(() => {
     if (!isSpinning || rotation === 0) return;
+    
+    // Cancel any idle animation
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
     
     startTimeRef.current = performance.now();
     startRotationRef.current = displayRotation;
@@ -323,9 +332,9 @@ function WheelDisplay({
     // Outer glow when spinning
     if (isSpinning) {
       const gradient = ctx.createRadialGradient(center, center, radius - 10, center, center, radius + 20);
-      gradient.addColorStop(0, 'rgba(245, 158, 11, 0)');
-      gradient.addColorStop(0.5, 'rgba(245, 158, 11, 0.3)');
-      gradient.addColorStop(1, 'rgba(245, 158, 11, 0)');
+      gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+      gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.2)');
+      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, size, size);
     }
@@ -342,17 +351,17 @@ function WheelDisplay({
       ctx.arc(center, center, radius, startAngle, endAngle);
       ctx.closePath();
       
-      // Color scheme: amber for wins, dark for losses
+      // Color scheme: white/grey for wins, dark for losses
       if (mult === 0) {
-        ctx.fillStyle = "#18181b"; // zinc-900
+        ctx.fillStyle = "#18181b"; // zinc-900 (loss - dark)
       } else if (mult >= 50000) {
-        ctx.fillStyle = "#f59e0b"; // amber-500
+        ctx.fillStyle = "#ffffff"; // white (jackpot)
       } else if (mult >= 15000) {
-        ctx.fillStyle = "#d97706"; // amber-600
+        ctx.fillStyle = "#e4e4e7"; // zinc-200
       } else if (mult >= 10000) {
-        ctx.fillStyle = "#b45309"; // amber-700
+        ctx.fillStyle = "#a1a1aa"; // zinc-400
       } else {
-        ctx.fillStyle = "#27272a"; // zinc-800
+        ctx.fillStyle = "#71717a"; // zinc-500
       }
       ctx.fill();
       
@@ -368,7 +377,7 @@ function WheelDisplay({
         center + Math.cos(startAngle) * radius,
         center + Math.sin(startAngle) * radius
       );
-      ctx.strokeStyle = "rgba(255,255,255,0.1)";
+      ctx.strokeStyle = "rgba(0,0,0,0.2)";
       ctx.lineWidth = 1;
       ctx.stroke();
       
@@ -380,7 +389,8 @@ function WheelDisplay({
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
         ctx.font = `bold ${segments <= 10 ? 14 : 11}px monospace`;
-        ctx.fillStyle = mult > 0 ? "#fff" : "#52525b";
+        // Black text for light segments, grey for dark (loss) segments
+        ctx.fillStyle = mult > 0 ? "#000" : "#52525b";
         const multText = mult > 0 ? `${(mult / 10000).toFixed(1)}x` : "0";
         ctx.fillText(multText, radius - 12, 0);
         ctx.restore();
@@ -447,25 +457,19 @@ function MultiplierLegend({ multipliers }: { multipliers: number[] }) {
     });
     return Object.entries(counts)
       .map(([mult, count]) => ({ mult: Number(mult), count }))
+      .filter(({ mult }) => mult > 0) // Only show winning multipliers
       .sort((a, b) => b.mult - a.mult);
   }, [multipliers]);
   
   return (
-    <div className="flex flex-wrap gap-1.5 justify-center">
+    <div className="flex flex-wrap gap-1.5 justify-center px-2">
       {uniqueMults.slice(0, 5).map(({ mult, count }) => (
         <div 
           key={mult}
-          className={cn(
-            "flex items-center gap-1 px-2 py-1 rounded-lg text-xs border",
-            mult === 0 
-              ? "bg-zinc-900 border-zinc-700" 
-              : mult >= 50000 
-                ? "bg-amber-500/20 border-amber-500/50" 
-                : "bg-amber-900/20 border-amber-700/50"
-          )}
+          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-zinc-900 border border-zinc-800"
         >
-          <span className={cn("font-bold", mult > 0 ? "text-amber-400" : "text-zinc-500")}>
-            {mult > 0 ? `${(mult / 10000).toFixed(1)}x` : "0x"}
+          <span className="font-bold text-white">
+            {(mult / 10000).toFixed(1)}x
           </span>
           <span className="text-zinc-500">×{count}</span>
         </div>
@@ -614,6 +618,7 @@ export default function GlazeWheelPage() {
   const [expandedSpinId, setExpandedSpinId] = useState<string | null>(null);
   const [hasShownApproval, setHasShownApproval] = useState(false);
   const [recentSpins, setRecentSpins] = useState<OnchainSpin[]>([]);
+  const [expandedBet, setExpandedBet] = useState(false);
 
   const { address, isConnected } = useAccount();
   
@@ -1109,36 +1114,37 @@ export default function GlazeWheelPage() {
             onClick={() => setIsMuted(!isMuted)} 
             className={cn(
               "p-2 rounded-lg border transition-colors",
-              isMuted ? "bg-red-500/20 border-red-500/30 text-red-400" : "bg-zinc-900 border-zinc-800 text-gray-400"
+              isMuted ? "bg-red-500/20 border-red-500/30 text-red-400" : "bg-zinc-900 border-zinc-800"
             )}
           >
             {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
-          <button onClick={() => setShowApprovals(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-400">
+          <button onClick={() => setShowApprovals(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800">
             <Shield className="w-4 h-4" />
           </button>
-          <button onClick={() => setShowHistory(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-400">
+          <button onClick={() => setShowHistory(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800">
             <History className="w-4 h-4" />
           </button>
-          <button onClick={() => setShowHelp(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-400">
+          <button onClick={() => setShowHelp(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800">
             <HelpCircle className="w-4 h-4" />
           </button>
         </div>
 
         {/* Wheel & Result */}
-        <div className="flex-1 flex flex-col items-center justify-center min-h-0 relative">
+        <div className="flex-1 flex flex-col items-center justify-center min-h-0 relative overflow-hidden">
           <WheelDisplay
             segments={segments}
             multipliers={multipliers}
             rotation={wheelRotation}
             isSpinning={isSpinning}
+            isWaiting={isSpinning && wheelRotation === 0}
             onTick={playTickSound}
             isMuted={isMuted}
           />
           
           {/* Result Display - Overlay on wheel */}
           {lastResult && !isSpinning && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
               <div className={cn(
                 "result-pop text-center px-6 py-4 rounded-2xl",
                 lastResult.won 
@@ -1161,138 +1167,156 @@ export default function GlazeWheelPage() {
             </div>
           )}
           
-          {/* Status */}
+          {/* Status text below wheel */}
           {isSpinning && wheelRotation === 0 && (
-            <div className="absolute bottom-4 left-0 right-0 text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Waiting for result...
-              </div>
+            <div className="mt-2 text-xs text-amber-400 flex items-center gap-1">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Waiting for result...
             </div>
           )}
           
           {errorMessage && (
-            <div className="absolute bottom-4 left-0 right-0 text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/20 border border-red-500/30 text-red-400 text-sm">
-                {errorMessage}
-              </div>
-            </div>
+            <div className="mt-2 text-xs text-red-400">{errorMessage}</div>
           )}
           
-          {/* Multiplier Legend */}
-          <div className="mt-3 w-full max-w-[320px]">
-            <MultiplierLegend multipliers={multipliers} />
+          {/* Info text like dice page */}
+          <div className="text-center mt-2">
+            <div className="text-xs text-gray-400">
+              {riskLevel === 0 ? "Low Risk" : riskLevel === 1 ? "Medium Risk" : "High Risk"} • <span className="text-white font-bold">{segments}</span> Segments
+            </div>
+            <div className="text-[10px] text-gray-500">
+              Max Win {maxMultiplier.toFixed(1)}x • Bet 🍩{betAmount}
+            </div>
           </div>
+        </div>
+        
+        {/* Multiplier Legend - Fixed position above controls */}
+        <div className="py-2">
+          <MultiplierLegend multipliers={multipliers} />
         </div>
 
         {/* Controls */}
-        <div className="flex-shrink-0 space-y-2">
+        <div className="space-y-2 pb-1">
           {/* Risk & Segments */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-              <div className="text-[8px] text-gray-500 uppercase mb-1 text-center">Risk Level</div>
-              <div className="flex gap-1">
-                {[0, 1, 2].map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setRiskLevel(r)}
-                    disabled={isSpinning}
-                    className={cn(
-                      "flex-1 py-1.5 text-[10px] rounded font-bold transition-all",
-                      riskLevel === r
-                        ? r === 0 ? "bg-green-500 text-black" : r === 1 ? "bg-amber-500 text-black" : "bg-red-500 text-white"
-                        : "bg-zinc-800 text-gray-400 hover:bg-zinc-700"
-                    )}
-                  >
-                    {r === 0 ? "LOW" : r === 1 ? "MED" : "HIGH"}
-                  </button>
-                ))}
-              </div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+            <div className="flex justify-between mb-1">
+              <span className="text-[10px] text-gray-400">Risk Level</span>
+              <span className={cn(
+                "text-xs font-bold",
+                riskLevel === 0 ? "text-green-400" : riskLevel === 1 ? "text-amber-400" : "text-red-400"
+              )}>
+                {riskLevel === 0 ? "LOW" : riskLevel === 1 ? "MEDIUM" : "HIGH"}
+              </span>
             </div>
-            
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-              <div className="text-[8px] text-gray-500 uppercase mb-1 text-center">Segments</div>
-              <div className="flex gap-1">
-                {[10, 20, 30].map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setSegments(s)}
-                    disabled={isSpinning}
-                    className={cn(
-                      "flex-1 py-1.5 text-[10px] rounded font-bold transition-colors",
-                      segments === s
-                        ? "bg-amber-500 text-black"
-                        : "bg-zinc-800 text-gray-400 hover:bg-zinc-700"
-                    )}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+            <div className="flex gap-1">
+              {[0, 1, 2].map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRiskLevel(r)}
+                  disabled={isSpinning}
+                  className={cn(
+                    "flex-1 py-2 text-[10px] rounded font-bold transition-all border",
+                    riskLevel === r
+                      ? r === 0 ? "bg-green-500 text-black border-green-500" : r === 1 ? "bg-amber-500 text-black border-amber-500" : "bg-red-500 text-white border-red-500"
+                      : "bg-zinc-800 text-gray-400 border-zinc-700"
+                  )}
+                >
+                  {r === 0 ? "LOW" : r === 1 ? "MED" : "HIGH"}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Bet Amount & Spin Button */}
+          {/* Segments + Bet */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2">
-            <div className="flex items-center gap-2 h-12">
-              <div className="flex gap-1">
-                {["0.5", "1", "2"].map((val) => (
-                  <button
-                    key={val}
-                    onClick={() => setBetAmount(val)}
-                    disabled={isSpinning}
-                    className={cn(
-                      "px-2.5 py-1.5 text-[10px] rounded font-bold transition-colors",
-                      betAmount === val
-                        ? "bg-amber-500 text-black"
-                        : "bg-zinc-800 text-gray-400"
-                    )}
-                  >
-                    {val}
-                  </button>
-                ))}
+            <div className="flex items-center gap-2">
+              {/* Segment buttons */}
+              {[10, 20, 30].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSegments(s)}
+                  disabled={isSpinning}
+                  className={cn(
+                    "w-12 h-12 rounded-lg flex flex-col items-center justify-center border",
+                    segments === s 
+                      ? "bg-amber-500 text-black border-amber-500" 
+                      : "bg-zinc-800 text-gray-400 border-zinc-700"
+                  )}
+                >
+                  <span className="text-sm font-bold">{s}</span>
+                  <span className="text-[8px]">SEG</span>
+                </button>
+              ))}
+
+              {/* Bet amount */}
+              <div className="flex-1">
+                <button
+                  onClick={() => setExpandedBet(!expandedBet)}
+                  className="w-full h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2"
+                >
+                  <span className="text-[10px] text-gray-500">BET</span>
+                  <span className="text-lg font-bold text-amber-400">{betAmount}</span>
+                  <span className="text-[10px] text-gray-500">🍩</span>
+                </button>
               </div>
-              
-              <input
-                type="text"
-                inputMode="decimal"
-                value={betAmount}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "" || /^\d*\.?\d*$/.test(val)) {
-                    setBetAmount(val);
-                  }
-                }}
-                className="w-16 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-center text-sm font-bold focus:border-amber-500 focus:outline-none"
-                disabled={isSpinning}
-              />
-              
-              <button
-                onClick={handleSpin}
-                disabled={isSpinning || isStartPending || cooldown || !isConnected || parseFloat(betAmount || "0") <= 0}
-                className={cn(
-                  "flex-1 h-12 rounded-xl font-bold text-base transition-all",
-                  isSpinning || isStartPending 
-                    ? "bg-amber-500/50 text-black/50" 
-                    : cooldown && lastResult
-                      ? lastResult.won ? "bg-green-500 text-white" : "bg-red-500 text-white"
-                      : "bg-amber-500 text-black hover:bg-amber-400 active:scale-[0.98]"
-                )}
-              >
-                {isSpinning ? (
-                  <Loader2 className="w-5 h-5 animate-spin mx-auto" />
-                ) : isStartPending ? (
-                  "Confirm..."
-                ) : cooldown && lastResult ? (
-                  lastResult.won 
-                    ? `🎉 +${parseFloat(formatUnits(lastResult.payout, 18)).toFixed(2)}` 
-                    : "Try again!"
-                ) : (
-                  "SPIN"
-                )}
-              </button>
             </div>
+            
+            {/* Expanded bet options */}
+            {expandedBet && (
+              <div className="mt-2 flex flex-col gap-1">
+                <div className="flex gap-1">
+                  {["0.5", "1", "2", "5"].map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => setBetAmount(val)}
+                      className={cn(
+                        "flex-1 py-1.5 text-[10px] rounded border font-bold",
+                        betAmount === val ? "bg-amber-500 text-black border-amber-500" : "bg-zinc-800 text-gray-400 border-zinc-700"
+                      )}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={betAmount}
+                  onChange={(e) => /^\d*\.?\d*$/.test(e.target.value) && setBetAmount(e.target.value)}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold"
+                  disabled={isSpinning}
+                />
+              </div>
+            )}
           </div>
+
+          {/* Spin button - white like dice */}
+          <button
+            onClick={handleSpin}
+            disabled={isSpinning || isStartPending || cooldown || !isConnected || parseFloat(betAmount || "0") <= 0}
+            className={cn(
+              "w-full py-3 rounded-xl font-bold text-lg transition-all",
+              isSpinning || isStartPending || cooldown ? "bg-zinc-500 text-zinc-300" : "bg-white text-black hover:bg-gray-100"
+            )}
+          >
+            {isSpinning ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Spinning...
+              </span>
+            ) : isStartPending ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Confirm in wallet...
+              </span>
+            ) : cooldown && lastResult ? (
+              <span className={lastResult.won ? "text-green-500" : "text-red-500"}>
+                {lastResult.won ? `🎉 WON +${parseFloat(formatUnits(lastResult.payout, 18)).toFixed(2)} 🍩` : "Better luck next time!"}
+              </span>
+            ) : (
+              "SPIN WHEEL"
+            )}
+          </button>
         </div>
 
         {/* History Modal */}
