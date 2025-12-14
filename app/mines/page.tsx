@@ -9,7 +9,7 @@ import { Bomb, History, HelpCircle, X, Loader2, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Contract addresses
-const DONUT_MINES_ADDRESS = "0x9f83a0103eb385cDA21D32dfD3D6C628d591e667" as const;
+const DONUT_MINES_ADDRESS = "0x7c018F004071bD42256ef2303cD539E413b8533a" as const;
 const DONUT_TOKEN_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
 
 const ERC20_ABI = [
@@ -206,18 +206,24 @@ const hashSecret = (secret: `0x${string}`): `0x${string}` => {
   return keccak256(encodePacked(['bytes32'], [secret]));
 };
 
-// Calculate multiplier for display
+// Calculate multiplier for display - matches contract exactly
+// Returns multiplier as decimal (1.0 = 1x)
 const calculateDisplayMultiplier = (mineCount: number, safeRevealed: number): number => {
   if (safeRevealed === 0) return 1.0;
   
-  let multiplier = 1.0;
+  // Contract uses basis points (10000 = 1x)
+  let mult = 10000;
   const safeTiles = 25 - mineCount;
   
   for (let i = 0; i < safeRevealed; i++) {
-    multiplier *= (25 - i) / (safeTiles - i);
+    mult = Math.floor((mult * (25 - i)) / (safeTiles - i));
   }
   
-  return multiplier * 0.98; // Apply house edge
+  // Apply 2% house edge
+  mult = Math.floor((mult * 98) / 100);
+  
+  // Convert from basis points to decimal
+  return mult / 10000;
 };
 
 // Tile component

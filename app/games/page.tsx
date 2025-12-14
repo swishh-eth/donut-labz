@@ -11,7 +11,7 @@ import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Target, Zap, Trop
 
 // Contract addresses
 const DONUT_DICE_ADDRESS = "0x49826C6C884ed7A828c06f75814Acf8bd658bb76" as const;
-const DONUT_MINES_ADDRESS = "0x9f83a0103eb385cDA21D32dfD3D6C628d591e667" as const;
+const DONUT_MINES_ADDRESS = "0x7c018F004071bD42256ef2303cD539E413b8533a" as const;
 
 // Create a public client for Base
 const publicClient = createPublicClient({
