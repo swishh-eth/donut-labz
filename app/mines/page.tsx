@@ -284,11 +284,18 @@ export default function MinesPage() {
   const [confettiData, setConfettiData] = useState<Array<{left: number, size: number, delay: number, duration: number}>>([]);
   const [pendingTileIndex, setPendingTileIndex] = useState<number | null>(null);
   const [localRevealedTiles, setLocalRevealedTiles] = useState<number>(0);
+  const [isStartingNewGame, setIsStartingNewGame] = useState(false); // Track when we're starting a fresh game
 
   // Load dismissed games from localStorage on mount (Fix #4)
   useEffect(() => {
     setDismissedGameIds(getDismissedGames());
   }, []);
+
+  // Track if user has seen the approval modal
+  const [hasSeenApprovalModal, setHasSeenApprovalModal] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('donut-mines-seen-approval') === 'true';
+  });
 
   // Generate confetti data when showing confetti
   useEffect(() => {
@@ -356,15 +363,17 @@ export default function MinesPage() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [refetchBalance, refetchAllowance]);
 
-  // Auto-show approvals modal if user has no allowance set
+  // Auto-show approvals modal if user has no allowance set AND hasn't seen it before
   useEffect(() => {
-    if (isConnected && allowance !== undefined && allowance === BigInt(0) && !showApprovals) {
+    if (isConnected && allowance !== undefined && allowance === BigInt(0) && !showApprovals && !hasSeenApprovalModal) {
       const timer = setTimeout(() => {
         setShowApprovals(true);
+        setHasSeenApprovalModal(true);
+        localStorage.setItem('donut-mines-seen-approval', 'true');
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isConnected, allowance, showApprovals]);
+  }, [isConnected, allowance, showApprovals, hasSeenApprovalModal]);
 
   // Read active games
   const { data: activeGameIds, refetch: refetchActiveGames } = useReadContract({
@@ -509,6 +518,7 @@ export default function MinesPage() {
       const doRefetch = async () => {
         await refetchActiveGames();
         await refetchGameData();
+        setIsStartingNewGame(false); // Game is ready, show the grid
         setGameStep("playing");
         try { sdk.haptics.impactOccurred("medium"); } catch {}
       };
@@ -609,7 +619,8 @@ export default function MinesPage() {
       return;
     }
     
-    // Fix #4: Clear dismissed games since we're starting fresh
+    // Clear all game state IMMEDIATELY so old game doesn't show
+    setIsStartingNewGame(true);
     setDismissedGameIds(new Set());
     setDismissedPendingNotice(false);
     setLocalRevealedTiles(0);
@@ -724,7 +735,8 @@ export default function MinesPage() {
   const isGameOver = game ? (game[6] === 3 || game[6] === 4) : false;
   // Fix #4: Check dismissed games from persistent Set
   const isGameDismissed = currentGameId !== undefined && dismissedGameIds.has(currentGameId.toString());
-  const hasPlayableGame = !isGameDismissed && ((hasSecretForGame && isGameActive) || (isGameOver && gameStep === "playing"));
+  // Don't show old game grid when starting a new game
+  const hasPlayableGame = !isStartingNewGame && !isGameDismissed && ((hasSecretForGame && isGameActive) || (isGameOver && gameStep === "playing"));
   const revealedTiles = game ? Number(game[7]) : 0;
   const safeRevealed = game ? Number(game[5]) : 0;
   const gameMineCount = game ? Number(game[4]) : mineCount;

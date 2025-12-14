@@ -285,6 +285,12 @@ export default function GamesPage() {
   useEffect(() => {
     const fetchLastMinesWinner = async () => {
       try {
+        const currentBlock = await publicClient.getBlockNumber();
+        // Look back further - 50000 blocks (~28 hours on Base)
+        const fromBlock = currentBlock > 50000n ? currentBlock - 50000n : 0n;
+        
+        console.log("Fetching mines winner from block", fromBlock.toString(), "to latest");
+        
         // Get recent GameCashedOut events from Mines contract
         const logs = await publicClient.getLogs({
           address: DONUT_MINES_ADDRESS,
@@ -297,7 +303,7 @@ export default function GamesPage() {
               { type: 'uint256', name: 'payout', indexed: false }
             ]
           },
-          fromBlock: BigInt(Math.max(0, Number(await publicClient.getBlockNumber()) - 10000)),
+          fromBlock,
           toBlock: 'latest'
         });
 
@@ -312,12 +318,16 @@ export default function GamesPage() {
         const lastLog = logs[logs.length - 1];
         const player = lastLog.args.player as string;
         const payout = lastLog.args.payout as bigint;
+        
+        console.log("Last mines winner:", player, "payout:", formatUnits(payout, 18));
 
         // Get profile from our cached profiles API
         try {
           const response = await fetch(`/api/profiles?addresses=${player}`);
+          console.log("Mines profile response:", response.status);
           if (response.ok) {
             const data = await response.json();
+            console.log("Mines profile data:", data);
             const profile = data.profiles[player.toLowerCase()];
             
             if (profile?.username) {
@@ -432,7 +442,7 @@ export default function GamesPage() {
     },
     {
       id: "mines",
-      title: "Bakery Mines",
+      title: "Gem Mines",
       description: "Avoid the bombs, cash out anytime",
       icon: Bomb,
       comingSoon: false,
