@@ -25,6 +25,13 @@ const REVEAL_ABI = [
     type: "function"
   },
   {
+    inputs: [{ name: "betId", type: "uint256" }],
+    name: "revealBet",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
     inputs: [{ name: "betIds", type: "uint256[]" }],
     name: "revealBets",
     outputs: [],
@@ -39,6 +46,13 @@ const REVEAL_ABI = [
     type: "function"
   },
   {
+    inputs: [{ name: "gameId", type: "uint256" }],
+    name: "revealGame",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
     inputs: [{ name: "gameIds", type: "uint256[]" }],
     name: "revealGames",
     outputs: [],
@@ -50,6 +64,13 @@ const REVEAL_ABI = [
     name: "getRevealableSpins",
     outputs: [{ type: "uint256[]" }],
     stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "spinId", type: "uint256" }],
+    name: "revealSpin",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function"
   },
   {
@@ -162,19 +183,31 @@ export async function GET(request: NextRequest) {
         
         if (revealable.length > 0) {
           const walletClient = getWalletClient();
-          const hash = await walletClient.writeContract({
-            address: DICE_ADDRESS,
-            abi: REVEAL_ABI,
-            functionName: 'revealBets',
-            args: [revealable],
-          });
+          const revealed: string[] = [];
+          let lastHash = '';
           
-          // Wait for confirmation
-          await publicClient.waitForTransactionReceipt({ hash });
+          // Reveal one at a time with explicit gas limit
+          for (const betId of revealable) {
+            try {
+              const hash = await walletClient.writeContract({
+                address: DICE_ADDRESS,
+                abi: REVEAL_ABI,
+                functionName: 'revealBet',
+                args: [betId],
+                gas: BigInt(500000), // Explicit gas limit
+              });
+              
+              await publicClient.waitForTransactionReceipt({ hash });
+              revealed.push(betId.toString());
+              lastHash = hash;
+            } catch (e: any) {
+              console.error('Failed to reveal bet', betId.toString(), e.message);
+            }
+          }
           
           results.dice = { 
-            revealed: revealable.map(id => id.toString()),
-            txHash: hash 
+            revealed,
+            txHash: lastHash 
           };
         } else {
           results.dice = { revealed: [], message: 'No pending bets', checked: DICE_ADDRESS };
