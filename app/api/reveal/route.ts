@@ -294,20 +294,35 @@ export async function GET(request: NextRequest) {
           functionName: 'getRevealableSpins',
         }) as bigint[];
         
+        console.log('Revealable spins:', revealable.map(id => id.toString()));
+        
         if (revealable.length > 0) {
           const walletClient = getWalletClient();
-          const hash = await walletClient.writeContract({
-            address: WHEEL_ADDRESS,
-            abi: REVEAL_ABI,
-            functionName: 'revealSpins',
-            args: [revealable],
-          });
+          const revealed: string[] = [];
+          let lastHash = '';
           
-          await publicClient.waitForTransactionReceipt({ hash });
+          // Reveal one at a time with explicit gas limit
+          for (const spinId of revealable) {
+            try {
+              const hash = await walletClient.writeContract({
+                address: WHEEL_ADDRESS,
+                abi: REVEAL_ABI,
+                functionName: 'revealSpin',
+                args: [spinId],
+                gas: BigInt(500000),
+              });
+              
+              await publicClient.waitForTransactionReceipt({ hash });
+              revealed.push(spinId.toString());
+              lastHash = hash;
+            } catch (e: any) {
+              console.error('Failed to reveal spin', spinId.toString(), e.message);
+            }
+          }
           
           results.wheel = { 
-            revealed: revealable.map(id => id.toString()),
-            txHash: hash 
+            revealed,
+            txHash: lastHash 
           };
         } else {
           results.wheel = { revealed: [], message: 'No pending spins' };
