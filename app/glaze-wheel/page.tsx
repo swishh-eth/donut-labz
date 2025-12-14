@@ -275,6 +275,37 @@ function WheelDisplay({
   result: number | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [idleRotation, setIdleRotation] = useState(0);
+  const [displayRotation, setDisplayRotation] = useState(0);
+  
+  // Idle rotation animation - slow constant spin when not spinning
+  useEffect(() => {
+    if (isSpinning) return;
+    
+    const interval = setInterval(() => {
+      setIdleRotation(prev => (prev + 0.5) % 360);
+    }, 16);
+    
+    return () => clearInterval(interval);
+  }, [isSpinning]);
+  
+  // Handle rotation - use idle when not spinning, animated spin when spinning
+  useEffect(() => {
+    if (isSpinning && rotation > 0) {
+      // When spinning, animate to the target rotation
+      setDisplayRotation(rotation);
+    } else if (!isSpinning && rotation === 0) {
+      // Reset to idle rotation when spin ends
+      setDisplayRotation(idleRotation);
+    }
+  }, [isSpinning, rotation, idleRotation]);
+  
+  // For idle, update display rotation
+  useEffect(() => {
+    if (!isSpinning && rotation === 0) {
+      setDisplayRotation(idleRotation);
+    }
+  }, [idleRotation, isSpinning, rotation]);
   
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -285,18 +316,12 @@ function WheelDisplay({
     
     const size = canvas.width;
     const center = size / 2;
-    const radius = size / 2 - 10;
+    const radius = size / 2 - 15; // Slightly smaller to make room for pointer
     
     // Clear
     ctx.clearRect(0, 0, size, size);
     
-    // Save and rotate
-    ctx.save();
-    ctx.translate(center, center);
-    ctx.rotate((rotation * Math.PI) / 180);
-    ctx.translate(-center, -center);
-    
-    // Draw segments
+    // Draw segments (canvas doesn't rotate - we use CSS transform)
     const anglePerSegment = (2 * Math.PI) / segments;
     
     for (let i = 0; i < segments; i++) {
@@ -331,42 +356,44 @@ function WheelDisplay({
       }
     }
     
-    ctx.restore();
-    
     // Draw center circle
     ctx.beginPath();
-    ctx.arc(center, center, 30, 0, 2 * Math.PI);
+    ctx.arc(center, center, 25, 0, 2 * Math.PI);
     ctx.fillStyle = "#18181b";
     ctx.fill();
-    ctx.strokeStyle = "#3f3f46";
+    ctx.strokeStyle = "#f59e0b";
     ctx.lineWidth = 3;
     ctx.stroke();
     
-    // Draw pointer (at top)
-    ctx.beginPath();
-    ctx.moveTo(center - 15, 5);
-    ctx.lineTo(center + 15, 5);
-    ctx.lineTo(center, 25);
-    ctx.closePath();
-    ctx.fillStyle = "#f59e0b";
-    ctx.fill();
-    ctx.strokeStyle = "#18181b";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    
-  }, [segments, multipliers, rotation, result]);
+  }, [segments, multipliers, result]);
   
   return (
     <div className="relative">
-      <canvas 
-        ref={canvasRef} 
-        width={280} 
-        height={280}
+      {/* Pointer - fixed at top */}
+      <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10">
+        <div 
+          className="w-0 h-0 border-l-[14px] border-r-[14px] border-t-[24px] border-l-transparent border-r-transparent border-t-amber-500"
+          style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
+        />
+      </div>
+      {/* Wheel canvas with rotation */}
+      <div 
         className={cn(
-          "transition-transform",
-          isSpinning && "drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]"
+          isSpinning && rotation > 0 ? "transition-transform duration-[4000ms] ease-out" : "transition-none"
         )}
-      />
+        style={{ 
+          transform: `rotate(${displayRotation}deg)`,
+        }}
+      >
+        <canvas 
+          ref={canvasRef} 
+          width={280} 
+          height={280}
+          className={cn(
+            isSpinning && "drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]"
+          )}
+        />
+      </div>
     </div>
   );
 }
@@ -606,11 +633,11 @@ export default function GlazeWheelPage() {
       resetStart();
       setGameStep("spinning");
       
-      // Start the wheel animation immediately
+      // Start the wheel spinning fast
       setIsSpinning(true);
       
-      // Function to wait for next block
-      const waitForNextBlock = async (commitBlock: bigint): Promise<void> => {
+      // Function to wait for next block and get block hash
+      const waitForNextBlockAndGetHash = async (commitBlock: bigint): Promise<`0x${string}` | null> => {
         let currentBlock = await publicClient.getBlockNumber();
         let attempts = 0;
         while (currentBlock <= commitBlock && attempts < 30) {
@@ -619,12 +646,20 @@ export default function GlazeWheelPage() {
           currentBlock = await publicClient.getBlockNumber();
           attempts++;
         }
+        
+        // Get the block hash of the commit block
+        try {
+          const block = await publicClient.getBlock({ blockNumber: commitBlock });
+          return block.hash;
+        } catch (e) {
+          console.error("Error getting block hash:", e);
+          return null;
+        }
       };
       
       // Function to fetch spin with retries using direct RPC
       const fetchSpinWithRetries = async (retriesLeft: number): Promise<{ spinId: bigint; commitBlock: bigint } | null> => {
         try {
-          // Use direct publicClient call to bypass wagmi cache
           const ids = await publicClient.readContract({
             address: GLAZE_WHEEL_ADDRESS,
             abi: WHEEL_ABI,
@@ -635,7 +670,6 @@ export default function GlazeWheelPage() {
           console.log("Fetched pending spins:", ids.length, ids.map(id => id.toString()));
           
           if (ids && ids.length > 0) {
-            // Find the spin that matches our commitHash
             for (let i = ids.length - 1; i >= 0; i--) {
               const spinId = ids[i];
               try {
@@ -648,7 +682,6 @@ export default function GlazeWheelPage() {
                 
                 const onChainCommitHash = spinData[4];
                 const commitBlock = spinData[3];
-                console.log("Spin", spinId.toString(), "commitHash:", onChainCommitHash, "our commitHash:", pendingSpin.commitHash, "commitBlock:", commitBlock.toString());
                 
                 if (onChainCommitHash.toLowerCase() === pendingSpin.commitHash.toLowerCase()) {
                   console.log("Found matching spin:", spinId.toString());
@@ -661,7 +694,6 @@ export default function GlazeWheelPage() {
           }
           
           if (retriesLeft > 0) {
-            console.log("No matching spin found, retrying...", retriesLeft, "left");
             await new Promise(resolve => setTimeout(resolve, 1000));
             return fetchSpinWithRetries(retriesLeft - 1);
           }
@@ -677,11 +709,21 @@ export default function GlazeWheelPage() {
         }
       };
       
-      // After a small delay, get the spinId and reveal
+      // Pre-calculate result (same as contract logic)
+      const calculateResult = (blockHash: `0x${string}`, secret: `0x${string}`, spinId: bigint, numSegments: number): number => {
+        const packed = encodePacked(
+          ['bytes32', 'bytes32', 'uint256'],
+          [blockHash, secret, spinId]
+        );
+        const seed = keccak256(packed);
+        const seedNum = BigInt(seed);
+        return Number(seedNum % BigInt(numSegments));
+      };
+      
+      // Main flow
       setTimeout(async () => {
         if (pendingSpin.secret && address) {
           try {
-            // Try up to 5 times with 1 second between each
             const result = await fetchSpinWithRetries(5);
             
             if (result) {
@@ -689,51 +731,94 @@ export default function GlazeWheelPage() {
               setCurrentSpinId(spinId);
               saveSpinSecret(spinId.toString(), pendingSpin.secret);
               
-              // Wait for at least one block after commit
+              // Wait for next block and get block hash
               console.log("Waiting for block after commit block", commitBlock.toString());
-              await waitForNextBlock(commitBlock);
+              const blockHash = await waitForNextBlockAndGetHash(commitBlock);
               
-              console.log("Revealing spin", spinId.toString(), "with secret", pendingSpin.secret);
+              if (!blockHash) {
+                setErrorMessage("Could not get block hash");
+                setGameStep("idle");
+                setIsSpinning(false);
+                setPendingSpin(null);
+                return;
+              }
               
-              // Now reveal the spin
-              setGameStep("revealing");
-              writeRevealSpin({
-                address: GLAZE_WHEEL_ADDRESS,
-                abi: WHEEL_ABI,
-                functionName: "revealSpin",
-                args: [spinId, pendingSpin.secret]
-              });
+              // Pre-calculate the result
+              const resultSegment = calculateResult(blockHash, pendingSpin.secret, spinId, pendingSpin.segments);
+              const resultMult = multipliers[resultSegment];
+              console.log("Pre-calculated result:", resultSegment, "multiplier:", resultMult);
+              
+              // Calculate wheel rotation to land on result
+              const segmentAngle = 360 / pendingSpin.segments;
+              const targetAngle = 360 - (resultSegment * segmentAngle) - (segmentAngle / 2);
+              const fullSpins = 5 * 360;
+              const finalRotation = fullSpins + targetAngle;
+              
+              // Animate the wheel
+              setWheelRotation(finalRotation);
+              
+              // After animation completes, prompt for reveal
+              setTimeout(() => {
+                setIsSpinning(false);
+                
+                // Calculate expected payout for display
+                const betAmount = parseFloat(pendingSpin.amount);
+                const expectedPayout = resultMult > 0 
+                  ? betAmount * (resultMult / 10000) * 0.98 
+                  : 0;
+                
+                // Show pre-result
+                setSpinResult({
+                  segment: resultSegment,
+                  multiplier: resultMult,
+                  payout: expectedPayout
+                });
+                
+                if (expectedPayout > 0) {
+                  setShowConfetti(true);
+                  setTimeout(() => setShowConfetti(false), 5000);
+                  try { sdk.haptics.impactOccurred("heavy"); } catch {}
+                } else {
+                  try { sdk.haptics.impactOccurred("heavy"); } catch {}
+                }
+                
+                // Now send the reveal transaction
+                console.log("Animation complete, revealing spin", spinId.toString());
+                setGameStep("revealing");
+                writeRevealSpin({
+                  address: GLAZE_WHEEL_ADDRESS,
+                  abi: WHEEL_ABI,
+                  functionName: "revealSpin",
+                  args: [spinId, pendingSpin.secret]
+                });
+              }, 4000);
+              
             } else {
-              // No pending spins found after retries
               setErrorMessage("Spin not found, check history");
               setGameStep("idle");
               setIsSpinning(false);
               setPendingSpin(null);
             }
           } catch (e) {
-            console.error("Error fetching spin:", e);
-            setErrorMessage("Error revealing spin");
+            console.error("Error:", e);
+            setErrorMessage("Error processing spin");
             setGameStep("idle");
             setIsSpinning(false);
             setPendingSpin(null);
           }
         }
-      }, 1000); // Increased initial delay to 1 second
+      }, 1000);
       
       try { sdk.haptics.impactOccurred("medium"); } catch {}
     }
-  }, [isStartSuccess, gameStep, pendingSpin, address, resetStart, writeRevealSpin]);
+  }, [isStartSuccess, gameStep, pendingSpin, address, multipliers, resetStart, writeRevealSpin]);
 
-  // Handle reveal success - animate to result
+  // Handle reveal success - just cleanup, animation already happened
   useEffect(() => {
     if (isRevealSuccess && revealReceipt && gameStep === "revealing") {
       resetReveal();
       
-      // Parse the SpinRevealed event from transaction logs
-      let resultSegment = 0;
-      let resultMult = 0;
-      let resultPayout = BigInt(0);
-      
+      // Parse actual payout from event to update display if different
       try {
         for (const log of revealReceipt.logs) {
           try {
@@ -745,60 +830,33 @@ export default function GlazeWheelPage() {
             
             if (decoded.eventName === "SpinRevealed") {
               const args = decoded.args as { result: number; multiplier: bigint; payout: bigint };
-              resultSegment = args.result;
-              resultMult = Number(args.multiplier);
-              resultPayout = args.payout;
+              const actualPayout = parseFloat(formatUnits(args.payout, 18));
+              
+              // Update with actual payout from contract
+              setSpinResult(prev => prev ? {
+                ...prev,
+                payout: actualPayout
+              } : null);
+              
+              console.log("Reveal confirmed, actual payout:", actualPayout);
               break;
             }
           } catch {
-            // Not the event we're looking for, continue
+            // Not the event we're looking for
           }
         }
       } catch (e) {
         console.error("Error parsing reveal event:", e);
       }
       
-      const payoutNum = parseFloat(formatUnits(resultPayout, 18));
-      
-      // Calculate final rotation to land on result segment
-      // The wheel has segment 0 at the top, going clockwise
-      const segmentAngle = 360 / segments;
-      // Pointer is at top (0 degrees), so we need to rotate to put result segment at top
-      const targetAngle = 360 - (resultSegment * segmentAngle) - (segmentAngle / 2);
-      const fullSpins = 5 * 360; // 5 full rotations for drama
-      const finalRotation = fullSpins + targetAngle;
-      
-      // Start the rotation animation
-      setWheelRotation(finalRotation);
-      
-      // After animation completes, show the result
-      setTimeout(() => {
-        setIsSpinning(false);
-        setSpinResult({
-          segment: resultSegment,
-          multiplier: resultMult,
-          payout: payoutNum
-        });
-        
-        if (payoutNum > 0) {
-          setShowConfetti(true);
-          setTimeout(() => setShowConfetti(false), 5000);
-          try {
-            sdk.haptics.impactOccurred("heavy");
-            setTimeout(() => sdk.haptics.impactOccurred("medium"), 100);
-          } catch {}
-        } else {
-          try { sdk.haptics.impactOccurred("heavy"); } catch {}
-        }
-        
-        setGameStep("idle");
-        setPendingSpin(null);
-        setCurrentSpinId(null);
-        refetchBalance();
-        refetchPendingSpins();
-      }, 4000); // Animation duration
+      // Cleanup
+      setGameStep("idle");
+      setPendingSpin(null);
+      setCurrentSpinId(null);
+      refetchBalance();
+      refetchPendingSpins();
     }
-  }, [isRevealSuccess, revealReceipt, gameStep, segments, resetReveal, refetchBalance, refetchPendingSpins]);
+  }, [isRevealSuccess, revealReceipt, gameStep, resetReveal, refetchBalance, refetchPendingSpins]);
 
   const handleSpin = async () => {
     if (!isConnected || !address) return;
@@ -997,18 +1055,13 @@ export default function GlazeWheelPage() {
 
         {/* Wheel */}
         <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-          <div 
-            className="wheel-spin"
-            style={{ transform: `rotate(${wheelRotation}deg)` }}
-          >
-            <WheelDisplay
-              segments={segments}
-              multipliers={multipliers}
-              rotation={0}
-              isSpinning={isSpinning}
-              result={spinResult?.segment ?? null}
-            />
-          </div>
+          <WheelDisplay
+            segments={segments}
+            multipliers={multipliers}
+            rotation={wheelRotation}
+            isSpinning={isSpinning}
+            result={spinResult?.segment ?? null}
+          />
           
           {/* Result Display */}
           {spinResult && (
