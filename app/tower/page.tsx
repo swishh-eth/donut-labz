@@ -279,19 +279,34 @@ export default function DonutTowerPage() {
           functionName: "games",
           args: [contractActiveGameId],
           blockTag: 'latest',
-        }) as [string, string, bigint, number, bigint, number, number, bigint, bigint];
+        }) as unknown as any[];
+        
+        console.log("Raw game data:", game);
+        console.log("Parsed values:", {
+          player: game[0],
+          token: game[1],
+          betAmount: game[2]?.toString(),
+          difficulty: game[3],
+          commitBlock: game[4]?.toString(),
+          status: game[5],
+          currentLevel: game[6],
+          trapPositions: game[7]?.toString(),
+          currentMultiplier: game[8]?.toString(),
+        });
         
         const gameData: OnchainGame = {
           player: game[0] as `0x${string}`,
           token: game[1] as `0x${string}`,
           betAmount: game[2],
-          difficulty: game[3],
+          difficulty: Number(game[3]),
           commitBlock: game[4],
-          status: game[5],
-          currentLevel: game[6],
+          status: Number(game[5]),
+          currentLevel: Number(game[6]),
           trapPositions: game[7],
           currentMultiplier: game[8],
         };
+        
+        console.log("Parsed gameData:", gameData);
         
         setActiveGameId(contractActiveGameId);
         setGameState(gameData);
@@ -567,7 +582,7 @@ export default function DonutTowerPage() {
           }
           
           // Small delay to ensure state is updated on chain
-          await new Promise(r => setTimeout(r, 300));
+          await new Promise(r => setTimeout(r, 500));
           
           // Read new game state
           const game = await publicClient.readContract({
@@ -576,21 +591,27 @@ export default function DonutTowerPage() {
             functionName: "games",
             args: [gameId],
             blockTag: 'latest',
-          }) as [string, string, bigint, number, bigint, number, number, bigint, bigint];
+          }) as unknown as any[];
+          
+          console.log("Raw game data after climb:", game);
           
           const newGameState: OnchainGame = {
             player: game[0] as `0x${string}`,
             token: game[1] as `0x${string}`,
             betAmount: game[2],
-            difficulty: game[3],
+            difficulty: Number(game[3]),
             commitBlock: game[4],
-            status: game[5],
-            currentLevel: game[6],
+            status: Number(game[5]),
+            currentLevel: Number(game[6]),
             trapPositions: game[7],
             currentMultiplier: game[8],
           };
           
-          console.log("New game state after climb:", { level: newGameState.currentLevel, status: newGameState.status });
+          console.log("Parsed game state after climb:", { 
+            level: newGameState.currentLevel, 
+            status: newGameState.status,
+            statusName: newGameState.status === 2 ? "Active" : newGameState.status === 3 ? "Won" : newGameState.status === 4 ? "Lost" : "Other"
+          });
           
           // Update state synchronously
           flushSync(() => {
@@ -734,12 +755,22 @@ export default function DonutTowerPage() {
     const gameEnded = gameState && (gameState.status === GameStatus.Lost || gameState.status === GameStatus.Won);
     const config = gameState ? DIFFICULTIES[gameState.difficulty] : DIFFICULTIES[difficulty];
     
+    // Debug log
+    console.log("renderTower:", { 
+      isInGame, 
+      gameEnded, 
+      currentLevel: gameState?.currentLevel,
+      status: gameState?.status,
+      isClimbing
+    });
+    
     for (let level = 8; level >= 0; level--) {
       const tiles = [];
       const tilesCount = config.tiles;
-      const isCurrentLevel = gameState ? gameState.currentLevel === level : false;
-      const isPastLevel = gameState ? gameState.currentLevel > level : false;
-      const isFutureLevel = gameState ? gameState.currentLevel < level : true;
+      const currentLevel = gameState?.currentLevel ?? 0;
+      const isCurrentLevel = isInGame && currentLevel === level;
+      const isPastLevel = isInGame && currentLevel > level;
+      const isFutureLevel = !isInGame || currentLevel < level;
       const trapTile = getTrapTile(level);
       
       for (let tile = 0; tile < tilesCount; tile++) {
@@ -769,7 +800,10 @@ export default function DonutTowerPage() {
         tiles.push(
           <button
             key={tile}
-            onClick={() => isClickable && handleTileClick(tile)}
+            onClick={() => {
+              console.log("Tile clicked:", { level, tile, isClickable, isClimbing, currentLevel: gameState?.currentLevel });
+              if (isClickable) handleTileClick(tile);
+            }}
             disabled={!isClickable}
             className={cn(
               "w-10 h-10 rounded-md border flex items-center justify-center font-bold transition-all",
