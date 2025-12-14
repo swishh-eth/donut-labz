@@ -442,7 +442,7 @@ export default function GamesPage() {
     },
     {
       id: "mines",
-      title: "Gem Mines",
+      title: "Bakery Mines",
       description: "Avoid the bombs, cash out anytime",
       icon: Bomb,
       comingSoon: false,
