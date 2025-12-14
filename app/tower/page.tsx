@@ -525,8 +525,17 @@ export default function DonutTowerPage() {
     }
   }, [startError, isStartingGame, resetStart]);
 
+  // Ref to prevent double-taps on mobile
+  const isProcessingClickRef = useRef(false);
+
   // Handle tile click (climb)
   const handleTileClick = (tileIndex: number) => {
+    // Prevent double-taps on mobile
+    if (isProcessingClickRef.current) {
+      console.log("Ignoring double-tap");
+      return;
+    }
+    
     console.log("Tile click:", { 
       activeGameId: activeGameId?.toString(), 
       gameStatus: gameState?.status,
@@ -552,6 +561,8 @@ export default function DonutTowerPage() {
       return;
     }
     
+    // Lock to prevent double processing
+    isProcessingClickRef.current = true;
     setIsClimbing(true);
     
     try { sdk.haptics.impactOccurred("light"); } catch {}
@@ -559,6 +570,7 @@ export default function DonutTowerPage() {
     console.log("Sending climbLevel tx:", activeGameId.toString(), tileIndex);
     
     const gameId = activeGameId; // Capture for closure
+    const currentLevelBeforeClimb = gameState.currentLevel; // Capture current level
     
     writeClimb({
       address: DONUT_TOWER_ADDRESS,
@@ -572,6 +584,9 @@ export default function DonutTowerPage() {
           // Wait for receipt
           const receipt = await publicClient.waitForTransactionReceipt({ hash });
           console.log("Climb tx confirmed:", receipt.status);
+          
+          // Unlock immediately after tx confirmed
+          isProcessingClickRef.current = false;
           
           if (receipt.status !== 'success') {
             console.log("Climb tx failed");
@@ -657,6 +672,7 @@ export default function DonutTowerPage() {
           }
         } catch (e) {
           console.error("Error in climb handling:", e);
+          isProcessingClickRef.current = false;
           setIsClimbing(false);
           setErrorMessage("Error processing climb");
           setTimeout(() => setErrorMessage(null), 3000);
@@ -664,6 +680,7 @@ export default function DonutTowerPage() {
       },
       onError: (error) => {
         console.error("Climb tx error:", error);
+        isProcessingClickRef.current = false;
         setIsClimbing(false);
         
         const msg = error.message || "";
@@ -800,15 +817,17 @@ export default function DonutTowerPage() {
         tiles.push(
           <button
             key={tile}
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
               console.log("Tile clicked:", { level, tile, isClickable, isClimbing, currentLevel: gameState?.currentLevel });
               if (isClickable) handleTileClick(tile);
             }}
             disabled={!isClickable}
             className={cn(
-              "w-10 h-10 rounded-md border flex items-center justify-center font-bold transition-all",
+              "w-10 h-10 rounded-md border flex items-center justify-center font-bold transition-all select-none",
               tileStyle
             )}
+            style={{ touchAction: 'manipulation' }}
           >
             {isClimbing && isCurrentLevel ? (
               <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
