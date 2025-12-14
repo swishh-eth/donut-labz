@@ -605,6 +605,9 @@ export default function BakeryMinesPage() {
             currentMultiplier: game[8],
             payout: game[9],
           });
+          
+          // Small delay between fetches to avoid rate limiting
+          await new Promise(r => setTimeout(r, 100));
         } catch {}
       }
       

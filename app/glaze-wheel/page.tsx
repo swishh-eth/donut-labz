@@ -790,7 +790,8 @@ export default function GlazeWheelPage() {
         return;
       }
       
-      const idsToFetch = spinIds.slice(-20).reverse();
+      // Only fetch last 10 to reduce RPC calls
+      const idsToFetch = spinIds.slice(-10).reverse();
       const spins: OnchainSpin[] = [];
       
       for (const spinId of idsToFetch) {
@@ -814,6 +815,9 @@ export default function GlazeWheelPage() {
             multiplier: spin[8],
             payout: spin[9],
           });
+          
+          // Small delay between fetches to avoid rate limiting
+          await new Promise(r => setTimeout(r, 100));
         } catch (e) {
           console.error("Error fetching spin:", spinId.toString(), e);
         }
@@ -874,10 +878,10 @@ export default function GlazeWheelPage() {
               await fetch('/api/reveal?game=wheel');
             } catch {}
             
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, 3000));
             
             // Poll for result
-            const maxAttempts = 30;
+            const maxAttempts = 20;
             let attempts = 0;
             
             while (attempts < maxAttempts) {
@@ -885,7 +889,7 @@ export default function GlazeWheelPage() {
               
               try {
                 await fetch('/api/reveal?game=wheel');
-                await new Promise(resolve => setTimeout(resolve, 1500));
+                await new Promise(resolve => setTimeout(resolve, 2500));
                 
                 const spin = await publicClient?.readContract({
                   address: GLAZE_WHEEL_ADDRESS,
@@ -945,7 +949,7 @@ export default function GlazeWheelPage() {
               } catch {}
               
               attempts++;
-              await new Promise(resolve => setTimeout(resolve, 1000));
+              await new Promise(resolve => setTimeout(resolve, 2000));
             }
             
             setErrorMessage("Timeout - check history");
