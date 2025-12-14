@@ -529,33 +529,38 @@ export default function DonutTowerPage() {
   const isProcessingClickRef = useRef(false);
   const lastClickTimeRef = useRef(0);
   const pendingTxRef = useRef<string | null>(null);
+  
+  // Debug state for mobile
+  const [debugMsg, setDebugMsg] = useState<string>("");
 
   // Handle tile click (climb) - SIMPLIFIED for mobile
   const handleTileClick = async (tileIndex: number) => {
+    setDebugMsg("Tap detected...");
+    
     // Hard debounce - 1 second minimum between clicks
     const now = Date.now();
     if (now - lastClickTimeRef.current < 1000) {
-      console.log("Debounce: too soon");
+      setDebugMsg("Too fast");
       return;
     }
     
     // Check ref lock
     if (isProcessingClickRef.current) {
-      console.log("Lock: already processing");
+      setDebugMsg("Already processing");
       return;
     }
     
     // Check state
     if (!activeGameId || !gameState || !publicClient) {
-      console.log("No game");
+      setDebugMsg("No game state");
       return;
     }
     if (gameState.status !== GameStatus.Active) {
-      console.log("Not active");
+      setDebugMsg("Game not active");
       return;
     }
     if (isClimbing || isClimbPending) {
-      console.log("Already climbing");
+      setDebugMsg("Already climbing");
       return;
     }
     
@@ -563,6 +568,7 @@ export default function DonutTowerPage() {
     isProcessingClickRef.current = true;
     lastClickTimeRef.current = now;
     setIsClimbing(true);
+    setDebugMsg("Sending tx...");
     
     try { sdk.haptics.impactOccurred("light"); } catch {}
     
@@ -573,6 +579,7 @@ export default function DonutTowerPage() {
     
     try {
       // Use writeContractAsync for better control
+      setDebugMsg("Calling wallet...");
       const hash = await writeClimbAsync({
         address: DONUT_TOWER_ADDRESS,
         abi: TOWER_V5_ABI,
@@ -580,12 +587,15 @@ export default function DonutTowerPage() {
         args: [gameId, tileIndex]
       });
       
+      setDebugMsg("Tx sent: " + hash.slice(0, 10) + "...");
       console.log("TX HASH:", hash);
       pendingTxRef.current = hash;
       
       // Wait for confirmation
+      setDebugMsg("Waiting for confirm...");
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
       console.log("TX CONFIRMED:", receipt.status);
+      setDebugMsg("Confirmed! Reading state...");
       
       // Wait a bit for state to propagate
       await new Promise(r => setTimeout(r, 500));
@@ -612,6 +622,7 @@ export default function DonutTowerPage() {
       };
       
       console.log("NEW STATE:", { level: newState.currentLevel, status: newState.status });
+      setDebugMsg("Level: " + newState.currentLevel);
       
       // Update UI
       setGameState(newState);
@@ -649,6 +660,7 @@ export default function DonutTowerPage() {
       
     } catch (err: any) {
       console.error("CLIMB ERROR:", err);
+      setDebugMsg("Error: " + (err?.message?.slice(0, 30) || "unknown"));
       setIsClimbing(false);
       
       if (err?.message?.includes("rejected") || err?.message?.includes("denied")) {
@@ -662,6 +674,7 @@ export default function DonutTowerPage() {
       isProcessingClickRef.current = false;
       pendingTxRef.current = null;
       console.log("=== CLIMB END ===");
+      setTimeout(() => setDebugMsg(""), 3000);
     }
   };
 
@@ -769,17 +782,17 @@ export default function DonutTowerPage() {
         if (showResult) {
           if (isSafe) {
             tileStyle = "bg-white/10 border-white";
-            content = <span className="text-sm">🍩</span>;
+            content = <span className="text-xs">🍩</span>;
           } else {
             tileStyle = "bg-red-500/20 border-red-500";
-            content = <span className="text-sm">💀</span>;
+            content = <span className="text-xs">💀</span>;
           }
         } else if (isCurrentLevel) {
           tileStyle = "bg-amber-500/20 border-amber-500 hover:bg-amber-500/40 cursor-pointer active:scale-95";
-          content = <span className="text-zinc-400 text-xs">?</span>;
+          content = <span className="text-zinc-400 text-[10px]">?</span>;
         } else if (isFutureLevel) {
           tileStyle = "bg-zinc-900 border-zinc-700 opacity-40";
-          content = <span className="text-zinc-600 text-xs">?</span>;
+          content = <span className="text-zinc-600 text-[10px]">?</span>;
         }
         
         tiles.push(
@@ -791,13 +804,13 @@ export default function DonutTowerPage() {
               if (isClickable) handleTileClick(tile);
             }}
             className={cn(
-              "tower-tile w-10 h-10 rounded-md border flex items-center justify-center font-bold transition-all",
+              "tower-tile w-8 h-8 rounded border flex items-center justify-center font-bold transition-all",
               tileStyle,
               !isClickable && "pointer-events-none"
             )}
           >
             {isClimbing && isCurrentLevel ? (
-              <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+              <Loader2 className="w-3 h-3 animate-spin text-amber-400" />
             ) : content}
           </div>
         );
@@ -808,21 +821,21 @@ export default function DonutTowerPage() {
       const isLevelReached = gameState && gameState.currentLevel > level;
       
       rows.push(
-        <div key={level} className="flex items-center gap-1 justify-center">
+        <div key={level} className="flex items-center gap-0.5 justify-center">
           <span className={cn(
-            "text-[10px] w-12 text-right font-mono",
+            "text-[9px] w-10 text-right font-mono",
             isLevelReached ? "text-green-400" : isCurrentLevel ? "text-amber-400" : "text-zinc-600"
           )}>
-            {levelMult.toFixed(2)}x
+            {levelMult.toFixed(1)}x
           </span>
-          <div className="flex gap-0.5">
+          <div className="flex gap-px">
             {tiles}
           </div>
           <span className={cn(
-            "text-[10px] w-6 font-mono",
+            "text-[9px] w-4 font-mono",
             isLevelReached ? "text-green-400" : isCurrentLevel ? "text-amber-400" : "text-zinc-600"
           )}>
-            L{level + 1}
+            {level + 1}
           </span>
         </div>
       );
@@ -875,117 +888,88 @@ export default function DonutTowerPage() {
       )}
 
       <div className="flex flex-col w-full max-w-md h-full">
-        {/* Header */}
-        <div className="flex-none px-4 pt-2 pb-1">
+        {/* Compact Header */}
+        <div className="flex-none px-3 pt-1 pb-1">
+          {/* Debug message */}
+          {debugMsg && (
+            <div className="bg-blue-500/20 text-blue-400 text-[10px] text-center py-0.5 rounded mb-1">
+              {debugMsg}
+            </div>
+          )}
+          {/* Title row with stats */}
           <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold tracking-tight">Donut Tower</h1>
-              <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full font-bold">NEW</span>
+            <div className="flex items-center gap-1">
+              <span className="text-base">🍩</span>
+              <h1 className="text-sm font-bold">Tower</h1>
             </div>
-            <div className="w-7 h-7 rounded-full bg-zinc-900 flex items-center justify-center text-base">🍩</div>
-          </div>
-
-          {/* Token selector */}
-          <div className="flex gap-2 mb-1">
-            <button className="flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg bg-amber-500 text-black font-bold text-xs">
-              <span>🍩</span> DONUT
-            </button>
-            <button disabled className="flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg bg-zinc-800 text-gray-500 font-bold text-xs opacity-50">
-              ✨ SPRINKLES <span className="text-[8px]">SOON</span>
-            </button>
-          </div>
-
-          {/* Stats row */}
-          <div className="grid grid-cols-3 gap-2 mb-1">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-center">
-              <div className="text-[8px] text-gray-500 uppercase">Balance</div>
-              <div className="text-xs font-bold flex items-center justify-center gap-1">
-                <span>🍩</span>{balance.toFixed(0)}
-              </div>
-            </div>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-center">
-              <div className="text-[8px] text-gray-500 uppercase">Level</div>
-              <div className={cn("text-xs font-bold", gameState ? "text-amber-400" : "text-white")}>
-                {gameState ? `${gameState.currentLevel}/9` : "0/9"}
-              </div>
-            </div>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-center">
-              <div className="text-[8px] text-gray-500 uppercase">Multiplier</div>
-              <div className={cn("text-xs font-bold", currentMultiplier > 1 ? "text-green-400" : "text-white")}>
+            <div className="flex items-center gap-2 text-[10px]">
+              <span className="text-gray-500">BAL:</span>
+              <span className="font-bold">{balance.toFixed(0)}</span>
+              <span className="text-gray-500">LVL:</span>
+              <span className={cn("font-bold", gameState ? "text-amber-400" : "text-white")}>
+                {gameState ? gameState.currentLevel : 0}/9
+              </span>
+              <span className={cn("font-bold", currentMultiplier > 1 ? "text-green-400" : "text-white")}>
                 {currentMultiplier.toFixed(2)}x
-              </div>
+              </span>
             </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex justify-end gap-1">
-            <button onClick={() => setIsMuted(!isMuted)} className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800">
-              {isMuted ? <VolumeX className="w-3.5 h-3.5 text-gray-500" /> : <Volume2 className="w-3.5 h-3.5" />}
-            </button>
-            <button onClick={() => setShowApprovals(true)} className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800">
-              <Shield className="w-3.5 h-3.5" />
-            </button>
-            <button onClick={() => setShowHistory(true)} className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800">
-              <History className="w-3.5 h-3.5" />
-            </button>
-            <button onClick={() => setShowHelp(true)} className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800">
-              <HelpCircle className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex gap-1">
+              <button onClick={() => setIsMuted(!isMuted)} className="p-1 rounded bg-zinc-900">
+                {isMuted ? <VolumeX className="w-3 h-3 text-gray-500" /> : <Volume2 className="w-3 h-3" />}
+              </button>
+              <button onClick={() => setShowHelp(true)} className="p-1 rounded bg-zinc-900">
+                <HelpCircle className="w-3 h-3" />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Tower area - scrollable */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-2 tower-scroll">
+        {/* Tower area - FIXED, NO SCROLL */}
+        <div className="flex-1 flex flex-col items-center justify-center px-2 overflow-hidden">
           {isWaitingForReveal ? (
-            <div className="text-center py-8">
-              <Loader2 className="w-8 h-8 animate-spin text-amber-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-400">Building tower...</p>
+            <div className="text-center">
+              <Loader2 className="w-6 h-6 animate-spin text-amber-400 mx-auto mb-1" />
+              <p className="text-xs text-gray-400">Building tower...</p>
             </div>
           ) : gameResult === "lost" ? (
             <div className="w-full">
-              <div className="text-center mb-2">
-                <p className="text-red-400 font-bold">💀 You fell!</p>
-                <p className="text-xs text-gray-500">Lost {gameState ? formatUnits(gameState.betAmount, 18) : "0"} 🍩</p>
+              <div className="text-center mb-1">
+                <p className="text-red-400 font-bold text-sm">💀 You fell!</p>
               </div>
-              <div className="space-y-0.5">
+              <div className="space-y-px">
                 {renderTower()}
               </div>
             </div>
           ) : gameResult === "won" ? (
             <div className="w-full">
-              <div className="text-center mb-2">
-                <p className="text-green-400 font-bold">🎉 Cashed out!</p>
-                <p className="text-xs text-gray-400">Won {currentPayout.toFixed(2)} 🍩</p>
+              <div className="text-center mb-1">
+                <p className="text-green-400 font-bold text-sm">🎉 Won {currentPayout.toFixed(2)} 🍩</p>
               </div>
-              <div className="space-y-0.5">
+              <div className="space-y-px">
                 {renderTower()}
               </div>
             </div>
           ) : gameState ? (
-            <div className="w-full space-y-0.5">
+            <div className="w-full space-y-px">
               {renderTower()}
+              {gameState.currentLevel > 0 && (
+                <div className="text-center mt-1">
+                  <span className="text-green-400 font-bold text-xs">+{currentPayout.toFixed(2)} 🍩</span>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="w-full space-y-0.5 opacity-50">
+            <div className="w-full space-y-px opacity-50">
               {renderTower()}
-            </div>
-          )}
-
-          {/* Current payout info */}
-          {gameState && gameState.status === GameStatus.Active && gameState.currentLevel > 0 && (
-            <div className="mt-2 text-center">
-              <div className="text-[10px] text-gray-500">Current Payout</div>
-              <div className="text-base font-bold text-green-400">+{currentPayout.toFixed(2)} 🍩</div>
-              <div className="text-[10px] text-gray-500">Next: {nextMultiplier.toFixed(2)}x</div>
             </div>
           )}
         </div>
 
         {/* Controls - always visible at bottom */}
-        <div className="flex-none px-4 pb-20 pt-1 space-y-2 bg-black">
+        <div className="flex-none px-3 pb-16 pt-1 space-y-1 bg-black">
           {/* Error message */}
           {errorMessage && (
-            <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-2 text-center text-red-400 text-sm">
+            <div className="bg-red-500/20 border border-red-500/50 rounded p-1.5 text-center text-red-400 text-xs">
               {errorMessage}
             </div>
           )}
@@ -996,7 +980,7 @@ export default function DonutTowerPage() {
               onClick={handleCashOut}
               disabled={gameState.currentLevel === 0 || isCashingOut || isCashOutPending}
               className={cn(
-                "w-full py-3 rounded-xl font-bold text-lg transition-all",
+                "w-full py-2.5 rounded-xl font-bold text-base transition-all",
                 gameState.currentLevel === 0 
                   ? "bg-zinc-700 text-zinc-500"
                   : "bg-green-500 text-black hover:bg-green-400"
@@ -1004,11 +988,11 @@ export default function DonutTowerPage() {
             >
               {isCashingOut || isCashOutPending ? (
                 <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                   Cashing out...
                 </span>
               ) : gameState.currentLevel === 0 ? (
-                "Pick a tile to start"
+                "Tap a tile"
               ) : (
                 `CASH OUT ${currentPayout.toFixed(2)} 🍩`
               )}
@@ -1016,8 +1000,8 @@ export default function DonutTowerPage() {
           ) : !isStartingGame && !isWaitingForReveal && !gameResult ? (
             <>
               {/* Compact controls */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2">
-                <div className="flex items-center gap-2">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5">
+                <div className="flex items-center gap-1">
                   {/* Difficulty selector */}
                   {expandedPanel === "difficulty" ? (
                     <div className="flex-1 flex flex-wrap gap-1">
