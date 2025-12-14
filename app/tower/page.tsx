@@ -364,6 +364,9 @@ export default function DonutTowerPage() {
   const { data: cashOutHash, writeContract: writeCashOut, isPending: isCashOutPending, error: cashOutError } = useWriteContract();
   const { isSuccess: isCashOutSuccess } = useWaitForTransactionReceipt({ hash: cashOutHash });
 
+  // Track processed climb hashes to avoid double-processing
+  const processedClimbHashRef = useRef<string | null>(null);
+
   // Start game handler
   const handleStartGame = () => {
     if (!isConnected || !address) return;
@@ -512,11 +515,11 @@ export default function DonutTowerPage() {
   }, [startError, isStartingGame, resetStart]);
 
   // Handle tile click (climb)
-  const handleTileClick = async (tileIndex: number) => {
+  const handleTileClick = (tileIndex: number) => {
     console.log("Tile click:", { 
       activeGameId: activeGameId?.toString(), 
       gameStatus: gameState?.status,
-      expectedActive: GameStatus.Active,
+      currentLevel: gameState?.currentLevel,
       isClimbing, 
       isClimbPending 
     });
@@ -533,8 +536,6 @@ export default function DonutTowerPage() {
       console.log("Already climbing");
       return;
     }
-    
-    // Check if this is actually the current level
     if (gameState.currentLevel >= 9) {
       console.log("Already at top");
       return;
@@ -543,29 +544,6 @@ export default function DonutTowerPage() {
     setIsClimbing(true);
     
     try { sdk.haptics.impactOccurred("light"); } catch {}
-    
-    // Double check game is still active on chain before sending tx
-    try {
-      const currentGame = await publicClient?.readContract({
-        address: DONUT_TOWER_ADDRESS,
-        abi: TOWER_V5_ABI,
-        functionName: "games",
-        args: [activeGameId],
-        blockTag: 'latest',
-      }) as [string, string, bigint, number, bigint, number, number, bigint, bigint] | undefined;
-      
-      if (!currentGame || currentGame[5] !== GameStatus.Active) {
-        console.log("Game no longer active on chain:", currentGame?.[5]);
-        setIsClimbing(false);
-        setErrorMessage("Game ended - refreshing...");
-        refetchActiveGame();
-        setTimeout(() => setErrorMessage(null), 3000);
-        return;
-      }
-    } catch (e) {
-      console.error("Error checking game:", e);
-      // Continue anyway, let the contract reject if needed
-    }
     
     console.log("Sending climbLevel tx:", activeGameId.toString(), tileIndex);
     
@@ -579,83 +557,93 @@ export default function DonutTowerPage() {
 
   // Handle climb success
   useEffect(() => {
-    if (isClimbSuccess && isClimbing && activeGameId && publicClient) {
-      const refreshGame = async () => {
-        // Reset the write contract first
+    // Check we have a successful climb and haven't processed this hash yet
+    if (!isClimbSuccess || !climbHash || !activeGameId || !publicClient) return;
+    if (processedClimbHashRef.current === climbHash) return;
+    
+    // Mark this hash as being processed
+    processedClimbHashRef.current = climbHash;
+    
+    console.log("Processing climb success for hash:", climbHash);
+    
+    const refreshGame = async () => {
+      await new Promise(r => setTimeout(r, 500));
+      
+      try {
+        const game = await publicClient.readContract({
+          address: DONUT_TOWER_ADDRESS,
+          abi: TOWER_V5_ABI,
+          functionName: "games",
+          args: [activeGameId],
+          blockTag: 'latest',
+        }) as [string, string, bigint, number, bigint, number, number, bigint, bigint];
+        
+        const newGameState: OnchainGame = {
+          player: game[0] as `0x${string}`,
+          token: game[1] as `0x${string}`,
+          betAmount: game[2],
+          difficulty: game[3],
+          commitBlock: game[4],
+          status: game[5],
+          currentLevel: game[6],
+          trapPositions: game[7],
+          currentMultiplier: game[8],
+        };
+        
+        console.log("New game state after climb:", { level: newGameState.currentLevel, status: newGameState.status });
+        
+        // Update state synchronously
+        flushSync(() => {
+          setGameState(newGameState);
+          setIsClimbing(false);
+        });
+        
+        // Reset the write contract for next climb
         resetClimb();
         
-        await new Promise(r => setTimeout(r, 300));
-        
-        try {
-          const game = await publicClient.readContract({
-            address: DONUT_TOWER_ADDRESS,
-            abi: TOWER_V5_ABI,
-            functionName: "games",
-            args: [activeGameId],
-            blockTag: 'latest',
-          }) as [string, string, bigint, number, bigint, number, number, bigint, bigint];
-          
-          const newGameState: OnchainGame = {
-            player: game[0] as `0x${string}`,
-            token: game[1] as `0x${string}`,
-            betAmount: game[2],
-            difficulty: game[3],
-            commitBlock: game[4],
-            status: game[5],
-            currentLevel: game[6],
-            trapPositions: game[7],
-            currentMultiplier: game[8],
-          };
-          
-          console.log("New game state after climb:", newGameState.currentLevel, newGameState.status);
-          
-          // Update state synchronously
-          flushSync(() => {
-            setGameState(newGameState);
-            setIsClimbing(false);
-          });
-          
-          if (newGameState.status === GameStatus.Lost) {
-            playLoseSound();
-            flushSync(() => setGameResult("lost"));
-            setTimeout(() => {
-              flushSync(() => {
-                setActiveGameId(null);
-                setGameState(null);
-                setGameResult(null);
-              });
-              refetchActiveGame();
-              refetchBalance();
-            }, 4000);
-          } else if (newGameState.status === GameStatus.Won) {
-            playWinSound();
+        if (newGameState.status === GameStatus.Lost) {
+          playLoseSound();
+          flushSync(() => setGameResult("lost"));
+          setTimeout(() => {
             flushSync(() => {
-              setGameResult("won");
-              setShowConfetti(true);
+              setActiveGameId(null);
+              setGameState(null);
+              setGameResult(null);
             });
-            setTimeout(() => {
-              flushSync(() => {
-                setShowConfetti(false);
-                setActiveGameId(null);
-                setGameState(null);
-                setGameResult(null);
-              });
-              refetchActiveGame();
-              refetchBalance();
-              refetchGameIds();
-            }, 4000);
-          } else {
-            playClimbSound();
-          }
-        } catch (e) {
-          console.error("Error refreshing game:", e);
-          setIsClimbing(false);
+            processedClimbHashRef.current = null;
+            refetchActiveGame();
+            refetchBalance();
+          }, 4000);
+        } else if (newGameState.status === GameStatus.Won) {
+          playWinSound();
+          flushSync(() => {
+            setGameResult("won");
+            setShowConfetti(true);
+          });
+          setTimeout(() => {
+            flushSync(() => {
+              setShowConfetti(false);
+              setActiveGameId(null);
+              setGameState(null);
+              setGameResult(null);
+            });
+            processedClimbHashRef.current = null;
+            refetchActiveGame();
+            refetchBalance();
+            refetchGameIds();
+          }, 4000);
+        } else {
+          playClimbSound();
         }
-      };
-      
-      refreshGame();
-    }
-  }, [isClimbSuccess, isClimbing, activeGameId, publicClient, playClimbSound, playLoseSound, playWinSound, refetchActiveGame, refetchBalance, refetchGameIds, resetClimb]);
+      } catch (e) {
+        console.error("Error refreshing game:", e);
+        setIsClimbing(false);
+        resetClimb();
+      }
+    };
+    
+    refreshGame();
+  }, [isClimbSuccess, climbHash, activeGameId, publicClient, playClimbSound, playLoseSound, playWinSound, refetchActiveGame, refetchBalance, refetchGameIds, resetClimb]);
 
   // Handle climb error
   useEffect(() => {
@@ -1001,7 +989,7 @@ export default function DonutTowerPage() {
                 `CASH OUT ${currentPayout.toFixed(2)} 🍩`
               )}
             </button>
-          ) : !isStartingGame && !isWaitingForReveal ? (
+          ) : !isStartingGame && !isWaitingForReveal && !gameResult ? (
             <>
               {/* Compact controls */}
               <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2">
@@ -1108,14 +1096,12 @@ export default function DonutTowerPage() {
                 START CLIMB
               </button>
             </>
-          ) : (
-            <div className="text-center py-4">
+          ) : isStartingGame && !isWaitingForReveal ? (
+            <div className="text-center py-2">
               <Loader2 className="w-6 h-6 animate-spin mx-auto text-amber-400" />
-              <p className="text-sm text-gray-500 mt-2">
-                {isStartingGame && !isWaitingForReveal ? "Confirm in wallet..." : "Setting up tower..."}
-              </p>
+              <p className="text-sm text-gray-500 mt-1">Confirm in wallet...</p>
             </div>
-          )}
+          ) : null}
 
           {/* Info text */}
           {!gameState && (
