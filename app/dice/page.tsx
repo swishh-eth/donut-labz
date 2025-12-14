@@ -6,7 +6,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
-import { Dices, TrendingUp, TrendingDown, Trophy, History, HelpCircle, X, Loader2, CheckCircle, Shield } from "lucide-react";
+import { Dices, TrendingUp, TrendingDown, Trophy, History, HelpCircle, X, Loader2, CheckCircle, Shield, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Contract addresses
@@ -202,6 +202,109 @@ export default function DicePage() {
   const readyRef = useRef(false);
   const publicClient = usePublicClient();
   const currentBetIdRef = useRef<string | null>(null); // Track which bet we're polling for
+  const audioContextRef = useRef<AudioContext | null>(null);
+  
+  // Initialize audio context on first interaction
+  const getAudioContext = () => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return audioContextRef.current;
+  };
+
+  // Tick sound for slider
+  const playTick = () => {
+    if (isMuted) return;
+    try {
+      const ctx = getAudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      oscillator.frequency.value = 1200 + Math.random() * 400; // Slight variation
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+      
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.05);
+    } catch {}
+  };
+
+  // Rolling/anticipation sound
+  const playRollingTick = () => {
+    if (isMuted) return;
+    try {
+      const ctx = getAudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      oscillator.frequency.value = 800 + Math.random() * 600;
+      oscillator.type = 'square';
+      
+      gainNode.gain.setValueAtTime(0.03, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
+      
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.03);
+    } catch {}
+  };
+
+  // Win sound - happy ascending tones
+  const playWinSound = () => {
+    if (isMuted) return;
+    try {
+      const ctx = getAudioContext();
+      const frequencies = [523, 659, 784, 1047]; // C5, E5, G5, C6 - major chord arpeggio
+      
+      frequencies.forEach((freq, i) => {
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        oscillator.frequency.value = freq;
+        oscillator.type = 'sine';
+        
+        const startTime = ctx.currentTime + i * 0.1;
+        gainNode.gain.setValueAtTime(0.15, startTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 0.3);
+        
+        oscillator.start(startTime);
+        oscillator.stop(startTime + 0.3);
+      });
+    } catch {}
+  };
+
+  // Lose sound - descending tone
+  const playLoseSound = () => {
+    if (isMuted) return;
+    try {
+      const ctx = getAudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      oscillator.frequency.setValueAtTime(400, ctx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.3);
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.3);
+    } catch {}
+  };
   
   const [context, setContext] = useState<{ user?: { fid: number; username?: string; pfpUrl?: string } } | null>(null);
   const [betAmount, setBetAmount] = useState("1");
@@ -218,6 +321,7 @@ export default function DicePage() {
   const [currentBlock, setCurrentBlock] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState<"none" | "bet">("none");
+  const [isMuted, setIsMuted] = useState(false);
 
   const { address, isConnected } = useAccount();
 
@@ -310,6 +414,7 @@ export default function DicePage() {
     let frame: number;
     let direction = 1;
     let current = target;
+    let tickCounter = 0;
     
     const animate = () => {
       // Bounce between 10 and 90
@@ -324,6 +429,13 @@ export default function DicePage() {
       }
       
       setAnimatedTarget(Math.round(current));
+      
+      // Play tick sound every few frames
+      tickCounter++;
+      if (tickCounter % 4 === 0) {
+        playRollingTick();
+      }
+      
       frame = requestAnimationFrame(animate);
     };
     
@@ -342,6 +454,7 @@ export default function DicePage() {
   const handleTargetChange = (newTarget: number) => {
     if (newTarget !== target) {
       setTarget(newTarget);
+      playTick();
       try {
         sdk.haptics.impactOccurred("light");
       } catch {}
@@ -421,6 +534,7 @@ export default function DicePage() {
           
           if (won) {
             console.log("Player won! Showing confetti");
+            playWinSound();
             flushSync(() => {
               setStreak(prev => prev + 1);
               setShowConfetti(true);
@@ -429,6 +543,7 @@ export default function DicePage() {
             setTimeout(() => setShowConfetti(false), 3000);
           } else {
             console.log("Player lost");
+            playLoseSound();
             flushSync(() => {
               setStreak(0);
             });
@@ -646,6 +761,15 @@ export default function DicePage() {
 
         {/* Action buttons */}
         <div className="flex items-center justify-end gap-2 mb-2">
+          <button 
+            onClick={() => setIsMuted(!isMuted)} 
+            className={cn(
+              "p-2 rounded-lg border",
+              isMuted ? "bg-red-500/20 border-red-500/30 text-red-400" : "bg-zinc-900 border-zinc-800"
+            )}
+          >
+            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          </button>
           <button onClick={() => setShowApprovals(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800">
             <Shield className="w-4 h-4" />
           </button>
