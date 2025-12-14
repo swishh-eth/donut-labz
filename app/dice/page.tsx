@@ -443,9 +443,19 @@ export default function DicePage() {
     return () => clearTimeout(timeout);
   }, []);
 
+  // Track which hash we've already processed
+  const processedHashRef = useRef<string | null>(null);
+
   // Handle place bet success - start polling for result
   useEffect(() => {
     if (isPlaceSuccess && betStep === "placing" && placeBetHash) {
+      // Don't process the same hash twice
+      if (processedHashRef.current === placeBetHash) {
+        console.log("Already processed this hash, skipping");
+        return;
+      }
+      processedHashRef.current = placeBetHash;
+      
       setBetStep("waiting");
       
       const getBetIdAndPoll = async () => {
@@ -459,6 +469,7 @@ export default function DicePage() {
           
           if (betPlacedLog && betPlacedLog.topics[1]) {
             const betId = BigInt(betPlacedLog.topics[1]);
+            console.log("Got new betId:", betId.toString());
             setPendingBetId(betId);
             
             // Poll for result - call API to trigger reveal
@@ -593,6 +604,7 @@ export default function DicePage() {
     setLastResult(null);
     setErrorMessage(null);
     setBetStep("placing");
+    processedHashRef.current = null; // Reset so new hash will be processed
     
     // Simple single transaction - no secret needed!
     writePlaceBet({
