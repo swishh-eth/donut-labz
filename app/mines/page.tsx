@@ -1055,173 +1055,126 @@ export default function MinesPage() {
           {/* Compact Control Bar - show when no playable game */}
           {!hasPlayableGame && (
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 overflow-hidden">
-              <div className="flex items-center gap-2 control-bar">
-                {/* Mines Button / Expanded Panel */}
-                <div className={cn(
-                  "panel-slide flex items-center",
-                  expandedPanel === "mines" ? "flex-1" : ""
-                )} style={{ flexShrink: 0, minWidth: expandedPanel === "mines" ? undefined : "48px" }}>
+              <div className="flex items-center gap-2 h-12">
+                {/* Mines Button - always on far left */}
+                <button
+                  onClick={() => {
+                    if (expandedPanel === "mines") {
+                      setExpandedPanel("none");
+                      setTimeout(() => setShowStartText(true), 300);
+                    } else {
+                      setShowStartText(false);
+                      setExpandedPanel("mines");
+                      try { sdk.haptics.selectionChanged(); } catch {}
+                    }
+                  }}
+                  className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center flex-shrink-0"
+                >
+                  <span className="text-[8px] text-gray-500">MINES</span>
+                  <span className="text-sm font-bold text-white">{mineCount}</span>
+                </button>
+
+                {/* Middle Section - expands based on state */}
+                <div className="flex-1 flex items-center gap-2 overflow-hidden">
                   {expandedPanel === "mines" ? (
-                    // Expanded mines slider
-                    <div className="flex-1 flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setExpandedPanel("none");
-                          setTimeout(() => setShowStartText(true), 300);
+                    // Mines slider expanded
+                    <div className="flex-1 flex flex-col justify-center panel-slide">
+                      <input
+                        type="range"
+                        min="1"
+                        max="24"
+                        value={mineCount}
+                        onChange={(e) => {
+                          const newValue = parseInt(e.target.value);
+                          if (newValue > 1) {
+                            setShowBetaPopup(true);
+                            setTimeout(() => setShowBetaPopup(false), 2000);
+                            try { sdk.haptics.notificationOccurred("warning"); } catch {}
+                          }
                         }}
-                        className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center flex-shrink-0"
-                      >
-                        <span className="text-[8px] text-gray-500">MINES</span>
-                        <span className="text-sm font-bold text-white">{mineCount}</span>
-                      </button>
-                      <div className="flex-1 flex flex-col justify-center">
-                        <input
-                          type="range"
-                          min="1"
-                          max="24"
-                          value={mineCount}
-                          onChange={(e) => {
-                            const newValue = parseInt(e.target.value);
-                            if (newValue > 1) {
-                              setShowBetaPopup(true);
-                              setTimeout(() => setShowBetaPopup(false), 2000);
-                              try { sdk.haptics.notificationOccurred("warning"); } catch {}
-                            }
-                          }}
-                          className="w-full accent-amber-500"
-                          disabled={isProcessing}
-                        />
-                        <div className="flex justify-between text-[8px] text-gray-500 mt-0.5">
-                          <span>1 (Safe)</span>
-                          <span>24 (Risky)</span>
-                        </div>
+                        className="w-full accent-amber-500"
+                        disabled={isProcessing}
+                      />
+                      <div className="flex justify-between text-[8px] text-gray-500 mt-0.5">
+                        <span>1 (Safe)</span>
+                        <span>24 (Risky)</span>
                       </div>
                     </div>
-                  ) : (
-                    // Collapsed mines button
-                    <button
-                      onClick={() => {
-                        setShowStartText(false);
-                        setExpandedPanel("mines");
-                        try { sdk.haptics.selectionChanged(); } catch {}
-                      }}
-                      className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center"
-                    >
-                      <span className="text-[8px] text-gray-500">MINES</span>
-                      <span className="text-sm font-bold text-white">{mineCount}</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Start Game Button */}
-                <div className={cn(
-                  "panel-slide flex-1",
-                  expandedPanel !== "none" && "!flex-none"
-                )} style={{ minWidth: expandedPanel === "none" ? undefined : "48px" }}>
-                  <button
-                    onClick={() => {
-                      if (expandedPanel !== "none") {
-                        setExpandedPanel("none");
-                        // Delay showing text until animation completes
-                        setTimeout(() => setShowStartText(true), 300);
-                      } else {
-                        handleStartGame();
-                      }
-                    }}
-                    disabled={expandedPanel === "none" && (isProcessing || !isConnected || isStartPending || isApprovePending)}
-                    className={cn(
-                      "rounded-xl bg-white hover:bg-gray-100 text-black font-bold transition-all disabled:opacity-50 flex items-center justify-center overflow-hidden",
-                      expandedPanel === "none" 
-                        ? "w-full h-12 text-base" 
-                        : "w-12 h-12"
-                    )}
-                  >
-                    {isProcessing || isStartPending || isApprovePending ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : expandedPanel !== "none" ? (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <span className={cn(
-                        "transition-opacity duration-200 whitespace-nowrap",
-                        showStartText ? "opacity-100" : "opacity-0"
-                      )}>
-                        START GAME
-                      </span>
-                    )}
-                  </button>
-                </div>
-
-                {/* Bet Amount Button / Expanded Panel */}
-                <div className={cn(
-                  "panel-slide flex items-center",
-                  expandedPanel === "bet" ? "flex-1" : ""
-                )} style={{ flexShrink: 0, minWidth: expandedPanel === "bet" ? undefined : "48px" }}>
-                  {expandedPanel === "bet" ? (
-                    // Expanded bet selector
-                    <div className="flex-1 flex items-center gap-2">
-                      <div className="flex-1 flex flex-col gap-1">
-                        <div className="flex gap-1">
-                          {["0.25", "0.5", "0.75", "1"].map((val) => (
-                            <button
-                              key={val}
-                              onClick={() => {
-                                setBetAmount(val);
-                                try { sdk.haptics.selectionChanged(); } catch {}
-                              }}
-                              className={cn(
-                                "flex-1 py-1.5 text-[10px] rounded border transition-colors font-bold",
-                                betAmount === val
-                                  ? "bg-amber-500 text-black border-amber-500"
-                                  : "bg-zinc-800 text-gray-400 border-zinc-700"
-                              )}
-                            >
-                              {val}
-                            </button>
-                          ))}
-                        </div>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={betAmount}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                  ) : expandedPanel === "bet" ? (
+                    // Bet selector expanded
+                    <div className="flex-1 flex flex-col gap-1 panel-slide">
+                      <div className="flex gap-1">
+                        {["0.25", "0.5", "0.75", "1"].map((val) => (
+                          <button
+                            key={val}
+                            onClick={() => {
                               setBetAmount(val);
-                            }
-                          }}
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold"
-                          disabled={isProcessing}
-                          placeholder="Custom"
-                        />
+                              try { sdk.haptics.selectionChanged(); } catch {}
+                            }}
+                            className={cn(
+                              "flex-1 py-1.5 text-[10px] rounded border transition-colors font-bold",
+                              betAmount === val
+                                ? "bg-amber-500 text-black border-amber-500"
+                                : "bg-zinc-800 text-gray-400 border-zinc-700"
+                            )}
+                          >
+                            {val}
+                          </button>
+                        ))}
                       </div>
-                      <button
-                        onClick={() => {
-                          setExpandedPanel("none");
-                          setTimeout(() => setShowStartText(true), 300);
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={betAmount}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                            setBetAmount(val);
+                          }
                         }}
-                        className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center flex-shrink-0"
-                      >
-                        <span className="text-[8px] text-gray-500">BET</span>
-                        <span className="text-sm font-bold text-amber-400">{betAmount}</span>
-                      </button>
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold"
+                        disabled={isProcessing}
+                        placeholder="Custom"
+                      />
                     </div>
                   ) : (
-                    // Collapsed bet button
+                    // Start Game button expanded
                     <button
-                      onClick={() => {
-                        setShowStartText(false);
-                        setExpandedPanel("bet");
-                        try { sdk.haptics.selectionChanged(); } catch {}
-                      }}
-                      className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center"
+                      onClick={handleStartGame}
+                      disabled={isProcessing || !isConnected || isStartPending || isApprovePending}
+                      className="flex-1 h-12 rounded-xl bg-white hover:bg-gray-100 text-black font-bold text-base disabled:opacity-50 flex items-center justify-center overflow-hidden panel-slide"
                     >
-                      <span className="text-[8px] text-gray-500">BET</span>
-                      <span className="text-sm font-bold text-amber-400">{betAmount}</span>
+                      {isProcessing || isStartPending || isApprovePending ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <span className={cn(
+                          "transition-opacity duration-200 whitespace-nowrap",
+                          showStartText ? "opacity-100" : "opacity-0"
+                        )}>
+                          START GAME
+                        </span>
+                      )}
                     </button>
                   )}
                 </div>
+
+                {/* Bet Button - always on far right */}
+                <button
+                  onClick={() => {
+                    if (expandedPanel === "bet") {
+                      setExpandedPanel("none");
+                      setTimeout(() => setShowStartText(true), 300);
+                    } else {
+                      setShowStartText(false);
+                      setExpandedPanel("bet");
+                      try { sdk.haptics.selectionChanged(); } catch {}
+                    }
+                  }}
+                  className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center flex-shrink-0"
+                >
+                  <span className="text-[8px] text-gray-500">BET</span>
+                  <span className="text-sm font-bold text-amber-400">{betAmount}</span>
+                </button>
               </div>
             </div>
           )}
