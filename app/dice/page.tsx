@@ -484,6 +484,14 @@ export default function DicePage() {
                     args: [betId],
                   }) as OnchainBet;
                   
+                  console.log("Bet status check:", {
+                    betId: betId.toString(),
+                    status: bet.status,
+                    result: bet.result,
+                    won: bet.won,
+                    payout: bet.payout?.toString()
+                  });
+                  
                   if (bet.status === 2) { // Revealed
                     setLastResult({
                       result: bet.result,
