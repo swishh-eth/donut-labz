@@ -521,6 +521,9 @@ export default function MinesPage() {
     if (isStartSuccess && gameStep === "starting") {
       resetStart();
       
+      // Clear local state for new game
+      setLocalRevealedTiles(0);
+      
       const doRefetch = async () => {
         await refetchActiveGames();
         await refetchGameData();
@@ -767,11 +770,22 @@ export default function MinesPage() {
   const nextTileMultiplier = calculateDisplayMultiplier(gameMineCount, displaySafeRevealed + 1);
   const potentialWinNext = (parseFloat(formatUnits(gameBetAmount, 18)) * nextTileMultiplier).toFixed(4);
   
+  // Reset localRevealedTiles when currentGameId changes (new game started)
+  const prevGameIdRef = useRef<bigint | undefined>(undefined);
   useEffect(() => {
-    if (revealedTiles > localRevealedTiles) {
+    if (currentGameId !== prevGameIdRef.current) {
+      // Game changed, reset local state
+      setLocalRevealedTiles(0);
+      prevGameIdRef.current = currentGameId;
+    }
+  }, [currentGameId]);
+
+  // Sync localRevealedTiles with contract data (contract is source of truth)
+  useEffect(() => {
+    if (revealedTiles > 0) {
       setLocalRevealedTiles(revealedTiles);
     }
-  }, [revealedTiles, localRevealedTiles]);
+  }, [revealedTiles]);
   
   const pendingGamesCount = allActiveGameIds.filter(id => {
     if (currentGameId !== undefined && id === currentGameId && hasSecretForGame) return false;
@@ -960,11 +974,11 @@ export default function MinesPage() {
                 <div className="w-full max-w-[320px] mt-2">
                   {/* Fix #3: Show next tile potential win */}
                   <div className="text-center mb-2">
-                    {safeRevealed > 0 ? (
+                    {displaySafeRevealed > 0 ? (
                       <>
                         <div className="text-xs text-gray-400">Current Payout</div>
                         <div className="text-xl font-bold text-green-400">
-                          🍩 {(parseFloat(formatUnits(gameBetAmount, 18)) * actualPayoutMultiplier).toFixed(4)}
+                          🍩 {(parseFloat(formatUnits(gameBetAmount, 18)) * displayMultiplier).toFixed(4)}
                         </div>
                         <div className="text-[10px] text-gray-500 mt-1">
                           Next tile: {nextTileMultiplier.toFixed(2)}x → 🍩{potentialWinNext}
@@ -990,7 +1004,7 @@ export default function MinesPage() {
                         Cashing Out...
                       </span>
                     ) : (
-                      `CASH OUT ${actualPayoutMultiplier.toFixed(2)}x`
+                      `CASH OUT ${displayMultiplier.toFixed(2)}x`
                     )}
                   </button>
                 </div>
@@ -1211,10 +1225,15 @@ export default function MinesPage() {
                 </div>
 
                 <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
-                  <div className="font-semibold text-amber-400 text-xs mb-1">2% House Edge</div>
-                  <div className="text-[11px] text-gray-400">1% → House (Pool Growth)</div>
+                  <div className="font-semibold text-amber-400 text-xs mb-1">2% House Edge on Wins</div>
+                  <div className="text-[11px] text-gray-400">1% → Pool Growth</div>
                   <div className="text-[11px] text-gray-400">0.5% → LP Burn Rewards</div>
                   <div className="text-[11px] text-gray-400">0.5% → Treasury</div>
+                  
+                  <div className="font-semibold text-red-400 text-xs mb-1 mt-2">On Loss (Hit a Mine)</div>
+                  <div className="text-[11px] text-gray-400">50% → Pool Growth</div>
+                  <div className="text-[11px] text-gray-400">25% → LP Burn Rewards</div>
+                  <div className="text-[11px] text-gray-400">25% → Treasury</div>
                 </div>
 
                 <button
