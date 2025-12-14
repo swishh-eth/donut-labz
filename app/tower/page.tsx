@@ -359,7 +359,6 @@ export default function DonutTowerPage() {
   const { isSuccess: isStartSuccess } = useWaitForTransactionReceipt({ hash: startHash });
   
   const { data: climbHash, writeContract: writeClimb, isPending: isClimbPending, error: climbError, reset: resetClimb } = useWriteContract();
-  const { isSuccess: isClimbSuccess } = useWaitForTransactionReceipt({ hash: climbHash });
   
   const { data: cashOutHash, writeContract: writeCashOut, isPending: isCashOutPending, error: cashOutError } = useWriteContract();
   const { isSuccess: isCashOutSuccess } = useWaitForTransactionReceipt({ hash: cashOutHash });
@@ -555,21 +554,36 @@ export default function DonutTowerPage() {
     });
   };
 
-  // Handle climb success
+  // Handle climb - watch for hash and wait for receipt
   useEffect(() => {
-    // Check we have a successful climb and haven't processed this hash yet
-    if (!isClimbSuccess || !climbHash || !activeGameId || !publicClient) return;
+    if (!climbHash || !activeGameId || !publicClient) return;
     if (processedClimbHashRef.current === climbHash) return;
     
     // Mark this hash as being processed
     processedClimbHashRef.current = climbHash;
     
-    console.log("Processing climb success for hash:", climbHash);
+    console.log("New climb hash detected:", climbHash);
     
-    const refreshGame = async () => {
-      await new Promise(r => setTimeout(r, 500));
-      
+    const waitAndRefresh = async () => {
       try {
+        // Wait for transaction receipt
+        console.log("Waiting for climb tx receipt...");
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: climbHash });
+        console.log("Climb tx confirmed:", receipt.status);
+        
+        if (receipt.status !== 'success') {
+          console.log("Climb tx failed");
+          setIsClimbing(false);
+          setErrorMessage("Transaction failed");
+          setTimeout(() => setErrorMessage(null), 3000);
+          resetClimb();
+          return;
+        }
+        
+        // Small delay to ensure state is updated
+        await new Promise(r => setTimeout(r, 300));
+        
+        // Read new game state
         const game = await publicClient.readContract({
           address: DONUT_TOWER_ADDRESS,
           abi: TOWER_V5_ABI,
@@ -636,14 +650,14 @@ export default function DonutTowerPage() {
           playClimbSound();
         }
       } catch (e) {
-        console.error("Error refreshing game:", e);
+        console.error("Error in climb handling:", e);
         setIsClimbing(false);
         resetClimb();
       }
     };
     
-    refreshGame();
-  }, [isClimbSuccess, climbHash, activeGameId, publicClient, playClimbSound, playLoseSound, playWinSound, refetchActiveGame, refetchBalance, refetchGameIds, resetClimb]);
+    waitAndRefresh();
+  }, [climbHash, activeGameId, publicClient, playClimbSound, playLoseSound, playWinSound, refetchActiveGame, refetchBalance, refetchGameIds, resetClimb]);
 
   // Handle climb error
   useEffect(() => {
