@@ -6,7 +6,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
-import { History, HelpCircle, X, Loader2, Shield, Bomb, Gem, Volume2, VolumeX, ChevronDown, LogOut } from "lucide-react";
+import { History, HelpCircle, X, Loader2, Shield, Bomb, Volume2, VolumeX, ChevronDown, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Contract addresses - V5
@@ -510,15 +510,16 @@ export default function BakeryMinesPage() {
     fetchGameState();
   }, [publicClient, contractActiveGameId]);
 
-  // Poll for game reveal when waiting
+  // Poll for game reveal when waiting (for page reload cases)
   useEffect(() => {
-    if (!isWaitingForReveal || !activeGameId || !publicClient) return;
+    // Only use this for existing pending games (page reload scenario)
+    // The start game handler has its own polling
+    if (!isWaitingForReveal || !activeGameId || !publicClient || isStartingGame) return;
     
-    let attempts = 0;
-    const maxAttempts = 30;
+    let cancelled = false;
     
     const pollForReveal = async () => {
-      attempts++;
+      if (cancelled) return;
       
       // Trigger reveal API
       try {
@@ -526,7 +527,9 @@ export default function BakeryMinesPage() {
       } catch {}
       
       // Wait a bit then check game status
-      await new Promise(r => setTimeout(r, 1500));
+      await new Promise(r => setTimeout(r, 2000));
+      
+      if (cancelled) return;
       
       try {
         const game = await publicClient.readContract({
@@ -552,33 +555,20 @@ export default function BakeryMinesPage() {
             payout: game[9],
           });
           setIsWaitingForReveal(false);
-          setIsStartingGame(false);
-          return true;
-        }
-        
-        if (attempts >= maxAttempts) {
-          setErrorMessage("Timeout - try refreshing");
-          setIsWaitingForReveal(false);
-          setIsStartingGame(false);
-          return true;
         }
       } catch (e) {
         console.error("Poll error:", e);
       }
-      
-      return false;
     };
     
-    const interval = setInterval(async () => {
-      const done = await pollForReveal();
-      if (done) clearInterval(interval);
-    }, 2000);
-    
-    // Initial poll
+    const interval = setInterval(pollForReveal, 3000);
     pollForReveal();
     
-    return () => clearInterval(interval);
-  }, [isWaitingForReveal, activeGameId, publicClient]);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [isWaitingForReveal, activeGameId, publicClient, isStartingGame]);
 
   // Fetch game history
   useEffect(() => {
@@ -671,13 +661,111 @@ export default function BakeryMinesPage() {
     });
   };
 
-  // Handle start game success
+  // Handle start game success - get game ID from receipt and start polling
   useEffect(() => {
-    if (isStartSuccess && isStartingGame) {
-      setIsWaitingForReveal(true);
-      refetchActiveGame();
+    if (isStartSuccess && isStartingGame && startHash && publicClient) {
+      const getGameIdAndPoll = async () => {
+        try {
+          // Get game ID from transaction receipt
+          const receipt = await publicClient.getTransactionReceipt({ hash: startHash });
+          
+          // Find GameStarted event
+          const gameStartedLog = receipt.logs.find(log => 
+            log.address.toLowerCase() === DONUT_MINES_ADDRESS.toLowerCase()
+          );
+          
+          if (gameStartedLog && gameStartedLog.topics[1]) {
+            const gameId = BigInt(gameStartedLog.topics[1]);
+            console.log("Got game ID from receipt:", gameId.toString());
+            
+            setActiveGameId(gameId);
+            setIsWaitingForReveal(true);
+            
+            // Start polling for reveal
+            let attempts = 0;
+            const maxAttempts = 30;
+            
+            const poll = async (): Promise<boolean> => {
+              attempts++;
+              console.log(`Poll attempt ${attempts} for game ${gameId.toString()}`);
+              
+              // Trigger reveal API
+              try {
+                await fetch('/api/reveal?game=mines');
+              } catch {}
+              
+              // Wait then check
+              await new Promise(r => setTimeout(r, 2000));
+              
+              try {
+                const game = await publicClient.readContract({
+                  address: DONUT_MINES_ADDRESS,
+                  abi: MINES_V5_ABI,
+                  functionName: "games",
+                  args: [gameId],
+                  blockTag: 'latest',
+                }) as [string, string, bigint, number, bigint, number, number, number, bigint, bigint];
+                
+                console.log("Game status:", game[5]);
+                
+                if (game[5] === GameStatus.Active) {
+                  // Game revealed!
+                  setGameState({
+                    player: game[0] as `0x${string}`,
+                    token: game[1] as `0x${string}`,
+                    betAmount: game[2],
+                    mineCount: game[3],
+                    commitBlock: game[4],
+                    status: game[5],
+                    minePositions: game[6],
+                    revealedTiles: game[7],
+                    currentMultiplier: game[8],
+                    payout: game[9],
+                  });
+                  setIsWaitingForReveal(false);
+                  setIsStartingGame(false);
+                  return true;
+                }
+                
+                if (attempts >= maxAttempts) {
+                  setErrorMessage("Timeout - try refreshing");
+                  setIsWaitingForReveal(false);
+                  setIsStartingGame(false);
+                  return true;
+                }
+              } catch (e) {
+                console.error("Poll error:", e);
+              }
+              
+              return false;
+            };
+            
+            // Poll until done
+            const pollLoop = async () => {
+              while (true) {
+                const done = await poll();
+                if (done) break;
+              }
+            };
+            
+            pollLoop();
+          } else {
+            console.error("Could not find game ID in receipt");
+            setErrorMessage("Could not find game - try refreshing");
+            setIsStartingGame(false);
+            setIsWaitingForReveal(false);
+          }
+        } catch (e) {
+          console.error("Error getting receipt:", e);
+          setErrorMessage("Error starting game");
+          setIsStartingGame(false);
+          setIsWaitingForReveal(false);
+        }
+      };
+      
+      getGameIdAndPoll();
     }
-  }, [isStartSuccess, isStartingGame, refetchActiveGame]);
+  }, [isStartSuccess, isStartingGame, startHash, publicClient]);
 
   // Handle start game error
   useEffect(() => {
@@ -716,11 +804,32 @@ export default function BakeryMinesPage() {
     });
   };
 
-  // Handle tile reveal success
+  // Handle tile reveal success - optimistic update then verify
   useEffect(() => {
-    if (isRevealSuccess && revealingTile !== null && activeGameId) {
-      const refreshGame = async () => {
-        await new Promise(r => setTimeout(r, 1000));
+    if (isRevealSuccess && revealingTile !== null && activeGameId && gameState) {
+      const tileIndex = revealingTile;
+      const tileMask = 1 << tileIndex;
+      
+      // Optimistic update - assume safe tile first
+      const optimisticRevealedTiles = gameState.revealedTiles | tileMask;
+      const safeCount = countBits(optimisticRevealedTiles);
+      const newMultiplier = getMultiplier(gameState.mineCount, safeCount);
+      
+      // Update UI immediately with optimistic state
+      setGameState(prev => prev ? {
+        ...prev,
+        revealedTiles: optimisticRevealedTiles,
+        currentMultiplier: BigInt(newMultiplier)
+      } : null);
+      
+      // Play sound and haptic immediately
+      playRevealSound(true);
+      try { sdk.haptics.impactOccurred("light"); } catch {}
+      setRevealingTile(null);
+      
+      // Then verify with contract after short delay
+      const verifyResult = async () => {
+        await new Promise(r => setTimeout(r, 500));
         
         const game = await publicClient?.readContract({
           address: DONUT_MINES_ADDRESS,
@@ -743,10 +852,10 @@ export default function BakeryMinesPage() {
           payout: game[9],
         };
         
+        // Update with actual state
         setGameState(newGameState);
         
         // Check if hit mine
-        const tileMask = 1 << revealingTile;
         const hitMine = (newGameState.minePositions & tileMask) !== 0;
         
         if (hitMine || newGameState.status === GameStatus.Lost) {
@@ -760,17 +869,12 @@ export default function BakeryMinesPage() {
             refetchActiveGame();
             refetchBalance();
           }, 3000);
-        } else {
-          playRevealSound(true);
-          try { sdk.haptics.impactOccurred("light"); } catch {}
         }
-        
-        setRevealingTile(null);
       };
       
-      refreshGame();
+      verifyResult();
     }
-  }, [isRevealSuccess, revealingTile, activeGameId, publicClient, playLoseSound, playRevealSound, refetchActiveGame, refetchBalance]);
+  }, [isRevealSuccess]);
 
   // Handle tile reveal error
   useEffect(() => {
@@ -859,20 +963,20 @@ export default function BakeryMinesPage() {
           onClick={() => handleRevealTile(i)}
           disabled={!isClickable}
           className={cn(
-            "aspect-square rounded-md border flex items-center justify-center text-base font-bold transition-all",
-            isRevealing && "animate-pulse",
-            isRevealed && isMine && "bg-red-500/30 border-red-500",
-            isRevealed && !isMine && "bg-green-500/30 border-green-500",
+            "aspect-square rounded-lg border-2 flex items-center justify-center text-lg font-bold transition-all",
+            isRevealing && "animate-pulse bg-amber-500/20 border-amber-500",
+            isRevealed && isMine && "bg-red-500/20 border-red-500",
+            isRevealed && !isMine && "bg-white/10 border-white",
             !isRevealed && !isClickable && "bg-zinc-900 border-zinc-700 opacity-50",
-            !isRevealed && isClickable && "bg-zinc-800 border-zinc-600 hover:border-amber-500 hover:bg-zinc-700 cursor-pointer active:scale-95"
+            !isRevealed && isClickable && "bg-zinc-800 border-zinc-600 hover:border-white hover:bg-zinc-700 cursor-pointer active:scale-95"
           )}
         >
           {isRevealing ? (
-            <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+            <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
           ) : isRevealed ? (
-            isMine ? <Bomb className="w-5 h-5 text-red-400" /> : <Gem className="w-5 h-5 text-green-400" />
+            isMine ? <Bomb className="w-6 h-6 text-red-400" /> : <span className="text-xl">🍩</span>
           ) : (
-            <span className="text-zinc-600 text-sm">?</span>
+            <span className="text-zinc-600 text-base">?</span>
           )}
         </button>
       );
@@ -1003,7 +1107,7 @@ export default function BakeryMinesPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-5 gap-1 w-full max-w-[220px]">
+              <div className="grid grid-cols-5 gap-1.5 w-full max-w-[280px]">
                 {renderGrid()}
               </div>
               

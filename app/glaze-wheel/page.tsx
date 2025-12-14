@@ -237,7 +237,7 @@ function WheelDisplay({
   rotation: number;
   isSpinning: boolean;
   isWaiting?: boolean;
-  onTick: () => void;
+  onTick: (isWaiting?: boolean) => void;
   isMuted: boolean;
 }) {
   const [displayRotation, setDisplayRotation] = useState(0);
@@ -251,9 +251,24 @@ function WheelDisplay({
     if (isSpinning && rotation > 0) return;
     
     const speed = isWaiting ? 4 : 0.2;
+    let lastTickSegment = -1;
     
     const animate = () => {
-      setDisplayRotation(prev => (prev + speed) % 360);
+      setDisplayRotation(prev => {
+        const newRot = (prev + speed) % 360;
+        
+        // Play tick sounds while waiting (not during idle)
+        if (isWaiting) {
+          const segmentAngle = 360 / segments;
+          const currentSegment = Math.floor(((360 - newRot + segmentAngle / 2) % 360) / segmentAngle);
+          if (currentSegment !== lastTickSegment) {
+            lastTickSegment = currentSegment;
+            onTick(true); // Pass true to indicate waiting state
+          }
+        }
+        
+        return newRot;
+      });
       animationRef.current = requestAnimationFrame(animate);
     };
     animationRef.current = requestAnimationFrame(animate);
@@ -261,7 +276,7 @@ function WheelDisplay({
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [isSpinning, rotation, isWaiting]);
+  }, [isSpinning, rotation, isWaiting, segments, onTick]);
   
   // Spinning animation with easing and tick sounds
   useEffect(() => {
@@ -290,7 +305,7 @@ function WheelDisplay({
       
       if (currentSegment !== lastSegmentRef.current && progress < 0.95) {
         lastSegmentRef.current = currentSegment;
-        onTick();
+        onTick(false); // Not waiting, full spin animation
       }
       
       if (progress < 1) {
@@ -619,8 +634,11 @@ export default function GlazeWheelPage() {
     return audioContextRef.current;
   };
 
-  // Tick sound for wheel
-  const playTickSound = useCallback(() => {
+  // Tick sound for wheel - frequency varies with speed
+  const playTickSound = useCallback((isWaiting?: boolean) => {
+    // Light haptic on each tick
+    try { sdk.haptics.impactOccurred("light"); } catch {}
+    
     if (isMuted) return;
     try {
       const ctx = getAudioContext();
@@ -628,9 +646,10 @@ export default function GlazeWheelPage() {
       const gainNode = ctx.createGain();
       oscillator.connect(gainNode);
       gainNode.connect(ctx.destination);
-      oscillator.frequency.value = 800 + Math.random() * 400;
+      // Higher pitch when spinning fast (waiting), lower when slow
+      oscillator.frequency.value = isWaiting ? 600 + Math.random() * 200 : 800 + Math.random() * 400;
       oscillator.type = 'sine';
-      gainNode.gain.setValueAtTime(0.08, ctx.currentTime);
+      gainNode.gain.setValueAtTime(isWaiting ? 0.04 : 0.08, ctx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.05);
@@ -1186,7 +1205,10 @@ export default function GlazeWheelPage() {
                   {[0, 1, 2].map((r) => (
                     <button
                       key={r}
-                      onClick={() => { setRiskLevel(r); setExpandedPanel("none"); }}
+                      onClick={() => {
+                        setRiskLevel(r);
+                        try { sdk.haptics.impactOccurred("light"); } catch {}
+                      }}
                       disabled={isSpinning}
                       className={cn(
                         "flex-1 py-2 text-[10px] rounded font-bold border",
@@ -1201,7 +1223,10 @@ export default function GlazeWheelPage() {
                 </div>
               ) : (
                 <button
-                  onClick={() => setExpandedPanel("risk")}
+                  onClick={() => {
+                    setExpandedPanel("risk");
+                    try { sdk.haptics.impactOccurred("light"); } catch {}
+                  }}
                   disabled={isSpinning}
                   className={cn(
                     "w-12 h-12 rounded-lg flex flex-col items-center justify-center border",
@@ -1221,7 +1246,10 @@ export default function GlazeWheelPage() {
                   {[10, 20, 30].map((s) => (
                     <button
                       key={s}
-                      onClick={() => { setSegments(s); setExpandedPanel("none"); }}
+                      onClick={() => {
+                        setSegments(s);
+                        try { sdk.haptics.impactOccurred("light"); } catch {}
+                      }}
                       disabled={isSpinning}
                       className={cn(
                         "flex-1 py-2 text-[10px] rounded font-bold border",
@@ -1236,7 +1264,10 @@ export default function GlazeWheelPage() {
                 </div>
               ) : (
                 <button
-                  onClick={() => setExpandedPanel("segments")}
+                  onClick={() => {
+                    setExpandedPanel("segments");
+                    try { sdk.haptics.impactOccurred("light"); } catch {}
+                  }}
                   disabled={isSpinning}
                   className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center"
                 >
@@ -1253,7 +1284,10 @@ export default function GlazeWheelPage() {
                       {["0.5", "1", "2", "5"].map((val) => (
                         <button
                           key={val}
-                          onClick={() => setBetAmount(val)}
+                          onClick={() => {
+                            setBetAmount(val);
+                            try { sdk.haptics.impactOccurred("light"); } catch {}
+                          }}
                           className={cn(
                             "flex-1 py-1.5 text-[10px] rounded border font-bold",
                             betAmount === val ? "bg-amber-500 text-black border-amber-500" : "bg-zinc-800 text-gray-400 border-zinc-700"
@@ -1272,17 +1306,13 @@ export default function GlazeWheelPage() {
                       disabled={isSpinning}
                     />
                   </div>
-                  <button 
-                    onClick={() => setExpandedPanel("none")} 
-                    className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center"
-                  >
-                    <span className="text-[8px] text-gray-500">BET</span>
-                    <span className="text-sm font-bold text-amber-400">{betAmount}</span>
-                  </button>
                 </div>
               ) : (
                 <button
-                  onClick={() => setExpandedPanel("bet")}
+                  onClick={() => {
+                    setExpandedPanel("bet");
+                    try { sdk.haptics.impactOccurred("light"); } catch {}
+                  }}
                   disabled={isSpinning}
                   className="flex-1 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2"
                 >
