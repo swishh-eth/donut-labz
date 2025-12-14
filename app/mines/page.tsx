@@ -678,6 +678,9 @@ export default function BakeryMinesPage() {
             const gameId = BigInt(gameStartedLog.topics[1]);
             console.log("Got game ID from receipt:", gameId.toString());
             
+            // Reset confirmed tiles for new game
+            confirmedTilesRef.current = 0;
+            
             setActiveGameId(gameId);
             setIsWaitingForReveal(true);
             
@@ -784,6 +787,9 @@ export default function BakeryMinesPage() {
     }
   }, [startError, isStartingGame, resetStart]);
 
+  // Track tiles that are confirmed revealed (to prevent UI flicker)
+  const confirmedTilesRef = useRef<number>(0);
+  
   // Handle tile reveal
   const handleRevealTile = (tileIndex: number) => {
     if (!activeGameId || !gameState) return;
@@ -793,6 +799,7 @@ export default function BakeryMinesPage() {
     // Check if already revealed
     const tileMask = 1 << tileIndex;
     if ((gameState.revealedTiles & tileMask) !== 0) return;
+    if ((confirmedTilesRef.current & tileMask) !== 0) return;
     
     setRevealingTile(tileIndex);
     
@@ -804,34 +811,27 @@ export default function BakeryMinesPage() {
     });
   };
 
-  // Handle tile reveal success - optimistic update then verify
+  // Handle tile reveal success
   useEffect(() => {
-    if (isRevealSuccess && revealingTile !== null && activeGameId && gameState) {
-      const tileIndex = revealingTile;
-      const tileMask = 1 << tileIndex;
+    if (!isRevealSuccess || revealingTile === null || !activeGameId || !publicClient) return;
+    
+    const tileIndex = revealingTile;
+    const tileMask = 1 << tileIndex;
+    
+    // Mark tile as confirmed immediately
+    confirmedTilesRef.current |= tileMask;
+    
+    // Clear revealing state and play feedback immediately
+    setRevealingTile(null);
+    playRevealSound(true);
+    try { sdk.haptics.impactOccurred("light"); } catch {}
+    
+    // Fetch actual state from contract
+    const fetchAndUpdate = async () => {
+      await new Promise(r => setTimeout(r, 300));
       
-      // Optimistic update - assume safe tile first
-      const optimisticRevealedTiles = gameState.revealedTiles | tileMask;
-      const safeCount = countBits(optimisticRevealedTiles);
-      const newMultiplier = getMultiplier(gameState.mineCount, safeCount);
-      
-      // Update UI immediately with optimistic state
-      setGameState(prev => prev ? {
-        ...prev,
-        revealedTiles: optimisticRevealedTiles,
-        currentMultiplier: BigInt(newMultiplier)
-      } : null);
-      
-      // Play sound and haptic immediately
-      playRevealSound(true);
-      try { sdk.haptics.impactOccurred("light"); } catch {}
-      setRevealingTile(null);
-      
-      // Then verify with contract after short delay
-      const verifyResult = async () => {
-        await new Promise(r => setTimeout(r, 500));
-        
-        const game = await publicClient?.readContract({
+      try {
+        const game = await publicClient.readContract({
           address: DONUT_MINES_ADDRESS,
           abi: MINES_V5_ABI,
           functionName: "games",
@@ -852,8 +852,11 @@ export default function BakeryMinesPage() {
           payout: game[9],
         };
         
-        // Update with actual state
+        // Update state
         setGameState(newGameState);
+        
+        // Sync confirmed tiles with contract state
+        confirmedTilesRef.current = newGameState.revealedTiles;
         
         // Check if hit mine
         const hitMine = (newGameState.minePositions & tileMask) !== 0;
@@ -863,6 +866,7 @@ export default function BakeryMinesPage() {
           setGameResult("lost");
           try { sdk.haptics.impactOccurred("heavy"); } catch {}
           setTimeout(() => {
+            confirmedTilesRef.current = 0;
             setActiveGameId(null);
             setGameState(null);
             setGameResult(null);
@@ -870,11 +874,13 @@ export default function BakeryMinesPage() {
             refetchBalance();
           }, 3000);
         }
-      };
-      
-      verifyResult();
-    }
-  }, [isRevealSuccess]);
+      } catch (e) {
+        console.error("Error fetching game state:", e);
+      }
+    };
+    
+    fetchAndUpdate();
+  }, [isRevealSuccess, revealingTile, activeGameId, publicClient, playRevealSound, playLoseSound, refetchActiveGame, refetchBalance]);
 
   // Handle tile reveal error
   useEffect(() => {
@@ -946,13 +952,18 @@ export default function BakeryMinesPage() {
   // Render grid
   const renderGrid = () => {
     const tiles = [];
+    const isInGame = !!gameState;
+    
     for (let i = 0; i < 25; i++) {
-      const row = Math.floor(i / 5);
-      const col = i % 5;
+      const tileMask = 1 << i;
       
-      const isRevealed = gameState ? (gameState.revealedTiles & (1 << i)) !== 0 : false;
+      // Use both contract state AND confirmed ref for revealed status
+      const isRevealedOnChain = gameState ? (gameState.revealedTiles & tileMask) !== 0 : false;
+      const isConfirmedRevealed = (confirmedTilesRef.current & tileMask) !== 0;
+      const isRevealed = isRevealedOnChain || isConfirmedRevealed;
+      
       const isMine = gameState && (gameState.status === GameStatus.Lost || gameState.status === GameStatus.Won)
-        ? (gameState.minePositions & (1 << i)) !== 0
+        ? (gameState.minePositions & tileMask) !== 0
         : false;
       const isClickable = gameState?.status === GameStatus.Active && !isRevealed && revealingTile === null;
       const isRevealing = revealingTile === i;
@@ -963,7 +974,8 @@ export default function BakeryMinesPage() {
           onClick={() => handleRevealTile(i)}
           disabled={!isClickable}
           className={cn(
-            "aspect-square rounded-lg border-2 flex items-center justify-center text-lg font-bold transition-all",
+            "aspect-square flex items-center justify-center font-bold transition-all",
+            isInGame ? "rounded-lg border-2 text-lg" : "rounded-md border text-sm",
             isRevealing && "animate-pulse bg-amber-500/20 border-amber-500",
             isRevealed && isMine && "bg-red-500/20 border-red-500",
             isRevealed && !isMine && "bg-white/10 border-white",
@@ -972,11 +984,11 @@ export default function BakeryMinesPage() {
           )}
         >
           {isRevealing ? (
-            <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+            <Loader2 className={cn("animate-spin text-amber-400", isInGame ? "w-5 h-5" : "w-3 h-3")} />
           ) : isRevealed ? (
-            isMine ? <Bomb className="w-6 h-6 text-red-400" /> : <span className="text-xl">🍩</span>
+            isMine ? <Bomb className={cn("text-red-400", isInGame ? "w-6 h-6" : "w-4 h-4")} /> : <span className={isInGame ? "text-xl" : "text-sm"}>🍩</span>
           ) : (
-            <span className="text-zinc-600 text-base">?</span>
+            <span className={cn("text-zinc-600", isInGame ? "text-base" : "text-xs")}>?</span>
           )}
         </button>
       );
@@ -1107,7 +1119,10 @@ export default function BakeryMinesPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-5 gap-1.5 w-full max-w-[280px]">
+              <div className={cn(
+                "grid grid-cols-5 w-full",
+                gameState ? "gap-1.5 max-w-[280px]" : "gap-1 max-w-[200px]"
+              )}>
                 {renderGrid()}
               </div>
               
