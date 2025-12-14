@@ -461,15 +461,19 @@ export default function DicePage() {
             const betId = BigInt(betPlacedLog.topics[1]);
             setPendingBetId(betId);
             
-            // Poll for result (house will reveal)
+            // Poll for result - call API to trigger reveal
             const pollForResult = async () => {
               const maxAttempts = 30; // ~30 seconds
               let attempts = 0;
               
               while (attempts < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 2000));
                 
                 try {
+                  // Call the reveal API to trigger house reveal
+                  await fetch(`/api/reveal?game=dice&betId=${betId.toString()}`);
+                  
+                  // Then check if bet was revealed
                   const bet = await publicClient?.readContract({
                     address: DONUT_DICE_ADDRESS,
                     abi: DICE_V5_ABI,
@@ -509,7 +513,9 @@ export default function DicePage() {
                     
                     return;
                   }
-                } catch {}
+                } catch (e) {
+                  console.error("Poll error:", e);
+                }
                 
                 attempts++;
               }
