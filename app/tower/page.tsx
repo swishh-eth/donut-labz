@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
-import { History, HelpCircle, X, Loader2, Shield, Volume2, VolumeX } from "lucide-react";
+import { History, HelpCircle, X, Loader2, Shield, Volume2, VolumeX, ChevronDown, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Contract addresses
@@ -24,6 +24,7 @@ const TOWER_ABI = [
   { inputs: [{ name: "gameId", type: "uint256" }, { name: "tileChoice", type: "uint8" }], name: "climbLevel", outputs: [], stateMutability: "nonpayable", type: "function" },
   { inputs: [{ name: "gameId", type: "uint256" }], name: "cashOut", outputs: [], stateMutability: "nonpayable", type: "function" },
   { inputs: [{ name: "player", type: "address" }], name: "getPlayerActiveGame", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [{ name: "player", type: "address" }], name: "getPlayerGames", outputs: [{ type: "uint256[]" }], stateMutability: "view", type: "function" },
   { inputs: [{ name: "gameId", type: "uint256" }], name: "games", outputs: [
     { name: "player", type: "address" },
     { name: "token", type: "address" },
@@ -47,11 +48,17 @@ const DIFFICULTIES = [
   { name: "Master", tiles: 4, safe: 1, color: "purple" },
 ];
 
+// Multiplier tables matching contract exactly (in basis points, 10000 = 1x)
 const MULTIPLIER_TABLES = [
-  [13066, 17421, 23228, 30970, 41294, 55058, 73411, 97881, 130508],
-  [14700, 22050, 33075, 49612, 74419, 111628, 167442, 251163, 376745],
+  // Easy (75% per level)
+  [13066, 17422, 23229, 30972, 41296, 55061, 73415, 97887, 130516],
+  // Medium (66% per level)
+  [14848, 22497, 34086, 51645, 78250, 118561, 179638, 272179, 412392],
+  // Hard (50% per level)
   [19600, 39200, 78400, 156800, 313600, 627200, 1254400, 2508800, 5017600],
+  // Expert (33% per level)
   [29400, 88200, 264600, 793800, 2381400, 7144200, 21432600, 64297800, 192893400],
+  // Master (25% per level)
   [39200, 156800, 627200, 2508800, 10035200, 40140800, 160563200, 642252800, 2569011200],
 ];
 
@@ -59,6 +66,18 @@ interface GameState {
   player: string;
   betAmount: bigint;
   difficulty: number;
+  status: number;
+  currentLevel: number;
+  trapPositions: bigint;
+  currentMultiplier: bigint;
+}
+
+interface HistoryGame {
+  gameId: bigint;
+  player: string;
+  betAmount: bigint;
+  difficulty: number;
+  commitBlock: bigint;
   status: number;
   currentLevel: number;
   trapPositions: bigint;
@@ -94,6 +113,11 @@ export default function DonutTowerPage() {
   const [isClimbing, setIsClimbing] = useState(false);
   const [isCashingOut, setIsCashingOut] = useState(false);
   const [gameResult, setGameResult] = useState<"won" | "lost" | null>(null);
+
+  // History state
+  const [historyGames, setHistoryGames] = useState<HistoryGame[]>([]);
+  const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // Sounds
   const playSound = useCallback((freq: number, type: OscillatorType = "sine", duration = 0.1) => {
@@ -152,6 +176,13 @@ export default function DonutTowerPage() {
     address: DONUT_TOWER_ADDRESS,
     abi: TOWER_ABI,
     functionName: "getPlayerActiveGame",
+    args: address ? [address] : undefined,
+  });
+
+  const { data: playerGameIds, refetch: refetchPlayerGames } = useReadContract({
+    address: DONUT_TOWER_ADDRESS,
+    abi: TOWER_ABI,
+    functionName: "getPlayerGames",
     args: address ? [address] : undefined,
   });
 
@@ -267,6 +298,58 @@ export default function DonutTowerPage() {
 
     load();
   }, [publicClient, contractGameId]);
+
+  // Fetch history when modal opens
+  useEffect(() => {
+    if (!showHistory || !playerGameIds || !publicClient) return;
+    
+    const fetchHistory = async () => {
+      setIsLoadingHistory(true);
+      const gameIds = playerGameIds as bigint[];
+      if (!gameIds || gameIds.length === 0) {
+        setHistoryGames([]);
+        setIsLoadingHistory(false);
+        return;
+      }
+      
+      // Only fetch last 10 to reduce RPC calls
+      const idsToFetch = gameIds.slice(-10).reverse();
+      const games: HistoryGame[] = [];
+      
+      for (const gameId of idsToFetch) {
+        try {
+          const game = await publicClient.readContract({
+            address: DONUT_TOWER_ADDRESS,
+            abi: TOWER_ABI,
+            functionName: "games",
+            args: [gameId],
+          }) as unknown as any[];
+          
+          games.push({
+            gameId,
+            player: game[0],
+            betAmount: game[2],
+            difficulty: Number(game[3]),
+            commitBlock: game[4],
+            status: Number(game[5]),
+            currentLevel: Number(game[6]),
+            trapPositions: game[7],
+            currentMultiplier: game[8],
+          });
+          
+          // Small delay between fetches
+          await new Promise(r => setTimeout(r, 100));
+        } catch (e) {
+          console.error("Error fetching game:", gameId.toString(), e);
+        }
+      }
+      
+      setHistoryGames(games);
+      setIsLoadingHistory(false);
+    };
+    
+    fetchHistory();
+  }, [showHistory, playerGameIds, publicClient]);
 
   // Poll for reveal
   const pollForReveal = async (gameId: bigint) => {
@@ -404,6 +487,7 @@ export default function DonutTowerPage() {
             setGameResult(null);
             refetchActiveGame();
             refetchBalance();
+            refetchPlayerGames();
           }, 3000);
         } else if (newState.status === GameStatus.Won) {
           playWinSound();
@@ -417,6 +501,7 @@ export default function DonutTowerPage() {
             setGameResult(null);
             refetchActiveGame();
             refetchBalance();
+            refetchPlayerGames();
           }, 3000);
         } else {
           playClimbSound();
@@ -431,7 +516,7 @@ export default function DonutTowerPage() {
     };
     
     fetchNewState();
-  }, [isClimbSuccess, climbHash, publicClient, activeGameId, playClimbSound, playLoseSound, playWinSound, refetchActiveGame, refetchBalance, resetClimb]);
+  }, [isClimbSuccess, climbHash, publicClient, activeGameId, playClimbSound, playLoseSound, playWinSound, refetchActiveGame, refetchBalance, refetchPlayerGames, resetClimb]);
 
   // Handle climb error
   useEffect(() => {
@@ -457,9 +542,10 @@ export default function DonutTowerPage() {
         setIsCashingOut(false);
         refetchActiveGame();
         refetchBalance();
+        refetchPlayerGames();
       }, 3000);
     }
-  }, [isCashOutSuccess, isCashingOut, playWinSound, refetchActiveGame, refetchBalance]);
+  }, [isCashOutSuccess, isCashingOut, playWinSound, refetchActiveGame, refetchBalance, refetchPlayerGames]);
 
   // Handlers
   const handleStartGame = () => {
@@ -881,19 +967,197 @@ export default function DonutTowerPage() {
         <NavBar />
       </div>
 
-      {/* Help Modal */}
+      {/* Help Modal - Updated to match wheel style */}
       {showHelp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80" onClick={() => setShowHelp(false)} />
-          <div className="relative bg-zinc-900 border border-zinc-800 rounded-xl p-4 max-w-sm w-full">
-            <button onClick={() => setShowHelp(false)} className="absolute right-3 top-3"><X className="w-5 h-5" /></button>
-            <h3 className="text-lg font-bold mb-3">How to Play</h3>
-            <div className="space-y-2 text-sm text-gray-400">
-              <p>🏗️ Start a game to build your tower</p>
-              <p>👆 Tap tiles to climb - 🍩 = safe, 💀 = trap</p>
-              <p>📈 Each level increases your multiplier</p>
-              <p>💰 Cash out anytime to claim winnings</p>
-              <p className="text-amber-400">⚡ Higher risk = bigger rewards!</p>
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHelp(false)} />
+          <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+            <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
+              <button onClick={() => setShowHelp(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white z-10">
+                <X className="h-4 w-4" />
+              </button>
+              <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+                <Target className="w-4 h-4" /> How to Play
+              </h2>
+              <div className="space-y-2.5">
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-[10px] font-bold text-black">1</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Choose Difficulty</div>
+                    <div className="text-[11px] text-gray-400">Easy = more safe tiles, lower multipliers. Master = 1 safe tile, huge multipliers up to 2569x!</div>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">2</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Set Your Bet</div>
+                    <div className="text-[11px] text-gray-400">Choose how much DONUT to wager (0.1 - 10).</div>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Climb the Tower</div>
+                    <div className="text-[11px] text-gray-400">Tap tiles to climb. 🍩 = safe, 💀 = trap. Each level increases your multiplier!</div>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
+                  <div>
+                    <div className="font-semibold text-amber-400 text-xs">Cash Out Anytime!</div>
+                    <div className="text-[11px] text-gray-400">Secure your winnings before hitting a trap. Reach level 9 for max payout!</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
+                <div className="text-[10px] text-amber-400 font-bold mb-1">Difficulty Tiers:</div>
+                <div className="text-[10px] text-gray-400 space-y-0.5">
+                  <div><span className="text-green-400">Easy:</span> 4 tiles, 3 safe (1.3x → 13.1x)</div>
+                  <div><span className="text-amber-400">Medium:</span> 3 tiles, 2 safe (1.5x → 41.2x)</div>
+                  <div><span className="text-orange-400">Hard:</span> 2 tiles, 1 safe (2x → 501.8x)</div>
+                  <div><span className="text-red-400">Expert:</span> 3 tiles, 1 safe (2.9x → 19,289x)</div>
+                  <div><span className="text-purple-400">Master:</span> 4 tiles, 1 safe (3.9x → 256,901x)</div>
+                </div>
+              </div>
+              
+              <div className="mt-2 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
+                <div className="text-[10px] text-amber-400 font-bold mb-1">Fee Structure:</div>
+                <div className="text-[10px] text-gray-400">On Win: 2% edge (1% pool, 0.5% LP, 0.5% treasury)</div>
+                <div className="text-[10px] text-gray-400">On Loss: 50% pool, 25% LP burn, 25% treasury</div>
+              </div>
+              
+              <button onClick={() => setShowHelp(false)} className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Got it</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal - Updated to match wheel style */}
+      {showHistory && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHistory(false)} />
+          <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+            <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl max-h-[70vh] overflow-hidden flex flex-col">
+              <button onClick={() => setShowHistory(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white z-10">
+                <X className="h-4 w-4" />
+              </button>
+              <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+                <History className="w-4 h-4" /> Game History
+              </h2>
+              <p className="text-[10px] text-gray-500 mb-3">Tap any game to see details. All results are provably fair.</p>
+              
+              <div className="flex-1 overflow-y-auto space-y-2">
+                {isLoadingHistory ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
+                  </div>
+                ) : historyGames.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-8">No games yet</p>
+                ) : (
+                  historyGames.map((game, index) => {
+                    const isPending = game.status === GameStatus.Pending;
+                    const isWon = game.status === GameStatus.Won;
+                    const isLost = game.status === GameStatus.Lost;
+                    const isActive = game.status === GameStatus.Active;
+                    const gameIdStr = game.gameId.toString();
+                    const isExpanded = expandedGameId === gameIdStr;
+                    const diffConfig = DIFFICULTIES[game.difficulty];
+                    const finalMult = Number(game.currentMultiplier) / 10000;
+                    const betAmt = parseFloat(formatUnits(game.betAmount, 18));
+                    const payoutAmt = isWon ? betAmt * finalMult : 0;
+                    
+                    if (isPending || isActive) {
+                      return (
+                        <div key={index} className="p-2 rounded-lg border bg-amber-500/10 border-amber-500/30">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
+                              <div>
+                                <span className="text-xs text-amber-400 font-bold">
+                                  {isPending ? "Waiting for reveal..." : `Active - Level ${game.currentLevel}`}
+                                </span>
+                                <div className="text-[9px] text-gray-500">{diffConfig.name} difficulty</div>
+                              </div>
+                            </div>
+                            <div className="text-sm font-bold text-amber-400">
+                              {betAmt.toFixed(2)} 🍩
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div 
+                        key={index}
+                        onClick={() => setExpandedGameId(isExpanded ? null : gameIdStr)}
+                        className={cn(
+                          "p-2 rounded-lg border cursor-pointer transition-all", 
+                          isWon ? "bg-green-500/10 border-green-500/30 hover:bg-green-500/20" : "bg-red-500/10 border-red-500/30 hover:bg-red-500/20"
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className={cn("text-xl font-bold", isWon ? "text-green-400" : "text-red-400")}>
+                              {isWon ? `${finalMult.toFixed(2)}x` : "💀"}
+                            </span>
+                            <div>
+                              <span className="text-xs text-gray-400">{diffConfig.name} • Level {game.currentLevel}/9</span>
+                              <div className="text-[9px] text-gray-500 flex items-center gap-1">
+                                {isWon ? "Cashed out" : "Hit trap"} <ChevronDown className={cn("w-3 h-3 transition-transform", isExpanded && "rotate-180")} />
+                              </div>
+                            </div>
+                          </div>
+                          <div className={cn("text-sm font-bold", isWon ? "text-green-400" : "text-red-400")}>
+                            {isWon 
+                              ? `+${payoutAmt.toFixed(2)}` 
+                              : `-${betAmt.toFixed(2)}`
+                            } 🍩
+                          </div>
+                        </div>
+                        
+                        {isExpanded && (
+                          <div className="mt-3 p-2 bg-zinc-900/80 rounded-lg border border-zinc-700 space-y-2">
+                            <div className="text-[10px] text-amber-400 font-bold">🔐 Verification Data</div>
+                            
+                            <div className="space-y-1 text-[9px] font-mono">
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">Game ID:</span>
+                                <span className="text-white">{game.gameId.toString()}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">Commit Block:</span>
+                                <span className="text-white">{game.commitBlock.toString()}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">Difficulty:</span>
+                                <span className="text-white">{diffConfig.name} ({diffConfig.tiles} tiles, {diffConfig.safe} safe)</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">Final Level:</span>
+                                <span className={isWon ? "text-green-400" : "text-red-400"}>{game.currentLevel}/9</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">Trap Positions:</span>
+                                <span className="text-white font-mono text-[8px]">0x{game.trapPositions.toString(16).padStart(8, '0')}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="pt-2 border-t border-zinc-700">
+                              <div className="text-[8px] text-amber-400/80 font-mono bg-zinc-800 p-1.5 rounded break-all">
+                                traps = keccak256(blockhash + gameId)
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              
+              <button onClick={() => setShowHistory(false)} className="mt-2 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Close</button>
             </div>
           </div>
         </div>
@@ -928,7 +1192,3 @@ function ApproveButton({ spender, onSuccess }: { spender: `0x${string}`; onSucce
     </button>
   );
 }
-
-const ERC20_ABI_APPROVE = [
-  { inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], name: "approve", outputs: [{ type: "bool" }], stateMutability: "nonpayable", type: "function" },
-] as const;
