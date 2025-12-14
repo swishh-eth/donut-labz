@@ -492,7 +492,7 @@ export default function MinesPage() {
       let displayMsg = "Transaction failed";
       
       if (msg.includes("User rejected") || msg.includes("rejected")) {
-        displayMsg = "Transaction cancelled";
+        displayMsg = "Try again, transaction failed";
       } else if (msg.includes("insufficient") || msg.includes("Insufficient")) {
         displayMsg = "Insufficient balance";
       } else if (msg.includes("Insufficient pool")) {
