@@ -269,6 +269,7 @@ export default function MinesPage() {
   const [showApprovalArrow, setShowApprovalArrow] = useState(false);
   const [dismissedGameId, setDismissedGameId] = useState<bigint | null>(null);
   const [dismissedPendingNotice, setDismissedPendingNotice] = useState(false);
+  const [expandedPanel, setExpandedPanel] = useState<"none" | "mines" | "bet">("none");
   const [pendingGame, setPendingGame] = useState<PendingGame | null>(null);
   const [gameStep, setGameStep] = useState<"idle" | "approving" | "starting" | "playing" | "revealing" | "cashing">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -775,6 +776,12 @@ export default function MinesPage() {
         .arrow-bounce { 
           animation: fade-in 0.3s ease-out forwards, bounce-down 0.8s ease-in-out infinite;
         }
+        .control-bar {
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .panel-slide {
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
       `}</style>
 
       {/* Donut Confetti */}
@@ -1041,94 +1048,164 @@ export default function MinesPage() {
         </div>
 
         {/* Bottom Controls */}
-        <div className="flex-shrink-0 space-y-2">
-          {/* Mine Count Selector - show when no playable game */}
+        <div className="flex-shrink-0">
+          {/* Compact Control Bar - show when no playable game */}
           {!hasPlayableGame && (
-            <>
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-[10px] text-gray-400">Mines</span>
-                  <span className="text-xs font-bold text-white">{mineCount}</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="24"
-                  value={mineCount}
-                  onChange={(e) => {
-                    const newValue = parseInt(e.target.value);
-                    if (newValue > 1) {
-                      // Beta version - only allow 1 mine
-                      setShowBetaPopup(true);
-                      setTimeout(() => setShowBetaPopup(false), 2000);
-                      try { sdk.haptics.notificationOccurred("warning"); } catch {}
-                    }
-                  }}
-                  className="w-full accent-amber-500"
-                  disabled={isProcessing}
-                />
-                <div className="flex justify-between text-[8px] text-gray-500 mt-0.5">
-                  <span>1 (Safe)</span>
-                  <span>24 (Risky)</span>
-                </div>
-              </div>
-
-              {/* Bet Amount */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-[10px] text-gray-400">Bet Amount</span>
-                  <div className="flex gap-1">
-                    {["0.25", "0.5", "0.75", "1"].map((val) => (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 overflow-hidden">
+              <div className="flex items-center gap-2 control-bar">
+                {/* Mines Button / Expanded Panel */}
+                <div className={cn(
+                  "panel-slide flex items-center",
+                  expandedPanel === "mines" ? "flex-1" : "flex-shrink-0"
+                )}>
+                  {expandedPanel === "mines" ? (
+                    // Expanded mines slider
+                    <div className="flex-1 flex items-center gap-2">
                       <button
-                        key={val}
-                        onClick={() => {
-                          setBetAmount(val);
-                          try { sdk.haptics.selectionChanged(); } catch {}
-                        }}
-                        className={cn(
-                          "px-1.5 py-0.5 text-[9px] rounded border transition-colors",
-                          betAmount === val
-                            ? "bg-amber-500 text-black border-amber-500"
-                            : "bg-zinc-800 text-gray-400 border-zinc-700 hover:border-zinc-600"
-                        )}
+                        onClick={() => setExpandedPanel("none")}
+                        className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center flex-shrink-0"
                       >
-                        {val}
+                        <span className="text-[8px] text-gray-500">MINES</span>
+                        <span className="text-sm font-bold text-white">{mineCount}</span>
                       </button>
-                    ))}
-                  </div>
+                      <div className="flex-1 flex flex-col justify-center">
+                        <input
+                          type="range"
+                          min="1"
+                          max="24"
+                          value={mineCount}
+                          onChange={(e) => {
+                            const newValue = parseInt(e.target.value);
+                            if (newValue > 1) {
+                              setShowBetaPopup(true);
+                              setTimeout(() => setShowBetaPopup(false), 2000);
+                              try { sdk.haptics.notificationOccurred("warning"); } catch {}
+                            }
+                          }}
+                          className="w-full accent-amber-500"
+                          disabled={isProcessing}
+                        />
+                        <div className="flex justify-between text-[8px] text-gray-500 mt-0.5">
+                          <span>1 (Safe)</span>
+                          <span>24 (Risky)</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // Collapsed mines button
+                    <button
+                      onClick={() => {
+                        setExpandedPanel("mines");
+                        try { sdk.haptics.selectionChanged(); } catch {}
+                      }}
+                      className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center"
+                    >
+                      <span className="text-[8px] text-gray-500">MINES</span>
+                      <span className="text-sm font-bold text-white">{mineCount}</span>
+                    </button>
+                  )}
                 </div>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={betAmount}
-                  onChange={(e) => {
-                    // Only allow valid decimal numbers
-                    const val = e.target.value;
-                    if (val === "" || /^\d*\.?\d*$/.test(val)) {
-                      setBetAmount(val);
-                    }
-                  }}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-center text-base font-bold"
-                  disabled={isProcessing}
-                />
-              </div>
 
-              {/* Start Game Button */}
-              <button
-                onClick={handleStartGame}
-                disabled={isProcessing || !isConnected || isStartPending || isApprovePending}
-                className="w-full py-3 rounded-xl bg-white hover:bg-gray-100 text-black font-bold text-lg tracking-wide disabled:opacity-50 transition-colors"
-              >
-                {isProcessing || isStartPending || isApprovePending ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    {gameStep === "approving" || isApprovePending ? "Approving..." : "Starting..."}
-                  </span>
-                ) : (
-                  "START GAME"
-                )}
-              </button>
-            </>
+                {/* Start Game Button */}
+                <div className={cn(
+                  "panel-slide",
+                  expandedPanel === "none" ? "flex-1" : "flex-shrink-0"
+                )}>
+                  <button
+                    onClick={() => {
+                      if (expandedPanel !== "none") {
+                        setExpandedPanel("none");
+                      } else {
+                        handleStartGame();
+                      }
+                    }}
+                    disabled={expandedPanel === "none" && (isProcessing || !isConnected || isStartPending || isApprovePending)}
+                    className={cn(
+                      "rounded-xl bg-white hover:bg-gray-100 text-black font-bold transition-all disabled:opacity-50 flex items-center justify-center",
+                      expandedPanel === "none" 
+                        ? "w-full h-12 text-base" 
+                        : "w-12 h-12"
+                    )}
+                  >
+                    {isProcessing || isStartPending || isApprovePending ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : expandedPanel !== "none" ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      "START GAME"
+                    )}
+                  </button>
+                </div>
+
+                {/* Bet Amount Button / Expanded Panel */}
+                <div className={cn(
+                  "panel-slide flex items-center",
+                  expandedPanel === "bet" ? "flex-1" : "flex-shrink-0"
+                )}>
+                  {expandedPanel === "bet" ? (
+                    // Expanded bet selector
+                    <div className="flex-1 flex items-center gap-2">
+                      <div className="flex-1 flex flex-col gap-1">
+                        <div className="flex gap-1">
+                          {["0.25", "0.5", "0.75", "1"].map((val) => (
+                            <button
+                              key={val}
+                              onClick={() => {
+                                setBetAmount(val);
+                                try { sdk.haptics.selectionChanged(); } catch {}
+                              }}
+                              className={cn(
+                                "flex-1 py-1.5 text-[10px] rounded border transition-colors font-bold",
+                                betAmount === val
+                                  ? "bg-amber-500 text-black border-amber-500"
+                                  : "bg-zinc-800 text-gray-400 border-zinc-700"
+                              )}
+                            >
+                              {val}
+                            </button>
+                          ))}
+                        </div>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={betAmount}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                              setBetAmount(val);
+                            }
+                          }}
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold"
+                          disabled={isProcessing}
+                          placeholder="Custom"
+                        />
+                      </div>
+                      <button
+                        onClick={() => setExpandedPanel("none")}
+                        className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center flex-shrink-0"
+                      >
+                        <span className="text-[8px] text-gray-500">BET</span>
+                        <span className="text-sm font-bold text-amber-400">{betAmount}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    // Collapsed bet button
+                    <button
+                      onClick={() => {
+                        setExpandedPanel("bet");
+                        try { sdk.haptics.selectionChanged(); } catch {}
+                      }}
+                      className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center"
+                    >
+                      <span className="text-[8px] text-gray-500">BET</span>
+                      <span className="text-sm font-bold text-amber-400">{betAmount}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
