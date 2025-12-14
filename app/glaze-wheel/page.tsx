@@ -1076,7 +1076,7 @@ export default function GlazeWheelPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">Glaze Wheel</h1>
+            <h1 className="text-xl font-bold">GLAZE WHEEL</h1>
             <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full border border-green-500/30 animate-pulse">LIVE</span>
           </div>
           {context?.user?.pfpUrl ? (
