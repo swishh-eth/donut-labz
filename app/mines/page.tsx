@@ -747,9 +747,26 @@ export default function MinesPage() {
   const revealedTiles = game ? Number(game[7]) : 0; // revealedTiles is index 7
   const safeRevealed = game ? Number(game[5]) : 0; // safeRevealed is index 5
   const gameMineCount = game ? Number(game[4]) : mineCount; // mineCount is index 4
-  const displayMultiplier = calculateDisplayMultiplier(gameMineCount, safeRevealed);
   const minePositions = game ? BigInt(game[8]) : BigInt(0); // minePositions is index 8
   const gameBetAmount = game ? game[2] : BigInt(0); // betAmount is index 2
+  
+  // Calculate local safe revealed count from localRevealedTiles
+  const localSafeCount = (() => {
+    let count = 0;
+    for (let i = 0; i < 25; i++) {
+      if ((localRevealedTiles & (1 << i)) !== 0) {
+        count++;
+      }
+    }
+    return count;
+  })();
+  
+  // Display multiplier uses optimistic count (shows what you're working towards)
+  const displaySafeRevealed = Math.max(safeRevealed, localSafeCount);
+  const displayMultiplier = calculateDisplayMultiplier(gameMineCount, displaySafeRevealed);
+  
+  // Actual payout multiplier uses contract's confirmed count (what you'll actually get)
+  const actualPayoutMultiplier = calculateDisplayMultiplier(gameMineCount, safeRevealed);
   
   // Sync local revealed tiles with contract when contract has more reveals
   useEffect(() => {
@@ -978,7 +995,7 @@ export default function MinesPage() {
                     <div className="text-center mb-2">
                       <div className="text-xs text-gray-400">Current Payout</div>
                       <div className="text-xl font-bold text-green-400">
-                        🍩 {(parseFloat(formatUnits(gameBetAmount, 18)) * displayMultiplier).toFixed(4)}
+                        🍩 {(parseFloat(formatUnits(gameBetAmount, 18)) * actualPayoutMultiplier).toFixed(4)}
                       </div>
                     </div>
                   )}
@@ -993,7 +1010,7 @@ export default function MinesPage() {
                         Cashing Out...
                       </span>
                     ) : (
-                      `CASH OUT ${displayMultiplier.toFixed(2)}x`
+                      `CASH OUT ${actualPayoutMultiplier.toFixed(2)}x`
                     )}
                   </button>
                 </div>
@@ -1010,7 +1027,7 @@ export default function MinesPage() {
                     <div className="text-sm text-gray-400 mt-1">
                       {game[6] === 3 
                         ? `Lost ${parseFloat(formatUnits(gameBetAmount, 18)).toFixed(2)} DONUT`
-                        : `Won ${parseFloat(formatUnits(game[9], 18)).toFixed(2)} DONUT`
+                        : `Won ${parseFloat(formatUnits(game[9], 18)).toFixed(4)} DONUT`
                       }
                     </div>
                   </div>
@@ -1023,6 +1040,7 @@ export default function MinesPage() {
                       // Clear all game state to go back to "buy" screen
                       setPendingGame(null);
                       setGameStep("idle");
+                      setLocalRevealedTiles(0); // Clear local revealed tiles
                       // Clear the current game from active games by refetching
                       // The contract will have removed this game from active list
                       refetchActiveGames();
