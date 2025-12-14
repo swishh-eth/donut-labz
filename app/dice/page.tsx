@@ -206,6 +206,7 @@ export default function DicePage() {
   const [context, setContext] = useState<{ user?: { fid: number; username?: string; pfpUrl?: string } } | null>(null);
   const [betAmount, setBetAmount] = useState("1");
   const [target, setTarget] = useState(50);
+  const [animatedTarget, setAnimatedTarget] = useState(50); // For animation during rolling
   const [prediction, setPrediction] = useState<"over" | "under">("over");
   const [showHistory, setShowHistory] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -299,6 +300,54 @@ export default function DicePage() {
     return () => clearTimeout(timeout);
   }, []);
 
+  // Animate slider while rolling
+  useEffect(() => {
+    if (!isRolling) {
+      setAnimatedTarget(target);
+      return;
+    }
+    
+    let frame: number;
+    let direction = 1;
+    let current = target;
+    
+    const animate = () => {
+      // Bounce between 10 and 90
+      current += direction * (Math.random() * 8 + 2);
+      
+      if (current >= 90) {
+        current = 90;
+        direction = -1;
+      } else if (current <= 10) {
+        current = 10;
+        direction = 1;
+      }
+      
+      setAnimatedTarget(Math.round(current));
+      frame = requestAnimationFrame(animate);
+    };
+    
+    // Start with a small delay
+    const timeout = setTimeout(() => {
+      frame = requestAnimationFrame(animate);
+    }, 100);
+    
+    return () => {
+      clearTimeout(timeout);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [isRolling, target]);
+
+  // Haptic feedback on slider change
+  const handleTargetChange = (newTarget: number) => {
+    if (newTarget !== target) {
+      setTarget(newTarget);
+      try {
+        sdk.haptics.impactOccurred("light");
+      } catch {}
+    }
+  };
+
   const { writeContract: writePlaceBet, isPending: isPlacePending } = useWriteContract();
   const { writeContract: writeClaim, isPending: isClaimPending } = useWriteContract();
 
@@ -330,12 +379,19 @@ export default function DicePage() {
         const apiData = await apiRes.json();
         console.log("API response:", apiData);
         
-        // Check bet status directly
+        // If API just revealed something, wait a moment for chain to update
+        if (apiData?.results?.dice?.revealed?.length > 0) {
+          console.log("API revealed bets, waiting 2s for chain...");
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        
+        // Check bet status directly with fresh read
         const bet = await publicClient?.readContract({
           address: DONUT_DICE_ADDRESS,
           abi: DICE_V5_ABI,
           functionName: "getBet",
           args: [betId],
+          blockTag: 'latest', // Force latest block
         }) as OnchainBet;
         
         const status = Number(bet.status);
@@ -550,8 +606,8 @@ export default function DicePage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">DICE</h1>
-            <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full border border-green-500/30">V5</span>
+            <h1 className="text-xl font-bold">Sugar Cubes</h1>
+            <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/30 animate-pulse">LIVE</span>
           </div>
           {context?.user?.pfpUrl ? (
             <img src={context.user.pfpUrl} alt="" className="w-7 h-7 rounded-full border border-zinc-700" />
@@ -656,16 +712,24 @@ export default function DicePage() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
             <div className="flex justify-between mb-1">
               <span className="text-[10px] text-gray-400">Target</span>
-              <span className="text-xs font-bold">{target}</span>
+              <span className={cn(
+                "text-xs font-bold transition-all",
+                isRolling && "text-amber-400"
+              )}>
+                {isRolling ? animatedTarget : target}
+              </span>
             </div>
             <input
               type="range"
               min="2"
               max="98"
-              value={target}
-              onChange={(e) => setTarget(parseInt(e.target.value))}
+              value={isRolling ? animatedTarget : target}
+              onChange={(e) => handleTargetChange(parseInt(e.target.value))}
               disabled={isRolling}
-              className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-amber-500 disabled:opacity-50"
+              className={cn(
+                "w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-amber-500 disabled:opacity-50 transition-all",
+                isRolling && "accent-amber-400"
+              )}
             />
           </div>
 
