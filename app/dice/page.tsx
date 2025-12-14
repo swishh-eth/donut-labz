@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
@@ -301,8 +301,8 @@ export default function DicePage() {
   const { writeContract: writePlaceBet, isPending: isPlacePending } = useWriteContract();
   const { writeContract: writeClaim, isPending: isClaimPending } = useWriteContract();
 
-  // Poll for result after bet is placed
-  const pollForResult = useCallback(async (betId: bigint) => {
+  // Poll for result after bet is placed - NOT a useCallback to avoid stale closures
+  const pollForResult = async (betId: bigint) => {
     if (pollingRef.current) {
       console.log("Already polling, skipping");
       return;
@@ -320,9 +320,11 @@ export default function DicePage() {
     while (attempts < maxAttempts && pollingRef.current) {
       try {
         // Call API to trigger reveal
-        await fetch(`/api/reveal?game=dice`);
+        const apiRes = await fetch(`/api/reveal?game=dice`);
+        const apiData = await apiRes.json();
+        console.log("API response:", apiData);
         
-        // Check bet status
+        // Check bet status directly
         const bet = await publicClient?.readContract({
           address: DONUT_DICE_ADDRESS,
           abi: DICE_V5_ABI,
@@ -330,31 +332,45 @@ export default function DicePage() {
           args: [betId],
         }) as OnchainBet;
         
-        console.log("Poll attempt", attempts, "- status:", Number(bet.status));
+        const status = Number(bet.status);
+        const result = Number(bet.result);
+        const won = Boolean(bet.won);
         
-        if (Number(bet.status) === 2) {
-          console.log("🎉 Bet revealed!", bet.result, bet.won);
+        console.log("Poll attempt", attempts, "- status:", status, "result:", result, "won:", won);
+        
+        if (status === 2) {
+          console.log("🎉 Bet revealed! Updating UI...");
           
-          setLastResult({
-            result: Number(bet.result),
-            won: Boolean(bet.won),
+          // Update all state synchronously
+          const newResult = {
+            result: result,
+            won: won,
             payout: bet.payout
-          });
+          };
           
-          if (bet.won) {
+          console.log("Setting lastResult to:", newResult);
+          setLastResult(newResult);
+          
+          console.log("Setting isRolling to false");
+          setIsRolling(false);
+          
+          if (won) {
+            console.log("Player won! Showing confetti");
             setStreak(prev => prev + 1);
             setShowConfetti(true);
             try { sdk.haptics.impactOccurred("heavy"); } catch {}
             setTimeout(() => setShowConfetti(false), 3000);
           } else {
+            console.log("Player lost");
             setStreak(0);
             try { sdk.haptics.impactOccurred("heavy"); } catch {}
           }
           
           refetchBets();
           refetchBalance();
-          setIsRolling(false);
           pollingRef.current = false;
+          
+          console.log("Done updating state");
           return;
         }
       } catch (e) {
@@ -366,10 +382,11 @@ export default function DicePage() {
     }
     
     // Timeout
+    console.log("Polling timed out");
     setErrorMessage("Timeout - check history");
     setIsRolling(false);
     pollingRef.current = false;
-  }, [publicClient, refetchBets, refetchBalance]);
+  };
 
   const handleRoll = async () => {
     if (!isConnected || !address) return;
