@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
@@ -341,28 +342,29 @@ export default function DicePage() {
         if (status === 2) {
           console.log("🎉 Bet revealed! Updating UI...");
           
-          // Update all state synchronously
-          const newResult = {
-            result: result,
-            won: won,
-            payout: bet.payout
-          };
-          
-          console.log("Setting lastResult to:", newResult);
-          setLastResult(newResult);
-          
-          console.log("Setting isRolling to false");
-          setIsRolling(false);
+          // Force synchronous state updates
+          flushSync(() => {
+            setLastResult({
+              result: result,
+              won: won,
+              payout: bet.payout
+            });
+            setIsRolling(false);
+          });
           
           if (won) {
             console.log("Player won! Showing confetti");
-            setStreak(prev => prev + 1);
-            setShowConfetti(true);
+            flushSync(() => {
+              setStreak(prev => prev + 1);
+              setShowConfetti(true);
+            });
             try { sdk.haptics.impactOccurred("heavy"); } catch {}
             setTimeout(() => setShowConfetti(false), 3000);
           } else {
             console.log("Player lost");
-            setStreak(0);
+            flushSync(() => {
+              setStreak(0);
+            });
             try { sdk.haptics.impactOccurred("heavy"); } catch {}
           }
           
@@ -411,9 +413,13 @@ export default function DicePage() {
       return;
     }
 
+    // Reset state for new bet
+    pollingRef.current = false; // Reset polling ref
     setLastResult(null);
     setErrorMessage(null);
     setIsRolling(true);
+    
+    console.log("Starting new bet...");
     
     writePlaceBet({
       address: DONUT_DICE_ADDRESS,
