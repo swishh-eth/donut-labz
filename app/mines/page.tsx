@@ -218,6 +218,7 @@ function Tile({
   isMine, 
   isGameOver,
   minePositions,
+  isPending,
   onClick,
   disabled
 }: {
@@ -226,6 +227,7 @@ function Tile({
   isMine: boolean;
   isGameOver: boolean;
   minePositions: bigint;
+  isPending: boolean;
   onClick: () => void;
   disabled: boolean;
 }) {
@@ -235,17 +237,19 @@ function Tile({
   return (
     <button
       onClick={onClick}
-      disabled={disabled || isRevealed}
+      disabled={disabled || isRevealed || isPending}
       className={cn(
         "aspect-square rounded-lg border-2 transition-all duration-200 flex items-center justify-center text-lg font-bold",
+        isPending && "bg-amber-500/50 border-amber-400 animate-pulse",
         isRevealed && !isMine && "bg-amber-500/30 border-amber-500 text-amber-400",
         isExploded && "bg-red-500/30 border-red-500 text-red-400 animate-pulse",
         showMine && !isExploded && "bg-red-500/10 border-red-500/50 text-red-400/50",
-        !isRevealed && !showMine && "bg-zinc-800 border-zinc-700 hover:bg-zinc-700 hover:border-zinc-600 active:scale-95",
-        disabled && !isRevealed && "opacity-50 cursor-not-allowed hover:bg-zinc-800 hover:border-zinc-700"
+        !isRevealed && !showMine && !isPending && "bg-zinc-800 border-zinc-700 hover:bg-zinc-700 hover:border-zinc-600 active:scale-95",
+        disabled && !isRevealed && !isPending && "opacity-50 cursor-not-allowed hover:bg-zinc-800 hover:border-zinc-700"
       )}
     >
-      {isRevealed && !isMine && <span className="text-xl">🍩</span>}
+      {isPending && <Loader2 className="w-5 h-5 animate-spin text-amber-400" />}
+      {isRevealed && !isMine && !isPending && <span className="text-xl">🍩</span>}
       {(isExploded || showMine) && <Bomb className="w-5 h-5" />}
     </button>
   );
@@ -268,6 +272,7 @@ export default function MinesPage() {
   const [gameStep, setGameStep] = useState<"idle" | "approving" | "starting" | "playing" | "revealing" | "cashing">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [pendingTileIndex, setPendingTileIndex] = useState<number | null>(null); // Optimistic tile reveal
 
   const { address, isConnected } = useAccount();
 
@@ -451,18 +456,19 @@ export default function MinesPage() {
       
       setErrorMessage(displayMsg);
       setGameStep("idle");
+      setPendingTileIndex(null); // Clear pending tile on error
       setTimeout(() => setErrorMessage(null), 5000);
     }
   }, [approveError, startError, revealError, cashOutError, claimExpiredError]);
 
-  // Handle approval success
+  // Handle approval success - auto-start the game
   useEffect(() => {
     if (isApproveSuccess && gameStep === "approving") {
-      refetchAllowance();
-      setGameStep("idle");
-      // Show bouncing arrow to guide user to click START GAME
-      setShowApprovalArrow(true);
-      try { sdk.haptics.notificationOccurred("success"); } catch {}
+      refetchAllowance().then(() => {
+        // Automatically start the game after approval
+        try { sdk.haptics.notificationOccurred("success"); } catch {}
+        startNewGame();
+      });
     }
   }, [isApproveSuccess, gameStep]);
 
@@ -501,7 +507,8 @@ export default function MinesPage() {
   // Handle reveal success
   useEffect(() => {
     if (isRevealSuccess && gameStep === "revealing") {
-      // Immediately set back to playing so user can click another tile
+      // Clear pending tile and set back to playing
+      setPendingTileIndex(null);
       setGameStep("playing");
       
       // Show confetti and haptics immediately (optimistic - assume safe)
@@ -638,7 +645,12 @@ export default function MinesPage() {
       return;
     }
     
+    // Optimistic update - show tile as pending immediately
+    setPendingTileIndex(tileIndex);
     setGameStep("revealing");
+    
+    // Haptic feedback immediately
+    try { sdk.haptics.impactOccurred("light"); } catch {}
     
     writeRevealTile({
       address: DONUT_MINES_ADDRESS,
@@ -860,6 +872,7 @@ export default function MinesPage() {
                       isMine={isMine}
                       isGameOver={isGameOver}
                       minePositions={minePositions}
+                      isPending={pendingTileIndex === i}
                       onClick={() => handleRevealTile(i)}
                       disabled={!isGameActive || gameStep === "revealing"}
                     />
@@ -1028,22 +1041,9 @@ export default function MinesPage() {
                 />
               </div>
 
-              {/* Bouncing Arrow after Approval */}
-              {showApprovalArrow && (
-                <div className="flex flex-col items-center arrow-bounce">
-                  <span className="text-amber-400 text-xs font-bold mb-1">Approved! Now start your game</span>
-                  <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                  </svg>
-                </div>
-              )}
-
               {/* Start Game Button */}
               <button
-                onClick={() => {
-                  setShowApprovalArrow(false);
-                  handleStartGame();
-                }}
+                onClick={handleStartGame}
                 disabled={isProcessing || !isConnected || isStartPending || isApprovePending}
                 className="w-full py-3 rounded-xl bg-white hover:bg-gray-100 text-black font-bold text-lg tracking-wide disabled:opacity-50 transition-colors"
               >
