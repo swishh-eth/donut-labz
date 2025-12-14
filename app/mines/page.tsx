@@ -6,7 +6,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
-import { History, HelpCircle, X, Loader2, Shield, Bomb, Volume2, VolumeX, ChevronDown, LogOut } from "lucide-react";
+import { History, HelpCircle, X, Loader2, Shield, Bomb, Volume2, VolumeX, ChevronDown, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Contract addresses - V5
@@ -318,8 +318,10 @@ export default function BakeryMinesPage() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [hasShownApproval, setHasShownApproval] = useState(false);
-  const [expandedBet, setExpandedBet] = useState(false);
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
+  
+  // Collapsible panel state (like wheel)
+  const [expandedPanel, setExpandedPanel] = useState<"none" | "mines" | "bet">("none");
   
   // Game state
   const [activeGameId, setActiveGameId] = useState<bigint | null>(null);
@@ -512,8 +514,6 @@ export default function BakeryMinesPage() {
 
   // Poll for game reveal when waiting (for page reload cases)
   useEffect(() => {
-    // Only use this for existing pending games (page reload scenario)
-    // The start game handler has its own polling
     if (!isWaitingForReveal || !activeGameId || !publicClient || isStartingGame) return;
     
     let cancelled = false;
@@ -521,12 +521,10 @@ export default function BakeryMinesPage() {
     const pollForReveal = async () => {
       if (cancelled) return;
       
-      // Trigger reveal API
       try {
         await fetch('/api/reveal?game=mines');
       } catch {}
       
-      // Wait a bit then check game status
       await new Promise(r => setTimeout(r, 4000));
       
       if (cancelled) return;
@@ -541,7 +539,6 @@ export default function BakeryMinesPage() {
         }) as [string, string, bigint, number, bigint, number, number, number, bigint, bigint];
         
         if (game[5] === GameStatus.Active) {
-          // Game revealed!
           setGameState({
             player: game[0] as `0x${string}`,
             token: game[1] as `0x${string}`,
@@ -606,7 +603,6 @@ export default function BakeryMinesPage() {
             payout: game[9],
           });
           
-          // Small delay between fetches to avoid rate limiting
           await new Promise(r => setTimeout(r, 100));
         } catch {}
       }
@@ -655,6 +651,7 @@ export default function BakeryMinesPage() {
 
     setIsStartingGame(true);
     setGameResult(null);
+    setExpandedPanel("none");
     
     writeStartGame({
       address: DONUT_MINES_ADDRESS,
@@ -664,15 +661,13 @@ export default function BakeryMinesPage() {
     });
   };
 
-  // Handle start game success - get game ID from receipt and start polling
+  // Handle start game success
   useEffect(() => {
     if (isStartSuccess && isStartingGame && startHash && publicClient) {
       const getGameIdAndPoll = async () => {
         try {
-          // Get game ID from transaction receipt
           const receipt = await publicClient.getTransactionReceipt({ hash: startHash });
           
-          // Find GameStarted event
           const gameStartedLog = receipt.logs.find(log => 
             log.address.toLowerCase() === DONUT_MINES_ADDRESS.toLowerCase()
           );
@@ -681,13 +676,10 @@ export default function BakeryMinesPage() {
             const gameId = BigInt(gameStartedLog.topics[1]);
             console.log("Got game ID from receipt:", gameId.toString());
             
-            // Reset confirmed tiles for new game
             setConfirmedTiles(0);
-            
             setActiveGameId(gameId);
             setIsWaitingForReveal(true);
             
-            // Start polling for reveal
             let attempts = 0;
             const maxAttempts = 30;
             
@@ -695,12 +687,10 @@ export default function BakeryMinesPage() {
               attempts++;
               console.log(`Poll attempt ${attempts} for game ${gameId.toString()}`);
               
-              // Trigger reveal API
               try {
                 await fetch('/api/reveal?game=mines');
               } catch {}
               
-              // Wait then check
               await new Promise(r => setTimeout(r, 4000));
               
               try {
@@ -715,7 +705,6 @@ export default function BakeryMinesPage() {
                 console.log("Game status:", game[5]);
                 
                 if (game[5] === GameStatus.Active) {
-                  // Game revealed!
                   setGameState({
                     player: game[0] as `0x${string}`,
                     token: game[1] as `0x${string}`,
@@ -746,7 +735,6 @@ export default function BakeryMinesPage() {
               return false;
             };
             
-            // Poll until done
             const pollLoop = async () => {
               while (true) {
                 const done = await poll();
@@ -790,7 +778,7 @@ export default function BakeryMinesPage() {
     }
   }, [startError, isStartingGame, resetStart]);
 
-  // Track tiles that are confirmed revealed (state triggers re-render)
+  // Track tiles that are confirmed revealed
   const [confirmedTiles, setConfirmedTiles] = useState<number>(0);
   
   // Handle tile reveal
@@ -799,7 +787,6 @@ export default function BakeryMinesPage() {
     if (gameState.status !== GameStatus.Active) return;
     if (revealingTile !== null || isRevealPending) return;
     
-    // Check if already revealed
     const tileMask = 1 << tileIndex;
     if ((gameState.revealedTiles & tileMask) !== 0) return;
     if ((confirmedTiles & tileMask) !== 0) return;
@@ -821,15 +808,11 @@ export default function BakeryMinesPage() {
     const tileIndex = revealingTile;
     const tileMask = 1 << tileIndex;
     
-    // Mark tile as confirmed immediately - this triggers re-render
     setConfirmedTiles(prev => prev | tileMask);
-    
-    // Clear revealing state and play feedback immediately
     setRevealingTile(null);
     playRevealSound(true);
     try { sdk.haptics.impactOccurred("light"); } catch {}
     
-    // Fetch actual state from contract
     const fetchAndUpdate = async () => {
       await new Promise(r => setTimeout(r, 300));
       
@@ -855,20 +838,15 @@ export default function BakeryMinesPage() {
           payout: game[9],
         };
         
-        // Update state
         setGameState(newGameState);
-        
-        // Sync confirmed tiles with contract state
         setConfirmedTiles(newGameState.revealedTiles);
         
-        // Check if hit mine
         const hitMine = (newGameState.minePositions & tileMask) !== 0;
         
         if (hitMine || newGameState.status === GameStatus.Lost) {
           playLoseSound();
           setGameResult("lost");
           try { sdk.haptics.impactOccurred("heavy"); } catch {}
-          // Keep the board visible for 4 seconds so they can see where the mine was
           setTimeout(() => {
             setConfirmedTiles(0);
             setActiveGameId(null);
@@ -919,7 +897,6 @@ export default function BakeryMinesPage() {
       flushSync(() => setShowConfetti(true));
       try { sdk.haptics.impactOccurred("heavy"); } catch {}
       
-      // Keep the board visible for 4 seconds so they can see where the mines were
       setTimeout(() => {
         setShowConfetti(false);
         setConfirmedTiles(0);
@@ -944,7 +921,6 @@ export default function BakeryMinesPage() {
   }, [cashOutError, isCashingOut]);
 
   const balance = tokenBalance ? parseFloat(formatUnits(tokenBalance, 18)) : 0;
-  const safeTiles = 25 - mineCount;
   const nextMultiplier = gameState 
     ? getMultiplier(gameState.mineCount, countBits(gameState.revealedTiles) + 1)
     : getMultiplier(mineCount, 1);
@@ -955,7 +931,7 @@ export default function BakeryMinesPage() {
     ? (parseFloat(formatUnits(gameState.betAmount, 18)) * currentMultiplier) - parseFloat(formatUnits(gameState.betAmount, 18))
     : 0;
 
-  // Render grid
+  // Render grid - bigger tiles now
   const renderGrid = () => {
     const tiles = [];
     const isInGame = !!gameState;
@@ -964,27 +940,22 @@ export default function BakeryMinesPage() {
     for (let i = 0; i < 25; i++) {
       const tileMask = 1 << i;
       
-      // Use both contract state AND confirmed state for revealed status
       const isRevealedOnChain = gameState ? (gameState.revealedTiles & tileMask) !== 0 : false;
       const isConfirmedRevealed = (confirmedTiles & tileMask) !== 0;
       const isRevealed = isRevealedOnChain || isConfirmedRevealed;
       
-      // Check if this tile is a mine
       const isMine = gameState ? (gameState.minePositions & tileMask) !== 0 : false;
       
-      // Show mines when game ends (either won or lost)
       const showAsMine = gameEnded && isMine;
       const showAsSafe = (isRevealed && !isMine) || (gameEnded && !isMine);
       
       const isClickable = gameState?.status === GameStatus.Active && !isRevealed && revealingTile === null;
       const isRevealing = revealingTile === i;
       
-      // Determine tile styling
       let tileStyle = "";
       if (isRevealing) {
         tileStyle = "animate-pulse bg-amber-500/20 border-amber-500";
       } else if (showAsMine) {
-        // Mine tile - red, with extra emphasis if this was the one they hit
         const wasHitMine = isRevealed && isMine;
         tileStyle = wasHitMine 
           ? "bg-red-500/40 border-red-500 animate-pulse" 
@@ -1003,19 +974,18 @@ export default function BakeryMinesPage() {
           onClick={() => handleRevealTile(i)}
           disabled={!isClickable}
           className={cn(
-            "aspect-square flex items-center justify-center font-bold transition-all",
-            isInGame ? "rounded-lg border-2 text-lg" : "rounded-md border text-sm",
+            "aspect-square flex items-center justify-center font-bold transition-all rounded-xl border-2",
             tileStyle
           )}
         >
           {isRevealing ? (
-            <Loader2 className={cn("animate-spin text-amber-400", isInGame ? "w-5 h-5" : "w-3 h-3")} />
+            <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
           ) : showAsMine ? (
-            <Bomb className={cn("text-red-400", isInGame ? "w-6 h-6" : "w-4 h-4")} />
+            <Bomb className="w-7 h-7 text-red-400" />
           ) : showAsSafe ? (
-            <span className={isInGame ? "text-xl" : "text-sm"}>🍩</span>
+            <span className="text-2xl">🍩</span>
           ) : (
-            <span className={cn("text-zinc-600", isInGame ? "text-base" : "text-xs")}>?</span>
+            <span className="text-zinc-600 text-lg">?</span>
           )}
         </button>
       );
@@ -1048,7 +1018,7 @@ export default function BakeryMinesPage() {
                 fontSize: `${20 + (i % 3) * 8}px`,
               }}
             >
-              {i % 2 === 0 ? "💎" : "🍩"}
+              🍩
             </div>
           ))}
         </div>
@@ -1122,42 +1092,40 @@ export default function BakeryMinesPage() {
           </button>
         </div>
 
-        {/* Game Grid */}
-        <div className="flex-1 flex flex-col items-center justify-center min-h-0 py-2">
+        {/* Game Grid - Now bigger */}
+        <div className="flex-1 flex flex-col items-center justify-center min-h-0">
           {isWaitingForReveal ? (
             <div className="text-center">
-              <Loader2 className="w-10 h-10 text-amber-400 animate-spin mx-auto mb-3" />
-              <div className="text-amber-400 font-bold text-sm">Setting up minefield...</div>
+              <Loader2 className="w-12 h-12 text-amber-400 animate-spin mx-auto mb-3" />
+              <div className="text-amber-400 font-bold">Setting up minefield...</div>
               <div className="text-[10px] text-gray-500 mt-1">House is placing mines</div>
             </div>
           ) : gameResult ? (
             <div className="text-center">
               <div className={cn(
-                "text-3xl font-bold mb-2",
+                "text-4xl font-bold mb-2",
                 gameResult === "won" ? "text-green-400" : "text-red-400"
               )}>
-                {gameResult === "won" ? "💎 CASHED OUT!" : "💥 BOOM!"}
+                {gameResult === "won" ? "🍩 CASHED OUT!" : "💥 BOOM!"}
               </div>
               {gameResult === "won" && gameState && (
-                <div className="text-lg text-green-400">
+                <div className="text-xl text-green-400">
                   +{(parseFloat(formatUnits(gameState.betAmount, 18)) * (Number(gameState.currentMultiplier) / 10000) * 0.98).toFixed(2)} 🍩
                 </div>
               )}
             </div>
           ) : (
             <>
-              <div className={cn(
-                "grid grid-cols-5 w-full",
-                gameState ? "gap-1.5 max-w-[280px]" : "gap-1 max-w-[200px]"
-              )}>
+              {/* Larger grid */}
+              <div className="grid grid-cols-5 gap-2 w-full max-w-[320px]">
                 {renderGrid()}
               </div>
               
               {/* Current profit display */}
               {gameState?.status === GameStatus.Active && countBits(gameState.revealedTiles) > 0 && (
-                <div className="mt-2 text-center">
+                <div className="mt-3 text-center">
                   <div className="text-[10px] text-gray-400">Current Profit</div>
-                  <div className="text-base font-bold text-green-400">+{currentProfit.toFixed(2)} 🍩</div>
+                  <div className="text-lg font-bold text-green-400">+{currentProfit.toFixed(2)} 🍩</div>
                   <div className="text-[9px] text-gray-500">
                     Next: {(nextMultiplier / 10000).toFixed(2)}x
                   </div>
@@ -1165,99 +1133,103 @@ export default function BakeryMinesPage() {
               )}
               
               {/* Status message */}
-              {!gameState && (
-                <div className="mt-2 text-center text-gray-500 text-[10px]">
-                  Select mines and start game
+              {!gameState && !isStartingGame && (
+                <div className="mt-3 text-center text-gray-500 text-xs">
+                  {mineCount} mines • {25 - mineCount} safe tiles • First reveal: {(getMultiplier(mineCount, 1) / 10000).toFixed(2)}x
                 </div>
               )}
               
               {errorMessage && (
-                <div className="mt-2 text-[10px] text-red-400">{errorMessage}</div>
+                <div className="mt-2 text-xs text-red-400">{errorMessage}</div>
               )}
             </>
           )}
         </div>
 
-        {/* Controls */}
+        {/* Controls - Collapsible like wheel */}
         <div className="space-y-2 pb-1">
-          {/* Mine Count Selection (only when no active game) */}
-          {!gameState && (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-              <div className="flex justify-between mb-1">
-                <span className="text-[10px] text-gray-400">Mines</span>
-                <span className="text-xs font-bold text-red-400">{mineCount} 💣</span>
-              </div>
-              <div className="flex gap-1">
-                {[1, 3, 5, 10, 24].map((count) => (
+          {/* Only show setup controls when no active game */}
+          {!gameState && !isStartingGame && !isWaitingForReveal && (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2">
+              <div className="flex items-center gap-2">
+                {/* Mines - compact button or expanded */}
+                {expandedPanel === "mines" ? (
+                  <div className="flex-1 flex items-center gap-1">
+                    {[1, 3, 5, 10, 24].map((count) => (
+                      <button
+                        key={count}
+                        onClick={() => {
+                          setMineCount(count);
+                          try { sdk.haptics.impactOccurred("light"); } catch {}
+                        }}
+                        className={cn(
+                          "flex-1 py-2 text-[10px] rounded font-bold border transition-all",
+                          mineCount === count
+                            ? "bg-red-500 text-white border-red-500"
+                            : "bg-zinc-800 text-gray-400 border-zinc-700"
+                        )}
+                      >
+                        {count}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
                   <button
-                    key={count}
-                    onClick={() => setMineCount(count)}
-                    disabled={isStartingGame}
-                    className={cn(
-                      "flex-1 py-2 text-[10px] rounded font-bold transition-all border",
-                      mineCount === count
-                        ? "bg-red-500 text-white border-red-500"
-                        : "bg-zinc-800 text-gray-400 border-zinc-700"
-                    )}
+                    onClick={() => {
+                      setExpandedPanel("mines");
+                      try { sdk.haptics.impactOccurred("light"); } catch {}
+                    }}
+                    className="w-14 h-12 rounded-lg bg-red-500/20 border border-red-500/50 flex flex-col items-center justify-center"
                   >
-                    {count}
+                    <span className="text-[8px] text-gray-400">MINES</span>
+                    <span className="text-sm font-bold text-red-400">{mineCount} 💣</span>
                   </button>
-                ))}
+                )}
+
+                {/* Bet Amount - compact button or expanded */}
+                {expandedPanel === "bet" ? (
+                  <div className="flex-1 flex flex-col gap-1">
+                    <div className="flex gap-1">
+                      {["0.5", "1", "2", "5"].map((val) => (
+                        <button
+                          key={val}
+                          onClick={() => {
+                            setBetAmount(val);
+                            try { sdk.haptics.impactOccurred("light"); } catch {}
+                          }}
+                          className={cn(
+                            "flex-1 py-1.5 text-[10px] rounded border font-bold",
+                            betAmount === val ? "bg-amber-500 text-black border-amber-500" : "bg-zinc-800 text-gray-400 border-zinc-700"
+                          )}
+                        >
+                          {val}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={betAmount}
+                      onChange={(e) => /^\d*\.?\d*$/.test(e.target.value) && setBetAmount(e.target.value)}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold"
+                    />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setExpandedPanel("bet");
+                      try { sdk.haptics.impactOccurred("light"); } catch {}
+                    }}
+                    className="flex-1 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2"
+                  >
+                    <span className="text-[10px] text-gray-500">BET</span>
+                    <span className="text-lg font-bold text-amber-400">{betAmount}</span>
+                    <span className="text-[10px] text-gray-500">🍩</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
-
-          {/* Bet + Action */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2">
-            <div className="flex items-center gap-2">
-              {/* Bet button (only when no active game) */}
-              {!gameState ? (
-                <button
-                  onClick={() => setExpandedBet(!expandedBet)}
-                  className="flex-1 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2"
-                >
-                  <span className="text-[10px] text-gray-500">BET</span>
-                  <span className="text-lg font-bold text-amber-400">{betAmount}</span>
-                  <span className="text-[10px] text-gray-500">🍩</span>
-                </button>
-              ) : (
-                <div className="flex-1 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2">
-                  <span className="text-[10px] text-gray-500">BET</span>
-                  <span className="text-lg font-bold text-amber-400">
-                    {parseFloat(formatUnits(gameState.betAmount, 18)).toFixed(2)}
-                  </span>
-                  <span className="text-[10px] text-gray-500">🍩</span>
-                </div>
-              )}
-            </div>
-            
-            {/* Expanded bet options */}
-            {expandedBet && !gameState && (
-              <div className="mt-2 flex flex-col gap-1">
-                <div className="flex gap-1">
-                  {["0.5", "1", "2", "5"].map((val) => (
-                    <button
-                      key={val}
-                      onClick={() => setBetAmount(val)}
-                      className={cn(
-                        "flex-1 py-1.5 text-[10px] rounded border font-bold",
-                        betAmount === val ? "bg-amber-500 text-black border-amber-500" : "bg-zinc-800 text-gray-400 border-zinc-700"
-                      )}
-                    >
-                      {val}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={betAmount}
-                  onChange={(e) => /^\d*\.?\d*$/.test(e.target.value) && setBetAmount(e.target.value)}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold"
-                />
-              </div>
-            )}
-          </div>
 
           {/* Main Action Button */}
           {gameState?.status === GameStatus.Active ? (
@@ -1277,7 +1249,7 @@ export default function BakeryMinesPage() {
                   Cashing out...
                 </span>
               ) : countBits(gameState.revealedTiles) === 0 ? (
-                "Reveal a tile first"
+                "Tap a tile to start"
               ) : (
                 `CASH OUT ${(parseFloat(formatUnits(gameState.betAmount, 18)) * currentMultiplier * 0.98).toFixed(2)} 🍩`
               )}
@@ -1317,7 +1289,7 @@ export default function BakeryMinesPage() {
                 <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
                   <History className="w-4 h-4" /> Game History
                 </h2>
-                <p className="text-[10px] text-gray-500 mb-3">Recent mines games</p>
+                <p className="text-[10px] text-gray-500 mb-3">Tap any game to verify. All results are provably fair.</p>
                 
                 <div className="flex-1 overflow-y-auto space-y-2">
                   {recentGames.length === 0 ? (
@@ -1328,23 +1300,30 @@ export default function BakeryMinesPage() {
                       const isLost = game.status === GameStatus.Lost;
                       const tilesRevealed = countBits(game.revealedTiles);
                       const multiplier = Number(game.currentMultiplier) / 10000;
+                      const gameIds = playerGameIds as bigint[] | undefined;
+                      const gameId = gameIds ? gameIds[gameIds.length - 1 - index] : null;
+                      const gameIdStr = gameId?.toString() || index.toString();
+                      const isExpanded = expandedGameId === gameIdStr;
                       
                       return (
                         <div 
                           key={index}
+                          onClick={() => setExpandedGameId(isExpanded ? null : gameIdStr)}
                           className={cn(
-                            "p-2 rounded-lg border", 
-                            isWon ? "bg-green-500/10 border-green-500/30" : isLost ? "bg-red-500/10 border-red-500/30" : "bg-zinc-800 border-zinc-700"
+                            "p-2 rounded-lg border cursor-pointer transition-all", 
+                            isWon ? "bg-green-500/10 border-green-500/30 hover:bg-green-500/20" : isLost ? "bg-red-500/10 border-red-500/30 hover:bg-red-500/20" : "bg-zinc-800 border-zinc-700"
                           )}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <span className={cn("text-xl", isWon ? "text-green-400" : "text-red-400")}>
-                                {isWon ? "💎" : "💥"}
+                                {isWon ? "🍩" : "💥"}
                               </span>
                               <div>
                                 <span className="text-xs text-gray-400">{game.mineCount} mines • {tilesRevealed} tiles</span>
-                                <div className="text-[9px] text-gray-500">{multiplier.toFixed(2)}x</div>
+                                <div className="text-[9px] text-gray-500 flex items-center gap-1">
+                                  {multiplier.toFixed(2)}x <ChevronDown className={cn("w-3 h-3 transition-transform", isExpanded && "rotate-180")} />
+                                </div>
                               </div>
                             </div>
                             <div className={cn("text-sm font-bold", isWon ? "text-green-400" : "text-red-400")}>
@@ -1354,6 +1333,41 @@ export default function BakeryMinesPage() {
                               } 🍩
                             </div>
                           </div>
+                          
+                          {isExpanded && (
+                            <div className="mt-3 p-2 bg-zinc-900/80 rounded-lg border border-zinc-700 space-y-2">
+                              <div className="text-[10px] text-amber-400 font-bold">🔐 Verification Data</div>
+                              
+                              <div className="space-y-1 text-[9px] font-mono">
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Game ID:</span>
+                                  <span className="text-white">{gameId?.toString() || "N/A"}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Commit Block:</span>
+                                  <span className="text-white">{game.commitBlock.toString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Mine Count:</span>
+                                  <span className="text-white">{game.mineCount}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Tiles Revealed:</span>
+                                  <span className={isWon ? "text-green-400" : "text-red-400"}>{tilesRevealed}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Mine Positions:</span>
+                                  <span className="text-white font-mono text-[8px]">0x{game.minePositions.toString(16).padStart(8, '0')}</span>
+                                </div>
+                              </div>
+                              
+                              <div className="pt-2 border-t border-zinc-700">
+                                <div className="text-[8px] text-amber-400/80 font-mono bg-zinc-800 p-1.5 rounded break-all">
+                                  mines = keccak256(blockhash + gameId)
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })
@@ -1376,7 +1390,7 @@ export default function BakeryMinesPage() {
                   <X className="h-4 w-4" />
                 </button>
                 <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2">
-                  <Bomb className="w-4 h-4" /> How to Play
+                  <Target className="w-4 h-4" /> How to Play
                 </h2>
                 <div className="space-y-2.5">
                   <div className="flex gap-2.5">
@@ -1389,23 +1403,41 @@ export default function BakeryMinesPage() {
                   <div className="flex gap-2.5">
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">2</div>
                     <div>
-                      <div className="font-semibold text-white text-xs">Reveal Tiles</div>
-                      <div className="text-[11px] text-gray-400">Each safe tile increases your multiplier.</div>
+                      <div className="font-semibold text-white text-xs">Set Your Bet</div>
+                      <div className="text-[11px] text-gray-400">Choose how much DONUT to wager (0.1 - 10).</div>
                     </div>
                   </div>
                   <div className="flex gap-2.5">
-                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
+                    <div>
+                      <div className="font-semibold text-white text-xs">Reveal Tiles</div>
+                      <div className="text-[11px] text-gray-400">Each safe 🍩 tile increases your multiplier!</div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
                     <div>
                       <div className="font-semibold text-green-400 text-xs">Cash Out Anytime!</div>
-                      <div className="text-[11px] text-gray-400">Take your winnings before hitting a mine!</div>
+                      <div className="text-[11px] text-gray-400">Take your winnings before hitting a 💣 mine!</div>
                     </div>
                   </div>
                 </div>
                 
                 <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
+                  <div className="text-[10px] text-amber-400 font-bold mb-1">Mine Configurations:</div>
+                  <div className="text-[10px] text-gray-400 space-y-0.5">
+                    <div><span className="text-green-400">1 mine:</span> Low risk, up to 6.86x</div>
+                    <div><span className="text-amber-400">3 mines:</span> Medium risk, up to 1,904x</div>
+                    <div><span className="text-orange-400">5 mines:</span> High risk, up to 85,273x</div>
+                    <div><span className="text-red-400">10 mines:</span> Extreme risk, up to 645B x</div>
+                    <div><span className="text-purple-400">24 mines:</span> YOLO mode, 24,500x on first tile!</div>
+                  </div>
+                </div>
+                
+                <div className="mt-2 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
                   <div className="text-[10px] text-amber-400 font-bold mb-1">Fee Structure:</div>
                   <div className="text-[10px] text-gray-400">On Win: 2% house edge</div>
-                  <div className="text-[10px] text-gray-400">On Loss: 50% pool, 25% LP, 25% treasury</div>
+                  <div className="text-[10px] text-gray-400">On Loss: 50% pool, 25% LP burn, 25% treasury</div>
                 </div>
                 
                 <button onClick={() => setShowHelp(false)} className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Got it</button>
