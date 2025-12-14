@@ -17,7 +17,7 @@ const GLAZE_WHEEL_ADDRESS = "0x82296c4Fc7B24bF1Fc87d2E2A1D9600F2028BA32" as cons
 // Create a public client for Base
 const publicClient = createPublicClient({
   chain: base,
-  transport: http(process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org'),
+  transport: http('https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g'),
 });
 
 // Minimal ABI for reading bets

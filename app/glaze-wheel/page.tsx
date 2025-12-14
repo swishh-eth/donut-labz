@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { parseUnits, formatUnits, keccak256, encodePacked, decodeEventLog } from "viem";
+import { parseUnits, formatUnits, keccak256, encodePacked, decodeEventLog, createPublicClient, http } from "viem";
+import { base } from "viem/chains";
 import { NavBar } from "@/components/nav-bar";
 import { History, HelpCircle, X, Loader2, Shield, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,12 @@ import { cn } from "@/lib/utils";
 // Contract addresses
 const GLAZE_WHEEL_ADDRESS = "0x82296c4Fc7B24bF1Fc87d2E2A1D9600F2028BA32" as const;
 const DONUT_TOKEN_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
+
+// Create a public client for direct RPC calls
+const publicClient = createPublicClient({
+  chain: base,
+  transport: http('https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g'),
+});
 
 const ERC20_ABI = [
   {
@@ -600,16 +607,49 @@ export default function GlazeWheelPage() {
       // Start the wheel animation immediately
       setIsSpinning(true);
       
+      // Function to fetch spin with retries using direct RPC
+      const fetchSpinWithRetries = async (retriesLeft: number): Promise<bigint | null> => {
+        try {
+          // Use direct publicClient call to bypass wagmi cache
+          const ids = await publicClient.readContract({
+            address: GLAZE_WHEEL_ADDRESS,
+            abi: WHEEL_ABI,
+            functionName: 'getPendingSpins',
+            args: [address as `0x${string}`],
+          }) as bigint[];
+          
+          console.log("Fetched pending spins:", ids.length, ids);
+          
+          if (ids && ids.length > 0) {
+            return ids[ids.length - 1]; // Get most recent
+          }
+          
+          if (retriesLeft > 0) {
+            console.log("No spins found, retrying...", retriesLeft, "left");
+            // Wait and retry
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return fetchSpinWithRetries(retriesLeft - 1);
+          }
+          
+          return null;
+        } catch (e) {
+          console.error("Error fetching spins:", e);
+          if (retriesLeft > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return fetchSpinWithRetries(retriesLeft - 1);
+          }
+          return null;
+        }
+      };
+      
       // After a small delay, get the spinId and reveal
       setTimeout(async () => {
-        if (pendingSpin.secret) {
+        if (pendingSpin.secret && address) {
           try {
-            const result = await refetchPendingSpins();
-            const ids = result.data as bigint[] | undefined;
+            // Try up to 5 times with 1 second between each
+            const spinId = await fetchSpinWithRetries(5);
             
-            if (ids && ids.length > 0) {
-              // Get the most recent spin (should be ours)
-              const spinId = ids[ids.length - 1];
+            if (spinId) {
               setCurrentSpinId(spinId);
               saveSpinSecret(spinId.toString(), pendingSpin.secret);
               
@@ -622,8 +662,8 @@ export default function GlazeWheelPage() {
                 args: [spinId, pendingSpin.secret]
               });
             } else {
-              // No pending spins found, something went wrong
-              setErrorMessage("Spin not found, please try again");
+              // No pending spins found after retries
+              setErrorMessage("Spin not found, check history");
               setGameStep("idle");
               setIsSpinning(false);
               setPendingSpin(null);
@@ -633,13 +673,14 @@ export default function GlazeWheelPage() {
             setErrorMessage("Error revealing spin");
             setGameStep("idle");
             setIsSpinning(false);
+            setPendingSpin(null);
           }
         }
-      }, 500);
+      }, 1000); // Increased initial delay to 1 second
       
       try { sdk.haptics.impactOccurred("medium"); } catch {}
     }
-  }, [isStartSuccess, gameStep, pendingSpin, resetStart, refetchPendingSpins, writeRevealSpin]);
+  }, [isStartSuccess, gameStep, pendingSpin, address, resetStart, writeRevealSpin]);
 
   // Handle reveal success - animate to result
   useEffect(() => {
