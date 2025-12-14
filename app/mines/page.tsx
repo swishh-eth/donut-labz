@@ -464,11 +464,15 @@ export default function MinesPage() {
   // Handle approval success - auto-start the game
   useEffect(() => {
     if (isApproveSuccess && gameStep === "approving") {
-      refetchAllowance().then(() => {
-        // Automatically start the game after approval
-        try { sdk.haptics.notificationOccurred("success"); } catch {}
+      // Reset approve state and refetch allowance
+      resetApprove();
+      refetchAllowance();
+      // Automatically start the game after approval
+      try { sdk.haptics.notificationOccurred("success"); } catch {}
+      // Small delay to ensure state is updated
+      setTimeout(() => {
         startNewGame();
-      });
+      }, 100);
     }
   }, [isApproveSuccess, gameStep]);
 
@@ -476,6 +480,7 @@ export default function MinesPage() {
   useEffect(() => {
     if (isStartSuccess && gameStep === "starting") {
       setGameStep("playing");
+      resetStart(); // Reset so we can start again later
       refetchActiveGames();
       refetchGameData();
       try { sdk.haptics.impactOccurred("medium"); } catch {}
@@ -566,6 +571,14 @@ export default function MinesPage() {
   const startNewGame = async () => {
     if (!address) return;
     
+    // Validate bet amount
+    const betNum = parseFloat(betAmount);
+    if (isNaN(betNum) || betNum <= 0 || betNum > 1) {
+      setErrorMessage("Invalid bet amount");
+      setGameStep("idle");
+      return;
+    }
+    
     // Clear any dismissed game since we're starting fresh
     setDismissedGameId(null);
     
@@ -597,8 +610,9 @@ export default function MinesPage() {
 
   const handleStartGame = async () => {
     if (!isConnected || !address) return;
-    // Prevent double clicks - check if already starting
+    // Prevent double clicks - check if already starting or have pending game
     if (gameStep === "starting" || gameStep === "approving" || isStartPending || isApprovePending) return;
+    if (pendingGame !== null) return; // Already have a pending game
     
     // Validate bet amount
     const betNum = parseFloat(betAmount);
