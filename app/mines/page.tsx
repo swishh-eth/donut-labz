@@ -1064,7 +1064,7 @@ export default function MinesPage() {
                 {/* Fix #2: Static mines display instead of selector */}
                 <div className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center flex-shrink-0">
                   <span className="text-[8px] text-gray-500">MINES</span>
-                  <span className="text-sm font-bold text-white">💣 1</span>
+                  <span className="text-sm font-bold text-white">1</span>
                 </div>
 
                 {/* Middle Section */}
