@@ -168,8 +168,10 @@ const generateSecret = (): `0x${string}` => {
   return `0x${Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('')}` as `0x${string}`;
 };
 
-// Hash the secret
+// Hash the secret - must match Solidity's keccak256(abi.encodePacked(secret))
 const hashSecret = (secret: `0x${string}`): `0x${string}` => {
+  // abi.encodePacked(bytes32) just returns the 32 bytes
+  // We use encodePacked which handles this correctly
   return keccak256(encodePacked(['bytes32'], [secret]));
 };
 
@@ -618,15 +620,35 @@ export default function GlazeWheelPage() {
             args: [address as `0x${string}`],
           }) as bigint[];
           
-          console.log("Fetched pending spins:", ids.length, ids);
+          console.log("Fetched pending spins:", ids.length, ids.map(id => id.toString()));
           
           if (ids && ids.length > 0) {
-            return ids[ids.length - 1]; // Get most recent
+            // Find the spin that matches our commitHash
+            for (let i = ids.length - 1; i >= 0; i--) {
+              const spinId = ids[i];
+              try {
+                const spinData = await publicClient.readContract({
+                  address: GLAZE_WHEEL_ADDRESS,
+                  abi: WHEEL_ABI,
+                  functionName: 'spins',
+                  args: [spinId],
+                }) as [string, string, bigint, bigint, `0x${string}`, `0x${string}`, number, number, number, number, bigint];
+                
+                const onChainCommitHash = spinData[4];
+                console.log("Spin", spinId.toString(), "commitHash:", onChainCommitHash, "our commitHash:", pendingSpin.commitHash);
+                
+                if (onChainCommitHash.toLowerCase() === pendingSpin.commitHash.toLowerCase()) {
+                  console.log("Found matching spin:", spinId.toString());
+                  return spinId;
+                }
+              } catch (e) {
+                console.error("Error reading spin data:", e);
+              }
+            }
           }
           
           if (retriesLeft > 0) {
-            console.log("No spins found, retrying...", retriesLeft, "left");
-            // Wait and retry
+            console.log("No matching spin found, retrying...", retriesLeft, "left");
             await new Promise(resolve => setTimeout(resolve, 1000));
             return fetchSpinWithRetries(retriesLeft - 1);
           }
@@ -652,6 +674,8 @@ export default function GlazeWheelPage() {
             if (spinId) {
               setCurrentSpinId(spinId);
               saveSpinSecret(spinId.toString(), pendingSpin.secret);
+              
+              console.log("Revealing spin", spinId.toString(), "with secret", pendingSpin.secret);
               
               // Now reveal the spin
               setGameStep("revealing");
