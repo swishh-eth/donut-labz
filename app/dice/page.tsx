@@ -219,13 +219,16 @@ function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; re
             </div>
           </div>
 
-          <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
-            <p className="text-[9px] text-gray-500 text-center">
-              Set a custom approval amount or revoke to prevent spending.
-            </p>
+          <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <div className="flex gap-2">
+              <Shield className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+              <p className="text-[9px] text-amber-400">
+                When you run out of approval, tap the <span className="font-bold">shield icon</span> to add more.
+              </p>
+            </div>
           </div>
           
-          <button onClick={onClose} className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Close</button>
+          <button onClick={onClose} className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Done</button>
         </div>
       </div>
     </div>
@@ -252,6 +255,8 @@ export default function DicePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentBlock, setCurrentBlock] = useState<number>(0);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [expandedPanel, setExpandedPanel] = useState<"none" | "bet">("none");
+  const [showBetText, setShowBetText] = useState(true);
 
   const { address, isConnected } = useAccount();
 
@@ -305,6 +310,16 @@ export default function DicePage() {
     functionName: "allowance",
     args: address ? [address, DONUT_DICE_ADDRESS] : undefined,
   });
+
+  // Auto-show approvals modal if no allowance
+  useEffect(() => {
+    if (isConnected && allowance !== undefined && allowance === BigInt(0) && !showApprovals) {
+      const timer = setTimeout(() => {
+        setShowApprovals(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isConnected, allowance]);
 
   // Refetch balance when tab becomes visible
   useEffect(() => {
@@ -510,15 +525,11 @@ export default function DicePage() {
         try {
           const receipt = await publicClient?.getTransactionReceipt({ hash: revealHash });
           
-          console.log("Receipt logs:", receipt?.logs);
-          
-          // Find BetRevealed event - it should have 2 indexed topics (event sig + betId + player)
+          // Find BetRevealed event
           const betRevealedLog = receipt?.logs.find(log => {
             return log.address.toLowerCase() === DONUT_DICE_ADDRESS.toLowerCase() && 
-                   log.topics.length === 3; // BetRevealed has 2 indexed params
+                   log.topics.length === 3;
           });
-          
-          console.log("Found log:", betRevealedLog);
           
           let result = 0;
           let won = false;
@@ -526,7 +537,6 @@ export default function DicePage() {
           
           if (betRevealedLog && betRevealedLog.data) {
             try {
-              // Use viem to properly decode the event data
               const decoded = decodeAbiParameters(
                 [
                   { name: 'secret', type: 'bytes32' },
@@ -541,8 +551,6 @@ export default function DicePage() {
               result = Number(decoded[2]);
               won = decoded[3] as boolean;
               payout = decoded[4] as bigint;
-              
-              console.log("Decoded from event:", { result, won, payout: payout.toString() });
             } catch (parseError) {
               console.error("Failed to parse event:", parseError);
             }
@@ -550,19 +558,16 @@ export default function DicePage() {
           
           // If event parsing failed, get from contract
           if (result === 0) {
-            console.log("Falling back to contract data...");
             await new Promise(resolve => setTimeout(resolve, 1500));
             const { data: updatedBets } = await refetchBets();
             
             if (updatedBets && (updatedBets as OnchainBet[]).length > 0) {
               const latestBet = (updatedBets as OnchainBet[])[0];
-              console.log("Latest bet from contract:", latestBet);
               
               if (latestBet.result > 0) {
                 result = Number(latestBet.result);
                 won = latestBet.won;
                 payout = latestBet.payout;
-                console.log("Got from contract:", { result, won, payout: payout.toString() });
               }
             }
           }
@@ -574,21 +579,18 @@ export default function DicePage() {
             if (won) {
               setStreak(prev => prev + 1);
               setShowConfetti(true);
-              // Multiple haptic pulses for win celebration
               try { 
                 await sdk.haptics.impactOccurred("heavy");
                 setTimeout(() => sdk.haptics.impactOccurred("medium"), 100);
                 setTimeout(() => sdk.haptics.impactOccurred("light"), 200);
                 setTimeout(() => sdk.haptics.impactOccurred("medium"), 300);
               } catch {}
-              // Hide confetti after animation
               setTimeout(() => setShowConfetti(false), 3000);
             } else {
               setStreak(0);
               try { await sdk.haptics.impactOccurred("heavy"); } catch {}
             }
           } else {
-            console.error("Could not get result from event or contract");
             setLastResult({ result: 0, won: false, payout: BigInt(0) });
           }
           
@@ -618,10 +620,27 @@ export default function DicePage() {
     if (!currentToken.enabled) return;
     
     const amount = parseFloat(betAmount || "0");
-    if (amount <= 0) return;
+    if (amount <= 0 || amount > 1) {
+      setErrorMessage("Bet must be between 0.1 and 1");
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
     
     const amountWei = parseUnits(betAmount, 18);
-    if (tokenBalance && amountWei > tokenBalance) return;
+    if (tokenBalance && amountWei > tokenBalance) {
+      setErrorMessage("Insufficient balance");
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+
+    // Check if we need approval
+    const needsApproval = !allowance || allowance < amountWei;
+    if (needsApproval) {
+      setShowApprovals(true);
+      setErrorMessage("Need approval - tap shield icon to add more");
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
 
     // Generate secret and hash
     const secret = generateSecret();
@@ -639,37 +658,22 @@ export default function DicePage() {
     setLastResult(null);
     setErrorMessage(null);
 
-    // Check if we need approval - only if allowance is less than bet amount
-    const needsApproval = !allowance || allowance < amountWei;
-    
-    if (needsApproval) {
-      setBetStep("approving");
-      // Approve 10 DONUT so they don't have to approve every bet
-      writeApprove({
-        address: currentTokenAddress,
-        abi: ERC20_ABI,
-        functionName: "approve",
-        args: [DONUT_DICE_ADDRESS, parseUnits("10", 18)]
-      });
-    } else {
-      setBetStep("committing");
-      writeCommit({
-        address: DONUT_DICE_ADDRESS,
-        abi: DONUT_DICE_ABI,
-        functionName: "commitBet",
-        args: [currentTokenAddress, amountWei, target, prediction === "over", commitHash]
-      });
-    }
+    setBetStep("committing");
+    writeCommit({
+      address: DONUT_DICE_ADDRESS,
+      abi: DONUT_DICE_ABI,
+      functionName: "commitBet",
+      args: [currentTokenAddress, amountWei, target, prediction === "over", commitHash]
+    });
   };
 
   const isProcessing = betStep !== "idle" && betStep !== "complete";
   const balance = tokenBalance ? parseFloat(formatUnits(tokenBalance, 18)) : 0;
-  const quickBets = [0.25, 0.5, 0.75, 1];
   const MAX_BET = 1;
 
   const getStepMessage = () => {
     switch (betStep) {
-      case "approving": return "Approving DONUT...";
+      case "approving": return "Approving...";
       case "committing": return "Placing bet...";
       case "waiting": return "Waiting for block...";
       case "revealing": return "Revealing result...";
@@ -697,33 +701,32 @@ export default function DicePage() {
           100% { transform: scale(1); opacity: 1; }
         }
         @keyframes confetti-fall {
-          0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+          0% { transform: translateY(-60px) rotate(0deg); opacity: 1; }
+          75% { opacity: 1; }
           100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-        }
-        @keyframes confetti-fall-slow {
-          0% { transform: translateY(-100vh) rotate(0deg) scale(1); opacity: 1; }
-          100% { transform: translateY(100vh) rotate(360deg) scale(0.5); opacity: 0; }
         }
         .dice-shake { animation: shake 0.1s infinite; }
         .glow-pulse { animation: glow-pulse 1s ease-in-out infinite; }
         .number-reveal { animation: number-reveal 0.3s ease-out forwards; }
-        .confetti { animation: confetti-fall 3s ease-out forwards; }
-        .confetti-slow { animation: confetti-fall-slow 4s ease-out forwards; }
+        .confetti { animation: confetti-fall linear forwards; }
+        .control-bar { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .panel-slide { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
       `}</style>
 
       {/* Token Confetti */}
       {showConfetti && (
         <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-          {[...Array(20)].map((_, i) => (
+          {[...Array(40)].map((_, i) => (
             <div
               key={i}
-              className={i % 2 === 0 ? "confetti" : "confetti-slow"}
+              className="confetti"
               style={{
                 position: 'absolute',
                 left: `${Math.random() * 100}%`,
-                top: '-50px',
-                fontSize: `${20 + Math.random() * 20}px`,
-                animationDelay: `${Math.random() * 0.5}s`,
+                top: '-60px',
+                fontSize: `${18 + Math.random() * 24}px`,
+                animationDelay: `${Math.random() * 1.5}s`,
+                animationDuration: `${3 + Math.random() * 2}s`,
               }}
             >
               {currentToken.emoji}
@@ -739,7 +742,7 @@ export default function DicePage() {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)",
         }}
       >
-        {/* Header Row 1 - Title and User */}
+        {/* Header Row */}
         <div className="flex items-center justify-between mb-2 flex-shrink-0">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-wide">DICE</h1>
@@ -748,17 +751,11 @@ export default function DicePage() {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {/* XP Bar */}
             <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-full px-2 py-1 opacity-50">
               <span className="text-[8px] text-gray-500 whitespace-nowrap">Earn GLAZE soon</span>
             </div>
-            {/* User PFP */}
             {context?.user?.pfpUrl ? (
-              <img 
-                src={context.user.pfpUrl} 
-                alt="pfp" 
-                className="w-7 h-7 rounded-full border border-zinc-700"
-              />
+              <img src={context.user.pfpUrl} alt="pfp" className="w-7 h-7 rounded-full border border-zinc-700" />
             ) : (
               <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700" />
             )}
@@ -806,29 +803,20 @@ export default function DicePage() {
           </div>
         </div>
 
-        {/* Action Buttons Row - Right aligned */}
+        {/* Action Buttons Row */}
         <div className="flex items-center justify-end gap-2 mb-2 flex-shrink-0">
-          <button
-            onClick={() => setShowApprovals(true)}
-            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800"
-          >
+          <button onClick={() => setShowApprovals(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800">
             <Shield className="w-4 h-4 text-white" />
           </button>
-          <button
-            onClick={() => setShowHistory(true)}
-            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800"
-          >
+          <button onClick={() => setShowHistory(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800">
             <History className="w-4 h-4 text-white" />
           </button>
-          <button
-            onClick={() => setShowHelp(true)}
-            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800"
-          >
+          <button onClick={() => setShowHelp(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800">
             <HelpCircle className="w-4 h-4 text-white" />
           </button>
         </div>
 
-        {/* Dice Result - Compact */}
+        {/* Dice Result */}
         <div className="flex-1 flex flex-col items-center justify-center min-h-0">
           <div
             className={cn(
@@ -885,7 +873,7 @@ export default function DicePage() {
           </div>
         </div>
 
-        {/* Controls - Compact */}
+        {/* Controls */}
         <div className="flex-shrink-0 space-y-2 pb-1">
           {/* Target Slider */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
@@ -898,82 +886,127 @@ export default function DicePage() {
               min="2"
               max="98"
               value={target}
-              onChange={(e) => setTarget(parseInt(e.target.value))}
+              onChange={(e) => {
+                const newVal = parseInt(e.target.value);
+                if (newVal !== target) {
+                  setTarget(newVal);
+                  try { sdk.haptics.selectionChanged(); } catch {}
+                }
+              }}
               disabled={isProcessing}
               className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-amber-500 disabled:opacity-50"
             />
           </div>
 
-          {/* Over/Under Toggle */}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setPrediction("under")}
-              disabled={isProcessing}
-              className={cn(
-                "flex items-center justify-center gap-1.5 py-2.5 rounded-lg font-bold text-sm transition-all",
-                prediction === "under"
-                  ? "bg-red-500 text-white"
-                  : "bg-zinc-900 border border-zinc-800 text-gray-400"
-              )}
-            >
-              <TrendingDown className="w-4 h-4" />
-              UNDER {target}
-            </button>
-            <button
-              onClick={() => setPrediction("over")}
-              disabled={isProcessing}
-              className={cn(
-                "flex items-center justify-center gap-1.5 py-2.5 rounded-lg font-bold text-sm transition-all",
-                prediction === "over"
-                  ? "bg-green-500 text-white"
-                  : "bg-zinc-900 border border-zinc-800 text-gray-400"
-              )}
-            >
-              <TrendingUp className="w-4 h-4" />
-              OVER {target}
-            </button>
-          </div>
+          {/* Compact Control Bar - Under/Over + Bet Amount */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 overflow-hidden">
+            <div className="flex items-center gap-2 control-bar">
+              {/* Under Button */}
+              <button
+                onClick={() => {
+                  setPrediction("under");
+                  try { sdk.haptics.selectionChanged(); } catch {}
+                }}
+                disabled={isProcessing}
+                className={cn(
+                  "w-12 h-12 rounded-lg flex flex-col items-center justify-center transition-all",
+                  prediction === "under"
+                    ? "bg-red-500 text-white"
+                    : "bg-zinc-800 border border-zinc-700 text-gray-400"
+                )}
+              >
+                <TrendingDown className="w-4 h-4" />
+                <span className="text-[8px] font-bold">UNDER</span>
+              </button>
 
-          {/* Bet Amount */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] text-gray-400">Bet (max {MAX_BET} {currentToken.symbol})</span>
-              <div className="flex gap-1">
-                {quickBets.map((amount) => (
+              {/* Over Button */}
+              <button
+                onClick={() => {
+                  setPrediction("over");
+                  try { sdk.haptics.selectionChanged(); } catch {}
+                }}
+                disabled={isProcessing}
+                className={cn(
+                  "w-12 h-12 rounded-lg flex flex-col items-center justify-center transition-all",
+                  prediction === "over"
+                    ? "bg-green-500 text-white"
+                    : "bg-zinc-800 border border-zinc-700 text-gray-400"
+                )}
+              >
+                <TrendingUp className="w-4 h-4" />
+                <span className="text-[8px] font-bold">OVER</span>
+              </button>
+
+              {/* Bet Amount Button / Expanded Panel */}
+              <div className={cn(
+                "panel-slide flex items-center",
+                expandedPanel === "bet" ? "flex-1" : "flex-1"
+              )}>
+                {expandedPanel === "bet" ? (
+                  // Expanded bet selector
+                  <div className="flex-1 flex items-center gap-2">
+                    <div className="flex-1 flex flex-col gap-1">
+                      <div className="flex gap-1">
+                        {["0.25", "0.5", "0.75", "1"].map((val) => (
+                          <button
+                            key={val}
+                            onClick={() => {
+                              setBetAmount(val);
+                              try { sdk.haptics.selectionChanged(); } catch {}
+                            }}
+                            className={cn(
+                              "flex-1 py-1.5 text-[10px] rounded border transition-colors font-bold",
+                              betAmount === val
+                                ? "bg-amber-500 text-black border-amber-500"
+                                : "bg-zinc-800 text-gray-400 border-zinc-700"
+                            )}
+                          >
+                            {val}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={betAmount}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                            setBetAmount(val);
+                          }
+                        }}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold"
+                        disabled={isProcessing}
+                        placeholder="Custom"
+                      />
+                    </div>
+                    <button
+                      onClick={() => {
+                        setExpandedPanel("none");
+                        setTimeout(() => setShowBetText(true), 300);
+                      }}
+                      className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center flex-shrink-0"
+                    >
+                      <span className="text-[8px] text-gray-500">BET</span>
+                      <span className="text-sm font-bold text-amber-400">{betAmount}</span>
+                    </button>
+                  </div>
+                ) : (
+                  // Collapsed bet button
                   <button
-                    key={amount}
-                    onClick={() => setBetAmount(amount.toString())}
-                    disabled={isProcessing}
-                    className="text-[9px] px-1.5 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded transition-colors disabled:opacity-50"
+                    onClick={() => {
+                      setShowBetText(false);
+                      setExpandedPanel("bet");
+                      try { sdk.haptics.selectionChanged(); } catch {}
+                    }}
+                    className="flex-1 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2"
                   >
-                    {amount}
+                    <span className="text-[10px] text-gray-500">BET</span>
+                    <span className="text-lg font-bold text-amber-400">{betAmount}</span>
+                    <span className="text-[10px] text-gray-500">🍩</span>
                   </button>
-                ))}
+                )}
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setBetAmount(Math.max(1, parseFloat(betAmount || "0") / 2).toString())}
-                disabled={isProcessing}
-                className="px-2 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg font-bold text-xs transition-colors disabled:opacity-50"
-              >
-                ½
-              </button>
-              <input
-                type="number"
-                value={betAmount}
-                onChange={(e) => setBetAmount(e.target.value)}
-                disabled={isProcessing}
-                className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-center font-bold focus:outline-none focus:border-amber-500 disabled:opacity-50"
-                style={{ fontSize: '16px' }}
-              />
-              <button
-                onClick={() => setBetAmount(Math.min(MAX_BET, balance, parseFloat(betAmount || "0") * 2).toString())}
-                disabled={isProcessing}
-                className="px-2 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg font-bold text-xs transition-colors disabled:opacity-50"
-              >
-                2×
-              </button>
             </div>
           </div>
 
@@ -999,7 +1032,7 @@ export default function DicePage() {
           </button>
         </div>
 
-        {/* History Modal - With Verification */}
+        {/* History Modal */}
         {showHistory && (
           <div className="fixed inset-0 z-50">
             <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHistory(false)} />
@@ -1017,29 +1050,21 @@ export default function DicePage() {
                     <p className="text-sm text-gray-500 text-center py-8">No bets yet</p>
                   ) : (
                     (recentBets as OnchainBet[]).map((bet, index) => {
-                      // Status: 0 = None, 1 = Committed, 2 = Revealed, 3 = Expired
-                      // A bet is truly pending only if status is 1 AND result is 0
                       const isPending = bet.status === 1 && bet.result === 0;
                       const isExpired = bet.status === 3;
                       
                       if (isPending) {
-                        // Get the bet ID from playerBetIds array
-                        // recentBets is in reverse order (newest first), so we need to map back
                         const betIds = playerBetIds as bigint[] | undefined;
                         const betId = betIds ? betIds[betIds.length - 1 - index] : null;
                         
                         const expiryBlock = Number(bet.commitBlock) + 256;
                         const blocksRemaining = Math.max(0, expiryBlock - currentBlock);
-                        const isExpired = currentBlock > 0 && blocksRemaining === 0;
-                        // Base produces blocks every ~2 seconds
+                        const isExpiredNow = currentBlock > 0 && blocksRemaining === 0;
                         const secondsRemaining = blocksRemaining * 2;
                         const minutesRemaining = Math.ceil(secondsRemaining / 60);
                         
                         return (
-                          <div 
-                            key={index}
-                            className="p-2 rounded-lg border bg-amber-500/10 border-amber-500/30"
-                          >
+                          <div key={index} className="p-2 rounded-lg border bg-amber-500/10 border-amber-500/30">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
@@ -1056,38 +1081,35 @@ export default function DicePage() {
                               </div>
                             </div>
                             
-                            {/* Timer and explanation */}
                             <div className="mt-2 p-2 bg-zinc-900/50 rounded-lg">
                               <div className="flex items-center justify-between mb-1">
                                 <span className="text-[9px] text-gray-400">
-                                  {isExpired ? "Ready to claim!" : `~${minutesRemaining} min remaining`}
+                                  {isExpiredNow ? "Ready to claim!" : `~${minutesRemaining} min remaining`}
                                 </span>
-                                <span className="text-[9px] text-gray-500">
-                                  {blocksRemaining} blocks left
-                                </span>
+                                <span className="text-[9px] text-gray-500">{blocksRemaining} blocks left</span>
                               </div>
                               <div className="w-full bg-zinc-800 rounded-full h-1.5">
                                 <div 
-                                  className={`h-1.5 rounded-full transition-all ${isExpired ? "bg-green-500" : "bg-amber-500"}`}
+                                  className={`h-1.5 rounded-full transition-all ${isExpiredNow ? "bg-green-500" : "bg-amber-500"}`}
                                   style={{ width: `${Math.min(100, ((256 - blocksRemaining) / 256) * 100)}%` }}
                                 />
                               </div>
                               <p className="text-[8px] text-gray-500 mt-1.5">
-                                Your secret was lost when you left. The bet must wait 256 blocks (~8 min) to expire before you can claim 98% back. 2% covers the house edge.
+                                Your secret was lost when you left. The bet must wait 256 blocks (~8 min) to expire before you can claim 98% back.
                               </p>
                             </div>
                             
                             {betId && (
                               <button
                                 onClick={() => handleClaimExpired(betId)}
-                                disabled={isClaimPending || !isExpired}
+                                disabled={isClaimPending || !isExpiredNow}
                                 className={`w-full py-1.5 rounded-lg text-xs font-bold mt-2 ${
-                                  isExpired 
+                                  isExpiredNow 
                                     ? "bg-green-500 text-black disabled:opacity-50" 
                                     : "bg-zinc-700 text-gray-400 cursor-not-allowed"
                                 }`}
                               >
-                                {isClaimPending ? "Claiming..." : isExpired ? "Claim 98% Back" : `Wait ${minutesRemaining} min...`}
+                                {isClaimPending ? "Claiming..." : isExpiredNow ? "Claim 98% Back" : `Wait ${minutesRemaining} min...`}
                               </button>
                             )}
                           </div>
@@ -1103,22 +1125,22 @@ export default function DicePage() {
                           )}
                           onClick={() => setShowVerify(bet)}
                         >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className={cn("text-xl font-bold", bet.won ? "text-green-400" : "text-red-400")}>{bet.result}</span>
-                            <div>
-                              <span className="text-xs text-gray-400">{bet.isOver ? ">" : "<"} {bet.target}</span>
-                              <div className="text-[9px] text-gray-600">Tap to verify</div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className={cn("text-xl font-bold", bet.won ? "text-green-400" : "text-red-400")}>{bet.result}</span>
+                              <div>
+                                <span className="text-xs text-gray-400">{bet.isOver ? ">" : "<"} {bet.target}</span>
+                                <div className="text-[9px] text-gray-600">Tap to verify</div>
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <div className={cn("text-sm font-bold", bet.won ? "text-green-400" : "text-red-400")}>
-                              {bet.won ? `+${parseFloat(formatUnits(bet.payout, 18)).toFixed(2)}` : `-${parseFloat(formatUnits(bet.amount, 18)).toFixed(2)}`}
+                            <div className="text-right">
+                              <div className={cn("text-sm font-bold", bet.won ? "text-green-400" : "text-red-400")}>
+                                {bet.won ? `+${parseFloat(formatUnits(bet.payout, 18)).toFixed(2)}` : `-${parseFloat(formatUnits(bet.amount, 18)).toFixed(2)}`}
+                              </div>
+                              <div className="text-[9px] text-gray-600">🍩 DONUT</div>
                             </div>
-                            <div className="text-[9px] text-gray-600">🍩 DONUT</div>
                           </div>
                         </div>
-                      </div>
                       );
                     })
                   )}
