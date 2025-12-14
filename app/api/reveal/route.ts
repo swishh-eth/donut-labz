@@ -123,9 +123,6 @@ const REVEAL_ABI = [
   }
 ] as const;
 
-// In-memory lock to prevent concurrent reveals
-let isRevealing = false;
-
 // Create clients
 const publicClient = createPublicClient({
   chain: base,
@@ -149,17 +146,7 @@ export async function GET(request: NextRequest) {
   const game = searchParams.get('game'); // 'dice', 'mines', 'wheel', or 'all'
   const betId = searchParams.get('betId'); // Optional: specific bet to check/reveal
   
-  // Prevent concurrent reveals
-  if (isRevealing) {
-    return NextResponse.json({ 
-      status: 'busy', 
-      message: 'Another reveal in progress' 
-    });
-  }
-  
   try {
-    isRevealing = true;
-    
     const results: Record<string, any> = {};
     
     // DICE
@@ -170,6 +157,8 @@ export async function GET(request: NextRequest) {
           abi: REVEAL_ABI,
           functionName: 'getRevealableBets',
         }) as bigint[];
+        
+        console.log('Revealable bets:', revealable.map(id => id.toString()));
         
         if (revealable.length > 0) {
           const walletClient = getWalletClient();
@@ -188,7 +177,7 @@ export async function GET(request: NextRequest) {
             txHash: hash 
           };
         } else {
-          results.dice = { revealed: [], message: 'No pending bets' };
+          results.dice = { revealed: [], message: 'No pending bets', checked: DICE_ADDRESS };
         }
         
         // If specific betId requested, return its status
@@ -301,9 +290,6 @@ export async function GET(request: NextRequest) {
       status: 'error', 
       message: error.message 
     }, { status: 500 });
-    
-  } finally {
-    isRevealing = false;
   }
 }
 

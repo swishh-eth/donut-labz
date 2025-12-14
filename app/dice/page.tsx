@@ -201,7 +201,7 @@ function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; re
 export default function DicePage() {
   const readyRef = useRef(false);
   const publicClient = usePublicClient();
-  const pollingRef = useRef(false); // Prevent multiple polling loops
+  const currentBetIdRef = useRef<string | null>(null); // Track which bet we're polling for
   
   const [context, setContext] = useState<{ user?: { fid: number; username?: string; pfpUrl?: string } } | null>(null);
   const [betAmount, setBetAmount] = useState("1");
@@ -302,15 +302,14 @@ export default function DicePage() {
   const { writeContract: writePlaceBet, isPending: isPlacePending } = useWriteContract();
   const { writeContract: writeClaim, isPending: isClaimPending } = useWriteContract();
 
-  // Poll for result after bet is placed - NOT a useCallback to avoid stale closures
+  // Poll for result after bet is placed
   const pollForResult = async (betId: bigint) => {
-    if (pollingRef.current) {
-      console.log("Already polling, skipping");
-      return;
-    }
-    pollingRef.current = true;
+    const betIdStr = betId.toString();
     
-    console.log("Starting poll for betId:", betId.toString());
+    // Set this as the current bet we're polling for
+    currentBetIdRef.current = betIdStr;
+    
+    console.log("Starting poll for betId:", betIdStr);
     
     // Wait for block to advance
     await new Promise(resolve => setTimeout(resolve, 3000));
@@ -318,7 +317,13 @@ export default function DicePage() {
     let attempts = 0;
     const maxAttempts = 60;
     
-    while (attempts < maxAttempts && pollingRef.current) {
+    while (attempts < maxAttempts) {
+      // Check if we're still polling for this bet (not a newer one)
+      if (currentBetIdRef.current !== betIdStr) {
+        console.log("Stopping poll for old bet:", betIdStr, "current is:", currentBetIdRef.current);
+        return;
+      }
+      
       try {
         // Call API to trigger reveal
         const apiRes = await fetch(`/api/reveal?game=dice`);
@@ -337,9 +342,15 @@ export default function DicePage() {
         const result = Number(bet.result);
         const won = Boolean(bet.won);
         
-        console.log("Poll attempt", attempts, "- status:", status, "result:", result, "won:", won);
+        console.log("Poll attempt", attempts, "- betId:", betIdStr, "status:", status, "result:", result, "won:", won);
         
         if (status === 2) {
+          // Double check we're still on this bet
+          if (currentBetIdRef.current !== betIdStr) {
+            console.log("Bet revealed but we moved on, ignoring");
+            return;
+          }
+          
           console.log("🎉 Bet revealed! Updating UI...");
           
           // Force synchronous state updates
@@ -370,7 +381,7 @@ export default function DicePage() {
           
           refetchBets();
           refetchBalance();
-          pollingRef.current = false;
+          currentBetIdRef.current = null;
           
           console.log("Done updating state");
           return;
@@ -384,10 +395,12 @@ export default function DicePage() {
     }
     
     // Timeout
-    console.log("Polling timed out");
-    setErrorMessage("Timeout - check history");
-    setIsRolling(false);
-    pollingRef.current = false;
+    console.log("Polling timed out for bet:", betIdStr);
+    if (currentBetIdRef.current === betIdStr) {
+      setErrorMessage("Timeout - check history");
+      setIsRolling(false);
+      currentBetIdRef.current = null;
+    }
   };
 
   const handleRoll = async () => {
@@ -414,7 +427,7 @@ export default function DicePage() {
     }
 
     // Reset state for new bet
-    pollingRef.current = false; // Reset polling ref
+    currentBetIdRef.current = null; // Clear any old polling
     setLastResult(null);
     setErrorMessage(null);
     setIsRolling(true);
