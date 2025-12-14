@@ -1,15 +1,162 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
-import { parseUnits, formatUnits, keccak256, encodePacked, toHex, decodeAbiParameters } from "viem";
+import { parseUnits, formatUnits, decodeAbiParameters } from "viem";
 import { NavBar } from "@/components/nav-bar";
-import { Dices, TrendingUp, TrendingDown, Trophy, History, HelpCircle, X, Loader2, ExternalLink, CheckCircle, Shield } from "lucide-react";
+import { Dices, TrendingUp, TrendingDown, Trophy, History, HelpCircle, X, Loader2, CheckCircle, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DONUT_DICE_ADDRESS, DONUT_DICE_ABI, DONUT_TOKEN_ADDRESS, SPRINKLES_TOKEN_ADDRESS, SUPPORTED_TOKENS, ERC20_ABI } from "@/lib/contracts/donut-dice";
 
-type BetStatus = "None" | "Committed" | "Revealed" | "Expired";
+// Contract addresses
+const DONUT_DICE_ADDRESS = "0xD6f1Eb5858efF6A94B853251BE2C27c4038BB7CE" as const;
+const DONUT_TOKEN_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
+const SPRINKLES_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
+
+const SUPPORTED_TOKENS = {
+  DONUT: {
+    address: DONUT_TOKEN_ADDRESS,
+    symbol: "DONUT",
+    emoji: "🍩",
+    enabled: true,
+  },
+  SPRINKLES: {
+    address: SPRINKLES_TOKEN_ADDRESS,
+    symbol: "SPRINKLES", 
+    emoji: "✨",
+    enabled: false,
+  },
+} as const;
+
+const ERC20_ABI = [
+  {
+    inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }],
+    name: "approve",
+    outputs: [{ type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }],
+    name: "allowance",
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "account", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  }
+] as const;
+
+// New V5 ABI - simplified, no commit hash
+const DICE_V5_ABI = [
+  {
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "amount", type: "uint256" },
+      { name: "target", type: "uint8" },
+      { name: "isOver", type: "bool" }
+    ],
+    name: "placeBet",
+    outputs: [{ type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "betId", type: "uint256" }],
+    name: "claimExpiredBet",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "betId", type: "uint256" }],
+    name: "getBet",
+    outputs: [{
+      type: "tuple",
+      components: [
+        { name: "player", type: "address" },
+        { name: "token", type: "address" },
+        { name: "amount", type: "uint256" },
+        { name: "target", type: "uint8" },
+        { name: "isOver", type: "bool" },
+        { name: "commitBlock", type: "uint256" },
+        { name: "status", type: "uint8" },
+        { name: "result", type: "uint8" },
+        { name: "won", type: "bool" },
+        { name: "payout", type: "uint256" }
+      ]
+    }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "player", type: "address" }],
+    name: "getPlayerBetIds",
+    outputs: [{ type: "uint256[]" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "player", type: "address" }, { name: "count", type: "uint256" }],
+    name: "getPlayerRecentBets",
+    outputs: [{
+      type: "tuple[]",
+      components: [
+        { name: "player", type: "address" },
+        { name: "token", type: "address" },
+        { name: "amount", type: "uint256" },
+        { name: "target", type: "uint8" },
+        { name: "isOver", type: "bool" },
+        { name: "commitBlock", type: "uint256" },
+        { name: "status", type: "uint8" },
+        { name: "result", type: "uint8" },
+        { name: "won", type: "bool" },
+        { name: "payout", type: "uint256" }
+      ]
+    }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "token", type: "address" }],
+    name: "getBalance",
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "betId", type: "uint256" },
+      { indexed: true, name: "player", type: "address" },
+      { indexed: true, name: "token", type: "address" },
+      { indexed: false, name: "amount", type: "uint256" },
+      { indexed: false, name: "target", type: "uint8" },
+      { indexed: false, name: "isOver", type: "bool" },
+      { indexed: false, name: "commitBlock", type: "uint256" }
+    ],
+    name: "BetPlaced",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "betId", type: "uint256" },
+      { indexed: true, name: "player", type: "address" },
+      { indexed: false, name: "blockHash", type: "bytes32" },
+      { indexed: false, name: "result", type: "uint8" },
+      { indexed: false, name: "won", type: "bool" },
+      { indexed: false, name: "payout", type: "uint256" }
+    ],
+    name: "BetRevealed",
+    type: "event"
+  }
+] as const;
 
 type OnchainBet = {
   player: `0x${string}`;
@@ -17,51 +164,18 @@ type OnchainBet = {
   amount: bigint;
   target: number;
   isOver: boolean;
-  commitHash: `0x${string}`;
   commitBlock: bigint;
-  status: number;
+  status: number; // 0=None, 1=Pending, 2=Revealed, 3=Expired
   result: number;
   won: boolean;
   payout: bigint;
-  revealedSecret: `0x${string}`;
-};
-
-type PendingBet = {
-  secret: `0x${string}`;
-  commitHash: `0x${string}`;
-  betId: bigint | null;
-  target: number;
-  isOver: boolean;
-  amount: string;
-  token: `0x${string}`;
-};
-
-const STATUS_MAP: Record<number, BetStatus> = {
-  0: "None",
-  1: "Committed",
-  2: "Revealed",
-  3: "Expired"
-};
-
-// Generate a random bytes32 secret
-const generateSecret = (): `0x${string}` => {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return `0x${Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('')}` as `0x${string}`;
-};
-
-// Hash the secret
-const hashSecret = (secret: `0x${string}`): `0x${string}` => {
-  return keccak256(encodePacked(['bytes32'], [secret]));
 };
 
 // Approvals Modal Component
 function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; refetchAllowance: () => void }) {
   const { address } = useAccount();
   const [donutApprovalAmount, setDonutApprovalAmount] = useState<string>("100");
-  const [sprinklesApprovalAmount, setSprinklesApprovalAmount] = useState<string>("100");
   
-  // Read DONUT allowance
   const { data: donutAllowance, refetch: refetchDonut } = useReadContract({
     address: DONUT_TOKEN_ADDRESS,
     abi: ERC20_ABI,
@@ -69,30 +183,7 @@ function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; re
     args: address ? [address, DONUT_DICE_ADDRESS] : undefined,
   });
 
-  // Read SPRINKLES allowance
-  const { data: sprinklesAllowance, refetch: refetchSprinkles } = useReadContract({
-    address: SPRINKLES_TOKEN_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: "allowance",
-    args: address ? [address, DONUT_DICE_ADDRESS] : undefined,
-  });
-
   const { writeContract, isPending } = useWriteContract();
-
-  const handleRevoke = (tokenAddress: `0x${string}`) => {
-    writeContract({
-      address: tokenAddress,
-      abi: ERC20_ABI,
-      functionName: "approve",
-      args: [DONUT_DICE_ADDRESS, BigInt(0)]
-    }, {
-      onSuccess: () => {
-        refetchDonut();
-        refetchSprinkles();
-        refetchAllowance();
-      }
-    });
-  };
 
   const handleApprove = (tokenAddress: `0x${string}`, amount: string) => {
     const parsedAmount = parseFloat(amount || "0");
@@ -106,14 +197,26 @@ function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; re
     }, {
       onSuccess: () => {
         refetchDonut();
-        refetchSprinkles();
+        refetchAllowance();
+      }
+    });
+  };
+
+  const handleRevoke = (tokenAddress: `0x${string}`) => {
+    writeContract({
+      address: tokenAddress,
+      abi: ERC20_ABI,
+      functionName: "approve",
+      args: [DONUT_DICE_ADDRESS, BigInt(0)]
+    }, {
+      onSuccess: () => {
+        refetchDonut();
         refetchAllowance();
       }
     });
   };
 
   const donutApproved = donutAllowance && donutAllowance > BigInt(0);
-  const sprinklesApproved = sprinklesAllowance && sprinklesAllowance > BigInt(0);
 
   return (
     <div className="fixed inset-0 z-50">
@@ -126,96 +229,55 @@ function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; re
           <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
             <Shield className="w-4 h-4" /> Token Approvals
           </h2>
-          <p className="text-[10px] text-gray-500 mb-3">Manage which tokens the Dice contract can spend.</p>
+          <p className="text-[10px] text-gray-500 mb-3">Approve tokens for the Dice contract.</p>
           
-          <div className="space-y-3">
-            {/* DONUT */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🍩</span>
-                  <div>
-                    <div className="text-sm font-bold text-white">DONUT</div>
-                    <div className="text-[10px] text-gray-500">
-                      {donutApproved 
-                        ? `Approved: ${parseFloat(formatUnits(donutAllowance, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                        : "Not approved"
-                      }
-                    </div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🍩</span>
+                <div>
+                  <div className="text-sm font-bold text-white">DONUT</div>
+                  <div className="text-[10px] text-gray-500">
+                    {donutApproved 
+                      ? `Approved: ${parseFloat(formatUnits(donutAllowance, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                      : "Not approved"
+                    }
                   </div>
                 </div>
-                <div className={cn(
-                  "w-2 h-2 rounded-full",
-                  donutApproved ? "bg-green-500" : "bg-red-500"
-                )} />
               </div>
-              
-              {/* Approval Amount Input */}
-              <div className="mb-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={donutApprovalAmount}
-                    onChange={(e) => setDonutApprovalAmount(e.target.value)}
-                    placeholder="Amount"
-                    className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-sm text-center font-bold focus:outline-none focus:border-amber-500"
-                    style={{ fontSize: '14px' }}
-                  />
-                  <span className="text-xs text-gray-500">DONUT</span>
-                </div>
-              </div>
-              
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleApprove(DONUT_TOKEN_ADDRESS, donutApprovalAmount)}
-                  disabled={isPending || parseFloat(donutApprovalAmount || "0") <= 0}
-                  className="flex-1 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-bold hover:bg-green-500/30 transition-colors disabled:opacity-50"
-                >
-                  {isPending ? "..." : "Approve"}
-                </button>
-                {donutApproved && (
-                  <button
-                    onClick={() => handleRevoke(DONUT_TOKEN_ADDRESS)}
-                    disabled={isPending}
-                    className="flex-1 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold hover:bg-red-500/30 transition-colors disabled:opacity-50"
-                  >
-                    {isPending ? "..." : "Revoke"}
-                  </button>
-                )}
+              <div className={cn("w-2 h-2 rounded-full", donutApproved ? "bg-green-500" : "bg-red-500")} />
+            </div>
+            
+            <div className="mb-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={donutApprovalAmount}
+                  onChange={(e) => setDonutApprovalAmount(e.target.value)}
+                  placeholder="Amount"
+                  className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-sm text-center font-bold focus:outline-none focus:border-amber-500"
+                />
+                <span className="text-xs text-gray-500">DONUT</span>
               </div>
             </div>
-
-            {/* SPRINKLES */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 opacity-50">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">✨</span>
-                  <div>
-                    <div className="text-sm font-bold text-white">SPRINKLES</div>
-                    <div className="text-[10px] text-gray-500">
-                      {sprinklesApproved 
-                        ? `Approved: ${parseFloat(formatUnits(sprinklesAllowance, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                        : "Not approved"
-                      }
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[8px] text-gray-500">SOON</span>
-                  <div className={cn(
-                    "w-2 h-2 rounded-full",
-                    sprinklesApproved ? "bg-green-500" : "bg-gray-500"
-                  )} />
-                </div>
-              </div>
-              <div className="flex gap-2">
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleApprove(DONUT_TOKEN_ADDRESS, donutApprovalAmount)}
+                disabled={isPending || parseFloat(donutApprovalAmount || "0") <= 0}
+                className="flex-1 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-bold hover:bg-green-500/30 transition-colors disabled:opacity-50"
+              >
+                {isPending ? "..." : "Approve"}
+              </button>
+              {donutApproved && (
                 <button
-                  disabled={true}
-                  className="flex-1 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-gray-500 text-xs font-bold cursor-not-allowed"
+                  onClick={() => handleRevoke(DONUT_TOKEN_ADDRESS)}
+                  disabled={isPending}
+                  className="flex-1 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold hover:bg-red-500/30 transition-colors disabled:opacity-50"
                 >
-                  Coming Soon
+                  {isPending ? "..." : "Revoke"}
                 </button>
-              </div>
+              )}
             </div>
           </div>
 
@@ -243,20 +305,19 @@ export default function DicePage() {
   const [betAmount, setBetAmount] = useState<string>("1");
   const [target, setTarget] = useState<number>(50);
   const [prediction, setPrediction] = useState<"over" | "under">("over");
-  const [selectedToken, setSelectedToken] = useState<"DONUT" | "SPRINKLES">("DONUT");
+  const [selectedToken] = useState<"DONUT" | "SPRINKLES">("DONUT");
   const [showHistory, setShowHistory] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showApprovals, setShowApprovals] = useState(false);
   const [showVerify, setShowVerify] = useState<OnchainBet | null>(null);
-  const [pendingBet, setPendingBet] = useState<PendingBet | null>(null);
-  const [betStep, setBetStep] = useState<"idle" | "approving" | "committing" | "waiting" | "revealing" | "complete">("idle");
+  const [pendingBetId, setPendingBetId] = useState<bigint | null>(null);
+  const [betStep, setBetStep] = useState<"idle" | "placing" | "waiting" | "complete">("idle");
   const [lastResult, setLastResult] = useState<{ result: number; won: boolean; payout: bigint } | null>(null);
   const [streak, setStreak] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentBlock, setCurrentBlock] = useState<number>(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState<"none" | "bet">("none");
-  const [showBetText, setShowBetText] = useState(true);
 
   const { address, isConnected } = useAccount();
 
@@ -271,7 +332,7 @@ export default function DicePage() {
     loadContext();
   }, []);
 
-  // Fetch current block number (for pending bet timer)
+  // Fetch current block number
   useEffect(() => {
     const fetchBlock = async () => {
       if (!publicClient) return;
@@ -282,8 +343,7 @@ export default function DicePage() {
     };
     
     fetchBlock();
-    // Update every 10 seconds
-    const interval = setInterval(fetchBlock, 10000);
+    const interval = setInterval(fetchBlock, 5000);
     return () => clearInterval(interval);
   }, [publicClient]);
 
@@ -314,101 +374,50 @@ export default function DicePage() {
   // Auto-show approvals modal if no allowance
   useEffect(() => {
     if (isConnected && allowance !== undefined && allowance === BigInt(0) && !showApprovals) {
-      const timer = setTimeout(() => {
-        setShowApprovals(true);
-      }, 500);
+      const timer = setTimeout(() => setShowApprovals(true), 500);
       return () => clearTimeout(timer);
     }
-  }, [isConnected, allowance]);
+  }, [isConnected, allowance, showApprovals]);
 
-  // Refetch balance when tab becomes visible
+  // Refetch on visibility change
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         refetchBalance();
         refetchAllowance();
+        refetchBets();
       }
     };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [refetchBalance, refetchAllowance]);
-
-  // Read contract balance for selected token (max payout available)
-  const { data: contractBalance } = useReadContract({
-    address: DONUT_DICE_ADDRESS,
-    abi: DONUT_DICE_ABI,
-    functionName: "getBalance",
-    args: [currentTokenAddress],
-  });
 
   // Read player's recent bets
   const { data: recentBets, refetch: refetchBets } = useReadContract({
     address: DONUT_DICE_ADDRESS,
-    abi: DONUT_DICE_ABI,
+    abi: DICE_V5_ABI,
     functionName: "getPlayerRecentBets",
     args: address ? [address, BigInt(20)] : undefined,
   });
 
-  // Read player's bet IDs (to match with bets for claiming)
+  // Read player's bet IDs
   const { data: playerBetIds } = useReadContract({
     address: DONUT_DICE_ADDRESS,
-    abi: DONUT_DICE_ABI,
+    abi: DICE_V5_ABI,
     functionName: "getPlayerBetIds",
     args: address ? [address] : undefined,
   });
 
   // Contract writes
-  const { data: approveHash, writeContract: writeApprove, isPending: isApprovePending, reset: resetApprove, error: approveError } = useWriteContract();
-  const { isLoading: isApproveConfirming, isSuccess: isApproveSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
-
-  const { data: commitHash, writeContract: writeCommit, isPending: isCommitPending, reset: resetCommit, error: commitError } = useWriteContract();
-  const { isLoading: isCommitConfirming, isSuccess: isCommitSuccess } = useWaitForTransactionReceipt({ hash: commitHash });
-
-  const { data: revealHash, writeContract: writeReveal, isPending: isRevealPending, reset: resetReveal, error: revealError } = useWriteContract();
-  const { isLoading: isRevealConfirming, isSuccess: isRevealSuccess } = useWaitForTransactionReceipt({ hash: revealHash });
+  const { data: placeBetHash, writeContract: writePlaceBet, isPending: isPlacePending, reset: resetPlaceBet, error: placeError } = useWriteContract();
+  const { isSuccess: isPlaceSuccess } = useWaitForTransactionReceipt({ hash: placeBetHash });
 
   const { writeContract: writeClaim, isPending: isClaimPending } = useWriteContract();
 
-  // Function to claim expired bet
-  const handleClaimExpired = (betId: bigint) => {
-    writeClaim({
-      address: DONUT_DICE_ADDRESS,
-      abi: DONUT_DICE_ABI,
-      functionName: "claimExpiredBet",
-      args: [betId]
-    }, {
-      onSuccess: () => {
-        refetchBets();
-        refetchBalance();
-      }
-    });
-  };
-
-  // Handle user rejection or errors - reset state
+  // Handle place bet error
   useEffect(() => {
-    if (approveError && betStep === "approving") {
-      console.log("Approve cancelled or failed:", approveError);
-      const msg = approveError.message || "Approval failed";
-      if (msg.includes("User rejected") || msg.includes("rejected")) {
-        setErrorMessage("Transaction cancelled");
-      } else {
-        setErrorMessage("Approval failed - try again");
-      }
-      setBetStep("idle");
-      setPendingBet(null);
-      resetApprove();
-      setTimeout(() => setErrorMessage(null), 3000);
-    }
-  }, [approveError, betStep, resetApprove]);
-
-  useEffect(() => {
-    if (commitError && betStep === "committing") {
-      console.log("Commit cancelled or failed:", commitError);
-      const msg = commitError.message || "Bet failed";
+    if (placeError && betStep === "placing") {
+      const msg = placeError.message || "Bet failed";
       if (msg.includes("User rejected") || msg.includes("rejected")) {
         setErrorMessage("Transaction cancelled");
       } else if (msg.includes("Insufficient contract balance")) {
@@ -417,22 +426,11 @@ export default function DicePage() {
         setErrorMessage("Bet failed - try again");
       }
       setBetStep("idle");
-      setPendingBet(null);
-      resetCommit();
+      setPendingBetId(null);
+      resetPlaceBet();
       setTimeout(() => setErrorMessage(null), 3000);
     }
-  }, [commitError, betStep, resetCommit]);
-
-  useEffect(() => {
-    if (revealError && betStep === "revealing") {
-      console.log("Reveal cancelled or failed:", revealError);
-      setErrorMessage("Reveal failed - check history for pending bets");
-      setBetStep("idle");
-      setPendingBet(null);
-      resetReveal();
-      setTimeout(() => setErrorMessage(null), 3000);
-    }
-  }, [revealError, betStep, resetReveal]);
+  }, [placeError, betStep, resetPlaceBet]);
 
   // Initialize SDK
   useEffect(() => {
@@ -445,65 +443,84 @@ export default function DicePage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Handle approve success
+  // Handle place bet success - start polling for result
   useEffect(() => {
-    if (isApproveSuccess && betStep === "approving") {
-      refetchAllowance();
-      setBetStep("committing");
-      // Now commit the bet
-      if (pendingBet) {
-        writeCommit({
-          address: DONUT_DICE_ADDRESS,
-          abi: DONUT_DICE_ABI,
-          functionName: "commitBet",
-          args: [
-            pendingBet.token,
-            parseUnits(pendingBet.amount, 18),
-            pendingBet.target,
-            pendingBet.isOver,
-            pendingBet.commitHash
-          ]
-        });
-      }
-    }
-  }, [isApproveSuccess, betStep, pendingBet, writeCommit, refetchAllowance]);
-
-  // Handle commit success - wait for block then reveal
-  useEffect(() => {
-    if (isCommitSuccess && betStep === "committing" && pendingBet && commitHash) {
+    if (isPlaceSuccess && betStep === "placing" && placeBetHash) {
       setBetStep("waiting");
       
-      // Get the betId from the transaction receipt
-      const getBetIdAndReveal = async () => {
+      const getBetIdAndPoll = async () => {
         try {
-          const receipt = await publicClient?.getTransactionReceipt({ hash: commitHash });
+          const receipt = await publicClient?.getTransactionReceipt({ hash: placeBetHash });
           
-          // Parse BetCommitted event to get betId
-          const betCommittedLog = receipt?.logs.find(log => {
-            try {
-              return log.address.toLowerCase() === DONUT_DICE_ADDRESS.toLowerCase();
-            } catch {
-              return false;
-            }
-          });
+          // Parse BetPlaced event to get betId
+          const betPlacedLog = receipt?.logs.find(log => 
+            log.address.toLowerCase() === DONUT_DICE_ADDRESS.toLowerCase()
+          );
           
-          if (betCommittedLog) {
-            // betId is the first indexed topic (after event signature)
-            const betId = BigInt(betCommittedLog.topics[1] || "0");
-            setPendingBet(prev => prev ? { ...prev, betId } : null);
+          if (betPlacedLog && betPlacedLog.topics[1]) {
+            const betId = BigInt(betPlacedLog.topics[1]);
+            setPendingBetId(betId);
             
-            // Wait for 1 block (~2s on Base, but wait 4s to be safe)
-            await new Promise(resolve => setTimeout(resolve, 4000));
+            // Poll for result (house will reveal)
+            const pollForResult = async () => {
+              const maxAttempts = 30; // ~30 seconds
+              let attempts = 0;
+              
+              while (attempts < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                try {
+                  const bet = await publicClient?.readContract({
+                    address: DONUT_DICE_ADDRESS,
+                    abi: DICE_V5_ABI,
+                    functionName: "getBet",
+                    args: [betId],
+                  }) as OnchainBet;
+                  
+                  if (bet.status === 2) { // Revealed
+                    setLastResult({
+                      result: bet.result,
+                      won: bet.won,
+                      payout: bet.payout
+                    });
+                    
+                    if (bet.won) {
+                      setStreak(prev => prev + 1);
+                      setShowConfetti(true);
+                      try { 
+                        await sdk.haptics.impactOccurred("heavy");
+                        setTimeout(() => sdk.haptics.impactOccurred("medium"), 100);
+                      } catch {}
+                      setTimeout(() => setShowConfetti(false), 3000);
+                    } else {
+                      setStreak(0);
+                      try { await sdk.haptics.impactOccurred("heavy"); } catch {}
+                    }
+                    
+                    setBetStep("complete");
+                    refetchBets();
+                    refetchBalance();
+                    
+                    setTimeout(() => {
+                      setBetStep("idle");
+                      setPendingBetId(null);
+                      resetPlaceBet();
+                    }, 3000);
+                    
+                    return;
+                  }
+                } catch {}
+                
+                attempts++;
+              }
+              
+              // Timeout - bet is still pending
+              setErrorMessage("Waiting for reveal... check history");
+              setBetStep("idle");
+              setPendingBetId(null);
+            };
             
-            setBetStep("revealing");
-            
-            // Reveal the bet
-            writeReveal({
-              address: DONUT_DICE_ADDRESS,
-              abi: DONUT_DICE_ABI,
-              functionName: "revealBet",
-              args: [betId, pendingBet.secret]
-            });
+            pollForResult();
           }
         } catch (e) {
           console.error("Failed to get betId:", e);
@@ -511,109 +528,9 @@ export default function DicePage() {
         }
       };
       
-      getBetIdAndReveal();
+      getBetIdAndPoll();
     }
-  }, [isCommitSuccess, betStep, pendingBet, commitHash, publicClient, writeReveal]);
-
-  // Handle reveal success
-  useEffect(() => {
-    if (isRevealSuccess && betStep === "revealing" && revealHash) {
-      setBetStep("complete");
-      
-      // Get result from event or contract
-      const getResult = async () => {
-        try {
-          const receipt = await publicClient?.getTransactionReceipt({ hash: revealHash });
-          
-          // Find BetRevealed event
-          const betRevealedLog = receipt?.logs.find(log => {
-            return log.address.toLowerCase() === DONUT_DICE_ADDRESS.toLowerCase() && 
-                   log.topics.length === 3;
-          });
-          
-          let result = 0;
-          let won = false;
-          let payout = BigInt(0);
-          
-          if (betRevealedLog && betRevealedLog.data) {
-            try {
-              const decoded = decodeAbiParameters(
-                [
-                  { name: 'secret', type: 'bytes32' },
-                  { name: 'blockHash', type: 'bytes32' },
-                  { name: 'result', type: 'uint8' },
-                  { name: 'won', type: 'bool' },
-                  { name: 'payout', type: 'uint256' }
-                ],
-                betRevealedLog.data as `0x${string}`
-              );
-              
-              result = Number(decoded[2]);
-              won = decoded[3] as boolean;
-              payout = decoded[4] as bigint;
-            } catch (parseError) {
-              console.error("Failed to parse event:", parseError);
-            }
-          }
-          
-          // If event parsing failed, get from contract
-          if (result === 0) {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            const { data: updatedBets } = await refetchBets();
-            
-            if (updatedBets && (updatedBets as OnchainBet[]).length > 0) {
-              const latestBet = (updatedBets as OnchainBet[])[0];
-              
-              if (latestBet.result > 0) {
-                result = Number(latestBet.result);
-                won = latestBet.won;
-                payout = latestBet.payout;
-              }
-            }
-          }
-          
-          // Set the result
-          if (result > 0) {
-            setLastResult({ result, won, payout });
-            
-            if (won) {
-              setStreak(prev => prev + 1);
-              setShowConfetti(true);
-              try { 
-                await sdk.haptics.impactOccurred("heavy");
-                setTimeout(() => sdk.haptics.impactOccurred("medium"), 100);
-                setTimeout(() => sdk.haptics.impactOccurred("light"), 200);
-                setTimeout(() => sdk.haptics.impactOccurred("medium"), 300);
-              } catch {}
-              setTimeout(() => setShowConfetti(false), 3000);
-            } else {
-              setStreak(0);
-              try { await sdk.haptics.impactOccurred("heavy"); } catch {}
-            }
-          } else {
-            setLastResult({ result: 0, won: false, payout: BigInt(0) });
-          }
-          
-          refetchBets();
-          refetchBalance();
-          
-          // Reset after showing result
-          setTimeout(() => {
-            setBetStep("idle");
-            setPendingBet(null);
-            resetApprove();
-            resetCommit();
-            resetReveal();
-          }, 3000);
-          
-        } catch (e) {
-          console.error("Failed to get result:", e);
-        }
-      };
-      
-      getResult();
-    }
-  }, [isRevealSuccess, betStep, revealHash, publicClient, refetchBets, refetchBalance, resetApprove, resetCommit, resetReveal]);
+  }, [isPlaceSuccess, betStep, placeBetHash, publicClient, refetchBets, refetchBalance, resetPlaceBet]);
 
   const handleRoll = async () => {
     if (!isConnected || !address) return;
@@ -633,50 +550,47 @@ export default function DicePage() {
       return;
     }
 
-    // Check if we need approval
-    const needsApproval = !allowance || allowance < amountWei;
-    if (needsApproval) {
+    if (!allowance || allowance < amountWei) {
       setShowApprovals(true);
-      setErrorMessage("Need approval - tap shield icon to add more");
+      setErrorMessage("Need approval - tap shield icon");
       setTimeout(() => setErrorMessage(null), 3000);
       return;
     }
 
-    // Generate secret and hash
-    const secret = generateSecret();
-    const commitHash = hashSecret(secret);
-    
-    setPendingBet({
-      secret,
-      commitHash,
-      betId: null,
-      target,
-      isOver: prediction === "over",
-      amount: betAmount,
-      token: currentTokenAddress,
-    });
     setLastResult(null);
     setErrorMessage(null);
-
-    setBetStep("committing");
-    writeCommit({
+    setBetStep("placing");
+    
+    // Simple single transaction - no secret needed!
+    writePlaceBet({
       address: DONUT_DICE_ADDRESS,
-      abi: DONUT_DICE_ABI,
-      functionName: "commitBet",
-      args: [currentTokenAddress, amountWei, target, prediction === "over", commitHash]
+      abi: DICE_V5_ABI,
+      functionName: "placeBet",
+      args: [currentTokenAddress, amountWei, target, prediction === "over"]
+    });
+  };
+
+  const handleClaimExpired = (betId: bigint) => {
+    writeClaim({
+      address: DONUT_DICE_ADDRESS,
+      abi: DICE_V5_ABI,
+      functionName: "claimExpiredBet",
+      args: [betId]
+    }, {
+      onSuccess: () => {
+        refetchBets();
+        refetchBalance();
+      }
     });
   };
 
   const isProcessing = betStep !== "idle" && betStep !== "complete";
   const balance = tokenBalance ? parseFloat(formatUnits(tokenBalance, 18)) : 0;
-  const MAX_BET = 1;
 
   const getStepMessage = () => {
     switch (betStep) {
-      case "approving": return "Approving...";
-      case "committing": return "Placing bet...";
-      case "waiting": return "Waiting for block...";
-      case "revealing": return "Revealing result...";
+      case "placing": return "Placing bet...";
+      case "waiting": return "Waiting for result...";
       case "complete": return lastResult?.won ? "YOU WIN! 🎉" : "Better luck next time";
       default: return "";
     }
@@ -709,11 +623,9 @@ export default function DicePage() {
         .glow-pulse { animation: glow-pulse 1s ease-in-out infinite; }
         .number-reveal { animation: number-reveal 0.3s ease-out forwards; }
         .confetti { animation: confetti-fall linear forwards; }
-        .control-bar { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .panel-slide { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
       `}</style>
 
-      {/* Token Confetti */}
+      {/* Confetti */}
       {showConfetti && (
         <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
           {[...Array(40)].map((_, i) => (
@@ -742,12 +654,12 @@ export default function DicePage() {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)",
         }}
       >
-        {/* Header Row */}
+        {/* Header */}
         <div className="flex items-center justify-between mb-2 flex-shrink-0">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-wide">DICE</h1>
-            <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/30">
-              BETA
+            <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full border border-green-500/30">
+              V5
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -764,22 +676,10 @@ export default function DicePage() {
 
         {/* Token Selector */}
         <div className="flex gap-2 mb-2 flex-shrink-0">
-          <button
-            onClick={() => setSelectedToken("DONUT")}
-            disabled={isProcessing}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg font-bold text-sm transition-all",
-              selectedToken === "DONUT"
-                ? "bg-amber-500 text-black"
-                : "bg-zinc-900 border border-zinc-800 text-gray-400"
-            )}
-          >
+          <button className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg font-bold text-sm bg-amber-500 text-black">
             🍩 DONUT
           </button>
-          <button
-            disabled={true}
-            className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg font-bold text-sm bg-zinc-900 border border-zinc-800 text-gray-600 opacity-50 cursor-not-allowed"
-          >
+          <button disabled className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg font-bold text-sm bg-zinc-900 border border-zinc-800 text-gray-600 opacity-50 cursor-not-allowed">
             ✨ SPRINKLES
             <span className="text-[8px] text-gray-500">SOON</span>
           </button>
@@ -803,7 +703,7 @@ export default function DicePage() {
           </div>
         </div>
 
-        {/* Action Buttons Row */}
+        {/* Action Buttons */}
         <div className="flex items-center justify-end gap-2 mb-2 flex-shrink-0">
           <button onClick={() => setShowApprovals(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800">
             <Shield className="w-4 h-4 text-white" />
@@ -846,7 +746,7 @@ export default function DicePage() {
             )}
           </div>
 
-          {/* Status Message */}
+          {/* Status */}
           {betStep !== "idle" && (
             <div className="mt-2 text-xs text-amber-400 flex items-center gap-1">
               {isProcessing && <Loader2 className="w-3 h-3 animate-spin" />}
@@ -855,14 +755,11 @@ export default function DicePage() {
             </div>
           )}
 
-          {/* Error Message */}
           {errorMessage && (
-            <div className="mt-2 text-xs text-red-400 flex items-center justify-center gap-1">
-              {errorMessage}
-            </div>
+            <div className="mt-2 text-xs text-red-400">{errorMessage}</div>
           )}
 
-          {/* Target & Stats */}
+          {/* Target Display */}
           <div className="text-center mt-2">
             <div className="text-xs text-gray-400">
               Roll {prediction === "over" ? "OVER" : "UNDER"} <span className="text-white font-bold text-lg">{target}</span>
@@ -886,79 +783,51 @@ export default function DicePage() {
               min="2"
               max="98"
               value={target}
-              onChange={(e) => {
-                const newVal = parseInt(e.target.value);
-                if (newVal !== target) {
-                  setTarget(newVal);
-                  try { sdk.haptics.selectionChanged(); } catch {}
-                }
-              }}
+              onChange={(e) => setTarget(parseInt(e.target.value))}
               disabled={isProcessing}
               className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-amber-500 disabled:opacity-50"
             />
           </div>
 
-          {/* Compact Control Bar - Under/Over + Bet Amount */}
+          {/* Under/Over + Bet */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 overflow-hidden">
-            <div className="flex items-center gap-2 control-bar">
-              {/* Under Button */}
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  setPrediction("under");
-                  try { sdk.haptics.selectionChanged(); } catch {}
-                }}
+                onClick={() => setPrediction("under")}
                 disabled={isProcessing}
                 className={cn(
                   "w-12 h-12 rounded-lg flex flex-col items-center justify-center transition-all",
-                  prediction === "under"
-                    ? "bg-red-500 text-white"
-                    : "bg-zinc-800 border border-zinc-700 text-gray-400"
+                  prediction === "under" ? "bg-red-500 text-white" : "bg-zinc-800 border border-zinc-700 text-gray-400"
                 )}
               >
                 <TrendingDown className="w-4 h-4" />
                 <span className="text-[8px] font-bold">UNDER</span>
               </button>
 
-              {/* Over Button */}
               <button
-                onClick={() => {
-                  setPrediction("over");
-                  try { sdk.haptics.selectionChanged(); } catch {}
-                }}
+                onClick={() => setPrediction("over")}
                 disabled={isProcessing}
                 className={cn(
                   "w-12 h-12 rounded-lg flex flex-col items-center justify-center transition-all",
-                  prediction === "over"
-                    ? "bg-green-500 text-white"
-                    : "bg-zinc-800 border border-zinc-700 text-gray-400"
+                  prediction === "over" ? "bg-green-500 text-white" : "bg-zinc-800 border border-zinc-700 text-gray-400"
                 )}
               >
                 <TrendingUp className="w-4 h-4" />
                 <span className="text-[8px] font-bold">OVER</span>
               </button>
 
-              {/* Bet Amount Button / Expanded Panel */}
-              <div className={cn(
-                "panel-slide flex items-center",
-                expandedPanel === "bet" ? "flex-1" : "flex-1"
-              )}>
+              <div className="flex-1">
                 {expandedPanel === "bet" ? (
-                  // Expanded bet selector
-                  <div className="flex-1 flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <div className="flex-1 flex flex-col gap-1">
                       <div className="flex gap-1">
                         {["0.25", "0.5", "0.75", "1"].map((val) => (
                           <button
                             key={val}
-                            onClick={() => {
-                              setBetAmount(val);
-                              try { sdk.haptics.selectionChanged(); } catch {}
-                            }}
+                            onClick={() => setBetAmount(val)}
                             className={cn(
                               "flex-1 py-1.5 text-[10px] rounded border transition-colors font-bold",
-                              betAmount === val
-                                ? "bg-amber-500 text-black border-amber-500"
-                                : "bg-zinc-800 text-gray-400 border-zinc-700"
+                              betAmount === val ? "bg-amber-500 text-black border-amber-500" : "bg-zinc-800 text-gray-400 border-zinc-700"
                             )}
                           >
                             {val}
@@ -971,20 +840,14 @@ export default function DicePage() {
                         value={betAmount}
                         onChange={(e) => {
                           const val = e.target.value;
-                          if (val === "" || /^\d*\.?\d*$/.test(val)) {
-                            setBetAmount(val);
-                          }
+                          if (val === "" || /^\d*\.?\d*$/.test(val)) setBetAmount(val);
                         }}
                         className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold"
                         disabled={isProcessing}
-                        placeholder="Custom"
                       />
                     </div>
                     <button
-                      onClick={() => {
-                        setExpandedPanel("none");
-                        setTimeout(() => setShowBetText(true), 300);
-                      }}
+                      onClick={() => setExpandedPanel("none")}
                       className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center flex-shrink-0"
                     >
                       <span className="text-[8px] text-gray-500">BET</span>
@@ -992,14 +855,9 @@ export default function DicePage() {
                     </button>
                   </div>
                 ) : (
-                  // Collapsed bet button
                   <button
-                    onClick={() => {
-                      setShowBetText(false);
-                      setExpandedPanel("bet");
-                      try { sdk.haptics.selectionChanged(); } catch {}
-                    }}
-                    className="flex-1 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2"
+                    onClick={() => setExpandedPanel("bet")}
+                    className="w-full h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2"
                   >
                     <span className="text-[10px] text-gray-500">BET</span>
                     <span className="text-lg font-bold text-amber-400">{betAmount}</span>
@@ -1013,12 +871,10 @@ export default function DicePage() {
           {/* Roll Button */}
           <button
             onClick={handleRoll}
-            disabled={isProcessing || !isConnected || parseFloat(betAmount || "0") <= 0 || parseFloat(betAmount || "0") > MAX_BET || parseFloat(betAmount || "0") > balance}
+            disabled={isProcessing || !isConnected || parseFloat(betAmount || "0") <= 0 || parseFloat(betAmount || "0") > 1 || parseFloat(betAmount || "0") > balance}
             className={cn(
               "w-full py-3 rounded-xl font-bold text-lg tracking-wide transition-all",
-              isProcessing
-                ? "bg-zinc-500 text-zinc-300 cursor-not-allowed"
-                : "bg-white hover:bg-gray-100 text-black"
+              isProcessing ? "bg-zinc-500 text-zinc-300 cursor-not-allowed" : "bg-white hover:bg-gray-100 text-black"
             )}
           >
             {isProcessing ? (
@@ -1044,24 +900,22 @@ export default function DicePage() {
                 <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
                   <History className="w-4 h-4" /> Bet History
                 </h2>
-                <p className="text-[10px] text-gray-500 mb-3">All bets are provably fair. Tap any bet to verify.</p>
+                <p className="text-[10px] text-gray-500 mb-3">All bets are provably fair. House reveals automatically.</p>
+                
                 <div className="flex-1 overflow-y-auto space-y-2">
                   {!recentBets || (recentBets as OnchainBet[]).length === 0 ? (
                     <p className="text-sm text-gray-500 text-center py-8">No bets yet</p>
                   ) : (
                     (recentBets as OnchainBet[]).map((bet, index) => {
-                      const isPending = bet.status === 1 && bet.result === 0;
-                      const isExpired = bet.status === 3;
+                      const isPending = bet.status === 1;
+                      const betIds = playerBetIds as bigint[] | undefined;
+                      const betId = betIds ? betIds[betIds.length - 1 - index] : null;
                       
                       if (isPending) {
-                        const betIds = playerBetIds as bigint[] | undefined;
-                        const betId = betIds ? betIds[betIds.length - 1 - index] : null;
-                        
                         const expiryBlock = Number(bet.commitBlock) + 256;
                         const blocksRemaining = Math.max(0, expiryBlock - currentBlock);
                         const isExpiredNow = currentBlock > 0 && blocksRemaining === 0;
-                        const secondsRemaining = blocksRemaining * 2;
-                        const minutesRemaining = Math.ceil(secondsRemaining / 60);
+                        const minutesRemaining = Math.ceil(blocksRemaining * 2 / 60);
                         
                         return (
                           <div key={index} className="p-2 rounded-lg border bg-amber-500/10 border-amber-500/30">
@@ -1069,48 +923,29 @@ export default function DicePage() {
                               <div className="flex items-center gap-2">
                                 <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
                                 <div>
-                                  <span className="text-xs text-amber-400 font-bold">Pending Reveal</span>
+                                  <span className="text-xs text-amber-400 font-bold">Waiting for reveal...</span>
                                   <div className="text-[9px] text-gray-500">{bet.isOver ? ">" : "<"} {bet.target}</div>
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <div className="text-sm font-bold text-amber-400">
-                                  {parseFloat(formatUnits(bet.amount, 18)).toFixed(2)}
-                                </div>
-                                <div className="text-[9px] text-gray-600">🍩 DONUT</div>
+                              <div className="text-sm font-bold text-amber-400">
+                                {parseFloat(formatUnits(bet.amount, 18)).toFixed(2)} 🍩
                               </div>
                             </div>
                             
-                            <div className="mt-2 p-2 bg-zinc-900/50 rounded-lg">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-[9px] text-gray-400">
-                                  {isExpiredNow ? "Ready to claim!" : `~${minutesRemaining} min remaining`}
-                                </span>
-                                <span className="text-[9px] text-gray-500">{blocksRemaining} blocks left</span>
-                              </div>
-                              <div className="w-full bg-zinc-800 rounded-full h-1.5">
-                                <div 
-                                  className={`h-1.5 rounded-full transition-all ${isExpiredNow ? "bg-green-500" : "bg-amber-500"}`}
-                                  style={{ width: `${Math.min(100, ((256 - blocksRemaining) / 256) * 100)}%` }}
-                                />
-                              </div>
-                              <p className="text-[8px] text-gray-500 mt-1.5">
-                                Your secret was lost when you left. The bet must wait 256 blocks (~8 min) to expire before you can claim 98% back.
-                              </p>
-                            </div>
-                            
-                            {betId && (
+                            {isExpiredNow && betId && (
                               <button
                                 onClick={() => handleClaimExpired(betId)}
-                                disabled={isClaimPending || !isExpiredNow}
-                                className={`w-full py-1.5 rounded-lg text-xs font-bold mt-2 ${
-                                  isExpiredNow 
-                                    ? "bg-green-500 text-black disabled:opacity-50" 
-                                    : "bg-zinc-700 text-gray-400 cursor-not-allowed"
-                                }`}
+                                disabled={isClaimPending}
+                                className="w-full py-1.5 rounded-lg bg-green-500 text-black text-xs font-bold mt-2 disabled:opacity-50"
                               >
-                                {isClaimPending ? "Claiming..." : isExpiredNow ? "Claim 98% Back" : `Wait ${minutesRemaining} min...`}
+                                {isClaimPending ? "Claiming..." : "Claim 98% Back"}
                               </button>
+                            )}
+                            
+                            {!isExpiredNow && (
+                              <div className="mt-2 text-[9px] text-gray-500">
+                                House should reveal soon. If not, claim back in ~{minutesRemaining} min.
+                              </div>
                             )}
                           </div>
                         );
@@ -1120,7 +955,7 @@ export default function DicePage() {
                         <div 
                           key={index}
                           className={cn(
-                            "p-2 rounded-lg border cursor-pointer transition-all hover:opacity-80", 
+                            "p-2 rounded-lg border cursor-pointer hover:opacity-80", 
                             bet.won ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"
                           )}
                           onClick={() => setShowVerify(bet)}
@@ -1133,11 +968,8 @@ export default function DicePage() {
                                 <div className="text-[9px] text-gray-600">Tap to verify</div>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <div className={cn("text-sm font-bold", bet.won ? "text-green-400" : "text-red-400")}>
-                                {bet.won ? `+${parseFloat(formatUnits(bet.payout, 18)).toFixed(2)}` : `-${parseFloat(formatUnits(bet.amount, 18)).toFixed(2)}`}
-                              </div>
-                              <div className="text-[9px] text-gray-600">🍩 DONUT</div>
+                            <div className={cn("text-sm font-bold", bet.won ? "text-green-400" : "text-red-400")}>
+                              {bet.won ? `+${parseFloat(formatUnits(bet.payout, 18)).toFixed(2)}` : `-${parseFloat(formatUnits(bet.amount, 18)).toFixed(2)}`} 🍩
                             </div>
                           </div>
                         </div>
@@ -1145,9 +977,10 @@ export default function DicePage() {
                     })
                   )}
                 </div>
+                
                 <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
                   <p className="text-[9px] text-gray-500 text-center">
-                    Result = keccak256(blockhash + secret + betId) % 100 + 1
+                    Result = keccak256(blockhash + betId) % 100 + 1
                   </p>
                 </div>
                 <button onClick={() => setShowHistory(false)} className="mt-2 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Close</button>
@@ -1156,7 +989,7 @@ export default function DicePage() {
           </div>
         )}
 
-        {/* Verification Modal */}
+        {/* Verify Modal */}
         {showVerify && (
           <div className="fixed inset-0 z-50">
             <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowVerify(null)} />
@@ -1181,26 +1014,16 @@ export default function DicePage() {
                   </div>
 
                   <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-                    <div className="text-[9px] text-gray-500 uppercase mb-1">Your Secret</div>
-                    <div className="text-[10px] text-white font-mono break-all">{showVerify.revealedSecret}</div>
-                  </div>
-
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
                     <div className="text-[9px] text-gray-500 uppercase mb-1">Commit Block</div>
                     <div className="text-xs text-white">{showVerify.commitBlock.toString()}</div>
                   </div>
 
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-                    <div className="text-[9px] text-gray-500 uppercase mb-1">Commit Hash</div>
-                    <div className="text-[10px] text-white font-mono break-all">{showVerify.commitHash}</div>
-                  </div>
-
                   <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
                     <p className="text-[10px] text-amber-400">
-                      ✓ Verify: keccak256(secret) should equal commit hash
+                      ✓ Result: keccak256(blockhash(commitBlock) + betId) % 100 + 1
                     </p>
                     <p className="text-[10px] text-amber-400 mt-1">
-                      ✓ Result: keccak256(blockhash + secret + betId) % 100 + 1
+                      ✓ No user secret needed - house reveals automatically
                     </p>
                   </div>
                 </div>
@@ -1241,24 +1064,18 @@ export default function DicePage() {
                   <div className="flex gap-2.5">
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
                     <div>
-                      <div className="font-semibold text-amber-400 text-xs">Bet & Roll</div>
-                      <div className="text-[11px] text-gray-400">Lower win chance = higher multiplier.</div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2.5">
-                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
-                    <div>
-                      <div className="font-semibold text-amber-400 text-xs">2% House Edge</div>
-                      <div className="text-[11px] text-gray-400">1% → House (Grows the Pool)</div>
-                      <div className="text-[11px] text-gray-400">0.5% → LP Burn Rewards</div>
-                      <div className="text-[11px] text-gray-400">0.5% → Treasury</div>
+                      <div className="font-semibold text-amber-400 text-xs">Roll & Wait</div>
+                      <div className="text-[11px] text-gray-400">One transaction - house reveals automatically!</div>
                     </div>
                   </div>
                 </div>
+                
                 <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
-                  <p className="text-[10px] text-gray-400 text-center">🎲 100% onchain • Provably fair • Commit-reveal</p>
-                  <p className="text-[10px] text-amber-400 text-center mt-1">Beta: Max 1 DONUT per bet • Higher limits coming soon!</p>
+                  <div className="text-[10px] text-amber-400 font-bold mb-1">Fee Structure:</div>
+                  <div className="text-[10px] text-gray-400">On Win: 2% edge (1% pool, 0.5% LP, 0.5% treasury)</div>
+                  <div className="text-[10px] text-gray-400">On Loss: 50% pool, 25% LP burn, 25% treasury</div>
                 </div>
+                
                 <button onClick={() => setShowHelp(false)} className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Got it</button>
               </div>
             </div>
