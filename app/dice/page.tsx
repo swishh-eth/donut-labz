@@ -324,6 +324,7 @@ export default function DicePage() {
   const [isMuted, setIsMuted] = useState(false);
   const [cooldown, setCooldown] = useState(false);
   const [expandedBetId, setExpandedBetId] = useState<string | null>(null);
+  const [hasShownApproval, setHasShownApproval] = useState(false);
 
   const { address, isConnected } = useAccount();
 
@@ -388,12 +389,15 @@ export default function DicePage() {
     args: address ? [address] : undefined,
   });
 
-  // Auto-show approvals if needed
+  // Auto-show approvals if needed (only once per session)
   useEffect(() => {
-    if (isConnected && allowance !== undefined && allowance === BigInt(0) && !showApprovals) {
-      setTimeout(() => setShowApprovals(true), 500);
+    if (isConnected && allowance !== undefined && allowance === BigInt(0) && !showApprovals && !hasShownApproval) {
+      setTimeout(() => {
+        setShowApprovals(true);
+        setHasShownApproval(true);
+      }, 500);
     }
-  }, [isConnected, allowance, showApprovals]);
+  }, [isConnected, allowance, showApprovals, hasShownApproval]);
 
   // Initialize SDK
   useEffect(() => {

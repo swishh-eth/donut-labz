@@ -37,7 +37,7 @@ const ERC20_ABI = [
   }
 ] as const;
 
-// V5 ABI - simplified, no commit hash from user
+// V5 ABI - simplified, house reveals
 const WHEEL_V5_ABI = [
   {
     inputs: [
@@ -46,7 +46,7 @@ const WHEEL_V5_ABI = [
       { name: "riskLevel", type: "uint8" },
       { name: "segments", type: "uint8" }
     ],
-    name: "placeSpin",
+    name: "startSpin",
     outputs: [{ type: "uint256" }],
     stateMutability: "nonpayable",
     type: "function"
@@ -81,36 +81,26 @@ const WHEEL_V5_ABI = [
   },
   {
     inputs: [{ name: "player", type: "address" }],
-    name: "getPlayerSpinIds",
+    name: "getPlayerSpins",
     outputs: [{ type: "uint256[]" }],
     stateMutability: "view",
     type: "function"
   },
   {
-    inputs: [{ name: "player", type: "address" }, { name: "count", type: "uint256" }],
-    name: "getPlayerRecentSpins",
-    outputs: [{
-      type: "tuple[]",
-      components: [
-        { name: "player", type: "address" },
-        { name: "token", type: "address" },
-        { name: "amount", type: "uint256" },
-        { name: "riskLevel", type: "uint8" },
-        { name: "segments", type: "uint8" },
-        { name: "commitBlock", type: "uint256" },
-        { name: "status", type: "uint8" },
-        { name: "result", type: "uint8" },
-        { name: "multiplier", type: "uint256" },
-        { name: "payout", type: "uint256" }
-      ]
-    }],
-    stateMutability: "view",
-    type: "function"
-  },
-  {
-    inputs: [{ name: "token", type: "address" }],
-    name: "getBalance",
-    outputs: [{ type: "uint256" }],
+    inputs: [{ name: "spinId", type: "uint256" }],
+    name: "spins",
+    outputs: [
+      { name: "player", type: "address" },
+      { name: "token", type: "address" },
+      { name: "amount", type: "uint256" },
+      { name: "riskLevel", type: "uint8" },
+      { name: "segments", type: "uint8" },
+      { name: "commitBlock", type: "uint256" },
+      { name: "status", type: "uint8" },
+      { name: "result", type: "uint8" },
+      { name: "multiplier", type: "uint256" },
+      { name: "payout", type: "uint256" }
+    ],
     stateMutability: "view",
     type: "function"
   },
@@ -125,7 +115,7 @@ const WHEEL_V5_ABI = [
       { indexed: false, name: "segments", type: "uint8" },
       { indexed: false, name: "commitBlock", type: "uint256" }
     ],
-    name: "SpinPlaced",
+    name: "SpinStarted",
     type: "event"
   },
   {
@@ -133,7 +123,6 @@ const WHEEL_V5_ABI = [
     inputs: [
       { indexed: true, name: "spinId", type: "uint256" },
       { indexed: true, name: "player", type: "address" },
-      { indexed: false, name: "blockHash", type: "bytes32" },
       { indexed: false, name: "result", type: "uint8" },
       { indexed: false, name: "multiplier", type: "uint256" },
       { indexed: false, name: "payout", type: "uint256" }
@@ -156,59 +145,85 @@ type OnchainSpin = {
   payout: bigint;
 };
 
-// Get multipliers for wheel config (client-side calculation matching contract)
+// Get multipliers for wheel config (matching contract exactly)
 const getWheelMultipliers = (riskLevel: number, segments: number): number[] => {
-  const multipliers: number[] = [];
+  // These match the contract's _initializeMultipliers function
   
-  for (let i = 0; i < segments; i++) {
-    let mult = 0;
-    
+  if (riskLevel === 0) { // LOW RISK
     if (segments === 10) {
-      if (riskLevel === 0) {
-        mult = i < 8 ? 12500 : 0;
-      } else if (riskLevel === 1) {
-        mult = i < 5 ? 20000 : 0;
-      } else {
-        mult = i === 0 ? 99000 : 0;
-      }
+      return [15000, 12000, 11000, 10000, 9000, 15000, 12000, 11000, 10000, 9000];
     } else if (segments === 20) {
-      if (riskLevel === 0) {
-        mult = i < 16 ? 12500 : 0;
-      } else if (riskLevel === 1) {
-        mult = i < 10 ? 20000 : 0;
-      } else {
-        mult = i < 2 ? 99000 : 0;
+      const mults = [];
+      for (let i = 0; i < 20; i++) {
+        if (i % 5 === 0) mults.push(18000);
+        else if (i % 5 === 1) mults.push(12000);
+        else if (i % 5 === 2) mults.push(10000);
+        else if (i % 5 === 3) mults.push(8000);
+        else mults.push(6000);
       }
+      return mults;
     } else if (segments === 30) {
-      if (riskLevel === 0) {
-        mult = i < 24 ? 12500 : 0;
-      } else if (riskLevel === 1) {
-        mult = i < 15 ? 20000 : 0;
-      } else {
-        mult = i < 2 ? 148500 : 0;
+      const mults = [];
+      for (let i = 0; i < 30; i++) {
+        if (i % 6 === 0) mults.push(20000);
+        else if (i % 6 === 1) mults.push(15000);
+        else if (i % 6 === 2) mults.push(10000);
+        else if (i % 6 === 3) mults.push(8000);
+        else if (i % 6 === 4) mults.push(5000);
+        else mults.push(0);
       }
-    } else if (segments === 40) {
-      if (riskLevel === 0) {
-        mult = i < 32 ? 12500 : 0;
-      } else if (riskLevel === 1) {
-        mult = i < 20 ? 20000 : 0;
-      } else {
-        mult = i < 2 ? 198000 : 0;
-      }
-    } else if (segments === 50) {
-      if (riskLevel === 0) {
-        mult = i < 40 ? 12500 : 0;
-      } else if (riskLevel === 1) {
-        mult = i < 25 ? 20000 : 0;
-      } else {
-        mult = i === 0 ? 495000 : 0;
-      }
+      return mults;
     }
-    
-    multipliers.push(mult);
+  } else if (riskLevel === 1) { // MEDIUM RISK
+    if (segments === 10) {
+      return [30000, 20000, 15000, 10000, 0, 25000, 15000, 10000, 5000, 0];
+    } else if (segments === 20) {
+      const mults = [];
+      for (let i = 0; i < 20; i++) {
+        if (i % 5 === 0) mults.push(40000);
+        else if (i % 5 === 1) mults.push(20000);
+        else if (i % 5 === 2) mults.push(10000);
+        else if (i % 5 === 3) mults.push(5000);
+        else mults.push(0);
+      }
+      return mults;
+    } else if (segments === 30) {
+      const mults = [];
+      for (let i = 0; i < 30; i++) {
+        if (i % 6 === 0) mults.push(50000);
+        else if (i % 6 === 1) mults.push(25000);
+        else if (i % 6 === 2) mults.push(15000);
+        else if (i % 6 === 3) mults.push(5000);
+        else mults.push(0);
+      }
+      return mults;
+    }
+  } else { // HIGH RISK
+    if (segments === 10) {
+      return [98000, 20000, 0, 15000, 0, 50000, 0, 10000, 0, 0];
+    } else if (segments === 20) {
+      const mults = [];
+      for (let i = 0; i < 20; i++) {
+        if (i === 0) mults.push(196000);
+        else if (i % 5 === 0) mults.push(30000);
+        else if (i % 5 === 1) mults.push(10000);
+        else mults.push(0);
+      }
+      return mults;
+    } else if (segments === 30) {
+      const mults = [];
+      for (let i = 0; i < 30; i++) {
+        if (i === 0) mults.push(294000);
+        else if (i % 6 === 0) mults.push(50000);
+        else if (i % 6 === 1) mults.push(15000);
+        else mults.push(0);
+      }
+      return mults;
+    }
   }
   
-  return multipliers;
+  // Fallback - shouldn't happen
+  return Array(segments).fill(10000);
 };
 
 // Get color for a multiplier
@@ -525,6 +540,8 @@ export default function GlazeWheelPage() {
   const [isMuted, setIsMuted] = useState(false);
   const [cooldown, setCooldown] = useState(false);
   const [expandedSpinId, setExpandedSpinId] = useState<string | null>(null);
+  const [hasShownApproval, setHasShownApproval] = useState(false);
+  const [recentSpins, setRecentSpins] = useState<OnchainSpin[]>([]);
 
   const { address, isConnected } = useAccount();
   
@@ -630,29 +647,24 @@ export default function GlazeWheelPage() {
     args: address ? [address, GLAZE_WHEEL_ADDRESS] : undefined,
   });
 
-  // Read recent spins
-  const { data: recentSpins, refetch: refetchSpins } = useReadContract({
+  // Read player spin IDs
+  const { data: playerSpinIds, refetch: refetchSpins } = useReadContract({
     address: GLAZE_WHEEL_ADDRESS,
     abi: WHEEL_V5_ABI,
-    functionName: "getPlayerRecentSpins",
-    args: address ? [address, BigInt(20)] : undefined,
-  });
-
-  // Read spin IDs
-  const { data: playerSpinIds } = useReadContract({
-    address: GLAZE_WHEEL_ADDRESS,
-    abi: WHEEL_V5_ABI,
-    functionName: "getPlayerSpinIds",
+    functionName: "getPlayerSpins",
     args: address ? [address] : undefined,
   });
 
-  // Auto-show approvals
+  // Auto-show approvals (only once per session)
   useEffect(() => {
-    if (isConnected && allowance !== undefined && allowance === BigInt(0) && !showApprovals) {
-      const timer = setTimeout(() => setShowApprovals(true), 500);
+    if (isConnected && allowance !== undefined && allowance === BigInt(0) && !showApprovals && !hasShownApproval) {
+      const timer = setTimeout(() => {
+        setShowApprovals(true);
+        setHasShownApproval(true);
+      }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isConnected, allowance, showApprovals]);
+  }, [isConnected, allowance, showApprovals, hasShownApproval]);
 
   // Refetch on visibility
   useEffect(() => {
@@ -667,15 +679,62 @@ export default function GlazeWheelPage() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [refetchBalance, refetchAllowance, refetchSpins]);
 
+  // Fetch spin details when history opens or spin IDs change
+  useEffect(() => {
+    if (!showHistory || !playerSpinIds || !publicClient) return;
+    
+    const fetchSpinDetails = async () => {
+      const spinIds = playerSpinIds as bigint[];
+      if (!spinIds || spinIds.length === 0) {
+        setRecentSpins([]);
+        return;
+      }
+      
+      // Get last 20 spins (most recent first)
+      const idsToFetch = spinIds.slice(-20).reverse();
+      const spins: OnchainSpin[] = [];
+      
+      for (const spinId of idsToFetch) {
+        try {
+          const spin = await publicClient.readContract({
+            address: GLAZE_WHEEL_ADDRESS,
+            abi: WHEEL_V5_ABI,
+            functionName: "spins",
+            args: [spinId],
+          }) as [string, string, bigint, number, number, bigint, number, number, bigint, bigint];
+          
+          spins.push({
+            player: spin[0] as `0x${string}`,
+            token: spin[1] as `0x${string}`,
+            amount: spin[2],
+            riskLevel: spin[3],
+            segments: spin[4],
+            commitBlock: spin[5],
+            status: spin[6],
+            result: spin[7],
+            multiplier: spin[8],
+            payout: spin[9],
+          });
+        } catch (e) {
+          console.error("Error fetching spin:", spinId.toString(), e);
+        }
+      }
+      
+      setRecentSpins(spins);
+    };
+    
+    fetchSpinDetails();
+  }, [showHistory, playerSpinIds, publicClient]);
+
   // Contract writes
-  const { data: placeSpinHash, writeContract: writePlaceSpin, isPending: isPlacePending, reset: resetPlaceSpin, error: placeError } = useWriteContract();
-  const { isSuccess: isPlaceSuccess } = useWaitForTransactionReceipt({ hash: placeSpinHash });
+  const { data: startSpinHash, writeContract: writeStartSpin, isPending: isStartPending, reset: resetStartSpin, error: startError } = useWriteContract();
+  const { isSuccess: isStartSuccess } = useWaitForTransactionReceipt({ hash: startSpinHash });
   const { writeContract: writeClaim, isPending: isClaimPending } = useWriteContract();
 
   // Handle place spin error
   useEffect(() => {
-    if (placeError && isSpinning) {
-      const msg = placeError.message || "Spin failed";
+    if (startError && isSpinning) {
+      const msg = startError.message || "Spin failed";
       if (msg.includes("User rejected") || msg.includes("rejected")) {
         setErrorMessage("Transaction cancelled");
       } else if (msg.includes("Insufficient contract balance")) {
@@ -685,19 +744,19 @@ export default function GlazeWheelPage() {
       }
       setIsSpinning(false);
       setWheelRotation(0);
-      resetPlaceSpin();
+      resetStartSpin();
       setTimeout(() => setErrorMessage(null), 3000);
     }
-  }, [placeError, isSpinning, resetPlaceSpin]);
+  }, [startError, isSpinning, resetStartSpin]);
 
   // Handle place spin success - start polling
   useEffect(() => {
-    if (isPlaceSuccess && isSpinning && placeSpinHash) {
+    if (isStartSuccess && isSpinning && startSpinHash) {
       console.log("Spin placed, starting to poll for result...");
       
       const getSpinIdAndPoll = async () => {
         try {
-          const receipt = await publicClient?.getTransactionReceipt({ hash: placeSpinHash });
+          const receipt = await publicClient?.getTransactionReceipt({ hash: startSpinHash });
           
           const spinPlacedLog = receipt?.logs.find(log => 
             log.address.toLowerCase() === GLAZE_WHEEL_ADDRESS.toLowerCase()
@@ -830,11 +889,11 @@ export default function GlazeWheelPage() {
       
       getSpinIdAndPoll();
     }
-  }, [isPlaceSuccess, isSpinning, placeSpinHash, publicClient, segments, refetchSpins, refetchBalance]);
+  }, [isStartSuccess, isSpinning, startSpinHash, publicClient, segments, refetchSpins, refetchBalance]);
 
   const handleSpin = async () => {
     if (!isConnected || !address) return;
-    if (isSpinning || isPlacePending || cooldown) return;
+    if (isSpinning || isStartPending || cooldown) return;
     
     const amount = parseFloat(betAmount || "0");
     if (amount <= 0 || amount > 10) {
@@ -864,10 +923,10 @@ export default function GlazeWheelPage() {
     setErrorMessage(null);
     setIsSpinning(true);
     
-    writePlaceSpin({
+    writeStartSpin({
       address: GLAZE_WHEEL_ADDRESS,
       abi: WHEEL_V5_ABI,
-      functionName: "placeSpin",
+      functionName: "startSpin",
       args: [DONUT_TOKEN_ADDRESS, amountWei, riskLevel, segments]
     });
   };
@@ -1121,15 +1180,15 @@ export default function GlazeWheelPage() {
               
               <button
                 onClick={handleSpin}
-                disabled={isSpinning || isPlacePending || cooldown || !isConnected || parseFloat(betAmount || "0") <= 0}
+                disabled={isSpinning || isStartPending || cooldown || !isConnected || parseFloat(betAmount || "0") <= 0}
                 className={cn(
                   "flex-1 h-12 rounded-xl font-bold text-base transition-all",
-                  isSpinning || isPlacePending || cooldown ? "bg-zinc-500 text-zinc-300" : "bg-amber-500 text-black hover:bg-amber-400"
+                  isSpinning || isStartPending || cooldown ? "bg-zinc-500 text-zinc-300" : "bg-amber-500 text-black hover:bg-amber-400"
                 )}
               >
                 {isSpinning ? (
                   <Loader2 className="w-5 h-5 animate-spin mx-auto" />
-                ) : isPlacePending ? (
+                ) : isStartPending ? (
                   "Confirm..."
                 ) : cooldown && lastResult ? (
                   <span className={lastResult.won ? "text-green-400" : "text-red-400"}>
@@ -1158,12 +1217,13 @@ export default function GlazeWheelPage() {
                 <p className="text-[10px] text-gray-500 mb-3">Tap any spin to verify. All results are provably fair.</p>
                 
                 <div className="flex-1 overflow-y-auto space-y-2">
-                  {!recentSpins || (recentSpins as OnchainSpin[]).length === 0 ? (
+                  {recentSpins.length === 0 ? (
                     <p className="text-sm text-gray-500 text-center py-8">No spins yet</p>
                   ) : (
-                    (recentSpins as OnchainSpin[]).map((spin, index) => {
+                    recentSpins.map((spin, index) => {
                       const isPending = spin.status === 1;
                       const spinIds = playerSpinIds as bigint[] | undefined;
+                      // Since we fetched last 20 in reverse, index 0 = most recent = spinIds[length-1]
                       const spinId = spinIds ? spinIds[spinIds.length - 1 - index] : null;
                       const spinIdStr = spinId?.toString() || index.toString();
                       const isExpanded = expandedSpinId === spinIdStr;
