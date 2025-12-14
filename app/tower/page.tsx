@@ -198,22 +198,26 @@ export default function DonutTowerPage() {
       return;
     }
     
-    // If no game ID, clear state
-    if (!contractGameId || contractGameId === BigInt(0)) {
-      // Only clear if not showing a result
-      if (!gameResult) {
-        setActiveGameId(null);
-        setGameState(null);
-        setIsWaitingForReveal(false);
-        setIsStartingGame(false);
-      }
+    // Skip if we're in the middle of starting/waiting - pollForReveal will handle it
+    if (isStartingGame || isWaitingForReveal) {
+      console.log("Load effect: skipping - starting or waiting for reveal");
       return;
     }
     
-    // Skip if we already have this game loaded with Active status
-    // This prevents overwriting state we just updated from a climb
-    if (activeGameId === contractGameId && gameState?.status === GameStatus.Active) {
-      console.log("Load effect: skipping - already have active game");
+    // Skip if we already have an active game with state
+    if (activeGameId && gameState?.status === GameStatus.Active) {
+      console.log("Load effect: skipping - already have active game state");
+      return;
+    }
+    
+    // If no game ID from contract, only clear if we don't have local state
+    if (!contractGameId || contractGameId === BigInt(0)) {
+      // Only clear if not showing a result AND we don't have a local game
+      if (!gameResult && !activeGameId) {
+        console.log("Load effect: clearing - no contract game ID and no local game");
+        setActiveGameId(null);
+        setGameState(null);
+      }
       return;
     }
     
