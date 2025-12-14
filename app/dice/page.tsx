@@ -726,7 +726,7 @@ export default function DicePage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">Sugar Cubes</h1>
+            <h1 className="text-xl font-bold">SUGAR CUBES</h1>
             <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/30 animate-pulse">LIVE</span>
           </div>
           {context?.user?.pfpUrl ? (
