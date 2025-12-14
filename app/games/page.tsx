@@ -87,6 +87,7 @@ function GameTile({
   icon: Icon, 
   comingSoon = true,
   lastWinner,
+  scrollDirection = "left",
   onClick 
 }: { 
   title: string;
@@ -94,6 +95,7 @@ function GameTile({
   icon: React.ElementType;
   comingSoon?: boolean;
   lastWinner?: { username: string; amount: string; pfpUrl?: string } | null;
+  scrollDirection?: "left" | "right";
   onClick?: () => void;
 }) {
   const [isFocused, setIsFocused] = useState(false);
@@ -136,18 +138,18 @@ function GameTile({
             )}
             {!comingSoon && lastWinner && (
               <div className="winner-container min-w-0">
-                <div className="winner-track">
+                <div className={scrollDirection === "right" ? "winner-track-right" : "winner-track"}>
                   <span className="winner-item">
                     {lastWinner.pfpUrl && (
                       <img src={lastWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
                     )}
-                    +{lastWinner.amount} @{lastWinner.username}
+                    @{lastWinner.username} +{lastWinner.amount}
                   </span>
                   <span className="winner-item">
                     {lastWinner.pfpUrl && (
                       <img src={lastWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
                     )}
-                    +{lastWinner.amount} @{lastWinner.username}
+                    @{lastWinner.username} +{lastWinner.amount}
                   </span>
                 </div>
               </div>
@@ -447,6 +449,7 @@ export default function GamesPage() {
       icon: Bomb,
       comingSoon: false,
       lastWinner: minesLastWinner,
+      scrollDirection: "right" as const,
       onClick: () => router.push("/mines"),
     },
     {
@@ -512,6 +515,10 @@ export default function GamesPage() {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
+        @keyframes scroll-right {
+          0% { transform: translateX(-50%); }
+          100% { transform: translateX(0); }
+        }
         .icon-breathe {
           animation: icon-breathe 2s ease-in-out infinite;
         }
@@ -525,6 +532,11 @@ export default function GamesPage() {
           display: flex;
           width: max-content;
           animation: scroll-left 6s linear infinite;
+        }
+        .winner-track-right {
+          display: flex;
+          width: max-content;
+          animation: scroll-right 6s linear infinite;
         }
         .winner-item {
           display: flex;
@@ -780,6 +792,7 @@ export default function GamesPage() {
                   icon={game.icon}
                   comingSoon={game.comingSoon}
                   lastWinner={game.lastWinner}
+                  scrollDirection={(game as { scrollDirection?: "left" | "right" }).scrollDirection}
                   onClick={game.onClick}
                 />
               ))}
