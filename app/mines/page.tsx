@@ -514,41 +514,67 @@ export default function BakeryMinesPage() {
   useEffect(() => {
     if (!isWaitingForReveal || !activeGameId || !publicClient) return;
     
+    let attempts = 0;
+    const maxAttempts = 30;
+    
     const pollForReveal = async () => {
+      attempts++;
+      
       // Trigger reveal API
       try {
         await fetch('/api/reveal?game=mines');
       } catch {}
       
-      // Check game status
-      const game = await publicClient.readContract({
-        address: DONUT_MINES_ADDRESS,
-        abi: MINES_V5_ABI,
-        functionName: "games",
-        args: [activeGameId],
-        blockTag: 'latest',
-      }) as [string, string, bigint, number, bigint, number, number, number, bigint, bigint];
+      // Wait a bit then check game status
+      await new Promise(r => setTimeout(r, 1500));
       
-      if (game[5] === GameStatus.Active) {
-        // Game revealed!
-        setGameState({
-          player: game[0] as `0x${string}`,
-          token: game[1] as `0x${string}`,
-          betAmount: game[2],
-          mineCount: game[3],
-          commitBlock: game[4],
-          status: game[5],
-          minePositions: game[6],
-          revealedTiles: game[7],
-          currentMultiplier: game[8],
-          payout: game[9],
-        });
-        setIsWaitingForReveal(false);
-        setIsStartingGame(false);
+      try {
+        const game = await publicClient.readContract({
+          address: DONUT_MINES_ADDRESS,
+          abi: MINES_V5_ABI,
+          functionName: "games",
+          args: [activeGameId],
+          blockTag: 'latest',
+        }) as [string, string, bigint, number, bigint, number, number, number, bigint, bigint];
+        
+        if (game[5] === GameStatus.Active) {
+          // Game revealed!
+          setGameState({
+            player: game[0] as `0x${string}`,
+            token: game[1] as `0x${string}`,
+            betAmount: game[2],
+            mineCount: game[3],
+            commitBlock: game[4],
+            status: game[5],
+            minePositions: game[6],
+            revealedTiles: game[7],
+            currentMultiplier: game[8],
+            payout: game[9],
+          });
+          setIsWaitingForReveal(false);
+          setIsStartingGame(false);
+          return true;
+        }
+        
+        if (attempts >= maxAttempts) {
+          setErrorMessage("Timeout - try refreshing");
+          setIsWaitingForReveal(false);
+          setIsStartingGame(false);
+          return true;
+        }
+      } catch (e) {
+        console.error("Poll error:", e);
       }
+      
+      return false;
     };
     
-    const interval = setInterval(pollForReveal, 2000);
+    const interval = setInterval(async () => {
+      const done = await pollForReveal();
+      if (done) clearInterval(interval);
+    }, 2000);
+    
+    // Initial poll
     pollForReveal();
     
     return () => clearInterval(interval);
@@ -833,7 +859,7 @@ export default function BakeryMinesPage() {
           onClick={() => handleRevealTile(i)}
           disabled={!isClickable}
           className={cn(
-            "aspect-square rounded-lg border-2 flex items-center justify-center text-xl font-bold transition-all",
+            "aspect-square rounded-md border flex items-center justify-center text-base font-bold transition-all",
             isRevealing && "animate-pulse",
             isRevealed && isMine && "bg-red-500/30 border-red-500",
             isRevealed && !isMine && "bg-green-500/30 border-green-500",
@@ -842,11 +868,11 @@ export default function BakeryMinesPage() {
           )}
         >
           {isRevealing ? (
-            <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+            <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
           ) : isRevealed ? (
-            isMine ? <Bomb className="w-6 h-6 text-red-400" /> : <Gem className="w-6 h-6 text-green-400" />
+            isMine ? <Bomb className="w-5 h-5 text-red-400" /> : <Gem className="w-5 h-5 text-green-400" />
           ) : (
-            <span className="text-zinc-600">?</span>
+            <span className="text-zinc-600 text-sm">?</span>
           )}
         </button>
       );
@@ -954,53 +980,53 @@ export default function BakeryMinesPage() {
         </div>
 
         {/* Game Grid */}
-        <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+        <div className="flex-1 flex flex-col items-center justify-center min-h-0 py-2">
           {isWaitingForReveal ? (
             <div className="text-center">
-              <Loader2 className="w-12 h-12 text-amber-400 animate-spin mx-auto mb-4" />
-              <div className="text-amber-400 font-bold">Setting up minefield...</div>
-              <div className="text-xs text-gray-500 mt-1">House is placing mines</div>
+              <Loader2 className="w-10 h-10 text-amber-400 animate-spin mx-auto mb-3" />
+              <div className="text-amber-400 font-bold text-sm">Setting up minefield...</div>
+              <div className="text-[10px] text-gray-500 mt-1">House is placing mines</div>
             </div>
           ) : gameResult ? (
             <div className="text-center">
               <div className={cn(
-                "text-4xl font-bold mb-2",
+                "text-3xl font-bold mb-2",
                 gameResult === "won" ? "text-green-400" : "text-red-400"
               )}>
                 {gameResult === "won" ? "💎 CASHED OUT!" : "💥 BOOM!"}
               </div>
               {gameResult === "won" && gameState && (
-                <div className="text-xl text-green-400">
+                <div className="text-lg text-green-400">
                   +{(parseFloat(formatUnits(gameState.betAmount, 18)) * (Number(gameState.currentMultiplier) / 10000) * 0.98).toFixed(2)} 🍩
                 </div>
               )}
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-5 gap-1.5 w-full max-w-[280px]">
+              <div className="grid grid-cols-5 gap-1 w-full max-w-[220px]">
                 {renderGrid()}
               </div>
               
               {/* Current profit display */}
               {gameState?.status === GameStatus.Active && countBits(gameState.revealedTiles) > 0 && (
-                <div className="mt-3 text-center">
-                  <div className="text-xs text-gray-400">Current Profit</div>
-                  <div className="text-lg font-bold text-green-400">+{currentProfit.toFixed(2)} 🍩</div>
-                  <div className="text-[10px] text-gray-500">
-                    Next tile: {(nextMultiplier / 10000).toFixed(2)}x
+                <div className="mt-2 text-center">
+                  <div className="text-[10px] text-gray-400">Current Profit</div>
+                  <div className="text-base font-bold text-green-400">+{currentProfit.toFixed(2)} 🍩</div>
+                  <div className="text-[9px] text-gray-500">
+                    Next: {(nextMultiplier / 10000).toFixed(2)}x
                   </div>
                 </div>
               )}
               
               {/* Status message */}
               {!gameState && (
-                <div className="mt-3 text-center text-gray-500 text-xs">
+                <div className="mt-2 text-center text-gray-500 text-[10px]">
                   Select mines and start game
                 </div>
               )}
               
               {errorMessage && (
-                <div className="mt-2 text-xs text-red-400">{errorMessage}</div>
+                <div className="mt-2 text-[10px] text-red-400">{errorMessage}</div>
               )}
             </>
           )}

@@ -604,7 +604,7 @@ export default function GlazeWheelPage() {
   const [expandedSpinId, setExpandedSpinId] = useState<string | null>(null);
   const [hasShownApproval, setHasShownApproval] = useState(false);
   const [recentSpins, setRecentSpins] = useState<OnchainSpin[]>([]);
-  const [expandedBet, setExpandedBet] = useState(false);
+  const [expandedPanel, setExpandedPanel] = useState<"none" | "risk" | "segments" | "bet">("none");
 
   const { address, isConnected } = useAccount();
   
@@ -1166,114 +1166,132 @@ export default function GlazeWheelPage() {
           )}
           
           {/* Info text like dice page */}
-          <div className="text-center mt-2">
-            <div className="text-xs text-gray-400">
-              {riskLevel === 0 ? "Low Risk" : riskLevel === 1 ? "Medium Risk" : "High Risk"} • <span className="text-white font-bold">{segments}</span> Segments
+          {!isSpinning && !lastResult && (
+            <div className="text-center mt-2">
+              <div className="text-[10px] text-gray-500">
+                {riskLevel === 0 ? "Low" : riskLevel === 1 ? "Med" : "High"} Risk • {segments} Seg • Max {maxMultiplier.toFixed(1)}x
+              </div>
             </div>
-            <div className="text-[10px] text-gray-500">
-              Max Win {maxMultiplier.toFixed(1)}x • Bet 🍩{betAmount}
-            </div>
-          </div>
-        </div>
-        
-        {/* Multiplier Legend - Fixed position above controls */}
-        <div className="py-2">
-          <MultiplierLegend multipliers={multipliers} />
+          )}
         </div>
 
-        {/* Controls */}
+        {/* Controls - Compact with expandable panels */}
         <div className="space-y-2 pb-1">
-          {/* Risk & Segments */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-            <div className="flex justify-between mb-1">
-              <span className="text-[10px] text-gray-400">Risk Level</span>
-              <span className={cn(
-                "text-xs font-bold",
-                riskLevel === 0 ? "text-green-400" : riskLevel === 1 ? "text-amber-400" : "text-red-400"
-              )}>
-                {riskLevel === 0 ? "LOW" : riskLevel === 1 ? "MEDIUM" : "HIGH"}
-              </span>
-            </div>
-            <div className="flex gap-1">
-              {[0, 1, 2].map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setRiskLevel(r)}
-                  disabled={isSpinning}
-                  className={cn(
-                    "flex-1 py-2 text-[10px] rounded font-bold transition-all border",
-                    riskLevel === r
-                      ? r === 0 ? "bg-green-500 text-black border-green-500" : r === 1 ? "bg-amber-500 text-black border-amber-500" : "bg-red-500 text-white border-red-500"
-                      : "bg-zinc-800 text-gray-400 border-zinc-700"
-                  )}
-                >
-                  {r === 0 ? "LOW" : r === 1 ? "MED" : "HIGH"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Segments + Bet */}
+          {/* All controls in one row */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2">
             <div className="flex items-center gap-2">
-              {/* Segment buttons */}
-              {[10, 20, 30].map((s) => (
+              {/* Risk Level - compact button or expanded */}
+              {expandedPanel === "risk" ? (
+                <div className="flex-1 flex items-center gap-1">
+                  {[0, 1, 2].map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => { setRiskLevel(r); setExpandedPanel("none"); }}
+                      disabled={isSpinning}
+                      className={cn(
+                        "flex-1 py-2 text-[10px] rounded font-bold border",
+                        riskLevel === r
+                          ? r === 0 ? "bg-green-500 text-black border-green-500" : r === 1 ? "bg-amber-500 text-black border-amber-500" : "bg-red-500 text-white border-red-500"
+                          : "bg-zinc-800 text-gray-400 border-zinc-700"
+                      )}
+                    >
+                      {r === 0 ? "LOW" : r === 1 ? "MED" : "HIGH"}
+                    </button>
+                  ))}
+                </div>
+              ) : (
                 <button
-                  key={s}
-                  onClick={() => setSegments(s)}
+                  onClick={() => setExpandedPanel("risk")}
                   disabled={isSpinning}
                   className={cn(
                     "w-12 h-12 rounded-lg flex flex-col items-center justify-center border",
-                    segments === s 
-                      ? "bg-amber-500 text-black border-amber-500" 
-                      : "bg-zinc-800 text-gray-400 border-zinc-700"
+                    riskLevel === 0 ? "bg-green-500/20 border-green-500/50 text-green-400" 
+                      : riskLevel === 1 ? "bg-amber-500/20 border-amber-500/50 text-amber-400" 
+                      : "bg-red-500/20 border-red-500/50 text-red-400"
                   )}
                 >
-                  <span className="text-sm font-bold">{s}</span>
-                  <span className="text-[8px]">SEG</span>
+                  <span className="text-[8px] text-gray-400">RISK</span>
+                  <span className="text-[10px] font-bold">{riskLevel === 0 ? "LOW" : riskLevel === 1 ? "MED" : "HIGH"}</span>
                 </button>
-              ))}
+              )}
 
-              {/* Bet amount */}
-              <div className="flex-1">
+              {/* Segments - compact button or expanded */}
+              {expandedPanel === "segments" ? (
+                <div className="flex-1 flex items-center gap-1">
+                  {[10, 20, 30].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => { setSegments(s); setExpandedPanel("none"); }}
+                      disabled={isSpinning}
+                      className={cn(
+                        "flex-1 py-2 text-[10px] rounded font-bold border",
+                        segments === s
+                          ? "bg-amber-500 text-black border-amber-500"
+                          : "bg-zinc-800 text-gray-400 border-zinc-700"
+                      )}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              ) : (
                 <button
-                  onClick={() => setExpandedBet(!expandedBet)}
-                  className="w-full h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2"
+                  onClick={() => setExpandedPanel("segments")}
+                  disabled={isSpinning}
+                  className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center"
+                >
+                  <span className="text-[8px] text-gray-400">SEG</span>
+                  <span className="text-sm font-bold text-white">{segments}</span>
+                </button>
+              )}
+
+              {/* Bet Amount - compact button or expanded */}
+              {expandedPanel === "bet" ? (
+                <div className="flex-1 flex items-center gap-1">
+                  <div className="flex-1 flex flex-col gap-1">
+                    <div className="flex gap-1">
+                      {["0.5", "1", "2", "5"].map((val) => (
+                        <button
+                          key={val}
+                          onClick={() => setBetAmount(val)}
+                          className={cn(
+                            "flex-1 py-1.5 text-[10px] rounded border font-bold",
+                            betAmount === val ? "bg-amber-500 text-black border-amber-500" : "bg-zinc-800 text-gray-400 border-zinc-700"
+                          )}
+                        >
+                          {val}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={betAmount}
+                      onChange={(e) => /^\d*\.?\d*$/.test(e.target.value) && setBetAmount(e.target.value)}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold"
+                      disabled={isSpinning}
+                    />
+                  </div>
+                  <button 
+                    onClick={() => setExpandedPanel("none")} 
+                    className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center"
+                  >
+                    <span className="text-[8px] text-gray-500">BET</span>
+                    <span className="text-sm font-bold text-amber-400">{betAmount}</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setExpandedPanel("bet")}
+                  disabled={isSpinning}
+                  className="flex-1 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2"
                 >
                   <span className="text-[10px] text-gray-500">BET</span>
                   <span className="text-lg font-bold text-amber-400">{betAmount}</span>
                   <span className="text-[10px] text-gray-500">🍩</span>
                 </button>
-              </div>
+              )}
             </div>
-            
-            {/* Expanded bet options */}
-            {expandedBet && (
-              <div className="mt-2 flex flex-col gap-1">
-                <div className="flex gap-1">
-                  {["0.5", "1", "2", "5"].map((val) => (
-                    <button
-                      key={val}
-                      onClick={() => setBetAmount(val)}
-                      className={cn(
-                        "flex-1 py-1.5 text-[10px] rounded border font-bold",
-                        betAmount === val ? "bg-amber-500 text-black border-amber-500" : "bg-zinc-800 text-gray-400 border-zinc-700"
-                      )}
-                    >
-                      {val}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={betAmount}
-                  onChange={(e) => /^\d*\.?\d*$/.test(e.target.value) && setBetAmount(e.target.value)}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold"
-                  disabled={isSpinning}
-                />
-              </div>
-            )}
           </div>
 
           {/* Spin button - white like dice */}

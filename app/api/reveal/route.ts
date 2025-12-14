@@ -237,20 +237,35 @@ export async function GET(request: NextRequest) {
           functionName: 'getRevealableGames',
         }) as bigint[];
         
+        console.log('Revealable mines games:', revealable.map(id => id.toString()));
+        
         if (revealable.length > 0) {
           const walletClient = getWalletClient();
-          const hash = await walletClient.writeContract({
-            address: MINES_ADDRESS,
-            abi: REVEAL_ABI,
-            functionName: 'revealGames',
-            args: [revealable],
-          });
+          const revealed: string[] = [];
+          let lastHash = '';
           
-          await publicClient.waitForTransactionReceipt({ hash });
+          // Reveal one at a time with explicit gas limit
+          for (const gameId of revealable) {
+            try {
+              const hash = await walletClient.writeContract({
+                address: MINES_ADDRESS,
+                abi: REVEAL_ABI,
+                functionName: 'revealGame',
+                args: [gameId],
+                gas: BigInt(500000),
+              });
+              
+              await publicClient.waitForTransactionReceipt({ hash });
+              revealed.push(gameId.toString());
+              lastHash = hash;
+            } catch (e: any) {
+              console.error('Failed to reveal mines game', gameId.toString(), e.message);
+            }
+          }
           
           results.mines = { 
-            revealed: revealable.map(id => id.toString()),
-            txHash: hash 
+            revealed,
+            txHash: lastHash 
           };
         } else {
           results.mines = { revealed: [], message: 'No pending games' };
