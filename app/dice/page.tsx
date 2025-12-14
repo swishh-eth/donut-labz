@@ -564,6 +564,10 @@ export default function DicePage() {
   const handleRoll = async () => {
     if (!isConnected || !address) return;
     if (!currentToken.enabled) return;
+    if (betStep !== "idle") {
+      console.log("Blocked: betStep is", betStep);
+      return;
+    }
     
     const amount = parseFloat(betAmount || "0");
     if (amount <= 0 || amount > 1) {
@@ -613,7 +617,8 @@ export default function DicePage() {
     });
   };
 
-  const isProcessing = betStep !== "idle" && betStep !== "complete";
+  // Block all betting while ANY step is in progress (including showing result)
+  const isProcessing = betStep !== "idle";
   const balance = tokenBalance ? parseFloat(formatUnits(tokenBalance, 18)) : 0;
 
   const getStepMessage = () => {
