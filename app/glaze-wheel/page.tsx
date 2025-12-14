@@ -440,6 +440,18 @@ type PendingSpin = {
   amount: string;
 };
 
+type SpinHistoryItem = {
+  spinId: bigint;
+  betAmount: bigint;
+  riskLevel: number;
+  segments: number;
+  commitBlock: bigint;
+  status: 'pending' | 'won' | 'lost';
+  result?: number;
+  multiplier?: number;
+  payout?: bigint;
+};
+
 export default function GlazeWheelPage() {
   const readyRef = useRef(false);
   
@@ -460,6 +472,8 @@ export default function GlazeWheelPage() {
   const [isSpinning, setIsSpinning] = useState(false);
   const [spinResult, setSpinResult] = useState<{ segment: number; multiplier: number; payout: number } | null>(null);
   const [currentSpinId, setCurrentSpinId] = useState<bigint | null>(null);
+  const [spinHistory, setSpinHistory] = useState<SpinHistoryItem[]>([]);
+  const [currentBlock, setCurrentBlock] = useState<bigint>(BigInt(0));
   const [hasSeenApprovalModal, setHasSeenApprovalModal] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem(SEEN_APPROVAL_KEY) === 'true';
@@ -529,6 +543,8 @@ export default function GlazeWheelPage() {
     args: address ? [address] : undefined,
   });
 
+  const allPendingSpinIds = (pendingSpinIds as bigint[]) || [];
+
   // Refetch on visibility change
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -541,6 +557,107 @@ export default function GlazeWheelPage() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [refetchBalance, refetchAllowance, refetchPendingSpins]);
+
+  // Fetch spin history from events when history modal opens
+  useEffect(() => {
+    if (!showHistory || !address) return;
+    
+    const fetchHistory = async () => {
+      try {
+        const block = await publicClient.getBlockNumber();
+        setCurrentBlock(block);
+        
+        // Look back ~3 hours (5400 blocks)
+        const fromBlock = block > 5400n ? block - 5400n : 0n;
+        
+        // Fetch SpinRevealed events for this user
+        const revealedLogs = await publicClient.getLogs({
+          address: GLAZE_WHEEL_ADDRESS,
+          event: {
+            type: 'event',
+            name: 'SpinRevealed',
+            inputs: [
+              { type: 'uint256', name: 'spinId', indexed: true },
+              { type: 'address', name: 'player', indexed: true },
+              { type: 'uint8', name: 'result', indexed: false },
+              { type: 'uint256', name: 'multiplier', indexed: false },
+              { type: 'uint256', name: 'payout', indexed: false }
+            ]
+          },
+          args: { player: address },
+          fromBlock,
+          toBlock: 'latest'
+        });
+        
+        // Build history items from completed spins
+        const completedSpins: SpinHistoryItem[] = [];
+        
+        for (const log of revealedLogs) {
+          const spinId = log.args.spinId as bigint;
+          const result = log.args.result as number;
+          const multiplier = Number(log.args.multiplier as bigint);
+          const payout = log.args.payout as bigint;
+          
+          // Fetch spin details
+          try {
+            const spinData = await publicClient.readContract({
+              address: GLAZE_WHEEL_ADDRESS,
+              abi: WHEEL_ABI,
+              functionName: 'spins',
+              args: [spinId],
+            }) as [string, string, bigint, bigint, `0x${string}`, `0x${string}`, number, number, number, number, bigint];
+            
+            completedSpins.push({
+              spinId,
+              betAmount: spinData[2],
+              riskLevel: spinData[6],
+              segments: spinData[7],
+              commitBlock: spinData[3],
+              status: payout > 0n ? 'won' : 'lost',
+              result,
+              multiplier,
+              payout
+            });
+          } catch {}
+        }
+        
+        // Fetch pending spin details
+        const pendingIds = allPendingSpinIds || [];
+        const pendingSpins: SpinHistoryItem[] = [];
+        
+        for (const spinId of pendingIds) {
+          try {
+            const spinData = await publicClient.readContract({
+              address: GLAZE_WHEEL_ADDRESS,
+              abi: WHEEL_ABI,
+              functionName: 'spins',
+              args: [spinId],
+            }) as [string, string, bigint, bigint, `0x${string}`, `0x${string}`, number, number, number, number, bigint];
+            
+            pendingSpins.push({
+              spinId,
+              betAmount: spinData[2],
+              riskLevel: spinData[6],
+              segments: spinData[7],
+              commitBlock: spinData[3],
+              status: 'pending'
+            });
+          } catch {}
+        }
+        
+        // Combine and sort by spinId desc
+        const allHistory = [...pendingSpins, ...completedSpins].sort((a, b) => 
+          Number(b.spinId - a.spinId)
+        );
+        
+        setSpinHistory(allHistory);
+      } catch (e) {
+        console.error("Error fetching history:", e);
+      }
+    };
+    
+    fetchHistory();
+  }, [showHistory, address, allPendingSpinIds]);
 
   // Auto-show approvals modal
   useEffect(() => {
@@ -904,7 +1021,6 @@ export default function GlazeWheelPage() {
   };
 
   const isProcessing = gameStep !== "idle";
-  const allPendingSpinIds = (pendingSpinIds as bigint[]) || [];
   
   const formattedBalance = tokenBalance 
     ? parseFloat(formatUnits(tokenBalance, 18)).toFixed(2)
@@ -1284,46 +1400,125 @@ export default function GlazeWheelPage() {
                   <History className="w-4 h-4" />
                   Spin History
                 </h2>
-                <p className="text-[10px] text-gray-500 mb-3">Pending spins can be claimed after expiry</p>
+                <p className="text-[10px] text-gray-500 mb-3">All spins are provably fair. Tap any spin to verify.</p>
 
                 <div className="flex-1 overflow-y-auto space-y-2">
-                  {allPendingSpinIds.length === 0 ? (
+                  {spinHistory.length === 0 ? (
                     <div className="text-center text-gray-500 py-8">
-                      <p>No pending spins</p>
+                      <p>No spins yet</p>
                     </div>
                   ) : (
-                    allPendingSpinIds.map((spinId, index) => (
-                      <div 
-                        key={index}
-                        className="p-2 rounded-lg border bg-amber-500/10 border-amber-500/30"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                            <div>
-                              <span className="text-xs text-amber-400 font-bold">Pending</span>
-                              <div className="text-[9px] text-gray-500">Spin #{spinId.toString()}</div>
+                    spinHistory.map((spin) => {
+                      const blocksLeft = spin.status === 'pending' ? Math.max(0, 256 - Number(currentBlock - spin.commitBlock)) : 0;
+                      const minutesLeft = Math.ceil(blocksLeft * 2 / 60);
+                      const canClaim = spin.status === 'pending' && blocksLeft === 0;
+                      const riskName = spin.riskLevel === 0 ? "Low" : spin.riskLevel === 1 ? "Med" : "High";
+                      const betAmountFormatted = parseFloat(formatUnits(spin.betAmount, 18)).toFixed(2);
+                      
+                      if (spin.status === 'pending') {
+                        return (
+                          <div 
+                            key={spin.spinId.toString()}
+                            className="p-3 rounded-lg border bg-amber-500/10 border-amber-500/30"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                                <div>
+                                  <span className="text-sm text-amber-400 font-bold">Pending Reveal</span>
+                                  <div className="text-[10px] text-gray-500">{riskName} • {spin.segments} segments</div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-sm font-bold text-white">{betAmountFormatted}</span>
+                                <div className="text-[10px] text-gray-500">🍩 DONUT</div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-[10px] text-gray-400 mb-2">
+                              <span>~{minutesLeft} min remaining</span>
+                              <span>{blocksLeft} blocks left</span>
+                            </div>
+                            
+                            <div className="w-full bg-zinc-800 rounded-full h-1.5 mb-2">
+                              <div 
+                                className="bg-amber-500 h-1.5 rounded-full transition-all"
+                                style={{ width: `${Math.min(100, ((256 - blocksLeft) / 256) * 100)}%` }}
+                              />
+                            </div>
+                            
+                            <p className="text-[9px] text-gray-500 mb-2">
+                              Your secret was lost when you left. The spin must wait 256 blocks (~8 min) to expire before you can claim 98% back.
+                            </p>
+                            
+                            <button
+                              onClick={() => {
+                                writeClaimExpired({
+                                  address: GLAZE_WHEEL_ADDRESS,
+                                  abi: WHEEL_ABI,
+                                  functionName: "claimExpired",
+                                  args: [spin.spinId]
+                                });
+                              }}
+                              disabled={!canClaim || isClaimPending}
+                              className="w-full py-2 rounded-lg bg-zinc-700 text-white text-xs font-bold disabled:opacity-50"
+                            >
+                              {isClaimPending ? "Claiming..." : canClaim ? "Claim 98% Back" : `Wait ${minutesLeft} min...`}
+                            </button>
+                          </div>
+                        );
+                      }
+                      
+                      // Completed spin
+                      const isWin = spin.status === 'won';
+                      const multiplierDisplay = spin.multiplier ? (spin.multiplier / 10000).toFixed(2) : "0";
+                      const payoutFormatted = spin.payout ? parseFloat(formatUnits(spin.payout, 18)).toFixed(4) : "0";
+                      const profitLoss = isWin 
+                        ? `+${payoutFormatted}` 
+                        : `-${betAmountFormatted}`;
+                      
+                      return (
+                        <div 
+                          key={spin.spinId.toString()}
+                          className={cn(
+                            "p-3 rounded-lg border",
+                            isWin ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className={cn(
+                                "text-2xl font-bold",
+                                isWin ? "text-green-400" : "text-red-400"
+                              )}>
+                                {multiplierDisplay}x
+                              </span>
+                              <div>
+                                <div className="text-[10px] text-gray-500">{riskName} • {spin.segments} seg</div>
+                                <div className="text-[10px] text-gray-500">Segment #{spin.result}</div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className={cn(
+                                "text-sm font-bold",
+                                isWin ? "text-green-400" : "text-red-400"
+                              )}>
+                                {profitLoss}
+                              </span>
+                              <div className="text-[10px] text-gray-500">🍩 DONUT</div>
                             </div>
                           </div>
                         </div>
-                        
-                        <button
-                          onClick={() => {
-                            writeClaimExpired({
-                              address: GLAZE_WHEEL_ADDRESS,
-                              abi: WHEEL_ABI,
-                              functionName: "claimExpired",
-                              args: [spinId]
-                            });
-                          }}
-                          disabled={isClaimPending}
-                          className="mt-2 w-full py-1.5 rounded-lg bg-amber-500 text-black text-xs font-bold disabled:opacity-50"
-                        >
-                          {isClaimPending ? "Claiming..." : "Claim 98% Back"}
-                        </button>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
+                </div>
+                
+                {/* Provably Fair Formula */}
+                <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
+                  <p className="text-[9px] text-gray-500 text-center font-mono">
+                    Result = keccak256(blockhash + secret + spinId) % segments
+                  </p>
                 </div>
 
                 <button

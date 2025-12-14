@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { parseUnits, formatUnits, keccak256, encodePacked } from "viem";
+import { parseUnits, formatUnits, keccak256, encodePacked, createPublicClient, http } from "viem";
+import { base } from "viem/chains";
 import { NavBar } from "@/components/nav-bar";
 import { Bomb, History, HelpCircle, X, Loader2, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,12 @@ import { cn } from "@/lib/utils";
 // Contract addresses
 const DONUT_MINES_ADDRESS = "0x7c018F004071bD42256ef2303cD539E413b8533a" as const;
 const DONUT_TOKEN_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
+
+// Create public client for direct RPC calls
+const publicClient = createPublicClient({
+  chain: base,
+  transport: http('https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g'),
+});
 
 const ERC20_ABI = [
   {
@@ -291,6 +298,16 @@ export default function MinesPage() {
   const [pendingTileIndex, setPendingTileIndex] = useState<number | null>(null);
   const [localRevealedTiles, setLocalRevealedTiles] = useState<number>(0);
   const [isStartingNewGame, setIsStartingNewGame] = useState(false); // Track when we're starting a fresh game
+  const [gameHistory, setGameHistory] = useState<Array<{
+    gameId: bigint;
+    betAmount: bigint;
+    mineCount: number;
+    safeRevealed: number;
+    status: number; // 1=active, 3=lost, 4=cashed
+    commitBlock: bigint;
+    payout: bigint;
+  }>>([]);
+  const [currentBlock, setCurrentBlock] = useState<bigint>(BigInt(0));
 
   // Load dismissed games from localStorage on mount (Fix #4)
   useEffect(() => {
@@ -434,6 +451,105 @@ export default function MinesPage() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [refetchBalance, refetchAllowance, refetchActiveGames, refetchGameData, isStartingNewGame, gameStep, allActiveGameIds.length]);
+
+  // Fetch game history when history modal opens
+  useEffect(() => {
+    if (!showHistory || !address) return;
+    
+    const fetchHistory = async () => {
+      try {
+        const block = await publicClient.getBlockNumber();
+        setCurrentBlock(block);
+        
+        // Look back ~3 hours (5400 blocks)
+        const fromBlock = block > 5400n ? block - 5400n : 0n;
+        
+        // Fetch GameCashedOut events for wins
+        const cashOutLogs = await publicClient.getLogs({
+          address: DONUT_MINES_ADDRESS,
+          event: {
+            type: 'event',
+            name: 'GameCashedOut',
+            inputs: [
+              { type: 'uint256', name: 'gameId', indexed: true },
+              { type: 'address', name: 'player', indexed: true },
+              { type: 'uint256', name: 'payout', indexed: false }
+            ]
+          },
+          args: { player: address },
+          fromBlock,
+          toBlock: 'latest'
+        });
+        
+        // Build history from events and active games
+        const historyItems: typeof gameHistory = [];
+        
+        // Add completed games from events
+        for (const log of cashOutLogs) {
+          const gameId = log.args.gameId as bigint;
+          const payout = log.args.payout as bigint;
+          
+          try {
+            const gameData = await publicClient.readContract({
+              address: DONUT_MINES_ADDRESS,
+              abi: MINES_ABI,
+              functionName: 'getGame',
+              args: [gameId],
+            }) as OnchainGame;
+            
+            historyItems.push({
+              gameId,
+              betAmount: gameData[2],
+              mineCount: gameData[4],
+              safeRevealed: gameData[5],
+              status: gameData[6],
+              commitBlock: gameData[3],
+              payout
+            });
+          } catch {}
+        }
+        
+        // Add active/pending games
+        for (const gameId of allActiveGameIds) {
+          try {
+            const gameData = await publicClient.readContract({
+              address: DONUT_MINES_ADDRESS,
+              abi: MINES_ABI,
+              functionName: 'getGame',
+              args: [gameId],
+            }) as OnchainGame;
+            
+            historyItems.push({
+              gameId,
+              betAmount: gameData[2],
+              mineCount: gameData[4],
+              safeRevealed: gameData[5],
+              status: gameData[6],
+              commitBlock: gameData[3],
+              payout: gameData[9]
+            });
+          } catch {}
+        }
+        
+        // Sort by gameId desc and remove duplicates
+        const seen = new Set<string>();
+        const uniqueHistory = historyItems
+          .sort((a, b) => Number(b.gameId - a.gameId))
+          .filter(item => {
+            const key = item.gameId.toString();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        
+        setGameHistory(uniqueHistory);
+      } catch (e) {
+        console.error("Error fetching history:", e);
+      }
+    };
+    
+    fetchHistory();
+  }, [showHistory, address, allActiveGameIds]);
 
   // Write contracts
   const { 
@@ -1036,6 +1152,23 @@ export default function MinesPage() {
                       `CASH OUT ${displayMultiplier.toFixed(2)}x`
                     )}
                   </button>
+                  {/* Abandon game button - allows user to exit stuck games */}
+                  <button
+                    onClick={() => {
+                      if (currentGameId) {
+                        const gameIdStr = currentGameId.toString();
+                        addDismissedGame(gameIdStr);
+                        setDismissedGameIds(prev => new Set([...prev, gameIdStr]));
+                      }
+                      setPendingGame(null);
+                      setGameStep("idle");
+                      setLocalRevealedTiles(0);
+                      refetchActiveGames();
+                    }}
+                    className="w-full mt-2 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-gray-400 text-xs font-medium transition-colors"
+                  >
+                    Abandon Game (claim 98% back later)
+                  </button>
                 </div>
               ) : game && (game[6] === 3 || game[6] === 4) ? (
                 <div className="w-full max-w-[320px] mt-2">
@@ -1293,60 +1426,160 @@ export default function MinesPage() {
                   <History className="w-4 h-4" />
                   Game History
                 </h2>
-                <p className="text-[10px] text-gray-500 mb-3">Your mines games • Claim expired games here</p>
+                <p className="text-[10px] text-gray-500 mb-3">All games are provably fair. Tap any game to verify.</p>
 
                 <div className="flex-1 overflow-y-auto space-y-2">
-                  {allActiveGameIds.length === 0 ? (
+                  {gameHistory.length === 0 ? (
                     <div className="text-center text-gray-500 py-8">
-                      <p>No active games</p>
+                      <p>No games yet</p>
                     </div>
                   ) : (
-                    allActiveGameIds.map((gameId, index) => {
-                      const isCurrentGame = pendingGame?.gameId === gameId || (pendingGame?.secret && index === 0);
+                    gameHistory.map((game) => {
+                      const blocksLeft = game.status === 1 ? Math.max(0, 256 - Number(currentBlock - game.commitBlock)) : 0;
+                      const minutesLeft = Math.ceil(blocksLeft * 2 / 60);
+                      const canClaim = game.status === 1 && blocksLeft === 0;
+                      const betAmountFormatted = parseFloat(formatUnits(game.betAmount, 18)).toFixed(2);
+                      const hasSecret = getGameSecret(game.gameId.toString()) !== null || 
+                                        (pendingGame?.gameId === game.gameId);
                       
-                      return (
-                        <div 
-                          key={index}
-                          className="p-2 rounded-lg border bg-amber-500/10 border-amber-500/30"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                              <div>
-                                <span className="text-xs text-amber-400 font-bold">
-                                  {isCurrentGame ? "Active Game" : "Lost Secret"}
-                                </span>
-                                <div className="text-[9px] text-gray-500">Game #{gameId.toString()}</div>
+                      // Active/Pending game
+                      if (game.status === 1) {
+                        return (
+                          <div 
+                            key={game.gameId.toString()}
+                            className="p-3 rounded-lg border bg-amber-500/10 border-amber-500/30"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                                <div>
+                                  <span className="text-sm text-amber-400 font-bold">
+                                    {hasSecret ? "Active Game" : "Pending Reveal"}
+                                  </span>
+                                  <div className="text-[10px] text-gray-500">💣 {game.mineCount} mine • {game.safeRevealed} revealed</div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-sm font-bold text-white">{betAmountFormatted}</span>
+                                <div className="text-[10px] text-gray-500">🍩 DONUT</div>
+                              </div>
+                            </div>
+                            
+                            {!hasSecret && (
+                              <>
+                                <div className="flex items-center justify-between text-[10px] text-gray-400 mb-2">
+                                  <span>~{minutesLeft} min remaining</span>
+                                  <span>{blocksLeft} blocks left</span>
+                                </div>
+                                
+                                <div className="w-full bg-zinc-800 rounded-full h-1.5 mb-2">
+                                  <div 
+                                    className="bg-amber-500 h-1.5 rounded-full transition-all"
+                                    style={{ width: `${Math.min(100, ((256 - blocksLeft) / 256) * 100)}%` }}
+                                  />
+                                </div>
+                                
+                                <p className="text-[9px] text-gray-500 mb-2">
+                                  Your secret was lost when you left. The game must wait 256 blocks (~8 min) to expire before you can claim 98% back.
+                                </p>
+                              </>
+                            )}
+                            
+                            <button
+                              onClick={() => {
+                                if (hasSecret) {
+                                  setShowHistory(false);
+                                } else {
+                                  writeClaimExpired({
+                                    address: DONUT_MINES_ADDRESS,
+                                    abi: MINES_ABI,
+                                    functionName: "claimExpired",
+                                    args: [game.gameId]
+                                  });
+                                }
+                              }}
+                              disabled={!hasSecret && (!canClaim || isClaimPending)}
+                              className={cn(
+                                "w-full py-2 rounded-lg text-xs font-bold disabled:opacity-50",
+                                hasSecret 
+                                  ? "bg-amber-500 text-black" 
+                                  : "bg-zinc-700 text-white"
+                              )}
+                            >
+                              {hasSecret 
+                                ? "Continue Playing" 
+                                : isClaimPending 
+                                  ? "Claiming..." 
+                                  : canClaim 
+                                    ? "Claim 98% Back" 
+                                    : `Wait ${minutesLeft} min...`
+                              }
+                            </button>
+                          </div>
+                        );
+                      }
+                      
+                      // Lost game (hit mine)
+                      if (game.status === 3) {
+                        return (
+                          <div 
+                            key={game.gameId.toString()}
+                            className="p-3 rounded-lg border bg-red-500/10 border-red-500/30"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-2xl">💥</span>
+                                <div>
+                                  <span className="text-sm text-red-400 font-bold">BOOM!</span>
+                                  <div className="text-[10px] text-gray-500">Hit mine after {game.safeRevealed} safe</div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-sm font-bold text-red-400">-{betAmountFormatted}</span>
+                                <div className="text-[10px] text-gray-500">🍩 DONUT</div>
                               </div>
                             </div>
                           </div>
-                          
-                          <div className="mt-2">
-                            <p className="text-[9px] text-gray-400 mb-2">
-                              {isCurrentGame 
-                                ? "You can continue playing this game on the main screen."
-                                : "Secret was lost. Claim 98% back after ~8 min expiry."
-                              }
-                            </p>
-                            <button
-                              onClick={() => {
-                                writeClaimExpired({
-                                  address: DONUT_MINES_ADDRESS,
-                                  abi: MINES_ABI,
-                                  functionName: "claimExpired",
-                                  args: [gameId]
-                                });
-                              }}
-                              disabled={isClaimPending}
-                              className="w-full py-1.5 rounded-lg bg-amber-500 text-black text-xs font-bold disabled:opacity-50"
-                            >
-                              {isClaimPending ? "Claiming..." : "Claim 98% Back"}
-                            </button>
+                        );
+                      }
+                      
+                      // Cashed out game (won)
+                      if (game.status === 4) {
+                        const payoutFormatted = parseFloat(formatUnits(game.payout, 18)).toFixed(4);
+                        const multiplier = calculateDisplayMultiplier(game.mineCount, game.safeRevealed);
+                        
+                        return (
+                          <div 
+                            key={game.gameId.toString()}
+                            className="p-3 rounded-lg border bg-green-500/10 border-green-500/30"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-2xl font-bold text-green-400">{multiplier.toFixed(2)}x</span>
+                                <div>
+                                  <span className="text-sm text-green-400 font-bold">WIN!</span>
+                                  <div className="text-[10px] text-gray-500">{game.safeRevealed} tiles revealed</div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-sm font-bold text-green-400">+{payoutFormatted}</span>
+                                <div className="text-[10px] text-gray-500">🍩 DONUT</div>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      );
+                        );
+                      }
+                      
+                      return null;
                     })
                   )}
+                </div>
+                
+                {/* Provably Fair Formula */}
+                <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
+                  <p className="text-[9px] text-gray-500 text-center font-mono">
+                    Mines = keccak256(blockhash + secret + gameId) % positions
+                  </p>
                 </div>
 
                 <button
