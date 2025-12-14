@@ -797,15 +797,15 @@ export default function DonutTowerPage() {
       <div className="relative flex h-full w-full max-w-md flex-col px-2" style={{ paddingTop: 'env(safe-area-inset-top, 8px)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 60px)' }}>
         
         {/* Header */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">Donut Tower</h1>
+            <h1 className="text-2xl font-bold tracking-wide">DONUT TOWER</h1>
             <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/30 animate-pulse">LIVE</span>
           </div>
           {context?.user?.pfpUrl ? (
-            <img src={context.user.pfpUrl} alt="" className="w-7 h-7 rounded-full border border-zinc-700" />
+            <img src={context.user.pfpUrl} alt="" className="h-7 w-7 rounded-full border border-zinc-700 object-cover" />
           ) : (
-            <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700" />
+            <div className="h-7 w-7 rounded-full bg-zinc-800 border border-zinc-700" />
           )}
         </div>
 

@@ -1032,15 +1032,15 @@ export default function BakeryMinesPage() {
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">BAKERY MINES</h1>
+            <h1 className="text-2xl font-bold tracking-wide">BAKERY MINES</h1>
             <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full border border-green-500/30 animate-pulse">LIVE</span>
           </div>
           {context?.user?.pfpUrl ? (
-            <img src={context.user.pfpUrl} alt="" className="w-7 h-7 rounded-full border border-zinc-700" />
+            <img src={context.user.pfpUrl} alt="" className="h-7 w-7 rounded-full border border-zinc-700 object-cover" />
           ) : (
-            <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700" />
+            <div className="h-7 w-7 rounded-full bg-zinc-800 border border-zinc-700" />
           )}
         </div>
 

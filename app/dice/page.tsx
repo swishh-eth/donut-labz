@@ -6,7 +6,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
-import { Dices, TrendingUp, TrendingDown, Trophy, History, HelpCircle, X, Loader2, CheckCircle, Shield, Volume2, VolumeX, ChevronDown } from "lucide-react";
+import { Dices, TrendingUp, TrendingDown, Trophy, History, HelpCircle, X, Loader2, CheckCircle, Shield, Volume2, VolumeX, ChevronDown, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Contract addresses
@@ -201,10 +201,9 @@ function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; re
 export default function DicePage() {
   const readyRef = useRef(false);
   const publicClient = usePublicClient();
-  const currentBetIdRef = useRef<string | null>(null); // Track which bet we're polling for
+  const currentBetIdRef = useRef<string | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   
-  // Initialize audio context on first interaction
   const getAudioContext = () => {
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -212,95 +211,74 @@ export default function DicePage() {
     return audioContextRef.current;
   };
 
-  // Tick sound for slider
   const playTick = () => {
     if (isMuted) return;
     try {
       const ctx = getAudioContext();
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
-      
       oscillator.connect(gainNode);
       gainNode.connect(ctx.destination);
-      
-      oscillator.frequency.value = 1200 + Math.random() * 400; // Slight variation
+      oscillator.frequency.value = 1200 + Math.random() * 400;
       oscillator.type = 'sine';
-      
       gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
-      
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.05);
     } catch {}
   };
 
-  // Rolling/anticipation sound
   const playRollingTick = () => {
     if (isMuted) return;
     try {
       const ctx = getAudioContext();
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
-      
       oscillator.connect(gainNode);
       gainNode.connect(ctx.destination);
-      
       oscillator.frequency.value = 800 + Math.random() * 600;
       oscillator.type = 'square';
-      
       gainNode.gain.setValueAtTime(0.03, ctx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
-      
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.03);
     } catch {}
   };
 
-  // Win sound - happy ascending tones
   const playWinSound = () => {
     if (isMuted) return;
     try {
       const ctx = getAudioContext();
-      const frequencies = [523, 659, 784, 1047]; // C5, E5, G5, C6 - major chord arpeggio
-      
+      const frequencies = [523, 659, 784, 1047];
       frequencies.forEach((freq, i) => {
         const oscillator = ctx.createOscillator();
         const gainNode = ctx.createGain();
-        
         oscillator.connect(gainNode);
         gainNode.connect(ctx.destination);
-        
         oscillator.frequency.value = freq;
         oscillator.type = 'sine';
-        
         const startTime = ctx.currentTime + i * 0.1;
         gainNode.gain.setValueAtTime(0.15, startTime);
         gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 0.3);
-        
         oscillator.start(startTime);
         oscillator.stop(startTime + 0.3);
       });
     } catch {}
   };
 
-  // Lose sound - descending tone
   const playLoseSound = () => {
     if (isMuted) return;
     try {
       const ctx = getAudioContext();
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
-      
       oscillator.connect(gainNode);
       gainNode.connect(ctx.destination);
-      
       oscillator.frequency.setValueAtTime(400, ctx.currentTime);
       oscillator.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.3);
       oscillator.type = 'sine';
-      
       gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.3);
     } catch {}
@@ -309,7 +287,7 @@ export default function DicePage() {
   const [context, setContext] = useState<{ user?: { fid: number; username?: string; pfpUrl?: string } } | null>(null);
   const [betAmount, setBetAmount] = useState("1");
   const [target, setTarget] = useState(50);
-  const [animatedTarget, setAnimatedTarget] = useState(50); // For animation during rolling
+  const [animatedTarget, setAnimatedTarget] = useState(50);
   const [prediction, setPrediction] = useState<"over" | "under">("over");
   const [showHistory, setShowHistory] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -328,7 +306,6 @@ export default function DicePage() {
 
   const { address, isConnected } = useAccount();
 
-  // Load Farcaster context
   useEffect(() => {
     const load = async () => {
       try {
@@ -339,7 +316,6 @@ export default function DicePage() {
     load();
   }, []);
 
-  // Fetch current block
   useEffect(() => {
     const fetch = async () => {
       if (!publicClient) return;
@@ -353,12 +329,10 @@ export default function DicePage() {
     return () => clearInterval(interval);
   }, [publicClient]);
 
-  // Calculate multiplier
   const winChance = prediction === "over" ? 100 - target : target;
   const multiplier = winChance > 0 ? (98 / winChance).toFixed(2) : "0.00";
   const potentialWin = (parseFloat(betAmount || "0") * parseFloat(multiplier)).toFixed(2);
 
-  // Read token balance
   const { data: tokenBalance, refetch: refetchBalance } = useReadContract({
     address: DONUT_TOKEN_ADDRESS,
     abi: ERC20_ABI,
@@ -366,7 +340,6 @@ export default function DicePage() {
     args: address ? [address] : undefined,
   });
 
-  // Read allowance
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
     address: DONUT_TOKEN_ADDRESS,
     abi: ERC20_ABI,
@@ -374,7 +347,6 @@ export default function DicePage() {
     args: address ? [address, DONUT_DICE_ADDRESS] : undefined,
   });
 
-  // Read recent bets
   const { data: recentBets, refetch: refetchBets } = useReadContract({
     address: DONUT_DICE_ADDRESS,
     abi: DICE_V5_ABI,
@@ -389,7 +361,6 @@ export default function DicePage() {
     args: address ? [address] : undefined,
   });
 
-  // Auto-show approvals if needed (only once per session)
   useEffect(() => {
     if (isConnected && allowance !== undefined && allowance === BigInt(0) && !showApprovals && !hasShownApproval) {
       setTimeout(() => {
@@ -399,7 +370,6 @@ export default function DicePage() {
     }
   }, [isConnected, allowance, showApprovals, hasShownApproval]);
 
-  // Initialize SDK
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (!readyRef.current) {
@@ -410,7 +380,6 @@ export default function DicePage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Animate slider while rolling
   useEffect(() => {
     if (!isRolling) {
       setAnimatedTarget(target);
@@ -423,29 +392,15 @@ export default function DicePage() {
     let tickCounter = 0;
     
     const animate = () => {
-      // Bounce between 10 and 90
       current += direction * (Math.random() * 8 + 2);
-      
-      if (current >= 90) {
-        current = 90;
-        direction = -1;
-      } else if (current <= 10) {
-        current = 10;
-        direction = 1;
-      }
-      
+      if (current >= 90) { current = 90; direction = -1; }
+      else if (current <= 10) { current = 10; direction = 1; }
       setAnimatedTarget(Math.round(current));
-      
-      // Play tick sound every few frames
       tickCounter++;
-      if (tickCounter % 4 === 0) {
-        playRollingTick();
-      }
-      
+      if (tickCounter % 4 === 0) playRollingTick();
       frame = requestAnimationFrame(animate);
     };
     
-    // Start with a small delay
     const timeout = setTimeout(() => {
       frame = requestAnimationFrame(animate);
     }, 100);
@@ -456,94 +411,61 @@ export default function DicePage() {
     };
   }, [isRolling, target]);
 
-  // Haptic feedback on slider change
   const handleTargetChange = (newTarget: number) => {
     if (newTarget !== target) {
       setTarget(newTarget);
       playTick();
-      try {
-        sdk.haptics.impactOccurred("light");
-      } catch {}
+      try { sdk.haptics.impactOccurred("light"); } catch {}
     }
   };
 
   const { writeContract: writePlaceBet, isPending: isPlacePending } = useWriteContract();
   const { writeContract: writeClaim, isPending: isClaimPending } = useWriteContract();
 
-  // Poll for result after bet is placed
   const pollForResult = async (betId: bigint) => {
     const betIdStr = betId.toString();
-    
-    // Set this as the current bet we're polling for
     currentBetIdRef.current = betIdStr;
     
-    console.log("Starting poll for betId:", betIdStr);
-    
-    // Wait for block to advance
     await new Promise(resolve => setTimeout(resolve, 3000));
     
     let attempts = 0;
     const maxAttempts = 60;
     
     while (attempts < maxAttempts) {
-      // Check if we're still polling for this bet (not a newer one)
-      if (currentBetIdRef.current !== betIdStr) {
-        console.log("Stopping poll for old bet:", betIdStr, "current is:", currentBetIdRef.current);
-        return;
-      }
+      if (currentBetIdRef.current !== betIdStr) return;
       
       try {
-        // Call API to trigger reveal
         const apiRes = await fetch(`/api/reveal?game=dice`);
         const apiData = await apiRes.json();
-        console.log("API response:", apiData);
         
-        // If API just revealed something, wait a moment for chain to update
         if (apiData?.results?.dice?.revealed?.length > 0) {
-          console.log("API revealed bets, waiting 2s for chain...");
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
         
-        // Check bet status directly with fresh read
         const bet = await publicClient?.readContract({
           address: DONUT_DICE_ADDRESS,
           abi: DICE_V5_ABI,
           functionName: "getBet",
           args: [betId],
-          blockTag: 'latest', // Force latest block
+          blockTag: 'latest',
         }) as OnchainBet;
         
         const status = Number(bet.status);
         const result = Number(bet.result);
         const won = Boolean(bet.won);
         
-        console.log("Poll attempt", attempts, "- betId:", betIdStr, "status:", status, "result:", result, "won:", won);
-        
         if (status === 2) {
-          // Double check we're still on this bet
-          if (currentBetIdRef.current !== betIdStr) {
-            console.log("Bet revealed but we moved on, ignoring");
-            return;
-          }
+          if (currentBetIdRef.current !== betIdStr) return;
           
-          console.log("🎉 Bet revealed! Updating UI...");
-          
-          // Force synchronous state updates
           flushSync(() => {
-            setLastResult({
-              result: result,
-              won: won,
-              payout: bet.payout
-            });
+            setLastResult({ result, won, payout: bet.payout });
             setIsRolling(false);
-            setCooldown(true); // Start cooldown
+            setCooldown(true);
           });
           
-          // Clear cooldown after 3 seconds
           setTimeout(() => setCooldown(false), 3000);
           
           if (won) {
-            console.log("Player won! Showing confetti");
             playWinSound();
             flushSync(() => {
               setStreak(prev => prev + 1);
@@ -552,19 +474,14 @@ export default function DicePage() {
             try { sdk.haptics.impactOccurred("heavy"); } catch {}
             setTimeout(() => setShowConfetti(false), 3000);
           } else {
-            console.log("Player lost");
             playLoseSound();
-            flushSync(() => {
-              setStreak(0);
-            });
+            flushSync(() => { setStreak(0); });
             try { sdk.haptics.impactOccurred("heavy"); } catch {}
           }
           
           refetchBets();
           refetchBalance();
           currentBetIdRef.current = null;
-          
-          console.log("Done updating state");
           return;
         }
       } catch (e) {
@@ -575,8 +492,6 @@ export default function DicePage() {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
-    // Timeout
-    console.log("Polling timed out for bet:", betIdStr);
     if (currentBetIdRef.current === betIdStr) {
       setErrorMessage("Timeout - check history");
       setIsRolling(false);
@@ -607,13 +522,10 @@ export default function DicePage() {
       return;
     }
 
-    // Reset state for new bet
-    currentBetIdRef.current = null; // Clear any old polling
+    currentBetIdRef.current = null;
     setLastResult(null);
     setErrorMessage(null);
     setIsRolling(true);
-    
-    console.log("Starting new bet...");
     
     writePlaceBet({
       address: DONUT_DICE_ADDRESS,
@@ -622,33 +534,25 @@ export default function DicePage() {
       args: [DONUT_TOKEN_ADDRESS, amountWei, target, prediction === "over"]
     }, {
       onSuccess: async (hash) => {
-        console.log("Tx submitted:", hash);
         try {
-          // Wait for receipt
           const receipt = await publicClient?.waitForTransactionReceipt({ hash });
-          console.log("Tx confirmed:", receipt?.transactionHash);
-          
-          // Get betId from event
           const log = receipt?.logs.find(l => 
             l.address.toLowerCase() === DONUT_DICE_ADDRESS.toLowerCase()
           );
           
           if (log?.topics[1]) {
             const betId = BigInt(log.topics[1]);
-            console.log("BetId:", betId.toString());
             pollForResult(betId);
           } else {
             setErrorMessage("Could not get bet ID");
             setIsRolling(false);
           }
         } catch (e) {
-          console.error("Error:", e);
           setErrorMessage("Transaction failed");
           setIsRolling(false);
         }
       },
       onError: (error) => {
-        console.error("Write error:", error);
         const msg = error.message || "";
         if (msg.includes("rejected")) {
           setErrorMessage("Transaction cancelled");
@@ -702,7 +606,6 @@ export default function DicePage() {
         .confetti { animation: confetti-fall 3s linear forwards; }
       `}</style>
 
-      {/* Confetti - positions are fixed per index to prevent re-randomizing on re-render */}
       {showConfetti && (
         <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
           {[...Array(30)].map((_, i) => (
@@ -728,16 +631,16 @@ export default function DicePage() {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)",
         }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-2">
+        {/* Header - matching games page */}
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">SUGAR CUBES</h1>
+            <h1 className="text-2xl font-bold tracking-wide">SUGAR CUBES</h1>
             <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/30 animate-pulse">LIVE</span>
           </div>
           {context?.user?.pfpUrl ? (
-            <img src={context.user.pfpUrl} alt="" className="w-7 h-7 rounded-full border border-zinc-700" />
+            <img src={context.user.pfpUrl} alt="" className="h-7 w-7 rounded-full border border-zinc-700 object-cover" />
           ) : (
-            <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700" />
+            <div className="h-7 w-7 rounded-full bg-zinc-800 border border-zinc-700" />
           )}
         </div>
 
@@ -1055,7 +958,6 @@ export default function DicePage() {
                             </span>
                           </div>
                           
-                          {/* Expanded verification info */}
                           {isExpanded && (
                             <div className="mt-3 p-2 bg-zinc-900/80 rounded-lg border border-zinc-700 space-y-2">
                               <div className="text-[10px] text-amber-400 font-bold">🔐 Verification Data</div>
@@ -1084,12 +986,8 @@ export default function DicePage() {
                               </div>
                               
                               <div className="pt-2 border-t border-zinc-700">
-                                <div className="text-[9px] text-gray-400 mb-1">How to verify:</div>
                                 <div className="text-[8px] text-amber-400/80 font-mono bg-zinc-800 p-1.5 rounded break-all">
-                                  result = keccak256(blockhash({bet.commitBlock.toString()}) + betId) % 100 + 1
-                                </div>
-                                <div className="text-[8px] text-gray-500 mt-1">
-                                  The blockhash was unknown when you placed your bet, making the result unpredictable and fair.
+                                  result = keccak256(blockhash + betId) % 100 + 1
                                 </div>
                               </div>
                             </div>
@@ -1116,19 +1014,45 @@ export default function DicePage() {
                   <X className="h-4 w-4" />
                 </button>
                 <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2">
-                  <Dices className="w-4 h-4" /> How to Play
+                  <Target className="w-4 h-4" /> How to Play
                 </h2>
-                <div className="space-y-2 text-sm text-gray-400">
-                  <p>1. Set your target number (2-98)</p>
-                  <p>2. Choose OVER or UNDER</p>
-                  <p>3. Set your bet amount</p>
-                  <p>4. Roll and wait for result!</p>
+                <div className="space-y-2.5">
+                  <div className="flex gap-2.5">
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">1</div>
+                    <div>
+                      <div className="font-semibold text-white text-xs">Set Target Number</div>
+                      <div className="text-[11px] text-gray-400">Choose any number from 2-98 using the slider.</div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-[10px] font-bold text-black">2</div>
+                    <div>
+                      <div className="font-semibold text-white text-xs">Choose Over or Under</div>
+                      <div className="text-[11px] text-gray-400">Predict if the roll will be above or below your target.</div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
+                    <div>
+                      <div className="font-semibold text-white text-xs">Set Your Bet</div>
+                      <div className="text-[11px] text-gray-400">Choose how much DONUT to wager (0.1 - 1).</div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
+                    <div>
+                      <div className="font-semibold text-amber-400 text-xs">Roll & Win!</div>
+                      <div className="text-[11px] text-gray-400">Higher risk = higher multiplier. Up to 49x on extreme bets!</div>
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-3 p-2 bg-zinc-900 rounded-lg text-[10px] text-gray-500">
-                  <p>• 2% house edge on wins</p>
-                  <p>• House reveals automatically</p>
-                  <p>• 100% on-chain & provably fair</p>
+                
+                <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
+                  <div className="text-[10px] text-amber-400 font-bold mb-1">Fee Structure:</div>
+                  <div className="text-[10px] text-gray-400">On Win: 2% house edge</div>
+                  <div className="text-[10px] text-gray-400">On Loss: 50% pool, 25% LP burn, 25% treasury</div>
                 </div>
+                
                 <button onClick={() => setShowHelp(false)} className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Got it</button>
               </div>
             </div>
