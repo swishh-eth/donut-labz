@@ -356,19 +356,6 @@ export default function MinesPage() {
     args: address ? [address, DONUT_MINES_ADDRESS] : undefined,
   });
 
-  // Refetch balance when tab becomes visible
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        refetchBalance();
-        refetchAllowance();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [refetchBalance, refetchAllowance]);
-
   // Auto-show approvals modal if user has no allowance set AND hasn't seen it before
   useEffect(() => {
     if (isConnected && allowance !== undefined && allowance === BigInt(0) && !showApprovals && !hasSeenApprovalModal) {
@@ -419,6 +406,34 @@ export default function MinesPage() {
     args: currentGameId ? [currentGameId] : undefined,
     query: { enabled: !!currentGameId }
   });
+
+  // Refetch data when tab becomes visible and unstick any stuck states
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refetchBalance();
+        refetchAllowance();
+        refetchActiveGames();
+        refetchGameData();
+        
+        // Unstick any stuck states when returning to page
+        if (isStartingNewGame) {
+          setIsStartingNewGame(false);
+        }
+        if (gameStep === "starting" || gameStep === "approving") {
+          // Check if we actually have an active game now
+          if (allActiveGameIds.length > 0) {
+            setGameStep("playing");
+          } else {
+            setGameStep("idle");
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [refetchBalance, refetchAllowance, refetchActiveGames, refetchGameData, isStartingNewGame, gameStep, allActiveGameIds.length]);
 
   // Write contracts
   const { 
@@ -502,7 +517,9 @@ export default function MinesPage() {
       
       setErrorMessage(displayMsg);
       setGameStep("idle");
+      setIsStartingNewGame(false); // Reset this too on error
       setPendingTileIndex(null);
+      setPendingGame(null); // Clear pending game on error
       setTimeout(() => setErrorMessage(null), 5000);
     }
   }, [approveError, startError, revealError, cashOutError, claimExpiredError]);
@@ -525,8 +542,12 @@ export default function MinesPage() {
       setLocalRevealedTiles(0);
       
       const doRefetch = async () => {
-        await refetchActiveGames();
-        await refetchGameData();
+        try {
+          await refetchActiveGames();
+          await refetchGameData();
+        } catch (e) {
+          console.error("Refetch error:", e);
+        }
         setIsStartingNewGame(false); // Game is ready, show the grid
         setGameStep("playing");
         try { sdk.haptics.impactOccurred("medium"); } catch {}
@@ -535,6 +556,14 @@ export default function MinesPage() {
       doRefetch();
       setTimeout(() => refetchActiveGames(), 500);
       setTimeout(() => refetchActiveGames(), 1500);
+      
+      // Fallback: if still stuck after 3 seconds, force reset
+      setTimeout(() => {
+        setIsStartingNewGame(false);
+        if (gameStep === "starting") {
+          setGameStep("playing");
+        }
+      }, 3000);
     }
   }, [isStartSuccess, gameStep, resetStart, refetchActiveGames, refetchGameData]);
 
