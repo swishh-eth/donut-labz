@@ -9,61 +9,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Target, Zap, Trophy, Lock, Bomb } from "lucide-react";
 
-// Contract addresses
-const DONUT_DICE_ADDRESS = "0x49826C6C884ed7A828c06f75814Acf8bd658bb76" as const;
-const DONUT_MINES_ADDRESS = "0x7c018F004071bD42256ef2303cD539E413b8533a" as const;
-const GLAZE_WHEEL_ADDRESS = "0x82296c4Fc7B24bF1Fc87d2E2A1D9600F2028BA32" as const;
+// Contract addresses - V5 contracts
+const DONUT_DICE_ADDRESS = "0xD6f1Eb5858efF6A94B853251BE2C27c4038BB7CE" as const;
+const DONUT_MINES_ADDRESS = "0xc5D771DaEEBCEdf8e7e53512eA533C9B07F8bE4f" as const;
+const GLAZE_WHEEL_ADDRESS = "0xDd89E2535e460aDb63adF09494AcfB99C33c43d8" as const;
 
 // Create a public client for Base
 const publicClient = createPublicClient({
   chain: base,
   transport: http('https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g'),
 });
-
-// Minimal ABI for reading bets
-const DICE_ABI = [
-  {
-    inputs: [],
-    name: "totalBets",
-    outputs: [{ type: "uint256" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  {
-    inputs: [{ name: "betId", type: "uint256" }],
-    name: "bets",
-    outputs: [
-      { name: "player", type: "address" },
-      { name: "token", type: "address" },
-      { name: "amount", type: "uint256" },
-      { name: "target", type: "uint8" },
-      { name: "isOver", type: "bool" },
-      { name: "commitHash", type: "bytes32" },
-      { name: "commitBlock", type: "uint256" },
-      { name: "result", type: "uint8" },
-      { name: "won", type: "bool" },
-      { name: "payout", type: "uint256" },
-      { name: "status", type: "uint8" },
-      { name: "revealedSecret", type: "bytes32" }
-    ],
-    stateMutability: "view",
-    type: "function"
-  }
-] as const;
-
-// Minimal ABI for reading mines events
-const MINES_ABI = [
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, name: "gameId", type: "uint256" },
-      { indexed: true, name: "player", type: "address" },
-      { indexed: false, name: "payout", type: "uint256" }
-    ],
-    name: "GameCashedOut",
-    type: "event"
-  }
-] as const;
 
 type MiniAppContext = {
   user?: {
@@ -185,7 +140,7 @@ export default function GamesPage() {
 
   const isLotteryLive = false; // Set to true when lottery launches
 
-  // Fetch last winner for dice game using events
+  // Fetch last winner for dice game using events (V5 contract)
   useEffect(() => {
     console.log("Dice winner effect running");
     
@@ -195,10 +150,10 @@ export default function GamesPage() {
       try {
         // Get current block number first
         const currentBlock = await publicClient.getBlockNumber();
-        // Look back ~3 hours on Base (5400 blocks at 2 sec/block)
-        const fromBlock = currentBlock > 5400n ? currentBlock - 5400n : 0n;
+        // Look back ~1 hour on Base (1800 blocks at 2 sec/block)
+        const fromBlock = currentBlock > 1800n ? currentBlock - 1800n : 0n;
         
-        // Get recent BetRevealed events
+        // Get recent BetRevealed events - V5 contract event signature
         const logs = await publicClient.getLogs({
           address: DONUT_DICE_ADDRESS,
           event: {
@@ -207,7 +162,6 @@ export default function GamesPage() {
             inputs: [
               { name: 'betId', type: 'uint256', indexed: true },
               { name: 'player', type: 'address', indexed: true },
-              { name: 'secret', type: 'bytes32', indexed: false },
               { name: 'blockHash', type: 'bytes32', indexed: false },
               { name: 'result', type: 'uint8', indexed: false },
               { name: 'won', type: 'bool', indexed: false },
@@ -284,17 +238,17 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch last mines winner
+  // Fetch last mines winner (V5 contract)
   useEffect(() => {
     const fetchLastMinesWinner = async () => {
       try {
         const currentBlock = await publicClient.getBlockNumber();
-        // Look back ~3 hours on Base (5400 blocks at 2 sec/block)
-        const fromBlock = currentBlock > 5400n ? currentBlock - 5400n : 0n;
+        // Look back ~1 hour on Base (1800 blocks at 2 sec/block)
+        const fromBlock = currentBlock > 1800n ? currentBlock - 1800n : 0n;
         
         console.log("Fetching mines winner from block", fromBlock.toString(), "to latest");
         
-        // Get recent GameCashedOut events from Mines contract
+        // Get recent GameCashedOut events from Mines V5 contract
         const logs = await publicClient.getLogs({
           address: DONUT_MINES_ADDRESS,
           event: {
@@ -363,17 +317,17 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch last wheel winner
+  // Fetch last wheel winner (V5 contract)
   useEffect(() => {
     const fetchLastWheelWinner = async () => {
       try {
         const currentBlock = await publicClient.getBlockNumber();
-        // Look back ~3 hours on Base (5400 blocks at 2 sec/block)
-        const fromBlock = currentBlock > 5400n ? currentBlock - 5400n : 0n;
+        // Look back ~1 hour on Base (1800 blocks at 2 sec/block)
+        const fromBlock = currentBlock > 1800n ? currentBlock - 1800n : 0n;
         
         console.log("Fetching wheel winner from block", fromBlock.toString(), "to latest");
         
-        // Get recent SpinRevealed events from Wheel contract
+        // Get recent SpinRevealed events from Wheel V5 contract
         const logs = await publicClient.getLogs({
           address: GLAZE_WHEEL_ADDRESS,
           event: {
@@ -382,6 +336,7 @@ export default function GamesPage() {
             inputs: [
               { type: 'uint256', name: 'spinId', indexed: true },
               { type: 'address', name: 'player', indexed: true },
+              { type: 'bytes32', name: 'blockHash', indexed: false },
               { type: 'uint8', name: 'result', indexed: false },
               { type: 'uint256', name: 'multiplier', indexed: false },
               { type: 'uint256', name: 'payout', indexed: false }
