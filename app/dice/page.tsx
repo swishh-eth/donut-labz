@@ -463,11 +463,11 @@ export default function DicePage() {
             
             // Poll for result - call API to trigger reveal
             const pollForResult = async () => {
-              const maxAttempts = 30; // ~30 seconds
+              const maxAttempts = 60; // ~60 seconds
               let attempts = 0;
               
               while (attempts < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                await new Promise(resolve => setTimeout(resolve, 1000));
                 
                 try {
                   // Call the reveal API to trigger house reveal
