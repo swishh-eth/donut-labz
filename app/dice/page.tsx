@@ -495,9 +495,15 @@ export default function DicePage() {
                   
                   // Status might be BigInt, so compare with Number()
                   if (Number(bet.status) === 2) { // Revealed
-                    setLastResult({
+                    console.log("🎉 BET REVEALED! Setting result...", {
                       result: bet.result,
                       won: bet.won,
+                      payout: bet.payout?.toString()
+                    });
+                    
+                    setLastResult({
+                      result: Number(bet.result),
+                      won: Boolean(bet.won),
                       payout: bet.payout
                     });
                     
@@ -514,11 +520,13 @@ export default function DicePage() {
                       try { await sdk.haptics.impactOccurred("heavy"); } catch {}
                     }
                     
+                    console.log("Setting betStep to complete");
                     setBetStep("complete");
                     refetchBets();
                     refetchBalance();
                     
                     setTimeout(() => {
+                      console.log("Resetting to idle");
                       setBetStep("idle");
                       setPendingBetId(null);
                       resetPlaceBet();
