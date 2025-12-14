@@ -817,9 +817,15 @@ export default function DonutTowerPage() {
         tiles.push(
           <button
             key={tile}
-            onClick={(e) => {
+            onPointerUp={(e) => {
               e.preventDefault();
-              console.log("Tile clicked:", { level, tile, isClickable, isClimbing, currentLevel: gameState?.currentLevel });
+              e.stopPropagation();
+              // Ignore if already processing
+              if (isProcessingClickRef.current) {
+                console.log("Ignoring - already processing");
+                return;
+              }
+              console.log("Tile pointer up:", { level, tile, isClickable, isClimbing, pointerType: e.pointerType });
               if (isClickable) handleTileClick(tile);
             }}
             disabled={!isClickable}
@@ -827,7 +833,7 @@ export default function DonutTowerPage() {
               "w-10 h-10 rounded-md border flex items-center justify-center font-bold transition-all select-none",
               tileStyle
             )}
-            style={{ touchAction: 'manipulation' }}
+            style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
           >
             {isClimbing && isCurrentLevel ? (
               <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
