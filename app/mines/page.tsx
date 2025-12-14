@@ -1059,8 +1059,8 @@ export default function MinesPage() {
                 {/* Mines Button / Expanded Panel */}
                 <div className={cn(
                   "panel-slide flex items-center",
-                  expandedPanel === "mines" ? "flex-1" : "flex-shrink-0"
-                )}>
+                  expandedPanel === "mines" ? "flex-1" : ""
+                )} style={{ flexShrink: 0, minWidth: expandedPanel === "mines" ? undefined : "48px" }}>
                   {expandedPanel === "mines" ? (
                     // Expanded mines slider
                     <div className="flex-1 flex items-center gap-2">
@@ -1115,9 +1115,9 @@ export default function MinesPage() {
 
                 {/* Start Game Button */}
                 <div className={cn(
-                  "panel-slide",
-                  expandedPanel === "none" ? "flex-1" : "flex-shrink-0"
-                )}>
+                  "panel-slide flex-1",
+                  expandedPanel !== "none" && "!flex-none"
+                )} style={{ minWidth: expandedPanel === "none" ? undefined : "48px" }}>
                   <button
                     onClick={() => {
                       if (expandedPanel !== "none") {
@@ -1156,8 +1156,8 @@ export default function MinesPage() {
                 {/* Bet Amount Button / Expanded Panel */}
                 <div className={cn(
                   "panel-slide flex items-center",
-                  expandedPanel === "bet" ? "flex-1" : "flex-shrink-0"
-                )}>
+                  expandedPanel === "bet" ? "flex-1" : ""
+                )} style={{ flexShrink: 0, minWidth: expandedPanel === "bet" ? undefined : "48px" }}>
                   {expandedPanel === "bet" ? (
                     // Expanded bet selector
                     <div className="flex-1 flex items-center gap-2">
