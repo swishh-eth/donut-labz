@@ -527,9 +527,18 @@ export default function DonutTowerPage() {
 
   // Ref to prevent double-taps on mobile
   const isProcessingClickRef = useRef(false);
+  const lastClickTimeRef = useRef(0);
 
   // Handle tile click (climb)
   const handleTileClick = (tileIndex: number) => {
+    // Debounce - ignore clicks within 500ms of each other
+    const now = Date.now();
+    if (now - lastClickTimeRef.current < 500) {
+      console.log("Ignoring click - too soon after last click");
+      return;
+    }
+    lastClickTimeRef.current = now;
+    
     // Prevent double-taps on mobile
     if (isProcessingClickRef.current) {
       console.log("Ignoring double-tap");
@@ -830,10 +839,9 @@ export default function DonutTowerPage() {
             }}
             disabled={!isClickable}
             className={cn(
-              "w-10 h-10 rounded-md border flex items-center justify-center font-bold transition-all select-none",
+              "tower-tile w-10 h-10 rounded-md border flex items-center justify-center font-bold transition-all",
               tileStyle
             )}
-            style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
           >
             {isClimbing && isCurrentLevel ? (
               <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
@@ -881,6 +889,18 @@ export default function DonutTowerPage() {
         .confetti { animation: confetti-fall 3s linear forwards; }
         .tower-scroll::-webkit-scrollbar { display: none; }
         .tower-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Mobile touch fixes */
+        .tower-tile {
+          -webkit-touch-callout: none;
+          -webkit-user-select: none;
+          -khtml-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          user-select: none;
+          -webkit-tap-highlight-color: transparent;
+          touch-action: manipulation;
+        }
       `}</style>
 
       {/* Confetti */}
