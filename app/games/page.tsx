@@ -195,8 +195,8 @@ export default function GamesPage() {
       try {
         // Get current block number first
         const currentBlock = await publicClient.getBlockNumber();
-        // Only look at last ~1800 blocks (~1 hour on Base, 2 sec per block)
-        const fromBlock = currentBlock > 1800n ? currentBlock - 1800n : 0n;
+        // Look back ~3 hours on Base (5400 blocks at 2 sec/block)
+        const fromBlock = currentBlock > 5400n ? currentBlock - 5400n : 0n;
         
         // Get recent BetRevealed events
         const logs = await publicClient.getLogs({
@@ -289,8 +289,8 @@ export default function GamesPage() {
     const fetchLastMinesWinner = async () => {
       try {
         const currentBlock = await publicClient.getBlockNumber();
-        // Look back further - 50000 blocks (~28 hours on Base)
-        const fromBlock = currentBlock > 50000n ? currentBlock - 50000n : 0n;
+        // Look back ~3 hours on Base (5400 blocks at 2 sec/block)
+        const fromBlock = currentBlock > 5400n ? currentBlock - 5400n : 0n;
         
         console.log("Fetching mines winner from block", fromBlock.toString(), "to latest");
         
@@ -368,8 +368,8 @@ export default function GamesPage() {
     const fetchLastWheelWinner = async () => {
       try {
         const currentBlock = await publicClient.getBlockNumber();
-        // Look back ~1 hour on Base (1800 blocks at 2 sec/block)
-        const fromBlock = currentBlock > 1800n ? currentBlock - 1800n : 0n;
+        // Look back ~3 hours on Base (5400 blocks at 2 sec/block)
+        const fromBlock = currentBlock > 5400n ? currentBlock - 5400n : 0n;
         
         console.log("Fetching wheel winner from block", fromBlock.toString(), "to latest");
         

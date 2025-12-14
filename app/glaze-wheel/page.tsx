@@ -609,8 +609,20 @@ export default function GlazeWheelPage() {
       // Start the wheel animation immediately
       setIsSpinning(true);
       
+      // Function to wait for next block
+      const waitForNextBlock = async (commitBlock: bigint): Promise<void> => {
+        let currentBlock = await publicClient.getBlockNumber();
+        let attempts = 0;
+        while (currentBlock <= commitBlock && attempts < 30) {
+          console.log("Waiting for next block... current:", currentBlock.toString(), "commit:", commitBlock.toString());
+          await new Promise(resolve => setTimeout(resolve, 500));
+          currentBlock = await publicClient.getBlockNumber();
+          attempts++;
+        }
+      };
+      
       // Function to fetch spin with retries using direct RPC
-      const fetchSpinWithRetries = async (retriesLeft: number): Promise<bigint | null> => {
+      const fetchSpinWithRetries = async (retriesLeft: number): Promise<{ spinId: bigint; commitBlock: bigint } | null> => {
         try {
           // Use direct publicClient call to bypass wagmi cache
           const ids = await publicClient.readContract({
@@ -635,11 +647,12 @@ export default function GlazeWheelPage() {
                 }) as [string, string, bigint, bigint, `0x${string}`, `0x${string}`, number, number, number, number, bigint];
                 
                 const onChainCommitHash = spinData[4];
-                console.log("Spin", spinId.toString(), "commitHash:", onChainCommitHash, "our commitHash:", pendingSpin.commitHash);
+                const commitBlock = spinData[3];
+                console.log("Spin", spinId.toString(), "commitHash:", onChainCommitHash, "our commitHash:", pendingSpin.commitHash, "commitBlock:", commitBlock.toString());
                 
                 if (onChainCommitHash.toLowerCase() === pendingSpin.commitHash.toLowerCase()) {
                   console.log("Found matching spin:", spinId.toString());
-                  return spinId;
+                  return { spinId, commitBlock };
                 }
               } catch (e) {
                 console.error("Error reading spin data:", e);
@@ -669,11 +682,16 @@ export default function GlazeWheelPage() {
         if (pendingSpin.secret && address) {
           try {
             // Try up to 5 times with 1 second between each
-            const spinId = await fetchSpinWithRetries(5);
+            const result = await fetchSpinWithRetries(5);
             
-            if (spinId) {
+            if (result) {
+              const { spinId, commitBlock } = result;
               setCurrentSpinId(spinId);
               saveSpinSecret(spinId.toString(), pendingSpin.secret);
+              
+              // Wait for at least one block after commit
+              console.log("Waiting for block after commit block", commitBlock.toString());
+              await waitForNextBlock(commitBlock);
               
               console.log("Revealing spin", spinId.toString(), "with secret", pendingSpin.secret);
               
