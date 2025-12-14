@@ -270,13 +270,27 @@ export default function MinesPage() {
   const [dismissedGameId, setDismissedGameId] = useState<bigint | null>(null);
   const [dismissedPendingNotice, setDismissedPendingNotice] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState<"none" | "mines" | "bet">("none");
-  const [showStartText, setShowStartText] = useState(true);
   const [customApprovalAmount, setCustomApprovalAmount] = useState<string>("");
   const [pendingGame, setPendingGame] = useState<PendingGame | null>(null);
   const [gameStep, setGameStep] = useState<"idle" | "approving" | "starting" | "playing" | "revealing" | "cashing">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [confettiData, setConfettiData] = useState<Array<{left: number, size: number, delay: number, duration: number}>>([]);
   const [pendingTileIndex, setPendingTileIndex] = useState<number | null>(null); // Optimistic tile reveal
+  const [localRevealedTiles, setLocalRevealedTiles] = useState<number>(0); // Track revealed tiles locally
+
+  // Generate confetti data when showing confetti
+  useEffect(() => {
+    if (showConfetti) {
+      const data = Array.from({ length: 40 }, () => ({
+        left: Math.random() * 100,
+        size: 18 + Math.random() * 24,
+        delay: Math.random() * 1.5,
+        duration: 3 + Math.random() * 2,
+      }));
+      setConfettiData(data);
+    }
+  }, [showConfetti]);
 
   const { address, isConnected } = useAccount();
 
@@ -530,6 +544,11 @@ export default function MinesPage() {
   // Handle reveal success
   useEffect(() => {
     if (isRevealSuccess && gameStep === "revealing") {
+      // Mark the tile as revealed locally immediately
+      if (pendingTileIndex !== null) {
+        setLocalRevealedTiles(prev => prev | (1 << pendingTileIndex));
+      }
+      
       // Clear pending tile and set back to playing
       setPendingTileIndex(null);
       setGameStep("playing");
@@ -600,6 +619,7 @@ export default function MinesPage() {
     // Clear any dismissed game since we're starting fresh
     setDismissedGameId(null);
     setDismissedPendingNotice(false);
+    setLocalRevealedTiles(0); // Reset local revealed tiles
     
     const amountWei = parseUnits(betAmount, 18);
     const secret = generateSecret();
@@ -724,12 +744,20 @@ export default function MinesPage() {
   const isGameDismissed = currentGameId !== undefined && dismissedGameId === currentGameId;
   // Show grid if: we have a secret for active game, OR game just ended (but only if we were playing it and haven't dismissed)
   const hasPlayableGame = !isGameDismissed && ((hasSecretForGame && isGameActive) || (isGameOver && gameStep === "playing"));
-  const revealedTiles = game ? game[7] : 0; // revealedTiles is index 7
-  const safeRevealed = game ? game[5] : 0; // safeRevealed is index 5
-  const gameMineCount = game ? game[4] : mineCount; // mineCount is index 4
+  const revealedTiles = game ? Number(game[7]) : 0; // revealedTiles is index 7
+  const safeRevealed = game ? Number(game[5]) : 0; // safeRevealed is index 5
+  const gameMineCount = game ? Number(game[4]) : mineCount; // mineCount is index 4
   const displayMultiplier = calculateDisplayMultiplier(gameMineCount, safeRevealed);
   const minePositions = game ? BigInt(game[8]) : BigInt(0); // minePositions is index 8
   const gameBetAmount = game ? game[2] : BigInt(0); // betAmount is index 2
+  
+  // Sync local revealed tiles with contract when contract has more reveals
+  useEffect(() => {
+    if (revealedTiles > localRevealedTiles) {
+      setLocalRevealedTiles(revealedTiles);
+    }
+  }, [revealedTiles]);
+  
   // Only count games that are truly pending (not the current playable game)
   const pendingGamesCount = allActiveGameIds.filter(id => {
     // Exclude current game if we have a secret for it
@@ -788,19 +816,19 @@ export default function MinesPage() {
       `}</style>
 
       {/* Donut Confetti */}
-      {showConfetti && (
+      {showConfetti && confettiData.length > 0 && (
         <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-          {[...Array(40)].map((_, i) => (
+          {confettiData.map((item, i) => (
             <div
               key={i}
               className="confetti"
               style={{
                 position: 'absolute',
-                left: `${Math.random() * 100}%`,
+                left: `${item.left}%`,
                 top: '-60px',
-                fontSize: `${18 + Math.random() * 24}px`,
-                animationDelay: `${Math.random() * 1.5}s`,
-                animationDuration: `${3 + Math.random() * 2}s`,
+                fontSize: `${item.size}px`,
+                animationDelay: `${item.delay}s`,
+                animationDuration: `${item.duration}s`,
               }}
             >
               🍩
@@ -921,7 +949,9 @@ export default function MinesPage() {
             <>
               <div className="grid grid-cols-5 gap-2 w-full max-w-[320px] mb-2">
                 {Array.from({ length: 25 }).map((_, i) => {
-                  const isRevealed = (revealedTiles & (1 << i)) !== 0;
+                  // Combine contract revealed tiles with locally tracked ones
+                  const combinedRevealedTiles = revealedTiles | localRevealedTiles;
+                  const isRevealed = (combinedRevealedTiles & (1 << i)) !== 0;
                   const isMine = isRevealed && game !== undefined && game[6] === 3 && (Number(minePositions) & (1 << i)) !== 0;
                   const isGameOver = game !== undefined && (game[6] === 3 || game[6] === 4);
                   
@@ -948,7 +978,7 @@ export default function MinesPage() {
                     <div className="text-center mb-2">
                       <div className="text-xs text-gray-400">Current Payout</div>
                       <div className="text-xl font-bold text-green-400">
-                        🍩 {(parseFloat(formatUnits(gameBetAmount, 18)) * displayMultiplier).toFixed(2)}
+                        🍩 {(parseFloat(formatUnits(gameBetAmount, 18)) * displayMultiplier).toFixed(4)}
                       </div>
                     </div>
                   )}
@@ -1061,9 +1091,7 @@ export default function MinesPage() {
                   onClick={() => {
                     if (expandedPanel === "mines") {
                       setExpandedPanel("none");
-                      setTimeout(() => setShowStartText(true), 300);
                     } else {
-                      setShowStartText(false);
                       setExpandedPanel("mines");
                       try { sdk.haptics.selectionChanged(); } catch {}
                     }
@@ -1147,12 +1175,7 @@ export default function MinesPage() {
                       {isProcessing || isStartPending || isApprovePending ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
                       ) : (
-                        <span className={cn(
-                          "transition-opacity duration-200 whitespace-nowrap",
-                          showStartText ? "opacity-100" : "opacity-0"
-                        )}>
-                          START GAME
-                        </span>
+                        "START GAME"
                       )}
                     </button>
                   )}
@@ -1163,9 +1186,7 @@ export default function MinesPage() {
                   onClick={() => {
                     if (expandedPanel === "bet") {
                       setExpandedPanel("none");
-                      setTimeout(() => setShowStartText(true), 300);
                     } else {
-                      setShowStartText(false);
                       setExpandedPanel("bet");
                       try { sdk.haptics.selectionChanged(); } catch {}
                     }
