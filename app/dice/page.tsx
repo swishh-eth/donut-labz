@@ -463,15 +463,18 @@ export default function DicePage() {
             
             // Poll for result - call API to trigger reveal
             const pollForResult = async () => {
+              // Wait 3 seconds for next block before first poll
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              
               const maxAttempts = 60; // ~60 seconds
               let attempts = 0;
               
               while (attempts < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
                 try {
                   // Call the reveal API to trigger house reveal
-                  await fetch(`/api/reveal?game=dice&betId=${betId.toString()}`);
+                  const response = await fetch(`/api/reveal?game=dice`);
+                  const data = await response.json();
+                  console.log("Reveal API response:", data);
                   
                   // Then check if bet was revealed
                   const bet = await publicClient?.readContract({
@@ -518,6 +521,8 @@ export default function DicePage() {
                 }
                 
                 attempts++;
+                // Wait 1 second before next attempt
+                await new Promise(resolve => setTimeout(resolve, 1000));
               }
               
               // Timeout - bet is still pending
