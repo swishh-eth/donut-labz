@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { flushSync } from "react-dom";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
@@ -139,7 +139,7 @@ type OnchainSpin = {
   riskLevel: number;
   segments: number;
   commitBlock: bigint;
-  status: number; // 0=None, 1=Pending, 2=Revealed, 3=Expired
+  status: number;
   result: number;
   multiplier: bigint;
   payout: bigint;
@@ -147,8 +147,6 @@ type OnchainSpin = {
 
 // Get multipliers for wheel config (matching contract exactly)
 const getWheelMultipliers = (riskLevel: number, segments: number): number[] => {
-  // These match the contract's _initializeMultipliers function
-  
   if (riskLevel === 0) { // LOW RISK
     if (segments === 10) {
       return [15000, 12000, 11000, 10000, 9000, 15000, 12000, 11000, 10000, 9000];
@@ -221,66 +219,94 @@ const getWheelMultipliers = (riskLevel: number, segments: number): number[] => {
       return mults;
     }
   }
-  
-  // Fallback - shouldn't happen
   return Array(segments).fill(10000);
 };
 
-// Get color for a multiplier
-const getColorForMultiplier = (mult: number): string => {
-  if (mult === 0) return "#27272a";
-  if (mult >= 400000) return "#fbbf24";
-  if (mult >= 100000) return "#ef4444";
-  if (mult >= 50000) return "#8b5cf6";
-  if (mult >= 30000) return "#3b82f6";
-  if (mult >= 20000) return "#10b981";
-  if (mult >= 15000) return "#f59e0b";
-  return "#6b7280";
-};
-
-// Wheel component
+// Wheel component with improved visuals
 function WheelDisplay({ 
   segments, 
   multipliers, 
   rotation, 
   isSpinning,
-  result
+  onTick,
+  isMuted
 }: { 
   segments: number;
   multipliers: number[];
   rotation: number;
   isSpinning: boolean;
-  result: number | null;
+  onTick: () => void;
+  isMuted: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [idleRotation, setIdleRotation] = useState(0);
   const [displayRotation, setDisplayRotation] = useState(0);
+  const lastSegmentRef = useRef<number>(-1);
+  const animationRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const startRotationRef = useRef<number>(0);
   
-  // Idle rotation animation
+  // Idle rotation
   useEffect(() => {
     if (isSpinning) return;
     
-    const interval = setInterval(() => {
-      setIdleRotation(prev => (prev + 0.5) % 360);
-    }, 16);
+    const animate = () => {
+      setDisplayRotation(prev => (prev + 0.3) % 360);
+      animationRef.current = requestAnimationFrame(animate);
+    };
+    animationRef.current = requestAnimationFrame(animate);
     
-    return () => clearInterval(interval);
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
   }, [isSpinning]);
   
+  // Spinning animation with easing and tick sounds
   useEffect(() => {
-    if (isSpinning && rotation > 0) {
-      setDisplayRotation(rotation);
-    } else if (!isSpinning && rotation === 0) {
-      setDisplayRotation(idleRotation);
-    }
-  }, [isSpinning, rotation, idleRotation]);
+    if (!isSpinning || rotation === 0) return;
+    
+    startTimeRef.current = performance.now();
+    startRotationRef.current = displayRotation;
+    const targetRotation = rotation;
+    const duration = 5000; // 5 seconds
+    
+    const easeOut = (t: number) => {
+      // Custom easing for wheel feel
+      return 1 - Math.pow(1 - t, 4);
+    };
+    
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTimeRef.current;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeOut(progress);
+      
+      const currentRotation = startRotationRef.current + (targetRotation - startRotationRef.current) * eased;
+      setDisplayRotation(currentRotation);
+      
+      // Calculate which segment is at top and play tick
+      const normalizedRotation = currentRotation % 360;
+      const segmentAngle = 360 / segments;
+      const currentSegment = Math.floor(((360 - normalizedRotation + segmentAngle / 2) % 360) / segmentAngle);
+      
+      if (currentSegment !== lastSegmentRef.current && progress < 0.95) {
+        lastSegmentRef.current = currentSegment;
+        onTick();
+      }
+      
+      if (progress < 1) {
+        animationRef.current = requestAnimationFrame(animate);
+      } else {
+        lastSegmentRef.current = -1;
+      }
+    };
+    
+    animationRef.current = requestAnimationFrame(animate);
+    
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [isSpinning, rotation, segments, onTick]);
   
-  useEffect(() => {
-    if (!isSpinning && rotation === 0) {
-      setDisplayRotation(idleRotation);
-    }
-  }, [idleRotation, isSpinning, rotation]);
-  
+  // Draw wheel
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -290,71 +316,122 @@ function WheelDisplay({
     
     const size = canvas.width;
     const center = size / 2;
-    const radius = size / 2 - 15;
+    const radius = size / 2 - 20;
     
     ctx.clearRect(0, 0, size, size);
+    
+    // Outer glow when spinning
+    if (isSpinning) {
+      const gradient = ctx.createRadialGradient(center, center, radius - 10, center, center, radius + 20);
+      gradient.addColorStop(0, 'rgba(245, 158, 11, 0)');
+      gradient.addColorStop(0.5, 'rgba(245, 158, 11, 0.3)');
+      gradient.addColorStop(1, 'rgba(245, 158, 11, 0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+    }
     
     const anglePerSegment = (2 * Math.PI) / segments;
     
     for (let i = 0; i < segments; i++) {
       const startAngle = i * anglePerSegment - Math.PI / 2;
       const endAngle = startAngle + anglePerSegment;
+      const mult = multipliers[i];
       
       ctx.beginPath();
       ctx.moveTo(center, center);
       ctx.arc(center, center, radius, startAngle, endAngle);
       ctx.closePath();
       
-      ctx.fillStyle = getColorForMultiplier(multipliers[i]);
+      // Color scheme: amber for wins, dark for losses
+      if (mult === 0) {
+        ctx.fillStyle = "#18181b"; // zinc-900
+      } else if (mult >= 50000) {
+        ctx.fillStyle = "#f59e0b"; // amber-500
+      } else if (mult >= 15000) {
+        ctx.fillStyle = "#d97706"; // amber-600
+      } else if (mult >= 10000) {
+        ctx.fillStyle = "#b45309"; // amber-700
+      } else {
+        ctx.fillStyle = "#27272a"; // zinc-800
+      }
       ctx.fill();
       
-      ctx.strokeStyle = "#18181b";
+      // Border
+      ctx.strokeStyle = "#000";
       ctx.lineWidth = 2;
       ctx.stroke();
       
+      // Inner highlight line
+      ctx.beginPath();
+      ctx.moveTo(center, center);
+      ctx.lineTo(
+        center + Math.cos(startAngle) * radius,
+        center + Math.sin(startAngle) * radius
+      );
+      ctx.strokeStyle = "rgba(255,255,255,0.1)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      
+      // Draw multiplier text
       if (segments <= 20) {
         ctx.save();
         ctx.translate(center, center);
         ctx.rotate(startAngle + anglePerSegment / 2);
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
-        ctx.fillStyle = multipliers[i] > 0 ? "#fff" : "#71717a";
-        ctx.font = `bold ${segments <= 10 ? 14 : 10}px monospace`;
-        const mult = multipliers[i] / 10000;
-        ctx.fillText(mult > 0 ? `${mult}x` : "0", radius - 15, 0);
+        ctx.font = `bold ${segments <= 10 ? 14 : 11}px monospace`;
+        ctx.fillStyle = mult > 0 ? "#fff" : "#52525b";
+        const multText = mult > 0 ? `${(mult / 10000).toFixed(1)}x` : "0";
+        ctx.fillText(multText, radius - 12, 0);
         ctx.restore();
       }
     }
     
+    // Outer ring
     ctx.beginPath();
-    ctx.arc(center, center, 25, 0, 2 * Math.PI);
+    ctx.arc(center, center, radius, 0, 2 * Math.PI);
+    ctx.strokeStyle = "#f59e0b";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    
+    // Inner ring
+    ctx.beginPath();
+    ctx.arc(center, center, radius * 0.15, 0, 2 * Math.PI);
     ctx.fillStyle = "#18181b";
     ctx.fill();
     ctx.strokeStyle = "#f59e0b";
     ctx.lineWidth = 3;
     ctx.stroke();
     
-  }, [segments, multipliers, result]);
+    // Donut emoji in center
+    ctx.font = "24px serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("🍩", center, center);
+    
+  }, [segments, multipliers, isSpinning]);
   
   return (
     <div className="relative">
-      <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10">
+      {/* Pointer */}
+      <div className="absolute -top-1 left-1/2 -translate-x-1/2 z-10">
         <div 
-          className="w-0 h-0 border-l-[14px] border-r-[14px] border-t-[24px] border-l-transparent border-r-transparent border-t-amber-500"
-          style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
+          className={cn(
+            "w-0 h-0 border-l-[16px] border-r-[16px] border-t-[28px] border-l-transparent border-r-transparent transition-all",
+            isSpinning ? "border-t-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]" : "border-t-amber-500"
+          )}
         />
       </div>
+      
+      {/* Wheel */}
       <div 
-        className={cn(
-          isSpinning && rotation > 0 ? "transition-transform duration-[4000ms] ease-out" : "transition-none"
-        )}
         style={{ transform: `rotate(${displayRotation}deg)` }}
+        className={cn(isSpinning && "drop-shadow-[0_0_30px_rgba(245,158,11,0.4)]")}
       >
         <canvas 
           ref={canvasRef} 
-          width={280} 
-          height={280}
-          className={cn(isSpinning && "drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]")}
+          width={300} 
+          height={300}
         />
       </div>
     </div>
@@ -375,18 +452,22 @@ function MultiplierLegend({ multipliers }: { multipliers: number[] }) {
   
   return (
     <div className="flex flex-wrap gap-1.5 justify-center">
-      {uniqueMults.map(({ mult, count }) => (
+      {uniqueMults.slice(0, 5).map(({ mult, count }) => (
         <div 
           key={mult}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs"
-          style={{ backgroundColor: `${getColorForMultiplier(mult)}30` }}
+          className={cn(
+            "flex items-center gap-1 px-2 py-1 rounded-lg text-xs border",
+            mult === 0 
+              ? "bg-zinc-900 border-zinc-700" 
+              : mult >= 50000 
+                ? "bg-amber-500/20 border-amber-500/50" 
+                : "bg-amber-900/20 border-amber-700/50"
+          )}
         >
-          <div 
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: getColorForMultiplier(mult) }}
-          />
-          <span className="text-white font-bold">{mult > 0 ? `${mult / 10000}x` : "0x"}</span>
-          <span className="text-gray-400">×{count}</span>
+          <span className={cn("font-bold", mult > 0 ? "text-amber-400" : "text-zinc-500")}>
+            {mult > 0 ? `${(mult / 10000).toFixed(1)}x` : "0x"}
+          </span>
+          <span className="text-zinc-500">×{count}</span>
         </div>
       ))}
     </div>
@@ -487,7 +568,7 @@ function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; re
               <button
                 onClick={() => handleApprove(approvalAmount)}
                 disabled={isPending || parseFloat(approvalAmount || "0") <= 0}
-                className="flex-1 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-bold hover:bg-green-500/30 transition-colors disabled:opacity-50"
+                className="flex-1 py-2 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold hover:bg-amber-500/30 transition-colors disabled:opacity-50"
               >
                 {isPending ? "..." : "Approve"}
               </button>
@@ -500,15 +581,6 @@ function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; re
                   {isPending ? "..." : "Revoke"}
                 </button>
               )}
-            </div>
-          </div>
-
-          <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-            <div className="flex gap-2">
-              <Shield className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-              <p className="text-[9px] text-amber-400">
-                When you run out of approval, tap the <span className="font-bold">shield icon</span> to add more.
-              </p>
             </div>
           </div>
           
@@ -526,7 +598,7 @@ export default function GlazeWheelPage() {
   
   const [context, setContext] = useState<{ user?: { fid: number; username?: string; pfpUrl?: string } } | null>(null);
   const [betAmount, setBetAmount] = useState<string>("1");
-  const [riskLevel, setRiskLevel] = useState<number>(1);
+  const [riskLevel, setRiskLevel] = useState<number>(0);
   const [segments, setSegments] = useState<number>(20);
   const [showHistory, setShowHistory] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -556,7 +628,25 @@ export default function GlazeWheelPage() {
     return audioContextRef.current;
   };
 
-  const playWinSound = () => {
+  // Tick sound for wheel
+  const playTickSound = useCallback(() => {
+    if (isMuted) return;
+    try {
+      const ctx = getAudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.frequency.value = 800 + Math.random() * 400;
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0.08, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.05);
+    } catch {}
+  }, [isMuted]);
+
+  const playWinSound = useCallback(() => {
     if (isMuted) return;
     try {
       const ctx = getAudioContext();
@@ -575,9 +665,9 @@ export default function GlazeWheelPage() {
         oscillator.stop(startTime + 0.3);
       });
     } catch {}
-  };
+  }, [isMuted]);
 
-  const playLoseSound = () => {
+  const playLoseSound = useCallback(() => {
     if (isMuted) return;
     try {
       const ctx = getAudioContext();
@@ -593,7 +683,7 @@ export default function GlazeWheelPage() {
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.3);
     } catch {}
-  };
+  }, [isMuted]);
 
   // Load context
   useEffect(() => {
@@ -679,7 +769,7 @@ export default function GlazeWheelPage() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [refetchBalance, refetchAllowance, refetchSpins]);
 
-  // Fetch spin details when history opens or spin IDs change
+  // Fetch spin details when history opens
   useEffect(() => {
     if (!showHistory || !playerSpinIds || !publicClient) return;
     
@@ -690,7 +780,6 @@ export default function GlazeWheelPage() {
         return;
       }
       
-      // Get last 20 spins (most recent first)
       const idsToFetch = spinIds.slice(-20).reverse();
       const spins: OnchainSpin[] = [];
       
@@ -731,14 +820,16 @@ export default function GlazeWheelPage() {
   const { isSuccess: isStartSuccess } = useWaitForTransactionReceipt({ hash: startSpinHash });
   const { writeContract: writeClaim, isPending: isClaimPending } = useWriteContract();
 
-  // Handle place spin error
+  // Handle start spin error
   useEffect(() => {
     if (startError && isSpinning) {
       const msg = startError.message || "Spin failed";
       if (msg.includes("User rejected") || msg.includes("rejected")) {
         setErrorMessage("Transaction cancelled");
-      } else if (msg.includes("Insufficient contract balance")) {
+      } else if (msg.includes("Insufficient contract balance") || msg.includes("Insufficient pool")) {
         setErrorMessage("Pool is empty - try a smaller bet");
+      } else if (msg.includes("Token not supported")) {
+        setErrorMessage("Token not enabled on contract");
       } else {
         setErrorMessage("Spin failed - try again");
       }
@@ -749,139 +840,111 @@ export default function GlazeWheelPage() {
     }
   }, [startError, isSpinning, resetStartSpin]);
 
-  // Handle place spin success - start polling
+  // Handle start spin success - poll for result
   useEffect(() => {
     if (isStartSuccess && isSpinning && startSpinHash) {
-      console.log("Spin placed, starting to poll for result...");
+      console.log("Spin placed, polling for result...");
       
       const getSpinIdAndPoll = async () => {
         try {
           const receipt = await publicClient?.getTransactionReceipt({ hash: startSpinHash });
           
-          const spinPlacedLog = receipt?.logs.find(log => 
+          const spinStartedLog = receipt?.logs.find(log => 
             log.address.toLowerCase() === GLAZE_WHEEL_ADDRESS.toLowerCase()
           );
           
-          if (spinPlacedLog && spinPlacedLog.topics[1]) {
-            const spinId = BigInt(spinPlacedLog.topics[1]);
+          if (spinStartedLog && spinStartedLog.topics[1]) {
+            const spinId = BigInt(spinStartedLog.topics[1]);
             const spinIdStr = spinId.toString();
             currentSpinIdRef.current = spinIdStr;
             console.log("Got spin ID:", spinIdStr);
             
             // Trigger reveal API
             try {
-              console.log("Calling reveal API...");
-              const response = await fetch('/api/reveal?game=wheel');
-              const data = await response.json();
-              console.log("Reveal API response:", data);
-            } catch (e) {
-              console.log("Reveal API call failed:", e);
-            }
+              await fetch('/api/reveal?game=wheel');
+            } catch {}
             
-            // Wait before polling
             await new Promise(resolve => setTimeout(resolve, 2000));
             
             // Poll for result
-            const pollForResult = async () => {
-              const maxAttempts = 30;
-              let attempts = 0;
+            const maxAttempts = 30;
+            let attempts = 0;
+            
+            while (attempts < maxAttempts) {
+              if (currentSpinIdRef.current !== spinIdStr) return;
               
-              while (attempts < maxAttempts) {
-                if (currentSpinIdRef.current !== spinIdStr) {
-                  console.log("Spin ID changed, stopping poll");
-                  return;
-                }
+              try {
+                await fetch('/api/reveal?game=wheel');
+                await new Promise(resolve => setTimeout(resolve, 1500));
                 
-                try {
-                  console.log(`Poll attempt ${attempts + 1}...`);
+                const spin = await publicClient?.readContract({
+                  address: GLAZE_WHEEL_ADDRESS,
+                  abi: WHEEL_V5_ABI,
+                  functionName: "getSpin",
+                  args: [spinId],
+                  blockTag: 'latest',
+                }) as OnchainSpin;
+                
+                if (spin.status === 2) {
+                  if (currentSpinIdRef.current !== spinIdStr) return;
                   
-                  // Call reveal API again
-                  try {
-                    await fetch('/api/reveal?game=wheel');
-                  } catch {}
+                  const resultSegment = spin.result;
+                  const resultMult = Number(spin.multiplier);
+                  const won = spin.payout > BigInt(0);
                   
-                  await new Promise(resolve => setTimeout(resolve, 1500));
+                  // Animate wheel to result
+                  const segmentAngle = 360 / segments;
+                  const targetAngle = 360 - (resultSegment * segmentAngle) - (segmentAngle / 2);
+                  const fullSpins = 5 * 360;
+                  setWheelRotation(fullSpins + targetAngle);
                   
-                  const spin = await publicClient?.readContract({
-                    address: GLAZE_WHEEL_ADDRESS,
-                    abi: WHEEL_V5_ABI,
-                    functionName: "getSpin",
-                    args: [spinId],
-                    blockTag: 'latest',
-                  }) as OnchainSpin;
-                  
-                  console.log("Spin status:", spin.status, "result:", spin.result);
-                  
-                  if (spin.status === 2) {
+                  // Wait for animation
+                  setTimeout(() => {
                     if (currentSpinIdRef.current !== spinIdStr) return;
                     
-                    const resultSegment = spin.result;
-                    const resultMult = Number(spin.multiplier);
-                    const won = spin.payout > BigInt(0);
-                    
-                    console.log("Spin revealed! Result:", resultSegment, "Multiplier:", resultMult, "Won:", won);
-                    
-                    // Calculate wheel rotation to land on result
-                    const segmentAngle = 360 / segments;
-                    const targetAngle = 360 - (resultSegment * segmentAngle) - (segmentAngle / 2);
-                    const fullSpins = 5 * 360;
-                    const finalRotation = fullSpins + targetAngle;
-                    
-                    setWheelRotation(finalRotation);
-                    
-                    // Wait for animation then show result
-                    setTimeout(() => {
-                      if (currentSpinIdRef.current !== spinIdStr) return;
-                      
-                      flushSync(() => {
-                        setLastResult({
-                          result: resultSegment,
-                          multiplier: resultMult,
-                          won: won,
-                          payout: spin.payout
-                        });
-                        setIsSpinning(false);
-                        setCooldown(true);
+                    flushSync(() => {
+                      setLastResult({
+                        result: resultSegment,
+                        multiplier: resultMult,
+                        won: won,
+                        payout: spin.payout
                       });
-                      
-                      setTimeout(() => setCooldown(false), 3000);
-                      
-                      if (won) {
-                        playWinSound();
-                        flushSync(() => setShowConfetti(true));
-                        try { sdk.haptics.impactOccurred("heavy"); } catch {}
-                        setTimeout(() => setShowConfetti(false), 3000);
-                      } else {
-                        playLoseSound();
-                        try { sdk.haptics.impactOccurred("heavy"); } catch {}
-                      }
-                      
-                      refetchSpins();
-                      refetchBalance();
-                      currentSpinIdRef.current = null;
-                    }, 4000);
+                      setIsSpinning(false);
+                      setCooldown(true);
+                    });
                     
-                    return;
-                  }
-                } catch (e) {
-                  console.log("Poll error:", e);
+                    setTimeout(() => setCooldown(false), 3000);
+                    
+                    if (won) {
+                      playWinSound();
+                      flushSync(() => setShowConfetti(true));
+                      try { sdk.haptics.impactOccurred("heavy"); } catch {}
+                      setTimeout(() => setShowConfetti(false), 3000);
+                    } else {
+                      playLoseSound();
+                      try { sdk.haptics.impactOccurred("heavy"); } catch {}
+                    }
+                    
+                    refetchSpins();
+                    refetchBalance();
+                    currentSpinIdRef.current = null;
+                  }, 5000);
+                  
+                  return;
                 }
-                
-                attempts++;
-                await new Promise(resolve => setTimeout(resolve, 1000));
-              }
+              } catch {}
               
-              // Timeout
-              setErrorMessage("Waiting for reveal... check history");
-              setIsSpinning(false);
-              setWheelRotation(0);
-              currentSpinIdRef.current = null;
-            };
+              attempts++;
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
             
-            pollForResult();
+            setErrorMessage("Timeout - check history");
+            setIsSpinning(false);
+            setWheelRotation(0);
+            currentSpinIdRef.current = null;
           }
         } catch (e) {
-          console.error("Failed to get spinId:", e);
+          console.error("Failed:", e);
           setIsSpinning(false);
           setWheelRotation(0);
         }
@@ -889,7 +952,7 @@ export default function GlazeWheelPage() {
       
       getSpinIdAndPoll();
     }
-  }, [isStartSuccess, isSpinning, startSpinHash, publicClient, segments, refetchSpins, refetchBalance]);
+  }, [isStartSuccess, isSpinning, startSpinHash, publicClient, segments, refetchSpins, refetchBalance, playWinSound, playLoseSound]);
 
   const handleSpin = async () => {
     if (!isConnected || !address) return;
@@ -916,7 +979,6 @@ export default function GlazeWheelPage() {
       return;
     }
 
-    // Reset state
     currentSpinIdRef.current = null;
     setLastResult(null);
     setWheelRotation(0);
@@ -956,20 +1018,32 @@ export default function GlazeWheelPage() {
           75% { opacity: 1; }
           100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
         }
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.3); }
+          50% { box-shadow: 0 0 40px rgba(245, 158, 11, 0.6); }
+        }
+        @keyframes result-pop {
+          0% { transform: scale(0.5); opacity: 0; }
+          50% { transform: scale(1.1); }
+          100% { transform: scale(1); opacity: 1; }
+        }
         .confetti { animation: confetti-fall 3s linear forwards; }
+        .pulse-glow { animation: pulse-glow 1s ease-in-out infinite; }
+        .result-pop { animation: result-pop 0.4s ease-out forwards; }
       `}</style>
 
       {/* Confetti */}
       {showConfetti && (
         <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-          {[...Array(30)].map((_, i) => (
+          {[...Array(40)].map((_, i) => (
             <div
               key={i}
               className="confetti absolute text-2xl"
               style={{
                 left: `${(i * 37 + 13) % 100}%`,
                 top: '-60px',
-                animationDelay: `${(i * 0.07) % 1}s`,
+                animationDelay: `${(i * 0.05) % 0.8}s`,
+                fontSize: `${20 + (i % 3) * 8}px`,
               }}
             >
               🍩
@@ -989,7 +1063,7 @@ export default function GlazeWheelPage() {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold">Glaze Wheel</h1>
-            <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/30 animate-pulse">LIVE</span>
+            <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full border border-green-500/30 animate-pulse">LIVE</span>
           </div>
           {context?.user?.pfpUrl ? (
             <img src={context.user.pfpUrl} alt="" className="w-7 h-7 rounded-full border border-zinc-700" />
@@ -1016,13 +1090,16 @@ export default function GlazeWheelPage() {
           </div>
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-center">
             <div className="text-[8px] text-gray-500">RISK</div>
-            <div className="text-sm font-bold text-white">
+            <div className={cn(
+              "text-sm font-bold",
+              riskLevel === 0 ? "text-green-400" : riskLevel === 1 ? "text-amber-400" : "text-red-400"
+            )}>
               {riskLevel === 0 ? "LOW" : riskLevel === 1 ? "MED" : "HIGH"}
             </div>
           </div>
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-center">
             <div className="text-[8px] text-gray-500">MAX WIN</div>
-            <div className="text-sm font-bold text-amber-400">{maxMultiplier}x</div>
+            <div className="text-sm font-bold text-amber-400">{maxMultiplier.toFixed(1)}x</div>
           </div>
         </div>
 
@@ -1031,63 +1108,75 @@ export default function GlazeWheelPage() {
           <button 
             onClick={() => setIsMuted(!isMuted)} 
             className={cn(
-              "p-2 rounded-lg border",
-              isMuted ? "bg-red-500/20 border-red-500/30 text-red-400" : "bg-zinc-900 border-zinc-800"
+              "p-2 rounded-lg border transition-colors",
+              isMuted ? "bg-red-500/20 border-red-500/30 text-red-400" : "bg-zinc-900 border-zinc-800 text-gray-400"
             )}
           >
             {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
-          <button onClick={() => setShowApprovals(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800">
+          <button onClick={() => setShowApprovals(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-400">
             <Shield className="w-4 h-4" />
           </button>
-          <button onClick={() => setShowHistory(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800">
+          <button onClick={() => setShowHistory(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-400">
             <History className="w-4 h-4" />
           </button>
-          <button onClick={() => setShowHelp(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800">
+          <button onClick={() => setShowHelp(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-400">
             <HelpCircle className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Wheel */}
-        <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+        {/* Wheel & Result */}
+        <div className="flex-1 flex flex-col items-center justify-center min-h-0 relative">
           <WheelDisplay
             segments={segments}
             multipliers={multipliers}
             rotation={wheelRotation}
             isSpinning={isSpinning}
-            result={lastResult?.result ?? null}
+            onTick={playTickSound}
+            isMuted={isMuted}
           />
           
-          {/* Result Display */}
+          {/* Result Display - Overlay on wheel */}
           {lastResult && !isSpinning && (
-            <div className="mt-4 text-center">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className={cn(
-                "text-2xl font-bold",
-                lastResult.won ? "text-green-400" : "text-red-400"
+                "result-pop text-center px-6 py-4 rounded-2xl",
+                lastResult.won 
+                  ? "bg-green-500/90 border-2 border-green-400" 
+                  : "bg-red-500/90 border-2 border-red-400"
               )}>
-                {lastResult.won 
-                  ? `🎉 ${(lastResult.multiplier / 10000).toFixed(2)}x WIN!`
-                  : "💥 NO WIN"
-                }
-              </div>
-              {lastResult.won && (
-                <div className="text-lg text-amber-400 font-bold">
-                  +{parseFloat(formatUnits(lastResult.payout, 18)).toFixed(4)} 🍩
+                <div className="text-3xl font-bold text-white mb-1">
+                  {lastResult.won 
+                    ? `${(lastResult.multiplier / 10000).toFixed(2)}x`
+                    : "0x"
+                  }
                 </div>
-              )}
+                <div className="text-sm font-bold text-white/90">
+                  {lastResult.won 
+                    ? `+${parseFloat(formatUnits(lastResult.payout, 18)).toFixed(2)} 🍩`
+                    : "Better luck next time!"
+                  }
+                </div>
+              </div>
             </div>
           )}
           
           {/* Status */}
-          {isSpinning && (
-            <div className="mt-4 text-amber-400 flex items-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              {wheelRotation > 0 ? "Revealing..." : "Waiting for result..."}
+          {isSpinning && wheelRotation === 0 && (
+            <div className="absolute bottom-4 left-0 right-0 text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Waiting for result...
+              </div>
             </div>
           )}
           
           {errorMessage && (
-            <div className="mt-2 text-xs text-red-400">{errorMessage}</div>
+            <div className="absolute bottom-4 left-0 right-0 text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/20 border border-red-500/30 text-red-400 text-sm">
+                {errorMessage}
+              </div>
+            </div>
           )}
           
           {/* Multiplier Legend */}
@@ -1109,9 +1198,9 @@ export default function GlazeWheelPage() {
                     onClick={() => setRiskLevel(r)}
                     disabled={isSpinning}
                     className={cn(
-                      "flex-1 py-1.5 text-[10px] rounded font-bold transition-colors",
+                      "flex-1 py-1.5 text-[10px] rounded font-bold transition-all",
                       riskLevel === r
-                        ? "bg-amber-500 text-black"
+                        ? r === 0 ? "bg-green-500 text-black" : r === 1 ? "bg-amber-500 text-black" : "bg-red-500 text-white"
                         : "bg-zinc-800 text-gray-400 hover:bg-zinc-700"
                     )}
                   >
@@ -1153,7 +1242,7 @@ export default function GlazeWheelPage() {
                     onClick={() => setBetAmount(val)}
                     disabled={isSpinning}
                     className={cn(
-                      "px-2 py-1.5 text-[10px] rounded font-bold transition-colors",
+                      "px-2.5 py-1.5 text-[10px] rounded font-bold transition-colors",
                       betAmount === val
                         ? "bg-amber-500 text-black"
                         : "bg-zinc-800 text-gray-400"
@@ -1174,7 +1263,7 @@ export default function GlazeWheelPage() {
                     setBetAmount(val);
                   }
                 }}
-                className="w-16 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-center text-sm font-bold"
+                className="w-16 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-center text-sm font-bold focus:border-amber-500 focus:outline-none"
                 disabled={isSpinning}
               />
               
@@ -1183,7 +1272,11 @@ export default function GlazeWheelPage() {
                 disabled={isSpinning || isStartPending || cooldown || !isConnected || parseFloat(betAmount || "0") <= 0}
                 className={cn(
                   "flex-1 h-12 rounded-xl font-bold text-base transition-all",
-                  isSpinning || isStartPending || cooldown ? "bg-zinc-500 text-zinc-300" : "bg-amber-500 text-black hover:bg-amber-400"
+                  isSpinning || isStartPending 
+                    ? "bg-amber-500/50 text-black/50" 
+                    : cooldown && lastResult
+                      ? lastResult.won ? "bg-green-500 text-white" : "bg-red-500 text-white"
+                      : "bg-amber-500 text-black hover:bg-amber-400 active:scale-[0.98]"
                 )}
               >
                 {isSpinning ? (
@@ -1191,9 +1284,9 @@ export default function GlazeWheelPage() {
                 ) : isStartPending ? (
                   "Confirm..."
                 ) : cooldown && lastResult ? (
-                  <span className={lastResult.won ? "text-green-400" : "text-red-400"}>
-                    {lastResult.won ? `🎉 +${parseFloat(formatUnits(lastResult.payout, 18)).toFixed(2)}` : "Try again!"}
-                  </span>
+                  lastResult.won 
+                    ? `🎉 +${parseFloat(formatUnits(lastResult.payout, 18)).toFixed(2)}` 
+                    : "Try again!"
                 ) : (
                   "SPIN"
                 )}
@@ -1223,7 +1316,6 @@ export default function GlazeWheelPage() {
                     recentSpins.map((spin, index) => {
                       const isPending = spin.status === 1;
                       const spinIds = playerSpinIds as bigint[] | undefined;
-                      // Since we fetched last 20 in reverse, index 0 = most recent = spinIds[length-1]
                       const spinId = spinIds ? spinIds[spinIds.length - 1 - index] : null;
                       const spinIdStr = spinId?.toString() || index.toString();
                       const isExpanded = expandedSpinId === spinIdStr;
@@ -1299,7 +1391,6 @@ export default function GlazeWheelPage() {
                             </div>
                           </div>
                           
-                          {/* Expanded verification info */}
                           {isExpanded && (
                             <div className="mt-3 p-2 bg-zinc-900/80 rounded-lg border border-zinc-700 space-y-2">
                               <div className="text-[10px] text-amber-400 font-bold">🔐 Verification Data</div>
@@ -1318,30 +1409,14 @@ export default function GlazeWheelPage() {
                                   <span className="text-white">{spin.segments}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-gray-500">Risk Level:</span>
-                                  <span className="text-white">{riskName}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-500">Result Segment:</span>
+                                  <span className="text-gray-500">Result:</span>
                                   <span className={isWin ? "text-green-400" : "text-red-400"}>#{spin.result}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-500">Multiplier:</span>
-                                  <span className={isWin ? "text-green-400" : "text-red-400"}>{multiplierDisplay}x</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-500">Outcome:</span>
-                                  <span className={isWin ? "text-green-400" : "text-red-400"}>{isWin ? "WIN" : "LOSE"}</span>
                                 </div>
                               </div>
                               
                               <div className="pt-2 border-t border-zinc-700">
-                                <div className="text-[9px] text-gray-400 mb-1">How to verify:</div>
                                 <div className="text-[8px] text-amber-400/80 font-mono bg-zinc-800 p-1.5 rounded break-all">
-                                  segment = keccak256(blockhash({spin.commitBlock.toString()}) + spinId) % {spin.segments}
-                                </div>
-                                <div className="text-[8px] text-gray-500 mt-1">
-                                  The blockhash was unknown when you placed your spin, making the result unpredictable and fair.
+                                  segment = keccak256(blockhash + spinId) % {spin.segments}
                                 </div>
                               </div>
                             </div>
@@ -1352,11 +1427,6 @@ export default function GlazeWheelPage() {
                   )}
                 </div>
                 
-                <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
-                  <p className="text-[9px] text-gray-500 text-center">
-                    Result = keccak256(blockhash + spinId) % segments
-                  </p>
-                </div>
                 <button onClick={() => setShowHistory(false)} className="mt-2 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Close</button>
               </div>
             </div>
@@ -1377,23 +1447,23 @@ export default function GlazeWheelPage() {
                 </h2>
                 <div className="space-y-2.5">
                   <div className="flex gap-2.5">
-                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">1</div>
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-[10px] font-bold text-black">1</div>
                     <div>
-                      <div className="font-semibold text-white text-xs">Choose Risk & Segments</div>
-                      <div className="text-[11px] text-gray-400">Higher risk = bigger wins but fewer winning segments.</div>
+                      <div className="font-semibold text-white text-xs">Choose Risk Level</div>
+                      <div className="text-[11px] text-gray-400">Low = frequent small wins. High = rare big jackpots.</div>
                     </div>
                   </div>
                   <div className="flex gap-2.5">
-                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">2</div>
                     <div>
                       <div className="font-semibold text-white text-xs">Set Your Bet</div>
-                      <div className="text-[11px] text-gray-400">Choose how much DONUT to wager.</div>
+                      <div className="text-[11px] text-gray-400">Choose how much DONUT to wager (0.1 - 10).</div>
                     </div>
                   </div>
                   <div className="flex gap-2.5">
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
                     <div>
-                      <div className="font-semibold text-amber-400 text-xs">Spin & Wait</div>
+                      <div className="font-semibold text-amber-400 text-xs">Spin & Win!</div>
                       <div className="text-[11px] text-gray-400">One transaction - house reveals automatically!</div>
                     </div>
                   </div>
