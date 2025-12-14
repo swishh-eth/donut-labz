@@ -556,28 +556,36 @@ export default function DonutTowerPage() {
             currentMultiplier: game[8],
           };
           
-          setGameState(newGameState);
-          setIsClimbing(false);
+          flushSync(() => {
+            setGameState(newGameState);
+            setIsClimbing(false);
+          });
           
           if (newGameState.status === GameStatus.Lost) {
             playLoseSound();
-            setGameResult("lost");
+            flushSync(() => setGameResult("lost"));
             setTimeout(() => {
-              setActiveGameId(null);
-              setGameState(null);
-              setGameResult(null);
+              flushSync(() => {
+                setActiveGameId(null);
+                setGameState(null);
+                setGameResult(null);
+              });
               refetchActiveGame();
               refetchBalance();
             }, 4000);
           } else if (newGameState.status === GameStatus.Won) {
             playWinSound();
-            setGameResult("won");
-            flushSync(() => setShowConfetti(true));
+            flushSync(() => {
+              setGameResult("won");
+              setShowConfetti(true);
+            });
             setTimeout(() => {
-              setShowConfetti(false);
-              setActiveGameId(null);
-              setGameState(null);
-              setGameResult(null);
+              flushSync(() => {
+                setShowConfetti(false);
+                setActiveGameId(null);
+                setGameState(null);
+                setGameResult(null);
+              });
               refetchActiveGame();
               refetchBalance();
               refetchGameIds();
@@ -765,6 +773,8 @@ export default function DonutTowerPage() {
           100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
         }
         .confetti { animation: confetti-fall 3s linear forwards; }
+        .tower-scroll::-webkit-scrollbar { display: none; }
+        .tower-scroll { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
       {/* Confetti */}
@@ -845,10 +855,10 @@ export default function DonutTowerPage() {
           </div>
         </div>
 
-        {/* Tower area */}
-        <div className="flex-1 flex flex-col items-center justify-center overflow-hidden px-4">
+        {/* Tower area - scrollable */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-2 tower-scroll">
           {isWaitingForReveal ? (
-            <div className="text-center">
+            <div className="text-center py-8">
               <Loader2 className="w-8 h-8 animate-spin text-amber-400 mx-auto mb-2" />
               <p className="text-sm text-gray-400">Building tower...</p>
             </div>
@@ -892,8 +902,8 @@ export default function DonutTowerPage() {
           )}
         </div>
 
-        {/* Controls */}
-        <div className="flex-none px-4 pb-2 space-y-2">
+        {/* Controls - always visible at bottom */}
+        <div className="flex-none px-4 pb-2 pt-1 space-y-2 bg-black">
           {/* Error message */}
           {errorMessage && (
             <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-2 text-center text-red-400 text-sm">
