@@ -527,7 +527,7 @@ export default function BakeryMinesPage() {
       } catch {}
       
       // Wait a bit then check game status
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise(r => setTimeout(r, 4000));
       
       if (cancelled) return;
       
@@ -561,7 +561,7 @@ export default function BakeryMinesPage() {
       }
     };
     
-    const interval = setInterval(pollForReveal, 3000);
+    const interval = setInterval(pollForReveal, 5000);
     pollForReveal();
     
     return () => {
@@ -582,7 +582,7 @@ export default function BakeryMinesPage() {
       }
       
       const games: OnchainGame[] = [];
-      const idsToFetch = ids.slice(-10).reverse();
+      const idsToFetch = ids.slice(-5).reverse();
       
       for (const id of idsToFetch) {
         try {
@@ -701,7 +701,7 @@ export default function BakeryMinesPage() {
               } catch {}
               
               // Wait then check
-              await new Promise(r => setTimeout(r, 2000));
+              await new Promise(r => setTimeout(r, 4000));
               
               try {
                 const game = await publicClient.readContract({

@@ -150,8 +150,8 @@ export default function GamesPage() {
       try {
         // Get current block number first
         const currentBlock = await publicClient.getBlockNumber();
-        // Look back ~1 hour on Base (1800 blocks at 2 sec/block)
-        const fromBlock = currentBlock > 1800n ? currentBlock - 1800n : 0n;
+        // Look back ~30 min on Base (900 blocks at 2 sec/block)
+        const fromBlock = currentBlock > 900n ? currentBlock - 900n : 0n;
         
         // Get recent BetRevealed events - V5 contract event signature
         const logs = await publicClient.getLogs({
@@ -233,8 +233,8 @@ export default function GamesPage() {
     };
 
     fetchLastDiceWinner();
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchLastDiceWinner, 5 * 60 * 1000);
+    // Refresh every 15 minutes (was 5)
+    const interval = setInterval(fetchLastDiceWinner, 15 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -243,8 +243,8 @@ export default function GamesPage() {
     const fetchLastMinesWinner = async () => {
       try {
         const currentBlock = await publicClient.getBlockNumber();
-        // Look back ~1 hour on Base (1800 blocks at 2 sec/block)
-        const fromBlock = currentBlock > 1800n ? currentBlock - 1800n : 0n;
+        // Look back ~30 min on Base (900 blocks at 2 sec/block) - reduced from 1 hour
+        const fromBlock = currentBlock > 900n ? currentBlock - 900n : 0n;
         
         console.log("Fetching mines winner from block", fromBlock.toString(), "to latest");
         
@@ -257,6 +257,8 @@ export default function GamesPage() {
             inputs: [
               { type: 'uint256', name: 'gameId', indexed: true },
               { type: 'address', name: 'player', indexed: true },
+              { type: 'uint256', name: 'tilesRevealed', indexed: false },
+              { type: 'uint256', name: 'multiplier', indexed: false },
               { type: 'uint256', name: 'payout', indexed: false }
             ]
           },
@@ -313,7 +315,7 @@ export default function GamesPage() {
     };
 
     fetchLastMinesWinner();
-    const interval = setInterval(fetchLastMinesWinner, 5 * 60 * 1000);
+    const interval = setInterval(fetchLastMinesWinner, 15 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -322,8 +324,8 @@ export default function GamesPage() {
     const fetchLastWheelWinner = async () => {
       try {
         const currentBlock = await publicClient.getBlockNumber();
-        // Look back ~1 hour on Base (1800 blocks at 2 sec/block)
-        const fromBlock = currentBlock > 1800n ? currentBlock - 1800n : 0n;
+        // Look back ~30 min on Base (900 blocks at 2 sec/block)
+        const fromBlock = currentBlock > 900n ? currentBlock - 900n : 0n;
         
         console.log("Fetching wheel winner from block", fromBlock.toString(), "to latest");
         
@@ -336,7 +338,6 @@ export default function GamesPage() {
             inputs: [
               { type: 'uint256', name: 'spinId', indexed: true },
               { type: 'address', name: 'player', indexed: true },
-              { type: 'bytes32', name: 'blockHash', indexed: false },
               { type: 'uint8', name: 'result', indexed: false },
               { type: 'uint256', name: 'multiplier', indexed: false },
               { type: 'uint256', name: 'payout', indexed: false }
@@ -404,7 +405,7 @@ export default function GamesPage() {
     };
 
     fetchLastWheelWinner();
-    const interval = setInterval(fetchLastWheelWinner, 5 * 60 * 1000);
+    const interval = setInterval(fetchLastWheelWinner, 15 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
