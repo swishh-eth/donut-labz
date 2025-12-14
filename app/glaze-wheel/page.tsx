@@ -450,6 +450,8 @@ type SpinHistoryItem = {
   result?: number;
   multiplier?: number;
   payout?: bigint;
+  revealedSecret?: `0x${string}`;
+  blockHash?: `0x${string}`;
 };
 
 export default function GlazeWheelPage() {
@@ -474,6 +476,7 @@ export default function GlazeWheelPage() {
   const [currentSpinId, setCurrentSpinId] = useState<bigint | null>(null);
   const [spinHistory, setSpinHistory] = useState<SpinHistoryItem[]>([]);
   const [currentBlock, setCurrentBlock] = useState<bigint>(BigInt(0));
+  const [expandedSpinId, setExpandedSpinId] = useState<string | null>(null);
   const [hasSeenApprovalModal, setHasSeenApprovalModal] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem(SEEN_APPROVAL_KEY) === 'true';
@@ -607,6 +610,13 @@ export default function GlazeWheelPage() {
               args: [spinId],
             }) as [string, string, bigint, bigint, `0x${string}`, `0x${string}`, number, number, number, number, bigint];
             
+            // Get block hash for verification
+            let blockHash: `0x${string}` | undefined;
+            try {
+              const blockData = await publicClient.getBlock({ blockNumber: spinData[3] });
+              blockHash = blockData.hash;
+            } catch {}
+            
             completedSpins.push({
               spinId,
               betAmount: spinData[2],
@@ -616,7 +626,9 @@ export default function GlazeWheelPage() {
               status: payout > 0n ? 'won' : 'lost',
               result,
               multiplier,
-              payout
+              payout,
+              revealedSecret: spinData[5],
+              blockHash
             });
           } catch {}
         }
@@ -1476,13 +1488,15 @@ export default function GlazeWheelPage() {
                       const profitLoss = isWin 
                         ? `+${payoutFormatted}` 
                         : `-${betAmountFormatted}`;
+                      const isExpanded = expandedSpinId === spin.spinId.toString();
                       
                       return (
                         <div 
                           key={spin.spinId.toString()}
+                          onClick={() => setExpandedSpinId(isExpanded ? null : spin.spinId.toString())}
                           className={cn(
-                            "p-3 rounded-lg border",
-                            isWin ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"
+                            "p-3 rounded-lg border cursor-pointer transition-colors",
+                            isWin ? "bg-green-500/10 border-green-500/30 hover:bg-green-500/20" : "bg-red-500/10 border-red-500/30 hover:bg-red-500/20"
                           )}
                         >
                           <div className="flex items-center justify-between">
@@ -1508,6 +1522,25 @@ export default function GlazeWheelPage() {
                               <div className="text-[10px] text-gray-500">🍩 DONUT</div>
                             </div>
                           </div>
+                          <div className="text-[9px] text-gray-500 mt-1">Tap to verify</div>
+                          
+                          {isExpanded && (
+                            <div className="mt-3 p-2 bg-zinc-900 rounded-lg border border-zinc-800">
+                              <div className="text-[9px] text-gray-400 space-y-1 font-mono break-all">
+                                <div><span className="text-gray-500">Spin ID:</span> {spin.spinId.toString()}</div>
+                                <div><span className="text-gray-500">Block:</span> {spin.commitBlock.toString()}</div>
+                                {spin.blockHash && (
+                                  <div><span className="text-gray-500">Block Hash:</span> {spin.blockHash.slice(0, 20)}...</div>
+                                )}
+                                {spin.revealedSecret && spin.revealedSecret !== "0x0000000000000000000000000000000000000000000000000000000000000000" && (
+                                  <div><span className="text-gray-500">Secret:</span> {spin.revealedSecret.slice(0, 20)}...</div>
+                                )}
+                                <div className="pt-1 border-t border-zinc-700 mt-1">
+                                  <span className="text-amber-400">Result = keccak256(blockHash + secret + spinId) % {spin.segments}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })

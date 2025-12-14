@@ -306,8 +306,11 @@ export default function MinesPage() {
     status: number; // 1=active, 3=lost, 4=cashed
     commitBlock: bigint;
     payout: bigint;
+    revealedSecret?: `0x${string}`;
+    blockHash?: `0x${string}`;
   }>>([]);
   const [currentBlock, setCurrentBlock] = useState<bigint>(BigInt(0));
+  const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
 
   // Load dismissed games from localStorage on mount (Fix #4)
   useEffect(() => {
@@ -497,6 +500,21 @@ export default function MinesPage() {
               args: [gameId],
             }) as OnchainGame;
             
+            // Get gameCore for revealed secret
+            const gameCore = await publicClient.readContract({
+              address: DONUT_MINES_ADDRESS,
+              abi: MINES_ABI,
+              functionName: 'gameCore',
+              args: [gameId],
+            }) as [`0x${string}`, `0x${string}`, bigint, bigint, `0x${string}`, `0x${string}`];
+            
+            // Get block hash
+            let blockHash: `0x${string}` | undefined;
+            try {
+              const blockData = await publicClient.getBlock({ blockNumber: gameData[3] });
+              blockHash = blockData.hash;
+            } catch {}
+            
             historyItems.push({
               gameId,
               betAmount: gameData[2],
@@ -504,7 +522,9 @@ export default function MinesPage() {
               safeRevealed: gameData[5],
               status: gameData[6],
               commitBlock: gameData[3],
-              payout
+              payout,
+              revealedSecret: gameCore[5],
+              blockHash
             });
           } catch {}
         }
@@ -1521,10 +1541,12 @@ export default function MinesPage() {
                       
                       // Lost game (hit mine)
                       if (game.status === 3) {
+                        const isExpanded = expandedGameId === game.gameId.toString();
                         return (
                           <div 
                             key={game.gameId.toString()}
-                            className="p-3 rounded-lg border bg-red-500/10 border-red-500/30"
+                            onClick={() => setExpandedGameId(isExpanded ? null : game.gameId.toString())}
+                            className="p-3 rounded-lg border bg-red-500/10 border-red-500/30 cursor-pointer hover:bg-red-500/20 transition-colors"
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
@@ -1539,6 +1561,25 @@ export default function MinesPage() {
                                 <div className="text-[10px] text-gray-500">🍩 DONUT</div>
                               </div>
                             </div>
+                            <div className="text-[9px] text-gray-500 mt-1">Tap to verify</div>
+                            
+                            {isExpanded && (
+                              <div className="mt-3 p-2 bg-zinc-900 rounded-lg border border-zinc-800">
+                                <div className="text-[9px] text-gray-400 space-y-1 font-mono break-all">
+                                  <div><span className="text-gray-500">Game ID:</span> {game.gameId.toString()}</div>
+                                  <div><span className="text-gray-500">Block:</span> {game.commitBlock.toString()}</div>
+                                  {game.blockHash && (
+                                    <div><span className="text-gray-500">Block Hash:</span> {game.blockHash.slice(0, 20)}...</div>
+                                  )}
+                                  {game.revealedSecret && game.revealedSecret !== "0x0000000000000000000000000000000000000000000000000000000000000000" && (
+                                    <div><span className="text-gray-500">Secret:</span> {game.revealedSecret.slice(0, 20)}...</div>
+                                  )}
+                                  <div className="pt-1 border-t border-zinc-700 mt-1">
+                                    <span className="text-amber-400">Mines = keccak256(blockHash + secret + gameId) % 25</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       }
@@ -1547,11 +1588,13 @@ export default function MinesPage() {
                       if (game.status === 4) {
                         const payoutFormatted = parseFloat(formatUnits(game.payout, 18)).toFixed(4);
                         const multiplier = calculateDisplayMultiplier(game.mineCount, game.safeRevealed);
+                        const isExpanded = expandedGameId === game.gameId.toString();
                         
                         return (
                           <div 
                             key={game.gameId.toString()}
-                            className="p-3 rounded-lg border bg-green-500/10 border-green-500/30"
+                            onClick={() => setExpandedGameId(isExpanded ? null : game.gameId.toString())}
+                            className="p-3 rounded-lg border bg-green-500/10 border-green-500/30 cursor-pointer hover:bg-green-500/20 transition-colors"
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
@@ -1566,6 +1609,25 @@ export default function MinesPage() {
                                 <div className="text-[10px] text-gray-500">🍩 DONUT</div>
                               </div>
                             </div>
+                            <div className="text-[9px] text-gray-500 mt-1">Tap to verify</div>
+                            
+                            {isExpanded && (
+                              <div className="mt-3 p-2 bg-zinc-900 rounded-lg border border-zinc-800">
+                                <div className="text-[9px] text-gray-400 space-y-1 font-mono break-all">
+                                  <div><span className="text-gray-500">Game ID:</span> {game.gameId.toString()}</div>
+                                  <div><span className="text-gray-500">Block:</span> {game.commitBlock.toString()}</div>
+                                  {game.blockHash && (
+                                    <div><span className="text-gray-500">Block Hash:</span> {game.blockHash.slice(0, 20)}...</div>
+                                  )}
+                                  {game.revealedSecret && game.revealedSecret !== "0x0000000000000000000000000000000000000000000000000000000000000000" && (
+                                    <div><span className="text-gray-500">Secret:</span> {game.revealedSecret.slice(0, 20)}...</div>
+                                  )}
+                                  <div className="pt-1 border-t border-zinc-700 mt-1">
+                                    <span className="text-amber-400">Mines = keccak256(blockHash + secret + gameId) % 25</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       }
