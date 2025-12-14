@@ -479,11 +479,20 @@ export default function MinesPage() {
   // Handle start game success
   useEffect(() => {
     if (isStartSuccess && gameStep === "starting") {
-      setGameStep("playing");
       resetStart(); // Reset so we can start again later
-      refetchActiveGames();
-      refetchGameData();
-      try { sdk.haptics.impactOccurred("medium"); } catch {}
+      
+      // Refetch active games multiple times to ensure we get the new game
+      const doRefetch = async () => {
+        await refetchActiveGames();
+        await refetchGameData();
+        setGameStep("playing");
+        try { sdk.haptics.impactOccurred("medium"); } catch {}
+      };
+      
+      doRefetch();
+      // Also refetch again after delays in case blockchain is slow
+      setTimeout(() => refetchActiveGames(), 500);
+      setTimeout(() => refetchActiveGames(), 1500);
     }
   }, [isStartSuccess, gameStep]);
 
