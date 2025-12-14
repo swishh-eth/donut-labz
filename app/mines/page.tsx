@@ -1,23 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { flushSync } from "react-dom";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { parseUnits, formatUnits, keccak256, encodePacked, createPublicClient, http } from "viem";
-import { base } from "viem/chains";
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
+import { parseUnits, formatUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
-import { Bomb, History, HelpCircle, X, Loader2, Shield } from "lucide-react";
+import { History, HelpCircle, X, Loader2, Shield, Bomb, Gem, Volume2, VolumeX, ChevronDown, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Contract addresses
-const DONUT_MINES_ADDRESS = "0x7c018F004071bD42256ef2303cD539E413b8533a" as const;
+// Contract addresses - V5
+const DONUT_MINES_ADDRESS = "0xc5D771DaEEBCEdf8e7e53512eA533C9B07F8bE4f" as const;
 const DONUT_TOKEN_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
-
-// Create public client for direct RPC calls
-const publicClient = createPublicClient({
-  chain: base,
-  transport: http('https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g'),
-});
 
 const ERC20_ABI = [
   {
@@ -43,13 +37,13 @@ const ERC20_ABI = [
   }
 ] as const;
 
-const MINES_ABI = [
+// V5 ABI - house reveals mine positions
+const MINES_V5_ABI = [
   {
     inputs: [
       { name: "token", type: "address" },
       { name: "amount", type: "uint256" },
-      { name: "mineCount", type: "uint8" },
-      { name: "commitHash", type: "bytes32" }
+      { name: "mineCount", type: "uint8" }
     ],
     name: "startGame",
     outputs: [{ type: "uint256" }],
@@ -57,11 +51,7 @@ const MINES_ABI = [
     type: "function"
   },
   {
-    inputs: [
-      { name: "gameId", type: "uint256" },
-      { name: "tileIndex", type: "uint8" },
-      { name: "secret", type: "bytes32" }
-    ],
+    inputs: [{ name: "gameId", type: "uint256" }, { name: "tileIndex", type: "uint8" }],
     name: "revealTile",
     outputs: [],
     stateMutability: "nonpayable",
@@ -75,270 +65,339 @@ const MINES_ABI = [
     type: "function"
   },
   {
-    inputs: [{ name: "player", type: "address" }],
-    name: "getActiveGames",
-    outputs: [{ type: "uint256[]" }],
-    stateMutability: "view",
+    inputs: [{ name: "gameId", type: "uint256" }],
+    name: "claimExpiredGame",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function"
   },
   {
     inputs: [{ name: "gameId", type: "uint256" }],
     name: "getGame",
+    outputs: [{
+      type: "tuple",
+      components: [
+        { name: "player", type: "address" },
+        { name: "token", type: "address" },
+        { name: "betAmount", type: "uint256" },
+        { name: "mineCount", type: "uint8" },
+        { name: "commitBlock", type: "uint256" },
+        { name: "status", type: "uint8" },
+        { name: "minePositions", type: "uint32" },
+        { name: "revealedTiles", type: "uint32" },
+        { name: "currentMultiplier", type: "uint256" },
+        { name: "payout", type: "uint256" }
+      ]
+    }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "gameId", type: "uint256" }],
+    name: "games",
     outputs: [
       { name: "player", type: "address" },
       { name: "token", type: "address" },
       { name: "betAmount", type: "uint256" },
-      { name: "commitBlock", type: "uint256" },
       { name: "mineCount", type: "uint8" },
-      { name: "safeRevealed", type: "uint8" },
+      { name: "commitBlock", type: "uint256" },
       { name: "status", type: "uint8" },
-      { name: "revealedTiles", type: "uint32" },
       { name: "minePositions", type: "uint32" },
+      { name: "revealedTiles", type: "uint32" },
+      { name: "currentMultiplier", type: "uint256" },
       { name: "payout", type: "uint256" }
     ],
     stateMutability: "view",
     type: "function"
   },
   {
-    inputs: [{ name: "gameId", type: "uint256" }],
-    name: "gameCore",
-    outputs: [
-      { name: "player", type: "address" },
-      { name: "token", type: "address" },
-      { name: "betAmount", type: "uint256" },
-      { name: "commitBlock", type: "uint256" },
-      { name: "commitHash", type: "bytes32" },
-      { name: "revealedSecret", type: "bytes32" }
-    ],
+    inputs: [{ name: "player", type: "address" }],
+    name: "getPlayerActiveGame",
+    outputs: [{ type: "uint256" }],
     stateMutability: "view",
     type: "function"
   },
   {
-    inputs: [{ name: "mineCount", type: "uint8" }, { name: "safeRevealed", type: "uint8" }],
-    name: "calculateMultiplier",
-    outputs: [{ type: "uint256" }],
-    stateMutability: "pure",
+    inputs: [{ name: "player", type: "address" }],
+    name: "getPlayerGames",
+    outputs: [{ type: "uint256[]" }],
+    stateMutability: "view",
     type: "function"
   },
   {
-    inputs: [{ name: "gameId", type: "uint256" }],
-    name: "claimExpired",
-    outputs: [],
-    stateMutability: "nonpayable",
+    inputs: [{ name: "mineCount", type: "uint8" }, { name: "tilesRevealed", type: "uint8" }],
+    name: "getMultiplier",
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
     type: "function"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "gameId", type: "uint256" },
+      { indexed: true, name: "player", type: "address" },
+      { indexed: true, name: "token", type: "address" },
+      { indexed: false, name: "amount", type: "uint256" },
+      { indexed: false, name: "mineCount", type: "uint8" },
+      { indexed: false, name: "commitBlock", type: "uint256" }
+    ],
+    name: "GameStarted",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "gameId", type: "uint256" },
+      { indexed: false, name: "minePositions", type: "uint32" }
+    ],
+    name: "GameRevealed",
+    type: "event"
   }
 ] as const;
 
-type OnchainGame = [
-  `0x${string}`, // player
-  `0x${string}`, // token
-  bigint,        // betAmount
-  bigint,        // commitBlock
-  number,        // mineCount
-  number,        // safeRevealed
-  number,        // status
-  number,        // revealedTiles
-  number,        // minePositions
-  bigint         // payout
-];
+// GameStatus enum matching contract
+enum GameStatus { None, Pending, Active, Won, Lost, Expired }
 
-type PendingGame = {
-  secret: `0x${string}`;
-  commitHash: `0x${string}`;
-  gameId: bigint | null;
+type OnchainGame = {
+  player: `0x${string}`;
+  token: `0x${string}`;
+  betAmount: bigint;
   mineCount: number;
-  amount: string;
+  commitBlock: bigint;
+  status: number;
+  minePositions: number;
+  revealedTiles: number;
+  currentMultiplier: bigint;
+  payout: bigint;
 };
 
-// Local storage keys
-const GAME_SECRETS_KEY = "donut-mines-secrets";
-const DISMISSED_GAMES_KEY = "donut-mines-dismissed";
-
-// Save game secret to localStorage
-const saveGameSecret = (gameId: string, secret: string) => {
-  try {
-    const secrets = JSON.parse(localStorage.getItem(GAME_SECRETS_KEY) || "{}");
-    secrets[gameId] = secret;
-    localStorage.setItem(GAME_SECRETS_KEY, JSON.stringify(secrets));
-  } catch {}
+// Multiplier tables (matching contract)
+const MULTIPLIERS: Record<number, Record<number, number>> = {
+  1: { 1: 10200, 2: 10600, 3: 11100, 4: 11600, 5: 12100, 6: 12700, 7: 13400, 8: 14100, 9: 14900, 10: 15800, 11: 16800, 12: 17900, 13: 19200, 14: 20600, 15: 22200, 16: 24100, 17: 26300, 18: 28900, 19: 32000, 20: 35800, 21: 40600, 22: 46900, 23: 55600, 24: 68600 },
+  3: { 1: 11100, 2: 12500, 3: 14200, 4: 16200, 5: 18700, 6: 21700, 7: 25400, 8: 30100, 9: 36100, 10: 43900, 11: 54300, 12: 68400, 13: 88100, 14: 116500, 15: 159100, 16: 226600, 17: 340000, 18: 544000, 19: 952000, 20: 1904000, 21: 4760000, 22: 19040000 },
+  5: { 1: 12200, 2: 15100, 3: 18900, 4: 24000, 5: 30900, 6: 40500, 7: 54000, 8: 73500, 9: 102900, 10: 147000, 11: 220500, 12: 343000, 13: 564200, 14: 987400, 15: 1876000, 16: 3948200, 17: 9474800, 18: 28424400, 19: 113697600, 20: 852732000 },
+  10: { 1: 16300, 2: 27200, 3: 46800, 4: 83200, 5: 154700, 6: 302400, 7: 628600, 8: 1415200, 9: 3538000, 10: 10260200, 11: 35910800, 12: 161598400, 13: 1077322800, 14: 12927873000, 15: 645000000000 },
+  24: { 1: 245000000 }
 };
 
-// Get game secret from localStorage
-const getGameSecret = (gameId: string): `0x${string}` | null => {
-  try {
-    const secrets = JSON.parse(localStorage.getItem(GAME_SECRETS_KEY) || "{}");
-    return secrets[gameId] || null;
-  } catch {
-    return null;
+const getMultiplier = (mineCount: number, tilesRevealed: number): number => {
+  return MULTIPLIERS[mineCount]?.[tilesRevealed] || 10000;
+};
+
+const countBits = (n: number): number => {
+  let count = 0;
+  while (n > 0) {
+    count += n & 1;
+    n >>= 1;
   }
+  return count;
 };
 
-// Dismissed games helpers (Fix #4 - persist dismissed state)
-const getDismissedGames = (): Set<string> => {
-  try {
-    const dismissed = JSON.parse(localStorage.getItem(DISMISSED_GAMES_KEY) || "[]");
-    return new Set(dismissed);
-  } catch {
-    return new Set();
-  }
-};
-
-const addDismissedGame = (gameId: string) => {
-  try {
-    const dismissed = getDismissedGames();
-    dismissed.add(gameId);
-    localStorage.setItem(DISMISSED_GAMES_KEY, JSON.stringify([...dismissed]));
-  } catch {}
-};
-
-const clearOldDismissedGames = (activeGameIds: string[]) => {
-  try {
-    const dismissed = getDismissedGames();
-    const activeSet = new Set(activeGameIds);
-    // Only keep dismissed games that are still active (cleanup old ones)
-    const filtered = [...dismissed].filter(id => activeSet.has(id));
-    localStorage.setItem(DISMISSED_GAMES_KEY, JSON.stringify(filtered));
-  } catch {}
-};
-
-// Generate a random bytes32 secret
-const generateSecret = (): `0x${string}` => {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return `0x${Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('')}` as `0x${string}`;
-};
-
-// Hash the secret
-const hashSecret = (secret: `0x${string}`): `0x${string}` => {
-  return keccak256(encodePacked(['bytes32'], [secret]));
-};
-
-// Calculate multiplier for display - matches contract exactly
-// Returns multiplier as decimal (1.0 = 1x)
-const calculateDisplayMultiplier = (mineCount: number, safeRevealed: number): number => {
-  if (safeRevealed === 0) return 1.0;
+// Approvals Modal
+function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; refetchAllowance: () => void }) {
+  const { address } = useAccount();
+  const [approvalAmount, setApprovalAmount] = useState<string>("100");
   
-  // Contract uses basis points (10000 = 1x)
-  let mult = 10000;
-  const safeTiles = 25 - mineCount;
-  
-  for (let i = 0; i < safeRevealed; i++) {
-    mult = Math.floor((mult * (25 - i)) / (safeTiles - i));
-  }
-  
-  // Apply 2% house edge
-  mult = Math.floor((mult * 98) / 100);
-  
-  // Convert from basis points to decimal
-  return mult / 10000;
-};
+  const { data: allowance, refetch: refetchLocal } = useReadContract({
+    address: DONUT_TOKEN_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: address ? [address, DONUT_MINES_ADDRESS] : undefined,
+  });
 
-// Tile component
-function Tile({ 
-  index, 
-  isRevealed, 
-  isMine, 
-  isGameOver,
-  minePositions,
-  isPending,
-  onClick,
-  disabled
-}: {
-  index: number;
-  isRevealed: boolean;
-  isMine: boolean;
-  isGameOver: boolean;
-  minePositions: bigint;
-  isPending: boolean;
-  onClick: () => void;
-  disabled: boolean;
-}) {
-  const showMine = isGameOver && (Number(minePositions) & (1 << index)) !== 0;
-  const isExploded = isRevealed && isMine;
-  
+  const { writeContract, isPending } = useWriteContract();
+
+  const handleApprove = (amount: string) => {
+    writeContract({
+      address: DONUT_TOKEN_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "approve",
+      args: [DONUT_MINES_ADDRESS, parseUnits(amount, 18)]
+    }, {
+      onSuccess: () => {
+        refetchLocal();
+        refetchAllowance();
+      }
+    });
+  };
+
+  const handleRevoke = () => {
+    writeContract({
+      address: DONUT_TOKEN_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "approve",
+      args: [DONUT_MINES_ADDRESS, BigInt(0)]
+    }, {
+      onSuccess: () => {
+        refetchLocal();
+        refetchAllowance();
+      }
+    });
+  };
+
+  const isApproved = allowance && allowance > BigInt(0);
+
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled || isRevealed || isPending}
-      className={cn(
-        "aspect-square rounded-lg border-2 transition-all duration-200 flex items-center justify-center text-lg font-bold",
-        isPending && "bg-amber-500/50 border-amber-400 animate-pulse",
-        isRevealed && !isMine && "bg-amber-500/30 border-amber-500 text-amber-400",
-        isExploded && "bg-red-500/30 border-red-500 text-red-400 animate-pulse",
-        showMine && !isExploded && "bg-red-500/10 border-red-500/50 text-red-400/50",
-        !isRevealed && !showMine && !isPending && "bg-zinc-800 border-zinc-700 hover:bg-zinc-700 hover:border-zinc-600 active:scale-95",
-        disabled && !isRevealed && !isPending && "opacity-50 cursor-not-allowed hover:bg-zinc-800 hover:border-zinc-700"
-      )}
-    >
-      {isPending && <Loader2 className="w-5 h-5 animate-spin text-amber-400" />}
-      {isRevealed && !isMine && !isPending && <span className="text-xl">🍩</span>}
-      {(isExploded || showMine) && <Bomb className="w-5 h-5" />}
-    </button>
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={onClose} />
+      <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+        <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
+          <button onClick={onClose} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white z-10">
+            <X className="h-4 w-4" />
+          </button>
+          <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+            <Shield className="w-4 h-4" /> Token Approvals
+          </h2>
+          <p className="text-[10px] text-gray-500 mb-3">Approve tokens for the Mines contract.</p>
+          
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🍩</span>
+                <div>
+                  <div className="text-sm font-bold text-white">DONUT</div>
+                  <div className="text-[10px] text-gray-500">
+                    {isApproved 
+                      ? `Approved: ${parseFloat(formatUnits(allowance, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                      : "Not approved"
+                    }
+                  </div>
+                </div>
+              </div>
+              <div className={cn("w-2 h-2 rounded-full", isApproved ? "bg-green-500" : "bg-red-500")} />
+            </div>
+            
+            <div className="mb-2">
+              <input
+                type="number"
+                value={approvalAmount}
+                onChange={(e) => setApprovalAmount(e.target.value)}
+                placeholder="Amount"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-sm text-center font-bold focus:outline-none focus:border-amber-500"
+              />
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleApprove(approvalAmount)}
+                disabled={isPending}
+                className="flex-1 py-2 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold"
+              >
+                {isPending ? "..." : "Approve"}
+              </button>
+              {isApproved && (
+                <button
+                  onClick={handleRevoke}
+                  disabled={isPending}
+                  className="flex-1 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold"
+                >
+                  {isPending ? "..." : "Revoke"}
+                </button>
+              )}
+            </div>
+          </div>
+          
+          <button onClick={onClose} className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Done</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
-export default function MinesPage() {
+export default function BakeryMinesPage() {
   const readyRef = useRef(false);
+  const publicClient = usePublicClient();
   
   const [context, setContext] = useState<{ user?: { fid: number; username?: string; pfpUrl?: string } } | null>(null);
   const [betAmount, setBetAmount] = useState<string>("1");
-  const [mineCount] = useState<number>(1); // Fix #2: Remove setter, hardcode to 1 for beta
+  const [mineCount, setMineCount] = useState<number>(3);
   const [showHistory, setShowHistory] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showApprovals, setShowApprovals] = useState(false);
-  const [dismissedGameIds, setDismissedGameIds] = useState<Set<string>>(new Set()); // Fix #4: Use Set for multiple dismissed games
-  const [dismissedPendingNotice, setDismissedPendingNotice] = useState(false);
-  const [expandedPanel, setExpandedPanel] = useState<"none" | "bet">("none"); // Fix #2: Remove "mines" option
-  const [customApprovalAmount, setCustomApprovalAmount] = useState<string>("");
-  const [pendingGame, setPendingGame] = useState<PendingGame | null>(null);
-  const [gameStep, setGameStep] = useState<"idle" | "approving" | "starting" | "playing" | "revealing" | "cashing">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [confettiData, setConfettiData] = useState<Array<{left: number, size: number, delay: number, duration: number}>>([]);
-  const [pendingTileIndex, setPendingTileIndex] = useState<number | null>(null);
-  const [localRevealedTiles, setLocalRevealedTiles] = useState<number>(0);
-  const [isStartingNewGame, setIsStartingNewGame] = useState(false); // Track when we're starting a fresh game
-  const [gameHistory, setGameHistory] = useState<Array<{
-    gameId: bigint;
-    betAmount: bigint;
-    mineCount: number;
-    safeRevealed: number;
-    status: number; // 1=active, 3=lost, 4=cashed
-    commitBlock: bigint;
-    payout: bigint;
-    revealedSecret?: `0x${string}`;
-    blockHash?: `0x${string}`;
-  }>>([]);
-  const [currentBlock, setCurrentBlock] = useState<bigint>(BigInt(0));
+  const [isMuted, setIsMuted] = useState(false);
+  const [hasShownApproval, setHasShownApproval] = useState(false);
+  const [expandedBet, setExpandedBet] = useState(false);
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
-
-  // Load dismissed games from localStorage on mount (Fix #4)
-  useEffect(() => {
-    setDismissedGameIds(getDismissedGames());
-  }, []);
-
-  // Track if user has seen the approval modal
-  const [hasSeenApprovalModal, setHasSeenApprovalModal] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('donut-mines-seen-approval') === 'true';
-  });
-
-  // Generate confetti data when showing confetti
-  useEffect(() => {
-    if (showConfetti) {
-      const data = Array.from({ length: 40 }, () => ({
-        left: Math.random() * 100,
-        size: 18 + Math.random() * 24,
-        delay: Math.random() * 1.5,
-        duration: 3 + Math.random() * 2,
-      }));
-      setConfettiData(data);
-    }
-  }, [showConfetti]);
-
+  
+  // Game state
+  const [activeGameId, setActiveGameId] = useState<bigint | null>(null);
+  const [gameState, setGameState] = useState<OnchainGame | null>(null);
+  const [isStartingGame, setIsStartingGame] = useState(false);
+  const [isWaitingForReveal, setIsWaitingForReveal] = useState(false);
+  const [revealingTile, setRevealingTile] = useState<number | null>(null);
+  const [isCashingOut, setIsCashingOut] = useState(false);
+  const [gameResult, setGameResult] = useState<"won" | "lost" | null>(null);
+  const [recentGames, setRecentGames] = useState<OnchainGame[]>([]);
+  
   const { address, isConnected } = useAccount();
 
-  // Load Farcaster context
+  // Audio
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const getAudioContext = () => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    }
+    return audioContextRef.current;
+  };
+
+  const playRevealSound = useCallback((safe: boolean) => {
+    if (isMuted) return;
+    try {
+      const ctx = getAudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.frequency.value = safe ? 800 : 200;
+      oscillator.type = safe ? 'sine' : 'square';
+      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.2);
+    } catch {}
+  }, [isMuted]);
+
+  const playWinSound = useCallback(() => {
+    if (isMuted) return;
+    try {
+      const ctx = getAudioContext();
+      [523, 659, 784, 1047].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        const start = ctx.currentTime + i * 0.1;
+        gain.gain.setValueAtTime(0.15, start);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.3);
+        osc.start(start);
+        osc.stop(start + 0.3);
+      });
+    } catch {}
+  }, [isMuted]);
+
+  const playLoseSound = useCallback(() => {
+    if (isMuted) return;
+    try {
+      const ctx = getAudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(400, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.5);
+      osc.type = 'sawtooth';
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.5);
+    } catch {}
+  }, [isMuted]);
+
+  // Load context
   useEffect(() => {
     const loadContext = async () => {
       try {
@@ -349,7 +408,7 @@ export default function MinesPage() {
     loadContext();
   }, []);
 
-  // Notify Farcaster ready
+  // SDK ready
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (!readyRef.current) {
@@ -376,658 +435,453 @@ export default function MinesPage() {
     args: address ? [address, DONUT_MINES_ADDRESS] : undefined,
   });
 
-  // Auto-show approvals modal if user has no allowance set AND hasn't seen it before
-  useEffect(() => {
-    if (isConnected && allowance !== undefined && allowance === BigInt(0) && !showApprovals && !hasSeenApprovalModal) {
-      const timer = setTimeout(() => {
-        setShowApprovals(true);
-        setHasSeenApprovalModal(true);
-        localStorage.setItem('donut-mines-seen-approval', 'true');
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [isConnected, allowance, showApprovals, hasSeenApprovalModal]);
-
-  // Read active games
-  const { data: activeGameIds, refetch: refetchActiveGames } = useReadContract({
+  // Read active game ID
+  const { data: contractActiveGameId, refetch: refetchActiveGame } = useReadContract({
     address: DONUT_MINES_ADDRESS,
-    abi: MINES_ABI,
-    functionName: "getActiveGames",
+    abi: MINES_V5_ABI,
+    functionName: "getPlayerActiveGame",
     args: address ? [address] : undefined,
   });
 
-  // Find the current playable game (one we have the secret for)
-  const allActiveGameIds = (activeGameIds as bigint[]) || [];
-  
-  // Cleanup old dismissed games when active games change (Fix #4)
+  // Read player game IDs for history
+  const { data: playerGameIds, refetch: refetchGameIds } = useReadContract({
+    address: DONUT_MINES_ADDRESS,
+    abi: MINES_V5_ABI,
+    functionName: "getPlayerGames",
+    args: address ? [address] : undefined,
+  });
+
+  // Auto-show approvals
   useEffect(() => {
-    if (allActiveGameIds.length > 0) {
-      clearOldDismissedGames(allActiveGameIds.map(id => id.toString()));
+    if (isConnected && allowance !== undefined && allowance === BigInt(0) && !showApprovals && !hasShownApproval) {
+      const timer = setTimeout(() => {
+        setShowApprovals(true);
+        setHasShownApproval(true);
+      }, 500);
+      return () => clearTimeout(timer);
     }
-  }, [allActiveGameIds]);
-  
-  // Get the game we're currently playing (have secret for)
-  const currentGameId = pendingGame?.gameId || (allActiveGameIds.length > 0 ? allActiveGameIds[0] : undefined);
+  }, [isConnected, allowance, showApprovals, hasShownApproval]);
 
-  // Read game details if we have an active game
-  const { data: activeGameData, refetch: refetchGameData } = useReadContract({
-    address: DONUT_MINES_ADDRESS,
-    abi: MINES_ABI,
-    functionName: "getGame",
-    args: currentGameId ? [currentGameId] : undefined,
-    query: { enabled: !!currentGameId }
-  });
-
-  // Read game core (for commitHash) if active
-  const { data: activeGameCore } = useReadContract({
-    address: DONUT_MINES_ADDRESS,
-    abi: MINES_ABI,
-    functionName: "gameCore",
-    args: currentGameId ? [currentGameId] : undefined,
-    query: { enabled: !!currentGameId }
-  });
-
-  // Refetch data when tab becomes visible and unstick any stuck states
+  // Fetch game state when active game ID changes
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        refetchBalance();
-        refetchAllowance();
-        refetchActiveGames();
-        refetchGameData();
+    const fetchGameState = async () => {
+      if (!publicClient || !contractActiveGameId || contractActiveGameId === BigInt(0)) {
+        setActiveGameId(null);
+        setGameState(null);
+        return;
+      }
+      
+      try {
+        const game = await publicClient.readContract({
+          address: DONUT_MINES_ADDRESS,
+          abi: MINES_V5_ABI,
+          functionName: "games",
+          args: [contractActiveGameId],
+          blockTag: 'latest',
+        }) as [string, string, bigint, number, bigint, number, number, number, bigint, bigint];
         
-        // Unstick any stuck states when returning to page
-        if (isStartingNewGame) {
-          setIsStartingNewGame(false);
+        const gameData: OnchainGame = {
+          player: game[0] as `0x${string}`,
+          token: game[1] as `0x${string}`,
+          betAmount: game[2],
+          mineCount: game[3],
+          commitBlock: game[4],
+          status: game[5],
+          minePositions: game[6],
+          revealedTiles: game[7],
+          currentMultiplier: game[8],
+          payout: game[9],
+        };
+        
+        setActiveGameId(contractActiveGameId);
+        setGameState(gameData);
+        
+        // If game is pending, poll for reveal
+        if (gameData.status === GameStatus.Pending) {
+          setIsWaitingForReveal(true);
+        } else {
+          setIsWaitingForReveal(false);
         }
-        if (gameStep === "starting" || gameStep === "approving") {
-          // Check if we actually have an active game now
-          if (allActiveGameIds.length > 0) {
-            setGameStep("playing");
-          } else {
-            setGameStep("idle");
-          }
-        }
+      } catch (e) {
+        console.error("Error fetching game:", e);
       }
     };
+    
+    fetchGameState();
+  }, [publicClient, contractActiveGameId]);
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [refetchBalance, refetchAllowance, refetchActiveGames, refetchGameData, isStartingNewGame, gameStep, allActiveGameIds.length]);
-
-  // Fetch game history when history modal opens
+  // Poll for game reveal when waiting
   useEffect(() => {
-    if (!showHistory || !address) return;
+    if (!isWaitingForReveal || !activeGameId || !publicClient) return;
+    
+    const pollForReveal = async () => {
+      // Trigger reveal API
+      try {
+        await fetch('/api/reveal?game=mines');
+      } catch {}
+      
+      // Check game status
+      const game = await publicClient.readContract({
+        address: DONUT_MINES_ADDRESS,
+        abi: MINES_V5_ABI,
+        functionName: "games",
+        args: [activeGameId],
+        blockTag: 'latest',
+      }) as [string, string, bigint, number, bigint, number, number, number, bigint, bigint];
+      
+      if (game[5] === GameStatus.Active) {
+        // Game revealed!
+        setGameState({
+          player: game[0] as `0x${string}`,
+          token: game[1] as `0x${string}`,
+          betAmount: game[2],
+          mineCount: game[3],
+          commitBlock: game[4],
+          status: game[5],
+          minePositions: game[6],
+          revealedTiles: game[7],
+          currentMultiplier: game[8],
+          payout: game[9],
+        });
+        setIsWaitingForReveal(false);
+        setIsStartingGame(false);
+      }
+    };
+    
+    const interval = setInterval(pollForReveal, 2000);
+    pollForReveal();
+    
+    return () => clearInterval(interval);
+  }, [isWaitingForReveal, activeGameId, publicClient]);
+
+  // Fetch game history
+  useEffect(() => {
+    if (!showHistory || !playerGameIds || !publicClient) return;
     
     const fetchHistory = async () => {
-      try {
-        const block = await publicClient.getBlockNumber();
-        setCurrentBlock(block);
-        
-        // Look back ~3 hours (5400 blocks)
-        const fromBlock = block > 5400n ? block - 5400n : 0n;
-        
-        // Fetch GameCashedOut events for wins
-        const cashOutLogs = await publicClient.getLogs({
-          address: DONUT_MINES_ADDRESS,
-          event: {
-            type: 'event',
-            name: 'GameCashedOut',
-            inputs: [
-              { type: 'uint256', name: 'gameId', indexed: true },
-              { type: 'address', name: 'player', indexed: true },
-              { type: 'uint256', name: 'payout', indexed: false }
-            ]
-          },
-          args: { player: address },
-          fromBlock,
-          toBlock: 'latest'
-        });
-        
-        // Build history from events and active games
-        const historyItems: typeof gameHistory = [];
-        
-        // Add completed games from events
-        for (const log of cashOutLogs) {
-          const gameId = log.args.gameId as bigint;
-          const payout = log.args.payout as bigint;
-          
-          try {
-            const gameData = await publicClient.readContract({
-              address: DONUT_MINES_ADDRESS,
-              abi: MINES_ABI,
-              functionName: 'getGame',
-              args: [gameId],
-            }) as OnchainGame;
-            
-            // Get gameCore for revealed secret
-            const gameCore = await publicClient.readContract({
-              address: DONUT_MINES_ADDRESS,
-              abi: MINES_ABI,
-              functionName: 'gameCore',
-              args: [gameId],
-            }) as [`0x${string}`, `0x${string}`, bigint, bigint, `0x${string}`, `0x${string}`];
-            
-            // Get block hash
-            let blockHash: `0x${string}` | undefined;
-            try {
-              const blockData = await publicClient.getBlock({ blockNumber: gameData[3] });
-              blockHash = blockData.hash;
-            } catch {}
-            
-            historyItems.push({
-              gameId,
-              betAmount: gameData[2],
-              mineCount: gameData[4],
-              safeRevealed: gameData[5],
-              status: gameData[6],
-              commitBlock: gameData[3],
-              payout,
-              revealedSecret: gameCore[5],
-              blockHash
-            });
-          } catch {}
-        }
-        
-        // Add active/pending games
-        for (const gameId of allActiveGameIds) {
-          try {
-            const gameData = await publicClient.readContract({
-              address: DONUT_MINES_ADDRESS,
-              abi: MINES_ABI,
-              functionName: 'getGame',
-              args: [gameId],
-            }) as OnchainGame;
-            
-            historyItems.push({
-              gameId,
-              betAmount: gameData[2],
-              mineCount: gameData[4],
-              safeRevealed: gameData[5],
-              status: gameData[6],
-              commitBlock: gameData[3],
-              payout: gameData[9]
-            });
-          } catch {}
-        }
-        
-        // Sort by gameId desc and remove duplicates
-        const seen = new Set<string>();
-        const uniqueHistory = historyItems
-          .sort((a, b) => Number(b.gameId - a.gameId))
-          .filter(item => {
-            const key = item.gameId.toString();
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
-        
-        setGameHistory(uniqueHistory);
-      } catch (e) {
-        console.error("Error fetching history:", e);
+      const ids = playerGameIds as bigint[];
+      if (!ids || ids.length === 0) {
+        setRecentGames([]);
+        return;
       }
+      
+      const games: OnchainGame[] = [];
+      const idsToFetch = ids.slice(-10).reverse();
+      
+      for (const id of idsToFetch) {
+        try {
+          const game = await publicClient.readContract({
+            address: DONUT_MINES_ADDRESS,
+            abi: MINES_V5_ABI,
+            functionName: "games",
+            args: [id],
+          }) as [string, string, bigint, number, bigint, number, number, number, bigint, bigint];
+          
+          games.push({
+            player: game[0] as `0x${string}`,
+            token: game[1] as `0x${string}`,
+            betAmount: game[2],
+            mineCount: game[3],
+            commitBlock: game[4],
+            status: game[5],
+            minePositions: game[6],
+            revealedTiles: game[7],
+            currentMultiplier: game[8],
+            payout: game[9],
+          });
+        } catch {}
+      }
+      
+      setRecentGames(games);
     };
     
     fetchHistory();
-  }, [showHistory, address, allActiveGameIds]);
+  }, [showHistory, playerGameIds, publicClient]);
 
-  // Write contracts
-  const { 
-    writeContract: writeApprove, 
-    data: approveHash,
-    isPending: isApprovePending,
-    error: approveError,
-    reset: resetApprove
-  } = useWriteContract();
-
-  const { 
-    writeContract: writeStartGame, 
-    data: startHash,
-    isPending: isStartPending,
-    error: startError,
-    reset: resetStart
-  } = useWriteContract();
-
-  const { 
-    writeContract: writeRevealTile, 
-    data: revealHash,
-    isPending: isRevealPending,
-    error: revealError,
-    reset: resetReveal
-  } = useWriteContract();
-
-  const { 
-    writeContract: writeCashOut, 
-    data: cashOutHash,
-    isPending: isCashOutPending,
-    error: cashOutError,
-    reset: resetCashOut
-  } = useWriteContract();
-
-  const { 
-    writeContract: writeClaimExpired, 
-    data: claimExpiredHash,
-    isPending: isClaimPending,
-    error: claimExpiredError
-  } = useWriteContract();
-
-  // Transaction receipts
-  const { isSuccess: isApproveSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
+  // Contract writes
+  const { data: startHash, writeContract: writeStartGame, isPending: isStartPending, reset: resetStart, error: startError } = useWriteContract();
   const { isSuccess: isStartSuccess } = useWaitForTransactionReceipt({ hash: startHash });
+  
+  const { data: revealHash, writeContract: writeRevealTile, isPending: isRevealPending, error: revealError } = useWriteContract();
   const { isSuccess: isRevealSuccess } = useWaitForTransactionReceipt({ hash: revealHash });
+  
+  const { data: cashOutHash, writeContract: writeCashOut, isPending: isCashOutPending, error: cashOutError } = useWriteContract();
   const { isSuccess: isCashOutSuccess } = useWaitForTransactionReceipt({ hash: cashOutHash });
-  const { isSuccess: isClaimExpiredSuccess } = useWaitForTransactionReceipt({ hash: claimExpiredHash });
 
-  // Handle errors
-  useEffect(() => {
-    const error = approveError || startError || revealError || cashOutError || claimExpiredError;
-    if (error) {
-      const msg = error.message || "";
-      console.log("Transaction error:", msg);
-      
-      let displayMsg = "Transaction failed";
-      
-      if (msg.includes("User rejected") || msg.includes("rejected")) {
-        displayMsg = "Try again, transaction failed";
-      } else if (msg.includes("insufficient") || msg.includes("Insufficient")) {
-        displayMsg = "Insufficient balance";
-      } else if (msg.includes("Insufficient pool")) {
-        displayMsg = "Pool empty - try smaller bet";
-      } else if (msg.includes("Token not supported")) {
-        displayMsg = "Token not enabled";
-      } else if (msg.includes("Invalid amount")) {
-        displayMsg = "Bet out of range (0.1-1)";
-      } else if (msg.includes("Paused")) {
-        displayMsg = "Game is paused";
-      } else if (msg.includes("reverted")) {
-        const match = msg.match(/reverted[:\s]*([^"]+)/i);
-        if (match) {
-          displayMsg = match[1].slice(0, 40);
-        }
-      } else if (msg.includes("reason:")) {
-        const match = msg.match(/reason:\s*([^\n]+)/i);
-        if (match) {
-          displayMsg = match[1].slice(0, 40);
-        }
-      }
-      
-      setErrorMessage(displayMsg);
-      setGameStep("idle");
-      setIsStartingNewGame(false); // Reset this too on error
-      setPendingTileIndex(null);
-      setPendingGame(null); // Clear pending game on error
-      setTimeout(() => setErrorMessage(null), 5000);
-    }
-  }, [approveError, startError, revealError, cashOutError, claimExpiredError]);
-
-  // Handle approval success
-  useEffect(() => {
-    if (isApproveSuccess) {
-      resetApprove();
-      refetchAllowance();
-      try { sdk.haptics.notificationOccurred("success"); } catch {}
-    }
-  }, [isApproveSuccess, resetApprove, refetchAllowance]);
-
-  // Handle start game success
-  useEffect(() => {
-    if (isStartSuccess && gameStep === "starting") {
-      resetStart();
-      
-      // Clear local state for new game
-      setLocalRevealedTiles(0);
-      
-      const doRefetch = async () => {
-        try {
-          await refetchActiveGames();
-          await refetchGameData();
-        } catch (e) {
-          console.error("Refetch error:", e);
-        }
-        setIsStartingNewGame(false); // Game is ready, show the grid
-        setGameStep("playing");
-        try { sdk.haptics.impactOccurred("medium"); } catch {}
-      };
-      
-      doRefetch();
-      setTimeout(() => refetchActiveGames(), 500);
-      setTimeout(() => refetchActiveGames(), 1500);
-      
-      // Fallback: if still stuck after 3 seconds, force reset
-      setTimeout(() => {
-        setIsStartingNewGame(false);
-        if (gameStep === "starting") {
-          setGameStep("playing");
-        }
-      }, 3000);
-    }
-  }, [isStartSuccess, gameStep, resetStart, refetchActiveGames, refetchGameData]);
-
-  // When active game is detected with secret, set gameStep to playing
-  useEffect(() => {
-    if (currentGameId && gameStep === "idle") {
-      const secret = getSecretForGame();
-      if (secret) {
-        setGameStep("playing");
-      }
-    }
-  }, [currentGameId, gameStep]);
-
-  // Handle claim expired success
-  useEffect(() => {
-    if (isClaimExpiredSuccess) {
-      setGameStep("idle");
-      setPendingGame(null);
-      refetchBalance();
-      refetchActiveGames();
-      setErrorMessage(null);
-      try { sdk.haptics.impactOccurred("medium"); } catch {}
-    }
-  }, [isClaimExpiredSuccess, refetchBalance, refetchActiveGames]);
-
-  // Handle reveal success
-  useEffect(() => {
-    if (isRevealSuccess && gameStep === "revealing") {
-      if (pendingTileIndex !== null) {
-        setLocalRevealedTiles(prev => prev | (1 << pendingTileIndex));
-      }
-      
-      setPendingTileIndex(null);
-      setGameStep("playing");
-      
-      setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 4000);
-      try {
-        sdk.haptics.impactOccurred("medium");
-      } catch {}
-      
-      resetReveal();
-      
-      refetchGameData();
-      setTimeout(() => refetchGameData(), 300);
-      setTimeout(() => refetchGameData(), 800);
-      setTimeout(() => {
-        refetchGameData().then((result) => {
-          const gameData = result.data as OnchainGame | undefined;
-          if (gameData && gameData[6] === 3) {
-            try { sdk.haptics.impactOccurred("heavy"); } catch {}
-          }
-        });
-      }, 1500);
-    }
-  }, [isRevealSuccess, gameStep, pendingTileIndex, resetReveal, refetchGameData]);
-
-  // Handle cash out success
-  useEffect(() => {
-    if (isCashOutSuccess && gameStep === "cashing") {
-      // Fix #4: Persist dismissed game to localStorage
-      if (currentGameId) {
-        const gameIdStr = currentGameId.toString();
-        addDismissedGame(gameIdStr);
-        setDismissedGameIds(prev => new Set([...prev, gameIdStr]));
-      }
-      setGameStep("idle");
-      setPendingGame(null);
-      setShowConfetti(true);
-      refetchBalance();
-      refetchActiveGames();
-      resetCashOut();
-      
-      try {
-        sdk.haptics.impactOccurred("heavy");
-        setTimeout(() => sdk.haptics.impactOccurred("medium"), 100);
-        setTimeout(() => sdk.haptics.impactOccurred("light"), 200);
-      } catch {}
-      
-      setTimeout(() => setShowConfetti(false), 5000);
-    }
-  }, [isCashOutSuccess, gameStep, currentGameId, refetchBalance, refetchActiveGames, resetCashOut]);
-
-  const startNewGame = async () => {
-    if (!address) return;
+  // Handle start game
+  const handleStartGame = async () => {
+    if (!isConnected || !address) return;
+    if (isStartingGame || activeGameId) return;
     
-    const betNum = parseFloat(betAmount);
-    if (isNaN(betNum) || betNum <= 0 || betNum > 1) {
-      setErrorMessage("Invalid bet amount");
-      setGameStep("idle");
+    const amount = parseFloat(betAmount || "0");
+    if (amount <= 0 || amount > 10) {
+      setErrorMessage("Bet must be between 0.1 and 10");
+      setTimeout(() => setErrorMessage(null), 3000);
       return;
     }
     
-    // Clear all game state IMMEDIATELY so old game doesn't show
-    setIsStartingNewGame(true);
-    setDismissedGameIds(new Set());
-    setDismissedPendingNotice(false);
-    setLocalRevealedTiles(0);
-    
     const amountWei = parseUnits(betAmount, 18);
-    const secret = generateSecret();
-    const commitHash = hashSecret(secret);
-    
-    setPendingGame({
-      secret,
-      commitHash,
-      gameId: null,
-      mineCount,
-      amount: betAmount
-    });
-    
-    saveGameSecret(commitHash, secret);
-    
-    setGameStep("starting");
+    if (tokenBalance && amountWei > tokenBalance) {
+      setErrorMessage("Insufficient balance");
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+
+    if (!allowance || allowance < amountWei) {
+      setShowApprovals(true);
+      setErrorMessage("Need approval first");
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+
+    setIsStartingGame(true);
+    setGameResult(null);
     
     writeStartGame({
       address: DONUT_MINES_ADDRESS,
-      abi: MINES_ABI,
+      abi: MINES_V5_ABI,
       functionName: "startGame",
-      args: [DONUT_TOKEN_ADDRESS, amountWei, mineCount, commitHash]
+      args: [DONUT_TOKEN_ADDRESS, amountWei, mineCount]
     });
   };
 
-  const handleStartGame = async () => {
-    if (!isConnected || !address) return;
-    if (gameStep === "starting" || gameStep === "approving" || isStartPending || isApprovePending) return;
-    if (pendingGame !== null) return;
-    
-    const betNum = parseFloat(betAmount);
-    if (isNaN(betNum) || betNum < 0.1 || betNum > 1) {
-      setErrorMessage("Bet must be between 0.1 and 1 DONUT");
-      return;
+  // Handle start game success
+  useEffect(() => {
+    if (isStartSuccess && isStartingGame) {
+      setIsWaitingForReveal(true);
+      refetchActiveGame();
     }
-    
-    const amountWei = parseUnits(betAmount, 18);
-    
-    const needsApproval = !allowance || allowance < amountWei;
-    
-    if (needsApproval) {
-      setShowApprovals(true);
-      setErrorMessage("Need more approval - tap shield icon to add more");
-      return;
-    }
-    
-    startNewGame();
-  };
+  }, [isStartSuccess, isStartingGame, refetchActiveGame]);
 
+  // Handle start game error
+  useEffect(() => {
+    if (startError && isStartingGame) {
+      const msg = startError.message || "";
+      if (msg.includes("rejected")) {
+        setErrorMessage("Transaction cancelled");
+      } else if (msg.includes("Finish current game")) {
+        setErrorMessage("Finish current game first");
+      } else {
+        setErrorMessage("Failed to start game");
+      }
+      setIsStartingGame(false);
+      resetStart();
+      setTimeout(() => setErrorMessage(null), 3000);
+    }
+  }, [startError, isStartingGame, resetStart]);
+
+  // Handle tile reveal
   const handleRevealTile = (tileIndex: number) => {
-    if (!currentGameId || gameStep !== "playing") return;
+    if (!activeGameId || !gameState) return;
+    if (gameState.status !== GameStatus.Active) return;
+    if (revealingTile !== null || isRevealPending) return;
     
-    let secret: `0x${string}` | null = pendingGame?.secret || null;
+    // Check if already revealed
+    const tileMask = 1 << tileIndex;
+    if ((gameState.revealedTiles & tileMask) !== 0) return;
     
-    if (!secret && activeGameCore) {
-      const coreData = activeGameCore as [`0x${string}`, `0x${string}`, bigint, bigint, `0x${string}`, `0x${string}`];
-      const commitHash = coreData[4];
-      secret = getGameSecret(commitHash);
-    }
-    
-    if (!secret) {
-      setErrorMessage("Secret not found - check history to claim");
-      return;
-    }
-    
-    setPendingTileIndex(tileIndex);
-    setGameStep("revealing");
-    
-    try { sdk.haptics.impactOccurred("light"); } catch {}
+    setRevealingTile(tileIndex);
     
     writeRevealTile({
       address: DONUT_MINES_ADDRESS,
-      abi: MINES_ABI,
+      abi: MINES_V5_ABI,
       functionName: "revealTile",
-      args: [currentGameId, tileIndex, secret]
+      args: [activeGameId, tileIndex]
     });
   };
 
+  // Handle tile reveal success
+  useEffect(() => {
+    if (isRevealSuccess && revealingTile !== null && activeGameId) {
+      const refreshGame = async () => {
+        await new Promise(r => setTimeout(r, 1000));
+        
+        const game = await publicClient?.readContract({
+          address: DONUT_MINES_ADDRESS,
+          abi: MINES_V5_ABI,
+          functionName: "games",
+          args: [activeGameId],
+          blockTag: 'latest',
+        }) as [string, string, bigint, number, bigint, number, number, number, bigint, bigint];
+        
+        const newGameState: OnchainGame = {
+          player: game[0] as `0x${string}`,
+          token: game[1] as `0x${string}`,
+          betAmount: game[2],
+          mineCount: game[3],
+          commitBlock: game[4],
+          status: game[5],
+          minePositions: game[6],
+          revealedTiles: game[7],
+          currentMultiplier: game[8],
+          payout: game[9],
+        };
+        
+        setGameState(newGameState);
+        
+        // Check if hit mine
+        const tileMask = 1 << revealingTile;
+        const hitMine = (newGameState.minePositions & tileMask) !== 0;
+        
+        if (hitMine || newGameState.status === GameStatus.Lost) {
+          playLoseSound();
+          setGameResult("lost");
+          try { sdk.haptics.impactOccurred("heavy"); } catch {}
+          setTimeout(() => {
+            setActiveGameId(null);
+            setGameState(null);
+            setGameResult(null);
+            refetchActiveGame();
+            refetchBalance();
+          }, 3000);
+        } else {
+          playRevealSound(true);
+          try { sdk.haptics.impactOccurred("light"); } catch {}
+        }
+        
+        setRevealingTile(null);
+      };
+      
+      refreshGame();
+    }
+  }, [isRevealSuccess, revealingTile, activeGameId, publicClient, playLoseSound, playRevealSound, refetchActiveGame, refetchBalance]);
+
+  // Handle tile reveal error
+  useEffect(() => {
+    if (revealError && revealingTile !== null) {
+      setRevealingTile(null);
+      setErrorMessage("Failed to reveal tile");
+      setTimeout(() => setErrorMessage(null), 3000);
+    }
+  }, [revealError, revealingTile]);
+
+  // Handle cash out
   const handleCashOut = () => {
-    if (!currentGameId || gameStep !== "playing") return;
+    if (!activeGameId || !gameState) return;
+    if (gameState.status !== GameStatus.Active) return;
+    if (countBits(gameState.revealedTiles) === 0) return;
     
-    setGameStep("cashing");
+    setIsCashingOut(true);
     
     writeCashOut({
       address: DONUT_MINES_ADDRESS,
-      abi: MINES_ABI,
+      abi: MINES_V5_ABI,
       functionName: "cashOut",
-      args: [currentGameId]
+      args: [activeGameId]
     });
   };
 
-  // Check if we have a playable game (with secret)
-  const getSecretForGame = (): `0x${string}` | null => {
-    if (pendingGame?.secret) {
-      return pendingGame.secret;
+  // Handle cash out success
+  useEffect(() => {
+    if (isCashOutSuccess && isCashingOut) {
+      playWinSound();
+      setGameResult("won");
+      flushSync(() => setShowConfetti(true));
+      try { sdk.haptics.impactOccurred("heavy"); } catch {}
+      
+      setTimeout(() => {
+        setShowConfetti(false);
+        setActiveGameId(null);
+        setGameState(null);
+        setGameResult(null);
+        setIsCashingOut(false);
+        refetchActiveGame();
+        refetchBalance();
+        refetchGameIds();
+      }, 3000);
     }
-    if (activeGameCore) {
-      const coreData = activeGameCore as [`0x${string}`, `0x${string}`, bigint, bigint, `0x${string}`, `0x${string}`];
-      const commitHash = coreData[4];
-      return getGameSecret(commitHash);
+  }, [isCashOutSuccess, isCashingOut, playWinSound, refetchActiveGame, refetchBalance, refetchGameIds]);
+
+  // Handle cash out error
+  useEffect(() => {
+    if (cashOutError && isCashingOut) {
+      setIsCashingOut(false);
+      setErrorMessage("Failed to cash out");
+      setTimeout(() => setErrorMessage(null), 3000);
     }
-    return null;
+  }, [cashOutError, isCashingOut]);
+
+  const balance = tokenBalance ? parseFloat(formatUnits(tokenBalance, 18)) : 0;
+  const safeTiles = 25 - mineCount;
+  const nextMultiplier = gameState 
+    ? getMultiplier(gameState.mineCount, countBits(gameState.revealedTiles) + 1)
+    : getMultiplier(mineCount, 1);
+  const currentMultiplier = gameState 
+    ? Number(gameState.currentMultiplier) / 10000
+    : 1;
+  const currentProfit = gameState && countBits(gameState.revealedTiles) > 0
+    ? (parseFloat(formatUnits(gameState.betAmount, 18)) * currentMultiplier) - parseFloat(formatUnits(gameState.betAmount, 18))
+    : 0;
+
+  // Render grid
+  const renderGrid = () => {
+    const tiles = [];
+    for (let i = 0; i < 25; i++) {
+      const row = Math.floor(i / 5);
+      const col = i % 5;
+      
+      const isRevealed = gameState ? (gameState.revealedTiles & (1 << i)) !== 0 : false;
+      const isMine = gameState && (gameState.status === GameStatus.Lost || gameState.status === GameStatus.Won)
+        ? (gameState.minePositions & (1 << i)) !== 0
+        : false;
+      const isClickable = gameState?.status === GameStatus.Active && !isRevealed && revealingTile === null;
+      const isRevealing = revealingTile === i;
+      
+      tiles.push(
+        <button
+          key={i}
+          onClick={() => handleRevealTile(i)}
+          disabled={!isClickable}
+          className={cn(
+            "aspect-square rounded-lg border-2 flex items-center justify-center text-xl font-bold transition-all",
+            isRevealing && "animate-pulse",
+            isRevealed && isMine && "bg-red-500/30 border-red-500",
+            isRevealed && !isMine && "bg-green-500/30 border-green-500",
+            !isRevealed && !isClickable && "bg-zinc-900 border-zinc-700 opacity-50",
+            !isRevealed && isClickable && "bg-zinc-800 border-zinc-600 hover:border-amber-500 hover:bg-zinc-700 cursor-pointer active:scale-95"
+          )}
+        >
+          {isRevealing ? (
+            <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+          ) : isRevealed ? (
+            isMine ? <Bomb className="w-6 h-6 text-red-400" /> : <Gem className="w-6 h-6 text-green-400" />
+          ) : (
+            <span className="text-zinc-600">?</span>
+          )}
+        </button>
+      );
+    }
+    return tiles;
   };
 
-  const isProcessing = gameStep !== "idle" && gameStep !== "playing";
-  const hasSecretForGame = currentGameId !== undefined && getSecretForGame() !== null;
-  const game = activeGameData as OnchainGame | undefined;
-  const isGameActive = game ? game[6] === 1 : false;
-  const isGameOver = game ? (game[6] === 3 || game[6] === 4) : false;
-  // Fix #4: Check dismissed games from persistent Set
-  const isGameDismissed = currentGameId !== undefined && dismissedGameIds.has(currentGameId.toString());
-  // Don't show old game grid when starting a new game
-  const hasPlayableGame = !isStartingNewGame && !isGameDismissed && ((hasSecretForGame && isGameActive) || (isGameOver && gameStep === "playing"));
-  const revealedTiles = game ? Number(game[7]) : 0;
-  const safeRevealed = game ? Number(game[5]) : 0;
-  const gameMineCount = game ? Number(game[4]) : mineCount;
-  const minePositions = game ? BigInt(game[8]) : BigInt(0);
-  const gameBetAmount = game ? game[2] : BigInt(0);
-  
-  const localSafeCount = (() => {
-    let count = 0;
-    for (let i = 0; i < 25; i++) {
-      if ((localRevealedTiles & (1 << i)) !== 0) {
-        count++;
-      }
-    }
-    return count;
-  })();
-  
-  const displaySafeRevealed = Math.max(safeRevealed, localSafeCount);
-  const displayMultiplier = calculateDisplayMultiplier(gameMineCount, displaySafeRevealed);
-  const actualPayoutMultiplier = calculateDisplayMultiplier(gameMineCount, safeRevealed);
-  
-  // Fix #3: Calculate and display next tile multiplier in UI
-  const nextTileMultiplier = calculateDisplayMultiplier(gameMineCount, displaySafeRevealed + 1);
-  const potentialWinNext = (parseFloat(formatUnits(gameBetAmount, 18)) * nextTileMultiplier).toFixed(4);
-  
-  // Reset localRevealedTiles when currentGameId changes (new game started)
-  const prevGameIdRef = useRef<bigint | undefined>(undefined);
-  useEffect(() => {
-    if (currentGameId !== prevGameIdRef.current) {
-      // Game changed, reset local state
-      setLocalRevealedTiles(0);
-      prevGameIdRef.current = currentGameId;
-    }
-  }, [currentGameId]);
-
-  // Sync localRevealedTiles with contract data (contract is source of truth)
-  useEffect(() => {
-    if (revealedTiles > 0) {
-      setLocalRevealedTiles(revealedTiles);
-    }
-  }, [revealedTiles]);
-  
-  const pendingGamesCount = allActiveGameIds.filter(id => {
-    if (currentGameId !== undefined && id === currentGameId && hasSecretForGame) return false;
-    return true;
-  }).length;
-
-  const formattedBalance = tokenBalance 
-    ? parseFloat(formatUnits(tokenBalance, 18)).toFixed(2)
-    : "0.00";
-
   return (
-    <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
+    <main className="flex h-[100dvh] w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style jsx global>{`
         @keyframes confetti-fall {
-          0% { 
-            transform: translateY(-60px) rotate(0deg); 
-            opacity: 1; 
-          }
-          75% { 
-            opacity: 1; 
-          }
-          100% { 
-            transform: translateY(100vh) rotate(720deg); 
-            opacity: 0; 
-          }
+          0% { transform: translateY(-60px) rotate(0deg); opacity: 1; }
+          75% { opacity: 1; }
+          100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
         }
-        @keyframes toast-in {
-          0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-          100% { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
-        .confetti { animation: confetti-fall linear forwards; }
-        .toast-animate { animation: toast-in 0.2s ease-out forwards; }
-        .control-bar {
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .panel-slide {
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+        .confetti { animation: confetti-fall 3s linear forwards; }
       `}</style>
 
-      {/* Donut Confetti */}
-      {showConfetti && confettiData.length > 0 && (
+      {/* Confetti */}
+      {showConfetti && (
         <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-          {confettiData.map((item, i) => (
+          {[...Array(40)].map((_, i) => (
             <div
               key={i}
-              className="confetti"
+              className="confetti absolute text-2xl"
               style={{
-                position: 'absolute',
-                left: `${item.left}%`,
+                left: `${(i * 37 + 13) % 100}%`,
                 top: '-60px',
-                fontSize: `${item.size}px`,
-                animationDelay: `${item.delay}s`,
-                animationDuration: `${item.duration}s`,
+                animationDelay: `${(i * 0.05) % 0.8}s`,
+                fontSize: `${20 + (i % 3) * 8}px`,
               }}
             >
-              🍩
+              {i % 2 === 0 ? "💎" : "🍩"}
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Error Toast */}
-      {errorMessage && (
-        <div 
-          className="fixed left-1/2 -translate-x-1/2 z-[100] toast-animate"
-          style={{ top: "calc(env(safe-area-inset-top, 0px) + 60px)" }}
-        >
-          <div className="bg-red-500 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 border border-red-400">
-            <span className="text-sm font-bold">{errorMessage}</span>
-            <button 
-              onClick={() => setErrorMessage(null)}
-              className="ml-1 hover:bg-red-400/30 rounded-full p-1"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
         </div>
       )}
 
@@ -1039,320 +893,306 @@ export default function MinesPage() {
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-2 flex-shrink-0">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-wide">MINES</h1>
-            <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-500/30">
-              BETA
-            </span>
+            <h1 className="text-xl font-bold">Bakery Mines</h1>
+            <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full border border-green-500/30 animate-pulse">LIVE</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-full px-2 py-1 opacity-50">
-              <span className="text-[8px] text-gray-500 whitespace-nowrap">Earn GLAZE soon</span>
-            </div>
-            {context?.user?.pfpUrl ? (
-              <img src={context.user.pfpUrl} alt="pfp" className="w-7 h-7 rounded-full border border-zinc-700" />
-            ) : (
-              <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700" />
+          {context?.user?.pfpUrl ? (
+            <img src={context.user.pfpUrl} alt="" className="w-7 h-7 rounded-full border border-zinc-700" />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700" />
+          )}
+        </div>
+
+        {/* Token selector */}
+        <div className="flex gap-2 mb-2">
+          <button className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg font-bold text-sm bg-amber-500 text-black">
+            🍩 DONUT
+          </button>
+          <button disabled className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg font-bold text-sm bg-zinc-900 border border-zinc-800 text-gray-600 opacity-50">
+            ✨ SPRINKLES <span className="text-[8px]">SOON</span>
+          </button>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-center">
+            <div className="text-[8px] text-gray-500">BALANCE</div>
+            <div className="text-sm font-bold">🍩{balance.toFixed(0)}</div>
+          </div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-center">
+            <div className="text-[8px] text-gray-500">MINES</div>
+            <div className="text-sm font-bold text-red-400">{gameState?.mineCount || mineCount} 💣</div>
+          </div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-center">
+            <div className="text-[8px] text-gray-500">MULTIPLIER</div>
+            <div className="text-sm font-bold text-green-400">{currentMultiplier.toFixed(2)}x</div>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex items-center justify-end gap-2 mb-2">
+          <button 
+            onClick={() => setIsMuted(!isMuted)} 
+            className={cn(
+              "p-2 rounded-lg border transition-colors",
+              isMuted ? "bg-red-500/20 border-red-500/30 text-red-400" : "bg-zinc-900 border-zinc-800"
             )}
-          </div>
-        </div>
-
-        {/* Token Selector */}
-        <div className="flex gap-2 mb-2 flex-shrink-0">
-          <button className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-amber-500 text-black font-bold text-sm">
-            <span>🍩</span> DONUT
-          </button>
-          <button className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-500 font-bold text-sm opacity-50">
-            <span>✨</span> SPRINKLES
-            <span className="text-[8px] text-gray-600 ml-1">SOON</span>
-          </button>
-        </div>
-
-        {/* Stats Row */}
-        <div className="grid grid-cols-3 gap-2 mb-2 flex-shrink-0">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 flex flex-col items-center justify-center text-center">
-            <span className="text-[8px] text-gray-500 uppercase">Balance</span>
-            <span className="text-sm font-bold text-white">🍩{formattedBalance}</span>
-          </div>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 flex flex-col items-center justify-center text-center">
-            <span className="text-[8px] text-gray-500 uppercase">Mines</span>
-            <span className="text-sm font-bold text-white">💣 {gameMineCount}</span>
-          </div>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 flex flex-col items-center justify-center text-center">
-            <span className="text-[8px] text-gray-500 uppercase">Multiplier</span>
-            <span className="text-sm font-bold text-amber-400">{displayMultiplier.toFixed(2)}x</span>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-2 mb-2 flex-shrink-0">
-          <button
-            onClick={() => setShowApprovals(true)}
-            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors"
           >
-            <Shield className="w-4 h-4 text-gray-400" />
+            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
-          <button
-            onClick={() => setShowHistory(true)}
-            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors"
-          >
-            <History className="w-4 h-4 text-gray-400" />
+          <button onClick={() => setShowApprovals(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800">
+            <Shield className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => setShowHelp(true)}
-            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors"
-          >
-            <HelpCircle className="w-4 h-4 text-gray-400" />
+          <button onClick={() => setShowHistory(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800">
+            <History className="w-4 h-4" />
+          </button>
+          <button onClick={() => setShowHelp(true)} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800">
+            <HelpCircle className="w-4 h-4" />
           </button>
         </div>
 
         {/* Game Grid */}
         <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-          {hasPlayableGame ? (
-            <>
-              <div className="grid grid-cols-5 gap-2 w-full max-w-[320px] mb-2">
-                {Array.from({ length: 25 }).map((_, i) => {
-                  const combinedRevealedTiles = revealedTiles | localRevealedTiles;
-                  const isRevealed = (combinedRevealedTiles & (1 << i)) !== 0;
-                  const isMine = isRevealed && game !== undefined && game[6] === 3 && (Number(minePositions) & (1 << i)) !== 0;
-                  const isGameOverState = game !== undefined && (game[6] === 3 || game[6] === 4);
-                  
-                  return (
-                    <Tile
-                      key={i}
-                      index={i}
-                      isRevealed={isRevealed}
-                      isMine={isMine}
-                      isGameOver={isGameOverState}
-                      minePositions={minePositions}
-                      isPending={pendingTileIndex === i}
-                      onClick={() => handleRevealTile(i)}
-                      disabled={!isGameActive || gameStep === "revealing"}
-                    />
-                  );
-                })}
+          {isWaitingForReveal ? (
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 text-amber-400 animate-spin mx-auto mb-4" />
+              <div className="text-amber-400 font-bold">Setting up minefield...</div>
+              <div className="text-xs text-gray-500 mt-1">House is placing mines</div>
+            </div>
+          ) : gameResult ? (
+            <div className="text-center">
+              <div className={cn(
+                "text-4xl font-bold mb-2",
+                gameResult === "won" ? "text-green-400" : "text-red-400"
+              )}>
+                {gameResult === "won" ? "💎 CASHED OUT!" : "💥 BOOM!"}
               </div>
-
-              {/* Game Status & Cash Out */}
-              {isGameActive ? (
-                <div className="w-full max-w-[320px] mt-2">
-                  {/* Fix #3: Show next tile potential win */}
-                  <div className="text-center mb-2">
-                    {displaySafeRevealed > 0 ? (
-                      <>
-                        <div className="text-xs text-gray-400">Current Payout</div>
-                        <div className="text-xl font-bold text-green-400">
-                          🍩 {(parseFloat(formatUnits(gameBetAmount, 18)) * displayMultiplier).toFixed(4)}
-                        </div>
-                        <div className="text-[10px] text-gray-500 mt-1">
-                          Next tile: {nextTileMultiplier.toFixed(2)}x → 🍩{potentialWinNext}
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="text-xs text-gray-400">Click a tile to start</div>
-                        <div className="text-sm text-gray-500 mt-1">
-                          First reveal: {nextTileMultiplier.toFixed(2)}x → 🍩{potentialWinNext}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  <button
-                    onClick={handleCashOut}
-                    disabled={safeRevealed === 0 || gameStep === "revealing" || gameStep === "cashing"}
-                    className="w-full py-3 rounded-xl bg-white hover:bg-gray-100 text-black font-bold text-lg tracking-wide disabled:opacity-50 transition-colors"
-                  >
-                    {gameStep === "cashing" ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Cashing Out...
-                      </span>
-                    ) : (
-                      `CASH OUT ${displayMultiplier.toFixed(2)}x`
-                    )}
-                  </button>
-                  {/* Abandon game button - allows user to exit stuck games */}
-                  <button
-                    onClick={() => {
-                      if (currentGameId) {
-                        const gameIdStr = currentGameId.toString();
-                        addDismissedGame(gameIdStr);
-                        setDismissedGameIds(prev => new Set([...prev, gameIdStr]));
-                      }
-                      setPendingGame(null);
-                      setGameStep("idle");
-                      setLocalRevealedTiles(0);
-                      refetchActiveGames();
-                    }}
-                    className="w-full mt-2 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-gray-400 text-xs font-medium transition-colors"
-                  >
-                    Abandon Game (claim 98% back later)
-                  </button>
+              {gameResult === "won" && gameState && (
+                <div className="text-xl text-green-400">
+                  +{(parseFloat(formatUnits(gameState.betAmount, 18)) * (Number(gameState.currentMultiplier) / 10000) * 0.98).toFixed(2)} 🍩
                 </div>
-              ) : game && (game[6] === 3 || game[6] === 4) ? (
-                <div className="w-full max-w-[320px] mt-2">
-                  <div className="text-center mb-3">
-                    <div className={cn(
-                      "text-xl font-bold",
-                      game[6] === 3 ? "text-red-400" : "text-green-400"
-                    )}>
-                      {game[6] === 3 ? "💥 BOOM!" : "🎉 CASHED OUT!"}
-                    </div>
-                    <div className="text-sm text-gray-400 mt-1">
-                      {game[6] === 3 
-                        ? `Lost ${parseFloat(formatUnits(gameBetAmount, 18)).toFixed(2)} DONUT`
-                        : `Won ${parseFloat(formatUnits(game[9], 18)).toFixed(4)} DONUT`
-                      }
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      // Fix #4: Persist dismissed game
-                      if (currentGameId) {
-                        const gameIdStr = currentGameId.toString();
-                        addDismissedGame(gameIdStr);
-                        setDismissedGameIds(prev => new Set([...prev, gameIdStr]));
-                      }
-                      setPendingGame(null);
-                      setGameStep("idle");
-                      setLocalRevealedTiles(0);
-                      refetchActiveGames();
-                      refetchBalance();
-                    }}
-                    className="w-full py-3 rounded-xl bg-white hover:bg-gray-100 text-black font-bold text-lg tracking-wide transition-colors"
-                  >
-                    NEW GAME
-                  </button>
-                </div>
-              ) : null}
-            </>
+              )}
+            </div>
           ) : (
             <>
-              <div className="relative w-full max-w-[320px]">
-                <div className="grid grid-cols-5 gap-2 w-full mb-2 opacity-30">
-                  {Array.from({ length: 25 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="aspect-square rounded-lg border-2 bg-zinc-800 border-zinc-700"
-                    />
-                  ))}
-                </div>
-                
-                {pendingGamesCount > 0 && !dismissedPendingNotice && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-amber-500/20 border border-amber-500/50 rounded-xl p-4 backdrop-blur-sm">
-                      <p className="text-sm text-amber-400 text-center font-bold">
-                        {pendingGamesCount} pending game(s)
-                      </p>
-                      <p className="text-xs text-amber-400/70 text-center mt-1">
-                        Check history to claim 98% back
-                      </p>
-                      <div className="flex gap-2 mt-3">
-                        <button
-                          onClick={() => setDismissedPendingNotice(true)}
-                          className="flex-1 py-2 rounded-lg bg-zinc-700 text-white text-xs font-bold"
-                        >
-                          DISMISS
-                        </button>
-                        <button
-                          onClick={() => setShowHistory(true)}
-                          className="flex-1 py-2 rounded-lg bg-amber-500 text-black text-xs font-bold"
-                        >
-                          VIEW
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+              <div className="grid grid-cols-5 gap-1.5 w-full max-w-[280px]">
+                {renderGrid()}
               </div>
+              
+              {/* Current profit display */}
+              {gameState?.status === GameStatus.Active && countBits(gameState.revealedTiles) > 0 && (
+                <div className="mt-3 text-center">
+                  <div className="text-xs text-gray-400">Current Profit</div>
+                  <div className="text-lg font-bold text-green-400">+{currentProfit.toFixed(2)} 🍩</div>
+                  <div className="text-[10px] text-gray-500">
+                    Next tile: {(nextMultiplier / 10000).toFixed(2)}x
+                  </div>
+                </div>
+              )}
+              
+              {/* Status message */}
+              {!gameState && (
+                <div className="mt-3 text-center text-gray-500 text-xs">
+                  Select mines and start game
+                </div>
+              )}
+              
+              {errorMessage && (
+                <div className="mt-2 text-xs text-red-400">{errorMessage}</div>
+              )}
             </>
           )}
         </div>
 
-        {/* Bottom Controls - Fix #2: Simplified without mines selector */}
-        <div className="flex-shrink-0">
-          {!hasPlayableGame && (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 overflow-hidden">
-              <div className="flex items-center gap-2 h-12">
-                {/* Fix #2: Static mines display instead of selector */}
-                <div className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center flex-shrink-0">
-                  <span className="text-[8px] text-gray-500">MINES</span>
-                  <span className="text-sm font-bold text-white">1</span>
-                </div>
-
-                {/* Middle Section */}
-                <div className="flex-1 flex items-center gap-2 overflow-hidden">
-                  {expandedPanel === "bet" ? (
-                    <div className="flex-1 flex flex-col gap-1 panel-slide">
-                      <div className="flex gap-1">
-                        {["0.25", "0.5", "0.75", "1"].map((val) => (
-                          <button
-                            key={val}
-                            onClick={() => {
-                              setBetAmount(val);
-                              try { sdk.haptics.selectionChanged(); } catch {}
-                            }}
-                            className={cn(
-                              "flex-1 py-1.5 text-[10px] rounded border transition-colors font-bold",
-                              betAmount === val
-                                ? "bg-amber-500 text-black border-amber-500"
-                                : "bg-zinc-800 text-gray-400 border-zinc-700"
-                            )}
-                          >
-                            {val}
-                          </button>
-                        ))}
-                      </div>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={betAmount}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === "" || /^\d*\.?\d*$/.test(val)) {
-                            setBetAmount(val);
-                          }
-                        }}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold"
-                        disabled={isProcessing}
-                        placeholder="Custom"
-                      />
-                    </div>
-                  ) : (
-                    <button
-                      onClick={handleStartGame}
-                      disabled={isProcessing || !isConnected || isStartPending || isApprovePending}
-                      className="flex-1 h-12 rounded-xl bg-white hover:bg-gray-100 text-black font-bold text-base disabled:opacity-50 flex items-center justify-center overflow-hidden panel-slide"
-                    >
-                      {isProcessing || isStartPending || isApprovePending ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        "START GAME"
-                      )}
-                    </button>
-                  )}
-                </div>
-
-                {/* Bet Button */}
-                <button
-                  onClick={() => {
-                    if (expandedPanel === "bet") {
-                      setExpandedPanel("none");
-                    } else {
-                      setExpandedPanel("bet");
-                      try { sdk.haptics.selectionChanged(); } catch {}
-                    }
-                  }}
-                  className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center flex-shrink-0"
-                >
-                  <span className="text-[8px] text-gray-500">BET</span>
-                  <span className="text-sm font-bold text-amber-400">{betAmount}</span>
-                </button>
+        {/* Controls */}
+        <div className="space-y-2 pb-1">
+          {/* Mine Count Selection (only when no active game) */}
+          {!gameState && (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+              <div className="flex justify-between mb-1">
+                <span className="text-[10px] text-gray-400">Mines</span>
+                <span className="text-xs font-bold text-red-400">{mineCount} 💣</span>
+              </div>
+              <div className="flex gap-1">
+                {[1, 3, 5, 10, 24].map((count) => (
+                  <button
+                    key={count}
+                    onClick={() => setMineCount(count)}
+                    disabled={isStartingGame}
+                    className={cn(
+                      "flex-1 py-2 text-[10px] rounded font-bold transition-all border",
+                      mineCount === count
+                        ? "bg-red-500 text-white border-red-500"
+                        : "bg-zinc-800 text-gray-400 border-zinc-700"
+                    )}
+                  >
+                    {count}
+                  </button>
+                ))}
               </div>
             </div>
           )}
+
+          {/* Bet + Action */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2">
+            <div className="flex items-center gap-2">
+              {/* Bet button (only when no active game) */}
+              {!gameState ? (
+                <button
+                  onClick={() => setExpandedBet(!expandedBet)}
+                  className="flex-1 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2"
+                >
+                  <span className="text-[10px] text-gray-500">BET</span>
+                  <span className="text-lg font-bold text-amber-400">{betAmount}</span>
+                  <span className="text-[10px] text-gray-500">🍩</span>
+                </button>
+              ) : (
+                <div className="flex-1 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2">
+                  <span className="text-[10px] text-gray-500">BET</span>
+                  <span className="text-lg font-bold text-amber-400">
+                    {parseFloat(formatUnits(gameState.betAmount, 18)).toFixed(2)}
+                  </span>
+                  <span className="text-[10px] text-gray-500">🍩</span>
+                </div>
+              )}
+            </div>
+            
+            {/* Expanded bet options */}
+            {expandedBet && !gameState && (
+              <div className="mt-2 flex flex-col gap-1">
+                <div className="flex gap-1">
+                  {["0.5", "1", "2", "5"].map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => setBetAmount(val)}
+                      className={cn(
+                        "flex-1 py-1.5 text-[10px] rounded border font-bold",
+                        betAmount === val ? "bg-amber-500 text-black border-amber-500" : "bg-zinc-800 text-gray-400 border-zinc-700"
+                      )}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={betAmount}
+                  onChange={(e) => /^\d*\.?\d*$/.test(e.target.value) && setBetAmount(e.target.value)}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Main Action Button */}
+          {gameState?.status === GameStatus.Active ? (
+            <button
+              onClick={handleCashOut}
+              disabled={isCashingOut || isCashOutPending || countBits(gameState.revealedTiles) === 0}
+              className={cn(
+                "w-full py-3 rounded-xl font-bold text-lg transition-all",
+                countBits(gameState.revealedTiles) === 0
+                  ? "bg-zinc-700 text-zinc-400"
+                  : "bg-green-500 text-white hover:bg-green-400"
+              )}
+            >
+              {isCashingOut || isCashOutPending ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Cashing out...
+                </span>
+              ) : countBits(gameState.revealedTiles) === 0 ? (
+                "Reveal a tile first"
+              ) : (
+                `CASH OUT ${(parseFloat(formatUnits(gameState.betAmount, 18)) * currentMultiplier * 0.98).toFixed(2)} 🍩`
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={handleStartGame}
+              disabled={isStartingGame || isStartPending || isWaitingForReveal || !isConnected || parseFloat(betAmount || "0") <= 0}
+              className={cn(
+                "w-full py-3 rounded-xl font-bold text-lg transition-all",
+                isStartingGame || isStartPending || isWaitingForReveal
+                  ? "bg-zinc-500 text-zinc-300"
+                  : "bg-white text-black hover:bg-gray-100"
+              )}
+            >
+              {isStartingGame || isStartPending ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {isStartPending ? "Confirm in wallet..." : "Starting..."}
+                </span>
+              ) : (
+                "START GAME"
+              )}
+            </button>
+          )}
         </div>
+
+        {/* History Modal */}
+        {showHistory && (
+          <div className="fixed inset-0 z-50">
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHistory(false)} />
+            <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+              <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl max-h-[70vh] overflow-hidden flex flex-col">
+                <button onClick={() => setShowHistory(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white z-10">
+                  <X className="h-4 w-4" />
+                </button>
+                <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+                  <History className="w-4 h-4" /> Game History
+                </h2>
+                <p className="text-[10px] text-gray-500 mb-3">Recent mines games</p>
+                
+                <div className="flex-1 overflow-y-auto space-y-2">
+                  {recentGames.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-8">No games yet</p>
+                  ) : (
+                    recentGames.map((game, index) => {
+                      const isWon = game.status === GameStatus.Won;
+                      const isLost = game.status === GameStatus.Lost;
+                      const tilesRevealed = countBits(game.revealedTiles);
+                      const multiplier = Number(game.currentMultiplier) / 10000;
+                      
+                      return (
+                        <div 
+                          key={index}
+                          className={cn(
+                            "p-2 rounded-lg border", 
+                            isWon ? "bg-green-500/10 border-green-500/30" : isLost ? "bg-red-500/10 border-red-500/30" : "bg-zinc-800 border-zinc-700"
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className={cn("text-xl", isWon ? "text-green-400" : "text-red-400")}>
+                                {isWon ? "💎" : "💥"}
+                              </span>
+                              <div>
+                                <span className="text-xs text-gray-400">{game.mineCount} mines • {tilesRevealed} tiles</span>
+                                <div className="text-[9px] text-gray-500">{multiplier.toFixed(2)}x</div>
+                              </div>
+                            </div>
+                            <div className={cn("text-sm font-bold", isWon ? "text-green-400" : "text-red-400")}>
+                              {isWon 
+                                ? `+${parseFloat(formatUnits(game.payout, 18)).toFixed(2)}` 
+                                : `-${parseFloat(formatUnits(game.betAmount, 18)).toFixed(2)}`
+                              } 🍩
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                
+                <button onClick={() => setShowHistory(false)} className="mt-2 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Close</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Help Modal */}
         {showHelp && (
@@ -1360,296 +1200,43 @@ export default function MinesPage() {
             <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHelp(false)} />
             <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
               <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
-                <button
-                  onClick={() => setShowHelp(false)}
-                  className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white"
-                >
+                <button onClick={() => setShowHelp(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white z-10">
                   <X className="h-4 w-4" />
                 </button>
-
                 <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2">
-                  <Bomb className="w-4 h-4" />
-                  How to Play Mines
+                  <Bomb className="w-4 h-4" /> How to Play
                 </h2>
-
                 <div className="space-y-2.5">
                   <div className="flex gap-2.5">
-                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">1</div>
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] font-bold text-white">1</div>
                     <div>
-                      <div className="font-semibold text-amber-400 text-xs">Set Your Bet</div>
-                      <div className="text-[11px] text-gray-400">Choose your bet amount (0.1-1 DONUT). Currently 1 mine per game in beta.</div>
+                      <div className="font-semibold text-white text-xs">Choose Mine Count</div>
+                      <div className="text-[11px] text-gray-400">More mines = higher multipliers but more risk!</div>
                     </div>
                   </div>
-
                   <div className="flex gap-2.5">
-                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">2</div>
                     <div>
                       <div className="font-semibold text-white text-xs">Reveal Tiles</div>
-                      <div className="text-[11px] text-gray-400">Click tiles to reveal. Each safe tile increases your multiplier.</div>
+                      <div className="text-[11px] text-gray-400">Each safe tile increases your multiplier.</div>
                     </div>
                   </div>
-
                   <div className="flex gap-2.5">
-                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">3</div>
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
                     <div>
-                      <div className="font-semibold text-white text-xs">Cash Out Anytime</div>
-                      <div className="text-[11px] text-gray-400">Take your winnings whenever you want, or keep going for higher multipliers.</div>
+                      <div className="font-semibold text-green-400 text-xs">Cash Out Anytime!</div>
+                      <div className="text-[11px] text-gray-400">Take your winnings before hitting a mine!</div>
                     </div>
                   </div>
-
-                  <div className="flex gap-2.5">
-                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] font-bold text-white">!</div>
-                    <div>
-                      <div className="font-semibold text-red-400 text-xs">Hit a Mine = Lose All</div>
-                      <div className="text-[11px] text-gray-400">If you reveal a mine, you lose your entire bet.</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
-                  <div className="font-semibold text-amber-400 text-xs mb-1">2% House Edge on Wins</div>
-                  <div className="text-[11px] text-gray-400">1% → Pool Growth</div>
-                  <div className="text-[11px] text-gray-400">0.5% → LP Burn Rewards</div>
-                  <div className="text-[11px] text-gray-400">0.5% → Treasury</div>
-                  
-                  <div className="font-semibold text-red-400 text-xs mb-1 mt-2">On Loss (Hit a Mine)</div>
-                  <div className="text-[11px] text-gray-400">50% → Pool Growth</div>
-                  <div className="text-[11px] text-gray-400">25% → LP Burn Rewards</div>
-                  <div className="text-[11px] text-gray-400">25% → Treasury</div>
-                </div>
-
-                <button
-                  onClick={() => setShowHelp(false)}
-                  className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black"
-                >
-                  Got it
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* History Modal */}
-        {showHistory && (
-          <div className="fixed inset-0 z-50">
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHistory(false)} />
-            <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 max-h-[80vh]">
-              <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl overflow-hidden flex flex-col max-h-[70vh]">
-                <button
-                  onClick={() => setShowHistory(false)}
-                  className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-
-                <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
-                  <History className="w-4 h-4" />
-                  Game History
-                </h2>
-                <p className="text-[10px] text-gray-500 mb-3">All games are provably fair. Tap any game to verify.</p>
-
-                <div className="flex-1 overflow-y-auto space-y-2">
-                  {gameHistory.length === 0 ? (
-                    <div className="text-center text-gray-500 py-8">
-                      <p>No games yet</p>
-                    </div>
-                  ) : (
-                    gameHistory.map((game) => {
-                      const blocksLeft = game.status === 1 ? Math.max(0, 256 - Number(currentBlock - game.commitBlock)) : 0;
-                      const minutesLeft = Math.ceil(blocksLeft * 2 / 60);
-                      const canClaim = game.status === 1 && blocksLeft === 0;
-                      const betAmountFormatted = parseFloat(formatUnits(game.betAmount, 18)).toFixed(2);
-                      const hasSecret = getGameSecret(game.gameId.toString()) !== null || 
-                                        (pendingGame?.gameId === game.gameId);
-                      
-                      // Active/Pending game
-                      if (game.status === 1) {
-                        return (
-                          <div 
-                            key={game.gameId.toString()}
-                            className="p-3 rounded-lg border bg-amber-500/10 border-amber-500/30"
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                                <div>
-                                  <span className="text-sm text-amber-400 font-bold">
-                                    {hasSecret ? "Active Game" : "Pending Reveal"}
-                                  </span>
-                                  <div className="text-[10px] text-gray-500">💣 {game.mineCount} mine • {game.safeRevealed} revealed</div>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <span className="text-sm font-bold text-white">{betAmountFormatted}</span>
-                                <div className="text-[10px] text-gray-500">🍩 DONUT</div>
-                              </div>
-                            </div>
-                            
-                            {!hasSecret && (
-                              <>
-                                <div className="flex items-center justify-between text-[10px] text-gray-400 mb-2">
-                                  <span>~{minutesLeft} min remaining</span>
-                                  <span>{blocksLeft} blocks left</span>
-                                </div>
-                                
-                                <div className="w-full bg-zinc-800 rounded-full h-1.5 mb-2">
-                                  <div 
-                                    className="bg-amber-500 h-1.5 rounded-full transition-all"
-                                    style={{ width: `${Math.min(100, ((256 - blocksLeft) / 256) * 100)}%` }}
-                                  />
-                                </div>
-                                
-                                <p className="text-[9px] text-gray-500 mb-2">
-                                  Your secret was lost when you left. The game must wait 256 blocks (~8 min) to expire before you can claim 98% back.
-                                </p>
-                              </>
-                            )}
-                            
-                            <button
-                              onClick={() => {
-                                if (hasSecret) {
-                                  setShowHistory(false);
-                                } else {
-                                  writeClaimExpired({
-                                    address: DONUT_MINES_ADDRESS,
-                                    abi: MINES_ABI,
-                                    functionName: "claimExpired",
-                                    args: [game.gameId]
-                                  });
-                                }
-                              }}
-                              disabled={!hasSecret && (!canClaim || isClaimPending)}
-                              className={cn(
-                                "w-full py-2 rounded-lg text-xs font-bold disabled:opacity-50",
-                                hasSecret 
-                                  ? "bg-amber-500 text-black" 
-                                  : "bg-zinc-700 text-white"
-                              )}
-                            >
-                              {hasSecret 
-                                ? "Continue Playing" 
-                                : isClaimPending 
-                                  ? "Claiming..." 
-                                  : canClaim 
-                                    ? "Claim 98% Back" 
-                                    : `Wait ${minutesLeft} min...`
-                              }
-                            </button>
-                          </div>
-                        );
-                      }
-                      
-                      // Lost game (hit mine)
-                      if (game.status === 3) {
-                        const isExpanded = expandedGameId === game.gameId.toString();
-                        return (
-                          <div 
-                            key={game.gameId.toString()}
-                            onClick={() => setExpandedGameId(isExpanded ? null : game.gameId.toString())}
-                            className="p-3 rounded-lg border bg-red-500/10 border-red-500/30 cursor-pointer hover:bg-red-500/20 transition-colors"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="text-2xl">💥</span>
-                                <div>
-                                  <span className="text-sm text-red-400 font-bold">BOOM!</span>
-                                  <div className="text-[10px] text-gray-500">Hit mine after {game.safeRevealed} safe</div>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <span className="text-sm font-bold text-red-400">-{betAmountFormatted}</span>
-                                <div className="text-[10px] text-gray-500">🍩 DONUT</div>
-                              </div>
-                            </div>
-                            <div className="text-[9px] text-gray-500 mt-1">Tap to verify</div>
-                            
-                            {isExpanded && (
-                              <div className="mt-3 p-2 bg-zinc-900 rounded-lg border border-zinc-800">
-                                <div className="text-[9px] text-gray-400 space-y-1 font-mono break-all">
-                                  <div><span className="text-gray-500">Game ID:</span> {game.gameId.toString()}</div>
-                                  <div><span className="text-gray-500">Block:</span> {game.commitBlock.toString()}</div>
-                                  {game.blockHash && (
-                                    <div><span className="text-gray-500">Block Hash:</span> {game.blockHash.slice(0, 20)}...</div>
-                                  )}
-                                  {game.revealedSecret && game.revealedSecret !== "0x0000000000000000000000000000000000000000000000000000000000000000" && (
-                                    <div><span className="text-gray-500">Secret:</span> {game.revealedSecret.slice(0, 20)}...</div>
-                                  )}
-                                  <div className="pt-1 border-t border-zinc-700 mt-1">
-                                    <span className="text-amber-400">Mines = keccak256(blockHash + secret + gameId) % 25</span>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
-                      
-                      // Cashed out game (won)
-                      if (game.status === 4) {
-                        const payoutFormatted = parseFloat(formatUnits(game.payout, 18)).toFixed(4);
-                        const multiplier = calculateDisplayMultiplier(game.mineCount, game.safeRevealed);
-                        const isExpanded = expandedGameId === game.gameId.toString();
-                        
-                        return (
-                          <div 
-                            key={game.gameId.toString()}
-                            onClick={() => setExpandedGameId(isExpanded ? null : game.gameId.toString())}
-                            className="p-3 rounded-lg border bg-green-500/10 border-green-500/30 cursor-pointer hover:bg-green-500/20 transition-colors"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="text-2xl font-bold text-green-400">{multiplier.toFixed(2)}x</span>
-                                <div>
-                                  <span className="text-sm text-green-400 font-bold">WIN!</span>
-                                  <div className="text-[10px] text-gray-500">{game.safeRevealed} tiles revealed</div>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <span className="text-sm font-bold text-green-400">+{payoutFormatted}</span>
-                                <div className="text-[10px] text-gray-500">🍩 DONUT</div>
-                              </div>
-                            </div>
-                            <div className="text-[9px] text-gray-500 mt-1">Tap to verify</div>
-                            
-                            {isExpanded && (
-                              <div className="mt-3 p-2 bg-zinc-900 rounded-lg border border-zinc-800">
-                                <div className="text-[9px] text-gray-400 space-y-1 font-mono break-all">
-                                  <div><span className="text-gray-500">Game ID:</span> {game.gameId.toString()}</div>
-                                  <div><span className="text-gray-500">Block:</span> {game.commitBlock.toString()}</div>
-                                  {game.blockHash && (
-                                    <div><span className="text-gray-500">Block Hash:</span> {game.blockHash.slice(0, 20)}...</div>
-                                  )}
-                                  {game.revealedSecret && game.revealedSecret !== "0x0000000000000000000000000000000000000000000000000000000000000000" && (
-                                    <div><span className="text-gray-500">Secret:</span> {game.revealedSecret.slice(0, 20)}...</div>
-                                  )}
-                                  <div className="pt-1 border-t border-zinc-700 mt-1">
-                                    <span className="text-amber-400">Mines = keccak256(blockHash + secret + gameId) % 25</span>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
-                      
-                      return null;
-                    })
-                  )}
                 </div>
                 
-                {/* Provably Fair Formula */}
                 <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
-                  <p className="text-[9px] text-gray-500 text-center font-mono">
-                    Mines = keccak256(blockhash + secret + gameId) % positions
-                  </p>
+                  <div className="text-[10px] text-amber-400 font-bold mb-1">Fee Structure:</div>
+                  <div className="text-[10px] text-gray-400">On Win: 2% house edge</div>
+                  <div className="text-[10px] text-gray-400">On Loss: 50% pool, 25% LP, 25% treasury</div>
                 </div>
-
-                <button
-                  onClick={() => setShowHistory(false)}
-                  className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black"
-                >
-                  Close
-                </button>
+                
+                <button onClick={() => setShowHelp(false)} className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Got it</button>
               </div>
             </div>
           </div>
@@ -1657,125 +1244,10 @@ export default function MinesPage() {
 
         {/* Approvals Modal */}
         {showApprovals && (
-          <div className="fixed inset-0 z-50">
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowApprovals(false)} />
-            <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-              <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
-                <button
-                  onClick={() => setShowApprovals(false)}
-                  className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-
-                <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
-                  <Shield className="w-4 h-4" />
-                  Token Approvals
-                </h2>
-                <p className="text-[10px] text-gray-500 mb-3">Approve DONUT tokens to play Mines</p>
-
-                <div className="space-y-3">
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-bold text-white">🍩 DONUT</span>
-                      <span className={cn(
-                        "text-xs font-bold px-2 py-0.5 rounded-full",
-                        allowance && allowance > BigInt(0) 
-                          ? "bg-green-500/20 text-green-400" 
-                          : "bg-red-500/20 text-red-400"
-                      )}>
-                        {allowance ? parseFloat(formatUnits(allowance, 18)).toFixed(2) : "0"} approved
-                      </span>
-                    </div>
-                    
-                    <div className="flex gap-2 mb-2">
-                      <button
-                        onClick={() => {
-                          writeApprove({
-                            address: DONUT_TOKEN_ADDRESS,
-                            abi: ERC20_ABI,
-                            functionName: "approve",
-                            args: [DONUT_MINES_ADDRESS, parseUnits("100", 18)]
-                          });
-                        }}
-                        disabled={isApprovePending}
-                        className="flex-1 py-2 rounded-lg bg-amber-500 text-black text-sm font-bold disabled:opacity-50"
-                      >
-                        {isApprovePending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Approve 100"}
-                      </button>
-                      <button
-                        onClick={() => {
-                          writeApprove({
-                            address: DONUT_TOKEN_ADDRESS,
-                            abi: ERC20_ABI,
-                            functionName: "approve",
-                            args: [DONUT_MINES_ADDRESS, BigInt(0)]
-                          });
-                        }}
-                        disabled={isApprovePending}
-                        className="py-2 px-3 rounded-lg bg-zinc-800 text-gray-400 text-sm font-bold disabled:opacity-50"
-                      >
-                        Revoke
-                      </button>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="Custom amount"
-                        value={customApprovalAmount}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === "" || /^\d*\.?\d*$/.test(val)) {
-                            setCustomApprovalAmount(val);
-                          }
-                        }}
-                        className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-center"
-                      />
-                      <button
-                        onClick={() => {
-                          const amount = parseFloat(customApprovalAmount);
-                          if (!isNaN(amount) && amount > 0) {
-                            writeApprove({
-                              address: DONUT_TOKEN_ADDRESS,
-                              abi: ERC20_ABI,
-                              functionName: "approve",
-                              args: [DONUT_MINES_ADDRESS, parseUnits(customApprovalAmount, 18)]
-                            });
-                            setCustomApprovalAmount("");
-                          }
-                        }}
-                        disabled={isApprovePending || !customApprovalAmount}
-                        className="py-1.5 px-3 rounded-lg bg-zinc-700 text-white text-sm font-bold disabled:opacity-50"
-                      >
-                        Set
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-                    <div className="flex gap-2">
-                      <Shield className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-xs text-amber-400 font-bold mb-1">How approvals work</p>
-                        <p className="text-[10px] text-amber-400/70">
-                          Each game deducts from your approved amount. When you run out, tap the <span className="font-bold">shield icon</span> during gameplay to approve more.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setShowApprovals(false)}
-                  className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </div>
+          <ApprovalsModal 
+            onClose={() => setShowApprovals(false)} 
+            refetchAllowance={refetchAllowance}
+          />
         )}
       </div>
       <NavBar />
