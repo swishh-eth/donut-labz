@@ -9,7 +9,7 @@ import { History, HelpCircle, X, Loader2, Shield, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Contract addresses
-const GLAZE_WHEEL_ADDRESS = "0xDa7faD8C62826997e8945C20685b02f7B5Dd8799" as const;
+const GLAZE_WHEEL_ADDRESS = "0x82296c4Fc7B24bF1Fc87d2E2A1D9600F2028BA32" as const;
 const DONUT_TOKEN_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
 
 const ERC20_ABI = [
@@ -178,7 +178,8 @@ const SEGMENT_COLORS = [
   "#06b6d4", // cyan
 ];
 
-// Get multipliers for wheel config (client-side calculation matching contract)
+// Get multipliers for wheel config (client-side calculation matching contract V2)
+// Fair multipliers with ~98% RTP (2% house edge)
 const getWheelMultipliers = (riskLevel: number, segments: number): number[] => {
   const multipliers: number[] = [];
   
@@ -186,70 +187,49 @@ const getWheelMultipliers = (riskLevel: number, segments: number): number[] => {
     let mult = 0;
     
     if (segments === 10) {
+      // Low: 8 win at 1.25x, Med: 5 win at 2x, High: 1 win at 9.9x
       if (riskLevel === 0) {
-        if (i < 3) mult = 15000;
-        else if (i < 6) mult = 12000;
+        mult = i < 8 ? 12500 : 0;
       } else if (riskLevel === 1) {
-        if (i < 2) mult = 20000;
-        else if (i < 4) mult = 15000;
+        mult = i < 5 ? 20000 : 0;
       } else {
-        if (i === 0) mult = 50000;
-        else if (i === 1) mult = 40000;
+        mult = i === 0 ? 99000 : 0;
       }
     } else if (segments === 20) {
+      // Low: 16 win at 1.25x, Med: 10 win at 2x, High: 2 win at 9.9x
       if (riskLevel === 0) {
-        if (i < 6) mult = 15000;
-        else if (i < 12) mult = 12000;
+        mult = i < 16 ? 12500 : 0;
       } else if (riskLevel === 1) {
-        if (i < 2) mult = 30000;
-        else if (i < 4) mult = 20000;
-        else if (i < 8) mult = 15000;
+        mult = i < 10 ? 20000 : 0;
       } else {
-        if (i === 0) mult = 100000;
-        else if (i === 1) mult = 50000;
-        else if (i < 4) mult = 30000;
+        mult = i < 2 ? 99000 : 0;
       }
     } else if (segments === 30) {
+      // Low: 24 win at 1.25x, Med: 15 win at 2x, High: 2 win at 14.85x
       if (riskLevel === 0) {
-        if (i < 9) mult = 15000;
-        else if (i < 18) mult = 12000;
+        mult = i < 24 ? 12500 : 0;
       } else if (riskLevel === 1) {
-        if (i < 2) mult = 40000;
-        else if (i < 5) mult = 25000;
-        else if (i < 10) mult = 15000;
+        mult = i < 15 ? 20000 : 0;
       } else {
-        if (i === 0) mult = 150000;
-        else if (i === 1) mult = 80000;
-        else if (i < 5) mult = 30000;
+        mult = i < 2 ? 148500 : 0;
       }
     } else if (segments === 40) {
+      // Low: 32 win at 1.25x, Med: 20 win at 2x, High: 2 win at 19.8x
       if (riskLevel === 0) {
-        if (i < 12) mult = 15000;
-        else if (i < 24) mult = 12000;
+        mult = i < 32 ? 12500 : 0;
       } else if (riskLevel === 1) {
-        if (i < 2) mult = 50000;
-        else if (i < 5) mult = 30000;
-        else if (i < 12) mult = 15000;
+        mult = i < 20 ? 20000 : 0;
       } else {
-        if (i === 0) mult = 200000;
-        else if (i === 1) mult = 100000;
-        else if (i < 4) mult = 50000;
-        else if (i < 6) mult = 30000;
+        mult = i < 2 ? 198000 : 0;
       }
     } else if (segments === 50) {
+      // Low: 40 win at 1.25x, Med: 25 win at 2x, High: 1 win at 49.5x
       if (riskLevel === 0) {
-        if (i < 15) mult = 15000;
-        else if (i < 30) mult = 12000;
+        mult = i < 40 ? 12500 : 0;
       } else if (riskLevel === 1) {
-        if (i < 2) mult = 60000;
-        else if (i < 5) mult = 40000;
-        else if (i < 10) mult = 20000;
-        else if (i < 15) mult = 15000;
+        mult = i < 25 ? 20000 : 0;
       } else {
-        if (i === 0) mult = 495000;
-        else if (i === 1) mult = 150000;
-        else if (i < 4) mult = 80000;
-        else if (i < 7) mult = 40000;
+        mult = i === 0 ? 495000 : 0;
       }
     }
     

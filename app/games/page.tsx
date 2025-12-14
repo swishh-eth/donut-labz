@@ -12,6 +12,7 @@ import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Target, Zap, Trop
 // Contract addresses
 const DONUT_DICE_ADDRESS = "0x49826C6C884ed7A828c06f75814Acf8bd658bb76" as const;
 const DONUT_MINES_ADDRESS = "0x7c018F004071bD42256ef2303cD539E413b8533a" as const;
+const GLAZE_WHEEL_ADDRESS = "0x82296c4Fc7B24bF1Fc87d2E2A1D9600F2028BA32" as const;
 
 // Create a public client for Base
 const publicClient = createPublicClient({
@@ -362,6 +363,96 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch last wheel winner
+  useEffect(() => {
+    const fetchLastWheelWinner = async () => {
+      try {
+        const currentBlock = await publicClient.getBlockNumber();
+        // Look back ~1 hour on Base (1800 blocks at 2 sec/block)
+        const fromBlock = currentBlock > 1800n ? currentBlock - 1800n : 0n;
+        
+        console.log("Fetching wheel winner from block", fromBlock.toString(), "to latest");
+        
+        // Get recent SpinRevealed events from Wheel contract
+        const logs = await publicClient.getLogs({
+          address: GLAZE_WHEEL_ADDRESS,
+          event: {
+            type: 'event',
+            name: 'SpinRevealed',
+            inputs: [
+              { type: 'uint256', name: 'spinId', indexed: true },
+              { type: 'address', name: 'player', indexed: true },
+              { type: 'uint8', name: 'result', indexed: false },
+              { type: 'uint256', name: 'multiplier', indexed: false },
+              { type: 'uint256', name: 'payout', indexed: false }
+            ]
+          },
+          fromBlock,
+          toBlock: 'latest'
+        });
+
+        console.log("Found", logs.length, "SpinRevealed events");
+
+        // Find the most recent win (payout > 0)
+        let lastWin: { player: string; payout: bigint } | null = null;
+        
+        for (let i = logs.length - 1; i >= 0 && i >= logs.length - 50; i--) {
+          const log = logs[i];
+          const payout = log.args.payout as bigint;
+          const player = log.args.player as string;
+          
+          if (payout && payout > 0n && player) {
+            lastWin = { player, payout };
+            console.log("Found wheel win:", lastWin);
+            break;
+          }
+        }
+
+        if (!lastWin) {
+          console.log("No wheel wins found in recent events");
+          setWheelLastWinner(null);
+          return;
+        }
+
+        // Get profile from our cached profiles API
+        try {
+          const response = await fetch(`/api/profiles?addresses=${lastWin.player}`);
+          console.log("Wheel profile response:", response.status);
+          if (response.ok) {
+            const data = await response.json();
+            console.log("Wheel profile data:", data);
+            const profile = data.profiles[lastWin.player.toLowerCase()];
+            
+            if (profile?.username) {
+              setWheelLastWinner({
+                username: profile.username,
+                amount: `${parseFloat(formatUnits(lastWin.payout, 18)).toFixed(2)} 🍩`,
+                pfpUrl: profile.pfpUrl || undefined
+              });
+              return;
+            }
+          }
+        } catch (e) {
+          console.log("Error fetching wheel profile:", e);
+        }
+        
+        // Fallback to truncated address
+        const truncatedAddress = `${lastWin.player.slice(0, 6)}...${lastWin.player.slice(-4)}`;
+        setWheelLastWinner({
+          username: truncatedAddress,
+          amount: `${parseFloat(formatUnits(lastWin.payout, 18)).toFixed(2)} 🍩`
+        });
+      } catch (error) {
+        console.error("Failed to fetch wheel last winner:", error);
+        setWheelLastWinner(null);
+      }
+    };
+
+    fetchLastWheelWinner();
+    const interval = setInterval(fetchLastWheelWinner, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const hydrateContext = async () => {
@@ -431,6 +522,7 @@ export default function GamesPage() {
       icon: Target,
       comingSoon: false,
       lastWinner: wheelLastWinner,
+      scrollDirection: "right" as const,
       onClick: () => router.push("/glaze-wheel"),
     },
     {
