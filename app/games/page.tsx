@@ -427,11 +427,11 @@ export default function GamesPage() {
     {
       id: "wheel",
       title: "Glaze Wheel",
-      description: "Spin to win ETH, DONUT & SPRINKLES",
+      description: "Spin to win big multipliers",
       icon: Target,
       comingSoon: false,
       lastWinner: wheelLastWinner,
-      onClick: () => router.push("/wheel"),
+      onClick: () => router.push("/glaze-wheel"),
     },
     {
       id: "dice",
