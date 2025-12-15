@@ -267,7 +267,7 @@ export default function TowerPage() {
   const [isClimbing, setIsClimbing] = useState(false);
   const [isCashingOut, setIsCashingOut] = useState(false);
   const [isWaitingForReveal, setIsWaitingForReveal] = useState(false);
-  const [buildingCountdown, setBuildingCountdown] = useState(10);
+  const [buildingCountdown, setBuildingCountdown] = useState(15);
 
   // Refs to prevent duplicate processing
   const processedStartHash = useRef<string | null>(null);
@@ -459,7 +459,7 @@ export default function TowerPage() {
   // Countdown timer when building
   useEffect(() => {
     if (!isWaitingForReveal) {
-      setBuildingCountdown(10);
+      setBuildingCountdown(15);
       return;
     }
 
@@ -565,7 +565,15 @@ export default function TowerPage() {
     // Guard: not already climbing
     if (isClimbing || isClimbPending) return;
 
-    console.log("Climbing tile:", tileIndex, "Level:", gameState.currentLevel);
+    const trap = getTrap(gameState.currentLevel);
+    const isSafeTile = config.safe > 1 ? tileIndex !== trap : tileIndex === trap;
+    console.log("=== TILE CLICK ===");
+    console.log("Level:", gameState.currentLevel);
+    console.log("Tile clicked:", tileIndex);
+    console.log("Trap value for this level:", trap);
+    console.log("Config:", config);
+    console.log("Would be safe?:", isSafeTile);
+    console.log("trapPositions raw:", gameState.trapPositions.toString());
     
     setIsClimbing(true);
     processedClimbHash.current = null;
@@ -753,6 +761,15 @@ export default function TowerPage() {
           const isCurrent = inGame && level === l;
           const isPast = level > l;
           const mult = multipliers[l] / 10000;
+          
+          // Debug logging for trap display
+          if (ended) {
+            console.log(`Level ${l}: trap=${trap}, config.safe=${config.safe}, tiles=${config.tiles}`);
+            for (let t = 0; t < config.tiles; t++) {
+              const isSafe = config.safe > 1 ? t !== trap : t === trap;
+              console.log(`  Tile ${t}: isSafe=${isSafe}`);
+            }
+          }
           
           // Can only click tiles on current level when not climbing
           const canClick = isCurrent && !isClimbing && !isClimbPending && !ended;
