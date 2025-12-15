@@ -339,8 +339,13 @@ export default function DonutTowerPage() {
   // Handle tile click
   const handleTileClick = (tileIndex: number) => {
     if (!activeGameId || !gameState || isClimbing || isClimbPending) return;
-    if (gameState.status !== GameStatus.Active) return;
+    if (gameState.status !== GameStatus.Active) {
+      setErrorMessage("Game not active");
+      setTimeout(() => setErrorMessage(null), 2000);
+      return;
+    }
 
+    console.log("Climbing tile:", tileIndex, "Game ID:", activeGameId.toString());
     setIsClimbing(true);
     processedClimbHash.current = null;
     writeClimb({
@@ -357,74 +362,97 @@ export default function DonutTowerPage() {
     if (processedClimbHash.current === climbHash) return;
     processedClimbHash.current = climbHash;
 
+    console.log("Climb tx confirmed:", climbHash);
+
     const fetchNewState = async () => {
-      await new Promise(r => setTimeout(r, 1500));
+      // Poll multiple times to ensure we get the updated state
+      let retries = 0;
+      const maxRetries = 10;
+      
+      while (retries < maxRetries) {
+        await new Promise(r => setTimeout(r, 500));
+        retries++;
+        
+        try {
+          const game = await publicClient.readContract({
+            address: DONUT_TOWER_ADDRESS,
+            abi: TOWER_ABI,
+            functionName: "games",
+            args: [activeGameId],
+            blockTag: 'latest',
+          }) as unknown as any[];
 
-      try {
-        const game = await publicClient.readContract({
-          address: DONUT_TOWER_ADDRESS,
-          abi: TOWER_ABI,
-          functionName: "games",
-          args: [activeGameId],
-          blockTag: 'latest',
-        }) as unknown as any[];
+          const newLevel = Number(game[6]);
+          const newStatus = Number(game[5]);
+          
+          console.log(`Poll ${retries}: level=${newLevel}, status=${newStatus}, oldLevel=${gameState?.currentLevel}`);
 
-        const newState: GameState = {
-          player: game[0],
-          betAmount: game[2],
-          difficulty: Number(game[3]),
-          status: Number(game[5]),
-          currentLevel: Number(game[6]),
-          trapPositions: game[7],
-          currentMultiplier: game[8],
-        };
+          // Check if state actually changed (level increased or game ended)
+          if (newLevel > (gameState?.currentLevel ?? 0) || newStatus === GameStatus.Lost || newStatus === GameStatus.Won) {
+            const newState: GameState = {
+              player: game[0],
+              betAmount: game[2],
+              difficulty: Number(game[3]),
+              status: newStatus,
+              currentLevel: newLevel,
+              trapPositions: game[7],
+              currentMultiplier: game[8],
+            };
 
-        setGameState(newState);
-        setIsClimbing(false);
-        resetClimb();
+            console.log("State changed! New state:", newState);
+            setGameState(newState);
+            setIsClimbing(false);
+            resetClimb();
 
-        if (newState.status === GameStatus.Lost) {
-          playLoseSound();
-          try { sdk.haptics.impactOccurred("heavy"); } catch {}
-          setGameResult("lost");
-          setShowFullTower(true); // Zoom out to show full tower
-          setTimeout(() => {
-            setShowFullTower(false);
-            setActiveGameId(null);
-            setGameState(null);
-            setGameResult(null);
-            refetchActiveGame();
-            refetchBalance();
-            refetchPlayerGames();
-          }, 4000);
-        } else if (newState.status === GameStatus.Won) {
-          playWinSound();
-          try { sdk.haptics.impactOccurred("heavy"); } catch {}
-          setGameResult("won");
-          setShowConfetti(true);
-          setTimeout(() => {
-            setShowConfetti(false);
-            setActiveGameId(null);
-            setGameState(null);
-            setGameResult(null);
-            refetchActiveGame();
-            refetchBalance();
-            refetchPlayerGames();
-          }, 4000);
-        } else {
-          playClimbSound();
-          try { sdk.haptics.impactOccurred("medium"); } catch {}
+            if (newState.status === GameStatus.Lost) {
+              playLoseSound();
+              try { sdk.haptics.impactOccurred("heavy"); } catch {}
+              setGameResult("lost");
+              setShowFullTower(true);
+              setTimeout(() => {
+                setShowFullTower(false);
+                setActiveGameId(null);
+                setGameState(null);
+                setGameResult(null);
+                refetchActiveGame();
+                refetchBalance();
+                refetchPlayerGames();
+              }, 4000);
+            } else if (newState.status === GameStatus.Won) {
+              playWinSound();
+              try { sdk.haptics.impactOccurred("heavy"); } catch {}
+              setGameResult("won");
+              setShowConfetti(true);
+              setTimeout(() => {
+                setShowConfetti(false);
+                setActiveGameId(null);
+                setGameState(null);
+                setGameResult(null);
+                refetchActiveGame();
+                refetchBalance();
+                refetchPlayerGames();
+              }, 4000);
+            } else {
+              // Successfully climbed!
+              playClimbSound();
+              try { sdk.haptics.impactOccurred("medium"); } catch {}
+            }
+            return; // Exit the retry loop
+          }
+        } catch (e) {
+          console.error("Poll error:", e);
         }
-      } catch (e) {
-        console.error("Error reading new state:", e);
-        setIsClimbing(false);
-        resetClimb();
-        refetchActiveGame();
       }
+      
+      // If we get here, state didn't change after all retries
+      console.log("State didn't change after retries, forcing refetch");
+      setIsClimbing(false);
+      resetClimb();
+      refetchActiveGame();
     };
 
     fetchNewState();
-  }, [isClimbSuccess, climbHash, publicClient, activeGameId, playClimbSound, playLoseSound, playWinSound, refetchActiveGame, refetchBalance, refetchPlayerGames, resetClimb]);
+  }, [isClimbSuccess, climbHash, publicClient, activeGameId, gameState?.currentLevel, playClimbSound, playLoseSound, playWinSound, refetchActiveGame, refetchBalance, refetchPlayerGames, resetClimb]);
 
   // Handle climb error
   useEffect(() => {
@@ -504,10 +532,12 @@ export default function DonutTowerPage() {
     if (processedStartHash.current === startHash) return;
     processedStartHash.current = startHash;
 
+    console.log("Start tx confirmed:", startHash);
     setIsWaitingForReveal(true);
 
     const startPolling = async () => {
-      await new Promise(r => setTimeout(r, 1000));
+      // First get the game ID
+      await new Promise(r => setTimeout(r, 500));
 
       try {
         const gameId = await publicClient.readContract({
@@ -518,16 +548,29 @@ export default function DonutTowerPage() {
           blockTag: 'latest',
         }) as bigint;
 
+        console.log("Got game ID:", gameId?.toString());
+
         if (gameId && gameId > BigInt(0)) {
           setActiveGameId(gameId);
 
           let attempts = 0;
-          const maxAttempts = 30;
+          const maxAttempts = 60; // More attempts
 
           const poll = async (): Promise<boolean> => {
             attempts++;
-            try { await fetch('/api/reveal?game=tower'); } catch {}
-            await new Promise(r => setTimeout(r, 4000));
+            console.log(`Reveal poll attempt ${attempts}`);
+            
+            // Call reveal API first
+            try { 
+              const res = await fetch('/api/reveal?game=tower');
+              const data = await res.json();
+              console.log("Reveal API response:", data);
+            } catch (e) {
+              console.log("Reveal API error:", e);
+            }
+            
+            // Wait less time between checks
+            await new Promise(r => setTimeout(r, 2000));
 
             try {
               const game = await publicClient.readContract({
@@ -538,12 +581,16 @@ export default function DonutTowerPage() {
                 blockTag: 'latest',
               }) as unknown as any[];
 
-              if (Number(game[5]) === GameStatus.Active) {
+              const status = Number(game[5]);
+              console.log("Game status:", status);
+
+              if (status === GameStatus.Active) {
+                console.log("Game is now active!");
                 setGameState({
                   player: game[0],
                   betAmount: game[2],
                   difficulty: Number(game[3]),
-                  status: Number(game[5]),
+                  status: status,
                   currentLevel: Number(game[6]),
                   trapPositions: game[7],
                   currentMultiplier: game[8],
@@ -554,22 +601,31 @@ export default function DonutTowerPage() {
               }
 
               if (attempts >= maxAttempts) {
-                setErrorMessage("Timeout - refresh");
+                console.log("Polling timed out");
+                setErrorMessage("Timeout - refresh page");
                 setIsWaitingForReveal(false);
                 setIsStartingGame(false);
                 return true;
               }
-            } catch {}
+            } catch (e) {
+              console.error("Poll error:", e);
+            }
             return false;
           };
 
+          // Keep polling until done
           while (true) {
             const done = await poll();
             if (done) break;
           }
+        } else {
+          console.log("No game ID found");
+          setErrorMessage("No game found");
+          setIsWaitingForReveal(false);
+          setIsStartingGame(false);
         }
       } catch (e) {
-        console.error("Error:", e);
+        console.error("Error getting game ID:", e);
         setErrorMessage("Error starting");
         setIsStartingGame(false);
         setIsWaitingForReveal(false);
@@ -884,15 +940,21 @@ export default function DonutTowerPage() {
         <div className="space-y-2 pb-1">
           {/* Setup controls - only when no active game */}
           {!gameState && !isStartingGame && !isWaitingForReveal && (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 overflow-hidden">
-              <div className="flex items-center gap-2">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2">
+              <div className="flex items-center gap-2 h-14">
                 {/* Risk/Difficulty button */}
-                <div className={cn(
-                  "transition-all duration-300 ease-out overflow-hidden",
-                  expandedControl === "risk" ? "flex-1" : "flex-shrink-0"
-                )}>
+                <div 
+                  className="relative h-12"
+                  style={{
+                    flex: expandedControl === "risk" ? "1 1 auto" : "0 0 auto",
+                    width: expandedControl === "risk" ? "auto" : expandedControl === "bet" ? "0px" : "auto",
+                    opacity: expandedControl === "bet" ? 0 : 1,
+                    transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                    overflow: "hidden"
+                  }}
+                >
                   {expandedControl === "risk" ? (
-                    <div className="flex gap-1 animate-in slide-in-from-left duration-200">
+                    <div className="flex gap-1 h-full">
                       {DIFFICULTIES.map((d, idx) => (
                         <button
                           key={idx}
@@ -901,18 +963,19 @@ export default function DonutTowerPage() {
                             setExpandedControl(null);
                             try { sdk.haptics.impactOccurred("light"); } catch {}
                           }}
-                          className={cn(
-                            "flex-1 py-2 text-[9px] rounded font-bold border transition-all",
-                            difficulty === idx
-                              ? `bg-${d.color}-500 text-white border-${d.color}-500`
-                              : "bg-zinc-800 text-gray-400 border-zinc-700"
-                          )}
+                          className="flex-1 rounded-lg font-bold text-[9px] border-2 transition-all duration-200 hover:scale-[1.02] active:scale-95"
                           style={{
                             backgroundColor: difficulty === idx ? 
                               (d.color === "green" ? "rgb(34 197 94)" : 
                                d.color === "amber" ? "rgb(245 158 11)" :
                                d.color === "orange" ? "rgb(249 115 22)" :
-                               d.color === "red" ? "rgb(239 68 68)" : "rgb(168 85 247)") : undefined
+                               d.color === "red" ? "rgb(239 68 68)" : "rgb(168 85 247)") : "rgb(39 39 42)",
+                            borderColor: difficulty === idx ?
+                              (d.color === "green" ? "rgb(34 197 94)" : 
+                               d.color === "amber" ? "rgb(245 158 11)" :
+                               d.color === "orange" ? "rgb(249 115 22)" :
+                               d.color === "red" ? "rgb(239 68 68)" : "rgb(168 85 247)") : "rgb(63 63 70)",
+                            color: difficulty === idx ? "white" : "rgb(161 161 170)"
                           }}
                         >
                           {d.name}
@@ -925,25 +988,28 @@ export default function DonutTowerPage() {
                         setExpandedControl("risk");
                         try { sdk.haptics.impactOccurred("light"); } catch {}
                       }}
-                      className={cn(
-                        "h-12 px-3 rounded-lg border flex flex-col items-center justify-center transition-all hover:scale-105 active:scale-95",
-                        `bg-${DIFFICULTIES[difficulty].color}-500/20 border-${DIFFICULTIES[difficulty].color}-500/50`
-                      )}
+                      className="h-full px-4 rounded-lg border-2 flex flex-col items-center justify-center transition-all duration-200 hover:scale-[1.02] active:scale-95"
                       style={{
-                        backgroundColor: `${DIFFICULTIES[difficulty].color === "green" ? "rgba(34, 197, 94, 0.2)" : 
-                          DIFFICULTIES[difficulty].color === "amber" ? "rgba(245, 158, 11, 0.2)" :
-                          DIFFICULTIES[difficulty].color === "orange" ? "rgba(249, 115, 22, 0.2)" :
-                          DIFFICULTIES[difficulty].color === "red" ? "rgba(239, 68, 68, 0.2)" : "rgba(168, 85, 247, 0.2)"}`
+                        backgroundColor: DIFFICULTIES[difficulty].color === "green" ? "rgba(34, 197, 94, 0.15)" : 
+                          DIFFICULTIES[difficulty].color === "amber" ? "rgba(245, 158, 11, 0.15)" :
+                          DIFFICULTIES[difficulty].color === "orange" ? "rgba(249, 115, 22, 0.15)" :
+                          DIFFICULTIES[difficulty].color === "red" ? "rgba(239, 68, 68, 0.15)" : "rgba(168, 85, 247, 0.15)",
+                        borderColor: DIFFICULTIES[difficulty].color === "green" ? "rgba(34, 197, 94, 0.4)" : 
+                          DIFFICULTIES[difficulty].color === "amber" ? "rgba(245, 158, 11, 0.4)" :
+                          DIFFICULTIES[difficulty].color === "orange" ? "rgba(249, 115, 22, 0.4)" :
+                          DIFFICULTIES[difficulty].color === "red" ? "rgba(239, 68, 68, 0.4)" : "rgba(168, 85, 247, 0.4)"
                       }}
                     >
                       <span className="text-[8px] text-gray-400">RISK</span>
-                      <span className={cn(
-                        "text-xs font-bold",
-                        DIFFICULTIES[difficulty].color === "green" ? "text-green-400" :
-                        DIFFICULTIES[difficulty].color === "amber" ? "text-amber-400" :
-                        DIFFICULTIES[difficulty].color === "orange" ? "text-orange-400" :
-                        DIFFICULTIES[difficulty].color === "red" ? "text-red-400" : "text-purple-400"
-                      )}>
+                      <span 
+                        className="text-xs font-bold"
+                        style={{
+                          color: DIFFICULTIES[difficulty].color === "green" ? "rgb(74 222 128)" : 
+                            DIFFICULTIES[difficulty].color === "amber" ? "rgb(251 191 36)" :
+                            DIFFICULTIES[difficulty].color === "orange" ? "rgb(251 146 60)" :
+                            DIFFICULTIES[difficulty].color === "red" ? "rgb(248 113 113)" : "rgb(192 132 252)"
+                        }}
+                      >
                         {DIFFICULTIES[difficulty].name}
                       </span>
                     </button>
@@ -951,12 +1017,17 @@ export default function DonutTowerPage() {
                 </div>
 
                 {/* Bet button */}
-                <div className={cn(
-                  "transition-all duration-300 ease-out overflow-hidden",
-                  expandedControl === "bet" ? "flex-1" : expandedControl === "risk" ? "w-0 opacity-0" : "flex-1"
-                )}>
+                <div 
+                  className="relative h-12"
+                  style={{
+                    flex: expandedControl === "bet" ? "1 1 auto" : expandedControl === "risk" ? "0 0 0px" : "1 1 auto",
+                    opacity: expandedControl === "risk" ? 0 : 1,
+                    transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                    overflow: "hidden"
+                  }}
+                >
                   {expandedControl === "bet" ? (
-                    <div className="flex flex-col gap-1 animate-in slide-in-from-right duration-200">
+                    <div className="flex flex-col gap-1 h-full justify-center">
                       <div className="flex gap-1">
                         {["0.5", "1", "2", "5"].map((val) => (
                           <button
@@ -965,10 +1036,12 @@ export default function DonutTowerPage() {
                               setBetAmount(val);
                               try { sdk.haptics.impactOccurred("light"); } catch {}
                             }}
-                            className={cn(
-                              "flex-1 py-1.5 text-[10px] rounded border font-bold transition-all",
-                              betAmount === val ? "bg-amber-500 text-black border-amber-500" : "bg-zinc-800 text-gray-400 border-zinc-700"
-                            )}
+                            className="flex-1 py-1 text-[10px] rounded-lg border-2 font-bold transition-all duration-200 hover:scale-[1.02] active:scale-95"
+                            style={{
+                              backgroundColor: betAmount === val ? "rgb(245 158 11)" : "rgb(39 39 42)",
+                              borderColor: betAmount === val ? "rgb(245 158 11)" : "rgb(63 63 70)",
+                              color: betAmount === val ? "black" : "rgb(161 161 170)"
+                            }}
                           >
                             {val}
                           </button>
@@ -980,32 +1053,32 @@ export default function DonutTowerPage() {
                           inputMode="decimal"
                           value={betAmount}
                           onChange={(e) => /^\d*\.?\d*$/.test(e.target.value) && setBetAmount(e.target.value)}
-                          className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold focus:border-amber-500 transition-colors"
+                          className="flex-1 bg-zinc-800 border-2 border-zinc-700 rounded-lg px-2 py-0.5 text-center text-sm font-bold focus:border-amber-500 focus:outline-none transition-colors duration-200"
                         />
                         <button
                           onClick={() => {
                             setExpandedControl(null);
                             try { sdk.haptics.impactOccurred("light"); } catch {}
                           }}
-                          className="px-3 py-1 rounded-lg bg-amber-500 text-black text-xs font-bold hover:bg-amber-400 transition-colors"
+                          className="px-4 rounded-lg bg-amber-500 text-black text-xs font-bold hover:bg-amber-400 active:scale-95 transition-all duration-200"
                         >
                           ✓
                         </button>
                       </div>
                     </div>
-                  ) : expandedControl !== "risk" ? (
+                  ) : (
                     <button
                       onClick={() => {
                         setExpandedControl("bet");
                         try { sdk.haptics.impactOccurred("light"); } catch {}
                       }}
-                      className="w-full h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2 transition-all hover:bg-zinc-700 active:scale-[0.98]"
+                      className="w-full h-full rounded-lg bg-zinc-800 border-2 border-zinc-700 flex items-center justify-center gap-2 transition-all duration-200 hover:bg-zinc-750 hover:border-zinc-600 active:scale-[0.98]"
                     >
                       <span className="text-[10px] text-gray-500">BET</span>
                       <span className="text-lg font-bold text-amber-400">{betAmount}</span>
                       <span className="text-[10px] text-gray-500">🍩</span>
                     </button>
-                  ) : null}
+                  )}
                 </div>
               </div>
             </div>

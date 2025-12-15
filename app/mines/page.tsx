@@ -1002,28 +1002,6 @@ export default function BakeryMinesPage() {
           100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
         }
         .confetti { animation: confetti-fall 3s linear forwards; }
-        
-        @keyframes slide-in-from-left {
-          from { transform: translateX(-10px); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes slide-in-from-right {
-          from { transform: translateX(10px); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes zoom-in {
-          from { transform: scale(0.95); }
-          to { transform: scale(1); }
-        }
-        .animate-in { animation-fill-mode: both; }
-        .slide-in-from-left-2 { animation: slide-in-from-left 0.2s ease-out; }
-        .slide-in-from-right-2 { animation: slide-in-from-right 0.2s ease-out; }
-        .fade-in { animation: fade-in 0.15s ease-out; }
-        .zoom-in-95 { animation: zoom-in 0.15s ease-out; }
       `}</style>
 
       {/* Confetti */}
@@ -1172,18 +1150,22 @@ export default function BakeryMinesPage() {
         <div className="space-y-2 pb-1">
           {/* Only show setup controls when no active game */}
           {!gameState && !isStartingGame && !isWaitingForReveal && (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 overflow-hidden">
-              <div className="flex items-center gap-2">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2">
+              <div className="flex items-center gap-2 h-14">
                 {/* Mines button/panel */}
                 <div 
-                  className={cn(
-                    "transition-all duration-300 ease-out overflow-hidden",
-                    expandedPanel === "mines" ? "flex-1" : "flex-shrink-0"
-                  )}
+                  className="relative h-12"
+                  style={{
+                    flex: expandedPanel === "mines" ? "1 1 auto" : "0 0 auto",
+                    width: expandedPanel === "mines" ? "auto" : expandedPanel === "bet" ? "0px" : "auto",
+                    opacity: expandedPanel === "bet" ? 0 : 1,
+                    transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                    overflow: "hidden"
+                  }}
                 >
                   {expandedPanel === "mines" ? (
-                    <div className="flex items-center gap-1 animate-in slide-in-from-left-2 duration-200">
-                      {[1, 3, 5, 10, 24].map((count, idx) => (
+                    <div className="flex items-center gap-1 h-full">
+                      {[1, 3, 5, 10, 24].map((count) => (
                         <button
                           key={count}
                           onClick={() => {
@@ -1191,13 +1173,12 @@ export default function BakeryMinesPage() {
                             setExpandedPanel("none");
                             try { sdk.haptics.impactOccurred("light"); } catch {}
                           }}
-                          style={{ animationDelay: `${idx * 30}ms` }}
-                          className={cn(
-                            "flex-1 py-2 text-[10px] rounded font-bold border transition-all duration-200 animate-in fade-in zoom-in-95",
-                            mineCount === count
-                              ? "bg-red-500 text-white border-red-500 scale-105"
-                              : "bg-zinc-800 text-gray-400 border-zinc-700 hover:border-red-500/50"
-                          )}
+                          className="flex-1 h-full rounded-lg font-bold text-[10px] border-2 transition-all duration-200 hover:scale-[1.02] active:scale-95"
+                          style={{
+                            backgroundColor: mineCount === count ? "rgb(239 68 68)" : "rgb(39 39 42)",
+                            borderColor: mineCount === count ? "rgb(239 68 68)" : "rgb(63 63 70)",
+                            color: mineCount === count ? "white" : "rgb(161 161 170)"
+                          }}
                         >
                           {count}
                         </button>
@@ -1209,7 +1190,11 @@ export default function BakeryMinesPage() {
                         setExpandedPanel("mines");
                         try { sdk.haptics.impactOccurred("light"); } catch {}
                       }}
-                      className="w-14 h-12 rounded-lg bg-red-500/20 border border-red-500/50 flex flex-col items-center justify-center transition-all duration-200 hover:bg-red-500/30 hover:scale-105 active:scale-95"
+                      className="h-full px-4 rounded-lg border-2 flex flex-col items-center justify-center transition-all duration-200 hover:scale-[1.02] active:scale-95"
+                      style={{
+                        backgroundColor: "rgba(239, 68, 68, 0.15)",
+                        borderColor: "rgba(239, 68, 68, 0.4)"
+                      }}
                     >
                       <span className="text-[8px] text-gray-400">MINES</span>
                       <span className="text-sm font-bold text-red-400">{mineCount} 💣</span>
@@ -1219,28 +1204,30 @@ export default function BakeryMinesPage() {
 
                 {/* Bet Amount button/panel */}
                 <div 
-                  className={cn(
-                    "transition-all duration-300 ease-out overflow-hidden",
-                    expandedPanel === "bet" ? "flex-1" : expandedPanel === "mines" ? "flex-shrink-0 w-0 opacity-0" : "flex-1"
-                  )}
+                  className="relative h-12"
+                  style={{
+                    flex: expandedPanel === "bet" ? "1 1 auto" : expandedPanel === "mines" ? "0 0 0px" : "1 1 auto",
+                    opacity: expandedPanel === "mines" ? 0 : 1,
+                    transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                    overflow: "hidden"
+                  }}
                 >
                   {expandedPanel === "bet" ? (
-                    <div className="flex flex-col gap-1 animate-in slide-in-from-right-2 duration-200">
+                    <div className="flex flex-col gap-1 h-full justify-center">
                       <div className="flex gap-1">
-                        {["0.5", "1", "2", "5"].map((val, idx) => (
+                        {["0.5", "1", "2", "5"].map((val) => (
                           <button
                             key={val}
                             onClick={() => {
                               setBetAmount(val);
                               try { sdk.haptics.impactOccurred("light"); } catch {}
                             }}
-                            style={{ animationDelay: `${idx * 30}ms` }}
-                            className={cn(
-                              "flex-1 py-1.5 text-[10px] rounded border font-bold transition-all duration-200 animate-in fade-in zoom-in-95",
-                              betAmount === val 
-                                ? "bg-amber-500 text-black border-amber-500 scale-105" 
-                                : "bg-zinc-800 text-gray-400 border-zinc-700 hover:border-amber-500/50"
-                            )}
+                            className="flex-1 py-1 text-[10px] rounded-lg border-2 font-bold transition-all duration-200 hover:scale-[1.02] active:scale-95"
+                            style={{
+                              backgroundColor: betAmount === val ? "rgb(245 158 11)" : "rgb(39 39 42)",
+                              borderColor: betAmount === val ? "rgb(245 158 11)" : "rgb(63 63 70)",
+                              color: betAmount === val ? "black" : "rgb(161 161 170)"
+                            }}
                           >
                             {val}
                           </button>
@@ -1252,32 +1239,32 @@ export default function BakeryMinesPage() {
                           inputMode="decimal"
                           value={betAmount}
                           onChange={(e) => /^\d*\.?\d*$/.test(e.target.value) && setBetAmount(e.target.value)}
-                          className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold focus:border-amber-500 transition-colors"
+                          className="flex-1 bg-zinc-800 border-2 border-zinc-700 rounded-lg px-2 py-0.5 text-center text-sm font-bold focus:border-amber-500 focus:outline-none transition-colors duration-200"
                         />
                         <button
                           onClick={() => {
                             setExpandedPanel("none");
                             try { sdk.haptics.impactOccurred("light"); } catch {}
                           }}
-                          className="px-3 py-1 rounded-lg bg-amber-500 text-black text-xs font-bold hover:bg-amber-400 transition-colors"
+                          className="px-4 rounded-lg bg-amber-500 text-black text-xs font-bold hover:bg-amber-400 active:scale-95 transition-all duration-200"
                         >
                           ✓
                         </button>
                       </div>
                     </div>
-                  ) : expandedPanel !== "mines" ? (
+                  ) : (
                     <button
                       onClick={() => {
                         setExpandedPanel("bet");
                         try { sdk.haptics.impactOccurred("light"); } catch {}
                       }}
-                      className="w-full h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2 transition-all duration-200 hover:bg-zinc-700 hover:border-zinc-600 active:scale-[0.98]"
+                      className="w-full h-full rounded-lg bg-zinc-800 border-2 border-zinc-700 flex items-center justify-center gap-2 transition-all duration-200 hover:bg-zinc-750 hover:border-zinc-600 active:scale-[0.98]"
                     >
                       <span className="text-[10px] text-gray-500">BET</span>
                       <span className="text-lg font-bold text-amber-400">{betAmount}</span>
                       <span className="text-[10px] text-gray-500">🍩</span>
                     </button>
-                  ) : null}
+                  )}
                 </div>
               </div>
             </div>
