@@ -44,6 +44,7 @@ function GameTile({
   icon: Icon, 
   comingSoon = true,
   isNew = false,
+  isBeta = false,
   lastWinner,
   scrollDirection = "left",
   onClick 
@@ -53,6 +54,7 @@ function GameTile({
   icon: React.ElementType;
   comingSoon?: boolean;
   isNew?: boolean;
+  isBeta?: boolean;
   lastWinner?: { username: string; amount: string; pfpUrl?: string } | null;
   scrollDirection?: "left" | "right";
   onClick?: () => void;
@@ -90,12 +92,17 @@ function GameTile({
                 Soon
               </span>
             )}
-            {!comingSoon && isNew && (
+            {!comingSoon && isBeta && (
+              <span className="text-[9px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold">
+                BETA
+              </span>
+            )}
+            {!comingSoon && isNew && !isBeta && (
               <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold">
                 NEW
               </span>
             )}
-            {!comingSoon && !isNew && (
+            {!comingSoon && !isNew && !isBeta && (
               <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full flex-shrink-0">
                 LIVE
               </span>
@@ -559,18 +566,8 @@ export default function GamesPage() {
       : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
-  // Games list
+  // Games list - Tower moved to bottom with BETA tag
   const games = [
-    {
-      id: "tower",
-      title: "Donut Tower",
-      description: "Climb 9 levels, cash out anytime",
-      icon: TowerControl,
-      comingSoon: false,
-      isNew: true,
-      lastWinner: towerLastWinner,
-      onClick: () => window.location.href = "/tower",
-    },
     {
       id: "wheel",
       title: "Glaze Wheel",
@@ -599,6 +596,16 @@ export default function GamesPage() {
       lastWinner: minesLastWinner,
       scrollDirection: "right" as const,
       onClick: () => router.push("/mines"),
+    },
+    {
+      id: "tower",
+      title: "Donut Tower",
+      description: "Climb 9 levels, cash out anytime",
+      icon: TowerControl,
+      comingSoon: false,
+      isBeta: true,
+      lastWinner: towerLastWinner,
+      onClick: () => window.location.href = "/tower",
     },
     {
       id: "lottery",
@@ -940,6 +947,7 @@ export default function GamesPage() {
                   icon={game.icon}
                   comingSoon={game.comingSoon}
                   isNew={(game as { isNew?: boolean }).isNew}
+                  isBeta={(game as { isBeta?: boolean }).isBeta}
                   lastWinner={game.lastWinner}
                   scrollDirection={(game as { scrollDirection?: "left" | "right" }).scrollDirection}
                   onClick={game.onClick}
