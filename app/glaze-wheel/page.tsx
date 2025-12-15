@@ -603,8 +603,8 @@ export default function GlazeWheelPage() {
   
   const [context, setContext] = useState<{ user?: { fid: number; username?: string; pfpUrl?: string } } | null>(null);
   const [betAmount, setBetAmount] = useState<string>("1");
-  const [riskLevel, setRiskLevel] = useState<number>(0);
-  const [segments, setSegments] = useState<number>(20);
+  const [riskLevel, setRiskLevel] = useState<number>(1);
+  const [segments, setSegments] = useState<number>(10);
   const [showHistory, setShowHistory] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showApprovals, setShowApprovals] = useState(false);
