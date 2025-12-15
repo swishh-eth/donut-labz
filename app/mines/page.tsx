@@ -778,8 +778,9 @@ export default function BakeryMinesPage() {
     }
   }, [startError, isStartingGame, resetStart]);
 
-  // Track tiles that are confirmed revealed
+  // Track tiles that are confirmed revealed (local optimistic state)
   const [confirmedTiles, setConfirmedTiles] = useState<number>(0);
+  const pendingTileRef = useRef<number | null>(null);
   
   // Handle tile reveal
   const handleRevealTile = (tileIndex: number) => {
@@ -791,13 +792,26 @@ export default function BakeryMinesPage() {
     if ((gameState.revealedTiles & tileMask) !== 0) return;
     if ((confirmedTiles & tileMask) !== 0) return;
     
+    // Track which tile we're revealing
+    pendingTileRef.current = tileIndex;
     setRevealingTile(tileIndex);
+    
+    // Optimistically add the tile to confirmed (will show as revealed immediately)
+    setConfirmedTiles(prev => prev | tileMask);
     
     writeRevealTile({
       address: DONUT_MINES_ADDRESS,
       abi: MINES_V5_ABI,
       functionName: "revealTile",
       args: [activeGameId, tileIndex]
+    }, {
+      onError: (error) => {
+        console.error("Reveal tile error:", error);
+        // Revert optimistic update on error
+        setConfirmedTiles(prev => prev & ~tileMask);
+        setRevealingTile(null);
+        pendingTileRef.current = null;
+      }
     });
   };
 
@@ -807,21 +821,24 @@ export default function BakeryMinesPage() {
     
     const tileIndex = revealingTile;
     const tileMask = 1 << tileIndex;
+    const gameIdToCheck = activeGameId;
     
-    setConfirmedTiles(prev => prev | tileMask);
+    // Clear revealing state but keep tile in confirmedTiles
     setRevealingTile(null);
+    pendingTileRef.current = null;
     playRevealSound(true);
     try { sdk.haptics.impactOccurred("light"); } catch {}
     
     const fetchAndUpdate = async () => {
-      await new Promise(r => setTimeout(r, 300));
+      // Wait longer for mobile/slow networks
+      await new Promise(r => setTimeout(r, 1500));
       
       try {
         const game = await publicClient.readContract({
           address: DONUT_MINES_ADDRESS,
           abi: MINES_V5_ABI,
           functionName: "games",
-          args: [activeGameId],
+          args: [gameIdToCheck],
           blockTag: 'latest',
         }) as [string, string, bigint, number, bigint, number, number, number, bigint, bigint];
         
@@ -838,8 +855,15 @@ export default function BakeryMinesPage() {
           payout: game[9],
         };
         
-        setGameState(newGameState);
-        setConfirmedTiles(newGameState.revealedTiles);
+        // Only update if we got newer data (more tiles revealed or game ended)
+        const onChainCount = countBits(newGameState.revealedTiles);
+        const localCount = countBits(confirmedTiles);
+        
+        if (onChainCount >= localCount || newGameState.status !== GameStatus.Active) {
+          setGameState(newGameState);
+          // Merge: keep our local tiles plus any the chain knows about
+          setConfirmedTiles(prev => prev | newGameState.revealedTiles);
+        }
         
         const hitMine = (newGameState.minePositions & tileMask) !== 0;
         
@@ -862,7 +886,7 @@ export default function BakeryMinesPage() {
     };
     
     fetchAndUpdate();
-  }, [isRevealSuccess, revealingTile, activeGameId, publicClient, playRevealSound, playLoseSound, refetchActiveGame, refetchBalance]);
+  }, [isRevealSuccess, revealingTile, activeGameId, publicClient, playRevealSound, playLoseSound, refetchActiveGame, refetchBalance, confirmedTiles]);
 
   // Handle tile reveal error
   useEffect(() => {
@@ -877,7 +901,8 @@ export default function BakeryMinesPage() {
   const handleCashOut = () => {
     if (!activeGameId || !gameState) return;
     if (gameState.status !== GameStatus.Active) return;
-    if (countBits(gameState.revealedTiles) === 0) return;
+    const tileCount = Math.max(countBits(gameState.revealedTiles), countBits(confirmedTiles));
+    if (tileCount === 0) return;
     
     setIsCashingOut(true);
     
@@ -921,13 +946,19 @@ export default function BakeryMinesPage() {
   }, [cashOutError, isCashingOut]);
 
   const balance = tokenBalance ? parseFloat(formatUnits(tokenBalance, 18)) : 0;
+  
+  // Use the higher of on-chain or local tile count for display
+  const revealedCount = gameState 
+    ? Math.max(countBits(gameState.revealedTiles), countBits(confirmedTiles))
+    : 0;
+  
   const nextMultiplier = gameState 
-    ? getMultiplier(gameState.mineCount, countBits(gameState.revealedTiles) + 1)
+    ? getMultiplier(gameState.mineCount, revealedCount + 1)
     : getMultiplier(mineCount, 1);
   const currentMultiplier = gameState 
     ? Number(gameState.currentMultiplier) / 10000
     : 1;
-  const currentProfit = gameState && countBits(gameState.revealedTiles) > 0
+  const currentProfit = gameState && revealedCount > 0
     ? (parseFloat(formatUnits(gameState.betAmount, 18)) * currentMultiplier) - parseFloat(formatUnits(gameState.betAmount, 18))
     : 0;
 
@@ -1122,7 +1153,7 @@ export default function BakeryMinesPage() {
               </div>
               
               {/* Current profit display */}
-              {gameState?.status === GameStatus.Active && countBits(gameState.revealedTiles) > 0 && (
+              {gameState?.status === GameStatus.Active && revealedCount > 0 && (
                 <div className="mt-3 text-center">
                   <div className="text-[10px] text-gray-400">Current Profit</div>
                   <div className="text-lg font-bold text-green-400">+{currentProfit.toFixed(2)} 🍩</div>
@@ -1274,10 +1305,10 @@ export default function BakeryMinesPage() {
           {gameState?.status === GameStatus.Active ? (
             <button
               onClick={handleCashOut}
-              disabled={isCashingOut || isCashOutPending || countBits(gameState.revealedTiles) === 0}
+              disabled={isCashingOut || isCashOutPending || revealedCount === 0}
               className={cn(
                 "w-full py-3 rounded-xl font-bold text-lg transition-all",
-                countBits(gameState.revealedTiles) === 0
+                revealedCount === 0
                   ? "bg-zinc-700 text-zinc-400"
                   : "bg-green-500 text-white hover:bg-green-400"
               )}
@@ -1287,7 +1318,7 @@ export default function BakeryMinesPage() {
                   <Loader2 className="w-5 h-5 animate-spin" />
                   Cashing out...
                 </span>
-              ) : countBits(gameState.revealedTiles) === 0 ? (
+              ) : revealedCount === 0 ? (
                 "Tap a tile to start"
               ) : (
                 `CASH OUT ${(parseFloat(formatUnits(gameState.betAmount, 18)) * currentMultiplier * 0.98).toFixed(2)} 🍩`
