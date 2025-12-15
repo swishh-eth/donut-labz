@@ -125,6 +125,123 @@ interface GameState {
   currentMultiplier: bigint;
 }
 
+// Approvals Modal Component
+function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; refetchAllowance: () => void }) {
+  const { address } = useAccount();
+  const [approvalAmount, setApprovalAmount] = useState<string>("100");
+  
+  const { data: allowance, refetch: refetchLocal } = useReadContract({
+    address: DONUT_TOKEN_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: address ? [address, DONUT_TOWER_ADDRESS] : undefined,
+  });
+
+  const { writeContract, isPending } = useWriteContract();
+
+  const handleApprove = (amount: string) => {
+    const parsedAmount = parseFloat(amount || "0");
+    if (parsedAmount <= 0) return;
+    
+    writeContract({
+      address: DONUT_TOKEN_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "approve",
+      args: [DONUT_TOWER_ADDRESS, parseUnits(amount, 18)]
+    }, {
+      onSuccess: () => {
+        refetchLocal();
+        refetchAllowance();
+      }
+    });
+  };
+
+  const handleRevoke = () => {
+    writeContract({
+      address: DONUT_TOKEN_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "approve",
+      args: [DONUT_TOWER_ADDRESS, BigInt(0)]
+    }, {
+      onSuccess: () => {
+        refetchLocal();
+        refetchAllowance();
+      }
+    });
+  };
+
+  const isApproved = allowance && allowance > BigInt(0);
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={onClose} />
+      <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+        <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
+          <button onClick={onClose} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white z-10">
+            <X className="h-4 w-4" />
+          </button>
+          <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+            <Shield className="w-4 h-4" /> Token Approvals
+          </h2>
+          <p className="text-[10px] text-gray-500 mb-3">Approve tokens for the Tower contract.</p>
+          
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🍩</span>
+                <div>
+                  <div className="text-sm font-bold text-white">DONUT</div>
+                  <div className="text-[10px] text-gray-500">
+                    {isApproved 
+                      ? `Approved: ${parseFloat(formatUnits(allowance, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                      : "Not approved"
+                    }
+                  </div>
+                </div>
+              </div>
+              <div className={cn("w-2 h-2 rounded-full", isApproved ? "bg-green-500" : "bg-red-500")} />
+            </div>
+            
+            <div className="mb-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={approvalAmount}
+                  onChange={(e) => setApprovalAmount(e.target.value)}
+                  placeholder="Amount"
+                  className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-sm text-center font-bold focus:outline-none focus:border-amber-500"
+                />
+                <span className="text-xs text-gray-500">DONUT</span>
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleApprove(approvalAmount)}
+                disabled={isPending || parseFloat(approvalAmount || "0") <= 0}
+                className="flex-1 py-2 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold hover:bg-amber-500/30 transition-colors disabled:opacity-50"
+              >
+                {isPending ? "..." : "Approve"}
+              </button>
+              {isApproved && (
+                <button
+                  onClick={handleRevoke}
+                  disabled={isPending}
+                  className="flex-1 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                >
+                  {isPending ? "..." : "Revoke"}
+                </button>
+              )}
+            </div>
+          </div>
+          
+          <button onClick={onClose} className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Done</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TowerPage() {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
@@ -135,7 +252,6 @@ export default function TowerPage() {
   const [showHelp, setShowHelp] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showApprovals, setShowApprovals] = useState(false);
-  const [approvalAmount, setApprovalAmount] = useState("100");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [expandedControl, setExpandedControl] = useState<"risk" | "bet" | null>(null);
@@ -222,9 +338,6 @@ export default function TowerPage() {
   });
 
   // Contract writes
-  const { data: approveHash, writeContract: writeApprove, isPending: isApprovePending } = useWriteContract();
-  const { isSuccess: isApproveSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
-
   const { data: startHash, writeContract: writeStart, isPending: isStartPending, error: startError, reset: resetStart } = useWriteContract();
   const { isSuccess: isStartSuccess } = useWaitForTransactionReceipt({ hash: startHash });
 
@@ -342,57 +455,6 @@ export default function TowerPage() {
     return () => { cancelled = true; };
   }, [isWaitingForReveal, activeGameId, publicClient, fetchGameState]);
 
-  // ===========================================
-  // HANDLE APPROVAL
-  // ===========================================
-  const handleApprove = (amount: string) => {
-    const parsedAmount = parseFloat(amount || "0");
-    console.log("handleApprove called with amount:", amount, "parsed:", parsedAmount);
-    if (parsedAmount <= 0) {
-      console.log("Amount is 0 or less, returning");
-      return;
-    }
-    
-    console.log("Calling writeApprove...");
-    writeApprove({
-      address: DONUT_TOKEN_ADDRESS,
-      abi: ERC20_ABI,
-      functionName: "approve",
-      args: [DONUT_TOWER_ADDRESS, parseUnits(amount, 18)]
-    }, {
-      onSuccess: (hash) => {
-        console.log("Approve tx sent:", hash);
-      },
-      onError: (error) => {
-        console.error("Approve error:", error);
-        setErrorMessage("Approval failed");
-        setTimeout(() => setErrorMessage(null), 3000);
-      }
-    });
-  };
-
-  const handleRevoke = () => {
-    console.log("handleRevoke called");
-    writeApprove({
-      address: DONUT_TOKEN_ADDRESS,
-      abi: ERC20_ABI,
-      functionName: "approve",
-      args: [DONUT_TOWER_ADDRESS, BigInt(0)]
-    }, {
-      onSuccess: (hash) => {
-        console.log("Revoke tx sent:", hash);
-      },
-      onError: (error) => {
-        console.error("Revoke error:", error);
-      }
-    });
-  };
-
-  useEffect(() => {
-    if (isApproveSuccess) {
-      refetchAllowance();
-    }
-  }, [isApproveSuccess, refetchAllowance]);
 
   // ===========================================
   // START GAME
@@ -953,72 +1015,10 @@ export default function TowerPage() {
 
       {/* Approval Modal */}
       {showApprovals && (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowApprovals(false)} />
-          <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-            <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
-              <button onClick={() => setShowApprovals(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white z-10">
-                <X className="h-4 w-4" />
-              </button>
-              <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
-                <Shield className="w-4 h-4" /> Token Approvals
-              </h2>
-              <p className="text-[10px] text-gray-500 mb-3">Approve tokens for the Tower contract.</p>
-              
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">🍩</span>
-                    <div>
-                      <div className="text-sm font-bold text-white">DONUT</div>
-                      <div className="text-[10px] text-gray-500">
-                        {allowance && allowance > BigInt(0)
-                          ? `Approved: ${parseFloat(formatUnits(allowance, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                          : "Not approved"
-                        }
-                      </div>
-                    </div>
-                  </div>
-                  <div className={cn("w-2 h-2 rounded-full", allowance && allowance > BigInt(0) ? "bg-green-500" : "bg-red-500")} />
-                </div>
-                
-                <div className="mb-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      value={approvalAmount}
-                      onChange={(e) => setApprovalAmount(e.target.value)}
-                      placeholder="Amount"
-                      className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-sm text-center font-bold focus:outline-none focus:border-amber-500"
-                    />
-                    <span className="text-xs text-gray-500">DONUT</span>
-                  </div>
-                </div>
-                
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleApprove(approvalAmount)}
-                    disabled={isApprovePending || parseFloat(approvalAmount || "0") <= 0}
-                    className="flex-1 py-2 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold hover:bg-amber-500/30 transition-colors disabled:opacity-50"
-                  >
-                    {isApprovePending ? "..." : "Approve"}
-                  </button>
-                  {allowance && allowance > BigInt(0) && (
-                    <button
-                      onClick={handleRevoke}
-                      disabled={isApprovePending}
-                      className="flex-1 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold hover:bg-red-500/30 transition-colors disabled:opacity-50"
-                    >
-                      {isApprovePending ? "..." : "Revoke"}
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              <button onClick={() => setShowApprovals(false)} className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Done</button>
-            </div>
-          </div>
-        </div>
+        <ApprovalsModal 
+          onClose={() => setShowApprovals(false)} 
+          refetchAllowance={refetchAllowance}
+        />
       )}
 
       {/* Help Modal */}
