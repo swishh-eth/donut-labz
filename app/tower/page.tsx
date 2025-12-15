@@ -347,22 +347,44 @@ export default function TowerPage() {
   // ===========================================
   const handleApprove = (amount: string) => {
     const parsedAmount = parseFloat(amount || "0");
-    if (parsedAmount <= 0) return;
+    console.log("handleApprove called with amount:", amount, "parsed:", parsedAmount);
+    if (parsedAmount <= 0) {
+      console.log("Amount is 0 or less, returning");
+      return;
+    }
     
+    console.log("Calling writeApprove...");
     writeApprove({
       address: DONUT_TOKEN_ADDRESS,
       abi: ERC20_ABI,
       functionName: "approve",
       args: [DONUT_TOWER_ADDRESS, parseUnits(amount, 18)]
+    }, {
+      onSuccess: (hash) => {
+        console.log("Approve tx sent:", hash);
+      },
+      onError: (error) => {
+        console.error("Approve error:", error);
+        setErrorMessage("Approval failed");
+        setTimeout(() => setErrorMessage(null), 3000);
+      }
     });
   };
 
   const handleRevoke = () => {
+    console.log("handleRevoke called");
     writeApprove({
       address: DONUT_TOKEN_ADDRESS,
       abi: ERC20_ABI,
       functionName: "approve",
       args: [DONUT_TOWER_ADDRESS, BigInt(0)]
+    }, {
+      onSuccess: (hash) => {
+        console.log("Revoke tx sent:", hash);
+      },
+      onError: (error) => {
+        console.error("Revoke error:", error);
+      }
     });
   };
 
