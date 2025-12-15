@@ -710,7 +710,7 @@ export default function TowerPage() {
         </div>
       )}
 
-      <div className="w-full max-w-md flex flex-col h-full">
+      <div className="w-full max-w-md flex flex-col h-full pb-16">
         <NavBar />
         
         <div className="flex-1 overflow-auto px-4 py-2 flex flex-col">
@@ -805,7 +805,7 @@ export default function TowerPage() {
           )}
 
           {/* Controls */}
-          <div className="space-y-2 pb-2">
+          <div className="space-y-2 pb-4 mt-auto">
             {/* Setup controls */}
             {!gameState && !isStartingGame && !isWaitingForReveal && (
               <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
