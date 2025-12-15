@@ -357,17 +357,13 @@ export default function TowerPage() {
   const balance = tokenBalance ? parseFloat(formatUnits(tokenBalance, 18)) : 0;
   const payout = gameState ? (parseFloat(formatUnits(gameState.betAmount, 18)) * currentMult * 0.98) : 0;
 
-  // Get trap position for a level (2 bits per level)
-  // Note: When on currentLevel N, clicking checks against level N's trap in the contract
-  // The contract seems to use the trap for the level you're CLIMBING (not the one you're on)
+  // Get trap position for a level (4 bits per level - matching contract!)
   const getTrap = (level: number): number => {
     if (!gameState) return -1;
-    // The contract might store traps differently - let's check both interpretations
-    const shift = BigInt(level * 2);
-    const mask = BigInt(3);
-    const trapValue = Number((gameState.trapPositions >> shift) & mask);
-    console.log(`getTrap(${level}): shift=${shift}, raw trap value=${trapValue}`);
-    return trapValue;
+    // Contract uses 4-bit slots: trapPositions |= uint256(trapTile) << (level * 4)
+    const shift = BigInt(level * 4);
+    const mask = BigInt(0xF); // 4 bits
+    return Number((gameState.trapPositions >> shift) & mask);
   };
 
   // ===========================================
@@ -570,19 +566,6 @@ export default function TowerPage() {
     // Guard: not already climbing
     if (isClimbing || isClimbPending) return;
 
-    // Note: When clicking, we're climbing FROM currentLevel TO currentLevel+1
-    // The trap check is for the level we're climbing TO
-    const nextLevel = gameState.currentLevel;
-    const trap = getTrap(nextLevel);
-    const isSafeTile = config.safe > 1 ? tileIndex !== trap : tileIndex === trap;
-    console.log("=== TILE CLICK ===");
-    console.log("Current Level (climbing from):", gameState.currentLevel);
-    console.log("Tile clicked:", tileIndex);
-    console.log("Trap value for level", nextLevel, ":", trap);
-    console.log("Config:", config);
-    console.log("Would be safe?:", isSafeTile);
-    console.log("trapPositions raw:", gameState.trapPositions.toString());
-    
     setIsClimbing(true);
     processedClimbHash.current = null;
 
@@ -769,15 +752,6 @@ export default function TowerPage() {
           const isCurrent = inGame && level === l;
           const isPast = level > l;
           const mult = multipliers[l] / 10000;
-          
-          // Debug logging for trap display
-          if (ended) {
-            console.log(`Level ${l}: trap=${trap}, config.safe=${config.safe}, tiles=${config.tiles}`);
-            for (let t = 0; t < config.tiles; t++) {
-              const isSafe = config.safe > 1 ? t !== trap : t === trap;
-              console.log(`  Tile ${t}: isSafe=${isSafe}`);
-            }
-          }
           
           // Can only click tiles on current level when not climbing
           const canClick = isCurrent && !isClimbing && !isClimbPending && !ended;
