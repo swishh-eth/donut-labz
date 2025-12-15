@@ -177,7 +177,7 @@ const MULTIPLIERS: Record<number, Record<number, number>> = {
   3: { 1: 11100, 2: 12500, 3: 14200, 4: 16200, 5: 18700, 6: 21700, 7: 25400, 8: 30100, 9: 36100, 10: 43900, 11: 54300, 12: 68400, 13: 88100, 14: 116500, 15: 159100, 16: 226600, 17: 340000, 18: 544000, 19: 952000, 20: 1904000, 21: 4760000, 22: 19040000 },
   5: { 1: 12200, 2: 15100, 3: 18900, 4: 24000, 5: 30900, 6: 40500, 7: 54000, 8: 73500, 9: 102900, 10: 147000, 11: 220500, 12: 343000, 13: 564200, 14: 987400, 15: 1876000, 16: 3948200, 17: 9474800, 18: 28424400, 19: 113697600, 20: 852732000 },
   10: { 1: 16300, 2: 27200, 3: 46800, 4: 83200, 5: 154700, 6: 302400, 7: 628600, 8: 1415200, 9: 3538000, 10: 10260200, 11: 35910800, 12: 161598400, 13: 1077322800, 14: 12927873000, 15: 645000000000 },
-  24: { 1: 245000000 }
+  24: { 1: 245000 } // 24.5x - corrected from contract bug
 };
 
 const getMultiplier = (mineCount: number, tilesRevealed: number): number => {
@@ -1002,6 +1002,28 @@ export default function BakeryMinesPage() {
           100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
         }
         .confetti { animation: confetti-fall 3s linear forwards; }
+        
+        @keyframes slide-in-from-left {
+          from { transform: translateX(-10px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slide-in-from-right {
+          from { transform: translateX(10px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes zoom-in {
+          from { transform: scale(0.95); }
+          to { transform: scale(1); }
+        }
+        .animate-in { animation-fill-mode: both; }
+        .slide-in-from-left-2 { animation: slide-in-from-left 0.2s ease-out; }
+        .slide-in-from-right-2 { animation: slide-in-from-right 0.2s ease-out; }
+        .fade-in { animation: fade-in 0.15s ease-out; }
+        .zoom-in-95 { animation: zoom-in 0.15s ease-out; }
       `}</style>
 
       {/* Confetti */}
@@ -1146,87 +1168,117 @@ export default function BakeryMinesPage() {
           )}
         </div>
 
-        {/* Controls - Collapsible like wheel */}
+        {/* Controls - Collapsible with smooth animations */}
         <div className="space-y-2 pb-1">
           {/* Only show setup controls when no active game */}
           {!gameState && !isStartingGame && !isWaitingForReveal && (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 overflow-hidden">
               <div className="flex items-center gap-2">
-                {/* Mines - compact button or expanded */}
-                {expandedPanel === "mines" ? (
-                  <div className="flex-1 flex items-center gap-1">
-                    {[1, 3, 5, 10, 24].map((count) => (
-                      <button
-                        key={count}
-                        onClick={() => {
-                          setMineCount(count);
-                          try { sdk.haptics.impactOccurred("light"); } catch {}
-                        }}
-                        className={cn(
-                          "flex-1 py-2 text-[10px] rounded font-bold border transition-all",
-                          mineCount === count
-                            ? "bg-red-500 text-white border-red-500"
-                            : "bg-zinc-800 text-gray-400 border-zinc-700"
-                        )}
-                      >
-                        {count}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setExpandedPanel("mines");
-                      try { sdk.haptics.impactOccurred("light"); } catch {}
-                    }}
-                    className="w-14 h-12 rounded-lg bg-red-500/20 border border-red-500/50 flex flex-col items-center justify-center"
-                  >
-                    <span className="text-[8px] text-gray-400">MINES</span>
-                    <span className="text-sm font-bold text-red-400">{mineCount} 💣</span>
-                  </button>
-                )}
-
-                {/* Bet Amount - compact button or expanded */}
-                {expandedPanel === "bet" ? (
-                  <div className="flex-1 flex flex-col gap-1">
-                    <div className="flex gap-1">
-                      {["0.5", "1", "2", "5"].map((val) => (
+                {/* Mines button/panel */}
+                <div 
+                  className={cn(
+                    "transition-all duration-300 ease-out overflow-hidden",
+                    expandedPanel === "mines" ? "flex-1" : "flex-shrink-0"
+                  )}
+                >
+                  {expandedPanel === "mines" ? (
+                    <div className="flex items-center gap-1 animate-in slide-in-from-left-2 duration-200">
+                      {[1, 3, 5, 10, 24].map((count, idx) => (
                         <button
-                          key={val}
+                          key={count}
                           onClick={() => {
-                            setBetAmount(val);
+                            setMineCount(count);
+                            setExpandedPanel("none");
                             try { sdk.haptics.impactOccurred("light"); } catch {}
                           }}
+                          style={{ animationDelay: `${idx * 30}ms` }}
                           className={cn(
-                            "flex-1 py-1.5 text-[10px] rounded border font-bold",
-                            betAmount === val ? "bg-amber-500 text-black border-amber-500" : "bg-zinc-800 text-gray-400 border-zinc-700"
+                            "flex-1 py-2 text-[10px] rounded font-bold border transition-all duration-200 animate-in fade-in zoom-in-95",
+                            mineCount === count
+                              ? "bg-red-500 text-white border-red-500 scale-105"
+                              : "bg-zinc-800 text-gray-400 border-zinc-700 hover:border-red-500/50"
                           )}
                         >
-                          {val}
+                          {count}
                         </button>
                       ))}
                     </div>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={betAmount}
-                      onChange={(e) => /^\d*\.?\d*$/.test(e.target.value) && setBetAmount(e.target.value)}
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold"
-                    />
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setExpandedPanel("bet");
-                      try { sdk.haptics.impactOccurred("light"); } catch {}
-                    }}
-                    className="flex-1 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2"
-                  >
-                    <span className="text-[10px] text-gray-500">BET</span>
-                    <span className="text-lg font-bold text-amber-400">{betAmount}</span>
-                    <span className="text-[10px] text-gray-500">🍩</span>
-                  </button>
-                )}
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setExpandedPanel("mines");
+                        try { sdk.haptics.impactOccurred("light"); } catch {}
+                      }}
+                      className="w-14 h-12 rounded-lg bg-red-500/20 border border-red-500/50 flex flex-col items-center justify-center transition-all duration-200 hover:bg-red-500/30 hover:scale-105 active:scale-95"
+                    >
+                      <span className="text-[8px] text-gray-400">MINES</span>
+                      <span className="text-sm font-bold text-red-400">{mineCount} 💣</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Bet Amount button/panel */}
+                <div 
+                  className={cn(
+                    "transition-all duration-300 ease-out overflow-hidden",
+                    expandedPanel === "bet" ? "flex-1" : expandedPanel === "mines" ? "flex-shrink-0 w-0 opacity-0" : "flex-1"
+                  )}
+                >
+                  {expandedPanel === "bet" ? (
+                    <div className="flex flex-col gap-1 animate-in slide-in-from-right-2 duration-200">
+                      <div className="flex gap-1">
+                        {["0.5", "1", "2", "5"].map((val, idx) => (
+                          <button
+                            key={val}
+                            onClick={() => {
+                              setBetAmount(val);
+                              try { sdk.haptics.impactOccurred("light"); } catch {}
+                            }}
+                            style={{ animationDelay: `${idx * 30}ms` }}
+                            className={cn(
+                              "flex-1 py-1.5 text-[10px] rounded border font-bold transition-all duration-200 animate-in fade-in zoom-in-95",
+                              betAmount === val 
+                                ? "bg-amber-500 text-black border-amber-500 scale-105" 
+                                : "bg-zinc-800 text-gray-400 border-zinc-700 hover:border-amber-500/50"
+                            )}
+                          >
+                            {val}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex gap-1">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={betAmount}
+                          onChange={(e) => /^\d*\.?\d*$/.test(e.target.value) && setBetAmount(e.target.value)}
+                          className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm font-bold focus:border-amber-500 transition-colors"
+                        />
+                        <button
+                          onClick={() => {
+                            setExpandedPanel("none");
+                            try { sdk.haptics.impactOccurred("light"); } catch {}
+                          }}
+                          className="px-3 py-1 rounded-lg bg-amber-500 text-black text-xs font-bold hover:bg-amber-400 transition-colors"
+                        >
+                          ✓
+                        </button>
+                      </div>
+                    </div>
+                  ) : expandedPanel !== "mines" ? (
+                    <button
+                      onClick={() => {
+                        setExpandedPanel("bet");
+                        try { sdk.haptics.impactOccurred("light"); } catch {}
+                      }}
+                      className="w-full h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center gap-2 transition-all duration-200 hover:bg-zinc-700 hover:border-zinc-600 active:scale-[0.98]"
+                    >
+                      <span className="text-[10px] text-gray-500">BET</span>
+                      <span className="text-lg font-bold text-amber-400">{betAmount}</span>
+                      <span className="text-[10px] text-gray-500">🍩</span>
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
           )}
@@ -1430,7 +1482,7 @@ export default function BakeryMinesPage() {
                     <div><span className="text-amber-400">3 mines:</span> Medium risk, up to 1,904x</div>
                     <div><span className="text-orange-400">5 mines:</span> High risk, up to 85,273x</div>
                     <div><span className="text-red-400">10 mines:</span> Extreme risk, up to 645B x</div>
-                    <div><span className="text-purple-400">24 mines:</span> YOLO mode, 24,500x on first tile!</div>
+                    <div><span className="text-purple-400">24 mines:</span> YOLO mode, 24.5x on the only safe tile!</div>
                   </div>
                 </div>
                 
