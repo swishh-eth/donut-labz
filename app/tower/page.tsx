@@ -863,11 +863,11 @@ export default function TowerPage() {
       <div className="w-full max-w-md flex flex-col h-full pb-16">
         <NavBar />
         
-        <div className="flex-1 overflow-auto px-4 py-2 flex flex-col">
+        <div className="flex-1 px-4 py-2 flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-wide">DONUT TOWER</h1>
+              <h1 className="text-xl font-bold tracking-wide">DONUT TOWER</h1>
               {gameState?.status === GameStatus.Active && (
                 <span className="px-2 py-0.5 text-[10px] bg-green-500 text-black rounded-full font-bold animate-pulse">
                   LIVE
@@ -876,18 +876,28 @@ export default function TowerPage() {
             </div>
           </div>
 
+          {/* Token selector */}
+          <div className="flex gap-2 mb-2">
+            <button className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg font-bold text-sm bg-amber-500 text-black">
+              🍩 DONUT
+            </button>
+            <button disabled className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg font-bold text-sm bg-zinc-900 border border-zinc-800 text-gray-600 opacity-50">
+              ✨ SPRINKLES <span className="text-[8px]">SOON</span>
+            </button>
+          </div>
+
           {/* Stats Bar */}
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-center">
-              <div className="text-[10px] text-gray-500">BALANCE</div>
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-center">
+              <div className="text-[8px] text-gray-500">BALANCE</div>
               <div className="text-sm font-bold text-amber-400">{balance.toFixed(0)} 🍩</div>
             </div>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-center">
-              <div className="text-[10px] text-gray-500">LEVEL</div>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-center">
+              <div className="text-[8px] text-gray-500">LEVEL</div>
               <div className="text-sm font-bold">{gameState ? `${gameState.currentLevel}/9` : "-"}</div>
             </div>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-center">
-              <div className="text-[10px] text-gray-500">MULTIPLIER</div>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-center">
+              <div className="text-[8px] text-gray-500">MULTIPLIER</div>
               <div className="text-sm font-bold text-green-400">{currentMult.toFixed(2)}x</div>
             </div>
           </div>
@@ -921,10 +931,13 @@ export default function TowerPage() {
           </div>
 
           {/* Tower Area */}
-          <div className="flex-1 flex items-center justify-center relative min-h-[300px]">
+          <div className={cn(
+            "flex-1 flex items-center justify-center relative min-h-[300px]",
+            gameResult && "overflow-auto"
+          )}>
             {/* Result overlay */}
             {gameResult && (
-              <div className="absolute inset-0 flex items-center justify-center z-20 bg-black/50">
+              <div className="absolute inset-0 flex items-center justify-center z-20 bg-black/50 pointer-events-none">
                 <div className={cn(
                   "text-2xl font-bold px-6 py-3 rounded-xl",
                   gameResult === "won" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
@@ -974,57 +987,130 @@ export default function TowerPage() {
 
           {/* Controls */}
           <div className="space-y-2 pb-4 mt-auto">
-            {/* Setup controls */}
+            {/* Setup controls - collapsible like mines */}
             {!gameState && !isStartingGame && !isWaitingForReveal && (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
-                <div className="flex gap-2 mb-3">
-                  {/* Difficulty selector */}
-                  <div className="flex-1">
-                    <div className="text-[10px] text-gray-500 mb-1">DIFFICULTY</div>
-                    <div className="flex gap-1">
-                      {DIFFICULTIES.map((d, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setDifficulty(i)}
-                          className={cn(
-                            "flex-1 py-2 text-[9px] rounded font-bold border transition-all",
-                            difficulty === i
-                              ? "bg-amber-500 text-black border-amber-500"
-                              : "bg-zinc-800 text-gray-400 border-zinc-700"
-                          )}
-                        >
-                          {d.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bet amount */}
-                <div>
-                  <div className="text-[10px] text-gray-500 mb-1">BET AMOUNT</div>
-                  <div className="flex gap-1">
-                    {["0.5", "1", "2", "5"].map((val) => (
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2">
+                <div className="flex items-center gap-2 h-14">
+                  {/* Difficulty button/panel */}
+                  <div 
+                    className="relative h-12"
+                    style={{
+                      flex: expandedControl === "risk" ? "1 1 auto" : "0 0 auto",
+                      width: expandedControl === "risk" ? "auto" : expandedControl === "bet" ? "0px" : "auto",
+                      opacity: expandedControl === "bet" ? 0 : 1,
+                      transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                      overflow: "hidden"
+                    }}
+                  >
+                    {expandedControl === "risk" ? (
+                      <div className="flex items-center gap-1 h-full">
+                        {DIFFICULTIES.map((d, i) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              setDifficulty(i);
+                              setExpandedControl(null);
+                              try { sdk.haptics.impactOccurred("light"); } catch {}
+                            }}
+                            className="flex-1 h-full rounded-lg font-bold text-[9px] border-2 transition-all duration-200 hover:scale-[1.02] active:scale-95"
+                            style={{
+                              backgroundColor: difficulty === i ? `rgb(${d.color === "green" ? "34 197 94" : d.color === "amber" ? "245 158 11" : d.color === "orange" ? "249 115 22" : d.color === "red" ? "239 68 68" : "168 85 247"})` : "rgb(39 39 42)",
+                              borderColor: difficulty === i ? `rgb(${d.color === "green" ? "34 197 94" : d.color === "amber" ? "245 158 11" : d.color === "orange" ? "249 115 22" : d.color === "red" ? "239 68 68" : "168 85 247"})` : "rgb(63 63 70)",
+                              color: difficulty === i ? (d.color === "amber" || d.color === "green" ? "black" : "white") : "rgb(161 161 170)"
+                            }}
+                          >
+                            {d.name}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
                       <button
-                        key={val}
-                        onClick={() => setBetAmount(val)}
-                        className={cn(
-                          "flex-1 py-2 text-xs rounded font-bold border transition-all",
-                          betAmount === val
-                            ? "bg-amber-500 text-black border-amber-500"
-                            : "bg-zinc-800 text-gray-400 border-zinc-700"
-                        )}
+                        onClick={() => {
+                          setExpandedControl("risk");
+                          try { sdk.haptics.impactOccurred("light"); } catch {}
+                        }}
+                        className="h-full px-4 rounded-lg border-2 flex flex-col items-center justify-center transition-all duration-200 hover:scale-[1.02] active:scale-95"
+                        style={{
+                          backgroundColor: `rgba(${DIFFICULTIES[difficulty].color === "green" ? "34, 197, 94" : DIFFICULTIES[difficulty].color === "amber" ? "245, 158, 11" : DIFFICULTIES[difficulty].color === "orange" ? "249, 115, 22" : DIFFICULTIES[difficulty].color === "red" ? "239, 68, 68" : "168, 85, 247"}, 0.15)`,
+                          borderColor: `rgba(${DIFFICULTIES[difficulty].color === "green" ? "34, 197, 94" : DIFFICULTIES[difficulty].color === "amber" ? "245, 158, 11" : DIFFICULTIES[difficulty].color === "orange" ? "249, 115, 22" : DIFFICULTIES[difficulty].color === "red" ? "239, 68, 68" : "168, 85, 247"}, 0.4)`
+                        }}
                       >
-                        {val}
+                        <span className="text-[8px] text-gray-400">RISK</span>
+                        <span className={cn(
+                          "text-sm font-bold",
+                          DIFFICULTIES[difficulty].color === "green" && "text-green-400",
+                          DIFFICULTIES[difficulty].color === "amber" && "text-amber-400",
+                          DIFFICULTIES[difficulty].color === "orange" && "text-orange-400",
+                          DIFFICULTIES[difficulty].color === "red" && "text-red-400",
+                          DIFFICULTIES[difficulty].color === "purple" && "text-purple-400"
+                        )}>{DIFFICULTIES[difficulty].name}</span>
                       </button>
-                    ))}
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={betAmount}
-                      onChange={(e) => /^\d*\.?\d*$/.test(e.target.value) && setBetAmount(e.target.value)}
-                      className="w-16 bg-zinc-800 border border-zinc-700 rounded px-2 text-center text-sm font-bold"
-                    />
+                    )}
+                  </div>
+
+                  {/* Bet Amount button/panel */}
+                  <div 
+                    className="relative h-12"
+                    style={{
+                      flex: expandedControl === "bet" ? "1 1 auto" : expandedControl === "risk" ? "0 0 0px" : "1 1 auto",
+                      opacity: expandedControl === "risk" ? 0 : 1,
+                      transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                      overflow: "hidden"
+                    }}
+                  >
+                    {expandedControl === "bet" ? (
+                      <div className="flex flex-col gap-1 h-full justify-center">
+                        <div className="flex gap-1">
+                          {["0.5", "1", "2", "5"].map((val) => (
+                            <button
+                              key={val}
+                              onClick={() => {
+                                setBetAmount(val);
+                                try { sdk.haptics.impactOccurred("light"); } catch {}
+                              }}
+                              className="flex-1 py-1 text-[10px] rounded-lg border-2 font-bold transition-all duration-200 hover:scale-[1.02] active:scale-95"
+                              style={{
+                                backgroundColor: betAmount === val ? "rgb(245 158 11)" : "rgb(39 39 42)",
+                                borderColor: betAmount === val ? "rgb(245 158 11)" : "rgb(63 63 70)",
+                                color: betAmount === val ? "black" : "rgb(161 161 170)"
+                              }}
+                            >
+                              {val}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex gap-1">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={betAmount}
+                            onChange={(e) => /^\d*\.?\d*$/.test(e.target.value) && setBetAmount(e.target.value)}
+                            className="flex-1 bg-zinc-800 border-2 border-zinc-700 rounded-lg px-2 py-0.5 text-center text-sm font-bold focus:border-amber-500 focus:outline-none transition-colors duration-200"
+                          />
+                          <button
+                            onClick={() => {
+                              setExpandedControl(null);
+                              try { sdk.haptics.impactOccurred("light"); } catch {}
+                            }}
+                            className="px-4 rounded-lg bg-amber-500 text-black text-xs font-bold hover:bg-amber-400 active:scale-95 transition-all duration-200"
+                          >
+                            ✓
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setExpandedControl("bet");
+                          try { sdk.haptics.impactOccurred("light"); } catch {}
+                        }}
+                        className="w-full h-full rounded-lg bg-zinc-800 border-2 border-zinc-700 flex items-center justify-center gap-2 transition-all duration-200 hover:bg-zinc-750 hover:border-zinc-600 active:scale-[0.98]"
+                      >
+                        <span className="text-[10px] text-gray-500">BET</span>
+                        <span className="text-lg font-bold text-amber-400">{betAmount}</span>
+                        <span className="text-[10px] text-gray-500">🍩</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1060,7 +1146,7 @@ export default function TowerPage() {
                   "w-full py-3 rounded-xl font-bold text-lg transition-all",
                   isStartingGame || isStartPending || isWaitingForReveal
                     ? "bg-zinc-600 text-zinc-300"
-                    : "bg-amber-500 text-black hover:bg-amber-400"
+                    : "bg-white text-black hover:bg-gray-100"
                 )}
               >
                 {isStartingGame || isStartPending ? (
@@ -1072,7 +1158,7 @@ export default function TowerPage() {
                     <Loader2 className="w-5 h-5 animate-spin" /> Building...
                   </span>
                 ) : (
-                  `START GAME (${betAmount} 🍩)`
+                  "START CLIMB"
                 )}
               </button>
             )}
