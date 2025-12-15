@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
-import { History, HelpCircle, X, Loader2, Volume2, VolumeX, Shield } from "lucide-react";
+import { History, HelpCircle, X, Loader2, Volume2, VolumeX, Shield, ChevronDown, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Contract addresses
@@ -255,6 +255,8 @@ export default function TowerPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [expandedControl, setExpandedControl] = useState<"risk" | "bet" | null>(null);
+  const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
+  const [recentGames, setRecentGames] = useState<GameState[]>([]);
 
   // Game State - Simple and clean
   const [activeGameId, setActiveGameId] = useState<bigint | null>(null);
@@ -470,6 +472,49 @@ export default function TowerPage() {
 
     return () => clearInterval(interval);
   }, [isWaitingForReveal]);
+
+  // Fetch game history when modal opens
+  useEffect(() => {
+    if (!showHistory || !playerGameIds || !publicClient) return;
+    
+    const fetchHistory = async () => {
+      const ids = playerGameIds as bigint[];
+      if (!ids || ids.length === 0) {
+        setRecentGames([]);
+        return;
+      }
+      
+      const games: GameState[] = [];
+      const idsToFetch = ids.slice(-5).reverse();
+      
+      for (const id of idsToFetch) {
+        try {
+          const game = await publicClient.readContract({
+            address: DONUT_TOWER_ADDRESS,
+            abi: TOWER_ABI,
+            functionName: "games",
+            args: [id],
+          }) as unknown as any[];
+          
+          games.push({
+            player: game[0],
+            betAmount: game[2],
+            difficulty: Number(game[3]),
+            status: Number(game[5]),
+            currentLevel: Number(game[6]),
+            trapPositions: game[7],
+            currentMultiplier: game[8],
+          });
+          
+          await new Promise(r => setTimeout(r, 100));
+        } catch {}
+      }
+      
+      setRecentGames(games);
+    };
+    
+    fetchHistory();
+  }, [showHistory, playerGameIds, publicClient]);
 
 
   // ===========================================
@@ -1176,29 +1221,65 @@ export default function TowerPage() {
 
       {/* Help Modal */}
       {showHelp && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-900 rounded-2xl p-6 max-w-sm w-full border border-zinc-700 max-h-[80vh] overflow-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">How to Play</h3>
-              <button onClick={() => setShowHelp(false)}>
-                <X className="w-5 h-5" />
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHelp(false)} />
+          <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+            <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
+              <button onClick={() => setShowHelp(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white z-10">
+                <X className="h-4 w-4" />
               </button>
-            </div>
-            <div className="space-y-3 text-sm text-gray-300">
-              <p>1. Choose difficulty and bet amount</p>
-              <p>2. Click START to begin climbing</p>
-              <p>3. Each level has safe tiles (🍩) and traps (💀)</p>
-              <p>4. Pick a tile to climb - avoid the traps!</p>
-              <p>5. Cash out anytime or reach level 9 for max payout</p>
-              <div className="mt-4 p-3 bg-zinc-800 rounded-lg">
-                <div className="font-bold mb-2">Difficulties:</div>
-                {DIFFICULTIES.map((d, i) => (
-                  <div key={i} className="flex justify-between text-xs">
-                    <span>{d.name}</span>
-                    <span>{d.safe}/{d.tiles} safe</span>
+              <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+                <Target className="w-4 h-4" /> How to Play
+              </h2>
+              <div className="space-y-2.5">
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">1</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Choose Difficulty</div>
+                    <div className="text-[11px] text-gray-400">Easy = 3/4 safe tiles. Master = 1/4 safe tiles!</div>
                   </div>
-                ))}
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">2</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Set Your Bet</div>
+                    <div className="text-[11px] text-gray-400">Choose how much DONUT to wager (0.1 - 10).</div>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Climb The Tower</div>
+                    <div className="text-[11px] text-gray-400">Pick tiles to climb - avoid the 💀 traps!</div>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
+                  <div>
+                    <div className="font-semibold text-green-400 text-xs">Cash Out Anytime!</div>
+                    <div className="text-[11px] text-gray-400">Take your winnings or reach level 9 for max payout!</div>
+                  </div>
+                </div>
               </div>
+              
+              <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
+                <div className="text-[10px] text-amber-400 font-bold mb-1">Difficulty Modes:</div>
+                <div className="text-[10px] text-gray-400 space-y-0.5">
+                  <div><span className="text-green-400">Easy:</span> 4 tiles, 3 safe (75%) - Max 13.05x</div>
+                  <div><span className="text-amber-400">Medium:</span> 3 tiles, 2 safe (66%) - Max 41.24x</div>
+                  <div><span className="text-orange-400">Hard:</span> 2 tiles, 1 safe (50%) - Max 501.76x</div>
+                  <div><span className="text-red-400">Expert:</span> 3 tiles, 1 safe (33%) - Max 19,289x</div>
+                  <div><span className="text-purple-400">Master:</span> 4 tiles, 1 safe (25%) - Max 256,901x</div>
+                </div>
+              </div>
+              
+              <div className="mt-2 p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
+                <div className="text-[10px] text-amber-400 font-bold mb-1">Fee Structure:</div>
+                <div className="text-[10px] text-gray-400">On Win: 2% house edge (deducted from winnings)</div>
+                <div className="text-[10px] text-gray-400">On Loss: 50% pool, 25% LP burn, 25% treasury</div>
+              </div>
+              
+              <button onClick={() => setShowHelp(false)} className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Got it</button>
             </div>
           </div>
         </div>
@@ -1206,16 +1287,102 @@ export default function TowerPage() {
 
       {/* History Modal */}
       {showHistory && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-900 rounded-2xl p-6 max-w-sm w-full border border-zinc-700 max-h-[80vh] overflow-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">Game History</h3>
-              <button onClick={() => setShowHistory(false)}>
-                <X className="w-5 h-5" />
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHistory(false)} />
+          <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+            <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl max-h-[70vh] overflow-hidden flex flex-col">
+              <button onClick={() => setShowHistory(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white z-10">
+                <X className="h-4 w-4" />
               </button>
-            </div>
-            <div className="text-center text-gray-500 text-sm">
-              Coming soon...
+              <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+                <History className="w-4 h-4" /> Game History
+              </h2>
+              <p className="text-[10px] text-gray-500 mb-3">Tap any game to verify. All results are provably fair.</p>
+              
+              <div className="flex-1 overflow-y-auto space-y-2">
+                {recentGames.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-8">No games yet</p>
+                ) : (
+                  recentGames.map((game, index) => {
+                    const isWon = game.status === GameStatus.Won;
+                    const isLost = game.status === GameStatus.Lost;
+                    const multiplier = Number(game.currentMultiplier) / 10000;
+                    const gameIds = playerGameIds as bigint[] | undefined;
+                    const gameId = gameIds ? gameIds[gameIds.length - 1 - index] : null;
+                    const gameIdStr = gameId?.toString() || index.toString();
+                    const isExpanded = expandedGameId === gameIdStr;
+                    const diffConfig = DIFFICULTIES[game.difficulty];
+                    
+                    return (
+                      <div 
+                        key={index}
+                        onClick={() => setExpandedGameId(isExpanded ? null : gameIdStr)}
+                        className={cn(
+                          "p-2 rounded-lg border cursor-pointer transition-all", 
+                          isWon ? "bg-green-500/10 border-green-500/30 hover:bg-green-500/20" : isLost ? "bg-red-500/10 border-red-500/30 hover:bg-red-500/20" : "bg-zinc-800 border-zinc-700"
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className={cn("text-xl", isWon ? "text-green-400" : "text-red-400")}>
+                              {isWon ? "🏆" : "💀"}
+                            </span>
+                            <div>
+                              <span className="text-xs text-gray-400">{diffConfig.name} • Level {game.currentLevel}</span>
+                              <div className="text-[9px] text-gray-500 flex items-center gap-1">
+                                {multiplier.toFixed(2)}x <ChevronDown className={cn("w-3 h-3 transition-transform", isExpanded && "rotate-180")} />
+                              </div>
+                            </div>
+                          </div>
+                          <div className={cn("text-sm font-bold", isWon ? "text-green-400" : "text-red-400")}>
+                            {isWon 
+                              ? `+${(parseFloat(formatUnits(game.betAmount, 18)) * multiplier * 0.98).toFixed(2)}` 
+                              : `-${parseFloat(formatUnits(game.betAmount, 18)).toFixed(2)}`
+                            } 🍩
+                          </div>
+                        </div>
+                        
+                        {isExpanded && (
+                          <div className="mt-3 p-2 bg-zinc-900/80 rounded-lg border border-zinc-700 space-y-2">
+                            <div className="text-[10px] text-amber-400 font-bold">🔐 Verification Data</div>
+                            
+                            <div className="space-y-1 text-[9px] font-mono">
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">Game ID:</span>
+                                <span className="text-white">{gameId?.toString() || "N/A"}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">Difficulty:</span>
+                                <span className="text-white">{diffConfig.name} ({diffConfig.safe}/{diffConfig.tiles} safe)</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">Level Reached:</span>
+                                <span className={isWon ? "text-green-400" : "text-red-400"}>{game.currentLevel}/9</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">Multiplier:</span>
+                                <span className="text-white">{multiplier.toFixed(2)}x</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">Trap Positions:</span>
+                                <span className="text-white font-mono text-[8px]">0x{game.trapPositions.toString(16).padStart(9, '0')}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="pt-2 border-t border-zinc-700">
+                              <div className="text-[8px] text-amber-400/80 font-mono bg-zinc-800 p-1.5 rounded break-all">
+                                traps = keccak256(blockhash + gameId + level)
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              
+              <button onClick={() => setShowHistory(false)} className="mt-2 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Close</button>
             </div>
           </div>
         </div>
