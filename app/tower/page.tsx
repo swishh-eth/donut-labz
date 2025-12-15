@@ -578,67 +578,108 @@ export default function TowerPage() {
     });
   };
 
-  // Handle climb success
+  // Handle climb - poll for state change instead of relying solely on tx receipt
   useEffect(() => {
-    if (!isClimbSuccess || !climbHash || !activeGameId || !publicClient) return;
+    if (!isClimbing || !activeGameId || !publicClient) return;
+    if (!climbHash && !isClimbPending) return; // Not started yet
+    
+    // If we have a hash, start polling for state change
+    if (!climbHash) return;
+    
+    // Prevent duplicate processing
     if (processedClimbHash.current === climbHash) return;
     processedClimbHash.current = climbHash;
 
+    console.log("Climb tx sent, polling for state change...", climbHash);
+
     const gameIdToFetch = activeGameId;
+    const startLevel = gameState?.currentLevel ?? 0;
+    let cancelled = false;
 
-    const updateState = async () => {
-      // Wait for chain to update
-      await new Promise(r => setTimeout(r, 1500));
-
-      const newState = await fetchGameState(gameIdToFetch);
+    const pollForUpdate = async () => {
+      // Wait a bit for chain to process
+      await new Promise(r => setTimeout(r, 2000));
       
-      if (!newState) {
-        setIsClimbing(false);
-        resetClimb();
-        return;
+      // Poll up to 15 times (30 seconds total)
+      for (let i = 0; i < 15 && !cancelled; i++) {
+        try {
+          const newState = await fetchGameState(gameIdToFetch);
+          
+          if (!newState) {
+            console.log("Poll attempt", i + 1, "- no state");
+            await new Promise(r => setTimeout(r, 2000));
+            continue;
+          }
+
+          // Check if state changed (level increased, or game ended)
+          const levelChanged = newState.currentLevel !== startLevel;
+          const gameEnded = newState.status === GameStatus.Lost || newState.status === GameStatus.Won;
+          
+          console.log("Poll attempt", i + 1, "- level:", newState.currentLevel, "status:", newState.status, "changed:", levelChanged || gameEnded);
+
+          if (levelChanged || gameEnded) {
+            if (cancelled) return;
+            
+            // Update state
+            setGameState(newState);
+            setIsClimbing(false);
+            resetClimb();
+
+            // Handle game end
+            if (newState.status === GameStatus.Lost) {
+              playSound("lose");
+              try { sdk.haptics.impactOccurred("heavy"); } catch {}
+              setGameResult("lost");
+              
+              setTimeout(() => {
+                setActiveGameId(null);
+                setGameState(null);
+                setGameResult(null);
+                refetchActiveGame();
+                refetchBalance();
+              }, 3000);
+            } else if (newState.status === GameStatus.Won) {
+              playSound("win");
+              try { sdk.haptics.impactOccurred("heavy"); } catch {}
+              setGameResult("won");
+              setShowConfetti(true);
+              
+              setTimeout(() => {
+                setShowConfetti(false);
+                setActiveGameId(null);
+                setGameState(null);
+                setGameResult(null);
+                refetchActiveGame();
+                refetchBalance();
+              }, 3000);
+            } else {
+              // Successfully climbed
+              playSound("climb");
+              try { sdk.haptics.impactOccurred("medium"); } catch {}
+            }
+            return;
+          }
+        } catch (e) {
+          console.error("Poll error:", e);
+        }
+        
+        await new Promise(r => setTimeout(r, 2000));
       }
 
-      // Update state
-      setGameState(newState);
-      setIsClimbing(false);
-      resetClimb();
-
-      // Handle game end
-      if (newState.status === GameStatus.Lost) {
-        playSound("lose");
-        try { sdk.haptics.impactOccurred("heavy"); } catch {}
-        setGameResult("lost");
-        
-        setTimeout(() => {
-          setActiveGameId(null);
-          setGameState(null);
-          setGameResult(null);
-          refetchActiveGame();
-          refetchBalance();
-        }, 3000);
-      } else if (newState.status === GameStatus.Won) {
-        playSound("win");
-        try { sdk.haptics.impactOccurred("heavy"); } catch {}
-        setGameResult("won");
-        setShowConfetti(true);
-        
-        setTimeout(() => {
-          setShowConfetti(false);
-          setActiveGameId(null);
-          setGameState(null);
-          setGameResult(null);
-          refetchActiveGame();
-          refetchBalance();
-        }, 3000);
-      } else {
-        // Successfully climbed
-        playSound("climb");
-        try { sdk.haptics.impactOccurred("medium"); } catch {}
+      // Timeout - reset state
+      if (!cancelled) {
+        console.log("Climb poll timeout");
+        setIsClimbing(false);
+        resetClimb();
+        setErrorMessage("Sync issue - tap tile again");
+        setTimeout(() => setErrorMessage(null), 3000);
       }
     };
 
-    updateState();
-  }, [isClimbSuccess, climbHash, activeGameId, publicClient, fetchGameState, playSound, refetchActiveGame, refetchBalance, resetClimb]);
+    pollForUpdate();
+    
+    return () => { cancelled = true; };
+  }, [isClimbing, climbHash, isClimbPending, activeGameId, publicClient, gameState?.currentLevel, fetchGameState, playSound, refetchActiveGame, refetchBalance, resetClimb]);
 
   // Handle climb error
   useEffect(() => {
