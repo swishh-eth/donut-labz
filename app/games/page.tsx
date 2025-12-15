@@ -7,7 +7,7 @@ import { createPublicClient, http, formatUnits } from "viem";
 import { base } from "viem/chains";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Target, Zap, Trophy, Lock, Bomb, TowerControl } from "lucide-react";
+import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Zap, Trophy, Lock, Bomb, Layers } from "lucide-react";
 
 // Contract addresses - V5 contracts
 const DONUT_DICE_ADDRESS = "0xD6f1Eb5858efF6A94B853251BE2C27c4038BB7CE" as const;
@@ -37,6 +37,32 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
+// Custom Wheel Icon component
+function WheelIcon({ className }: { className?: string }) {
+  return (
+    <svg 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+      className={className}
+    >
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="2" />
+      <line x1="12" y1="2" x2="12" y2="6" />
+      <line x1="12" y1="18" x2="12" y2="22" />
+      <line x1="2" y1="12" x2="6" y2="12" />
+      <line x1="18" y1="12" x2="22" y2="12" />
+      <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+      <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+      <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+      <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+    </svg>
+  );
+}
+
 // Game tile component
 function GameTile({ 
   title, 
@@ -44,7 +70,7 @@ function GameTile({
   icon: Icon, 
   comingSoon = true,
   isNew = false,
-  isBeta = false,
+  isHot = false,
   lastWinner,
   scrollDirection = "left",
   onClick 
@@ -54,7 +80,7 @@ function GameTile({
   icon: React.ElementType;
   comingSoon?: boolean;
   isNew?: boolean;
-  isBeta?: boolean;
+  isHot?: boolean;
   lastWinner?: { username: string; amount: string; pfpUrl?: string } | null;
   scrollDirection?: "left" | "right";
   onClick?: () => void;
@@ -92,17 +118,17 @@ function GameTile({
                 Soon
               </span>
             )}
-            {!comingSoon && isBeta && (
-              <span className="text-[9px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold">
-                BETA
+            {!comingSoon && isHot && (
+              <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold hot-pulse">
+                🔥 HOT
               </span>
             )}
-            {!comingSoon && isNew && !isBeta && (
+            {!comingSoon && isNew && !isHot && (
               <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold">
                 NEW
               </span>
             )}
-            {!comingSoon && !isNew && !isBeta && (
+            {!comingSoon && !isNew && !isHot && (
               <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full flex-shrink-0">
                 LIVE
               </span>
@@ -566,13 +592,13 @@ export default function GamesPage() {
       : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
-  // Games list - Tower moved to bottom with BETA tag
+  // Games list - Tower moved to bottom with HOT tag
   const games = [
     {
       id: "wheel",
       title: "Glaze Wheel",
-      description: "Spin to win big multipliers",
-      icon: Target,
+      description: "Spin to win some real glaze!",
+      icon: WheelIcon,
       comingSoon: false,
       lastWinner: wheelLastWinner,
       scrollDirection: "right" as const,
@@ -581,7 +607,7 @@ export default function GamesPage() {
     {
       id: "dice",
       title: "Sugar Cubes",
-      description: "Roll over/under, win big multipliers",
+      description: "Roll over/under, set your multiplier!",
       icon: Dices,
       comingSoon: false,
       lastWinner: diceLastWinner,
@@ -600,10 +626,10 @@ export default function GamesPage() {
     {
       id: "tower",
       title: "Donut Tower",
-      description: "Climb 9 levels, cash out anytime",
-      icon: TowerControl,
+      description: "Climb up to 9 levels to win some dough!",
+      icon: Layers,
       comingSoon: false,
-      isBeta: true,
+      isHot: true,
       lastWinner: towerLastWinner,
       onClick: () => window.location.href = "/tower",
     },
@@ -674,8 +700,15 @@ export default function GamesPage() {
           0% { transform: translateX(-50%); }
           100% { transform: translateX(0); }
         }
+        @keyframes hot-pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.7; transform: scale(0.95); }
+        }
         .icon-breathe {
           animation: icon-breathe 2s ease-in-out infinite;
+        }
+        .hot-pulse {
+          animation: hot-pulse 2s ease-in-out infinite;
         }
         .winner-container {
           overflow: hidden;
@@ -947,7 +980,7 @@ export default function GamesPage() {
                   icon={game.icon}
                   comingSoon={game.comingSoon}
                   isNew={(game as { isNew?: boolean }).isNew}
-                  isBeta={(game as { isBeta?: boolean }).isBeta}
+                  isHot={(game as { isHot?: boolean }).isHot}
                   lastWinner={game.lastWinner}
                   scrollDirection={(game as { scrollDirection?: "left" | "right" }).scrollDirection}
                   onClick={game.onClick}

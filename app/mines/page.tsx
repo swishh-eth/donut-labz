@@ -6,7 +6,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
-import { History, HelpCircle, X, Loader2, Shield, Bomb, Volume2, VolumeX, ChevronDown, Target } from "lucide-react";
+import { History, HelpCircle, X, Loader2, Shield, Bomb, Volume2, VolumeX, ChevronDown, Target, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Contract addresses - V5
@@ -193,6 +193,78 @@ const countBits = (n: number): number => {
   return count;
 };
 
+// Donut explosion particle type
+type DonutParticle = {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  rotation: number;
+  scale: number;
+};
+
+// Donut Explosion Component
+function DonutExplosion({ tileIndex, onComplete }: { tileIndex: number; onComplete: () => void }) {
+  const [particles, setParticles] = useState<DonutParticle[]>([]);
+  
+  useEffect(() => {
+    // Create 8-12 particles
+    const count = 8 + Math.floor(Math.random() * 5);
+    const newParticles: DonutParticle[] = [];
+    
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+      const speed = 80 + Math.random() * 60;
+      newParticles.push({
+        id: i,
+        x: 0,
+        y: 0,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 50, // Bias upward
+        rotation: Math.random() * 360,
+        scale: 0.6 + Math.random() * 0.6,
+      });
+    }
+    
+    setParticles(newParticles);
+    
+    // Clean up after animation
+    const timer = setTimeout(onComplete, 800);
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+  
+  // Calculate tile position (5x5 grid)
+  const row = Math.floor(tileIndex / 5);
+  const col = tileIndex % 5;
+  
+  return (
+    <div 
+      className="absolute pointer-events-none z-30"
+      style={{
+        left: `${col * 20 + 10}%`,
+        top: `${row * 20 + 10}%`,
+      }}
+    >
+      {particles.map((p) => (
+        <div
+          key={p.id}
+          className="absolute text-xl"
+          style={{
+            animation: 'donut-fly 0.8s ease-out forwards',
+            '--vx': `${p.vx}px`,
+            '--vy': `${p.vy}px`,
+            '--rotation': `${p.rotation + 720}deg`,
+            transform: `scale(${p.scale})`,
+          } as React.CSSProperties}
+        >
+          🍩
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Approvals Modal
 function ApprovalsModal({ onClose, refetchAllowance }: { onClose: () => void; refetchAllowance: () => void }) {
   const { address } = useAccount();
@@ -310,7 +382,7 @@ export default function BakeryMinesPage() {
   
   const [context, setContext] = useState<{ user?: { fid: number; username?: string; pfpUrl?: string } } | null>(null);
   const [betAmount, setBetAmount] = useState<string>("1");
-  const [mineCount, setMineCount] = useState<number>(3);
+  const [mineCount, setMineCount] = useState<number>(1); // Default to 1 mine now
   const [showHistory, setShowHistory] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showApprovals, setShowApprovals] = useState(false);
@@ -319,6 +391,10 @@ export default function BakeryMinesPage() {
   const [isMuted, setIsMuted] = useState(false);
   const [hasShownApproval, setHasShownApproval] = useState(false);
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
+  const [showComingSoon, setShowComingSoon] = useState(false);
+  
+  // Donut explosions state
+  const [explosions, setExplosions] = useState<number[]>([]);
   
   // Collapsible panel state (like wheel)
   const [expandedPanel, setExpandedPanel] = useState<"none" | "mines" | "bet">("none");
@@ -623,6 +699,13 @@ export default function BakeryMinesPage() {
   const { data: cashOutHash, writeContract: writeCashOut, isPending: isCashOutPending, error: cashOutError } = useWriteContract();
   const { isSuccess: isCashOutSuccess } = useWaitForTransactionReceipt({ hash: cashOutHash });
 
+  // Handle locked mine option click
+  const handleLockedMineClick = () => {
+    setShowComingSoon(true);
+    try { sdk.haptics.impactOccurred("medium"); } catch {}
+    setTimeout(() => setShowComingSoon(false), 1500);
+  };
+
   // Handle start game
   const handleStartGame = async () => {
     if (!isConnected || !address) return;
@@ -848,6 +931,15 @@ export default function BakeryMinesPage() {
     });
   };
 
+  // Trigger donut explosion
+  const triggerExplosion = useCallback((tileIndex: number) => {
+    setExplosions(prev => [...prev, tileIndex]);
+  }, []);
+
+  const removeExplosion = useCallback((tileIndex: number) => {
+    setExplosions(prev => prev.filter(i => i !== tileIndex));
+  }, []);
+
   // Handle tile reveal success
   useEffect(() => {
     if (!isRevealSuccess || revealingTile === null || !activeGameId || !publicClient) return;
@@ -860,6 +952,7 @@ export default function BakeryMinesPage() {
     setRevealingTile(null);
     pendingTileRef.current = null;
     playRevealSound(true);
+    triggerExplosion(tileIndex); // Trigger donut explosion!
     try { sdk.haptics.impactOccurred("light"); } catch {}
     
     const fetchAndUpdate = async () => {
@@ -919,7 +1012,7 @@ export default function BakeryMinesPage() {
     };
     
     fetchAndUpdate();
-  }, [isRevealSuccess, revealingTile, activeGameId, publicClient, playRevealSound, playLoseSound, refetchActiveGame, refetchBalance, confirmedTiles]);
+  }, [isRevealSuccess, revealingTile, activeGameId, publicClient, playRevealSound, playLoseSound, refetchActiveGame, refetchBalance, confirmedTiles, triggerExplosion]);
 
   // Handle tile reveal error
   useEffect(() => {
@@ -1066,7 +1159,40 @@ export default function BakeryMinesPage() {
           100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
         }
         .confetti { animation: confetti-fall 3s linear forwards; }
+        
+        @keyframes donut-fly {
+          0% { 
+            transform: translate(0, 0) rotate(0deg) scale(1); 
+            opacity: 1; 
+          }
+          100% { 
+            transform: translate(var(--vx), var(--vy)) rotate(var(--rotation)) scale(0.3); 
+            opacity: 0; 
+          }
+        }
+        
+        @keyframes coming-soon-fade {
+          0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+          15% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          85% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+        }
+        .coming-soon-toast {
+          animation: coming-soon-fade 1.5s ease-out forwards;
+        }
       `}</style>
+
+      {/* Coming Soon Toast */}
+      {showComingSoon && (
+        <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center">
+          <div className="coming-soon-toast absolute left-1/2 top-1/2 bg-zinc-900 border-2 border-amber-500 rounded-2xl px-6 py-3 shadow-2xl">
+            <div className="flex items-center gap-2">
+              <Lock className="w-5 h-5 text-amber-400" />
+              <span className="text-lg font-bold text-white">COMING SOON</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confetti */}
       {showConfetti && (
@@ -1180,9 +1306,20 @@ export default function BakeryMinesPage() {
             </div>
           ) : (
             <>
-              {/* Larger grid */}
-              <div className="grid grid-cols-5 gap-2 w-full max-w-[320px]">
-                {renderGrid()}
+              {/* Larger grid with explosion container */}
+              <div className="relative w-full max-w-[320px]">
+                <div className="grid grid-cols-5 gap-2">
+                  {renderGrid()}
+                </div>
+                
+                {/* Donut Explosions */}
+                {explosions.map((tileIndex) => (
+                  <DonutExplosion 
+                    key={`explosion-${tileIndex}-${Date.now()}`}
+                    tileIndex={tileIndex} 
+                    onComplete={() => removeExplosion(tileIndex)} 
+                  />
+                ))}
               </div>
               
               {/* Current profit display */}
@@ -1229,24 +1366,38 @@ export default function BakeryMinesPage() {
                 >
                   {expandedPanel === "mines" ? (
                     <div className="flex items-center gap-1 h-full">
-                      {[1, 3, 5, 10, 24].map((count) => (
-                        <button
-                          key={count}
-                          onClick={() => {
-                            setMineCount(count);
-                            setExpandedPanel("none");
-                            try { sdk.haptics.impactOccurred("light"); } catch {}
-                          }}
-                          className="flex-1 h-full rounded-lg font-bold text-[10px] border-2 transition-all duration-200 hover:scale-[1.02] active:scale-95"
-                          style={{
-                            backgroundColor: mineCount === count ? "rgb(239 68 68)" : "rgb(39 39 42)",
-                            borderColor: mineCount === count ? "rgb(239 68 68)" : "rgb(63 63 70)",
-                            color: mineCount === count ? "white" : "rgb(161 161 170)"
-                          }}
-                        >
-                          {count}
-                        </button>
-                      ))}
+                      {[1, 3, 5, 10, 24].map((count) => {
+                        const isLocked = count !== 1;
+                        const isSelected = mineCount === count;
+                        
+                        return (
+                          <button
+                            key={count}
+                            onClick={() => {
+                              if (isLocked) {
+                                handleLockedMineClick();
+                              } else {
+                                setMineCount(count);
+                                setExpandedPanel("none");
+                                try { sdk.haptics.impactOccurred("light"); } catch {}
+                              }
+                            }}
+                            className={cn(
+                              "flex-1 h-full rounded-lg font-bold text-[10px] border-2 transition-all duration-200 relative",
+                              isLocked 
+                                ? "bg-zinc-800/50 border-zinc-700 text-zinc-500 cursor-not-allowed"
+                                : isSelected 
+                                  ? "bg-red-500 border-red-500 text-white hover:scale-[1.02] active:scale-95"
+                                  : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:scale-[1.02] active:scale-95"
+                            )}
+                          >
+                            <span className={cn(isLocked && "opacity-50")}>{count}</span>
+                            {isLocked && (
+                              <Lock className="w-3 h-3 absolute top-1 right-1 text-zinc-500" />
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   ) : (
                     <button
@@ -1530,10 +1681,10 @@ export default function BakeryMinesPage() {
                   <div className="text-[10px] text-amber-400 font-bold mb-1">Mine Configurations:</div>
                   <div className="text-[10px] text-gray-400 space-y-0.5">
                     <div><span className="text-green-400">1 mine:</span> Low risk, up to 6.86x</div>
-                    <div><span className="text-amber-400">3 mines:</span> Medium risk, up to 1,904x</div>
-                    <div><span className="text-orange-400">5 mines:</span> High risk, up to 85,273x</div>
-                    <div><span className="text-red-400">10 mines:</span> Extreme risk, up to 645B x</div>
-                    <div><span className="text-purple-400">24 mines:</span> YOLO mode, 24.5x on the only safe tile!</div>
+                    <div className="flex items-center gap-1"><Lock className="w-3 h-3 text-zinc-500" /><span className="text-zinc-500">3 mines:</span> <span className="text-zinc-600">Coming soon</span></div>
+                    <div className="flex items-center gap-1"><Lock className="w-3 h-3 text-zinc-500" /><span className="text-zinc-500">5 mines:</span> <span className="text-zinc-600">Coming soon</span></div>
+                    <div className="flex items-center gap-1"><Lock className="w-3 h-3 text-zinc-500" /><span className="text-zinc-500">10 mines:</span> <span className="text-zinc-600">Coming soon</span></div>
+                    <div className="flex items-center gap-1"><Lock className="w-3 h-3 text-zinc-500" /><span className="text-zinc-500">24 mines:</span> <span className="text-zinc-600">Coming soon</span></div>
                   </div>
                 </div>
                 
