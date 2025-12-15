@@ -336,6 +336,9 @@ export default function DonutTowerPage() {
     return Number((traps >> shift) & mask);
   };
 
+  // Track expected level to prevent double-clicks
+  const [expectedLevel, setExpectedLevel] = useState<number | null>(null);
+  
   // Handle tile click
   const handleTileClick = (tileIndex: number) => {
     if (!activeGameId || !gameState || isClimbing || isClimbPending) return;
@@ -344,13 +347,20 @@ export default function DonutTowerPage() {
       setTimeout(() => setErrorMessage(null), 2000);
       return;
     }
+    
+    // Check if we're on the expected level (prevent clicking during state sync)
+    const currentLevel = expectedLevel !== null ? expectedLevel : gameState.currentLevel;
+    if (expectedLevel !== null && expectedLevel !== gameState.currentLevel) {
+      console.log("Waiting for state to sync, expected:", expectedLevel, "actual:", gameState.currentLevel);
+      return;
+    }
 
-    console.log("Climbing tile:", tileIndex, "Game ID:", activeGameId.toString(), "Current level:", gameState.currentLevel);
+    console.log("Climbing tile:", tileIndex, "Game ID:", activeGameId.toString(), "Current level:", currentLevel);
     setIsClimbing(true);
     processedClimbHash.current = null;
     
-    // Store current level before climb
-    const levelBeforeClimb = gameState.currentLevel;
+    // Optimistically set expected level (will be currentLevel + 1 if successful)
+    setExpectedLevel(currentLevel + 1);
     
     writeClimb({
       address: DONUT_TOWER_ADDRESS,
@@ -361,6 +371,7 @@ export default function DonutTowerPage() {
       onError: (error) => {
         console.error("Climb write error:", error);
         setIsClimbing(false);
+        setExpectedLevel(null); // Reset on error
         setErrorMessage("Transaction failed");
         setTimeout(() => setErrorMessage(null), 2000);
       }
@@ -406,6 +417,9 @@ export default function DonutTowerPage() {
           statusName: newState.status === 2 ? "Active" : newState.status === 3 ? "Won" : newState.status === 4 ? "Lost" : "Other"
         });
         
+        // Update state FIRST, then reset climbing flag
+        setGameState(newState);
+        setExpectedLevel(null); // Clear expected level now that we have real state
         setIsClimbing(false);
         resetClimb();
 
@@ -428,7 +442,6 @@ export default function DonutTowerPage() {
           
           // Hit a trap!
           console.log("Player hit a trap!");
-          setGameState(newState); // Update state to show the trap
           playLoseSound();
           try { sdk.haptics.impactOccurred("heavy"); } catch {}
           setGameResult("lost");
@@ -438,6 +451,7 @@ export default function DonutTowerPage() {
             setActiveGameId(null);
             setGameState(null);
             setGameResult(null);
+            setExpectedLevel(null);
             refetchActiveGame();
             refetchBalance();
             refetchPlayerGames();
@@ -445,7 +459,6 @@ export default function DonutTowerPage() {
         } else if (newState.status === GameStatus.Won) {
           // Completed the tower!
           console.log("Player won!");
-          setGameState(newState);
           playWinSound();
           try { sdk.haptics.impactOccurred("heavy"); } catch {}
           setGameResult("won");
@@ -455,6 +468,7 @@ export default function DonutTowerPage() {
             setActiveGameId(null);
             setGameState(null);
             setGameResult(null);
+            setExpectedLevel(null);
             refetchActiveGame();
             refetchBalance();
             refetchPlayerGames();
@@ -462,7 +476,6 @@ export default function DonutTowerPage() {
         } else if (newState.status === GameStatus.Active) {
           // Still active - successfully climbed to next level
           console.log("Climbed to level", newState.currentLevel);
-          setGameState(newState);
           playClimbSound();
           try { sdk.haptics.impactOccurred("medium"); } catch {}
         } else {
@@ -757,12 +770,14 @@ export default function DonutTowerPage() {
   const renderTower = () => {
     const inGame = gameState?.status === GameStatus.Active;
     const ended = gameState && (gameState.status === GameStatus.Lost || gameState.status === GameStatus.Won);
-    const level = gameState?.currentLevel ?? 0;
+    // Use expectedLevel if we're waiting for chain, otherwise use actual level
+    const displayLevel = expectedLevel !== null ? expectedLevel : (gameState?.currentLevel ?? 0);
+    const actualLevel = gameState?.currentLevel ?? 0;
 
     // In focused mode, only show current level and 1-2 around it
     // In full mode (after bust), show all levels
     const visibleLevels = showFullTower || ended ? [0, 1, 2, 3, 4, 5, 6, 7, 8] : 
-      inGame ? [Math.max(0, level - 1), level, Math.min(8, level + 1)].filter((v, i, a) => a.indexOf(v) === i) :
+      inGame ? [Math.max(0, displayLevel - 1), displayLevel, Math.min(8, displayLevel + 1)].filter((v, i, a) => a.indexOf(v) === i) :
       [0, 1, 2]; // Preview mode
 
     return (
@@ -772,11 +787,13 @@ export default function DonutTowerPage() {
       )}>
         {visibleLevels.map((l) => {
           const trap = getTrap(l);
-          const isCurrent = inGame && level === l;
-          const isPast = level > l;
-          const isFuture = level < l;
+          // For display purposes, use displayLevel
+          const isCurrent = inGame && displayLevel === l;
+          const isPast = displayLevel > l;
+          const isFuture = displayLevel < l;
           const mult = multipliers[l] / 10000;
-          const isNextLevel = inGame && level === l;
+          // For clickability, use actualLevel (what chain knows) to prevent clicking ahead
+          const isClickableLevel = inGame && actualLevel === l && !isClimbing;
 
           return (
             <div 
@@ -816,7 +833,8 @@ export default function DonutTowerPage() {
                   // For safe = 1 modes: trap position = the SAFE tile (only 1 safe)
                   const isSafe = config.safe > 1 ? t !== trap : t === trap;
                   const show = ended || isPast || showFullTower;
-                  const clickable = isNextLevel && !isClimbing && !ended;
+                  // Only clickable if this is the level the chain knows about AND we're not climbing
+                  const clickable = isClickableLevel && !ended;
 
                   let bgStyle = "";
                   let content: React.ReactNode = "?";
@@ -830,8 +848,14 @@ export default function DonutTowerPage() {
                       content = <span className="text-2xl">💀</span>;
                     }
                   } else if (isCurrent) {
-                    bgStyle = "bg-amber-500/20 border-amber-500 shadow-lg shadow-amber-500/20";
-                    content = <span className="text-zinc-400 text-lg">?</span>;
+                    // Show loading on current level if climbing
+                    if (isClimbing) {
+                      bgStyle = "bg-amber-500/30 border-amber-500 animate-pulse";
+                      content = <Loader2 className="w-6 h-6 animate-spin text-amber-400" />;
+                    } else {
+                      bgStyle = "bg-amber-500/20 border-amber-500 shadow-lg shadow-amber-500/20";
+                      content = <span className="text-zinc-400 text-lg">?</span>;
+                    }
                   } else {
                     bgStyle = "bg-zinc-900/80 border-zinc-700";
                     content = <span className="text-zinc-600 text-lg">?</span>;
@@ -849,9 +873,7 @@ export default function DonutTowerPage() {
                         !clickable && "cursor-default"
                       )}
                     >
-                      {isClimbing && isCurrent ? (
-                        <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
-                      ) : content}
+                      {content}
                     </button>
                   );
                 })}
