@@ -267,6 +267,7 @@ export default function TowerPage() {
   const [isClimbing, setIsClimbing] = useState(false);
   const [isCashingOut, setIsCashingOut] = useState(false);
   const [isWaitingForReveal, setIsWaitingForReveal] = useState(false);
+  const [buildingCountdown, setBuildingCountdown] = useState(10);
 
   // Refs to prevent duplicate processing
   const processedStartHash = useRef<string | null>(null);
@@ -454,6 +455,20 @@ export default function TowerPage() {
     poll();
     return () => { cancelled = true; };
   }, [isWaitingForReveal, activeGameId, publicClient, fetchGameState]);
+
+  // Countdown timer when building
+  useEffect(() => {
+    if (!isWaitingForReveal) {
+      setBuildingCountdown(10);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setBuildingCountdown(prev => prev > 0 ? prev - 1 : 0);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isWaitingForReveal]);
 
 
   // ===========================================
@@ -882,9 +897,21 @@ export default function TowerPage() {
             {/* Waiting state */}
             {isWaitingForReveal && (
               <div className="absolute inset-0 flex items-center justify-center z-20">
-                <div className="text-center">
+                <div className="text-center px-4">
                   <Loader2 className="w-10 h-10 text-amber-400 animate-spin mx-auto mb-2" />
-                  <div className="text-amber-400 font-bold">Building tower...</div>
+                  <div className="text-amber-400 font-bold mb-2">Building your tower...</div>
+                  <div className="text-[11px] text-gray-400 mb-1">
+                    Loading may take a few seconds due to onchain verification
+                  </div>
+                  {buildingCountdown > 0 ? (
+                    <div className="text-[10px] text-gray-500">
+                      Please wait... <span className="text-amber-400 font-bold">{buildingCountdown}s</span>
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-red-400">
+                      Taking longer than expected? Try refreshing the miniapp!
+                    </div>
+                  )}
                 </div>
               </div>
             )}
