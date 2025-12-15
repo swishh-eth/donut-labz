@@ -345,124 +345,156 @@ export default function DonutTowerPage() {
       return;
     }
 
-    console.log("Climbing tile:", tileIndex, "Game ID:", activeGameId.toString());
+    console.log("Climbing tile:", tileIndex, "Game ID:", activeGameId.toString(), "Current level:", gameState.currentLevel);
     setIsClimbing(true);
     processedClimbHash.current = null;
+    
+    // Store current level before climb
+    const levelBeforeClimb = gameState.currentLevel;
+    
     writeClimb({
       address: DONUT_TOWER_ADDRESS,
       abi: TOWER_ABI,
       functionName: "climbLevel",
       args: [activeGameId, tileIndex]
+    }, {
+      onError: (error) => {
+        console.error("Climb write error:", error);
+        setIsClimbing(false);
+        setErrorMessage("Transaction failed");
+        setTimeout(() => setErrorMessage(null), 2000);
+      }
     });
   };
 
-  // Handle climb success
+  // Handle climb success - simplified and more robust
   useEffect(() => {
     if (!isClimbSuccess || !climbHash || !publicClient || !activeGameId) return;
     if (processedClimbHash.current === climbHash) return;
     processedClimbHash.current = climbHash;
 
     console.log("Climb tx confirmed:", climbHash);
+    const gameIdToCheck = activeGameId; // Capture current value
 
     const fetchNewState = async () => {
-      // Poll multiple times to ensure we get the updated state
-      let retries = 0;
-      const maxRetries = 10;
+      // Give the chain a moment to update
+      await new Promise(r => setTimeout(r, 1500));
       
-      while (retries < maxRetries) {
-        await new Promise(r => setTimeout(r, 500));
-        retries++;
+      try {
+        // Read the game state using the ID we had when starting the climb
+        const game = await publicClient.readContract({
+          address: DONUT_TOWER_ADDRESS,
+          abi: TOWER_ABI,
+          functionName: "games",
+          args: [gameIdToCheck],
+          blockTag: 'latest',
+        }) as unknown as any[];
+
+        const newState: GameState = {
+          player: game[0],
+          betAmount: game[2],
+          difficulty: Number(game[3]),
+          status: Number(game[5]),
+          currentLevel: Number(game[6]),
+          trapPositions: game[7],
+          currentMultiplier: game[8],
+        };
+
+        console.log("New state after climb:", {
+          status: newState.status,
+          level: newState.currentLevel,
+          statusName: newState.status === 2 ? "Active" : newState.status === 3 ? "Won" : newState.status === 4 ? "Lost" : "Other"
+        });
         
-        try {
-          const game = await publicClient.readContract({
-            address: DONUT_TOWER_ADDRESS,
-            abi: TOWER_ABI,
-            functionName: "games",
-            args: [activeGameId],
-            blockTag: 'latest',
-          }) as unknown as any[];
+        setIsClimbing(false);
+        resetClimb();
 
-          const newLevel = Number(game[6]);
-          const newStatus = Number(game[5]);
-          
-          console.log(`Poll ${retries}: level=${newLevel}, status=${newStatus}, oldLevel=${gameState?.currentLevel}`);
-
-          // Check if state actually changed (level increased or game ended)
-          if (newLevel > (gameState?.currentLevel ?? 0) || newStatus === GameStatus.Lost || newStatus === GameStatus.Won) {
-            const newState: GameState = {
-              player: game[0],
-              betAmount: game[2],
-              difficulty: Number(game[3]),
-              status: newStatus,
-              currentLevel: newLevel,
-              trapPositions: game[7],
-              currentMultiplier: game[8],
-            };
-
-            console.log("State changed! New state:", newState);
-            setGameState(newState);
-            setIsClimbing(false);
-            resetClimb();
-
-            if (newState.status === GameStatus.Lost) {
-              playLoseSound();
-              try { sdk.haptics.impactOccurred("heavy"); } catch {}
-              setGameResult("lost");
-              setShowFullTower(true);
-              setTimeout(() => {
-                setShowFullTower(false);
-                setActiveGameId(null);
-                setGameState(null);
-                setGameResult(null);
-                refetchActiveGame();
-                refetchBalance();
-                refetchPlayerGames();
-              }, 4000);
-            } else if (newState.status === GameStatus.Won) {
-              playWinSound();
-              try { sdk.haptics.impactOccurred("heavy"); } catch {}
-              setGameResult("won");
-              setShowConfetti(true);
-              setTimeout(() => {
-                setShowConfetti(false);
-                setActiveGameId(null);
-                setGameState(null);
-                setGameResult(null);
-                refetchActiveGame();
-                refetchBalance();
-                refetchPlayerGames();
-              }, 4000);
-            } else {
-              // Successfully climbed!
-              playClimbSound();
-              try { sdk.haptics.impactOccurred("medium"); } catch {}
-            }
-            return; // Exit the retry loop
-          }
-        } catch (e) {
-          console.error("Poll error:", e);
+        if (newState.status === GameStatus.Lost) {
+          // Hit a trap!
+          console.log("Player hit a trap!");
+          setGameState(newState); // Update state to show the trap
+          playLoseSound();
+          try { sdk.haptics.impactOccurred("heavy"); } catch {}
+          setGameResult("lost");
+          setShowFullTower(true);
+          setTimeout(() => {
+            setShowFullTower(false);
+            setActiveGameId(null);
+            setGameState(null);
+            setGameResult(null);
+            refetchActiveGame();
+            refetchBalance();
+            refetchPlayerGames();
+          }, 4000);
+        } else if (newState.status === GameStatus.Won) {
+          // Completed the tower!
+          console.log("Player won!");
+          setGameState(newState);
+          playWinSound();
+          try { sdk.haptics.impactOccurred("heavy"); } catch {}
+          setGameResult("won");
+          setShowConfetti(true);
+          setTimeout(() => {
+            setShowConfetti(false);
+            setActiveGameId(null);
+            setGameState(null);
+            setGameResult(null);
+            refetchActiveGame();
+            refetchBalance();
+            refetchPlayerGames();
+          }, 4000);
+        } else if (newState.status === GameStatus.Active) {
+          // Still active - successfully climbed to next level
+          console.log("Climbed to level", newState.currentLevel);
+          setGameState(newState);
+          playClimbSound();
+          try { sdk.haptics.impactOccurred("medium"); } catch {}
+        } else {
+          // Unexpected status
+          console.log("Unexpected game status:", newState.status);
+          setGameState(newState);
+          refetchActiveGame();
         }
+      } catch (e) {
+        console.error("Error reading game state after climb:", e);
+        setIsClimbing(false);
+        resetClimb();
+        setErrorMessage("Failed to update");
+        setTimeout(() => setErrorMessage(null), 2000);
+        refetchActiveGame();
       }
-      
-      // If we get here, state didn't change after all retries
-      console.log("State didn't change after retries, forcing refetch");
-      setIsClimbing(false);
-      resetClimb();
-      refetchActiveGame();
     };
 
     fetchNewState();
-  }, [isClimbSuccess, climbHash, publicClient, activeGameId, gameState?.currentLevel, playClimbSound, playLoseSound, playWinSound, refetchActiveGame, refetchBalance, refetchPlayerGames, resetClimb]);
+  }, [isClimbSuccess, climbHash, publicClient, activeGameId, playClimbSound, playLoseSound, playWinSound, refetchActiveGame, refetchBalance, refetchPlayerGames, resetClimb]);
 
   // Handle climb error
   useEffect(() => {
     if (climbError) {
+      console.error("Climb error:", climbError);
       setIsClimbing(false);
       resetClimb();
-      setErrorMessage("Failed");
+      const msg = climbError.message || "";
+      setErrorMessage(msg.includes("rejected") ? "Cancelled" : "Transaction failed");
       setTimeout(() => setErrorMessage(null), 2000);
     }
   }, [climbError, resetClimb]);
+
+  // Timeout for climbing state - if stuck for 30 seconds, reset
+  useEffect(() => {
+    if (!isClimbing) return;
+    
+    const timeout = setTimeout(() => {
+      console.log("Climb timeout - resetting state");
+      setIsClimbing(false);
+      resetClimb();
+      setErrorMessage("Timeout - try again");
+      setTimeout(() => setErrorMessage(null), 2000);
+      refetchActiveGame();
+    }, 30000);
+    
+    return () => clearTimeout(timeout);
+  }, [isClimbing, resetClimb, refetchActiveGame]);
 
   // Handle cash out
   const handleCashOut = () => {
