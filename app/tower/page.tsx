@@ -358,11 +358,16 @@ export default function TowerPage() {
   const payout = gameState ? (parseFloat(formatUnits(gameState.betAmount, 18)) * currentMult * 0.98) : 0;
 
   // Get trap position for a level (2 bits per level)
+  // Note: When on currentLevel N, clicking checks against level N's trap in the contract
+  // The contract seems to use the trap for the level you're CLIMBING (not the one you're on)
   const getTrap = (level: number): number => {
     if (!gameState) return -1;
+    // The contract might store traps differently - let's check both interpretations
     const shift = BigInt(level * 2);
     const mask = BigInt(3);
-    return Number((gameState.trapPositions >> shift) & mask);
+    const trapValue = Number((gameState.trapPositions >> shift) & mask);
+    console.log(`getTrap(${level}): shift=${shift}, raw trap value=${trapValue}`);
+    return trapValue;
   };
 
   // ===========================================
@@ -565,12 +570,15 @@ export default function TowerPage() {
     // Guard: not already climbing
     if (isClimbing || isClimbPending) return;
 
-    const trap = getTrap(gameState.currentLevel);
+    // Note: When clicking, we're climbing FROM currentLevel TO currentLevel+1
+    // The trap check is for the level we're climbing TO
+    const nextLevel = gameState.currentLevel;
+    const trap = getTrap(nextLevel);
     const isSafeTile = config.safe > 1 ? tileIndex !== trap : tileIndex === trap;
     console.log("=== TILE CLICK ===");
-    console.log("Level:", gameState.currentLevel);
+    console.log("Current Level (climbing from):", gameState.currentLevel);
     console.log("Tile clicked:", tileIndex);
-    console.log("Trap value for this level:", trap);
+    console.log("Trap value for level", nextLevel, ":", trap);
     console.log("Config:", config);
     console.log("Would be safe?:", isSafeTile);
     console.log("trapPositions raw:", gameState.trapPositions.toString());
