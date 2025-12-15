@@ -7,7 +7,7 @@ import { createPublicClient, http, formatUnits } from "viem";
 import { base } from "viem/chains";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Zap, Trophy, Lock, Bomb, Layers } from "lucide-react";
+import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Zap, Trophy, Lock, Bomb, Layers, Flame } from "lucide-react";
 
 // Contract addresses - V5 contracts
 const DONUT_DICE_ADDRESS = "0xD6f1Eb5858efF6A94B853251BE2C27c4038BB7CE" as const;
@@ -71,6 +71,7 @@ function GameTile({
   comingSoon = true,
   isNew = false,
   isHot = false,
+  iconClassName,
   lastWinner,
   scrollDirection = "left",
   onClick 
@@ -81,6 +82,7 @@ function GameTile({
   comingSoon?: boolean;
   isNew?: boolean;
   isHot?: boolean;
+  iconClassName?: string;
   lastWinner?: { username: string; amount: string; pfpUrl?: string } | null;
   scrollDirection?: "left" | "right";
   onClick?: () => void;
@@ -104,7 +106,7 @@ function GameTile({
         <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-zinc-800 ${
           !comingSoon ? "border border-zinc-600" : ""
         }`}>
-          <Icon className={`w-6 h-6 ${!comingSoon ? "text-white icon-breathe" : "text-gray-400"}`} />
+          <Icon className={`w-6 h-6 ${!comingSoon ? "text-white" : "text-gray-400"} ${iconClassName || (!comingSoon ? "icon-breathe" : "")}`} />
         </div>
         
         <div className="min-w-0 flex-1">
@@ -119,8 +121,8 @@ function GameTile({
               </span>
             )}
             {!comingSoon && isHot && (
-              <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold hot-pulse">
-                🔥 HOT
+              <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold hot-pulse flex items-center gap-0.5">
+                <Flame className="w-2.5 h-2.5" /> HOT
               </span>
             )}
             {!comingSoon && isNew && !isHot && (
@@ -592,14 +594,25 @@ export default function GamesPage() {
       : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
-  // Games list - Tower moved to bottom with HOT tag
+  // Games list - Tower at top with HOT tag
   const games = [
+    {
+      id: "tower",
+      title: "Donut Tower",
+      description: "Climb levels to win some dough!",
+      icon: Layers,
+      comingSoon: false,
+      isHot: true,
+      lastWinner: towerLastWinner,
+      onClick: () => window.location.href = "/tower",
+    },
     {
       id: "wheel",
       title: "Glaze Wheel",
       description: "Spin to win some real glaze!",
       icon: WheelIcon,
       comingSoon: false,
+      iconClassName: "icon-spin",
       lastWinner: wheelLastWinner,
       scrollDirection: "right" as const,
       onClick: () => router.push("/glaze-wheel"),
@@ -622,16 +635,6 @@ export default function GamesPage() {
       lastWinner: minesLastWinner,
       scrollDirection: "right" as const,
       onClick: () => router.push("/mines"),
-    },
-    {
-      id: "tower",
-      title: "Donut Tower",
-      description: "Climb up to 9 levels to win some dough!",
-      icon: Layers,
-      comingSoon: false,
-      isHot: true,
-      lastWinner: towerLastWinner,
-      onClick: () => window.location.href = "/tower",
     },
     {
       id: "lottery",
@@ -692,6 +695,10 @@ export default function GamesPage() {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.15); }
         }
+        @keyframes icon-spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
         @keyframes scroll-left {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
@@ -706,6 +713,9 @@ export default function GamesPage() {
         }
         .icon-breathe {
           animation: icon-breathe 2s ease-in-out infinite;
+        }
+        .icon-spin {
+          animation: icon-spin 4s linear infinite;
         }
         .hot-pulse {
           animation: hot-pulse 2s ease-in-out infinite;
@@ -981,6 +991,7 @@ export default function GamesPage() {
                   comingSoon={game.comingSoon}
                   isNew={(game as { isNew?: boolean }).isNew}
                   isHot={(game as { isHot?: boolean }).isHot}
+                  iconClassName={(game as { iconClassName?: string }).iconClassName}
                   lastWinner={game.lastWinner}
                   scrollDirection={(game as { scrollDirection?: "left" | "right" }).scrollDirection}
                   onClick={game.onClick}
