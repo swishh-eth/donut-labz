@@ -9,7 +9,7 @@ import { History, HelpCircle, X, Loader2, Volume2, VolumeX, Shield } from "lucid
 import { cn } from "@/lib/utils";
 
 // Contract addresses
-const DONUT_TOWER_ADDRESS = "0x6E004D9eBc51bAd704f92d5557cD1a913a4099c0" as const;
+const DONUT_TOWER_ADDRESS = "0x59c140b50FfBe620ea8d770478A833bdF60387bA" as const;
 const DONUT_TOKEN_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
 
 const ERC20_ABI = [
