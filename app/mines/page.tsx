@@ -663,8 +663,11 @@ export default function BakeryMinesPage() {
 
   // Handle start game success
   useEffect(() => {
-    if (isStartSuccess && isStartingGame && startHash && publicClient) {
+    if (isStartSuccess && isStartingGame && startHash && publicClient && address) {
       const getGameIdAndPoll = async () => {
+        let gameId: bigint | null = null;
+        
+        // Try to get game ID from receipt first
         try {
           const receipt = await publicClient.getTransactionReceipt({ hash: startHash });
           
@@ -673,93 +676,123 @@ export default function BakeryMinesPage() {
           );
           
           if (gameStartedLog && gameStartedLog.topics[1]) {
-            const gameId = BigInt(gameStartedLog.topics[1]);
+            gameId = BigInt(gameStartedLog.topics[1]);
             console.log("Got game ID from receipt:", gameId.toString());
-            
-            setConfirmedTiles(0);
-            setActiveGameId(gameId);
-            setIsWaitingForReveal(true);
-            
-            let attempts = 0;
-            const maxAttempts = 30;
-            
-            const poll = async (): Promise<boolean> => {
-              attempts++;
-              console.log(`Poll attempt ${attempts} for game ${gameId.toString()}`);
-              
-              try {
-                await fetch('/api/reveal?game=mines');
-              } catch {}
-              
-              await new Promise(r => setTimeout(r, 4000));
-              
-              try {
-                const game = await publicClient.readContract({
-                  address: DONUT_MINES_ADDRESS,
-                  abi: MINES_V5_ABI,
-                  functionName: "games",
-                  args: [gameId],
-                  blockTag: 'latest',
-                }) as [string, string, bigint, number, bigint, number, number, number, bigint, bigint];
-                
-                console.log("Game status:", game[5]);
-                
-                if (game[5] === GameStatus.Active) {
-                  setGameState({
-                    player: game[0] as `0x${string}`,
-                    token: game[1] as `0x${string}`,
-                    betAmount: game[2],
-                    mineCount: game[3],
-                    commitBlock: game[4],
-                    status: game[5],
-                    minePositions: game[6],
-                    revealedTiles: game[7],
-                    currentMultiplier: game[8],
-                    payout: game[9],
-                  });
-                  setIsWaitingForReveal(false);
-                  setIsStartingGame(false);
-                  return true;
-                }
-                
-                if (attempts >= maxAttempts) {
-                  setErrorMessage("Timeout - try refreshing");
-                  setIsWaitingForReveal(false);
-                  setIsStartingGame(false);
-                  return true;
-                }
-              } catch (e) {
-                console.error("Poll error:", e);
-              }
-              
-              return false;
-            };
-            
-            const pollLoop = async () => {
-              while (true) {
-                const done = await poll();
-                if (done) break;
-              }
-            };
-            
-            pollLoop();
-          } else {
-            console.error("Could not find game ID in receipt");
-            setErrorMessage("Could not find game - try refreshing");
-            setIsStartingGame(false);
-            setIsWaitingForReveal(false);
           }
         } catch (e) {
           console.error("Error getting receipt:", e);
-          setErrorMessage("Error starting game");
+        }
+        
+        // Fallback: poll for active game ID if we couldn't get it from receipt
+        if (!gameId) {
+          console.log("Trying fallback: polling for active game");
+          let attempts = 0;
+          const maxAttempts = 15;
+          
+          while (attempts < maxAttempts && !gameId) {
+            attempts++;
+            await new Promise(r => setTimeout(r, 1000));
+            
+            try {
+              const result = await publicClient.readContract({
+                address: DONUT_MINES_ADDRESS,
+                abi: MINES_V5_ABI,
+                functionName: "getPlayerActiveGame",
+                args: [address],
+                blockTag: 'latest',
+              }) as bigint;
+              
+              console.log(`Fallback attempt ${attempts}: game ID =`, result?.toString());
+              
+              if (result && result > BigInt(0)) {
+                gameId = result;
+              }
+            } catch (e) {
+              console.error(`Fallback attempt ${attempts} error:`, e);
+            }
+          }
+        }
+        
+        if (!gameId) {
+          console.error("Could not find game ID");
+          setErrorMessage("Could not find game - try refreshing");
           setIsStartingGame(false);
           setIsWaitingForReveal(false);
+          return;
         }
+        
+        setConfirmedTiles(0);
+        setActiveGameId(gameId);
+        setIsWaitingForReveal(true);
+        
+        let attempts = 0;
+        const maxAttempts = 30;
+        
+        const poll = async (): Promise<boolean> => {
+          attempts++;
+          console.log(`Poll attempt ${attempts} for game ${gameId!.toString()}`);
+          
+          try {
+            await fetch('/api/reveal?game=mines');
+          } catch {}
+          
+          await new Promise(r => setTimeout(r, 4000));
+          
+          try {
+            const game = await publicClient.readContract({
+              address: DONUT_MINES_ADDRESS,
+              abi: MINES_V5_ABI,
+              functionName: "games",
+              args: [gameId!],
+              blockTag: 'latest',
+            }) as [string, string, bigint, number, bigint, number, number, number, bigint, bigint];
+            
+            console.log("Game status:", game[5]);
+            
+            if (game[5] === GameStatus.Active) {
+              setGameState({
+                player: game[0] as `0x${string}`,
+                token: game[1] as `0x${string}`,
+                betAmount: game[2],
+                mineCount: game[3],
+                commitBlock: game[4],
+                status: game[5],
+                minePositions: game[6],
+                revealedTiles: game[7],
+                currentMultiplier: game[8],
+                payout: game[9],
+              });
+              setIsWaitingForReveal(false);
+              setIsStartingGame(false);
+              return true;
+            }
+            
+            if (attempts >= maxAttempts) {
+              setErrorMessage("Timeout - try refreshing");
+              setIsWaitingForReveal(false);
+              setIsStartingGame(false);
+              return true;
+            }
+          } catch (e) {
+            console.error("Poll error:", e);
+          }
+          
+          return false;
+        };
+        
+        const pollLoop = async () => {
+          while (true) {
+            const done = await poll();
+            if (done) break;
+          }
+        };
+        
+        pollLoop();
       };
       
       getGameIdAndPoll();
     }
-  }, [isStartSuccess, isStartingGame, startHash, publicClient]);
+  }, [isStartSuccess, isStartingGame, startHash, publicClient, address]);
 
   // Handle start game error
   useEffect(() => {

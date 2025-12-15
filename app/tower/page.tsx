@@ -410,6 +410,22 @@ export default function DonutTowerPage() {
         resetClimb();
 
         if (newState.status === GameStatus.Lost) {
+          // Debug: log trap info
+          console.log("=== GAME LOST DEBUG ===");
+          console.log("Difficulty:", newState.difficulty, DIFFICULTIES[newState.difficulty]);
+          console.log("Trap positions (raw):", newState.trapPositions.toString());
+          console.log("Trap positions (hex):", "0x" + newState.trapPositions.toString(16));
+          console.log("Current level:", newState.currentLevel);
+          // Decode trap for current level
+          const bitsPerLevel = 2;
+          const shift = BigInt(newState.currentLevel * bitsPerLevel);
+          const mask = BigInt((1 << bitsPerLevel) - 1);
+          const trapForLevel = Number((newState.trapPositions >> shift) & mask);
+          console.log("Trap value for level", newState.currentLevel, ":", trapForLevel);
+          console.log("Config:", DIFFICULTIES[newState.difficulty]);
+          console.log("For safe > 1, trap IS the bad tile. For safe = 1, trap IS the safe tile.");
+          console.log("========================");
+          
           // Hit a trap!
           console.log("Player hit a trap!");
           setGameState(newState); // Update state to show the trap
@@ -568,99 +584,111 @@ export default function DonutTowerPage() {
     setIsWaitingForReveal(true);
 
     const startPolling = async () => {
-      // First get the game ID
-      await new Promise(r => setTimeout(r, 500));
+      // Try to get game ID with retries (chain might be slow to index)
+      let gameId: bigint | null = null;
+      let gameIdAttempts = 0;
+      const maxGameIdAttempts = 15;
+      
+      while (gameIdAttempts < maxGameIdAttempts) {
+        gameIdAttempts++;
+        await new Promise(r => setTimeout(r, 1000)); // Wait 1 second between attempts
+        
+        try {
+          const result = await publicClient.readContract({
+            address: DONUT_TOWER_ADDRESS,
+            abi: TOWER_ABI,
+            functionName: "getPlayerActiveGame",
+            args: [address],
+            blockTag: 'latest',
+          }) as bigint;
 
-      try {
-        const gameId = await publicClient.readContract({
-          address: DONUT_TOWER_ADDRESS,
-          abi: TOWER_ABI,
-          functionName: "getPlayerActiveGame",
-          args: [address],
-          blockTag: 'latest',
-        }) as bigint;
+          console.log(`Game ID attempt ${gameIdAttempts}:`, result?.toString());
 
-        console.log("Got game ID:", gameId?.toString());
-
-        if (gameId && gameId > BigInt(0)) {
-          setActiveGameId(gameId);
-
-          let attempts = 0;
-          const maxAttempts = 60; // More attempts
-
-          const poll = async (): Promise<boolean> => {
-            attempts++;
-            console.log(`Reveal poll attempt ${attempts}`);
-            
-            // Call reveal API first
-            try { 
-              const res = await fetch('/api/reveal?game=tower');
-              const data = await res.json();
-              console.log("Reveal API response:", data);
-            } catch (e) {
-              console.log("Reveal API error:", e);
-            }
-            
-            // Wait less time between checks
-            await new Promise(r => setTimeout(r, 2000));
-
-            try {
-              const game = await publicClient.readContract({
-                address: DONUT_TOWER_ADDRESS,
-                abi: TOWER_ABI,
-                functionName: "games",
-                args: [gameId],
-                blockTag: 'latest',
-              }) as unknown as any[];
-
-              const status = Number(game[5]);
-              console.log("Game status:", status);
-
-              if (status === GameStatus.Active) {
-                console.log("Game is now active!");
-                setGameState({
-                  player: game[0],
-                  betAmount: game[2],
-                  difficulty: Number(game[3]),
-                  status: status,
-                  currentLevel: Number(game[6]),
-                  trapPositions: game[7],
-                  currentMultiplier: game[8],
-                });
-                setIsWaitingForReveal(false);
-                setIsStartingGame(false);
-                return true;
-              }
-
-              if (attempts >= maxAttempts) {
-                console.log("Polling timed out");
-                setErrorMessage("Timeout - refresh page");
-                setIsWaitingForReveal(false);
-                setIsStartingGame(false);
-                return true;
-              }
-            } catch (e) {
-              console.error("Poll error:", e);
-            }
-            return false;
-          };
-
-          // Keep polling until done
-          while (true) {
-            const done = await poll();
-            if (done) break;
+          if (result && result > BigInt(0)) {
+            gameId = result;
+            break;
           }
-        } else {
-          console.log("No game ID found");
-          setErrorMessage("No game found");
-          setIsWaitingForReveal(false);
-          setIsStartingGame(false);
+        } catch (e) {
+          console.error(`Game ID attempt ${gameIdAttempts} error:`, e);
         }
-      } catch (e) {
-        console.error("Error getting game ID:", e);
-        setErrorMessage("Error starting");
-        setIsStartingGame(false);
+      }
+
+      if (!gameId || gameId === BigInt(0)) {
+        console.log("No game ID found after all attempts");
+        setErrorMessage("No game found - please refresh");
         setIsWaitingForReveal(false);
+        setIsStartingGame(false);
+        return;
+      }
+
+      console.log("Got game ID:", gameId.toString());
+      setActiveGameId(gameId);
+
+      // Now poll for the game to become active (revealed)
+      let attempts = 0;
+      const maxAttempts = 60;
+
+      const poll = async (): Promise<boolean> => {
+        attempts++;
+        console.log(`Reveal poll attempt ${attempts}`);
+        
+        // Call reveal API first
+        try { 
+          const res = await fetch('/api/reveal?game=tower');
+          const data = await res.json();
+          console.log("Reveal API response:", data);
+        } catch (e) {
+          console.log("Reveal API error:", e);
+        }
+        
+        // Wait between checks
+        await new Promise(r => setTimeout(r, 2000));
+
+        try {
+          const game = await publicClient.readContract({
+            address: DONUT_TOWER_ADDRESS,
+            abi: TOWER_ABI,
+            functionName: "games",
+            args: [gameId],
+            blockTag: 'latest',
+          }) as unknown as any[];
+
+          const status = Number(game[5]);
+          console.log("Game status:", status);
+
+          if (status === GameStatus.Active) {
+            console.log("Game is now active!");
+            setGameState({
+              player: game[0],
+              betAmount: game[2],
+              difficulty: Number(game[3]),
+              status: status,
+              currentLevel: Number(game[6]),
+              trapPositions: game[7],
+              currentMultiplier: game[8],
+            });
+            setIsWaitingForReveal(false);
+            setIsStartingGame(false);
+            return true;
+          }
+
+          if (attempts >= maxAttempts) {
+            console.log("Polling timed out");
+            setErrorMessage("Timeout - refresh page");
+            setIsWaitingForReveal(false);
+            setIsStartingGame(false);
+            return true;
+          }
+        } catch (e) {
+          console.error("Poll error:", e);
+        }
+        return false;
+      };
+
+      // Keep polling until done
+      while (true) {
+        const done = await poll();
+        if (done) break;
       }
     };
 
@@ -784,6 +812,8 @@ export default function DonutTowerPage() {
               {/* Tiles - big and touchable */}
               <div className="flex gap-2 justify-center">
                 {Array.from({ length: config.tiles }).map((_, t) => {
+                  // For safe > 1 modes: trap position = the trap tile
+                  // For safe = 1 modes: trap position = the SAFE tile (only 1 safe)
                   const isSafe = config.safe > 1 ? t !== trap : t === trap;
                   const show = ended || isPast || showFullTower;
                   const clickable = isNextLevel && !isClimbing && !ended;
