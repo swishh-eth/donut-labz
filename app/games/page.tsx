@@ -474,7 +474,7 @@ export default function GamesPage() {
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
-  // Games list - Tower HOT, Keno TEST
+  // Games list - Tower HOT, Coin Flip and Keno as TEST
   const games = [
     {
       id: "tower",
@@ -485,16 +485,6 @@ export default function GamesPage() {
       isHot: true,
       lastWinner: towerLastWinner,
       onClick: () => window.location.href = "/tower",
-    },
-    {
-      id: "keno",
-      title: "Donut Keno",
-      description: "Pick numbers, match the draw, win big!",
-      icon: Grid3X3,
-      comingSoon: false,
-      isTest: true,
-      lastWinner: null,
-      onClick: () => window.location.href = "/keno",
     },
     {
       id: "wheel",
@@ -527,6 +517,26 @@ export default function GamesPage() {
       onClick: () => router.push("/mines"),
     },
     {
+      id: "coinflip",
+      title: "Coin Flip",
+      description: "Heads or tails, 1.96x payout!",
+      icon: Coins,
+      comingSoon: false,
+      isTest: true,
+      lastWinner: null,
+      onClick: () => window.location.href = "/coinflip",
+    },
+    {
+      id: "keno",
+      title: "Donut Keno",
+      description: "Pick numbers, match the draw, win big!",
+      icon: Grid3X3,
+      comingSoon: false,
+      isTest: true,
+      lastWinner: null,
+      onClick: () => window.location.href = "/keno",
+    },
+    {
       id: "lottery",
       title: "Daily Lottery",
       description: "Buy tickets for the daily DONUT pool",
@@ -547,14 +557,6 @@ export default function GamesPage() {
       title: "Donut Slots",
       description: "Match symbols to win big",
       icon: Sparkles,
-      comingSoon: true,
-      lastWinner: null,
-    },
-    {
-      id: "coinflip",
-      title: "Coin Flip",
-      description: "Heads or tails, 50/50 odds",
-      icon: Coins,
       comingSoon: true,
       lastWinner: null,
     },
