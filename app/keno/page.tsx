@@ -6,8 +6,81 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
-import { History, HelpCircle, X, Loader2, Shield, Target, Volume2, VolumeX, ChevronDown, Sparkles, Shuffle } from "lucide-react";
+import { History, HelpCircle, X, Loader2, Shield, Target, Volume2, VolumeX, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Donut explosion particle type
+type DonutParticle = {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  rotation: number;
+  scale: number;
+};
+
+// Donut Explosion Component
+function DonutExplosion({ tileIndex, gridCols, onComplete }: { tileIndex: number; gridCols: number; onComplete: () => void }) {
+  const [particles, setParticles] = useState<DonutParticle[]>([]);
+  
+  useEffect(() => {
+    // Create 6-10 particles
+    const count = 6 + Math.floor(Math.random() * 5);
+    const newParticles: DonutParticle[] = [];
+    
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+      const speed = 60 + Math.random() * 40;
+      newParticles.push({
+        id: i,
+        x: 0,
+        y: 0,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 40,
+        rotation: Math.random() * 360,
+        scale: 0.5 + Math.random() * 0.4,
+      });
+    }
+    
+    setParticles(newParticles);
+    
+    const timer = setTimeout(onComplete, 600);
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+  
+  // Calculate tile position (8x5 grid)
+  const row = Math.floor(tileIndex / gridCols);
+  const col = tileIndex % gridCols;
+  const cellWidth = 100 / gridCols;
+  const cellHeight = 100 / 5; // 5 rows
+  
+  return (
+    <div 
+      className="absolute pointer-events-none z-30"
+      style={{
+        left: `${col * cellWidth + cellWidth / 2}%`,
+        top: `${row * cellHeight + cellHeight / 2}%`,
+      }}
+    >
+      {particles.map((p) => (
+        <div
+          key={p.id}
+          className="absolute text-base"
+          style={{
+            animation: 'donut-fly 0.6s ease-out forwards',
+            '--vx': `${p.vx}px`,
+            '--vy': `${p.vy}px`,
+            '--rotation': `${p.rotation + 540}deg`,
+            transform: `scale(${p.scale})`,
+          } as React.CSSProperties}
+        >
+          🍩
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // Contract addresses - TODO: Replace with actual Keno contract
 const DONUT_KENO_ADDRESS = "0x0000000000000000000000000000000000000000" as const; // PLACEHOLDER
@@ -247,6 +320,16 @@ export default function KenoPage() {
   const [cooldown, setCooldown] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState<"none" | "risk" | "bet">("none");
   const [revealIndex, setRevealIndex] = useState(0);
+  const [explosions, setExplosions] = useState<number[]>([]);
+
+  // Trigger donut explosion
+  const triggerExplosion = useCallback((tileIndex: number) => {
+    setExplosions(prev => [...prev, tileIndex]);
+  }, []);
+
+  const removeExplosion = useCallback((tileIndex: number) => {
+    setExplosions(prev => prev.filter(i => i !== tileIndex));
+  }, []);
 
   const { address, isConnected } = useAccount();
 
@@ -430,6 +513,7 @@ export default function KenoPage() {
     setLastResult(null);
     setDrawnNumbers(new Set());
     setRevealIndex(0);
+    setExplosions([]);
 
     // Generate 10 random drawn numbers
     const available = Array.from({ length: 40 }, (_, i) => i + 1);
@@ -439,12 +523,14 @@ export default function KenoPage() {
     // Reveal numbers one by one
     setIsRevealing(true);
     for (let i = 0; i < drawn.length; i++) {
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 250));
       const num = drawn[i];
       const isHit = selectedNumbers.has(num);
       playRevealSound(isHit);
       if (isHit) {
         try { sdk.haptics.impactOccurred("medium"); } catch {}
+        // Trigger explosion on hit - convert number (1-40) to tile index (0-39)
+        triggerExplosion(num - 1);
       }
       setDrawnNumbers(prev => new Set([...prev, num]));
       setRevealIndex(i + 1);
@@ -486,12 +572,22 @@ export default function KenoPage() {
         }
         @keyframes pulse-hit {
           0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.1); }
+          50% { transform: scale(1.15); }
         }
         @keyframes reveal-pop {
           0% { transform: scale(0.8); opacity: 0; }
           50% { transform: scale(1.1); }
           100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes donut-fly {
+          0% { 
+            transform: translate(0, 0) rotate(0deg) scale(1); 
+            opacity: 1; 
+          }
+          100% { 
+            transform: translate(var(--vx), var(--vy)) rotate(var(--rotation)) scale(0.2); 
+            opacity: 0; 
+          }
         }
         .confetti { animation: confetti-fall 3s linear forwards; }
         .pulse-hit { animation: pulse-hit 0.3s ease-out; }
@@ -619,44 +715,70 @@ export default function KenoPage() {
 
           {/* Keno Grid - 8x5 = 40 numbers */}
           <div className="flex-1 flex flex-col justify-center overflow-hidden">
-            <div className="grid grid-cols-8 gap-1.5 mb-2">
-              {Array.from({ length: 40 }, (_, i) => i + 1).map((num) => {
-                const isSelected = selectedNumbers.has(num);
-                const isDrawn = drawnNumbers.has(num);
-                const isHit = isSelected && isDrawn;
-                const isMiss = isDrawn && !isSelected;
+            <div className="relative w-full max-w-[360px] mx-auto">
+              <div className="grid grid-cols-8 gap-1.5 mb-2">
+                {Array.from({ length: 40 }, (_, i) => i + 1).map((num) => {
+                  const isSelected = selectedNumbers.has(num);
+                  const isDrawn = drawnNumbers.has(num);
+                  const isHit = isSelected && isDrawn;
+                  const isMiss = isDrawn && !isSelected;
+                  const isClickable = !isPlaying && !isRevealing;
 
-                return (
-                  <button
-                    key={num}
-                    onClick={() => toggleNumber(num)}
-                    disabled={isPlaying || isRevealing}
-                    className={cn(
-                      "aspect-square rounded-lg font-bold text-sm flex items-center justify-center transition-all border-2",
-                      // Not drawn yet
-                      !isDrawn && isSelected && "bg-purple-500 border-purple-400 text-white",
-                      !isDrawn && !isSelected && "bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500",
-                      // Drawn - hit
-                      isHit && "bg-green-500 border-green-400 text-white pulse-hit",
-                      // Drawn - miss (selected but not hit is handled above, this is drawn but not selected)
-                      isMiss && "bg-zinc-700 border-zinc-600 text-zinc-500",
-                      // Drawn - not selected, just mark it
-                      isDrawn && !isSelected && !isMiss && "bg-zinc-700 border-zinc-600 text-zinc-400",
-                      // Disabled state
-                      (isPlaying || isRevealing) && "cursor-not-allowed",
-                      isDrawn && "reveal-pop"
-                    )}
-                  >
-                    {isHit ? "💎" : num}
-                  </button>
-                );
-              })}
+                  // Mines-style tile classes
+                  let tileStyle = "";
+                  if (isHit) {
+                    tileStyle = "bg-green-500/30 border-green-500 text-white";
+                  } else if (isMiss) {
+                    tileStyle = "bg-zinc-700/50 border-zinc-600 text-zinc-500";
+                  } else if (isSelected) {
+                    tileStyle = "bg-purple-500/30 border-purple-400 text-white";
+                  } else if (isClickable) {
+                    tileStyle = "bg-zinc-800 border-zinc-600 hover:border-zinc-400 hover:bg-zinc-700 cursor-pointer active:scale-95";
+                  } else {
+                    tileStyle = "bg-zinc-900 border-zinc-700 opacity-50";
+                  }
+
+                  return (
+                    <button
+                      key={num}
+                      onClick={() => toggleNumber(num)}
+                      disabled={!isClickable}
+                      className={cn(
+                        "aspect-square rounded-lg font-bold text-xs flex items-center justify-center transition-all border-2",
+                        tileStyle,
+                        isDrawn && "reveal-pop",
+                        isHit && "pulse-hit"
+                      )}
+                    >
+                      {isHit ? (
+                        <span className="text-lg">💎</span>
+                      ) : isMiss ? (
+                        <span className="text-zinc-600 text-[10px]">{num}</span>
+                      ) : isSelected ? (
+                        <span className="text-sm">{num}</span>
+                      ) : (
+                        <span className="text-zinc-500 text-[10px]">{num}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              {/* Donut Explosions */}
+              {explosions.map((tileIndex, idx) => (
+                <DonutExplosion 
+                  key={`explosion-${tileIndex}-${idx}`}
+                  tileIndex={tileIndex} 
+                  gridCols={8}
+                  onComplete={() => removeExplosion(tileIndex)} 
+                />
+              ))}
             </div>
 
             {/* Result display */}
             {lastResult && (
               <div className={cn(
-                "text-center py-2 rounded-xl mb-2",
+                "text-center py-3 rounded-xl mb-2 mx-auto max-w-[280px]",
                 lastResult.payout > 0 ? "bg-green-500/20 border border-green-500/50" : "bg-red-500/20 border border-red-500/50"
               )}>
                 <div className={cn(
@@ -678,7 +800,7 @@ export default function KenoPage() {
 
             {/* Payout table */}
             {payoutTable && !lastResult && (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 mx-auto max-w-[320px]">
                 <div className="text-[9px] text-gray-500 mb-1 text-center">PAYOUTS FOR {pickCount} PICKS</div>
                 <div className="flex flex-wrap justify-center gap-1">
                   {Object.entries(payoutTable).map(([hits, mult]) => (
