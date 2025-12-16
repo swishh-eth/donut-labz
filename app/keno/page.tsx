@@ -320,15 +320,17 @@ export default function KenoPage() {
   const [cooldown, setCooldown] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState<"none" | "risk" | "bet">("none");
   const [revealIndex, setRevealIndex] = useState(0);
-  const [explosions, setExplosions] = useState<number[]>([]);
+  const [explosions, setExplosions] = useState<{id: number; tileIndex: number}[]>([]);
+  const explosionIdRef = useRef(0);
 
-  // Trigger donut explosion
+  // Trigger donut explosion - use unique ID to prevent issues
   const triggerExplosion = useCallback((tileIndex: number) => {
-    setExplosions(prev => [...prev, tileIndex]);
+    const id = explosionIdRef.current++;
+    setExplosions(prev => [...prev, { id, tileIndex }]);
   }, []);
 
-  const removeExplosion = useCallback((tileIndex: number) => {
-    setExplosions(prev => prev.filter(i => i !== tileIndex));
+  const removeExplosion = useCallback((id: number) => {
+    setExplosions(prev => prev.filter(e => e.id !== id));
   }, []);
 
   const { address, isConnected } = useAccount();
@@ -514,6 +516,7 @@ export default function KenoPage() {
     setDrawnNumbers(new Set());
     setRevealIndex(0);
     setExplosions([]);
+    explosionIdRef.current = 0;
 
     // Generate 10 random drawn numbers
     const available = Array.from({ length: 40 }, (_, i) => i + 1);
@@ -594,7 +597,7 @@ export default function KenoPage() {
         .reveal-pop { animation: reveal-pop 0.2s ease-out forwards; }
       `}</style>
 
-      {/* Confetti */}
+      {/* Confetti - Donuts falling */}
       {showConfetti && (
         <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
           {[...Array(40)].map((_, i) => (
@@ -605,9 +608,10 @@ export default function KenoPage() {
                 left: `${(i * 37 + 13) % 100}%`,
                 top: '-60px',
                 animationDelay: `${(i * 0.05) % 0.8}s`,
+                fontSize: `${20 + (i % 3) * 8}px`,
               }}
             >
-              💎
+              🍩
             </div>
           ))}
         </div>
@@ -724,17 +728,22 @@ export default function KenoPage() {
                   const isMiss = isDrawn && !isSelected;
                   const isClickable = !isPlaying && !isRevealing;
 
-                  // Mines-style tile classes
+                  // Mines-style tile classes - exact match
                   let tileStyle = "";
                   if (isHit) {
-                    tileStyle = "bg-green-500/30 border-green-500 text-white";
+                    // Hit = white border, darker interior (like Mines safe tile)
+                    tileStyle = "bg-white/10 border-white";
                   } else if (isMiss) {
-                    tileStyle = "bg-zinc-700/50 border-zinc-600 text-zinc-500";
+                    // Miss = dimmed out
+                    tileStyle = "bg-zinc-800/50 border-zinc-700 text-zinc-600";
                   } else if (isSelected) {
+                    // Selected but not drawn yet
                     tileStyle = "bg-purple-500/30 border-purple-400 text-white";
                   } else if (isClickable) {
-                    tileStyle = "bg-zinc-800 border-zinc-600 hover:border-zinc-400 hover:bg-zinc-700 cursor-pointer active:scale-95";
+                    // Default clickable
+                    tileStyle = "bg-zinc-800 border-zinc-600 hover:border-white hover:bg-zinc-700 cursor-pointer active:scale-95";
                   } else {
+                    // Disabled during play
                     tileStyle = "bg-zinc-900 border-zinc-700 opacity-50";
                   }
 
@@ -744,14 +753,13 @@ export default function KenoPage() {
                       onClick={() => toggleNumber(num)}
                       disabled={!isClickable}
                       className={cn(
-                        "aspect-square rounded-lg font-bold text-xs flex items-center justify-center transition-all border-2",
+                        "aspect-square rounded-xl font-bold text-xs flex items-center justify-center transition-all border-2",
                         tileStyle,
-                        isDrawn && "reveal-pop",
-                        isHit && "pulse-hit"
+                        isDrawn && "reveal-pop"
                       )}
                     >
                       {isHit ? (
-                        <span className="text-lg">💎</span>
+                        <span className="text-lg">🍩</span>
                       ) : isMiss ? (
                         <span className="text-zinc-600 text-[10px]">{num}</span>
                       ) : isSelected ? (
@@ -764,13 +772,13 @@ export default function KenoPage() {
                 })}
               </div>
               
-              {/* Donut Explosions */}
-              {explosions.map((tileIndex, idx) => (
+              {/* Donut Explosions - only show for tiles that JUST got revealed */}
+              {explosions.map((explosion) => (
                 <DonutExplosion 
-                  key={`explosion-${tileIndex}-${idx}`}
-                  tileIndex={tileIndex} 
+                  key={`explosion-${explosion.id}`}
+                  tileIndex={explosion.tileIndex} 
                   gridCols={8}
-                  onComplete={() => removeExplosion(tileIndex)} 
+                  onComplete={() => removeExplosion(explosion.id)} 
                 />
               ))}
             </div>
