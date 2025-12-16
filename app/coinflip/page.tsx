@@ -298,24 +298,32 @@ export default function CoinFlipPage() {
     setLastResult(null);
     setExpandedPanel("none");
 
-    // Animate coin flip
+    // Determine result first (so we know where to land)
+    const result: "heads" | "tails" = Math.random() < 0.5 ? "heads" : "tails";
+    
+    // Animate coin flip - rotateX for vertical flip
     const flipDuration = 2000;
     const startTime = Date.now();
     const startRotation = coinRotation;
-    const totalRotations = 5 + Math.random() * 3; // 5-8 full rotations
+    const totalRotations = 4 + Math.random() * 2; // 4-6 full rotations
+    
+    // Calculate final rotation - heads = 0deg (or 360*n), tails = 180deg (or 360*n + 180)
+    const baseRotation = Math.ceil((startRotation + totalRotations * 360) / 360) * 360;
+    const finalRotation = result === "heads" ? baseRotation : baseRotation + 180;
+    const totalDelta = finalRotation - startRotation;
     
     // Play flip sounds during animation
     const flipInterval = setInterval(() => {
       playFlipSound();
-    }, 100);
+    }, 120);
 
     const animate = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / flipDuration, 1);
       
-      // Ease out
+      // Ease out cubic for natural deceleration
       const eased = 1 - Math.pow(1 - progress, 3);
-      const currentRotation = startRotation + (totalRotations * 360 * eased);
+      const currentRotation = startRotation + (totalDelta * eased);
       setCoinRotation(currentRotation);
 
       if (progress < 1) {
@@ -323,14 +331,11 @@ export default function CoinFlipPage() {
       } else {
         clearInterval(flipInterval);
         
-        // Determine result (random for test mode)
-        const result: "heads" | "tails" = Math.random() < 0.5 ? "heads" : "tails";
+        // Ensure we land exactly on the right position
+        setCoinRotation(finalRotation);
+        
         const won = result === selectedSide;
         const payout = won ? amount * multiplier : 0;
-
-        // Snap to final position (heads = 0deg, tails = 180deg)
-        const finalRotation = result === "heads" ? Math.ceil(currentRotation / 360) * 360 : Math.ceil(currentRotation / 360) * 360 + 180;
-        setCoinRotation(finalRotation);
 
         setLastResult({ side: result, won, payout });
         setIsFlipping(false);
@@ -370,28 +375,7 @@ export default function CoinFlipPage() {
           0% { transform: translateY(-60px) rotate(0deg); opacity: 1; }
           100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
         }
-        @keyframes coin-shine {
-          0%, 100% { opacity: 0; }
-          50% { opacity: 0.3; }
-        }
         .confetti { animation: confetti-fall 3s linear forwards; }
-        .coin-shine { animation: coin-shine 2s ease-in-out infinite; }
-        .coin-3d {
-          transform-style: preserve-3d;
-          perspective: 1000px;
-        }
-        .coin-face {
-          backface-visibility: hidden;
-          position: absolute;
-          inset: 0;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .coin-back {
-          transform: rotateY(180deg);
-        }
       `}</style>
 
       {/* Confetti */}
@@ -486,26 +470,82 @@ export default function CoinFlipPage() {
 
           {/* Coin Area */}
           <div className="flex-1 flex flex-col items-center justify-center">
-            {/* The Coin */}
+            {/* The 3D Coin */}
             <div 
-              className="relative w-40 h-40 mb-4 coin-3d"
-              style={{ 
-                transform: `rotateY(${coinRotation}deg)`,
-                transition: isFlipping ? 'none' : 'transform 0.3s ease-out'
-              }}
+              className="relative w-36 h-36 mb-6"
+              style={{ perspective: '1000px' }}
             >
-              {/* Heads side */}
-              <div className="coin-face bg-gradient-to-br from-amber-400 to-amber-600 border-4 border-amber-300 shadow-lg">
-                <div className="text-5xl">🍩</div>
-                <div className="absolute bottom-3 text-[10px] font-bold text-amber-900">HEADS</div>
-                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-white/0 via-white/30 to-white/0 coin-shine pointer-events-none" />
-              </div>
-              
-              {/* Tails side */}
-              <div className="coin-face coin-back bg-gradient-to-br from-zinc-400 to-zinc-600 border-4 border-zinc-300 shadow-lg">
-                <div className="text-5xl">✨</div>
-                <div className="absolute bottom-3 text-[10px] font-bold text-zinc-900">TAILS</div>
-                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-white/0 via-white/30 to-white/0 coin-shine pointer-events-none" />
+              <div
+                className="w-full h-full relative"
+                style={{ 
+                  transformStyle: 'preserve-3d',
+                  transform: `rotateX(${coinRotation}deg)`,
+                  transition: isFlipping ? 'none' : 'transform 0.3s ease-out'
+                }}
+              >
+                {/* Heads side (front) - Donut */}
+                <div 
+                  className="absolute inset-0 rounded-full flex items-center justify-center border-4 shadow-2xl"
+                  style={{
+                    backfaceVisibility: 'hidden',
+                    background: 'linear-gradient(145deg, #f59e0b, #d97706)',
+                    borderColor: '#fbbf24',
+                    boxShadow: 'inset 0 2px 10px rgba(255,255,255,0.3), inset 0 -2px 10px rgba(0,0,0,0.2), 0 10px 30px rgba(0,0,0,0.4)'
+                  }}
+                >
+                  <div className="text-5xl">🍩</div>
+                  <div className="absolute bottom-4 text-[10px] font-bold text-amber-900 tracking-wider">HEADS</div>
+                  {/* Shine effect */}
+                  <div 
+                    className="absolute inset-0 rounded-full pointer-events-none"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%, transparent 100%)',
+                    }}
+                  />
+                  {/* Edge detail */}
+                  <div 
+                    className="absolute inset-1 rounded-full border-2 border-amber-400/30 pointer-events-none"
+                  />
+                </div>
+                
+                {/* Tails side (back) - Sparkles */}
+                <div 
+                  className="absolute inset-0 rounded-full flex items-center justify-center border-4 shadow-2xl"
+                  style={{
+                    backfaceVisibility: 'hidden',
+                    transform: 'rotateX(180deg)',
+                    background: 'linear-gradient(145deg, #71717a, #52525b)',
+                    borderColor: '#a1a1aa',
+                    boxShadow: 'inset 0 2px 10px rgba(255,255,255,0.2), inset 0 -2px 10px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.4)'
+                  }}
+                >
+                  <div className="text-5xl">✨</div>
+                  <div className="absolute bottom-4 text-[10px] font-bold text-zinc-300 tracking-wider">TAILS</div>
+                  {/* Shine effect */}
+                  <div 
+                    className="absolute inset-0 rounded-full pointer-events-none"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, transparent 50%, transparent 100%)',
+                    }}
+                  />
+                  {/* Edge detail */}
+                  <div 
+                    className="absolute inset-1 rounded-full border-2 border-zinc-400/30 pointer-events-none"
+                  />
+                </div>
+
+                {/* Coin edge (thickness) - multiple layers for 3D effect */}
+                {[...Array(8)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                      transform: `translateZ(${-2 - i * 0.5}px)`,
+                      background: i < 4 ? '#b45309' : '#92400e',
+                      border: '1px solid #78350f',
+                    }}
+                  />
+                ))}
               </div>
             </div>
 
