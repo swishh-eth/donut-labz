@@ -322,6 +322,7 @@ export default function KenoPage() {
   const [revealIndex, setRevealIndex] = useState(0);
   const [explosions, setExplosions] = useState<{id: number; tileIndex: number}[]>([]);
   const explosionIdRef = useRef(0);
+  const [showTestPopup, setShowTestPopup] = useState(true);
 
   // Trigger donut explosion - use unique ID to prevent issues
   const triggerExplosion = useCallback((tileIndex: number) => {
@@ -617,6 +618,34 @@ export default function KenoPage() {
         </div>
       )}
 
+      {/* Test Mode Popup */}
+      {showTestPopup && (
+        <div className="fixed inset-0 z-[60]">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+            <div className="relative mx-4 rounded-2xl border-2 border-purple-500 bg-zinc-950 p-6 shadow-2xl text-center">
+              <div className="text-5xl mb-4">🧪</div>
+              <h2 className="text-xl font-bold text-white mb-2">Test Mode</h2>
+              <p className="text-gray-400 text-sm mb-4">
+                This is a <span className="text-purple-400 font-bold">test version</span> of Donut Keno. 
+                No real tokens are being used. You're playing for fun!
+              </p>
+              <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 mb-4">
+                <p className="text-purple-300 text-xs">
+                  Results are randomly generated client-side. No blockchain transactions occur.
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowTestPopup(false)}
+                className="w-full py-3 rounded-xl bg-purple-500 text-white font-bold text-lg hover:bg-purple-400 transition-colors"
+              >
+                Got it, let's play!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="w-full max-w-md flex flex-col h-full pb-16">
         <NavBar />
         
@@ -724,27 +753,39 @@ export default function KenoPage() {
                 {Array.from({ length: 40 }, (_, i) => i + 1).map((num) => {
                   const isSelected = selectedNumbers.has(num);
                   const isDrawn = drawnNumbers.has(num);
-                  const isHit = isSelected && isDrawn;
-                  const isMiss = isDrawn && !isSelected;
-                  const isClickable = !isPlaying && !isRevealing;
+                  const isHit = isSelected && isDrawn; // Selected AND was drawn = HIT
+                  const isDrawnNotSelected = isDrawn && !isSelected; // Drawn but we didn't pick it
+                  const isSelectedNotHit = isSelected && !isDrawn && lastResult; // We picked it but it wasn't drawn (after game ends)
+                  const isClickable = !isPlaying && !isRevealing && !lastResult;
 
-                  // Mines-style tile classes - exact match
+                  // Determine tile style - matching Mines exactly
                   let tileStyle = "";
+                  let content: React.ReactNode;
+
                   if (isHit) {
-                    // Hit = white border, darker interior (like Mines safe tile)
+                    // HIT - white border, dark interior, show donut (like Mines safe tile)
                     tileStyle = "bg-white/10 border-white";
-                  } else if (isMiss) {
-                    // Miss = dimmed out
-                    tileStyle = "bg-zinc-800/50 border-zinc-700 text-zinc-600";
+                    content = <span className="text-lg">🍩</span>;
+                  } else if (isSelectedNotHit) {
+                    // Selected but wasn't in draw - keep showing as selected (purple) so user sees what they picked
+                    tileStyle = "bg-purple-500/20 border-purple-500/50";
+                    content = <span className="text-purple-300 text-sm">{num}</span>;
+                  } else if (isDrawnNotSelected) {
+                    // Was drawn but we didn't select it - dim gray
+                    tileStyle = "bg-zinc-800/50 border-zinc-700";
+                    content = <span className="text-zinc-600 text-[10px]">{num}</span>;
                   } else if (isSelected) {
-                    // Selected but not drawn yet
-                    tileStyle = "bg-purple-500/30 border-purple-400 text-white";
+                    // Selected (game not finished yet)
+                    tileStyle = "bg-purple-500/30 border-purple-400";
+                    content = <span className="text-white text-sm">{num}</span>;
                   } else if (isClickable) {
-                    // Default clickable
+                    // Default clickable tile
                     tileStyle = "bg-zinc-800 border-zinc-600 hover:border-white hover:bg-zinc-700 cursor-pointer active:scale-95";
+                    content = <span className="text-zinc-500 text-[10px]">{num}</span>;
                   } else {
                     // Disabled during play
                     tileStyle = "bg-zinc-900 border-zinc-700 opacity-50";
+                    content = <span className="text-zinc-600 text-[10px]">{num}</span>;
                   }
 
                   return (
@@ -758,15 +799,7 @@ export default function KenoPage() {
                         isDrawn && "reveal-pop"
                       )}
                     >
-                      {isHit ? (
-                        <span className="text-lg">🍩</span>
-                      ) : isMiss ? (
-                        <span className="text-zinc-600 text-[10px]">{num}</span>
-                      ) : isSelected ? (
-                        <span className="text-sm">{num}</span>
-                      ) : (
-                        <span className="text-zinc-500 text-[10px]">{num}</span>
-                      )}
+                      {content}
                     </button>
                   );
                 })}

@@ -172,6 +172,7 @@ export default function CoinFlipPage() {
   const [expandedPanel, setExpandedPanel] = useState<"none" | "bet">("none");
   const [streak, setStreak] = useState(0);
   const [gameHistory, setGameHistory] = useState<Array<{ side: "heads" | "tails"; won: boolean; amount: number; payout: number }>>([]);
+  const [showTestPopup, setShowTestPopup] = useState(true);
 
   const { address, isConnected } = useAccount();
 
@@ -394,6 +395,34 @@ export default function CoinFlipPage() {
               🍩
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Test Mode Popup */}
+      {showTestPopup && (
+        <div className="fixed inset-0 z-[60]">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+            <div className="relative mx-4 rounded-2xl border-2 border-purple-500 bg-zinc-950 p-6 shadow-2xl text-center">
+              <div className="text-5xl mb-4">🧪</div>
+              <h2 className="text-xl font-bold text-white mb-2">Test Mode</h2>
+              <p className="text-gray-400 text-sm mb-4">
+                This is a <span className="text-purple-400 font-bold">test version</span> of Coin Flip. 
+                No real tokens are being used. You're playing for fun!
+              </p>
+              <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 mb-4">
+                <p className="text-purple-300 text-xs">
+                  Results are randomly generated client-side. No blockchain transactions occur.
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowTestPopup(false)}
+                className="w-full py-3 rounded-xl bg-purple-500 text-white font-bold text-lg hover:bg-purple-400 transition-colors"
+              >
+                Got it, let's play!
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
