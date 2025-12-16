@@ -7,7 +7,7 @@ import { createPublicClient, http, formatUnits } from "viem";
 import { base } from "viem/chains";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Zap, Trophy, Lock, Bomb, Layers, Flame } from "lucide-react";
+import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Trophy, Lock, Bomb, Layers, Flame, Grid3X3 } from "lucide-react";
 
 // Contract addresses - V5 contracts
 const DONUT_DICE_ADDRESS = "0xD6f1Eb5858efF6A94B853251BE2C27c4038BB7CE" as const;
@@ -71,6 +71,7 @@ function GameTile({
   comingSoon = true,
   isNew = false,
   isHot = false,
+  isTest = false,
   iconClassName,
   lastWinner,
   scrollDirection = "left",
@@ -82,6 +83,7 @@ function GameTile({
   comingSoon?: boolean;
   isNew?: boolean;
   isHot?: boolean;
+  isTest?: boolean;
   iconClassName?: string;
   lastWinner?: { username: string; amount: string; pfpUrl?: string } | null;
   scrollDirection?: "left" | "right";
@@ -120,17 +122,22 @@ function GameTile({
                 Soon
               </span>
             )}
-            {!comingSoon && isHot && (
+            {!comingSoon && isTest && (
+              <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold border border-purple-500/30">
+                TEST
+              </span>
+            )}
+            {!comingSoon && isHot && !isTest && (
               <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold hot-pulse flex items-center gap-0.5">
                 <Flame className="w-2.5 h-2.5" /> HOT
               </span>
             )}
-            {!comingSoon && isNew && !isHot && (
+            {!comingSoon && isNew && !isHot && !isTest && (
               <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold">
                 NEW
               </span>
             )}
-            {!comingSoon && !isNew && !isHot && (
+            {!comingSoon && !isNew && !isHot && !isTest && (
               <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full flex-shrink-0">
                 LIVE
               </span>
@@ -174,30 +181,13 @@ export default function GamesPage() {
   const [minesLastWinner, setMinesLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
   const [towerLastWinner, setTowerLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
 
-  // Mock data - replace with real contract reads later
-  const [poolData, setPoolData] = useState({
-    totalTickets: 0,
-    prizePool: 0, // in DONUT
-    ticketPrice: 10, // DONUT per ticket
-    userTickets: 0,
-  });
-
-  const isLotteryLive = false; // Set to true when lottery launches
-
-  // Fetch last winner for dice game using events (V5 contract)
+  // Fetch last winner for dice game
   useEffect(() => {
-    console.log("Dice winner effect running");
-    
     const fetchLastDiceWinner = async () => {
-      console.log("Fetching dice last winner via events...");
-      
       try {
-        // Get current block number first
         const currentBlock = await publicClient.getBlockNumber();
-        // Look back ~30 min on Base (900 blocks at 2 sec/block)
         const fromBlock = currentBlock > 900n ? currentBlock - 900n : 0n;
         
-        // Get recent BetRevealed events - V5 contract event signature
         const logs = await publicClient.getLogs({
           address: DONUT_DICE_ADDRESS,
           event: {
@@ -216,41 +206,22 @@ export default function GamesPage() {
           toBlock: 'latest',
         });
 
-        console.log("Found", logs.length, "BetRevealed events");
-
-        // Find the most recent win (iterate backwards)
         let lastWin: { player: string; payout: bigint } | null = null;
-        
         for (let i = logs.length - 1; i >= 0 && i >= logs.length - 50; i--) {
           const log = logs[i];
-          const won = log.args.won;
-          const payout = log.args.payout;
-          const player = log.args.player;
-          
-          console.log(`Event ${i}:`, { player, won, payout: payout?.toString() });
-          
-          if (won && player && payout) {
-            lastWin = { player, payout };
-            console.log("Found last win:", lastWin);
+          if (log.args.won && log.args.player && log.args.payout) {
+            lastWin = { player: log.args.player, payout: log.args.payout };
             break;
           }
         }
         
-        if (!lastWin) {
-          console.log("No wins found in recent events");
-          setDiceLastWinner(null);
-          return;
-        }
+        if (!lastWin) { setDiceLastWinner(null); return; }
         
-        // Get profile from our cached profiles API
         try {
           const response = await fetch(`/api/profiles?addresses=${lastWin.player}`);
-          console.log("Profile response:", response.status);
           if (response.ok) {
             const data = await response.json();
-            console.log("Profile data:", data);
             const profile = data.profiles[lastWin.player.toLowerCase()];
-            
             if (profile?.username) {
               setDiceLastWinner({
                 username: profile.username,
@@ -260,39 +231,27 @@ export default function GamesPage() {
               return;
             }
           }
-        } catch (e) {
-          console.log("Error fetching profile:", e);
-        }
+        } catch {}
         
-        // Fallback to truncated address
-        const truncatedAddress = `${lastWin.player.slice(0, 6)}...${lastWin.player.slice(-4)}`;
         setDiceLastWinner({
-          username: truncatedAddress,
+          username: `${lastWin.player.slice(0, 6)}...${lastWin.player.slice(-4)}`,
           amount: `${parseFloat(formatUnits(lastWin.payout, 18)).toFixed(2)} 🍩`
         });
-      } catch (error) {
-        console.error("Failed to fetch dice last winner:", error);
-        setDiceLastWinner(null);
-      }
+      } catch { setDiceLastWinner(null); }
     };
 
     fetchLastDiceWinner();
-    // Refresh every 15 minutes (was 5)
     const interval = setInterval(fetchLastDiceWinner, 15 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch last mines winner (V5 contract)
+  // Fetch last mines winner
   useEffect(() => {
     const fetchLastMinesWinner = async () => {
       try {
         const currentBlock = await publicClient.getBlockNumber();
-        // Look back ~30 min on Base (900 blocks at 2 sec/block) - reduced from 1 hour
         const fromBlock = currentBlock > 900n ? currentBlock - 900n : 0n;
         
-        console.log("Fetching mines winner from block", fromBlock.toString(), "to latest");
-        
-        // Get recent GameCashedOut events from Mines V5 contract
         const logs = await publicClient.getLogs({
           address: DONUT_MINES_ADDRESS,
           event: {
@@ -310,29 +269,17 @@ export default function GamesPage() {
           toBlock: 'latest'
         });
 
-        console.log("Found", logs.length, "GameCashedOut events");
+        if (logs.length === 0) { setMinesLastWinner(null); return; }
 
-        if (logs.length === 0) {
-          setMinesLastWinner(null);
-          return;
-        }
-
-        // Get most recent cashout
         const lastLog = logs[logs.length - 1];
         const player = lastLog.args.player as string;
         const payout = lastLog.args.payout as bigint;
-        
-        console.log("Last mines winner:", player, "payout:", formatUnits(payout, 18));
 
-        // Get profile from our cached profiles API
         try {
           const response = await fetch(`/api/profiles?addresses=${player}`);
-          console.log("Mines profile response:", response.status);
           if (response.ok) {
             const data = await response.json();
-            console.log("Mines profile data:", data);
             const profile = data.profiles[player.toLowerCase()];
-            
             if (profile?.username) {
               setMinesLastWinner({
                 username: profile.username,
@@ -342,20 +289,13 @@ export default function GamesPage() {
               return;
             }
           }
-        } catch (e) {
-          console.log("Error fetching mines profile:", e);
-        }
+        } catch {}
         
-        // Fallback to truncated address
-        const truncatedAddress = `${player.slice(0, 6)}...${player.slice(-4)}`;
         setMinesLastWinner({
-          username: truncatedAddress,
+          username: `${player.slice(0, 6)}...${player.slice(-4)}`,
           amount: `${parseFloat(formatUnits(payout, 18)).toFixed(2)} 🍩`
         });
-      } catch (error) {
-        console.error("Failed to fetch mines last winner:", error);
-        setMinesLastWinner(null);
-      }
+      } catch { setMinesLastWinner(null); }
     };
 
     fetchLastMinesWinner();
@@ -363,17 +303,13 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch last wheel winner (V5 contract)
+  // Fetch last wheel winner
   useEffect(() => {
     const fetchLastWheelWinner = async () => {
       try {
         const currentBlock = await publicClient.getBlockNumber();
-        // Look back ~30 min on Base (900 blocks at 2 sec/block)
         const fromBlock = currentBlock > 900n ? currentBlock - 900n : 0n;
         
-        console.log("Fetching wheel winner from block", fromBlock.toString(), "to latest");
-        
-        // Get recent SpinRevealed events from Wheel V5 contract
         const logs = await publicClient.getLogs({
           address: GLAZE_WHEEL_ADDRESS,
           event: {
@@ -391,38 +327,24 @@ export default function GamesPage() {
           toBlock: 'latest'
         });
 
-        console.log("Found", logs.length, "SpinRevealed events");
-
-        // Find the most recent win (payout > 0)
         let lastWin: { player: string; payout: bigint } | null = null;
-        
         for (let i = logs.length - 1; i >= 0 && i >= logs.length - 50; i--) {
           const log = logs[i];
           const payout = log.args.payout as bigint;
           const player = log.args.player as string;
-          
           if (payout && payout > 0n && player) {
             lastWin = { player, payout };
-            console.log("Found wheel win:", lastWin);
             break;
           }
         }
 
-        if (!lastWin) {
-          console.log("No wheel wins found in recent events");
-          setWheelLastWinner(null);
-          return;
-        }
+        if (!lastWin) { setWheelLastWinner(null); return; }
 
-        // Get profile from our cached profiles API
         try {
           const response = await fetch(`/api/profiles?addresses=${lastWin.player}`);
-          console.log("Wheel profile response:", response.status);
           if (response.ok) {
             const data = await response.json();
-            console.log("Wheel profile data:", data);
             const profile = data.profiles[lastWin.player.toLowerCase()];
-            
             if (profile?.username) {
               setWheelLastWinner({
                 username: profile.username,
@@ -432,20 +354,13 @@ export default function GamesPage() {
               return;
             }
           }
-        } catch (e) {
-          console.log("Error fetching wheel profile:", e);
-        }
+        } catch {}
         
-        // Fallback to truncated address
-        const truncatedAddress = `${lastWin.player.slice(0, 6)}...${lastWin.player.slice(-4)}`;
         setWheelLastWinner({
-          username: truncatedAddress,
+          username: `${lastWin.player.slice(0, 6)}...${lastWin.player.slice(-4)}`,
           amount: `${parseFloat(formatUnits(lastWin.payout, 18)).toFixed(2)} 🍩`
         });
-      } catch (error) {
-        console.error("Failed to fetch wheel last winner:", error);
-        setWheelLastWinner(null);
-      }
+      } catch { setWheelLastWinner(null); }
     };
 
     fetchLastWheelWinner();
@@ -453,17 +368,13 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch last tower winner (V5 contract)
+  // Fetch last tower winner
   useEffect(() => {
     const fetchLastTowerWinner = async () => {
       try {
         const currentBlock = await publicClient.getBlockNumber();
-        // Look back ~30 min on Base (900 blocks at 2 sec/block)
         const fromBlock = currentBlock > 900n ? currentBlock - 900n : 0n;
         
-        console.log("Fetching tower winner from block", fromBlock.toString(), "to latest");
-        
-        // Get recent GameCashedOut events from Tower V5 contract
         const logs = await publicClient.getLogs({
           address: DONUT_TOWER_ADDRESS,
           event: {
@@ -481,29 +392,17 @@ export default function GamesPage() {
           toBlock: 'latest'
         });
 
-        console.log("Found", logs.length, "Tower GameCashedOut events");
+        if (logs.length === 0) { setTowerLastWinner(null); return; }
 
-        if (logs.length === 0) {
-          setTowerLastWinner(null);
-          return;
-        }
-
-        // Get most recent cashout
         const lastLog = logs[logs.length - 1];
         const player = lastLog.args.player as string;
         const payout = lastLog.args.payout as bigint;
-        
-        console.log("Last tower winner:", player, "payout:", formatUnits(payout, 18));
 
-        // Get profile from our cached profiles API
         try {
           const response = await fetch(`/api/profiles?addresses=${player}`);
-          console.log("Tower profile response:", response.status);
           if (response.ok) {
             const data = await response.json();
-            console.log("Tower profile data:", data);
             const profile = data.profiles[player.toLowerCase()];
-            
             if (profile?.username) {
               setTowerLastWinner({
                 username: profile.username,
@@ -513,20 +412,13 @@ export default function GamesPage() {
               return;
             }
           }
-        } catch (e) {
-          console.log("Error fetching tower profile:", e);
-        }
+        } catch {}
         
-        // Fallback to truncated address
-        const truncatedAddress = `${player.slice(0, 6)}...${player.slice(-4)}`;
         setTowerLastWinner({
-          username: truncatedAddress,
+          username: `${player.slice(0, 6)}...${player.slice(-4)}`,
           amount: `${parseFloat(formatUnits(payout, 18)).toFixed(2)} 🍩`
         });
-      } catch (error) {
-        console.error("Failed to fetch tower last winner:", error);
-        setTowerLastWinner(null);
-      }
+      } catch { setTowerLastWinner(null); }
     };
 
     fetchLastTowerWinner();
@@ -541,17 +433,13 @@ export default function GamesPage() {
         const ctx = (await (sdk as unknown as {
           context: Promise<MiniAppContext> | MiniAppContext;
         }).context) as MiniAppContext;
-        if (!cancelled) {
-          setContext(ctx);
-        }
+        if (!cancelled) setContext(ctx);
       } catch {
         if (!cancelled) setContext(null);
       }
     };
     hydrateContext();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -564,7 +452,6 @@ export default function GamesPage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Handle scroll fade
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -572,7 +459,6 @@ export default function GamesPage() {
     const handleScroll = () => {
       const scrollTop = container.scrollTop;
       const scrollHeight = container.scrollHeight - container.clientHeight;
-      
       if (scrollHeight > 0) {
         const topFade = Math.min(1, scrollTop / 100);
         const bottomFade = Math.min(1, (scrollHeight - scrollTop) / 100);
@@ -585,16 +471,10 @@ export default function GamesPage() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const userDisplayName =
-    context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
-  const userHandle = context?.user?.username
-    ? `@${context.user.username}`
-    : context?.user?.fid
-      ? `fid ${context.user.fid}`
-      : "";
+  const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
-  // Games list - Tower at top with HOT tag
+  // Games list - Tower HOT, Keno TEST
   const games = [
     {
       id: "tower",
@@ -605,6 +485,16 @@ export default function GamesPage() {
       isHot: true,
       lastWinner: towerLastWinner,
       onClick: () => window.location.href = "/tower",
+    },
+    {
+      id: "keno",
+      title: "Donut Keno",
+      description: "Pick numbers, match the draw, win big!",
+      icon: Grid3X3,
+      comingSoon: false,
+      isTest: true,
+      lastWinner: null,
+      onClick: () => window.location.href = "/keno",
     },
     {
       id: "wheel",
@@ -681,103 +571,37 @@ export default function GamesPage() {
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style jsx global>{`
-        .games-scroll {
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-        }
-        .games-scroll::-webkit-scrollbar {
-          display: none;
-        }
-        .game-tile {
-          scroll-snap-align: start;
-        }
-        @keyframes icon-breathe {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.15); }
-        }
-        @keyframes icon-spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        @keyframes scroll-left {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        @keyframes scroll-right {
-          0% { transform: translateX(-50%); }
-          100% { transform: translateX(0); }
-        }
-        @keyframes hot-pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.7; transform: scale(0.95); }
-        }
-        .icon-breathe {
-          animation: icon-breathe 2s ease-in-out infinite;
-        }
-        .icon-spin {
-          animation: icon-spin 4s linear infinite;
-        }
-        .hot-pulse {
-          animation: hot-pulse 2s ease-in-out infinite;
-        }
-        .winner-container {
-          overflow: hidden;
-          max-width: 140px;
-          -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
-          mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
-        }
-        .winner-track {
-          display: flex;
-          width: max-content;
-          animation: scroll-left 6s linear infinite;
-        }
-        .winner-track-right {
-          display: flex;
-          width: max-content;
-          animation: scroll-right 6s linear infinite;
-        }
-        .winner-item {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          padding: 2px 8px;
-          margin-right: 16px;
-          font-size: 9px;
-          color: #4ade80;
-          background: rgba(34, 197, 94, 0.2);
-          border-radius: 9999px;
-          white-space: nowrap;
-        }
+        .games-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+        .games-scroll::-webkit-scrollbar { display: none; }
+        .game-tile { scroll-snap-align: start; }
+        @keyframes icon-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+        @keyframes icon-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes scroll-left { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        @keyframes scroll-right { 0% { transform: translateX(-50%); } 100% { transform: translateX(0); } }
+        @keyframes hot-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.95); } }
+        .icon-breathe { animation: icon-breathe 2s ease-in-out infinite; }
+        .icon-spin { animation: icon-spin 4s linear infinite; }
+        .hot-pulse { animation: hot-pulse 2s ease-in-out infinite; }
+        .winner-container { overflow: hidden; max-width: 140px; -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); }
+        .winner-track { display: flex; width: max-content; animation: scroll-left 6s linear infinite; }
+        .winner-track-right { display: flex; width: max-content; animation: scroll-right 6s linear infinite; }
+        .winner-item { display: flex; align-items: center; gap: 4px; padding: 2px 8px; margin-right: 16px; font-size: 9px; color: #4ade80; background: rgba(34, 197, 94, 0.2); border-radius: 9999px; white-space: nowrap; }
       `}</style>
 
-      <div
-        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4 shadow-inner"
-        style={{
-          paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)",
-        }}
-      >
+      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4 shadow-inner" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
-          {/* Fixed Header Section */}
+          {/* Header */}
           <div className="flex-shrink-0">
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl font-bold tracking-wide">GAMES</h1>
               <div className="flex items-center gap-2">
-                {/* XP Bar */}
                 <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-full px-2 py-1 opacity-50">
                   <span className="text-[8px] text-gray-500 whitespace-nowrap">Earn GLAZE soon</span>
                 </div>
-                {/* User PFP */}
                 {context?.user && (
                   <Avatar className="h-7 w-7 border border-zinc-700">
-                    <AvatarImage
-                      src={userAvatarUrl || undefined}
-                      alt={userDisplayName}
-                      className="object-cover"
-                    />
-                    <AvatarFallback className="bg-zinc-800 text-white text-xs">
-                      {initialsFrom(userDisplayName)}
-                    </AvatarFallback>
+                    <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
+                    <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(userDisplayName)}</AvatarFallback>
                   </Avatar>
                 )}
               </div>
@@ -792,7 +616,6 @@ export default function GamesPage() {
                 </div>
                 <div className="text-lg font-bold text-gray-500">0</div>
               </div>
-
               <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center h-[72px]">
                 <div className="flex items-center gap-1 mb-0.5">
                   <Clock className="w-3 h-3 text-gray-500" />
@@ -800,11 +623,7 @@ export default function GamesPage() {
                 </div>
                 <div className="text-xs font-bold text-gray-500">Coming Soon</div>
               </div>
-
-              <button
-                onClick={() => setShowBuyTicketsDialog(true)}
-                className="border border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20 rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all hover:from-amber-600/30 hover:to-orange-600/30 active:scale-[0.98] h-[72px]"
-              >
+              <button onClick={() => setShowBuyTicketsDialog(true)} className="border border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20 rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all hover:from-amber-600/30 hover:to-orange-600/30 active:scale-[0.98] h-[72px]">
                 <div className="flex items-center gap-1 mb-0.5">
                   <Coins className="w-3 h-3 text-amber-400" />
                   <span className="text-[9px] text-gray-400 uppercase">Prize Pool</span>
@@ -816,11 +635,8 @@ export default function GamesPage() {
               </button>
             </div>
 
-            {/* How It Works Button */}
-            <button
-              onClick={() => setShowHelpDialog(true)}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-3 hover:bg-zinc-800 transition-colors"
-            >
+            {/* How It Works */}
+            <button onClick={() => setShowHelpDialog(true)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-3 hover:bg-zinc-800 transition-colors">
               <div className="flex items-center justify-center gap-2">
                 <Dices className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                 <span className="text-xs font-semibold text-white">How Games Work</span>
@@ -832,65 +648,17 @@ export default function GamesPage() {
           {/* Help Dialog */}
           {showHelpDialog && (
             <div className="fixed inset-0 z-50">
-              <div
-                className="absolute inset-0 bg-black/90 backdrop-blur-md"
-                onClick={() => setShowHelpDialog(false)}
-              />
+              <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHelpDialog(false)} />
               <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
                 <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
-                  <button
-                    onClick={() => setShowHelpDialog(false)}
-                    className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-
-                  <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2">
-                    <Dices className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                    Donut Labs Games
-                  </h2>
-
+                  <button onClick={() => setShowHelpDialog(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"><X className="h-4 w-4" /></button>
+                  <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2"><Dices className="w-4 h-4 text-white" /> Donut Labs Games</h2>
                   <div className="space-y-2.5">
-                    <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">1</div>
-                      <div>
-                        <div className="font-semibold text-amber-400 text-xs">100% Onchain</div>
-                        <div className="text-[11px] text-gray-400">All games run entirely on Base. Every bet, spin, and outcome is recorded onchain.</div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
-                      <div>
-                        <div className="font-semibold text-white text-xs">Provably Fair</div>
-                        <div className="text-[11px] text-gray-400">All randomness is verifiable. Check any result yourself on the blockchain.</div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
-                      <div>
-                        <div className="font-semibold text-amber-400 text-xs">Transparent Fees</div>
-                        <div className="text-[11px] text-gray-400">Games have a 2% house edge: 1% grows the pool, 0.5% LP burn, 0.5% treasury.</div>
-                      </div>
-                    </div>
+                    <div className="flex gap-2.5"><div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">1</div><div><div className="font-semibold text-amber-400 text-xs">100% Onchain</div><div className="text-[11px] text-gray-400">All games run entirely on Base.</div></div></div>
+                    <div className="flex gap-2.5"><div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div><div><div className="font-semibold text-white text-xs">Provably Fair</div><div className="text-[11px] text-gray-400">All randomness is verifiable.</div></div></div>
+                    <div className="flex gap-2.5"><div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div><div><div className="font-semibold text-amber-400 text-xs">Transparent Fees</div><div className="text-[11px] text-gray-400">2% house edge: 1% pool, 0.5% LP, 0.5% treasury.</div></div></div>
                   </div>
-
-                  <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-xl">
-                    <div className="text-[9px] text-gray-500 uppercase mb-1.5 text-center">Fee Distribution</div>
-                    <div className="text-center space-y-0.5">
-                      <div className="text-xs text-white">1% → House (Pool Growth)</div>
-                      <div className="text-xs text-amber-400">0.5% → LP Burn Rewards</div>
-                      <div className="text-xs text-gray-400">0.5% → Treasury</div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setShowHelpDialog(false)}
-                    className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
-                  >
-                    Got it
-                  </button>
+                  <button onClick={() => setShowHelpDialog(false)} className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Got it</button>
                 </div>
               </div>
             </div>
@@ -899,88 +667,23 @@ export default function GamesPage() {
           {/* Buy Tickets Dialog */}
           {showBuyTicketsDialog && (
             <div className="fixed inset-0 z-50">
-              <div
-                className="absolute inset-0 bg-black/90 backdrop-blur-md"
-                onClick={() => setShowBuyTicketsDialog(false)}
-              />
+              <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowBuyTicketsDialog(false)} />
               <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
                 <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
-                  <button
-                    onClick={() => setShowBuyTicketsDialog(false)}
-                    className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-
-                  <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2">
-                    <Ticket className="w-4 h-4 text-amber-400" />
-                    Daily Lottery
-                  </h2>
-
-                  <div className="space-y-2.5 mb-4">
-                    <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">1</div>
-                      <div>
-                        <div className="font-semibold text-amber-400 text-xs">Buy Tickets</div>
-                        <div className="text-[11px] text-gray-400">Purchase tickets with DONUT. More tickets = better odds.</div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
-                      <div>
-                        <div className="font-semibold text-white text-xs">Daily Reset</div>
-                        <div className="text-[11px] text-gray-400">Pool resets every day at midnight UTC. Winner is drawn automatically.</div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">3</div>
-                      <div>
-                        <div className="font-semibold text-white text-xs">Fair Odds</div>
-                        <div className="text-[11px] text-gray-400">Your chance = your tickets ÷ total tickets. Simple math.</div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
-                      <div>
-                        <div className="font-semibold text-amber-400 text-xs">Win 99%</div>
-                        <div className="text-[11px] text-gray-400">Winner takes 99% of the pool. 1% funds SPRINKLES LP burns.</div>
-                      </div>
-                    </div>
-                  </div>
-
+                  <button onClick={() => setShowBuyTicketsDialog(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"><X className="h-4 w-4" /></button>
+                  <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2"><Ticket className="w-4 h-4 text-amber-400" /> Daily Lottery</h2>
                   <div className="text-center py-4 bg-zinc-900 border border-zinc-800 rounded-xl">
-                    <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-2">
-                      <Lock className="w-6 h-6 text-gray-500" />
-                    </div>
+                    <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-2"><Lock className="w-6 h-6 text-gray-500" /></div>
                     <p className="text-sm font-semibold text-gray-400">Coming Soon</p>
-                    <p className="text-xs text-gray-500 mt-1">Daily lottery launching soon!</p>
                   </div>
-
-                  <button
-                    onClick={() => setShowBuyTicketsDialog(false)}
-                    className="mt-3 w-full rounded-xl bg-zinc-800 py-2 text-sm font-bold text-gray-400 cursor-not-allowed"
-                    disabled
-                  >
-                    Buy Tickets (Coming Soon)
-                  </button>
+                  <button onClick={() => setShowBuyTicketsDialog(false)} className="mt-3 w-full rounded-xl bg-zinc-800 py-2 text-sm font-bold text-gray-400 cursor-not-allowed" disabled>Buy Tickets (Coming Soon)</button>
                 </div>
               </div>
             </div>
           )}
 
           {/* Scrollable Games List */}
-          <div 
-            ref={scrollContainerRef}
-            className="flex-1 overflow-y-auto overflow-x-hidden games-scroll"
-            style={{
-              WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
-              maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
-              transition: 'mask-image 0.3s ease-out, -webkit-mask-image 0.3s ease-out',
-            }}
-          >
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden games-scroll" style={{ WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`, maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` }}>
             <div className="space-y-2 pb-4">
               {games.map((game) => (
                 <GameTile
@@ -989,11 +692,12 @@ export default function GamesPage() {
                   description={game.description}
                   icon={game.icon}
                   comingSoon={game.comingSoon}
-                  isNew={(game as { isNew?: boolean }).isNew}
-                  isHot={(game as { isHot?: boolean }).isHot}
-                  iconClassName={(game as { iconClassName?: string }).iconClassName}
+                  isNew={(game as any).isNew}
+                  isHot={(game as any).isHot}
+                  isTest={(game as any).isTest}
+                  iconClassName={(game as any).iconClassName}
                   lastWinner={game.lastWinner}
-                  scrollDirection={(game as { scrollDirection?: "left" | "right" }).scrollDirection}
+                  scrollDirection={(game as any).scrollDirection}
                   onClick={game.onClick}
                 />
               ))}
