@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Trophy, Clock, Coins, HelpCircle, X, Sparkles } from "lucide-react";
+import { Trophy, Clock, Coins, HelpCircle, X, Sparkles, History, ExternalLink } from "lucide-react";
 import { formatEther } from "viem";
 
 type MiniAppContext = {
@@ -34,6 +34,18 @@ type FarcasterProfile = {
 type LeaderboardResponse = {
   leaderboard: LeaderboardEntry[];
   weekNumber: number;
+};
+
+type PastWinner = {
+  week_number: number;
+  first_place: string;
+  second_place: string | null;
+  third_place: string | null;
+  first_amount: string;
+  second_amount: string;
+  third_amount: string;
+  tx_hash: string;
+  created_at?: string;
 };
 
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C";
@@ -73,6 +85,7 @@ export default function LeaderboardPage() {
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
   const [donutPrice, setDonutPrice] = useState<number>(0);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
+  const [showPastWinnersDialog, setShowPastWinnersDialog] = useState(false);
   const [showUsdPrize, setShowUsdPrize] = useState(true);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const lastFocusedRef = useRef(0);
@@ -159,6 +172,20 @@ export default function LeaderboardPage() {
     staleTime: 30_000,
   });
 
+  const { data: pastWinnersData } = useQuery<{ 
+    winners: PastWinner[]; 
+    profiles: Record<string, FarcasterProfile | null>;
+  }>({
+    queryKey: ["past-winners"],
+    queryFn: async () => {
+      const res = await fetch("/api/past-winners?limit=10");
+      if (!res.ok) throw new Error("Failed to fetch past winners");
+      return res.json();
+    },
+    enabled: showPastWinnersDialog,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const addresses: string[] = leaderboardData?.leaderboard?.map((entry) => entry.address) || [];
   
   const { data: profilesData } = useQuery<{ profiles: Record<string, FarcasterProfile | null> }>({
@@ -177,6 +204,7 @@ export default function LeaderboardPage() {
   });
 
   const profiles = profilesData?.profiles || {};
+  const pastWinnerProfiles = pastWinnersData?.profiles || {};
 
   const handleViewProfile = useCallback(async (profile: FarcasterProfile | null) => {
     if (!profile) return;
@@ -189,6 +217,15 @@ export default function LeaderboardPage() {
 
     if (!url) return;
 
+    try {
+      await sdk.actions.openUrl(url);
+    } catch (e) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }, []);
+
+  const handleOpenBasescan = useCallback(async (txHash: string) => {
+    const url = `https://basescan.org/tx/${txHash}`;
     try {
       await sdk.actions.openUrl(url);
     } catch (e) {
@@ -426,16 +463,29 @@ export default function LeaderboardPage() {
               </button>
             </div>
 
-            <button
-              onClick={() => setShowHelpDialog(true)}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-3 hover:bg-zinc-800 transition-colors"
-            >
-              <div className="flex items-center justify-center gap-2">
-                <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                <span className="text-xs font-semibold text-white">Claim Your Share</span>
-                <HelpCircle className="w-3 h-3 text-gray-400" />
-              </div>
-            </button>
+            {/* Split Buttons */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <button
+                onClick={() => setShowHelpDialog(true)}
+                className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors"
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                  <span className="text-xs font-semibold text-white">How to Win</span>
+                  <HelpCircle className="w-3 h-3 text-gray-400" />
+                </div>
+              </button>
+
+              <button
+                onClick={() => setShowPastWinnersDialog(true)}
+                className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors"
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <History className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-semibold text-white">Past Winners</span>
+                </div>
+              </button>
+            </div>
           </div>
 
           {/* Help Dialog */}
@@ -524,6 +574,143 @@ export default function LeaderboardPage() {
                     className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
                   >
                     Got it
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Past Winners Dialog */}
+          {showPastWinnersDialog && (
+            <div className="fixed inset-0 z-50">
+              <div
+                className="absolute inset-0 bg-black/90 backdrop-blur-md"
+                onClick={() => setShowPastWinnersDialog(false)}
+              />
+              <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 max-h-[80vh]">
+                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+                  <button
+                    onClick={() => setShowPastWinnersDialog(false)}
+                    className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white z-10"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+
+                  <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2 flex-shrink-0">
+                    <History className="w-4 h-4 text-amber-400" />
+                    Past Winners
+                  </h2>
+
+                  <div className="overflow-y-auto flex-1 -mx-4 px-4">
+                    {!pastWinnersData?.winners || pastWinnersData.winners.length === 0 ? (
+                      <div className="text-center py-8 text-gray-400">
+                        <Trophy className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No winners yet</p>
+                        <p className="text-xs mt-1">Be the first to claim victory!</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {pastWinnersData.winners.map((week) => (
+                          <div
+                            key={week.week_number}
+                            className="bg-zinc-900 border border-zinc-800 rounded-xl p-3"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-bold text-white">Week #{week.week_number}</span>
+                              <button
+                                onClick={() => handleOpenBasescan(week.tx_hash)}
+                                className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-white transition-colors"
+                              >
+                                <span>View TX</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              {/* First Place */}
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)] w-5">1st</span>
+                                  <Avatar className="h-6 w-6 border border-zinc-700">
+                                    <AvatarImage
+                                      src={pastWinnerProfiles[week.first_place.toLowerCase()]?.pfpUrl || getAnonPfp(week.first_place)}
+                                      alt="1st"
+                                      className="object-cover"
+                                    />
+                                    <AvatarFallback className="bg-zinc-800 text-white text-[8px]">
+                                      {formatAddress(week.first_place).slice(0, 2)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-xs text-white truncate max-w-[100px]">
+                                    {pastWinnerProfiles[week.first_place.toLowerCase()]?.displayName || formatAddress(week.first_place)}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-green-400 font-medium">
+                                  +Ξ{parseFloat(week.first_amount).toFixed(4)}
+                                </span>
+                              </div>
+
+                              {/* Second Place */}
+                              {week.second_place && (
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-bold text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)] w-5">2nd</span>
+                                    <Avatar className="h-6 w-6 border border-zinc-700">
+                                      <AvatarImage
+                                        src={pastWinnerProfiles[week.second_place.toLowerCase()]?.pfpUrl || getAnonPfp(week.second_place)}
+                                        alt="2nd"
+                                        className="object-cover"
+                                      />
+                                      <AvatarFallback className="bg-zinc-800 text-white text-[8px]">
+                                        {formatAddress(week.second_place).slice(0, 2)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-xs text-white truncate max-w-[100px]">
+                                      {pastWinnerProfiles[week.second_place.toLowerCase()]?.displayName || formatAddress(week.second_place)}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs text-green-400 font-medium">
+                                    +Ξ{parseFloat(week.second_amount).toFixed(4)}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Third Place */}
+                              {week.third_place && (
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-bold text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)] w-5">3rd</span>
+                                    <Avatar className="h-6 w-6 border border-zinc-700">
+                                      <AvatarImage
+                                        src={pastWinnerProfiles[week.third_place.toLowerCase()]?.pfpUrl || getAnonPfp(week.third_place)}
+                                        alt="3rd"
+                                        className="object-cover"
+                                      />
+                                      <AvatarFallback className="bg-zinc-800 text-white text-[8px]">
+                                        {formatAddress(week.third_place).slice(0, 2)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-xs text-white truncate max-w-[100px]">
+                                      {pastWinnerProfiles[week.third_place.toLowerCase()]?.displayName || formatAddress(week.third_place)}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs text-green-400 font-medium">
+                                    +Ξ{parseFloat(week.third_amount).toFixed(4)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => setShowPastWinnersDialog(false)}
+                    className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black hover:bg-gray-200 transition-colors flex-shrink-0"
+                  >
+                    Close
                   </button>
                 </div>
               </div>
