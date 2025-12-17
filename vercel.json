@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/distribute",
-      "schedule": "0 12 * * 5"
+      "schedule": "58 11 * * 5"
     },
     {
       "path": "/api/cron/split-weth",
