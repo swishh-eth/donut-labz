@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useConnect, useReadContract } from "wagmi";
-import { useQuery } from "@tanstack/react-query";
 import { base } from "wagmi/chains";
 import { formatEther, formatUnits, zeroAddress } from "viem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,7 +12,7 @@ import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
 import { ShareRewardButton } from "@/components/share-reward-button";
-import { ArrowLeft, Flame } from "lucide-react";
+import { ArrowLeft, Flame, Droplets } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
 
@@ -58,30 +57,6 @@ const formatTokenAmount = (
     maximumFractionDigits,
   });
 };
-
-// Custom Roulette Wheel SVG Icon - matches the gift icon style (outlined, clean)
-const RouletteIcon = ({ className }: { className?: string }) => (
-  <svg 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="1.5" 
-    strokeLinecap="round" 
-    strokeLinejoin="round"
-    className={className}
-  >
-    <circle cx="12" cy="12" r="10" />
-    <circle cx="12" cy="12" r="3" />
-    <line x1="12" y1="2" x2="12" y2="9" />
-    <line x1="12" y1="15" x2="12" y2="22" />
-    <line x1="2" y1="12" x2="9" y2="12" />
-    <line x1="15" y1="12" x2="22" y2="12" />
-    <line x1="4.93" y1="4.93" x2="9.17" y2="9.17" />
-    <line x1="14.83" y1="14.83" x2="19.07" y2="19.07" />
-    <line x1="4.93" y1="19.07" x2="9.17" y2="14.83" />
-    <line x1="14.83" y1="9.17" x2="19.07" y2="4.93" />
-  </svg>
-);
 
 // Video tile component with lazy loading
 function VideoTile({ 
@@ -172,45 +147,6 @@ export default function HomePage() {
     }
   }, [connectAsync, primaryConnector]);
 
-  const { data: spinsData, refetch: refetchSpins } = useQuery<{ availableSpins: number }>({
-    queryKey: ["user-spins", address],
-    queryFn: async () => {
-      if (!address) return { availableSpins: 0 };
-      const res = await fetch(`/api/spins?address=${address}`);
-      if (!res.ok) return { availableSpins: 0 };
-      return res.json();
-    },
-    enabled: !!address,
-    refetchInterval: 30_000,
-  });
-
-  const { data: boostInfo } = useReadContract({
-    address: "0x855F3E6F870C4D4dEB4959523484be3b147c4c0C" as `0x${string}`,
-    abi: [
-      {
-        inputs: [],
-        name: "getBoostInfo",
-        outputs: [
-          { name: "active", type: "bool" },
-          { name: "multiplier", type: "uint256" },
-          { name: "endTime", type: "uint256" },
-          { name: "timeRemaining", type: "uint256" },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-    ] as const,
-    functionName: "getBoostInfo",
-    chainId: base.id,
-    query: {
-      refetchInterval: 30_000,
-    },
-  });
-
-  const availableSpins = spinsData?.availableSpins || 0;
-  const isWheelBoostActive = boostInfo?.[0] ?? false;
-  const wheelBoostMultiplier = boostInfo?.[1] ? Number(boostInfo[1]) / 100 : 1;
-
   const { data: rawMinerState } = useReadContract({
     address: CONTRACT_ADDRESSES.multicall,
     abi: MULTICALL_ABI,
@@ -292,33 +228,8 @@ export default function HomePage() {
     },
   });
 
-  // Wheel pot balances (ETH is first element)
-  const { data: wheelPoolBalances } = useReadContract({
-    address: "0x855F3E6F870C4D4dEB4959523484be3b147c4c0C" as `0x${string}`,
-    abi: [
-      {
-        inputs: [],
-        name: "getPoolBalances",
-        outputs: [
-          { name: "ethBalance", type: "uint256" },
-          { name: "tokens", type: "address[]" },
-          { name: "balances", type: "uint256[]" },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-    ] as const,
-    functionName: "getPoolBalances",
-    chainId: base.id,
-    query: {
-      refetchInterval: 10_000,
-    },
-  });
-
   // DONUT price for USD conversion
   const [donutUsdPrice, setDonutUsdPrice] = useState<number>(0);
-  const [ethUsdPrice, setEthUsdPrice] = useState<number>(0);
-  const [sprinklesUsdPrice, setSprinklesUsdPrice] = useState<number>(0);
 
   useEffect(() => {
     const fetchPrices = async () => {
@@ -328,12 +239,6 @@ export default function HomePage() {
           const data = await res.json();
           if (data.donutPrice) {
             setDonutUsdPrice(data.donutPrice);
-          }
-          if (data.ethPrice) {
-            setEthUsdPrice(data.ethPrice);
-          }
-          if (data.sprinklesPrice) {
-            setSprinklesUsdPrice(data.sprinklesPrice);
           }
         }
       } catch (error) {
@@ -366,33 +271,6 @@ export default function HomePage() {
   const lpCostUsd = auctionPriceValue * LP_PRICE_USD;
   const rewardsValueUsd = auctionRewardsValue * donutUsdPrice;
   const isBurnProfitable = rewardsValueUsd > lpCostUsd && auctionRewardsValue > 0 && donutUsdPrice > 0;
-
-  // Calculate wheel pot USD value (includes ETH, DONUT, and SPRINKLES)
-  let wheelPotUsd = "0";
-  if (wheelPoolBalances && (ethUsdPrice > 0 || donutUsdPrice > 0)) {
-    const poolData = wheelPoolBalances as [bigint, `0x${string}`[], bigint[]];
-    const ethBalance = Number(formatEther(poolData[0]));
-    const tokens = poolData[1];
-    const balances = poolData[2];
-    
-    let totalUsd = ethBalance * ethUsdPrice;
-    
-    // Add token values
-    for (let i = 0; i < tokens.length; i++) {
-      const tokenAddr = tokens[i].toLowerCase();
-      const balance = Number(formatEther(balances[i]));
-      
-      if (tokenAddr === "0xae4a37d554c6d6f3e398546d8566b25052e0169c") {
-        // DONUT
-        totalUsd += balance * donutUsdPrice;
-      } else if (tokenAddr === "0xa890060be1788a676dbc3894160f5dc5ded2c98d") {
-        // SPRINKLES - use same price endpoint
-        totalUsd += balance * sprinklesUsdPrice;
-      }
-    }
-    
-    wheelPotUsd = Math.floor(totalUsd).toString();
-  }
 
   useEffect(() => {
     let cancelled = false;
@@ -595,29 +473,17 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-3 gap-2 px-2 mb-3">
-            <button
-              onClick={() => router.push("/wheel")}
-              className={`h-24 rounded-xl border p-2 flex flex-col items-center justify-center transition-colors relative ${
-                isWheelBoostActive
-                  ? "border-amber-400 bg-gradient-to-br from-amber-500/40 to-orange-500/40 shadow-[0_0_20px_rgba(251,191,36,0.4)]"
-                  : availableSpins > 0
-                    ? "border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20"
-                    : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
-              }`}
+            <div
+              className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 p-2 flex flex-col items-center justify-center cursor-not-allowed opacity-60"
             >
-              {isWheelBoostActive && (
-                <div className="absolute top-1 right-1 text-[8px] font-bold text-black bg-amber-400 px-1 py-0.5 rounded-full">
-                  🔥{wheelBoostMultiplier}x
-                </div>
-              )}
-              <RouletteIcon className={`w-6 h-6 mb-1 ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`} />
-              <div className={`text-[10px] font-bold ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400" : "text-gray-500"}`}>
-                Glaze Wheel
+              <Droplets className="w-6 h-6 mb-1 text-gray-500" />
+              <div className="text-[10px] font-bold text-gray-500">
+                Pool To Own
               </div>
-              <div className={`text-[9px] ${isWheelBoostActive || availableSpins > 0 ? "text-amber-400/80" : "text-gray-600"}`}>
-                {availableSpins > 0 ? `${availableSpins} spin${availableSpins !== 1 ? "s" : ""}!` : `$${wheelPotUsd} pot`}
+              <div className="text-[9px] text-gray-600">
+                coming soon...
               </div>
-            </button>
+            </div>
 
             <button
               onClick={() => router.push("/burn")}

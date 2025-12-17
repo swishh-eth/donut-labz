@@ -338,7 +338,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         setApprovalAmount("");
       }
       
-      // Award spin, record leaderboard points, and post to chat for successful mine
+      // Record leaderboard points and post to chat for successful mine
       if (receipt.status === "success" && txType === "mine" && address) {
         // Pick a new random message for next time
         defaultMessageRef.current = getRandomDefaultMessage();
@@ -382,12 +382,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         };
 
         setTimeout(async () => {
-          // Award spin
-          const spinSuccess = await fetchWithRetry("/api/spins/award-sprinkles-mine", {
-            address: address,
-            txHash: receipt.transactionHash,
-          });
-          
           // Record leaderboard points (1 point for SPRINKLES mining)
           const leaderboardSuccess = await fetchWithRetry("/api/record-glaze", {
             address: address,
@@ -396,7 +390,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           });
           
           // Only post to chat AFTER successful verification
-          if (spinSuccess || leaderboardSuccess) {
+          if (leaderboardSuccess) {
             fetch("/api/chat/mining", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
