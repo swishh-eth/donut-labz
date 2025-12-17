@@ -44,6 +44,12 @@ type PastWinner = {
   first_amount: string;
   second_amount: string;
   third_amount: string;
+  first_donut_amount: string;
+  second_donut_amount: string;
+  third_donut_amount: string;
+  first_sprinkles_amount: string;
+  second_sprinkles_amount: string;
+  third_sprinkles_amount: string;
   tx_hash: string;
   created_at?: string;
 };
@@ -641,13 +647,25 @@ export default function LeaderboardPage() {
                                       {formatAddress(week.first_place).slice(0, 2)}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <span className="text-xs text-white truncate max-w-[100px]">
+                                  <span className="text-xs text-white truncate max-w-[80px]">
                                     {pastWinnerProfiles[week.first_place.toLowerCase()]?.displayName || formatAddress(week.first_place)}
                                   </span>
                                 </div>
-                                <span className="text-xs text-green-400 font-medium">
-                                  +Ξ{parseFloat(week.first_amount).toFixed(4)}
-                                </span>
+                                <div className="flex flex-col items-end">
+                                  <span className="text-[10px] text-green-400 font-medium">
+                                    +Ξ{parseFloat(week.first_amount).toFixed(4)}
+                                  </span>
+                                  {parseFloat(week.first_donut_amount || '0') > 0 && (
+                                    <span className="text-[10px] text-amber-400 font-medium">
+                                      +🍩{parseFloat(week.first_donut_amount).toFixed(0)}
+                                    </span>
+                                  )}
+                                  {parseFloat(week.first_sprinkles_amount || '0') > 0 && (
+                                    <span className="text-[10px] text-white font-medium flex items-center gap-0.5 drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
+                                      +<Sparkles className="w-2 h-2" />{parseFloat(week.first_sprinkles_amount).toFixed(0)}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
                               {/* Second Place */}
@@ -665,13 +683,25 @@ export default function LeaderboardPage() {
                                         {formatAddress(week.second_place).slice(0, 2)}
                                       </AvatarFallback>
                                     </Avatar>
-                                    <span className="text-xs text-white truncate max-w-[100px]">
+                                    <span className="text-xs text-white truncate max-w-[80px]">
                                       {pastWinnerProfiles[week.second_place.toLowerCase()]?.displayName || formatAddress(week.second_place)}
                                     </span>
                                   </div>
-                                  <span className="text-xs text-green-400 font-medium">
-                                    +Ξ{parseFloat(week.second_amount).toFixed(4)}
-                                  </span>
+                                  <div className="flex flex-col items-end">
+                                    <span className="text-[10px] text-green-400 font-medium">
+                                      +Ξ{parseFloat(week.second_amount).toFixed(4)}
+                                    </span>
+                                    {parseFloat(week.second_donut_amount || '0') > 0 && (
+                                      <span className="text-[10px] text-amber-400 font-medium">
+                                        +🍩{parseFloat(week.second_donut_amount).toFixed(0)}
+                                      </span>
+                                    )}
+                                    {parseFloat(week.second_sprinkles_amount || '0') > 0 && (
+                                      <span className="text-[10px] text-white font-medium flex items-center gap-0.5 drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
+                                        +<Sparkles className="w-2 h-2" />{parseFloat(week.second_sprinkles_amount).toFixed(0)}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               )}
 
@@ -690,13 +720,25 @@ export default function LeaderboardPage() {
                                         {formatAddress(week.third_place).slice(0, 2)}
                                       </AvatarFallback>
                                     </Avatar>
-                                    <span className="text-xs text-white truncate max-w-[100px]">
+                                    <span className="text-xs text-white truncate max-w-[80px]">
                                       {pastWinnerProfiles[week.third_place.toLowerCase()]?.displayName || formatAddress(week.third_place)}
                                     </span>
                                   </div>
-                                  <span className="text-xs text-green-400 font-medium">
-                                    +Ξ{parseFloat(week.third_amount).toFixed(4)}
-                                  </span>
+                                  <div className="flex flex-col items-end">
+                                    <span className="text-[10px] text-green-400 font-medium">
+                                      +Ξ{parseFloat(week.third_amount).toFixed(4)}
+                                    </span>
+                                    {parseFloat(week.third_donut_amount || '0') > 0 && (
+                                      <span className="text-[10px] text-amber-400 font-medium">
+                                        +🍩{parseFloat(week.third_donut_amount).toFixed(0)}
+                                      </span>
+                                    )}
+                                    {parseFloat(week.third_sprinkles_amount || '0') > 0 && (
+                                      <span className="text-[10px] text-white font-medium flex items-center gap-0.5 drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
+                                        +<Sparkles className="w-2 h-2" />{parseFloat(week.third_sprinkles_amount).toFixed(0)}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               )}
                             </div>

@@ -129,15 +129,21 @@ export async function getTop3Winners() {
   };
 }
 
-// Save weekly winners to history
+// Save weekly winners to history (includes ETH, DONUT, and SPRINKLES amounts)
 export async function saveWeeklyWinners(
   weekNumber: number,
   first: string,
   second: string | null,
   third: string | null,
-  firstAmount: string,
-  secondAmount: string,
-  thirdAmount: string,
+  firstEthAmount: string,
+  secondEthAmount: string,
+  thirdEthAmount: string,
+  firstDonutAmount: string,
+  secondDonutAmount: string,
+  thirdDonutAmount: string,
+  firstSprinklesAmount: string,
+  secondSprinklesAmount: string,
+  thirdSprinklesAmount: string,
   txHash: string
 ) {
   const { error } = await supabase
@@ -147,9 +153,15 @@ export async function saveWeeklyWinners(
       first_place: first.toLowerCase(),
       second_place: second?.toLowerCase() || null,
       third_place: third?.toLowerCase() || null,
-      first_amount: firstAmount,
-      second_amount: secondAmount,
-      third_amount: thirdAmount,
+      first_amount: firstEthAmount,
+      second_amount: secondEthAmount,
+      third_amount: thirdEthAmount,
+      first_donut_amount: firstDonutAmount,
+      second_donut_amount: secondDonutAmount,
+      third_donut_amount: thirdDonutAmount,
+      first_sprinkles_amount: firstSprinklesAmount,
+      second_sprinkles_amount: secondSprinklesAmount,
+      third_sprinkles_amount: thirdSprinklesAmount,
       tx_hash: txHash,
     });
 
