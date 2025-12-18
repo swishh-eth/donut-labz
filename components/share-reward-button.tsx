@@ -173,7 +173,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   // Share before claiming (to qualify)
   const handleShareToQualify = async () => {
     const estimatedAmount = getEstimatedAmount();
-    const shareText = `I just got free glaze from Donut Labs! by @swishh.eth 🧪\n\n${estimatedAmount} $${tokenSymbol} claimed! 🎉\n\nJoin the lab, compete in leaderboards 👇`;
+    const shareText = `Sprinkles by @swishh.eth just did another drop! ✨\n\n${estimatedAmount} $${tokenSymbol} claimed! 🎉\n\nStart competing in weekly leaderboards 👇`;
 
     try {
       await sdk.actions.composeCast({
