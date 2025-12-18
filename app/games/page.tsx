@@ -70,6 +70,7 @@ function FallingDonut({ delay, duration, left }: { delay: number; duration: numb
       className="lottery-donut absolute text-base pointer-events-none select-none opacity-60"
       style={{
         left: `${left}%`,
+        top: '-20px',
         animationDelay: `${delay}s`,
         animationDuration: `${duration}s`,
       }}
@@ -147,8 +148,8 @@ function LotteryTile({
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
-              <Trophy className="w-4 h-4 text-black" />
+            <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center">
+              <span className="text-xl">🍩</span>
             </div>
             <div className="text-left">
               <div className="flex items-center gap-2">
@@ -186,7 +187,7 @@ function LotteryTile({
               {isComingSoon ? (
                 <span className="text-2xl font-black text-gray-500">Coming Soon</span>
               ) : (
-                <span className="text-3xl font-black pot-glow-text">
+                <span className="text-3xl font-black text-amber-400">
                   {currentPot.toLocaleString()}
                 </span>
               )}
@@ -204,7 +205,7 @@ function LotteryTile({
           </div>
           
           {/* CTA */}
-          <div className={`lottery-cta px-4 py-2.5 rounded-xl ${isComingSoon ? 'bg-zinc-700 text-gray-400' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-lg shadow-amber-500/30'} font-bold text-sm ${isHovered && !isComingSoon ? 'scale-105' : ''} transition-transform`}>
+          <div className={`px-4 py-2.5 rounded-xl bg-white text-black font-bold text-sm ${isHovered ? 'scale-105' : ''} transition-transform`}>
             {isComingSoon ? "View Details →" : "Buy Tickets →"}
           </div>
         </div>
@@ -760,42 +761,31 @@ export default function GamesPage() {
         
         /* Lottery tile styles */
         @keyframes lottery-donut-fall {
-          0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
-          10% { opacity: 0.6; }
-          90% { opacity: 0.6; }
-          100% { transform: translateY(140px) rotate(360deg); opacity: 0; }
+          0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+          5% { opacity: 0.6; }
+          95% { opacity: 0.6; }
+          100% { transform: translateY(160px) rotate(360deg); opacity: 0; }
         }
-        @keyframes pot-glow-pulse {
-          0%, 100% { text-shadow: 0 0 10px rgba(251, 191, 36, 0.5), 0 0 20px rgba(251, 191, 36, 0.3); }
-          50% { text-shadow: 0 0 20px rgba(251, 191, 36, 0.8), 0 0 40px rgba(251, 191, 36, 0.5); }
-        }
-        @keyframes lottery-border-glow {
-          0%, 100% { border-color: rgba(251, 191, 36, 0.4); box-shadow: 0 0 15px rgba(251, 191, 36, 0.15); }
-          50% { border-color: rgba(251, 191, 36, 0.7); box-shadow: 0 0 25px rgba(251, 191, 36, 0.3); }
-        }
-        @keyframes lottery-cta-pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.02); }
+        @keyframes lottery-border {
+          0%, 100% { border-color: rgba(251, 191, 36, 0.4); }
+          50% { border-color: rgba(251, 191, 36, 0.6); }
         }
         .lottery-donut { animation: lottery-donut-fall linear infinite; }
-        .pot-glow-text { animation: pot-glow-pulse 2s ease-in-out infinite; color: #fbbf24; }
         .lottery-tile-main { 
           background: linear-gradient(135deg, rgba(120, 53, 15, 0.4) 0%, rgba(24, 24, 27, 1) 50%, rgba(124, 45, 18, 0.4) 100%);
-          animation: lottery-border-glow 3s ease-in-out infinite;
+          animation: lottery-border 3s ease-in-out infinite;
         }
         .lottery-tile-main:hover {
           animation: none;
           border-color: rgba(251, 191, 36, 0.8) !important;
-          box-shadow: 0 0 30px rgba(251, 191, 36, 0.4) !important;
         }
-        .lottery-cta { animation: lottery-cta-pulse 2s ease-in-out infinite; }
         
         /* Tournaments tile styles */
-        @keyframes sparkle-float {
-          0%, 100% { transform: translateY(100%) scale(0); opacity: 0; }
-          10% { opacity: 1; transform: translateY(80%) scale(1); }
-          90% { opacity: 1; transform: translateY(-80%) scale(1); }
-          100% { transform: translateY(-100%) scale(0); opacity: 0; }
+        @keyframes sparkle-fall {
+          0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+          5% { opacity: 0.8; }
+          95% { opacity: 0.8; }
+          100% { transform: translateY(110px) rotate(360deg); opacity: 0; }
         }
         @keyframes trophy-bounce {
           0%, 100% { transform: translateY(0) rotate(0deg); }
@@ -803,23 +793,22 @@ export default function GamesPage() {
           75% { transform: translateY(-3px) rotate(5deg); }
         }
         @keyframes tournaments-border {
-          0%, 100% { border-color: rgba(255, 255, 255, 0.4); box-shadow: 0 0 15px rgba(251, 191, 36, 0.15); }
-          50% { border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 0 20px rgba(251, 191, 36, 0.25); }
+          0%, 100% { border-color: rgba(255, 255, 255, 0.3); }
+          50% { border-color: rgba(255, 255, 255, 0.5); }
         }
         .sparkle-particle {
           position: absolute;
-          animation: sparkle-float 3s ease-in-out infinite;
+          animation: sparkle-fall 3s ease-in-out infinite;
           pointer-events: none;
         }
         .trophy-bounce { animation: trophy-bounce 2s ease-in-out infinite; }
         .tournaments-tile {
-          background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(24, 24, 27, 1) 50%, rgba(251, 191, 36, 0.1) 100%);
+          background: rgb(24, 24, 27);
           animation: tournaments-border 3s ease-in-out infinite;
         }
         .tournaments-tile:hover {
           animation: none;
-          border-color: rgba(255, 255, 255, 0.9) !important;
-          box-shadow: 0 0 25px rgba(251, 191, 36, 0.4) !important;
+          border-color: rgba(255, 255, 255, 0.7) !important;
         }
       `}</style>
 
@@ -889,18 +878,18 @@ export default function GamesPage() {
                 className="tournaments-tile relative w-full rounded-xl p-4 border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]"
                 style={{ minHeight: '90px' }}
               >
-                {/* Sparkle particles */}
+                {/* Falling sparkle particles */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '10%', animationDelay: '0s' }} />
-                  <Sparkles className="sparkle-particle w-3 h-3 text-white" style={{ left: '30%', animationDelay: '0.5s' }} />
-                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '50%', animationDelay: '1s' }} />
-                  <Sparkles className="sparkle-particle w-3 h-3 text-white" style={{ left: '70%', animationDelay: '1.5s' }} />
-                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '90%', animationDelay: '2s' }} />
+                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '10%', top: '-10px', animationDelay: '0s' }} />
+                  <Sparkles className="sparkle-particle w-3 h-3 text-white" style={{ left: '30%', top: '-10px', animationDelay: '0.5s' }} />
+                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '50%', top: '-10px', animationDelay: '1s' }} />
+                  <Sparkles className="sparkle-particle w-3 h-3 text-white" style={{ left: '70%', top: '-10px', animationDelay: '1.5s' }} />
+                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '90%', top: '-10px', animationDelay: '2s' }} />
                 </div>
                 
                 <div className="relative z-10 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/30 border border-amber-400/30">
-                    <Trophy className="w-6 h-6 text-black trophy-bounce" />
+                  <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center">
+                    <Trophy className="w-6 h-6 text-amber-500 trophy-bounce" />
                   </div>
                   
                   <div className="flex-1 text-left">
