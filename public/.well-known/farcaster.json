@@ -7,7 +7,7 @@
   "miniapp": {
     "version": "1",
     "name": "Sprinkles",
-    "tagline": "Earn and Burn Glaze on Base",
+    "tagline": "Earn and Burn on Base",
     "description": "Spend Donut to mine SPRINKLES. Climb weekly leaderboards for ETH, DONUT, and SPRINKLES, and chat with glazers on Base.",
     "iconUrl": "https://donutlabs.vercel.app/media/icon.png",
     "homeUrl": "https://donutlabs.vercel.app/",
