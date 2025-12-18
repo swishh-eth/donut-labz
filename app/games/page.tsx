@@ -873,12 +873,12 @@ export default function GamesPage() {
                 totalTickets={lotteryTickets}
                 timeRemaining={lotteryTimeRemaining}
                 lastWinner={lotteryLastWinner}
-                onClick={() => router.push("/games/lottery")}
+                onClick={() => window.location.href = "/games/lottery"}
               />
               
               {/* Tournaments Tile - Right under lottery */}
               <button
-                onClick={() => router.push("/games/tournaments")}
+                onClick={() => window.location.href = "/games/tournaments"}
                 className="tournaments-tile relative w-full rounded-xl p-4 border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]"
                 style={{ minHeight: '90px' }}
               >
