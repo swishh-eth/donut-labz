@@ -387,10 +387,10 @@ export default function AboutPage() {
                   />
                 </div>
                 <div className="text-xs text-gray-400 space-y-1.5">
-                  <p>$SPRINKLES is a companion token to $DONUT making $DONUT liquidity even stickier, Sprinkles must be mined by paying $DONUT in a separate dutch auction on Donut Labs.</p>
+                  <p>$SPRINKLES is a companion token to $DONUT making $DONUT liquidity even stickier, Sprinkles must be mined by paying $DONUT in a separate dutch auction on the Sprinkles App.</p>
                   <p className="text-white font-semibold">Max Supply: 210,000,000 SPRINKLES (10x DONUT)</p>
                   <p className="text-gray-500 text-[10px]">10M preminted & seeded with 1,000 DONUT for permanent LP</p>
-                  <p className="text-gray-500 text-[10px]">500k preminted for Donut Labs Treasury</p>
+                  <p className="text-gray-500 text-[10px]">500k preminted for Sprinkles Treasury</p>
 
                   <div className="mt-2 mb-2">
                     <p className="text-white font-semibold text-[11px] mb-1">SPRINKLES Revenue Split:</p>
@@ -399,7 +399,7 @@ export default function AboutPage() {
                       <p><span className="text-amber-400 font-semibold">10%</span> → Buy & Burn SPRINKLES</p>
                       <p><span className="text-amber-400 font-semibold">2.5%</span> → Leaderboard Prizes (weekly rewards)</p>
                       <p><span className="text-amber-400 font-semibold">2.5%</span> → SPRINKLES/DONUT LP Burn Reward Pool</p>
-                      <p><span className="text-amber-400 font-semibold">5%</span> → Donut Labs (Provider Fee)</p>
+                      <p><span className="text-amber-400 font-semibold">5%</span> → Sprinkles App (Provider Fee)</p>
                     </div>
                   </div>
 
@@ -470,12 +470,12 @@ export default function AboutPage() {
                   <p>Earn <span className="text-white font-semibold">$SPRINKLES</span> the entire time you hold control.</p>
                 </Section>
 
-                {/* What is Donut Labs? */}
+                {/* What is the Sprinkles App? */}
                 <Section
                   icon={<Beaker className="w-4 h-4 text-white" />}
-                  title="What is Donut Labs?"
+                  title="What is the Sprinkles App?"
                 >
-                  <p>Donut Labs is an independent donut shop operating inside the $DONUT ecosystem.</p>
+                  <p>Sprinkles is an independent donut shop operating inside the $DONUT ecosystem.</p>
                   <p>We build fun ways to interact with $DONUT and $SPRINKLES, including mining interfaces, games, and social features.</p>
                   <p className="text-gray-500 italic">An onchain donut shop on Base.</p>
                 </Section>
@@ -485,7 +485,7 @@ export default function AboutPage() {
                   icon={<Trophy className="w-4 h-4 text-white" />}
                   title="Leaderboard"
                 >
-                  <p>Compete weekly on the Donut Labs leaderboard for a share of the prize pool!</p>
+                  <p>Compete weekly on the Sprinkles weekly leaderboard for a share of the prize pool!</p>
                   <p>Earn points by mining:</p>
                   <div className="pl-2 border-l border-zinc-700 ml-1 space-y-1 mt-1">
                     <p>• <span className="text-white font-semibold">Mine DONUT</span> = 2 points per mine</p>
@@ -514,7 +514,7 @@ export default function AboutPage() {
                   icon={<Dices className="w-4 h-4 text-white" />}
                   title="Games"
                 >
-                  <p>Donut Labs features onchain games where you can win ETH, DONUT, and SPRINKLES.</p>
+                  <p>The Sprinkles App features onchain games where you can win ETH, DONUT, and SPRINKLES.</p>
                   <p>All games are <span className="text-white font-semibold">100% onchain</span> and <span className="text-white font-semibold">provably fair</span> — every bet, spin, and outcome is recorded on Base and verifiable.</p>
                   <div className="pl-2 border-l border-zinc-700 ml-1 space-y-1 mt-2">
                     <p>• <span className="text-white">Glaze Wheel</span> — Spin to win from the prize pool</p>
