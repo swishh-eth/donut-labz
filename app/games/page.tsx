@@ -146,23 +146,23 @@ function LotteryTile({
         <div className="flex items-center justify-between mb-2">
           <div className="text-left">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-base text-white">Daily Lottery</span>
+              <span className="font-bold text-base text-white">The Daily Donut Lottery</span>
               {isComingSoon ? (
                 <span className="text-[8px] bg-zinc-700 text-gray-400 px-1.5 py-0.5 rounded-full font-bold">
                   SOON
                 </span>
               ) : (
-                <span className="text-[8px] bg-green-500 text-black px-1.5 py-0.5 rounded-full font-bold animate-pulse">
+                <span className="text-[8px] bg-[#22c55e] text-black px-1.5 py-0.5 rounded-full font-bold animate-pulse">
                   LIVE
                 </span>
               )}
             </div>
-            <div className="text-[9px] text-amber-400/80">1 DONUT = 1 Ticket • Winner Takes All</div>
+            <div className="text-[9px] text-white/80">1 DONUT = 1 Ticket • Winner Takes All</div>
           </div>
           
           {/* Timer */}
           <div className="flex flex-col items-end">
-            <div className="flex items-center gap-1 text-gray-400">
+            <div className="flex items-center gap-1 text-white/60">
               <Clock className="w-2.5 h-2.5" />
               <span className="text-[8px]">{isComingSoon ? "Launches" : "Draws"}</span>
             </div>
@@ -173,18 +173,18 @@ function LotteryTile({
         {/* Main pot display */}
         <div className="flex items-center justify-between">
           <div className="text-left">
-            <div className="text-[8px] text-gray-400 uppercase tracking-wider">Prize Pool</div>
+            <div className="text-[8px] text-white/60 uppercase tracking-wider">Prize Pool</div>
             <div className="flex items-center gap-1.5">
               <span className="text-2xl">🍩</span>
               {isComingSoon ? (
-                <span className="text-2xl font-black text-gray-500">Coming Soon</span>
+                <span className="text-2xl font-black text-white/50">Coming Soon</span>
               ) : (
                 <span className="text-3xl font-black text-amber-400">
                   {currentPot.toLocaleString()}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 text-[9px] text-gray-500 mt-0.5">
+            <div className="flex items-center gap-2 text-[9px] text-white/50 mt-0.5">
               <span className="flex items-center gap-1">
                 <Ticket className="w-2.5 h-2.5" />
                 {isComingSoon ? "0" : totalTickets.toLocaleString()} tickets
@@ -206,7 +206,7 @@ function LotteryTile({
         {lastWinner && !isComingSoon && (
           <div className="mt-2 pt-2 border-t border-amber-500/20">
             <div className="flex items-center justify-center gap-2 text-[9px]">
-              <span className="text-gray-500">Last winner:</span>
+              <span className="text-white/50">Last winner:</span>
               {lastWinner.pfpUrl && (
                 <img src={lastWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
               )}
@@ -846,7 +846,7 @@ export default function GamesPage() {
               {/* Tournaments Tile - Right under lottery */}
               <button
                 onClick={() => window.location.href = "/games/tournaments"}
-                className="tournaments-tile relative w-full rounded-xl p-4 border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]"
+                className="relative w-full rounded-xl p-4 border overflow-hidden transition-all duration-300 active:scale-[0.98] bg-zinc-900 border-zinc-800 hover:bg-zinc-800"
                 style={{ minHeight: '90px' }}
               >
                 <div className="relative z-10 flex items-center gap-4">
@@ -857,14 +857,12 @@ export default function GamesPage() {
                   <div className="flex-1 text-left">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-base text-white">Tournaments</span>
-                      <span className="text-[8px] bg-green-500 text-black px-1.5 py-0.5 rounded-full font-bold">
+                      <span className="text-[8px] bg-[#22c55e] text-black px-1.5 py-0.5 rounded-full font-bold">
                         LIVE
                       </span>
                     </div>
                     <div className="text-xs text-gray-400 mt-0.5">Compete in Stream Challenges Hosted By Sprinkles!</div>
                   </div>
-                  
-                  <div className="text-black text-lg">→</div>
                 </div>
               </button>
               
