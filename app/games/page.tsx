@@ -96,6 +96,8 @@ function LotteryTile({
   const [donuts, setDonuts] = useState<Array<{ id: number; delay: number; duration: number; left: number }>>([]);
   const [isHovered, setIsHovered] = useState(false);
   const idCounter = useRef(0);
+  
+  const isComingSoon = currentPot === 0 && totalTickets === 0;
 
   // Generate falling donuts
   useEffect(() => {
@@ -151,9 +153,15 @@ function LotteryTile({
             <div className="text-left">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-base text-white">Daily Lottery</span>
-                <span className="text-[8px] bg-green-500 text-black px-1.5 py-0.5 rounded-full font-bold animate-pulse">
-                  LIVE
-                </span>
+                {isComingSoon ? (
+                  <span className="text-[8px] bg-zinc-700 text-gray-400 px-1.5 py-0.5 rounded-full font-bold">
+                    SOON
+                  </span>
+                ) : (
+                  <span className="text-[8px] bg-green-500 text-black px-1.5 py-0.5 rounded-full font-bold animate-pulse">
+                    LIVE
+                  </span>
+                )}
               </div>
               <div className="text-[9px] text-amber-400/80">1 DONUT = 1 Ticket • Winner Takes All</div>
             </div>
@@ -163,9 +171,9 @@ function LotteryTile({
           <div className="flex flex-col items-end">
             <div className="flex items-center gap-1 text-gray-400">
               <Clock className="w-2.5 h-2.5" />
-              <span className="text-[8px]">Draws</span>
+              <span className="text-[8px]">{isComingSoon ? "Launches" : "Draws"}</span>
             </div>
-            <span className="text-xs font-bold text-white font-mono">{timeRemaining}</span>
+            <span className="text-xs font-bold text-white font-mono">{isComingSoon ? "Soon™" : timeRemaining}</span>
           </div>
         </div>
         
@@ -175,30 +183,34 @@ function LotteryTile({
             <div className="text-[8px] text-gray-400 uppercase tracking-wider">Prize Pool</div>
             <div className="flex items-center gap-1.5">
               <span className="text-2xl">🍩</span>
-              <span className="text-3xl font-black pot-glow-text">
-                {currentPot.toLocaleString()}
-              </span>
+              {isComingSoon ? (
+                <span className="text-2xl font-black text-gray-500">Coming Soon</span>
+              ) : (
+                <span className="text-3xl font-black pot-glow-text">
+                  {currentPot.toLocaleString()}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2 text-[9px] text-gray-500 mt-0.5">
               <span className="flex items-center gap-1">
                 <Ticket className="w-2.5 h-2.5" />
-                {totalTickets.toLocaleString()} tickets
+                {isComingSoon ? "0" : totalTickets.toLocaleString()} tickets
               </span>
               <span className="flex items-center gap-1">
                 <Users className="w-2.5 h-2.5" />
-                {Math.floor(totalTickets / 8) || 1}+ players
+                {isComingSoon ? "0" : Math.floor(totalTickets / 8) || 1}+ players
               </span>
             </div>
           </div>
           
           {/* CTA */}
-          <div className={`lottery-cta px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold text-sm shadow-lg shadow-amber-500/30 ${isHovered ? 'scale-105' : ''} transition-transform`}>
-            Buy Tickets →
+          <div className={`lottery-cta px-4 py-2.5 rounded-xl ${isComingSoon ? 'bg-zinc-700 text-gray-400' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-lg shadow-amber-500/30'} font-bold text-sm ${isHovered && !isComingSoon ? 'scale-105' : ''} transition-transform`}>
+            {isComingSoon ? "View Details →" : "Buy Tickets →"}
           </div>
         </div>
         
         {/* Last winner */}
-        {lastWinner && (
+        {lastWinner && !isComingSoon && (
           <div className="mt-2 pt-2 border-t border-amber-500/20">
             <div className="flex items-center justify-center gap-2 text-[9px]">
               <span className="text-gray-500">Last winner:</span>
@@ -332,39 +344,35 @@ export default function GamesPage() {
   const [minesLastWinner, setMinesLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
   const [towerLastWinner, setTowerLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
   
-  // Lottery state - TODO: Replace with actual contract reads
-  const [lotteryPot, setLotteryPot] = useState(12450);
-  const [lotteryTickets, setLotteryTickets] = useState(12450);
-  const [lotteryTimeRemaining, setLotteryTimeRemaining] = useState("04:32:18");
-  const [lotteryLastWinner, setLotteryLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>({
-    username: "donutfan",
-    amount: "8,234 🍩",
-    pfpUrl: ""
-  });
+  // Lottery state - Coming soon, no live data yet
+  const [lotteryPot, setLotteryPot] = useState(0);
+  const [lotteryTickets, setLotteryTickets] = useState(0);
+  const [lotteryTimeRemaining, setLotteryTimeRemaining] = useState("--:--:--");
+  const [lotteryLastWinner, setLotteryLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
 
-  // Lottery countdown timer
-  useEffect(() => {
-    const now = new Date();
-    const endOfDay = new Date(now);
-    endOfDay.setUTCHours(24, 0, 0, 0);
-    
-    const updateTimer = () => {
-      const nowMs = Date.now();
-      const diff = Math.max(0, endOfDay.getTime() - nowMs);
-      
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      
-      setLotteryTimeRemaining(
-        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-      );
-    };
-    
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  // Lottery countdown timer - disabled for now (coming soon)
+  // useEffect(() => {
+  //   const now = new Date();
+  //   const endOfDay = new Date(now);
+  //   endOfDay.setUTCHours(24, 0, 0, 0);
+  //   
+  //   const updateTimer = () => {
+  //     const nowMs = Date.now();
+  //     const diff = Math.max(0, endOfDay.getTime() - nowMs);
+  //     
+  //     const hours = Math.floor(diff / (1000 * 60 * 60));
+  //     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  //     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+  //     
+  //     setLotteryTimeRemaining(
+  //       `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+  //     );
+  //   };
+  //   
+  //   updateTimer();
+  //   const interval = setInterval(updateTimer, 1000);
+  //   return () => clearInterval(interval);
+  // }, []);
 
   // Fetch last winner for dice game
   useEffect(() => {
@@ -795,24 +803,23 @@ export default function GamesPage() {
           75% { transform: translateY(-3px) rotate(5deg); }
         }
         @keyframes tournaments-border {
-          0%, 100% { border-color: rgba(168, 85, 247, 0.4); box-shadow: 0 0 15px rgba(168, 85, 247, 0.15); }
-          50% { border-color: rgba(236, 72, 153, 0.6); box-shadow: 0 0 20px rgba(236, 72, 153, 0.25); }
+          0%, 100% { border-color: rgba(255, 255, 255, 0.4); box-shadow: 0 0 15px rgba(251, 191, 36, 0.15); }
+          50% { border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 0 20px rgba(251, 191, 36, 0.25); }
         }
         .sparkle-particle {
           position: absolute;
-          font-size: 10px;
           animation: sparkle-float 3s ease-in-out infinite;
           pointer-events: none;
         }
         .trophy-bounce { animation: trophy-bounce 2s ease-in-out infinite; }
         .tournaments-tile {
-          background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(24, 24, 27, 1) 50%, rgba(236, 72, 153, 0.15) 100%);
+          background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(24, 24, 27, 1) 50%, rgba(251, 191, 36, 0.1) 100%);
           animation: tournaments-border 3s ease-in-out infinite;
         }
         .tournaments-tile:hover {
           animation: none;
-          border-color: rgba(168, 85, 247, 0.8) !important;
-          box-shadow: 0 0 25px rgba(168, 85, 247, 0.4) !important;
+          border-color: rgba(255, 255, 255, 0.9) !important;
+          box-shadow: 0 0 25px rgba(251, 191, 36, 0.4) !important;
         }
       `}</style>
 
@@ -884,29 +891,29 @@ export default function GamesPage() {
               >
                 {/* Sparkle particles */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                  <div className="sparkle-particle" style={{ left: '10%', animationDelay: '0s' }}>✨</div>
-                  <div className="sparkle-particle" style={{ left: '30%', animationDelay: '0.5s' }}>✨</div>
-                  <div className="sparkle-particle" style={{ left: '50%', animationDelay: '1s' }}>✨</div>
-                  <div className="sparkle-particle" style={{ left: '70%', animationDelay: '1.5s' }}>✨</div>
-                  <div className="sparkle-particle" style={{ left: '90%', animationDelay: '2s' }}>✨</div>
+                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '10%', animationDelay: '0s' }} />
+                  <Sparkles className="sparkle-particle w-3 h-3 text-white" style={{ left: '30%', animationDelay: '0.5s' }} />
+                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '50%', animationDelay: '1s' }} />
+                  <Sparkles className="sparkle-particle w-3 h-3 text-white" style={{ left: '70%', animationDelay: '1.5s' }} />
+                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '90%', animationDelay: '2s' }} />
                 </div>
                 
                 <div className="relative z-10 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/30 border border-purple-400/30">
-                    <Trophy className="w-6 h-6 text-white trophy-bounce" />
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/30 border border-amber-400/30">
+                    <Trophy className="w-6 h-6 text-black trophy-bounce" />
                   </div>
                   
                   <div className="flex-1 text-left">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-base text-white">Tournaments</span>
-                      <span className="text-[8px] bg-purple-500 text-white px-1.5 py-0.5 rounded-full font-bold animate-pulse">
+                      <span className="text-[8px] bg-amber-500 text-black px-1.5 py-0.5 rounded-full font-bold animate-pulse">
                         NEW
                       </span>
                     </div>
                     <div className="text-xs text-gray-400 mt-0.5">Compete in Stream Challenges Hosted By Sprinkles!</div>
                   </div>
                   
-                  <div className="text-purple-400 text-lg">→</div>
+                  <div className="text-amber-400 text-lg">→</div>
                 </div>
               </button>
               

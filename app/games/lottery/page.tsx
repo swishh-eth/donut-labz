@@ -220,22 +220,20 @@ export default function LotteryPage() {
   const [isBuying, setIsBuying] = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   
-  // Mock data for demo - replace with actual contract reads
+  // Mock data for demo - Coming Soon state
   const [currentRound, setCurrentRound] = useState({
-    roundId: BigInt(1),
-    totalTickets: BigInt(12450),
-    prizePool: parseUnits("12450", 18),
-    startTime: BigInt(Math.floor(Date.now() / 1000) - 3600 * 20),
-    endTime: BigInt(Math.floor(Date.now() / 1000) + 3600 * 4),
+    roundId: BigInt(0),
+    totalTickets: BigInt(0),
+    prizePool: BigInt(0),
+    startTime: BigInt(0),
+    endTime: BigInt(0),
     winner: "0x0000000000000000000000000000000000000000" as `0x${string}`,
     claimed: false,
   });
   const [userTickets, setUserTickets] = useState(0);
-  const [pastWinners, setPastWinners] = useState([
-    { roundId: 0, winner: "donutlover.eth", amount: "8,234", pfpUrl: "" },
-    { roundId: 0, winner: "baker.fc", amount: "15,672", pfpUrl: "" },
-    { roundId: 0, winner: "crypto_chef", amount: "5,891", pfpUrl: "" },
-  ]);
+  const [pastWinners, setPastWinners] = useState<Array<{ roundId: number; winner: string; amount: string; pfpUrl: string }>>([]);
+  
+  const isComingSoon = true; // Set to false when lottery is live
   
   const { address, isConnected } = useAccount();
 
@@ -308,8 +306,13 @@ export default function LotteryPage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Countdown timer
+  // Countdown timer - show coming soon
   useEffect(() => {
+    if (isComingSoon) {
+      setTimeRemaining("Coming Soon");
+      return;
+    }
+    
     const updateTimer = () => {
       const now = Math.floor(Date.now() / 1000);
       const end = Number(currentRound.endTime);
@@ -327,7 +330,7 @@ export default function LotteryPage() {
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [currentRound.endTime]);
+  }, [currentRound.endTime, isComingSoon]);
 
   // Read token balance
   const { data: tokenBalance, refetch: refetchBalance } = useReadContract({
@@ -345,22 +348,28 @@ export default function LotteryPage() {
     args: address ? [address, DONUT_LOTTERY_ADDRESS] : undefined,
   });
 
-  // Auto-show approvals
-  useEffect(() => {
-    if (isConnected && allowance !== undefined && allowance === BigInt(0) && !showApprovals && !hasShownApproval) {
-      const timer = setTimeout(() => {
-        setShowApprovals(true);
-        setHasShownApproval(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [isConnected, allowance, showApprovals, hasShownApproval]);
+  // Don't auto-show approvals - let user click the shield icon if needed
+  // useEffect(() => {
+  //   if (isConnected && allowance !== undefined && allowance === BigInt(0) && !showApprovals && !hasShownApproval) {
+  //     const timer = setTimeout(() => {
+  //       setShowApprovals(true);
+  //       setHasShownApproval(true);
+  //     }, 500);
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [isConnected, allowance, showApprovals, hasShownApproval]);
 
   // Contract writes
   const { writeContract: writeBuyTickets, isPending: isBuyPending, error: buyError, reset: resetBuy } = useWriteContract();
 
   // Handle buy tickets
   const handleBuyTickets = () => {
+    if (isComingSoon) {
+      setErrorMessage("Lottery coming soon!");
+      setTimeout(() => setErrorMessage(null), 2000);
+      return;
+    }
+    
     if (!isConnected || !address) return;
     if (isBuying || isBuyPending) return;
     
@@ -481,20 +490,27 @@ export default function LotteryPage() {
         <div className="glow-box bg-gradient-to-br from-amber-950/50 via-zinc-900 to-orange-950/50 border-2 border-amber-500/40 rounded-2xl p-4 mb-3">
           <div className="text-center">
             <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Prize Pool</div>
-            <div className="pot-pulse flex items-center justify-center gap-3 mb-2">
-              <span className="text-4xl">🍩</span>
-              <span className="text-5xl font-black text-amber-400" style={{ textShadow: '0 0 20px rgba(251, 191, 36, 0.5)' }}>
-                {prizePool.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </span>
-            </div>
+            {isComingSoon ? (
+              <div className="pot-pulse flex items-center justify-center gap-3 mb-2">
+                <span className="text-4xl">🍩</span>
+                <span className="text-3xl font-black text-gray-500">Coming Soon</span>
+              </div>
+            ) : (
+              <div className="pot-pulse flex items-center justify-center gap-3 mb-2">
+                <span className="text-4xl">🍩</span>
+                <span className="text-5xl font-black text-amber-400" style={{ textShadow: '0 0 20px rgba(251, 191, 36, 0.5)' }}>
+                  {prizePool.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-center gap-4 text-[11px]">
               <div className="flex items-center gap-1 text-gray-400">
                 <Ticket className="w-3 h-3" />
-                <span>{totalTickets.toLocaleString()} tickets</span>
+                <span>{isComingSoon ? "0" : totalTickets.toLocaleString()} tickets</span>
               </div>
               <div className="flex items-center gap-1 text-gray-400">
                 <Users className="w-3 h-3" />
-                <span>{Math.floor(totalTickets / 8)}+ players</span>
+                <span>{isComingSoon ? "0" : Math.floor(totalTickets / 8)}+ players</span>
               </div>
             </div>
           </div>
@@ -503,7 +519,7 @@ export default function LotteryPage() {
           <div className="mt-3 pt-3 border-t border-amber-500/20">
             <div className="flex items-center justify-center gap-2">
               <Clock className="w-4 h-4 text-amber-400" />
-              <span className="text-[10px] text-gray-400">Drawing in</span>
+              <span className="text-[10px] text-gray-400">{isComingSoon ? "Launching" : "Drawing in"}</span>
               <span className="text-xl font-bold font-mono text-white">{timeRemaining}</span>
             </div>
           </div>
@@ -642,19 +658,25 @@ export default function LotteryPage() {
         <div className="pb-1">
           <button
             onClick={handleBuyTickets}
-            disabled={isBuying || isBuyPending || !isConnected || parseInt(ticketAmount || "0") <= 0}
+            disabled={isBuying || isBuyPending || (!isComingSoon && (!isConnected || parseInt(ticketAmount || "0") <= 0))}
             className={cn(
               "w-full py-4 rounded-xl font-bold text-lg transition-all",
               purchaseSuccess
                 ? "bg-green-500 text-white"
-                : isBuying || isBuyPending
-                  ? "bg-zinc-600 text-zinc-300"
-                  : "bg-gradient-to-r from-amber-500 to-orange-500 text-black hover:from-amber-400 hover:to-orange-400"
+                : isComingSoon
+                  ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
+                  : isBuying || isBuyPending
+                    ? "bg-zinc-600 text-zinc-300"
+                    : "bg-gradient-to-r from-amber-500 to-orange-500 text-black hover:from-amber-400 hover:to-orange-400"
             )}
           >
             {purchaseSuccess ? (
               <span className="flex items-center justify-center gap-2">
                 <Sparkles className="w-5 h-5" /> Tickets Purchased!
+              </span>
+            ) : isComingSoon ? (
+              <span className="flex items-center justify-center gap-2">
+                <Clock className="w-5 h-5" /> Coming Soon
               </span>
             ) : isBuying || isBuyPending ? (
               <span className="flex items-center justify-center gap-2">
