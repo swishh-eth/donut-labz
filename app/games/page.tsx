@@ -7,7 +7,7 @@ import { createPublicClient, http, formatUnits } from "viem";
 import { base } from "viem/chains";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Trophy, Lock, Bomb, Layers, Flame, Grid3X3 } from "lucide-react";
+import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Trophy, Lock, Bomb, Layers, Flame, Grid3X3, Users } from "lucide-react";
 
 // Contract addresses - V5 contracts
 const DONUT_DICE_ADDRESS = "0xD6f1Eb5858efF6A94B853251BE2C27c4038BB7CE" as const;
@@ -60,6 +60,158 @@ function WheelIcon({ className }: { className?: string }) {
       <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
       <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
     </svg>
+  );
+}
+
+// Falling donut for lottery tile
+function FallingDonut({ delay, duration, left }: { delay: number; duration: number; left: number }) {
+  return (
+    <div
+      className="lottery-donut absolute text-base pointer-events-none select-none opacity-60"
+      style={{
+        left: `${left}%`,
+        animationDelay: `${delay}s`,
+        animationDuration: `${duration}s`,
+      }}
+    >
+      🍩
+    </div>
+  );
+}
+
+// Special Lottery Tile Component
+function LotteryTile({ 
+  currentPot, 
+  totalTickets, 
+  timeRemaining, 
+  lastWinner,
+  onClick 
+}: { 
+  currentPot: number;
+  totalTickets: number;
+  timeRemaining: string;
+  lastWinner?: { username: string; amount: string; pfpUrl?: string } | null;
+  onClick: () => void;
+}) {
+  const [donuts, setDonuts] = useState<Array<{ id: number; delay: number; duration: number; left: number }>>([]);
+  const [isHovered, setIsHovered] = useState(false);
+  const idCounter = useRef(0);
+
+  // Generate falling donuts
+  useEffect(() => {
+    const initialDonuts = Array.from({ length: 6 }, () => ({
+      id: idCounter.current++,
+      delay: Math.random() * 4,
+      duration: 4 + Math.random() * 2,
+      left: Math.random() * 85 + 5,
+    }));
+    setDonuts(initialDonuts);
+
+    const interval = setInterval(() => {
+      setDonuts(prev => {
+        const newDonut = {
+          id: idCounter.current++,
+          delay: 0,
+          duration: 4 + Math.random() * 2,
+          left: Math.random() * 85 + 5,
+        };
+        return [...prev.slice(-9), newDonut];
+      });
+    }, 1200);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="lottery-tile-main relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300 active:scale-[0.98] mb-3"
+      style={{ minHeight: '130px' }}
+    >
+      {/* Falling donuts container */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-[1]">
+        {donuts.map((donut) => (
+          <FallingDonut key={donut.id} {...donut} />
+        ))}
+      </div>
+      
+      {/* Gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/50 pointer-events-none z-[2]" />
+      
+      {/* Content */}
+      <div className="relative z-10 p-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
+              <Trophy className="w-4 h-4 text-black" />
+            </div>
+            <div className="text-left">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-base text-white">Daily Lottery</span>
+                <span className="text-[8px] bg-green-500 text-black px-1.5 py-0.5 rounded-full font-bold animate-pulse">
+                  LIVE
+                </span>
+              </div>
+              <div className="text-[9px] text-amber-400/80">1 DONUT = 1 Ticket • Winner Takes All</div>
+            </div>
+          </div>
+          
+          {/* Timer */}
+          <div className="flex flex-col items-end">
+            <div className="flex items-center gap-1 text-gray-400">
+              <Clock className="w-2.5 h-2.5" />
+              <span className="text-[8px]">Draws</span>
+            </div>
+            <span className="text-xs font-bold text-white font-mono">{timeRemaining}</span>
+          </div>
+        </div>
+        
+        {/* Main pot display */}
+        <div className="flex items-center justify-between">
+          <div className="text-left">
+            <div className="text-[8px] text-gray-400 uppercase tracking-wider">Prize Pool</div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-2xl">🍩</span>
+              <span className="text-3xl font-black pot-glow-text">
+                {currentPot.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-[9px] text-gray-500 mt-0.5">
+              <span className="flex items-center gap-1">
+                <Ticket className="w-2.5 h-2.5" />
+                {totalTickets.toLocaleString()} tickets
+              </span>
+              <span className="flex items-center gap-1">
+                <Users className="w-2.5 h-2.5" />
+                {Math.floor(totalTickets / 8) || 1}+ players
+              </span>
+            </div>
+          </div>
+          
+          {/* CTA */}
+          <div className={`lottery-cta px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold text-sm shadow-lg shadow-amber-500/30 ${isHovered ? 'scale-105' : ''} transition-transform`}>
+            Buy Tickets →
+          </div>
+        </div>
+        
+        {/* Last winner */}
+        {lastWinner && (
+          <div className="mt-2 pt-2 border-t border-amber-500/20">
+            <div className="flex items-center justify-center gap-2 text-[9px]">
+              <span className="text-gray-500">Last winner:</span>
+              {lastWinner.pfpUrl && (
+                <img src={lastWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
+              )}
+              <span className="text-green-400 font-bold">@{lastWinner.username}</span>
+              <span className="text-amber-400">won {lastWinner.amount}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </button>
   );
 }
 
@@ -174,12 +326,45 @@ export default function GamesPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
-  const [showBuyTicketsDialog, setShowBuyTicketsDialog] = useState(false);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [diceLastWinner, setDiceLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
   const [wheelLastWinner, setWheelLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
   const [minesLastWinner, setMinesLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
   const [towerLastWinner, setTowerLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
+  
+  // Lottery state - TODO: Replace with actual contract reads
+  const [lotteryPot, setLotteryPot] = useState(12450);
+  const [lotteryTickets, setLotteryTickets] = useState(12450);
+  const [lotteryTimeRemaining, setLotteryTimeRemaining] = useState("04:32:18");
+  const [lotteryLastWinner, setLotteryLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>({
+    username: "donutfan",
+    amount: "8,234 🍩",
+    pfpUrl: ""
+  });
+
+  // Lottery countdown timer
+  useEffect(() => {
+    const now = new Date();
+    const endOfDay = new Date(now);
+    endOfDay.setUTCHours(24, 0, 0, 0);
+    
+    const updateTimer = () => {
+      const nowMs = Date.now();
+      const diff = Math.max(0, endOfDay.getTime() - nowMs);
+      
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      setLotteryTimeRemaining(
+        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+      );
+    };
+    
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch last winner for dice game
   useEffect(() => {
@@ -474,7 +659,7 @@ export default function GamesPage() {
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
-  // Games list - Tower HOT, Coin Flip and Keno as TEST
+  // Games list
   const games = [
     {
       id: "tower",
@@ -537,14 +722,6 @@ export default function GamesPage() {
       onClick: () => window.location.href = "/keno",
     },
     {
-      id: "lottery",
-      title: "Daily Lottery",
-      description: "Buy tickets for the daily DONUT pool",
-      icon: Ticket,
-      comingSoon: true,
-      lastWinner: null,
-    },
-    {
       id: "tournaments",
       title: "Tournaments",
       description: "Compete in weekly mining tournaments",
@@ -588,6 +765,38 @@ export default function GamesPage() {
         .winner-track { display: flex; width: max-content; animation: scroll-left 6s linear infinite; }
         .winner-track-right { display: flex; width: max-content; animation: scroll-right 6s linear infinite; }
         .winner-item { display: flex; align-items: center; gap: 4px; padding: 2px 8px; margin-right: 16px; font-size: 9px; color: #4ade80; background: rgba(34, 197, 94, 0.2); border-radius: 9999px; white-space: nowrap; }
+        
+        /* Lottery tile styles */
+        @keyframes lottery-donut-fall {
+          0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
+          10% { opacity: 0.6; }
+          90% { opacity: 0.6; }
+          100% { transform: translateY(140px) rotate(360deg); opacity: 0; }
+        }
+        @keyframes pot-glow-pulse {
+          0%, 100% { text-shadow: 0 0 10px rgba(251, 191, 36, 0.5), 0 0 20px rgba(251, 191, 36, 0.3); }
+          50% { text-shadow: 0 0 20px rgba(251, 191, 36, 0.8), 0 0 40px rgba(251, 191, 36, 0.5); }
+        }
+        @keyframes lottery-border-glow {
+          0%, 100% { border-color: rgba(251, 191, 36, 0.4); box-shadow: 0 0 15px rgba(251, 191, 36, 0.15); }
+          50% { border-color: rgba(251, 191, 36, 0.7); box-shadow: 0 0 25px rgba(251, 191, 36, 0.3); }
+        }
+        @keyframes lottery-cta-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.02); }
+        }
+        .lottery-donut { animation: lottery-donut-fall linear infinite; }
+        .pot-glow-text { animation: pot-glow-pulse 2s ease-in-out infinite; color: #fbbf24; }
+        .lottery-tile-main { 
+          background: linear-gradient(135deg, rgba(120, 53, 15, 0.4) 0%, rgba(24, 24, 27, 1) 50%, rgba(124, 45, 18, 0.4) 100%);
+          animation: lottery-border-glow 3s ease-in-out infinite;
+        }
+        .lottery-tile-main:hover {
+          animation: none;
+          border-color: rgba(251, 191, 36, 0.8) !important;
+          box-shadow: 0 0 30px rgba(251, 191, 36, 0.4) !important;
+        }
+        .lottery-cta { animation: lottery-cta-pulse 2s ease-in-out infinite; }
       `}</style>
 
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4 shadow-inner" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
@@ -607,34 +816,6 @@ export default function GamesPage() {
                   </Avatar>
                 )}
               </div>
-            </div>
-
-            {/* Daily Pool Stats */}
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center h-[72px]">
-                <div className="flex items-center gap-1 mb-0.5">
-                  <Ticket className="w-3 h-3 text-gray-500" />
-                  <span className="text-[9px] text-gray-400 uppercase">Tickets</span>
-                </div>
-                <div className="text-lg font-bold text-gray-500">0</div>
-              </div>
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center h-[72px]">
-                <div className="flex items-center gap-1 mb-0.5">
-                  <Clock className="w-3 h-3 text-gray-500" />
-                  <span className="text-[9px] text-gray-400 uppercase">Resets In</span>
-                </div>
-                <div className="text-xs font-bold text-gray-500">Coming Soon</div>
-              </div>
-              <button onClick={() => setShowBuyTicketsDialog(true)} className="border border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20 rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all hover:from-amber-600/30 hover:to-orange-600/30 active:scale-[0.98] h-[72px]">
-                <div className="flex items-center gap-1 mb-0.5">
-                  <Coins className="w-3 h-3 text-amber-400" />
-                  <span className="text-[9px] text-gray-400 uppercase">Prize Pool</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-sm font-bold text-amber-400">Coming Soon</span>
-                  <span className="text-[8px] text-amber-400/80">tap for details</span>
-                </div>
-              </button>
             </div>
 
             {/* How It Works */}
@@ -666,27 +847,19 @@ export default function GamesPage() {
             </div>
           )}
 
-          {/* Buy Tickets Dialog */}
-          {showBuyTicketsDialog && (
-            <div className="fixed inset-0 z-50">
-              <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowBuyTicketsDialog(false)} />
-              <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
-                  <button onClick={() => setShowBuyTicketsDialog(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"><X className="h-4 w-4" /></button>
-                  <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2"><Ticket className="w-4 h-4 text-amber-400" /> Daily Lottery</h2>
-                  <div className="text-center py-4 bg-zinc-900 border border-zinc-800 rounded-xl">
-                    <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-2"><Lock className="w-6 h-6 text-gray-500" /></div>
-                    <p className="text-sm font-semibold text-gray-400">Coming Soon</p>
-                  </div>
-                  <button onClick={() => setShowBuyTicketsDialog(false)} className="mt-3 w-full rounded-xl bg-zinc-800 py-2 text-sm font-bold text-gray-400 cursor-not-allowed" disabled>Buy Tickets (Coming Soon)</button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Scrollable Games List */}
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden games-scroll" style={{ WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`, maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` }}>
             <div className="space-y-2 pb-4">
+              {/* Special Lottery Tile at the top */}
+              <LotteryTile
+                currentPot={lotteryPot}
+                totalTickets={lotteryTickets}
+                timeRemaining={lotteryTimeRemaining}
+                lastWinner={lotteryLastWinner}
+                onClick={() => router.push("/lottery")}
+              />
+              
+              {/* Regular game tiles */}
               {games.map((game) => (
                 <GameTile
                   key={game.id}
