@@ -470,12 +470,12 @@ export default function AboutPage() {
                   <p>Earn <span className="text-white font-semibold">$SPRINKLES</span> the entire time you hold control.</p>
                 </Section>
 
-                {/* What is the Sprinkles App? */}
+                {/* What is The Sprinkles App? */}
                 <Section
                   icon={<Beaker className="w-4 h-4 text-white" />}
-                  title="What is the Sprinkles App?"
+                  title="What is The Sprinkles App?"
                 >
-                  <p>Sprinkles is an independent donut shop operating inside the $DONUT ecosystem.</p>
+                  <p>The Sprinkles App is an independent donut shop operating inside the $DONUT ecosystem.</p>
                   <p>We build fun ways to interact with $DONUT and $SPRINKLES, including mining interfaces, games, and social features.</p>
                   <p className="text-gray-500 italic">An onchain donut shop on Base.</p>
                 </Section>
