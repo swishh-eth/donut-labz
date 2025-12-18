@@ -659,7 +659,7 @@ export default function GamesPage() {
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
-  // Games list
+  // Games list - Tournaments is separate and shown right after lottery tile
   const games = [
     {
       id: "tower",
@@ -722,26 +722,10 @@ export default function GamesPage() {
       onClick: () => window.location.href = "/keno",
     },
     {
-      id: "tournaments",
-      title: "Tournaments",
-      description: "Compete in weekly mining tournaments",
-      icon: Trophy,
-      comingSoon: true,
-      lastWinner: null,
-    },
-    {
       id: "slots",
       title: "Donut Slots",
       description: "Match symbols to win big",
       icon: Sparkles,
-      comingSoon: true,
-      lastWinner: null,
-    },
-    {
-      id: "mystery",
-      title: "Mystery Game",
-      description: "Something special coming...",
-      icon: HelpCircle,
       comingSoon: true,
       lastWinner: null,
     },
@@ -797,6 +781,39 @@ export default function GamesPage() {
           box-shadow: 0 0 30px rgba(251, 191, 36, 0.4) !important;
         }
         .lottery-cta { animation: lottery-cta-pulse 2s ease-in-out infinite; }
+        
+        /* Tournaments tile styles */
+        @keyframes sparkle-float {
+          0%, 100% { transform: translateY(100%) scale(0); opacity: 0; }
+          10% { opacity: 1; transform: translateY(80%) scale(1); }
+          90% { opacity: 1; transform: translateY(-80%) scale(1); }
+          100% { transform: translateY(-100%) scale(0); opacity: 0; }
+        }
+        @keyframes trophy-bounce {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          25% { transform: translateY(-3px) rotate(-5deg); }
+          75% { transform: translateY(-3px) rotate(5deg); }
+        }
+        @keyframes tournaments-border {
+          0%, 100% { border-color: rgba(168, 85, 247, 0.4); box-shadow: 0 0 15px rgba(168, 85, 247, 0.15); }
+          50% { border-color: rgba(236, 72, 153, 0.6); box-shadow: 0 0 20px rgba(236, 72, 153, 0.25); }
+        }
+        .sparkle-particle {
+          position: absolute;
+          font-size: 10px;
+          animation: sparkle-float 3s ease-in-out infinite;
+          pointer-events: none;
+        }
+        .trophy-bounce { animation: trophy-bounce 2s ease-in-out infinite; }
+        .tournaments-tile {
+          background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(24, 24, 27, 1) 50%, rgba(236, 72, 153, 0.15) 100%);
+          animation: tournaments-border 3s ease-in-out infinite;
+        }
+        .tournaments-tile:hover {
+          animation: none;
+          border-color: rgba(168, 85, 247, 0.8) !important;
+          box-shadow: 0 0 25px rgba(168, 85, 247, 0.4) !important;
+        }
       `}</style>
 
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4 shadow-inner" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
@@ -856,8 +873,42 @@ export default function GamesPage() {
                 totalTickets={lotteryTickets}
                 timeRemaining={lotteryTimeRemaining}
                 lastWinner={lotteryLastWinner}
-                onClick={() => router.push("/lottery")}
+                onClick={() => router.push("/games/lottery")}
               />
+              
+              {/* Tournaments Tile - Right under lottery */}
+              <button
+                onClick={() => router.push("/games/tournaments")}
+                className="tournaments-tile relative w-full rounded-xl p-4 border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]"
+                style={{ minHeight: '90px' }}
+              >
+                {/* Sparkle particles */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <div className="sparkle-particle" style={{ left: '10%', animationDelay: '0s' }}>✨</div>
+                  <div className="sparkle-particle" style={{ left: '30%', animationDelay: '0.5s' }}>✨</div>
+                  <div className="sparkle-particle" style={{ left: '50%', animationDelay: '1s' }}>✨</div>
+                  <div className="sparkle-particle" style={{ left: '70%', animationDelay: '1.5s' }}>✨</div>
+                  <div className="sparkle-particle" style={{ left: '90%', animationDelay: '2s' }}>✨</div>
+                </div>
+                
+                <div className="relative z-10 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/30 border border-purple-400/30">
+                    <Trophy className="w-6 h-6 text-white trophy-bounce" />
+                  </div>
+                  
+                  <div className="flex-1 text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-base text-white">Tournaments</span>
+                      <span className="text-[8px] bg-purple-500 text-white px-1.5 py-0.5 rounded-full font-bold animate-pulse">
+                        NEW
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-400 mt-0.5">Compete in Stream Challenges Hosted By Sprinkles!</div>
+                  </div>
+                  
+                  <div className="text-purple-400 text-lg">→</div>
+                </div>
+              </button>
               
               {/* Regular game tiles */}
               {games.map((game) => (
