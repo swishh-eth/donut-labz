@@ -130,7 +130,7 @@ function LotteryTile({
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="lottery-tile-main relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300 active:scale-[0.98] mb-3"
+      className="lottery-tile-main relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]"
       style={{ minHeight: '130px' }}
     >
       {/* Falling donuts container */}
@@ -787,23 +787,26 @@ export default function GamesPage() {
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
           {/* Header */}
           <div className="flex-shrink-0">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3">
               <h1 className="text-2xl font-bold tracking-wide">GAMES</h1>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-full px-2 py-1 opacity-50">
-                  <span className="text-[8px] text-gray-500 whitespace-nowrap">Earn GLAZE soon</span>
-                </div>
-                {context?.user && (
-                  <Avatar className="h-7 w-7 border border-zinc-700">
+              {context?.user && (
+                <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
+                  <Avatar className="h-8 w-8 border border-zinc-800">
                     <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
-                    <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(userDisplayName)}</AvatarFallback>
+                    <AvatarFallback className="bg-zinc-800 text-white">{initialsFrom(userDisplayName)}</AvatarFallback>
                   </Avatar>
-                )}
-              </div>
+                  <div className="leading-tight text-left">
+                    <div className="text-sm font-bold">{userDisplayName}</div>
+                    {context.user.username && (
+                      <div className="text-xs text-gray-400">@{context.user.username}</div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* How It Works */}
-            <button onClick={() => setShowHelpDialog(true)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-3 hover:bg-zinc-800 transition-colors">
+            <button onClick={() => setShowHelpDialog(true)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-2 hover:bg-zinc-800 transition-colors">
               <div className="flex items-center justify-center gap-2">
                 <Dices className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                 <span className="text-xs font-semibold text-white">How Games Work</span>
