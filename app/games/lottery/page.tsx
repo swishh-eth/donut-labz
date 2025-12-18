@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { NavBar } from "@/components/nav-bar";
 import { Clock, Ticket, Users, HelpCircle, X, History, Trophy } from "lucide-react";
@@ -53,6 +53,27 @@ export default function LotteryPage() {
   const potentialTotal = totalTickets + selectedAmount;
   const winChance = potentialTotal > 0 ? ((potentialTickets / potentialTotal) * 100).toFixed(2) : "0.00";
 
+  // Sound and haptics
+  const playClickSound = useCallback(() => {
+    try {
+      const audio = new Audio("/sounds/click.mp3");
+      audio.volume = 0.3;
+      audio.play().catch(() => {});
+    } catch {}
+  }, []);
+
+  const triggerHaptic = useCallback(async () => {
+    try {
+      await sdk.haptics.impactOccurred("light");
+    } catch {}
+  }, []);
+
+  const handleTicketSelect = useCallback((amount: number) => {
+    setTicketAmount(amount.toString());
+    playClickSound();
+    triggerHaptic();
+  }, [playClickSound, triggerHaptic]);
+
   // Generate falling donuts
   useEffect(() => {
     const initialDonuts = Array.from({ length: 8 }, () => ({
@@ -102,6 +123,8 @@ export default function LotteryPage() {
 
   const handleBuyTickets = () => {
     if (isComingSoon) return;
+    playClickSound();
+    triggerHaptic();
     // TODO: Implement purchase logic
   };
 
@@ -208,12 +231,16 @@ export default function LotteryPage() {
               <div className="text-base font-bold text-green-400">{userTickets > 0 ? ((userTickets / (totalTickets || 1)) * 100).toFixed(2) : "0.00"}%</div>
             </div>
             <button
-              onClick={() => setShowHelp(true)}
+              onClick={() => {
+                setShowHistory(true);
+                playClickSound();
+                triggerHaptic();
+              }}
               className="bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 text-center hover:bg-zinc-800 transition-colors"
             >
-              <div className="text-[9px] text-gray-500 uppercase mb-0.5">Info</div>
+              <div className="text-[9px] text-gray-500 uppercase mb-0.5">Winners</div>
               <div className="flex items-center justify-center">
-                <HelpCircle className="w-5 h-5 text-amber-400" />
+                <History className="w-5 h-5 text-amber-400" />
               </div>
             </button>
           </div>
@@ -230,7 +257,7 @@ export default function LotteryPage() {
               {TICKET_PRESETS.map((amount) => (
                 <button
                   key={amount}
-                  onClick={() => setTicketAmount(amount.toString())}
+                  onClick={() => handleTicketSelect(amount)}
                   className={cn(
                     "py-2 rounded-lg font-bold text-sm transition-all",
                     ticketAmount === amount.toString()
@@ -255,7 +282,11 @@ export default function LotteryPage() {
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
                 <span className="text-lg">🍩</span>
                 <button
-                  onClick={() => setTicketAmount("100")}
+                  onClick={() => {
+                    setTicketAmount("100");
+                    playClickSound();
+                    triggerHaptic();
+                  }}
                   className="text-[10px] font-bold text-amber-400 hover:text-amber-300 bg-zinc-700 px-2 py-1 rounded"
                 >
                   MAX
@@ -296,14 +327,18 @@ export default function LotteryPage() {
             </button>
           </div>
 
-          {/* Past Winners Button */}
+          {/* Info Button */}
           <button
-            onClick={() => setShowHistory(true)}
+            onClick={() => {
+              setShowHelp(true);
+              playClickSound();
+              triggerHaptic();
+            }}
             className="bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 hover:bg-zinc-800 transition-colors"
           >
             <div className="flex items-center justify-center gap-2">
-              <History className="w-4 h-4 text-amber-400" />
-              <span className="text-sm font-semibold text-white">Past Winners</span>
+              <HelpCircle className="w-4 h-4 text-amber-400" />
+              <span className="text-sm font-semibold text-white">How It Works</span>
             </div>
           </button>
 
