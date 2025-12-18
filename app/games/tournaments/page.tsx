@@ -79,16 +79,6 @@ function ChallengeCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className="font-bold text-white text-sm">{challenge.title}</span>
-              {challenge.isNew && (
-                <span className="text-[8px] bg-amber-500 text-black px-1.5 py-0.5 rounded-full font-bold animate-pulse">
-                  NEW
-                </span>
-              )}
-              {challenge.isHot && (
-                <span className="text-[8px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5">
-                  <Flame className="w-2.5 h-2.5" /> HOT
-                </span>
-              )}
               {!challenge.isActive && (
                 <span className="text-[8px] bg-zinc-700 text-gray-400 px-1.5 py-0.5 rounded-full font-bold">
                   ENDED
@@ -96,24 +86,7 @@ function ChallengeCard({
               )}
             </div>
             
-            <p className="text-xs text-gray-400 mb-2 line-clamp-2">{challenge.description}</p>
-            
-            {/* Tags row */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full border font-bold", difficultyColors[challenge.difficulty])}>
-                {challenge.difficulty.toUpperCase()}
-              </span>
-              <span className="text-[9px] bg-zinc-800 text-gray-400 px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                <CategoryIcon className="w-2.5 h-2.5" />
-                {challenge.category}
-              </span>
-              {challenge.participants > 0 && (
-                <span className="text-[9px] text-gray-500 flex items-center gap-1">
-                  <Users className="w-2.5 h-2.5" />
-                  {challenge.participants} joined
-                </span>
-              )}
-            </div>
+            <p className="text-xs text-gray-400 line-clamp-2">{challenge.description}</p>
           </div>
           
           {/* Prize + Expand */}
@@ -284,7 +257,7 @@ function SubmitModal({
               
               {/* Proof link input */}
               <div className="mb-4">
-                <label className="text-xs text-gray-400 mb-1 block">Link to your proof (Retake clip, tweet, etc.)</label>
+                <label className="text-xs text-gray-400 mb-1 block">Link to your proof (Retake clip, cast, etc.)</label>
                 <div className="relative">
                   <input
                     type="url"
@@ -367,8 +340,8 @@ export default function TournamentsPage() {
       participants: 0,
       completions: 0,
       isActive: true,
-      isNew: true,
-      isHot: true,
+      isNew: false,
+      isHot: false,
       icon: Video,
       difficulty: "easy",
       category: "stream",
@@ -377,8 +350,8 @@ export default function TournamentsPage() {
       id: "high-roller",
       title: "HIGH ROLLER STREAK",
       description: "Win 5 games in a row on any Sprinkles game. Screenshot your streak!",
-      prizeDonut: 12,
-      prizeSprinkles: 1250,
+      prizeDonut: 20,
+      prizeSprinkles: 2000,
       requirements: [
         "Play any Sprinkles game (Dice, Mines, Tower, Wheel)",
         "Win 5 games in a row without losing",
@@ -388,6 +361,8 @@ export default function TournamentsPage() {
       participants: 0,
       completions: 0,
       isActive: true,
+      isNew: false,
+      isHot: false,
       icon: Trophy,
       difficulty: "hard",
       category: "gameplay",
@@ -395,18 +370,20 @@ export default function TournamentsPage() {
     {
       id: "social-shill",
       title: "DONUT EVANGELIST",
-      description: "Share your biggest Sprinkles win on Farcaster with #Sprinkles",
+      description: "Share your biggest Sprinkles win on Farcaster with 🍩✨",
       prizeDonut: 5,
       prizeSprinkles: 500,
       requirements: [
         "Win any amount on a Sprinkles game",
         "Post about your win on Farcaster",
-        "Include #Sprinkles hashtag",
+        "Include 🍩✨ in your cast",
         "Tag @Swishh.eth in your cast"
       ],
       participants: 0,
       completions: 0,
       isActive: true,
+      isNew: false,
+      isHot: false,
       icon: Users,
       difficulty: "easy",
       category: "social",
