@@ -15,7 +15,7 @@
     "splashBackgroundColor": "#000000",
     "heroImageUrl": "https://donutlabs.vercel.app/media/hero.png",
     "buttonTitle": "Get Some Sprinkles",
-    "ogTitle": "Earn and Burn Glaze on Base with Sprinkles",
+    "ogTitle": "Earn and Burn Glaze on Base",
     "ogDescription": "Race the rink to seize the donut mine and keep the glaze flowing.",
     "ogImageUrl": "https://donutlabs.vercel.app/media/hero.png",
     "requiredChains": [
