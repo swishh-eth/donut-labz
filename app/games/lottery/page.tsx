@@ -14,7 +14,7 @@ function FallingDonut({ delay, duration, left }: { delay: number; duration: numb
       className="lottery-donut absolute text-lg pointer-events-none select-none"
       style={{
         left: `${left}%`,
-        top: '-40px',
+        top: '-25px',
         animationDelay: `${delay}s`,
         animationDuration: `${duration}s`,
       }}
@@ -56,9 +56,15 @@ export default function LotteryPage() {
   // Sound and haptics
   const playClickSound = useCallback(() => {
     try {
+      // Try to play the click sound
       const audio = new Audio("/sounds/click.mp3");
       audio.volume = 0.3;
-      audio.play().catch(() => {});
+      audio.play().catch(() => {
+        // Fallback: try alternate path
+        const fallback = new Audio("/click.mp3");
+        fallback.volume = 0.3;
+        fallback.play().catch(() => {});
+      });
     } catch {}
   }, []);
 
@@ -69,18 +75,18 @@ export default function LotteryPage() {
   }, []);
 
   const handleTicketSelect = useCallback((amount: number) => {
-    setTicketAmount(amount.toString());
     playClickSound();
     triggerHaptic();
+    setTicketAmount(amount.toString());
   }, [playClickSound, triggerHaptic]);
 
   // Generate falling donuts
   useEffect(() => {
-    const initialDonuts = Array.from({ length: 8 }, () => ({
+    const initialDonuts = Array.from({ length: 12 }, () => ({
       id: idCounter.current++,
       delay: Math.random() * 4,
-      duration: 4 + Math.random() * 2,
-      left: Math.random() * 85 + 5,
+      duration: 3.5 + Math.random() * 1.5,
+      left: Math.random() * 90 + 5,
     }));
     setDonuts(initialDonuts);
 
@@ -89,12 +95,12 @@ export default function LotteryPage() {
         const newDonut = {
           id: idCounter.current++,
           delay: 0,
-          duration: 4 + Math.random() * 2,
-          left: Math.random() * 85 + 5,
+          duration: 3.5 + Math.random() * 1.5,
+          left: Math.random() * 90 + 5,
         };
-        return [...prev.slice(-11), newDonut];
+        return [...prev.slice(-15), newDonut];
       });
-    }, 800);
+    }, 500);
 
     return () => clearInterval(interval);
   }, []);
@@ -135,7 +141,7 @@ export default function LotteryPage() {
           0% { transform: translateY(0) rotate(0deg); opacity: 0; }
           5% { opacity: 0.5; }
           95% { opacity: 0.5; }
-          100% { transform: translateY(220px) rotate(360deg); opacity: 0; }
+          100% { transform: translateY(280px) rotate(360deg); opacity: 0; }
         }
         .lottery-donut { animation: lottery-donut-fall linear infinite; }
       `}</style>

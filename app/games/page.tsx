@@ -70,7 +70,7 @@ function FallingDonut({ delay, duration, left }: { delay: number; duration: numb
       className="lottery-donut absolute text-base pointer-events-none select-none opacity-60"
       style={{
         left: `${left}%`,
-        top: '-40px',
+        top: '-25px',
         animationDelay: `${delay}s`,
         animationDuration: `${duration}s`,
       }}
@@ -102,11 +102,11 @@ function LotteryTile({
 
   // Generate falling donuts
   useEffect(() => {
-    const initialDonuts = Array.from({ length: 6 }, () => ({
+    const initialDonuts = Array.from({ length: 10 }, () => ({
       id: idCounter.current++,
       delay: Math.random() * 4,
-      duration: 4 + Math.random() * 2,
-      left: Math.random() * 85 + 5,
+      duration: 3.5 + Math.random() * 1.5,
+      left: Math.random() * 90 + 5,
     }));
     setDonuts(initialDonuts);
 
@@ -115,12 +115,12 @@ function LotteryTile({
         const newDonut = {
           id: idCounter.current++,
           delay: 0,
-          duration: 4 + Math.random() * 2,
-          left: Math.random() * 85 + 5,
+          duration: 3.5 + Math.random() * 1.5,
+          left: Math.random() * 90 + 5,
         };
-        return [...prev.slice(-9), newDonut];
+        return [...prev.slice(-14), newDonut];
       });
-    }, 1200);
+    }, 600);
 
     return () => clearInterval(interval);
   }, []);
@@ -756,7 +756,7 @@ export default function GamesPage() {
           0% { transform: translateY(0) rotate(0deg); opacity: 0; }
           5% { opacity: 0.6; }
           95% { opacity: 0.6; }
-          100% { transform: translateY(160px) rotate(360deg); opacity: 0; }
+          100% { transform: translateY(180px) rotate(360deg); opacity: 0; }
         }
         .lottery-donut { animation: lottery-donut-fall linear infinite; }
         .lottery-tile-main { 
