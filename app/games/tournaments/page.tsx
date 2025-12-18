@@ -107,10 +107,12 @@ function ChallengeCard({
                 <CategoryIcon className="w-2.5 h-2.5" />
                 {challenge.category}
               </span>
-              <span className="text-[9px] text-gray-500 flex items-center gap-1">
-                <Users className="w-2.5 h-2.5" />
-                {challenge.participants} joined
-              </span>
+              {challenge.participants > 0 && (
+                <span className="text-[9px] text-gray-500 flex items-center gap-1">
+                  <Users className="w-2.5 h-2.5" />
+                  {challenge.participants} joined
+                </span>
+              )}
             </div>
           </div>
           
@@ -173,25 +175,31 @@ function ChallengeCard({
             </div>
           </div>
           
-          {/* Stats */}
-          <div className="flex items-center justify-between text-[10px] text-gray-500">
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1">
-                <Users className="w-3 h-3" />
-                {challenge.participants} participants
-              </span>
-              <span className="flex items-center gap-1">
-                <Award className="w-3 h-3" />
-                {challenge.completions} completed
-              </span>
+          {/* Stats - only show if there's data */}
+          {(challenge.participants > 0 || challenge.completions > 0 || challenge.deadline) && (
+            <div className="flex items-center justify-between text-[10px] text-gray-500">
+              <div className="flex items-center gap-3">
+                {challenge.participants > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Users className="w-3 h-3" />
+                    {challenge.participants} participants
+                  </span>
+                )}
+                {challenge.completions > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Award className="w-3 h-3" />
+                    {challenge.completions} completed
+                  </span>
+                )}
+              </div>
+              {challenge.deadline && (
+                <span className="flex items-center gap-1 text-amber-400">
+                  <Clock className="w-3 h-3" />
+                  Ends {challenge.deadline}
+                </span>
+              )}
             </div>
-            {challenge.deadline && (
-              <span className="flex items-center gap-1 text-amber-400">
-                <Clock className="w-3 h-3" />
-                Ends {challenge.deadline}
-              </span>
-            )}
-          </div>
+          )}
           
           {/* Submit button */}
           {challenge.isActive && (
@@ -336,7 +344,7 @@ function SubmitModal({
 export default function TournamentsPage() {
   const readyRef = useRef(false);
   const [context, setContext] = useState<{ user?: { fid: number; username?: string; pfpUrl?: string } } | null>(null);
-  const [expandedChallenge, setExpandedChallenge] = useState<string | null>("donut-stream");
+  const [expandedChallenge, setExpandedChallenge] = useState<string | null>(null);
   const [submitChallenge, setSubmitChallenge] = useState<Challenge | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [filter, setFilter] = useState<"all" | "stream" | "social" | "gameplay">("all");
@@ -356,8 +364,8 @@ export default function TournamentsPage() {
         "Clip the moment and submit the link below"
       ],
       deadline: "Jan 31",
-      participants: 23,
-      completions: 8,
+      participants: 0,
+      completions: 0,
       isActive: true,
       isNew: true,
       isHot: true,
@@ -377,8 +385,8 @@ export default function TournamentsPage() {
         "Screenshot showing your win streak",
         "Submit screenshot link as proof"
       ],
-      participants: 156,
-      completions: 12,
+      participants: 0,
+      completions: 0,
       isActive: true,
       icon: Trophy,
       difficulty: "hard",
@@ -396,8 +404,8 @@ export default function TournamentsPage() {
         "Include #Sprinkles hashtag",
         "Tag @Swishh.eth in your cast"
       ],
-      participants: 89,
-      completions: 34,
+      participants: 0,
+      completions: 0,
       isActive: true,
       icon: Users,
       difficulty: "easy",

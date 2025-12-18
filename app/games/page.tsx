@@ -140,32 +140,24 @@ function LotteryTile({
         ))}
       </div>
       
-      {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/50 pointer-events-none z-[2]" />
-      
       {/* Content */}
       <div className="relative z-10 p-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center">
-              <span className="text-xl">🍩</span>
+          <div className="text-left">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-base text-white">Daily Lottery</span>
+              {isComingSoon ? (
+                <span className="text-[8px] bg-zinc-700 text-gray-400 px-1.5 py-0.5 rounded-full font-bold">
+                  SOON
+                </span>
+              ) : (
+                <span className="text-[8px] bg-green-500 text-black px-1.5 py-0.5 rounded-full font-bold animate-pulse">
+                  LIVE
+                </span>
+              )}
             </div>
-            <div className="text-left">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-base text-white">Daily Lottery</span>
-                {isComingSoon ? (
-                  <span className="text-[8px] bg-zinc-700 text-gray-400 px-1.5 py-0.5 rounded-full font-bold">
-                    SOON
-                  </span>
-                ) : (
-                  <span className="text-[8px] bg-green-500 text-black px-1.5 py-0.5 rounded-full font-bold animate-pulse">
-                    LIVE
-                  </span>
-                )}
-              </div>
-              <div className="text-[9px] text-amber-400/80">1 DONUT = 1 Ticket • Winner Takes All</div>
-            </div>
+            <div className="text-[9px] text-amber-400/80">1 DONUT = 1 Ticket • Winner Takes All</div>
           </div>
           
           {/* Timer */}
@@ -772,7 +764,7 @@ export default function GamesPage() {
         }
         .lottery-donut { animation: lottery-donut-fall linear infinite; }
         .lottery-tile-main { 
-          background: linear-gradient(135deg, rgba(120, 53, 15, 0.4) 0%, rgba(24, 24, 27, 1) 50%, rgba(124, 45, 18, 0.4) 100%);
+          background: rgb(24, 24, 27);
           animation: lottery-border 3s ease-in-out infinite;
         }
         .lottery-tile-main:hover {
@@ -878,18 +870,25 @@ export default function GamesPage() {
                 className="tournaments-tile relative w-full rounded-xl p-4 border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]"
                 style={{ minHeight: '90px' }}
               >
-                {/* Falling sparkle particles */}
+                {/* Falling sparkle particles - random pattern */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '10%', top: '-10px', animationDelay: '0s' }} />
-                  <Sparkles className="sparkle-particle w-3 h-3 text-white" style={{ left: '30%', top: '-10px', animationDelay: '0.5s' }} />
-                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '50%', top: '-10px', animationDelay: '1s' }} />
-                  <Sparkles className="sparkle-particle w-3 h-3 text-white" style={{ left: '70%', top: '-10px', animationDelay: '1.5s' }} />
-                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '90%', top: '-10px', animationDelay: '2s' }} />
+                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '8%', top: '-10px', animationDelay: '0s', animationDuration: '2.8s' }} />
+                  <Sparkles className="sparkle-particle w-2.5 h-2.5 text-white" style={{ left: '22%', top: '-10px', animationDelay: '1.2s', animationDuration: '3.2s' }} />
+                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '35%', top: '-10px', animationDelay: '0.4s', animationDuration: '2.5s' }} />
+                  <Sparkles className="sparkle-particle w-2 h-2 text-white" style={{ left: '48%', top: '-10px', animationDelay: '2.1s', animationDuration: '3.5s' }} />
+                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '58%', top: '-10px', animationDelay: '0.8s', animationDuration: '2.9s' }} />
+                  <Sparkles className="sparkle-particle w-2.5 h-2.5 text-white" style={{ left: '72%', top: '-10px', animationDelay: '1.7s', animationDuration: '3.1s' }} />
+                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '85%', top: '-10px', animationDelay: '0.2s', animationDuration: '2.7s' }} />
+                  <Sparkles className="sparkle-particle w-2 h-2 text-white" style={{ left: '15%', top: '-10px', animationDelay: '2.5s', animationDuration: '3.3s' }} />
+                  <Sparkles className="sparkle-particle w-2.5 h-2.5 text-amber-400" style={{ left: '42%', top: '-10px', animationDelay: '1.5s', animationDuration: '2.6s' }} />
+                  <Sparkles className="sparkle-particle w-3 h-3 text-white" style={{ left: '65%', top: '-10px', animationDelay: '0.6s', animationDuration: '3.4s' }} />
+                  <Sparkles className="sparkle-particle w-2 h-2 text-amber-400" style={{ left: '92%', top: '-10px', animationDelay: '1.9s', animationDuration: '2.4s' }} />
+                  <Sparkles className="sparkle-particle w-2.5 h-2.5 text-white" style={{ left: '28%', top: '-10px', animationDelay: '2.3s', animationDuration: '3s' }} />
                 </div>
                 
                 <div className="relative z-10 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center">
-                    <Trophy className="w-6 h-6 text-amber-500 trophy-bounce" />
+                  <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-600 flex items-center justify-center">
+                    <Trophy className="w-6 h-6 text-white trophy-bounce" />
                   </div>
                   
                   <div className="flex-1 text-left">
