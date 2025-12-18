@@ -10,10 +10,10 @@ const miniAppEmbed = {
   version: "1",
   imageUrl: heroImageUrl,
   button: {
-    title: "Launch Donut Labs",
+    title: "SPRINKLE SPRINKLE",
     action: {
       type: "launch_miniapp" as const,
-      name: "Donut Labs",
+      name: "Sprinkles",
       url: appDomain,
       splashImageUrl,
       splashBackgroundColor: "#000000",
@@ -22,10 +22,10 @@ const miniAppEmbed = {
 };
 
 export const metadata: Metadata = {
-  title: "Donut Labs",
+  title: "Sprinkles",
   description: "Mine $DONUT and compete in weekly leaderboard rewards",
   openGraph: {
-    title: "Donut Labs",
+    title: "Sprinkles",
     description: "The premium De-Fi (Donut-Finance) experience on base .",
     url: appDomain,
     images: [
