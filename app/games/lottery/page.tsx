@@ -77,6 +77,13 @@ export default function LotteryPage() {
         }
         .float-animation { animation: float 3s ease-in-out infinite; }
         .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+        .lottery-scroll {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .lottery-scroll::-webkit-scrollbar {
+          display: none;
+        }
       `}</style>
 
       <div
@@ -89,11 +96,11 @@ export default function LotteryPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-wide">THE DAILY DONUT LOTTERY</h1>
+            <h1 className="text-2xl font-bold tracking-wide">DONUT LOTTERY</h1>
             {isComingSoon ? (
               <span className="text-[9px] bg-zinc-700 text-gray-400 px-2 py-0.5 rounded-full font-bold">SOON</span>
             ) : (
-              <span className="text-[9px] bg-[#22c55e] text-black px-2 py-0.5 rounded-full font-bold">LIVE</span>
+              <span className="text-[9px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full font-bold">LIVE</span>
             )}
           </div>
           {context?.user?.pfpUrl ? (
@@ -104,7 +111,7 @@ export default function LotteryPage() {
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto space-y-4 pb-4">
+        <div className="flex-1 overflow-y-auto space-y-4 pb-4 lottery-scroll">
           
           {/* Main Prize Display Card */}
           <div className="relative rounded-2xl border-2 border-amber-400 overflow-hidden pulse-glow" style={{ background: 'rgba(245, 158, 11, 0.1)' }}>

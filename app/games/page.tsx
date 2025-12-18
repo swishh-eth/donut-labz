@@ -146,7 +146,7 @@ function LotteryTile({
         <div className="flex items-center justify-between mb-2">
           <div className="text-left">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-base text-white">The Daily Donut Lottery</span>
+              <span className="font-bold text-base text-white">Daily Donut Lottery</span>
               {isComingSoon ? (
                 <span className="text-[8px] bg-zinc-700 text-gray-400 px-1.5 py-0.5 rounded-full font-bold">
                   SOON
@@ -860,7 +860,7 @@ export default function GamesPage() {
                   <div className="flex-1 text-left">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-base text-white">Tournaments</span>
-                      <span className="text-[8px] bg-[#22c55e] text-black px-1.5 py-0.5 rounded-full font-bold">
+                      <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full font-bold">
                         LIVE
                       </span>
                     </div>
