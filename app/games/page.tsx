@@ -758,18 +758,13 @@ export default function GamesPage() {
           95% { opacity: 0.6; }
           100% { transform: translateY(160px) rotate(360deg); opacity: 0; }
         }
-        @keyframes lottery-border {
-          0%, 100% { border-color: rgba(251, 191, 36, 0.4); }
-          50% { border-color: rgba(251, 191, 36, 0.6); }
-        }
         .lottery-donut { animation: lottery-donut-fall linear infinite; }
         .lottery-tile-main { 
-          background: rgb(24, 24, 27);
-          animation: lottery-border 3s ease-in-out infinite;
+          background: rgba(245, 158, 11, 0.1);
+          border-color: rgb(251, 191, 36);
         }
         .lottery-tile-main:hover {
-          animation: none;
-          border-color: rgba(251, 191, 36, 0.8) !important;
+          border-color: rgb(251, 191, 36);
         }
         
         /* Tournaments tile styles */
@@ -778,18 +773,13 @@ export default function GamesPage() {
           25% { transform: translateY(-3px) rotate(-5deg); }
           75% { transform: translateY(-3px) rotate(5deg); }
         }
-        @keyframes tournaments-border {
-          0%, 100% { border-color: rgba(255, 255, 255, 0.3); }
-          50% { border-color: rgba(255, 255, 255, 0.5); }
-        }
         .trophy-bounce { animation: trophy-bounce 2s ease-in-out infinite; }
         .tournaments-tile {
           background: rgb(24, 24, 27);
-          animation: tournaments-border 3s ease-in-out infinite;
+          border-color: rgb(63, 63, 70);
         }
         .tournaments-tile:hover {
-          animation: none;
-          border-color: rgba(255, 255, 255, 0.7) !important;
+          border-color: rgb(82, 82, 91);
         }
       `}</style>
 
@@ -874,7 +864,7 @@ export default function GamesPage() {
                     <div className="text-xs text-gray-400 mt-0.5">Compete in Stream Challenges Hosted By Sprinkles!</div>
                   </div>
                   
-                  <div className="text-amber-400 text-lg">→</div>
+                  <div className="text-black text-lg">→</div>
                 </div>
               </button>
               
