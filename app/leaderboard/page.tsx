@@ -552,7 +552,7 @@ export default function LeaderboardPage() {
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">5</div>
                       <div>
                         <div className="font-semibold text-white text-xs">Where Rewards Come From</div>
-                        <div className="text-[11px] text-gray-400">ETH & DONUT from glazing fees. SPRINKLES from Donut Labs buybacks.</div>
+                        <div className="text-[11px] text-gray-400">ETH & DONUT from glazing fees. SPRINKLES from weekly Treasury Buybacks.</div>
                       </div>
                     </div>
                   </div>
