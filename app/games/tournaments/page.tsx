@@ -53,9 +53,9 @@ function ChallengeCard({
   return (
     <div 
       className={cn(
-        "challenge-card rounded-xl border-2 overflow-hidden transition-all duration-300",
+        "challenge-card rounded-xl border overflow-hidden transition-all duration-300",
         challenge.isActive 
-          ? "bg-gradient-to-br from-amber-950/20 via-zinc-900 to-amber-950/20 border-zinc-700" 
+          ? "bg-zinc-900 border-zinc-700" 
           : "bg-zinc-900/50 border-zinc-800 opacity-60"
       )}
     >
@@ -69,7 +69,7 @@ function ChallengeCard({
           <div className={cn(
             "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
             challenge.isActive 
-              ? "bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/30" 
+              ? "bg-white" 
               : "bg-zinc-800"
           )}>
             <challenge.icon className={cn("w-6 h-6", challenge.isActive ? "text-black" : "text-gray-500")} />
@@ -355,8 +355,8 @@ export default function TournamentsPage() {
       id: "donut-stream",
       title: "EAT A DONUT ON STREAM",
       description: "Show your love for DONUT by eating a real donut during your gaming stream! Tag @Swishh.eth while live on Retake.",
-      prizeDonut: 50,
-      prizeSprinkles: 5000,
+      prizeDonut: 25,
+      prizeSprinkles: 2500,
       requirements: [
         "Go live on Retake with your gaming stream",
         "Eat a real donut on camera during your stream",
@@ -377,8 +377,8 @@ export default function TournamentsPage() {
       id: "high-roller",
       title: "HIGH ROLLER STREAK",
       description: "Win 5 games in a row on any Sprinkles game. Screenshot your streak!",
-      prizeDonut: 25,
-      prizeSprinkles: 2500,
+      prizeDonut: 12,
+      prizeSprinkles: 1250,
       requirements: [
         "Play any Sprinkles game (Dice, Mines, Tower, Wheel)",
         "Win 5 games in a row without losing",
@@ -396,8 +396,8 @@ export default function TournamentsPage() {
       id: "social-shill",
       title: "DONUT EVANGELIST",
       description: "Share your biggest Sprinkles win on Farcaster with #Sprinkles",
-      prizeDonut: 10,
-      prizeSprinkles: 1000,
+      prizeDonut: 5,
+      prizeSprinkles: 500,
       requirements: [
         "Win any amount on a Sprinkles game",
         "Post about your win on Farcaster",
@@ -455,11 +455,6 @@ export default function TournamentsPage() {
           0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.3; }
           50% { transform: translateY(-10px) rotate(180deg); opacity: 1; }
         }
-        @keyframes card-glow {
-          0%, 100% { box-shadow: 0 0 15px rgba(251, 191, 36, 0.05); }
-          50% { box-shadow: 0 0 25px rgba(251, 191, 36, 0.1); }
-        }
-        .challenge-card { animation: card-glow 3s ease-in-out infinite; }
         .sparkle-drift { animation: sparkle-drift 3s ease-in-out infinite; }
       `}</style>
 

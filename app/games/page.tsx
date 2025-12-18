@@ -773,12 +773,6 @@ export default function GamesPage() {
         }
         
         /* Tournaments tile styles */
-        @keyframes sparkle-fall {
-          0% { transform: translateY(0) rotate(0deg); opacity: 0; }
-          5% { opacity: 0.8; }
-          95% { opacity: 0.8; }
-          100% { transform: translateY(110px) rotate(360deg); opacity: 0; }
-        }
         @keyframes trophy-bounce {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           25% { transform: translateY(-3px) rotate(-5deg); }
@@ -787,11 +781,6 @@ export default function GamesPage() {
         @keyframes tournaments-border {
           0%, 100% { border-color: rgba(255, 255, 255, 0.3); }
           50% { border-color: rgba(255, 255, 255, 0.5); }
-        }
-        .sparkle-particle {
-          position: absolute;
-          animation: sparkle-fall 3s ease-in-out infinite;
-          pointer-events: none;
         }
         .trophy-bounce { animation: trophy-bounce 2s ease-in-out infinite; }
         .tournaments-tile {
@@ -870,22 +859,6 @@ export default function GamesPage() {
                 className="tournaments-tile relative w-full rounded-xl p-4 border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]"
                 style={{ minHeight: '90px' }}
               >
-                {/* Falling sparkle particles - random pattern */}
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '8%', top: '-10px', animationDelay: '0s', animationDuration: '2.8s' }} />
-                  <Sparkles className="sparkle-particle w-2.5 h-2.5 text-white" style={{ left: '22%', top: '-10px', animationDelay: '1.2s', animationDuration: '3.2s' }} />
-                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '35%', top: '-10px', animationDelay: '0.4s', animationDuration: '2.5s' }} />
-                  <Sparkles className="sparkle-particle w-2 h-2 text-white" style={{ left: '48%', top: '-10px', animationDelay: '2.1s', animationDuration: '3.5s' }} />
-                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '58%', top: '-10px', animationDelay: '0.8s', animationDuration: '2.9s' }} />
-                  <Sparkles className="sparkle-particle w-2.5 h-2.5 text-white" style={{ left: '72%', top: '-10px', animationDelay: '1.7s', animationDuration: '3.1s' }} />
-                  <Sparkles className="sparkle-particle w-3 h-3 text-amber-400" style={{ left: '85%', top: '-10px', animationDelay: '0.2s', animationDuration: '2.7s' }} />
-                  <Sparkles className="sparkle-particle w-2 h-2 text-white" style={{ left: '15%', top: '-10px', animationDelay: '2.5s', animationDuration: '3.3s' }} />
-                  <Sparkles className="sparkle-particle w-2.5 h-2.5 text-amber-400" style={{ left: '42%', top: '-10px', animationDelay: '1.5s', animationDuration: '2.6s' }} />
-                  <Sparkles className="sparkle-particle w-3 h-3 text-white" style={{ left: '65%', top: '-10px', animationDelay: '0.6s', animationDuration: '3.4s' }} />
-                  <Sparkles className="sparkle-particle w-2 h-2 text-amber-400" style={{ left: '92%', top: '-10px', animationDelay: '1.9s', animationDuration: '2.4s' }} />
-                  <Sparkles className="sparkle-particle w-2.5 h-2.5 text-white" style={{ left: '28%', top: '-10px', animationDelay: '2.3s', animationDuration: '3s' }} />
-                </div>
-                
                 <div className="relative z-10 flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-600 flex items-center justify-center">
                     <Trophy className="w-6 h-6 text-white trophy-bounce" />
@@ -894,8 +867,8 @@ export default function GamesPage() {
                   <div className="flex-1 text-left">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-base text-white">Tournaments</span>
-                      <span className="text-[8px] bg-amber-500 text-black px-1.5 py-0.5 rounded-full font-bold animate-pulse">
-                        NEW
+                      <span className="text-[8px] bg-green-500 text-black px-1.5 py-0.5 rounded-full font-bold">
+                        LIVE
                       </span>
                     </div>
                     <div className="text-xs text-gray-400 mt-0.5">Compete in Stream Challenges Hosted By Sprinkles!</div>
