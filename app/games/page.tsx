@@ -70,7 +70,7 @@ function FallingDonut({ delay, duration, left }: { delay: number; duration: numb
       className="lottery-donut absolute text-base pointer-events-none select-none opacity-60"
       style={{
         left: `${left}%`,
-        top: '-20px',
+        top: '-40px',
         animationDelay: `${delay}s`,
         animationDuration: `${duration}s`,
       }}
