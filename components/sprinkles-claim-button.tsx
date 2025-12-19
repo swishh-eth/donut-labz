@@ -140,24 +140,31 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     },
   });
 
-  // Read current epoch
-  const { data: currentEpoch } = useReadContract({
+  // Read current epoch - fetch this FIRST so we can use it in hasClaimed query
+  const { data: currentEpoch, refetch: refetchEpoch } = useReadContract({
     address: SPRINKLES_CLAIM_ADDRESS as `0x${string}`,
     abi: SPRINKLES_CLAIM_ABI,
     functionName: "currentEpoch",
     chainId: base.id,
+    query: {
+      refetchInterval: 30_000,
+    },
   });
 
   // Check if user has claimed current epoch
+  // IMPORTANT: scopeKey includes currentEpoch to bust cache when epoch changes
   const { data: hasClaimed, refetch: refetchClaimed } = useReadContract({
     address: SPRINKLES_CLAIM_ADDRESS as `0x${string}`,
     abi: SPRINKLES_CLAIM_ABI,
     functionName: "hasUserClaimedCurrentEpoch",
     args: address ? [address] : undefined,
     chainId: base.id,
+    scopeKey: `epoch-${currentEpoch?.toString()}`,
     query: {
-      enabled: !!address,
+      enabled: !!address && currentEpoch !== undefined,
       refetchInterval: 10_000,
+      staleTime: 0,
+      gcTime: 0,
     },
   });
 
@@ -173,6 +180,7 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
         if (prev <= 1) {
           refetchClaimOpen();
           refetchTimeUntil();
+          refetchEpoch();
           return 0;
         }
         return prev - 1;
@@ -180,7 +188,14 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [timeUntilClaim, timeRemaining, isClaimOpen, refetchClaimOpen, refetchTimeUntil]);
+  }, [timeUntilClaim, timeRemaining, isClaimOpen, refetchClaimOpen, refetchTimeUntil, refetchEpoch]);
+
+  // Refetch hasClaimed when epoch changes
+  useEffect(() => {
+    if (currentEpoch !== undefined && address) {
+      refetchClaimed();
+    }
+  }, [currentEpoch, address, refetchClaimed]);
 
   // Fetch user points from Supabase
   useEffect(() => {
