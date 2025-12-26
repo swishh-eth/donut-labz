@@ -12,7 +12,7 @@ import {
 } from "wagmi";
 import { base } from "wagmi/chains";
 import { formatEther, zeroAddress, type Address } from "viem";
-import { ArrowLeft, Sparkles, RefreshCw, Zap } from "lucide-react";
+import { ArrowLeft, Sparkles, RefreshCw } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { cn } from "@/lib/utils";
@@ -556,24 +556,6 @@ export default function BurnPage() {
                 </span>
               </div>
             )}
-          </div>
-
-          {/* ETH → DONUT Section (Coming Soon) */}
-          <div className="rounded-xl border border-zinc-700 bg-zinc-900/50 p-3 mb-2 opacity-60">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-blue-400" />
-                </div>
-                <div>
-                  <div className="text-[10px] text-gray-400 uppercase tracking-wider">Buy DONUT</div>
-                  <div className="text-sm font-bold text-white">ETH → 🍩 DONUT</div>
-                </div>
-              </div>
-              <span className="text-[9px] bg-zinc-700 text-gray-400 px-2 py-1 rounded-full font-bold">
-                SOON
-              </span>
-            </div>
           </div>
 
           {/* Pending DONUT Splitter Section */}
