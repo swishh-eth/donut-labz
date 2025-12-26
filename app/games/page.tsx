@@ -7,7 +7,7 @@ import { createPublicClient, http, formatUnits } from "viem";
 import { base } from "viem/chains";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Ticket, Clock, Coins, HelpCircle, X, Sparkles, Dices, Trophy, Lock, Bomb, Layers, Flame, Grid3X3, Users } from "lucide-react";
+import { Ticket, Clock, HelpCircle, X, Sparkles, Dices, Lock, Bomb, Layers, Flame, Users } from "lucide-react";
 
 // Contract addresses - V5 contracts
 const DONUT_DICE_ADDRESS = "0xD6f1Eb5858efF6A94B853251BE2C27c4038BB7CE" as const;
@@ -228,7 +228,6 @@ function GameTile({
   comingSoon = true,
   isNew = false,
   isHot = false,
-  isTest = false,
   iconClassName,
   lastWinner,
   scrollDirection = "left",
@@ -240,7 +239,6 @@ function GameTile({
   comingSoon?: boolean;
   isNew?: boolean;
   isHot?: boolean;
-  isTest?: boolean;
   iconClassName?: string;
   lastWinner?: { username: string; amount: string; pfpUrl?: string } | null;
   scrollDirection?: "left" | "right";
@@ -279,22 +277,17 @@ function GameTile({
                 Soon
               </span>
             )}
-            {!comingSoon && isTest && (
-              <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold border border-purple-500/30">
-                TEST
-              </span>
-            )}
-            {!comingSoon && isHot && !isTest && (
+            {!comingSoon && isHot && (
               <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold hot-pulse flex items-center gap-0.5">
                 <Flame className="w-2.5 h-2.5" /> HOT
               </span>
             )}
-            {!comingSoon && isNew && !isHot && !isTest && (
+            {!comingSoon && isNew && !isHot && (
               <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold">
                 NEW
               </span>
             )}
-            {!comingSoon && !isNew && !isHot && !isTest && (
+            {!comingSoon && !isNew && !isHot && (
               <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full flex-shrink-0">
                 LIVE
               </span>
@@ -342,30 +335,6 @@ export default function GamesPage() {
   const [lotteryTickets, setLotteryTickets] = useState(0);
   const [lotteryTimeRemaining, setLotteryTimeRemaining] = useState("--:--:--");
   const [lotteryLastWinner, setLotteryLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
-
-  // Lottery countdown timer - disabled for now (coming soon)
-  // useEffect(() => {
-  //   const now = new Date();
-  //   const endOfDay = new Date(now);
-  //   endOfDay.setUTCHours(24, 0, 0, 0);
-  //   
-  //   const updateTimer = () => {
-  //     const nowMs = Date.now();
-  //     const diff = Math.max(0, endOfDay.getTime() - nowMs);
-  //     
-  //     const hours = Math.floor(diff / (1000 * 60 * 60));
-  //     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  //     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-  //     
-  //     setLotteryTimeRemaining(
-  //       `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-  //     );
-  //   };
-  //   
-  //   updateTimer();
-  //   const interval = setInterval(updateTimer, 1000);
-  //   return () => clearInterval(interval);
-  // }, []);
 
   // Fetch last winner for dice game
   useEffect(() => {
@@ -660,7 +629,7 @@ export default function GamesPage() {
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
-  // Games list - Tournaments is separate and shown right after lottery tile
+  // Games list
   const games = [
     {
       id: "tower",
@@ -701,26 +670,6 @@ export default function GamesPage() {
       lastWinner: minesLastWinner,
       scrollDirection: "right" as const,
       onClick: () => router.push("/mines"),
-    },
-    {
-      id: "coinflip",
-      title: "Coin Flip",
-      description: "Heads or tails, 1.96x payout!",
-      icon: Coins,
-      comingSoon: false,
-      isTest: true,
-      lastWinner: null,
-      onClick: () => window.location.href = "/coinflip",
-    },
-    {
-      id: "keno",
-      title: "Donut Keno",
-      description: "Pick numbers, match the draw, win big!",
-      icon: Grid3X3,
-      comingSoon: false,
-      isTest: true,
-      lastWinner: null,
-      onClick: () => window.location.href = "/keno",
     },
     {
       id: "slots",
@@ -765,21 +714,6 @@ export default function GamesPage() {
         }
         .lottery-tile-main:hover {
           border-color: rgb(251, 191, 36);
-        }
-        
-        /* Tournaments tile styles */
-        @keyframes trophy-bounce {
-          0%, 100% { transform: translateY(0) rotate(0deg); }
-          25% { transform: translateY(-3px) rotate(-5deg); }
-          75% { transform: translateY(-3px) rotate(5deg); }
-        }
-        .trophy-bounce { animation: trophy-bounce 2s ease-in-out infinite; }
-        .tournaments-tile {
-          background: rgb(24, 24, 27);
-          border-color: rgb(63, 63, 70);
-        }
-        .tournaments-tile:hover {
-          border-color: rgb(82, 82, 91);
         }
       `}</style>
 
@@ -846,29 +780,6 @@ export default function GamesPage() {
                 onClick={() => window.location.href = "/games/lottery"}
               />
               
-              {/* Tournaments Tile - Right under lottery */}
-              <button
-                onClick={() => window.location.href = "/games/tournaments"}
-                className="relative w-full rounded-xl p-4 border overflow-hidden transition-all duration-300 active:scale-[0.98] bg-zinc-900 border-zinc-800 hover:bg-zinc-800"
-                style={{ minHeight: '90px' }}
-              >
-                <div className="relative z-10 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-600 flex items-center justify-center">
-                    <Trophy className="w-6 h-6 text-white trophy-bounce" />
-                  </div>
-                  
-                  <div className="flex-1 text-left">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-base text-white">Tournaments</span>
-                      <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full font-bold">
-                        LIVE
-                      </span>
-                    </div>
-                    <div className="text-xs text-gray-400 mt-0.5">Compete in Stream Challenges Hosted By Sprinkles!</div>
-                  </div>
-                </div>
-              </button>
-              
               {/* Regular game tiles */}
               {games.map((game) => (
                 <GameTile
@@ -879,7 +790,6 @@ export default function GamesPage() {
                   comingSoon={game.comingSoon}
                   isNew={(game as any).isNew}
                   isHot={(game as any).isHot}
-                  isTest={(game as any).isTest}
                   iconClassName={(game as any).iconClassName}
                   lastWinner={game.lastWinner}
                   scrollDirection={(game as any).scrollDirection}
