@@ -12,7 +12,7 @@ import {
 } from "wagmi";
 import { base } from "wagmi/chains";
 import { formatEther, zeroAddress, type Address } from "viem";
-import { ArrowLeft, Sparkles, RefreshCw } from "lucide-react";
+import { ArrowLeft, Sparkles, RefreshCw, Zap } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { cn } from "@/lib/utils";
@@ -347,7 +347,6 @@ export default function BurnPage() {
   useEffect(() => {
     if (sprinklesWriteError) {
       console.error("Write error:", sprinklesWriteError);
-      // Don't show failure for user rejections, just reset
       const isUserRejection = sprinklesWriteError.message?.includes("User rejected") || 
                               sprinklesWriteError.message?.includes("user rejected") ||
                               sprinklesWriteError.message?.includes("User denied");
@@ -372,7 +371,7 @@ export default function BurnPage() {
     if (sprinklesTxStep === "approving") {
       resetSprinklesWrite();
       setSprinklesTxStep("buying");
-      isBuyingRef.current = false; // Reset for the buy step
+      isBuyingRef.current = false;
       return;
     }
     
@@ -441,10 +440,18 @@ export default function BurnPage() {
   }, [splitReceipt, refetchPendingDonut, refetchSprinklesAuction, resetSplitWrite]);
 
   // ============== DISPLAY VALUES ==============
-  const sprinklesPriceDisplay = sprinklesAuctionState ? formatTokenAmount(sprinklesAuctionState.price, 5) : "—";
+  const sprinklesPriceDisplay = sprinklesAuctionState ? formatTokenAmount(sprinklesAuctionState.price, 2) : "—";
   const sprinklesRewardsDisplay = sprinklesAuctionState ? formatTokenAmount(sprinklesAuctionState.rewardsAvailable, 2) : "—";
-  const sprinklesUserLPDisplay = sprinklesAuctionState ? formatTokenAmount(sprinklesAuctionState.userLPBalance, 4) : "0";
+  const sprinklesUserLPDisplay = sprinklesAuctionState ? formatTokenAmount(sprinklesAuctionState.userLPBalance, 2) : "0";
   const pendingDonutDisplay = pendingDonut ? formatTokenAmount(pendingDonut, 2) : "0";
+
+  // Calculate USD values
+  const lpPayUsd = sprinklesAuctionState && sprinklesLpPrice > 0
+    ? (Number(formatEther(sprinklesAuctionState.price)) * sprinklesLpPrice).toFixed(2)
+    : null;
+  const donutGetUsd = sprinklesAuctionState && donutUsdPrice > 0
+    ? (Number(formatEther(sprinklesAuctionState.rewardsAvailable)) * donutUsdPrice).toFixed(2)
+    : null;
 
   const sprinklesButtonLabel = useMemo(() => {
     if (!sprinklesAuctionState) return "Loading…";
@@ -551,19 +558,39 @@ export default function BurnPage() {
             )}
           </div>
 
-          {/* Pending DONUT Splitter Section */}
-          <div className="rounded-xl border border-zinc-700 bg-zinc-900/50 p-3 mb-3">
+          {/* ETH → DONUT Section (Coming Soon) */}
+          <div className="rounded-xl border border-zinc-700 bg-zinc-900/50 p-3 mb-2 opacity-60">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-sm">🍩</span>
+                <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-blue-400" />
+                </div>
+                <div>
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider">Buy DONUT</div>
+                  <div className="text-sm font-bold text-white">ETH → 🍩 DONUT</div>
+                </div>
+              </div>
+              <span className="text-[9px] bg-zinc-700 text-gray-400 px-2 py-1 rounded-full font-bold">
+                SOON
+              </span>
+            </div>
+          </div>
+
+          {/* Pending DONUT Splitter Section */}
+          <div className="rounded-xl border border-zinc-700 bg-zinc-900/50 p-3 mb-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🍩</span>
                 <div>
                   <div className="text-[10px] text-gray-400 uppercase tracking-wider">Pending Split</div>
-                  <div className="text-sm font-bold text-white">{pendingDonutDisplay} DONUT</div>
-                  {donutUsdPrice > 0 && pendingDonut && (
-                    <div className="text-[9px] text-gray-500">
-                      ${(Number(formatEther(pendingDonut)) * donutUsdPrice).toFixed(2)}
-                    </div>
-                  )}
+                  <div className="text-sm font-bold text-white">
+                    {pendingDonutDisplay} DONUT
+                    {donutUsdPrice > 0 && pendingDonut && pendingDonut > 0n && (
+                      <span className="text-[10px] text-gray-500 ml-1.5">
+                        ${(Number(formatEther(pendingDonut)) * donutUsdPrice).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <button
@@ -589,70 +616,57 @@ export default function BurnPage() {
             </p>
           </div>
 
-          {/* SPRINKLES LP Burn Section */}
-          <div className="flex-1 rounded-xl border border-amber-500/30 bg-zinc-900 p-4 flex flex-col">
-            <div className="flex items-center justify-between mb-3">
+          {/* SPRINKLES LP Burn Section - Compact */}
+          <div className="rounded-xl border border-amber-500/30 bg-zinc-900/50 p-3">
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-400" />
-                <h2 className="text-lg font-bold text-amber-400">SPRINKLES LP Burn</h2>
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span className="text-sm font-bold text-amber-400">SPRINKLES LP Burn</span>
               </div>
               {sprinklesLpPrice > 0 && (
-                <div className="text-[10px] text-gray-400">
-                  LP: ${sprinklesLpPrice.toFixed(4)}
-                </div>
+                <span className="text-[9px] text-gray-500">LP: ${sprinklesLpPrice.toFixed(6)}</span>
               )}
             </div>
 
-            {/* Pay / Get Cards */}
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div className="rounded-lg border border-amber-500/50 bg-black p-3">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">PAY</div>
-                <div className="text-xl font-semibold text-amber-400">{sprinklesPriceDisplay}</div>
-                <div className="text-xs text-gray-400">SPRINKLES LP</div>
-                {sprinklesLpPrice > 0 && sprinklesAuctionState && (
-                  <div className="text-[10px] text-gray-500 mt-1">
-                    ${(Number(formatEther(sprinklesAuctionState.price)) * sprinklesLpPrice).toFixed(2)}
-                  </div>
-                )}
+            {/* Pay / Get Row */}
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex-1 rounded-lg border border-amber-500/30 bg-black/50 px-3 py-2">
+                <div className="text-[9px] text-gray-400 uppercase">Pay</div>
+                <div className="text-base font-bold text-amber-400">{sprinklesPriceDisplay} LP</div>
+                {lpPayUsd && <div className="text-[9px] text-gray-500">${lpPayUsd}</div>}
               </div>
-              <div className="rounded-lg border border-zinc-700 bg-black p-3">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">GET</div>
-                <div className="text-xl font-semibold text-white">🍩 {sprinklesRewardsDisplay}</div>
-                <div className="text-xs text-gray-400">DONUT</div>
-                {donutUsdPrice > 0 && sprinklesAuctionState && (
-                  <div className="text-[10px] text-gray-500 mt-1">
-                    ${(Number(formatEther(sprinklesAuctionState.rewardsAvailable)) * donutUsdPrice).toFixed(2)}
-                  </div>
-                )}
+              <div className="text-gray-600">→</div>
+              <div className="flex-1 rounded-lg border border-zinc-700 bg-black/50 px-3 py-2">
+                <div className="text-[9px] text-gray-400 uppercase">Get</div>
+                <div className="text-base font-bold text-white">🍩 {sprinklesRewardsDisplay}</div>
+                {donutGetUsd && <div className="text-[9px] text-gray-500">${donutGetUsd}</div>}
               </div>
             </div>
 
-            {/* Profit/Loss Indicator */}
+            {/* Profit/Loss + Status */}
             {sprinklesProfitLoss && (
               <div className={cn(
-                "text-center text-xs font-semibold px-3 py-2 rounded-lg mb-3",
-                sprinklesProfitLoss.isProfitable ? "text-green-400 bg-green-500/10 border border-green-500/20" : "text-red-400 bg-red-500/10 border border-red-500/20"
+                "text-center text-[10px] font-semibold px-2 py-1 rounded mb-2",
+                sprinklesProfitLoss.isProfitable ? "text-green-400 bg-green-500/10" : "text-red-400 bg-red-500/10"
               )}>
-                {sprinklesProfitLoss.isProfitable ? "💰 Profit: " : "⚠️ Loss: "}
-                {sprinklesProfitLoss.isProfitable ? "+" : ""}${sprinklesProfitLoss.profitLoss.toFixed(2)}
+                {sprinklesProfitLoss.isProfitable ? "💰 +" : "⚠️ "}${Math.abs(sprinklesProfitLoss.profitLoss).toFixed(2)}
               </div>
             )}
 
-            {/* Status Messages */}
             {sprinklesPriceIsZero && (
-              <div className="text-center text-xs text-gray-400 mb-3 py-2 bg-zinc-800/50 rounded-lg">
+              <div className="text-center text-[9px] text-gray-400 mb-2">
                 Epoch ended - waiting for next auction
               </div>
             )}
             
             {hasInsufficientSprinklesLP && !sprinklesPriceIsZero && (
-              <div className="text-center text-xs text-amber-400 mb-3 py-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
+              <div className="text-center text-[9px] text-amber-400 mb-2 py-1 bg-amber-500/10 rounded">
                 Insufficient LP balance
               </div>
             )}
 
-            {hasNoSprinklesRewards && !sprinklesPriceIsZero && (
-              <div className="text-center text-xs text-gray-400 mb-3 py-2 bg-zinc-800/50 rounded-lg">
+            {hasNoSprinklesRewards && !sprinklesPriceIsZero && !hasInsufficientSprinklesLP && (
+              <div className="text-center text-[9px] text-gray-400 mb-2">
                 No rewards available - try splitting first
               </div>
             )}
@@ -662,7 +676,7 @@ export default function BurnPage() {
               onClick={handleSprinklesBurn}
               disabled={isSprinklesBurnDisabled}
               className={cn(
-                "w-full rounded-xl py-3 text-base font-bold transition-all duration-300",
+                "w-full rounded-lg py-2 text-sm font-bold transition-all",
                 sprinklesBurnResult === "success"
                   ? "bg-green-500 text-white"
                   : sprinklesBurnResult === "failure"
@@ -676,13 +690,13 @@ export default function BurnPage() {
             </button>
 
             {/* LP Balance & Get LP Link */}
-            <div className="flex items-center justify-between mt-3 px-1">
-              <div className="text-xs text-gray-400">
-                Your Balance: <span className="text-white font-semibold">{sprinklesUserLPDisplay}</span> LP
-              </div>
+            <div className="flex items-center justify-between mt-2 text-[10px]">
+              <span className="text-gray-400">
+                Balance: <span className="text-white font-semibold">{sprinklesUserLPDisplay}</span> LP
+              </span>
               <button
                 onClick={() => handleExternalLink("https://aerodrome.finance/deposit?token0=0xa890060BE1788a676dBC3894160f5dc5DeD2C98D&token1=0xAE4a37d554C6D6F3E398546d8566B25052e0169C&type=-1")}
-                className="text-xs text-amber-400 hover:text-amber-300 font-semibold transition-colors"
+                className="text-amber-400 hover:text-amber-300 font-semibold transition-colors"
               >
                 Get LP on Aerodrome →
               </button>
