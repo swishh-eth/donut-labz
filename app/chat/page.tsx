@@ -5,11 +5,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer, Heart, Plus } from "lucide-react";
+import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer, Heart, Plus, Settings, Check } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseUnits } from "viem";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
 import { SprinklesClaimButton } from "@/components/sprinkles-claim-button";
+import { cn } from "@/lib/utils";
 
 type MiniAppContext = {
   user?: {
@@ -38,7 +39,16 @@ type FarcasterProfile = {
   neynarScore: number | null;
 };
 
+type TipToken = "donut" | "sprinkles";
+
+type TipSettings = {
+  token: TipToken;
+  amount: string;
+};
+
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as `0x${string}`;
+const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as `0x${string}`;
+
 const ERC20_ABI = [
   {
     inputs: [
@@ -54,18 +64,13 @@ const ERC20_ABI = [
 
 const CHAT_REWARDS_START_TIME = 1765163000;
 const HALVING_PERIOD = 30 * 24 * 60 * 60;
-const INITIAL_MULTIPLIER = 2.0;
-const MULTIPLIER_SCHEDULE = [2, 1, 0.5, 0.25, 0]; // After 4 halvings, rewards end
+const MULTIPLIER_SCHEDULE = [2, 1, 0.5, 0.25, 0];
 
 const getCurrentMultiplier = () => {
   const now = Math.floor(Date.now() / 1000);
   const elapsed = now - CHAT_REWARDS_START_TIME;
   const halvings = Math.floor(elapsed / HALVING_PERIOD);
-  
-  // Use the schedule array, return 0 if past the end
-  if (halvings >= MULTIPLIER_SCHEDULE.length) {
-    return 0;
-  }
+  if (halvings >= MULTIPLIER_SCHEDULE.length) return 0;
   return MULTIPLIER_SCHEDULE[halvings];
 };
 
@@ -73,12 +78,7 @@ const getTimeUntilNextHalving = () => {
   const now = Math.floor(Date.now() / 1000);
   const elapsed = now - CHAT_REWARDS_START_TIME;
   const currentPeriod = Math.floor(elapsed / HALVING_PERIOD);
-  
-  // If rewards have ended, return null
-  if (currentPeriod >= MULTIPLIER_SCHEDULE.length - 1) {
-    return null;
-  }
-  
+  if (currentPeriod >= MULTIPLIER_SCHEDULE.length - 1) return null;
   const nextHalvingTime = CHAT_REWARDS_START_TIME + ((currentPeriod + 1) * HALVING_PERIOD);
   const secondsRemaining = nextHalvingTime - now;
   const days = Math.floor(secondsRemaining / 86400);
@@ -107,6 +107,13 @@ const timeAgo = (timestamp: bigint) => {
   return `${Math.floor(diff / 86400)}d ago`;
 };
 
+const DEFAULT_TIP_SETTINGS: TipSettings = {
+  token: "donut",
+  amount: "1",
+};
+
+const PRESET_AMOUNTS = ["1", "5", "10", "25", "50", "100"];
+
 export default function ChatPage() {
   const readyRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -115,6 +122,7 @@ export default function ChatPage() {
 
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
+  const [showTipSettings, setShowTipSettings] = useState(false);
   const [message, setMessage] = useState("");
   const [pendingMessage, setPendingMessage] = useState("");
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
@@ -139,10 +147,31 @@ export default function ChatPage() {
   const buttonContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Persist button position
+  // Tip settings state
+  const [tipSettings, setTipSettings] = useState<TipSettings>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('chat-tip-settings');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          return DEFAULT_TIP_SETTINGS;
+        }
+      }
+    }
+    return DEFAULT_TIP_SETTINGS;
+  });
+  const [tempTipSettings, setTempTipSettings] = useState<TipSettings>(tipSettings);
+  const [customAmount, setCustomAmount] = useState("");
+
+  // Persist settings
   useEffect(() => {
     localStorage.setItem('chat-button-position', buttonPosition);
   }, [buttonPosition]);
+
+  useEffect(() => {
+    localStorage.setItem('chat-tip-settings', JSON.stringify(tipSettings));
+  }, [tipSettings]);
 
   const COOLDOWN_SECONDS = 30;
   const { address, isConnected } = useAccount();
@@ -152,7 +181,7 @@ export default function ChatPage() {
   const { data: tipHash, writeContract: writeTip, isPending: isTipPending, reset: resetTip } = useWriteContract();
   const { isLoading: isTipConfirming, isSuccess: isTipSuccess } = useWaitForTransactionReceipt({ hash: tipHash });
 
-  // Handle scroll fade - matches leaderboard page behavior
+  // Handle scroll fade
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
@@ -162,9 +191,7 @@ export default function ChatPage() {
       const scrollHeight = container.scrollHeight - container.clientHeight;
       
       if (scrollHeight > 0) {
-        // Top fade: 0 at top, 1 when scrolled down (smooth over 100px)
         const topFade = Math.min(1, scrollTop / 100);
-        // Bottom fade: 1 at top, 0 at bottom (smooth over 100px)
         const bottomFade = Math.min(1, (scrollHeight - scrollTop) / 100);
         setScrollFade({ top: topFade, bottom: bottomFade });
       } else {
@@ -177,25 +204,14 @@ export default function ChatPage() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Focus input when chat expands and scroll to bottom smoothly
+  // Focus input when chat expands
   useEffect(() => {
     if (isChatExpanded) {
-      // Smooth scroll to bottom synced with slide animation
       const container = messagesContainerRef.current;
       if (container) {
-        const scrollToBottom = () => {
-          container.scrollTo({
-            top: container.scrollHeight,
-            behavior: 'smooth'
-          });
-        };
-        // Start scroll immediately, it will animate alongside the input slide
-        scrollToBottom();
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
       }
-      // Focus input after animation
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 300);
+      setTimeout(() => inputRef.current?.focus(), 300);
     }
   }, [isChatExpanded]);
 
@@ -317,7 +333,8 @@ export default function ChatPage() {
                 messageHash: tippingMessageHash,
                 fromAddress: address,
                 toAddress: msg.sender,
-                amount: "1",
+                amount: tipSettings.amount,
+                token: tipSettings.token,
               }),
             });
             refetchTipCounts();
@@ -330,7 +347,7 @@ export default function ChatPage() {
       setTippingMessageHash(null);
       resetTip();
     }
-  }, [isTipSuccess, tippingMessageHash, resetTip, refetchTipCounts, messages, address]);
+  }, [isTipSuccess, tippingMessageHash, resetTip, refetchTipCounts, messages, address, tipSettings]);
 
   const recordPoints = useCallback(async () => {
     if (!address) return;
@@ -371,10 +388,8 @@ export default function ChatPage() {
   const handleSendMessage = async () => {
     if (!message.trim() || !isConnected || isPending || isConfirming || cooldownRemaining > 0 || rateLimitBanRemaining > 0 || isVerifying) return;
     
-    // Check if rewards have ended
     if (currentMultiplier === 0) {
       setEligibilityError(["Chat rewards have ended. You can still send messages but won't earn sprinkles."]);
-      // Still allow sending, just clear the error after showing
       setTimeout(() => setEligibilityError(null), 3000);
     }
     
@@ -415,19 +430,19 @@ export default function ChatPage() {
     if (!isConnected || isTipPending || isTipConfirming) return;
     if (recipientAddress.toLowerCase() === address?.toLowerCase()) return;
     
-    // Light haptic feedback
     try {
       await sdk.haptics.impactOccurred("light");
-    } catch {
-      // Silent fail if haptics not supported
-    }
+    } catch {}
+    
+    const tokenAddress = tipSettings.token === "donut" ? DONUT_ADDRESS : SPRINKLES_ADDRESS;
+    const amount = parseUnits(tipSettings.amount, 18);
     
     setTippingMessageHash(messageHash);
     writeTip({
-      address: DONUT_ADDRESS,
+      address: tokenAddress,
       abi: ERC20_ABI,
       functionName: "transfer",
-      args: [recipientAddress as `0x${string}`, parseUnits("1", 18)],
+      args: [recipientAddress as `0x${string}`, amount],
     });
   };
 
@@ -445,12 +460,9 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Scroll to bottom on initial load
   useEffect(() => {
     if (messages && messages.length > 0) {
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
-      }, 100);
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 100);
     }
   }, []);
 
@@ -464,15 +476,8 @@ export default function ChatPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const toggleChatInput = () => {
-    if (isChatExpanded) {
-      setIsChatExpanded(false);
-    } else {
-      setIsChatExpanded(true);
-    }
-  };
+  const toggleChatInput = () => setIsChatExpanded(!isChatExpanded);
 
-  // Drag handlers for button repositioning
   const handleDragStart = (clientX: number) => {
     if (isChatExpanded) return;
     setDragStartX(clientX);
@@ -480,70 +485,65 @@ export default function ChatPage() {
 
   const handleDragMove = (clientX: number) => {
     if (isChatExpanded || dragStartX === 0) return;
-    
     const delta = Math.abs(clientX - dragStartX);
-    // Only start dragging after moving 10px (prevents accidental drags)
-    if (!isDragging && delta > 10) {
-      setIsDragging(true);
-    }
-    
+    if (!isDragging && delta > 10) setIsDragging(true);
     if (!isDragging) return;
-    
     const container = buttonContainerRef.current;
     if (!container) return;
-    
     const containerWidth = container.offsetWidth - 44;
     const moveDelta = clientX - dragStartX;
-    
-    // Calculate drag position based on current side
     let newX: number;
     if (buttonPosition === 'left') {
       newX = Math.max(0, Math.min(containerWidth, moveDelta));
     } else {
       newX = Math.max(0, Math.min(containerWidth, -moveDelta));
     }
-    
     setDragX(newX);
   };
 
   const handleDragEnd = () => {
     if (!isDragging && dragStartX !== 0) {
-      // It was a tap, not a drag
       setDragStartX(0);
       return;
     }
-    
     if (!isDragging) return;
-    
     setIsDragging(false);
     setDragStartX(0);
-    
     const container = buttonContainerRef.current;
     if (!container) return;
-    
     const containerWidth = container.offsetWidth - 44;
     const threshold = containerWidth / 2;
-    
-    // Snap to opposite position if dragged past threshold
     if (dragX > threshold) {
       setButtonPosition(buttonPosition === 'left' ? 'right' : 'left');
     }
     setDragX(0);
   };
 
-  // Check if rewards have ended
+  const openTipSettings = () => {
+    setTempTipSettings(tipSettings);
+    setCustomAmount("");
+    setShowTipSettings(true);
+  };
+
+  const saveTipSettings = () => {
+    const finalAmount = customAmount || tempTipSettings.amount;
+    const parsed = parseFloat(finalAmount);
+    if (isNaN(parsed) || parsed <= 0) {
+      return;
+    }
+    setTipSettings({ ...tempTipSettings, amount: finalAmount });
+    setShowTipSettings(false);
+  };
+
   const rewardsEnded = currentMultiplier === 0;
+  const tipTokenEmoji = tipSettings.token === "donut" ? "🍩" : "✨";
+  const tipTokenName = tipSettings.token === "donut" ? "DONUT" : "SPRINKLES";
 
   return (
     <main className="flex h-[100dvh] w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style jsx global>{`
-        .chat-scroll {
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-        }
-        .chat-scroll::-webkit-scrollbar {
-          display: none;
-        }
+        .chat-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+        .chat-scroll::-webkit-scrollbar { display: none; }
       `}</style>
 
       <div 
@@ -597,14 +597,16 @@ export default function ChatPage() {
                 <HelpCircle className="w-3 h-3 text-gray-400" />
               </div>
             </button>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 opacity-50 cursor-not-allowed">
+            <button onClick={openTipSettings} className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors">
               <div className="flex items-center justify-center gap-2">
-                <span className="text-xs font-semibold text-gray-500">Cosmetics</span>
-                <span className="text-[9px] text-gray-600">Soon</span>
+                <Settings className="w-4 h-4 text-white" />
+                <span className="text-xs font-semibold text-white">Tip Settings</span>
+                <span className="text-[9px] text-gray-400">{tipTokenEmoji}{tipSettings.amount}</span>
               </div>
-            </div>
+            </button>
           </div>
 
+          {/* Help Dialog */}
           {showHelpDialog && (
             <div className="fixed inset-0 z-50">
               <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHelpDialog(false)} />
@@ -660,7 +662,119 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Messages container - extends to bottom */}
+          {/* Tip Settings Dialog */}
+          {showTipSettings && (
+            <div className="fixed inset-0 z-50">
+              <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowTipSettings(false)} />
+              <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
+                  <button onClick={() => setShowTipSettings(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white z-10">
+                    <X className="h-4 w-4" />
+                  </button>
+                  <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+                    <Heart className="w-4 h-4 text-amber-400" />
+                    Tip Settings
+                  </h2>
+                  
+                  {/* Token Selection */}
+                  <div className="mb-4">
+                    <label className="text-xs text-gray-400 uppercase tracking-wider mb-2 block">Token</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setTempTipSettings({ ...tempTipSettings, token: "donut" })}
+                        className={cn(
+                          "flex items-center justify-center gap-2 p-3 rounded-xl border transition-all",
+                          tempTipSettings.token === "donut"
+                            ? "border-amber-500 bg-amber-500/10 text-amber-400"
+                            : "border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600"
+                        )}
+                      >
+                        <span className="text-lg">🍩</span>
+                        <span className="text-sm font-semibold">DONUT</span>
+                        {tempTipSettings.token === "donut" && <Check className="w-4 h-4" />}
+                      </button>
+                      <button
+                        onClick={() => setTempTipSettings({ ...tempTipSettings, token: "sprinkles" })}
+                        className={cn(
+                          "flex items-center justify-center gap-2 p-3 rounded-xl border transition-all",
+                          tempTipSettings.token === "sprinkles"
+                            ? "border-amber-500 bg-amber-500/10 text-amber-400"
+                            : "border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600"
+                        )}
+                      >
+                        <span className="text-lg">✨</span>
+                        <span className="text-sm font-semibold">SPRINKLES</span>
+                        {tempTipSettings.token === "sprinkles" && <Check className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Amount Selection */}
+                  <div className="mb-4">
+                    <label className="text-xs text-gray-400 uppercase tracking-wider mb-2 block">Amount</label>
+                    <div className="grid grid-cols-3 gap-2 mb-2">
+                      {PRESET_AMOUNTS.map((amt) => (
+                        <button
+                          key={amt}
+                          onClick={() => {
+                            setTempTipSettings({ ...tempTipSettings, amount: amt });
+                            setCustomAmount("");
+                          }}
+                          className={cn(
+                            "p-2 rounded-lg border text-sm font-semibold transition-all",
+                            tempTipSettings.amount === amt && !customAmount
+                              ? "border-amber-500 bg-amber-500/10 text-amber-400"
+                              : "border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600"
+                          )}
+                        >
+                          {amt}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={customAmount}
+                        onChange={(e) => setCustomAmount(e.target.value)}
+                        placeholder="Custom amount..."
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-amber-500 transition-colors"
+                        min="0.01"
+                        step="0.01"
+                      />
+                      {customAmount && (
+                        <button
+                          onClick={() => setCustomAmount("")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Preview */}
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4">
+                    <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Preview</div>
+                    <div className="flex items-center gap-2">
+                      <Heart className="w-5 h-5 text-amber-400 fill-amber-400/50" />
+                      <span className="text-base font-bold text-white">
+                        {customAmount || tempTipSettings.amount} {tempTipSettings.token === "donut" ? "🍩 DONUT" : "✨ SPRINKLES"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={saveTipSettings} 
+                    className="w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-black hover:bg-amber-400 transition-colors"
+                  >
+                    Save Settings
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Messages container */}
           <div 
             ref={messagesContainerRef} 
             className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll pb-16"
@@ -728,7 +842,7 @@ export default function ChatPage() {
                         <p className="text-xs text-gray-300 break-words">{msg.message}</p>
                       </div>
                       {!isOwnMessage && isConnected && (
-                        <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={isTipPending || isTipConfirming} className={`flex-shrink-0 flex flex-col items-center justify-center min-w-[32px] p-1 rounded-lg transition-all ${isTipping ? "bg-amber-500/20" : tipCount > 0 ? "bg-amber-500/10" : "hover:bg-amber-500/10"}`} title="Tip 1 DONUT">
+                        <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={isTipPending || isTipConfirming} className={`flex-shrink-0 flex flex-col items-center justify-center min-w-[32px] p-1 rounded-lg transition-all ${isTipping ? "bg-amber-500/20" : tipCount > 0 ? "bg-amber-500/10" : "hover:bg-amber-500/10"}`} title={`Tip ${tipSettings.amount} ${tipTokenName}`}>
                           <Heart className={`w-4 h-4 transition-colors ${isTipping ? "text-amber-400 animate-pulse fill-amber-400" : tipCount > 0 ? "text-amber-400 fill-amber-400/50" : "text-gray-500 hover:text-amber-400"}`} />
                           {tipCount > 0 && <span className="text-[9px] font-bold text-amber-400 mt-0.5">{tipCount}</span>}
                         </button>
@@ -757,16 +871,14 @@ export default function ChatPage() {
                     </div>
                   </div>
                 )}
-                {/* Scroll anchor */}
                 <div ref={messagesEndRef} />
               </>
             )}
           </div>
 
-          {/* Floating chat input - positioned absolutely at bottom */}
+          {/* Floating chat input */}
           <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
             <div className="pointer-events-auto">
-              {/* Safe tap zone wrapper - extra padding prevents accidental taps on messages */}
               <div className="pt-4 pb-2">
                 {!isConnected ? (
                 <div className="flex items-center justify-center bg-zinc-900 border border-zinc-800 rounded-xl p-3">
@@ -804,17 +916,16 @@ export default function ChatPage() {
                   {(isTipPending || isTipConfirming) && (
                     <div className="mb-2 bg-amber-500/10 border border-amber-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
                       <Heart className="w-4 h-4 text-amber-400 animate-pulse" />
-                      <span className="text-xs text-amber-400">{isTipPending ? "Confirm tip in wallet..." : "Sending 1 🍩DONUT..."}</span>
+                      <span className="text-xs text-amber-400">{isTipPending ? "Confirm tip in wallet..." : `Sending ${tipSettings.amount} ${tipTokenEmoji}${tipTokenName}...`}</span>
                     </div>
                   )}
                   {isTipSuccess && (
                     <div className="mb-2 bg-green-500/10 border border-green-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
                       <Heart className="w-4 h-4 text-green-400 fill-green-400" />
-                      <span className="text-xs text-green-400">Tip sent! 🍩</span>
+                      <span className="text-xs text-green-400">Tip sent! {tipTokenEmoji}</span>
                     </div>
                   )}
                   
-                  {/* Sliding input container */}
                   <div 
                     ref={buttonContainerRef}
                     className="relative w-full h-11"
@@ -824,16 +935,12 @@ export default function ChatPage() {
                     onMouseUp={handleDragEnd}
                     onMouseLeave={handleDragEnd}
                   >
-                    {/* Input bar - expands from button */}
                     <div 
                       className={`absolute top-0 h-11 flex items-center transition-all duration-300 ease-out ${
                         buttonPosition === 'left' ? 'left-0 flex-row' : 'right-0 flex-row-reverse'
                       }`}
-                      style={{
-                        width: isChatExpanded ? '100%' : '44px',
-                      }}
+                      style={{ width: isChatExpanded ? '100%' : '44px' }}
                     >
-                      {/* The + button */}
                       <button 
                         onClick={() => !isDragging && toggleChatInput()}
                         onTouchStart={(e) => handleDragStart(e.touches[0].clientX)}
@@ -862,7 +969,6 @@ export default function ChatPage() {
                         )}
                       </button>
                       
-                      {/* Expanded input */}
                       <div 
                         className={`flex-1 overflow-hidden transition-all duration-300 ease-out ${
                           isChatExpanded 
