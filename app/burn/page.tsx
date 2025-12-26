@@ -192,10 +192,11 @@ export default function BurnPage() {
         const res = await fetch("/api/prices");
         if (res.ok) {
           const data = await res.json();
-          if (data.donutPrice) {
+          console.log("[burn] Prices fetched:", data);
+          if (data.donutPrice && data.donutPrice > 0) {
             setDonutUsdPrice(data.donutPrice);
           }
-          if (data.sprinklesLpPrice) {
+          if (data.sprinklesLpPrice && data.sprinklesLpPrice > 0) {
             setSprinklesLpPrice(data.sprinklesLpPrice);
           }
         }
@@ -203,7 +204,11 @@ export default function BurnPage() {
         console.error("Failed to fetch prices:", error);
       }
     };
+    
+    // Fetch immediately
     fetchPrices();
+    
+    // Then set up interval
     const interval = setInterval(fetchPrices, 60_000);
     return () => clearInterval(interval);
   }, []);
@@ -565,10 +570,11 @@ export default function BurnPage() {
                 <span className="text-lg">🍩</span>
                 <div>
                   <div className="text-[10px] text-gray-400 uppercase tracking-wider">Pending Split</div>
-                  <div className="text-sm font-bold text-white">
-                    {pendingDonutDisplay} DONUT
+                  <div className="text-sm font-bold text-white flex items-center gap-1">
+                    <span>{pendingDonutDisplay}</span>
+                    <span>DONUT</span>
                     {donutUsdPrice > 0 && pendingDonut && pendingDonut > 0n && (
-                      <span className="text-[10px] text-gray-500 ml-1.5">
+                      <span className="text-[10px] text-gray-500 font-normal ml-1">
                         ${(Number(formatEther(pendingDonut)) * donutUsdPrice).toFixed(2)}
                       </span>
                     )}
