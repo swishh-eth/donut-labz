@@ -98,6 +98,7 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
   const [isGettingSignature, setIsGettingSignature] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number>(0);
+  const [lastKnownEpoch, setLastKnownEpoch] = useState<bigint | null>(null);
   
   // Share flow states
   const [hasShared, setHasShared] = useState(false);
@@ -140,7 +141,7 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     },
   });
 
-  // Read current epoch - fetch this FIRST so we can use it in hasClaimed query
+  // Read current epoch
   const { data: currentEpoch, refetch: refetchEpoch } = useReadContract({
     address: SPRINKLES_CLAIM_ADDRESS as `0x${string}`,
     abi: SPRINKLES_CLAIM_ABI,
@@ -148,18 +149,18 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     chainId: base.id,
     query: {
       refetchInterval: 30_000,
+      staleTime: 0,
     },
   });
 
   // Check if user has claimed current epoch
-  // IMPORTANT: scopeKey includes currentEpoch to bust cache when epoch changes
+  // Use a unique query key that changes with epoch to force refetch
   const { data: hasClaimed, refetch: refetchClaimed } = useReadContract({
     address: SPRINKLES_CLAIM_ADDRESS as `0x${string}`,
     abi: SPRINKLES_CLAIM_ABI,
     functionName: "hasUserClaimedCurrentEpoch",
     args: address ? [address] : undefined,
     chainId: base.id,
-    scopeKey: `epoch-${currentEpoch?.toString()}`,
     query: {
       enabled: !!address && currentEpoch !== undefined,
       refetchInterval: 10_000,
@@ -167,6 +168,29 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
       gcTime: 0,
     },
   });
+
+  // Track epoch changes and force refetch of hasClaimed
+  useEffect(() => {
+    if (currentEpoch !== undefined) {
+      if (lastKnownEpoch !== null && currentEpoch !== lastKnownEpoch) {
+        // Epoch changed! Force refetch hasClaimed
+        console.log(`[SprinklesClaim] Epoch changed from ${lastKnownEpoch} to ${currentEpoch}, refetching claim status...`);
+        refetchClaimed();
+        // Reset share states for new epoch
+        setHasShared(false);
+        setIsVerified(false);
+      }
+      setLastKnownEpoch(currentEpoch);
+    }
+  }, [currentEpoch, lastKnownEpoch, refetchClaimed]);
+
+  // Also refetch hasClaimed on mount and when address changes
+  useEffect(() => {
+    if (address && currentEpoch !== undefined) {
+      console.log(`[SprinklesClaim] Fetching claim status for epoch ${currentEpoch}...`);
+      refetchClaimed();
+    }
+  }, [address, currentEpoch, refetchClaimed]);
 
   // Update countdown every second
   useEffect(() => {
@@ -181,6 +205,7 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
           refetchClaimOpen();
           refetchTimeUntil();
           refetchEpoch();
+          refetchClaimed();
           return 0;
         }
         return prev - 1;
@@ -188,14 +213,7 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [timeUntilClaim, timeRemaining, isClaimOpen, refetchClaimOpen, refetchTimeUntil, refetchEpoch]);
-
-  // Refetch hasClaimed when epoch changes
-  useEffect(() => {
-    if (currentEpoch !== undefined && address) {
-      refetchClaimed();
-    }
-  }, [currentEpoch, address, refetchClaimed]);
+  }, [timeUntilClaim, timeRemaining, isClaimOpen, refetchClaimOpen, refetchTimeUntil, refetchEpoch, refetchClaimed]);
 
   // Fetch user points from Supabase
   useEffect(() => {
@@ -410,8 +428,25 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     setIsVerified(false);
   };
 
+  // Debug logging
+  useEffect(() => {
+    console.log(`[SprinklesClaim] State: epoch=${currentEpoch}, isClaimOpen=${isClaimOpen}, hasClaimed=${hasClaimed}, address=${address?.slice(0,8)}`);
+  }, [currentEpoch, isClaimOpen, hasClaimed, address]);
+
   // COMPACT VIEW (for chat page stats row)
   if (compact) {
+    // Still loading epoch data
+    if (currentEpoch === undefined) {
+      return (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
+          <div className="flex items-center gap-1 mb-0.5">
+            <Loader2 className="w-3 h-3 text-gray-400 animate-spin" />
+            <span className="text-[9px] text-gray-400 uppercase">Loading...</span>
+          </div>
+        </div>
+      );
+    }
+
     // Claim window is CLOSED - show countdown to Friday regardless of claim status
     if (!isClaimOpen) {
       return (
