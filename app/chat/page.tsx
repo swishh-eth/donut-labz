@@ -133,7 +133,7 @@ export default function ChatPage() {
   const [timeUntilHalving, setTimeUntilHalving] = useState(getTimeUntilNextHalving());
   const [tippingMessageHash, setTippingMessageHash] = useState<string | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 1, bottom: 1 });
-  const [isChatExpanded, setIsChatExpanded] = useState(false);
+  const [isChatExpanded, setIsChatExpanded] = useState(true);
   const [buttonPosition, setButtonPosition] = useState<'left' | 'right'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('chat-button-position');
@@ -592,7 +592,7 @@ export default function ChatPage() {
             <button onClick={() => setShowHelpDialog(true)} className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors">
               <div className="flex items-center justify-center gap-2">
                 <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                <span className="text-xs font-semibold text-white">Chat To Earn</span>
+                <span className="text-xs font-semibold text-white">Earn Sprinkles</span>
                 <HelpCircle className="w-3 h-3 text-gray-400" />
               </div>
             </button>
