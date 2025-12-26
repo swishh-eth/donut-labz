@@ -536,7 +536,6 @@ export default function ChatPage() {
   };
 
   const rewardsEnded = currentMultiplier === 0;
-  const tipTokenEmoji = tipSettings.token === "donut" ? "🍩" : "✨";
   const tipTokenName = tipSettings.token === "donut" ? "DONUT" : "SPRINKLES";
 
   return (
@@ -601,7 +600,10 @@ export default function ChatPage() {
               <div className="flex items-center justify-center gap-2">
                 <Settings className="w-4 h-4 text-white" />
                 <span className="text-xs font-semibold text-white">Tip Settings</span>
-                <span className="text-[9px] text-gray-400">{tipTokenEmoji}{tipSettings.amount}</span>
+                <span className="text-[9px] text-gray-400 flex items-center gap-0.5">
+                  {tipSettings.token === "donut" ? "🍩" : <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />}
+                  {tipSettings.amount}
+                </span>
               </div>
             </button>
           </div>
@@ -702,7 +704,7 @@ export default function ChatPage() {
                             : "border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600"
                         )}
                       >
-                        <span className="text-lg">✨</span>
+                        <Sparkles className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                         <span className="text-sm font-semibold">SPRINKLES</span>
                         {tempTipSettings.token === "sprinkles" && <Check className="w-4 h-4" />}
                       </button>
@@ -757,8 +759,8 @@ export default function ChatPage() {
                     <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Preview</div>
                     <div className="flex items-center gap-2">
                       <Heart className="w-5 h-5 text-amber-400 fill-amber-400/50" />
-                      <span className="text-base font-bold text-white">
-                        {customAmount || tempTipSettings.amount} {tempTipSettings.token === "donut" ? "🍩 DONUT" : "✨ SPRINKLES"}
+                      <span className="text-base font-bold text-white flex items-center gap-1">
+                        {customAmount || tempTipSettings.amount} {tempTipSettings.token === "donut" ? "🍩 DONUT" : <><Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" /> SPRINKLES</>}
                       </span>
                     </div>
                   </div>
@@ -916,13 +918,17 @@ export default function ChatPage() {
                   {(isTipPending || isTipConfirming) && (
                     <div className="mb-2 bg-amber-500/10 border border-amber-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
                       <Heart className="w-4 h-4 text-amber-400 animate-pulse" />
-                      <span className="text-xs text-amber-400">{isTipPending ? "Confirm tip in wallet..." : `Sending ${tipSettings.amount} ${tipTokenEmoji}${tipTokenName}...`}</span>
+                      <span className="text-xs text-amber-400 flex items-center gap-1">
+                        {isTipPending ? "Confirm tip in wallet..." : <>Sending {tipSettings.amount} {tipSettings.token === "donut" ? "🍩 DONUT" : <><Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.8)]" /> SPRINKLES</>}...</>}
+                      </span>
                     </div>
                   )}
                   {isTipSuccess && (
                     <div className="mb-2 bg-green-500/10 border border-green-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
                       <Heart className="w-4 h-4 text-green-400 fill-green-400" />
-                      <span className="text-xs text-green-400">Tip sent! {tipTokenEmoji}</span>
+                      <span className="text-xs text-green-400 flex items-center gap-1">
+                        Tip sent! {tipSettings.token === "donut" ? "🍩" : <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.8)]" />}
+                      </span>
                     </div>
                   )}
                   
