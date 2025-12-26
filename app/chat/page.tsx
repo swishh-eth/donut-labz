@@ -592,7 +592,7 @@ export default function ChatPage() {
             <button onClick={() => setShowHelpDialog(true)} className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors">
               <div className="flex items-center justify-center gap-2">
                 <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                <span className="text-xs font-semibold text-white">Earn Sprinkles</span>
+                <span className="text-xs font-semibold text-white">Chat To Earn</span>
                 <HelpCircle className="w-3 h-3 text-gray-400" />
               </div>
             </button>
