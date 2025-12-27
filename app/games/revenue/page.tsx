@@ -429,14 +429,14 @@ export default function RevenueFlowPage() {
               </div>
             </div>
 
-            {/* Horizontal bar connecting both columns to center */}
-            <div className="flex justify-center">
-              <div className="bg-zinc-600" style={{ width: COL_W + GAP + 4, height: 2 }} />
-            </div>
-            
-            {/* Center drop to stakers */}
-            <div className="flex justify-center">
-              <VLine h={16} grey delay={8} />
+            {/* Two vertical lines dropping into stakers */}
+            <div className="flex justify-center" style={{ gap: GAP }}>
+              <div className="flex flex-col items-center" style={{ width: COL_W }}>
+                {/* Empty space to align with left column */}
+              </div>
+              <div className="flex flex-col items-center" style={{ width: COL_W }}>
+                {/* Empty space to align with right column */}
+              </div>
             </div>
 
             {/* ========== STAKERS (Coming Soon) ========== */}
@@ -451,7 +451,7 @@ export default function RevenueFlowPage() {
                 borderColor="border-zinc-700"
                 bgColor="bg-zinc-800/50"
                 isComingSoon
-                width={160}
+                width={COL_W * 2 + GAP}
               />
             </div>
 
@@ -528,7 +528,7 @@ export default function RevenueFlowPage() {
               </div>
             </div>
             
-            {/* Stakers node for games */}
+            {/* Stakers node for games - wide to catch the line */}
             <div className="flex justify-center">
               <FlowNode
                 title="SPRINKLES Stakers"
@@ -540,7 +540,7 @@ export default function RevenueFlowPage() {
                 borderColor="border-zinc-700"
                 bgColor="bg-zinc-800/50"
                 isComingSoon
-                width={160}
+                width={COL_W * 2 + GAP}
               />
             </div>
 
