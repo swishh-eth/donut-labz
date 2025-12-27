@@ -293,7 +293,7 @@ export default function RevenueFlowPage() {
                   title="DONUT Miner"
                   value="ETH"
                   subtitle="Payments"
-                  valueColor="text-green-400"
+                  valueColor="text-amber-400"
                   icon={() => <span className="text-sm">🍩</span>}
                   borderColor="border-white/30"
                   bgColor="bg-white/5"
@@ -314,7 +314,7 @@ export default function RevenueFlowPage() {
                   width={COL_W}
                 />
                 <VLine h={16} delay={1} />
-                <div className="text-[8px] text-green-400 font-bold py-1 bg-black px-2">Ξ ETH FEES (5%)</div>
+                <div className="text-[8px] text-amber-400 font-bold py-1 bg-black px-2">Ξ ETH FEES (20%)</div>
                 <VLine h={8} delay={2} />
                 <FlowNode
                   title="Donut LSG"
@@ -354,7 +354,7 @@ export default function RevenueFlowPage() {
                   percentage="2.5%"
                   width={COL_W}
                 />
-                <VLine h={150} grey delay={5} />
+                <VLine h={95} grey delay={5} />
               </div>
 
               {/* ===== RIGHT COLUMN: SPRINKLES Miner (DONUT) ===== */}
@@ -438,7 +438,7 @@ export default function RevenueFlowPage() {
                   percentage="5%"
                   width={COL_W}
                 />
-                <VLine h={50} grey delay={7} />
+                <VLine h={95} grey delay={7} />
               </div>
             </div>
 
