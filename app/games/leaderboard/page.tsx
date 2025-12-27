@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { ArrowLeft, Trophy, Dices, Clock, Gift, Lock, HelpCircle, History } from "lucide-react";
+import { ArrowLeft, Trophy, Clock, Gift, Lock, HelpCircle, History } from "lucide-react";
 import { NavBar } from "@/components/nav-bar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -29,6 +29,7 @@ export default function GamesLeaderboardPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
+  const [showHowToWin, setShowHowToWin] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -182,7 +183,10 @@ export default function GamesLeaderboardPage() {
 
             {/* Action Buttons */}
             <div className="grid grid-cols-2 gap-2">
-              <button className="flex items-center justify-center gap-2 p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-white font-semibold text-sm hover:bg-zinc-800 transition-colors">
+              <button 
+                onClick={() => setShowHowToWin(true)}
+                className="flex items-center justify-center gap-2 p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-white font-semibold text-sm hover:bg-zinc-800 transition-colors"
+              >
                 <Trophy className="w-4 h-4" />
                 <span>How to Win</span>
                 <HelpCircle className="w-3.5 h-3.5 text-gray-500" />
@@ -225,31 +229,56 @@ export default function GamesLeaderboardPage() {
               <p className="text-[11px] text-gray-500">Play games now to be ready when it launches</p>
             </div>
 
-            {/* How Points Work */}
-            <div className="rounded-xl p-4 bg-zinc-900 border border-zinc-800">
-              <div className="flex items-center gap-2 mb-3">
-                <Dices className="w-4 h-4 text-white" />
-                <span className="text-sm font-bold text-white">How to Earn Points</span>
-              </div>
-              <div className="space-y-2 text-xs text-gray-400">
-                <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-800/50">
-                  <span>Play any game</span>
-                  <span className="text-amber-400 font-bold">+1 point per game</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-800/50">
-                  <span>Win a game</span>
-                  <span className="text-green-400 font-bold">+2 bonus points</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-800/50">
-                  <span>Win streak (3+)</span>
-                  <span className="text-purple-400 font-bold">+5 bonus points</span>
-                </div>
-              </div>
-            </div>
-
             <div className="h-4" />
           </div>
         </div>
+
+        {/* How to Win Popup */}
+        {showHowToWin && (
+          <div 
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowHowToWin(false)}
+          >
+            <div 
+              className="bg-zinc-900 border border-zinc-700 rounded-2xl p-5 max-w-sm w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-amber-400" />
+                  <span className="text-lg font-bold text-white">How to Win</span>
+                </div>
+                <button 
+                  onClick={() => setShowHowToWin(false)}
+                  className="text-gray-500 hover:text-white transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="space-y-3 text-sm text-gray-400">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50">
+                  <span>Play any game</span>
+                  <span className="text-amber-400 font-bold">+1 point</span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50">
+                  <span>Win a game</span>
+                  <span className="text-green-400 font-bold">+2 bonus</span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50">
+                  <span>Win streak (3+)</span>
+                  <span className="text-purple-400 font-bold">+5 bonus</span>
+                </div>
+              </div>
+              
+              <div className="mt-4 pt-4 border-t border-zinc-800">
+                <p className="text-[11px] text-gray-500 text-center">
+                  Top 3 players each week win prizes! 🥇 50% • 🥈 30% • 🥉 20%
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <NavBar />
     </main>
