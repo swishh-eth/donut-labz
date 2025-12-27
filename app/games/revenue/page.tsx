@@ -28,6 +28,7 @@ function FlowNode({
   isComingSoon = false,
   isSource = false,
   percentage,
+  className = "",
 }: { 
   title: string;
   subtitle?: string;
@@ -40,17 +41,18 @@ function FlowNode({
   isComingSoon?: boolean;
   isSource?: boolean;
   percentage?: string;
+  className?: string;
 }) {
   return (
     <div 
-      className={`flow-node relative rounded-xl border-2 ${borderColor} ${bgColor} p-3 ${isComingSoon ? 'opacity-50' : ''}`}
-      style={{ backdropFilter: 'blur(8px)', minWidth: '140px' }}
+      className={`flow-node relative rounded-xl border-2 ${borderColor} ${bgColor} p-3 ${isComingSoon ? 'opacity-50' : ''} ${className}`}
+      style={{ backdropFilter: 'blur(8px)', width: '150px' }}
     >
       {isSource && (
         <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
       )}
       {percentage && (
-        <div className="absolute -top-2 -left-2 bg-amber-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+        <div className={`absolute -top-2 -left-2 ${isComingSoon ? 'bg-zinc-600' : 'bg-amber-500'} text-${isComingSoon ? 'gray-300' : 'black'} text-[9px] font-bold px-1.5 py-0.5 rounded-full`}>
           {percentage}
         </div>
       )}
@@ -105,23 +107,44 @@ export default function RevenueFlowPage() {
       <style jsx global>{`
         .flow-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .flow-scroll::-webkit-scrollbar { display: none; }
-        @keyframes pulse-glow {
-          0%, 100% { box-shadow: 0 0 8px rgba(251, 191, 36, 0.4); }
-          50% { box-shadow: 0 0 16px rgba(251, 191, 36, 0.8); }
-        }
-        .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+        
         @keyframes flow-down {
-          0% { transform: translateY(-10px); opacity: 0; }
-          50% { opacity: 1; }
-          100% { transform: translateY(10px); opacity: 0; }
+          0% { top: -6px; opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { top: calc(100% - 6px); opacity: 0; }
         }
-        .flow-particle {
-          animation: flow-down 1.5s ease-in-out infinite;
+        
+        .flow-line {
+          position: relative;
+          overflow: visible;
         }
+        
+        .flow-line::after {
+          content: '';
+          position: absolute;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 6px;
+          height: 6px;
+          background: #fbbf24;
+          border-radius: 50%;
+          box-shadow: 0 0 8px #fbbf24;
+          animation: flow-down 1.8s ease-in-out infinite;
+        }
+        
+        .flow-line-grey::after {
+          background: #6b7280;
+          box-shadow: 0 0 6px #6b7280;
+        }
+        
+        .flow-line-delay-1::after { animation-delay: 0.4s; }
+        .flow-line-delay-2::after { animation-delay: 0.8s; }
+        .flow-line-delay-3::after { animation-delay: 1.2s; }
       `}</style>
 
       <div 
-        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4 shadow-inner"
+        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-3 pb-4 shadow-inner"
         style={{
           paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)",
@@ -148,13 +171,13 @@ export default function RevenueFlowPage() {
 
         {/* Scrollable Flow Container */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden flow-scroll">
-          <div className="flex flex-col items-center px-4 pb-8">
+          <div className="flex flex-col items-center pb-8">
             
             {/* ========== REVENUE SOURCES ========== */}
-            <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-3">Revenue Sources</div>
+            <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-4">Revenue Sources</div>
             
             {/* Source Nodes Row */}
-            <div className="flex gap-3 mb-2">
+            <div className="flex gap-3 justify-center mb-2">
               <FlowNode
                 title="DONUT Miner"
                 value="ETH"
@@ -179,26 +202,25 @@ export default function RevenueFlowPage() {
               />
             </div>
 
-            <FlowNode
-              title="Games"
-              value="DONUT"
-              subtitle="2% House Edge"
-              valueColor="text-amber-400"
-              icon={Dices}
-              iconColor="text-white"
-              borderColor="border-zinc-600"
-              bgColor="bg-zinc-800/50"
-              isSource
-            />
-
-            {/* Flow lines down */}
-            <div className="relative h-12 w-full flex justify-center">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-full bg-gradient-to-b from-amber-500/60 to-amber-500/30" />
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-amber-400 flow-particle" />
+            <div className="flex justify-center mb-1">
+              <FlowNode
+                title="Games"
+                value="DONUT"
+                subtitle="2% House Edge"
+                valueColor="text-amber-400"
+                icon={Dices}
+                iconColor="text-white"
+                borderColor="border-zinc-600"
+                bgColor="bg-zinc-800/50"
+                isSource
+              />
             </div>
 
+            {/* Flow line down */}
+            <div className="flow-line w-0.5 h-8 bg-gradient-to-b from-amber-500/60 to-amber-500/30" />
+
             {/* ========== PREVIOUS MINER (80%) ========== */}
-            <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-3">Miner Rewards</div>
+            <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Miner Rewards</div>
             
             <FlowNode
               title="Previous Miner"
@@ -212,45 +234,20 @@ export default function RevenueFlowPage() {
               percentage="80%"
             />
 
-            {/* Flow lines down */}
-            <div className="relative h-12 w-full flex justify-center">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-full bg-gradient-to-b from-amber-500/30 to-amber-500/20" />
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-amber-400 flow-particle" style={{ animationDelay: '0.5s' }} />
-            </div>
+            {/* Flow line down */}
+            <div className="flow-line flow-line-delay-1 w-0.5 h-8 bg-gradient-to-b from-amber-500/30 to-amber-500/20" />
 
-            {/* ========== PROTOCOL FEES ========== */}
-            <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-3">Protocol Fees (20%)</div>
+            {/* ========== SPRINKLES APP FEES ========== */}
+            <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-3">Sprinkles App Fees</div>
 
-            {/* Split into two branches */}
-            <div className="relative w-full flex justify-center mb-2">
-              {/* Horizontal connector */}
-              <div className="absolute top-1/2 left-1/4 right-1/4 h-0.5 bg-amber-500/30" />
-              {/* Vertical drops */}
-              <div className="absolute top-1/2 left-1/4 w-0.5 h-8 bg-amber-500/30" />
-              <div className="absolute top-1/2 right-1/4 w-0.5 h-8 bg-amber-500/30" />
-            </div>
-
-            {/* Two columns for DONUT and SPRINKLES fees */}
-            <div className="flex gap-4 w-full justify-center mt-8">
-              {/* DONUT Miner Fees Column */}
+            {/* Two separate trees side by side */}
+            <div className="flex gap-4 w-full justify-center">
+              
+              {/* ===== ETH FEES (5% from DONUT miner) ===== */}
               <div className="flex flex-col items-center">
-                <div className="text-[9px] text-amber-400 font-bold mb-2 flex items-center gap-1">
-                  <span>🍩</span> DONUT Fees
+                <div className="text-[9px] text-green-400 font-bold mb-2 flex items-center gap-1">
+                  <span className="text-xs">Ξ</span> ETH (5%)
                 </div>
-                
-                <FlowNode
-                  title="Treasury"
-                  value="15%"
-                  subtitle="LP Buybacks"
-                  valueColor="text-amber-400"
-                  icon={TrendingUp}
-                  iconColor="text-amber-400"
-                  borderColor="border-amber-500/50"
-                  bgColor="bg-amber-500/10"
-                  percentage="15%"
-                />
-                
-                <div className="h-6 w-0.5 bg-amber-500/30" />
                 
                 <FlowNode
                   title="Leaderboard"
@@ -264,12 +261,12 @@ export default function RevenueFlowPage() {
                   percentage="2.5%"
                 />
                 
-                <div className="h-6 w-0.5 bg-amber-500/30" />
+                <div className="flow-line flow-line-delay-2 w-0.5 h-6 bg-amber-500/30" />
                 
                 <FlowNode
-                  title="Builder Fee"
+                  title="Sprinkles App"
                   value="2.5%"
-                  subtitle="Provider codes"
+                  subtitle="Provider Fee"
                   valueColor="text-gray-400"
                   icon={Coins}
                   iconColor="text-gray-400"
@@ -277,12 +274,15 @@ export default function RevenueFlowPage() {
                   bgColor="bg-zinc-800/50"
                   percentage="2.5%"
                 />
+                
+                {/* Grey line to stakers */}
+                <div className="flow-line flow-line-grey w-0.5 h-16 bg-zinc-700/40" />
               </div>
 
-              {/* SPRINKLES Miner Fees Column */}
+              {/* ===== DONUT FEES (20% from SPRINKLES miner) ===== */}
               <div className="flex flex-col items-center">
-                <div className="text-[9px] text-white font-bold mb-2 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" /> SPRINKLES Fees
+                <div className="text-[9px] text-amber-400 font-bold mb-2 flex items-center gap-1">
+                  <span>🍩</span> DONUT (20%)
                 </div>
                 
                 <FlowNode
@@ -297,7 +297,7 @@ export default function RevenueFlowPage() {
                   percentage="10%"
                 />
                 
-                <div className="h-6 w-0.5 bg-amber-500/30" />
+                <div className="flow-line flow-line-delay-1 w-0.5 h-6 bg-amber-500/30" />
                 
                 <FlowNode
                   title="LP Burn Pool"
@@ -311,7 +311,7 @@ export default function RevenueFlowPage() {
                   percentage="2.5%"
                 />
                 
-                <div className="h-6 w-0.5 bg-amber-500/30" />
+                <div className="flow-line flow-line-delay-2 w-0.5 h-6 bg-amber-500/30" />
                 
                 <FlowNode
                   title="Leaderboard"
@@ -325,7 +325,7 @@ export default function RevenueFlowPage() {
                   percentage="2.5%"
                 />
                 
-                <div className="h-6 w-0.5 bg-amber-500/30" />
+                <div className="flow-line flow-line-delay-3 w-0.5 h-6 bg-amber-500/30" />
                 
                 <FlowNode
                   title="Sprinkles App"
@@ -338,28 +338,26 @@ export default function RevenueFlowPage() {
                   bgColor="bg-zinc-800/50"
                   percentage="5%"
                 />
+                
+                {/* Grey line to stakers */}
+                <div className="flow-line flow-line-grey w-0.5 h-6 bg-zinc-700/40" />
               </div>
             </div>
 
-            {/* Flow lines down to future */}
-            <div className="relative h-12 w-full flex justify-center mt-4">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-full bg-gradient-to-b from-amber-500/20 to-zinc-700/30" />
+            {/* ========== STAKERS (Coming Soon) - Both lines merge here ========== */}
+            <div className="flex justify-center mt-0">
+              <FlowNode
+                title="SPRINKLES Stakers"
+                value="Revenue Share"
+                subtitle="From provider fees"
+                valueColor="text-gray-500"
+                icon={Sparkles}
+                iconColor="text-gray-500"
+                borderColor="border-zinc-700"
+                bgColor="bg-zinc-800/50"
+                isComingSoon
+              />
             </div>
-
-            {/* ========== COMING SOON ========== */}
-            <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-3">Coming Soon</div>
-            
-            <FlowNode
-              title="SPRINKLES Stakers"
-              value="Revenue Share"
-              subtitle="Stake for rewards"
-              valueColor="text-gray-500"
-              icon={Sparkles}
-              iconColor="text-gray-500"
-              borderColor="border-zinc-700"
-              bgColor="bg-zinc-800/50"
-              isComingSoon
-            />
 
             <div className="h-8" />
           </div>
