@@ -30,23 +30,32 @@ let cachedWinners: {
 let cacheTime = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-async function getProfile(address: string): Promise<{ username: string; pfpUrl?: string } | null> {
+async function getProfile(address: string, baseUrl: string): Promise<{ username: string; pfpUrl?: string } | null> {
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/profiles?addresses=${address}`,
-      { cache: 'no-store' } // Force fresh fetch, no caching
-    );
+    const url = `${baseUrl}/api/profiles?addresses=${address}`;
+    console.log('Fetching profile from:', url);
+    
+    const response = await fetch(url, { cache: 'no-store' });
+    
     if (response.ok) {
       const data = await response.json();
-      const profile = data.profiles[address.toLowerCase()];
+      const lowercaseAddr = address.toLowerCase();
+      const profile = data.profiles[lowercaseAddr];
+      
+      console.log('Profile lookup for', lowercaseAddr, ':', profile ? 'found' : 'not found');
+      
       if (profile?.username) {
         return {
           username: profile.username,
           pfpUrl: profile.pfpUrl || undefined,
         };
       }
+    } else {
+      console.error('Profile fetch failed:', response.status, await response.text());
     }
-  } catch {}
+  } catch (e) {
+    console.error('getProfile error:', e);
+  }
   return null;
 }
 
@@ -56,7 +65,8 @@ async function fetchLastWinner(
   eventInputs: readonly { type: string; name: string; indexed?: boolean }[],
   checkWin: (log: any) => boolean,
   getPayout: (log: any) => bigint,
-  getPlayer: (log: any) => string
+  getPlayer: (log: any) => string,
+  baseUrl: string
 ): Promise<LastWinner> {
   try {
     const currentBlock = await publicClient.getBlockNumber();
@@ -86,7 +96,7 @@ async function fetchLastWinner(
     
     if (!lastWin) return null;
     
-    const profile = await getProfile(lastWin.player);
+    const profile = await getProfile(lastWin.player, baseUrl);
     return {
       username: profile?.username || `${lastWin.player.slice(0, 6)}...${lastWin.player.slice(-4)}`,
       amount: `${parseFloat(formatUnits(lastWin.payout, 18)).toFixed(2)} 🍩`,
@@ -99,6 +109,14 @@ async function fetchLastWinner(
 }
 
 export async function GET(request: Request) {
+  // Get base URL from request headers
+  const headersList = new Headers(request.headers);
+  const host = headersList.get('host') || 'localhost:3000';
+  const protocol = headersList.get('x-forwarded-proto') || 'https';
+  const baseUrl = `${protocol}://${host}`;
+  
+  console.log('last-winners: baseUrl =', baseUrl);
+  
   // Check for cache bust parameter
   const { searchParams } = new URL(request.url);
   const bustCache = searchParams.get('bust') === '1';
@@ -128,7 +146,8 @@ export async function GET(request: Request) {
       ],
       (log) => log.args.won && log.args.player && log.args.payout,
       (log) => log.args.payout,
-      (log) => log.args.player
+      (log) => log.args.player,
+      baseUrl
     ),
     // Mines
     fetchLastWinner(
@@ -143,7 +162,8 @@ export async function GET(request: Request) {
       ],
       (log) => log.args.player && log.args.payout,
       (log) => log.args.payout,
-      (log) => log.args.player
+      (log) => log.args.player,
+      baseUrl
     ),
     // Wheel
     fetchLastWinner(
@@ -158,7 +178,8 @@ export async function GET(request: Request) {
       ],
       (log) => log.args.payout && log.args.payout > 0n && log.args.player,
       (log) => log.args.payout,
-      (log) => log.args.player
+      (log) => log.args.player,
+      baseUrl
     ),
     // Tower
     fetchLastWinner(
@@ -173,7 +194,8 @@ export async function GET(request: Request) {
       ],
       (log) => log.args.player && log.args.payout,
       (log) => log.args.payout,
-      (log) => log.args.player
+      (log) => log.args.player,
+      baseUrl
     ),
   ]);
 
