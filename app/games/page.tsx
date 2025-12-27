@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Sparkles, Dices, Lock, Bomb, Layers, Flame, TrendingUp, ArrowRight } from "lucide-react";
+import { Sparkles, Dices, Lock, Bomb, Layers, Flame, TrendingUp, ArrowRight, Trophy } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -55,11 +55,11 @@ function WheelIcon({ className }: { className?: string }) {
   );
 }
 
-// Falling donut for revenue tile
-function FallingDonut({ delay, duration, left }: { delay: number; duration: number; left: number }) {
+// Falling coin for leaderboard tile
+function FallingCoin({ delay, duration, left }: { delay: number; duration: number; left: number }) {
   return (
     <div
-      className="falling-donut absolute text-base pointer-events-none select-none opacity-60"
+      className="falling-coin absolute text-base pointer-events-none select-none opacity-60"
       style={{
         left: `${left}%`,
         top: '-25px',
@@ -67,34 +67,34 @@ function FallingDonut({ delay, duration, left }: { delay: number; duration: numb
         animationDuration: `${duration}s`,
       }}
     >
-      🍩
+      🪙
     </div>
   );
 }
 
-// Revenue Info Tile Component
-function RevenueInfoTile({ onClick }: { onClick: () => void }) {
-  const [donuts, setDonuts] = useState<Array<{ id: number; delay: number; duration: number; left: number }>>([]);
+// Games Leaderboard Tile Component
+function GamesLeaderboardTile({ onClick }: { onClick: () => void }) {
+  const [coins, setCoins] = useState<Array<{ id: number; delay: number; duration: number; left: number }>>([]);
   const idCounter = useRef(0);
 
   useEffect(() => {
-    const initialDonuts = Array.from({ length: 8 }, () => ({
+    const initialCoins = Array.from({ length: 8 }, () => ({
       id: idCounter.current++,
       delay: Math.random() * 4,
       duration: 3.5 + Math.random() * 1.5,
       left: Math.random() * 90 + 5,
     }));
-    setDonuts(initialDonuts);
+    setCoins(initialCoins);
 
     const interval = setInterval(() => {
-      setDonuts(prev => {
-        const newDonut = {
+      setCoins(prev => {
+        const newCoin = {
           id: idCounter.current++,
           delay: 0,
           duration: 3.5 + Math.random() * 1.5,
           left: Math.random() * 90 + 5,
         };
-        return [...prev.slice(-12), newDonut];
+        return [...prev.slice(-12), newCoin];
       });
     }, 700);
 
@@ -104,50 +104,50 @@ function RevenueInfoTile({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="revenue-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+      className="leaderboard-tile relative w-full rounded-2xl border-2 border-amber-500/30 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/50"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.1) 0%, rgba(234,88,12,0.05) 100%)' }}
     >
-      {/* Falling donuts */}
+      {/* Falling coins */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-[1]">
-        {donuts.map((donut) => (
-          <FallingDonut key={donut.id} {...donut} />
+        {coins.map((coin) => (
+          <FallingCoin key={coin.id} {...coin} />
         ))}
       </div>
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-2 right-2 w-20 h-20 bg-white/5 rounded-full blur-2xl" />
-        <div className="absolute bottom-2 left-2 w-16 h-16 bg-white/5 rounded-full blur-xl" />
+        <div className="absolute top-2 right-2 w-20 h-20 bg-amber-500/10 rounded-full blur-2xl" />
+        <div className="absolute bottom-2 left-2 w-16 h-16 bg-amber-500/10 rounded-full blur-xl" />
       </div>
       
       <div className="relative z-10 p-4">
         <div className="flex items-center justify-between">
           <div className="text-left flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
-              <span className="font-bold text-base text-white">SPRINKLES Revenue</span>
+              <Trophy className="w-4 h-4 text-amber-400" />
+              <span className="font-bold text-base text-amber-400">Games Leaderboard</span>
             </div>
-            <div className="text-[10px] text-white/60 mb-2">See where game fees & miner revenue flows</div>
+            <div className="text-[10px] text-amber-200/60 mb-2">Compete weekly for prize pool rewards</div>
             
             <div className="flex items-center gap-3 text-[9px]">
               <div className="flex items-center gap-1 text-amber-400">
                 <Dices className="w-3 h-3" />
-                <span>Games</span>
+                <span>Play Games</span>
               </div>
-              <ArrowRight className="w-3 h-3 text-white/30" />
-              <div className="flex items-center gap-1 text-green-400">
+              <ArrowRight className="w-3 h-3 text-amber-500/30" />
+              <div className="flex items-center gap-1 text-amber-400">
                 <TrendingUp className="w-3 h-3" />
-                <span>LP</span>
+                <span>Earn Points</span>
               </div>
-              <ArrowRight className="w-3 h-3 text-white/30" />
-              <div className="flex items-center gap-1 text-white">
-                <Sparkles className="w-3 h-3" />
-                <span>Stakers</span>
+              <ArrowRight className="w-3 h-3 text-amber-500/30" />
+              <div className="flex items-center gap-1 text-amber-400">
+                <Trophy className="w-3 h-3" />
+                <span>Win Prizes</span>
               </div>
             </div>
           </div>
           
-          <div className="px-3 py-2 rounded-xl bg-white/10 text-white font-bold text-xs border border-white/20">
-            View Flow →
+          <div className="px-3 py-2 rounded-xl bg-amber-500/20 text-amber-400 font-bold text-xs border border-amber-500/30">
+            View →
           </div>
         </div>
       </div>
@@ -393,7 +393,7 @@ export default function GamesPage() {
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
-      <style jsx global>{`
+      <style>{`
         .games-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .games-scroll::-webkit-scrollbar { display: none; }
         .game-tile { scroll-snap-align: start; }
@@ -402,7 +402,7 @@ export default function GamesPage() {
         @keyframes scroll-left { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
         @keyframes scroll-right { 0% { transform: translateX(-50%); } 100% { transform: translateX(0); } }
         @keyframes hot-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.95); } }
-        @keyframes donut-fall {
+        @keyframes coin-fall {
           0% { transform: translateY(0) rotate(0deg); opacity: 0; }
           5% { opacity: 0.6; }
           95% { opacity: 0.6; }
@@ -411,7 +411,7 @@ export default function GamesPage() {
         .icon-breathe { animation: icon-breathe 2s ease-in-out infinite; }
         .icon-spin { animation: icon-spin 4s linear infinite; }
         .hot-pulse { animation: hot-pulse 2s ease-in-out infinite; }
-        .falling-donut { animation: donut-fall linear infinite; }
+        .falling-coin { animation: coin-fall linear infinite; }
         .winner-container { overflow: hidden; max-width: 140px; -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); }
         .winner-track { display: flex; width: max-content; animation: scroll-left 6s linear infinite; }
         .winner-track-right { display: flex; width: max-content; animation: scroll-right 6s linear infinite; }
@@ -442,8 +442,8 @@ export default function GamesPage() {
 
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden games-scroll" style={{ WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`, maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` }}>
             <div className="space-y-2 pb-4">
-              {/* Revenue Info Tile */}
-              <RevenueInfoTile onClick={() => window.location.href = "/games/revenue"} />
+              {/* Games Leaderboard Tile */}
+              <GamesLeaderboardTile onClick={() => window.location.href = "/games/leaderboard"} />
               
               {games.map((game) => (
                 <GameTile
