@@ -65,7 +65,8 @@ export default function AboutSprinklesPage() {
   useEffect(() => {
     const fetchBurnedBalance = async () => {
       try {
-        const response = await fetch('https://mainnet.base.org', {
+        // Fetch SPRINKLES burned (dead address)
+        const deadResponse = await fetch('https://mainnet.base.org', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -81,12 +82,39 @@ export default function AboutSprinklesPage() {
             ]
           })
         });
-        const data = await response.json();
-        if (data.result) {
-          const balanceBigInt = BigInt(data.result);
-          const formatted = Math.floor(Number(formatEther(balanceBigInt))).toLocaleString();
-          setBurnedBalance(formatted);
+        
+        // Fetch SPRINKLES in LP burn pool (0x710e042d4F13f5c649dBb1774A3695BFcAC253ce)
+        const lpPoolResponse = await fetch('https://mainnet.base.org', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 2,
+            method: 'eth_call',
+            params: [
+              {
+                to: '0xa890060BE1788a676dBC3894160f5dc5DeD2C98D',
+                data: '0x70a08231000000000000000000000000710e042d4f13f5c649dbb1774a3695bfcac253ce'
+              },
+              'latest'
+            ]
+          })
+        });
+
+        const deadData = await deadResponse.json();
+        const lpPoolData = await lpPoolResponse.json();
+        
+        let totalBurned = BigInt(0);
+        
+        if (deadData.result) {
+          totalBurned += BigInt(deadData.result);
         }
+        if (lpPoolData.result) {
+          totalBurned += BigInt(lpPoolData.result);
+        }
+        
+        const formatted = Math.floor(Number(formatEther(totalBurned))).toLocaleString();
+        setBurnedBalance(formatted);
       } catch (error) {
         console.error('Failed to fetch burned balance:', error);
       }
@@ -94,6 +122,8 @@ export default function AboutSprinklesPage() {
 
     const fetchDonutBurnedInLP = async () => {
       try {
+        // Fetch DONUT balance in the LP burn pool (0x710e042d4F13f5c649dBb1774A3695BFcAC253ce)
+        // DONUT token: 0x8cb68b0bc8a8f50a4f0b2BfC3e36e20c53450b1D
         const response = await fetch('https://mainnet.base.org', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -104,7 +134,7 @@ export default function AboutSprinklesPage() {
             params: [
               {
                 to: '0x8cb68b0bc8a8f50a4f0b2BfC3e36e20c53450b1D',
-                data: '0x70a08231000000000000000000000000710e042d4F13f5c649dBb1774A3695BFcAC253ce'
+                data: '0x70a08231000000000000000000000000710e042d4f13f5c649dbb1774a3695bfcac253ce'
               },
               'latest'
             ]
