@@ -77,9 +77,9 @@ function FlowNode({
         {title}
         {isComingSoon && <Lock className="w-2 h-2" />}
       </div>
-      <div className={`text-xs font-bold ${valueColor} flex items-center justify-center gap-1 w-full`}>
+      <div className={`text-xs font-bold ${valueColor} flex items-center justify-center gap-1`}>
         <Icon className={`w-3 h-3 flex-shrink-0 ${iconColor}`} />
-        <span>{value || subtitle}</span>
+        <span className="whitespace-nowrap">{value || subtitle}</span>
       </div>
       {value && subtitle && (
         <div className="text-[8px] text-gray-500 mt-0.5">{subtitle}</div>
@@ -484,7 +484,7 @@ export default function RevenueFlowPage() {
               <FlowNode
                 title="On Player Loss"
                 value="DONUT"
-                subtitle="House edge distributed"
+                subtitle="House Winnings Distributed"
                 valueColor="text-amber-400"
                 icon={Dices}
                 iconColor="text-white"
@@ -562,7 +562,7 @@ export default function RevenueFlowPage() {
                 borderColor="border-zinc-700"
                 bgColor="bg-zinc-800/50"
                 isComingSoon
-                width={90}
+                width={COL_W * 2 + GAP}
               />
             </div>
 
@@ -571,7 +571,7 @@ export default function RevenueFlowPage() {
               <FlowNode
                 title="On Player Loss"
                 value="SPRINKLES"
-                subtitle="House edge distributed"
+                subtitle="House Winnings Distributed"
                 valueColor="text-white"
                 icon={Dices}
                 iconColor="text-white"
@@ -649,7 +649,7 @@ export default function RevenueFlowPage() {
                 borderColor="border-zinc-700"
                 bgColor="bg-zinc-800/50"
                 isComingSoon
-                width={90}
+                width={COL_W * 2 + GAP}
               />
             </div>
 
