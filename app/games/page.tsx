@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Sparkles, Dices, Lock, Bomb, Layers, Flame, TrendingUp, ArrowRight, Trophy } from "lucide-react";
+import { Sparkles, Dices, Lock, Bomb, Layers, Flame, TrendingUp, ArrowRight, Trophy, Grid3X3 } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -329,6 +329,14 @@ export default function GamesPage() {
       lastWinner: lastWinners.mines,
       scrollDirection: "right" as const,
       onClick: () => window.location.href = "/games/mines",
+    },
+    {
+      id: "keno",
+      title: "Keno",
+      description: "Pick numbers, win multipliers",
+      icon: Grid3X3,
+      comingSoon: true,
+      lastWinner: null,
     },
     {
       id: "slots",
