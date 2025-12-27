@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Ticket, Clock, HelpCircle, X, Sparkles, Dices, Lock, Bomb, Layers, Flame, Users } from "lucide-react";
+import { HelpCircle, X, Sparkles, Dices, Lock, Bomb, Layers, Flame, TrendingUp, ArrowRight, Coins } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -55,150 +55,50 @@ function WheelIcon({ className }: { className?: string }) {
   );
 }
 
-// Falling donut for lottery tile
-function FallingDonut({ delay, duration, left }: { delay: number; duration: number; left: number }) {
-  return (
-    <div
-      className="lottery-donut absolute text-base pointer-events-none select-none opacity-60"
-      style={{
-        left: `${left}%`,
-        top: '-25px',
-        animationDelay: `${delay}s`,
-        animationDuration: `${duration}s`,
-      }}
-    >
-      🍩
-    </div>
-  );
-}
-
-// Special Lottery Tile Component
-function LotteryTile({ 
-  currentPot, 
-  totalTickets, 
-  timeRemaining, 
-  lastWinner,
-  onClick 
-}: { 
-  currentPot: number;
-  totalTickets: number;
-  timeRemaining: string;
-  lastWinner?: LastWinner;
-  onClick: () => void;
-}) {
-  const [donuts, setDonuts] = useState<Array<{ id: number; delay: number; duration: number; left: number }>>([]);
-  const [isHovered, setIsHovered] = useState(false);
-  const idCounter = useRef(0);
-  
-  const isComingSoon = currentPot === 0 && totalTickets === 0;
-
-  useEffect(() => {
-    const initialDonuts = Array.from({ length: 10 }, () => ({
-      id: idCounter.current++,
-      delay: Math.random() * 4,
-      duration: 3.5 + Math.random() * 1.5,
-      left: Math.random() * 90 + 5,
-    }));
-    setDonuts(initialDonuts);
-
-    const interval = setInterval(() => {
-      setDonuts(prev => {
-        const newDonut = {
-          id: idCounter.current++,
-          delay: 0,
-          duration: 3.5 + Math.random() * 1.5,
-          left: Math.random() * 90 + 5,
-        };
-        return [...prev.slice(-14), newDonut];
-      });
-    }, 600);
-
-    return () => clearInterval(interval);
-  }, []);
-
+// Revenue Info Tile Component
+function RevenueInfoTile({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className="lottery-tile-main relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]"
-      style={{ minHeight: '130px' }}
+      className="revenue-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-[1]">
-        {donuts.map((donut) => (
-          <FallingDonut key={donut.id} {...donut} />
-        ))}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-2 right-2 w-20 h-20 bg-white/5 rounded-full blur-2xl" />
+        <div className="absolute bottom-2 left-2 w-16 h-16 bg-white/5 rounded-full blur-xl" />
       </div>
       
       <div className="relative z-10 p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-left">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-base text-white">Daily Donut Lottery</span>
-              {isComingSoon ? (
-                <span className="text-[8px] bg-zinc-700 text-gray-400 px-1.5 py-0.5 rounded-full font-bold">
-                  SOON
-                </span>
-              ) : (
-                <span className="text-[8px] bg-[#22c55e] text-black px-1.5 py-0.5 rounded-full font-bold animate-pulse">
-                  LIVE
-                </span>
-              )}
-            </div>
-            <div className="text-[9px] text-white/80">1 DONUT = 1 Ticket • Winner Takes All</div>
-          </div>
-          
-          <div className="flex flex-col items-end">
-            <div className="flex items-center gap-1 text-white/60">
-              <Clock className="w-2.5 h-2.5" />
-              <span className="text-[8px]">{isComingSoon ? "Launches" : "Draws"}</span>
-            </div>
-            <span className="text-xs font-bold text-white font-mono">{isComingSoon ? "Soon™" : timeRemaining}</span>
-          </div>
-        </div>
-        
         <div className="flex items-center justify-between">
-          <div className="text-left">
-            <div className="text-[8px] text-white/60 uppercase tracking-wider">Prize Pool</div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-2xl">🍩</span>
-              {isComingSoon ? (
-                <span className="text-2xl font-black text-white/50">Coming Soon</span>
-              ) : (
-                <span className="text-3xl font-black text-amber-400">
-                  {currentPot.toLocaleString()}
-                </span>
-              )}
+          <div className="text-left flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
+              <span className="font-bold text-base text-white">SPRINKLES Revenue</span>
             </div>
-            <div className="flex items-center gap-2 text-[9px] text-white/50 mt-0.5">
-              <span className="flex items-center gap-1">
-                <Ticket className="w-2.5 h-2.5" />
-                {isComingSoon ? "0" : totalTickets.toLocaleString()} tickets
-              </span>
-              <span className="flex items-center gap-1">
-                <Users className="w-2.5 h-2.5" />
-                {isComingSoon ? "0" : Math.floor(totalTickets / 8) || 1}+ players
-              </span>
+            <div className="text-[10px] text-white/60 mb-2">See where game fees & miner revenue flows</div>
+            
+            <div className="flex items-center gap-3 text-[9px]">
+              <div className="flex items-center gap-1 text-amber-400">
+                <Dices className="w-3 h-3" />
+                <span>Games</span>
+              </div>
+              <ArrowRight className="w-3 h-3 text-white/30" />
+              <div className="flex items-center gap-1 text-green-400">
+                <TrendingUp className="w-3 h-3" />
+                <span>LP</span>
+              </div>
+              <ArrowRight className="w-3 h-3 text-white/30" />
+              <div className="flex items-center gap-1 text-white">
+                <Sparkles className="w-3 h-3" />
+                <span>Stakers</span>
+              </div>
             </div>
           </div>
           
-          <div className={`px-4 py-2.5 rounded-xl bg-white text-black font-bold text-sm ${isHovered ? 'scale-105' : ''} transition-transform`}>
-            {isComingSoon ? "View Details →" : "Buy Tickets →"}
+          <div className="px-3 py-2 rounded-xl bg-white/10 text-white font-bold text-xs border border-white/20">
+            Learn More →
           </div>
         </div>
-        
-        {lastWinner && !isComingSoon && (
-          <div className="mt-2 pt-2 border-t border-amber-500/20">
-            <div className="flex items-center justify-center gap-2 text-[9px]">
-              <span className="text-white/50">Last winner:</span>
-              {lastWinner.pfpUrl && (
-                <img src={lastWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
-              )}
-              <span className="text-green-400 font-bold">@{lastWinner.username}</span>
-              <span className="text-amber-400">won {lastWinner.amount}</span>
-            </div>
-          </div>
-        )}
       </div>
     </button>
   );
@@ -308,6 +208,7 @@ export default function GamesPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
+  const [showRevenueDialog, setShowRevenueDialog] = useState(false);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   
   // All last winners fetched from a single API call
@@ -322,12 +223,6 @@ export default function GamesPage() {
     wheel: null,
     tower: null,
   });
-  
-  // Lottery state - Coming soon
-  const [lotteryPot] = useState(0);
-  const [lotteryTickets] = useState(0);
-  const [lotteryTimeRemaining] = useState("--:--:--");
-  const [lotteryLastWinner] = useState<LastWinner>(null);
 
   // Fetch all last winners from a single API endpoint
   useEffect(() => {
@@ -344,7 +239,6 @@ export default function GamesPage() {
     };
 
     fetchLastWinners();
-    // Only refresh every 5 minutes instead of 15 minutes with 4 separate calls
     const interval = setInterval(fetchLastWinners, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
@@ -466,21 +360,6 @@ export default function GamesPage() {
         .winner-track { display: flex; width: max-content; animation: scroll-left 6s linear infinite; }
         .winner-track-right { display: flex; width: max-content; animation: scroll-right 6s linear infinite; }
         .winner-item { display: flex; align-items: center; gap: 4px; padding: 2px 8px; margin-right: 16px; font-size: 9px; color: #4ade80; background: rgba(34, 197, 94, 0.2); border-radius: 9999px; white-space: nowrap; }
-        
-        @keyframes lottery-donut-fall {
-          0% { transform: translateY(0) rotate(0deg); opacity: 0; }
-          5% { opacity: 0.6; }
-          95% { opacity: 0.6; }
-          100% { transform: translateY(180px) rotate(360deg); opacity: 0; }
-        }
-        .lottery-donut { animation: lottery-donut-fall linear infinite; }
-        .lottery-tile-main { 
-          background: rgba(245, 158, 11, 0.1);
-          border-color: rgb(251, 191, 36);
-        }
-        .lottery-tile-main:hover {
-          border-color: rgb(251, 191, 36);
-        }
       `}</style>
 
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4 shadow-inner" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
@@ -513,6 +392,7 @@ export default function GamesPage() {
             </button>
           </div>
 
+          {/* How Games Work Dialog */}
           {showHelpDialog && (
             <div className="fixed inset-0 z-50">
               <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHelpDialog(false)} />
@@ -531,15 +411,116 @@ export default function GamesPage() {
             </div>
           )}
 
+          {/* Revenue Flow Dialog */}
+          {showRevenueDialog && (
+            <div className="fixed inset-0 z-50">
+              <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowRevenueDialog(false)} />
+              <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl max-h-[80vh] overflow-y-auto">
+                  <button onClick={() => setShowRevenueDialog(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white z-10"><X className="h-4 w-4" /></button>
+                  
+                  <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                    SPRINKLES Revenue Flow
+                  </h2>
+                  <p className="text-[10px] text-gray-400 mb-4">Where does the revenue go?</p>
+                  
+                  {/* Revenue Sources */}
+                  <div className="space-y-3 mb-4">
+                    <div className="text-[10px] text-gray-500 uppercase tracking-wider">Revenue Sources</div>
+                    
+                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                        <span className="text-lg">🍩</span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs font-bold text-amber-400">DONUT Miner</div>
+                        <div className="text-[10px] text-gray-400">ETH payments for mining DONUT</div>
+                      </div>
+                      <div className="text-[9px] text-green-400 font-bold">LIVE</div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-white/5 border border-white/20">
+                      <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                        <Sparkles className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs font-bold text-white">SPRINKLES Miner</div>
+                        <div className="text-[10px] text-gray-400">DONUT payments for mining SPRINKLES</div>
+                      </div>
+                      <div className="text-[9px] text-green-400 font-bold">LIVE</div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-800/50 border border-zinc-700">
+                      <div className="w-8 h-8 rounded-lg bg-zinc-700 flex items-center justify-center">
+                        <Dices className="w-4 h-4 text-gray-400" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs font-bold text-white">Games (2% Fee)</div>
+                        <div className="text-[10px] text-gray-400">House edge from all games</div>
+                      </div>
+                      <div className="text-[9px] text-green-400 font-bold">LIVE</div>
+                    </div>
+                  </div>
+                  
+                  {/* Flow Arrow */}
+                  <div className="flex justify-center my-3">
+                    <div className="flex flex-col items-center gap-1 text-gray-500">
+                      <div className="w-0.5 h-4 bg-gradient-to-b from-transparent to-gray-600" />
+                      <ArrowRight className="w-4 h-4 rotate-90" />
+                    </div>
+                  </div>
+                  
+                  {/* Distribution */}
+                  <div className="space-y-3">
+                    <div className="text-[10px] text-gray-500 uppercase tracking-wider">Revenue Distribution</div>
+                    
+                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-green-500/10 border border-green-500/30">
+                      <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                        <TrendingUp className="w-4 h-4 text-green-400" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs font-bold text-green-400">Liquidity Pool</div>
+                        <div className="text-[10px] text-gray-400">Adds to SPRINKLES/DONUT LP</div>
+                      </div>
+                      <div className="text-xs font-bold text-green-400">50%</div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                        <Coins className="w-4 h-4 text-amber-400" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs font-bold text-amber-400">Weekly Leaderboard</div>
+                        <div className="text-[10px] text-gray-400">Prizes for top miners</div>
+                      </div>
+                      <div className="text-xs font-bold text-amber-400">50%</div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-800/50 border border-zinc-700 opacity-50">
+                      <div className="w-8 h-8 rounded-lg bg-zinc-700 flex items-center justify-center">
+                        <Sparkles className="w-4 h-4 text-gray-500" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs font-bold text-gray-400">SPRINKLES Stakers</div>
+                        <div className="text-[10px] text-gray-500">Revenue share for stakers</div>
+                      </div>
+                      <div className="text-[9px] text-gray-500 font-bold flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5" /> SOON
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <button onClick={() => setShowRevenueDialog(false)} className="mt-4 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Got it</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden games-scroll" style={{ WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`, maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` }}>
             <div className="space-y-2 pb-4">
-              <LotteryTile
-                currentPot={lotteryPot}
-                totalTickets={lotteryTickets}
-                timeRemaining={lotteryTimeRemaining}
-                lastWinner={lotteryLastWinner}
-                onClick={() => window.location.href = "/games/lottery"}
-              />
+              {/* Revenue Info Tile */}
+              <RevenueInfoTile onClick={() => setShowRevenueDialog(true)} />
               
               {games.map((game) => (
                 <GameTile
