@@ -363,7 +363,19 @@ export default function RevenueFlowPage() {
                   percentage="2.5%"
                   width={COL_W}
                 />
-                <VLine h={190} grey delay={5} />
+                <VLine h={16} grey delay={5} />
+                <FlowNode
+                  title="Stakers"
+                  value="Revenue Share"
+                  subtitle="Coming Soon"
+                  valueColor="text-gray-500"
+                  icon={Sparkles}
+                  iconColor="text-gray-500"
+                  borderColor="border-zinc-700"
+                  bgColor="bg-zinc-800/50"
+                  isComingSoon
+                  width={COL_W}
+                />
               </div>
 
               {/* ===== RIGHT COLUMN: SPRINKLES Miner (DONUT) ===== */}
@@ -449,24 +461,20 @@ export default function RevenueFlowPage() {
                   percentage="5%"
                   width={COL_W}
                 />
-                <VLine h={24} grey delay={7} />
+                <VLine h={16} grey delay={7} />
+                <FlowNode
+                  title="Stakers"
+                  value="Revenue Share"
+                  subtitle="Coming Soon"
+                  valueColor="text-gray-500"
+                  icon={Sparkles}
+                  iconColor="text-gray-500"
+                  borderColor="border-zinc-700"
+                  bgColor="bg-zinc-800/50"
+                  isComingSoon
+                  width={COL_W}
+                />
               </div>
-            </div>
-
-            {/* ========== STAKERS (Coming Soon) ========== */}
-            <div className="flex justify-center">
-              <FlowNode
-                title="SPRINKLES Stakers"
-                value="Revenue Share"
-                subtitle="From provider fees"
-                valueColor="text-gray-500"
-                icon={Sparkles}
-                iconColor="text-gray-500"
-                borderColor="border-zinc-700"
-                bgColor="bg-zinc-800/50"
-                isComingSoon
-                width={COL_W * 2 + GAP}
-              />
             </div>
 
             {/* ========== GAMES REVENUE ========== */}
