@@ -425,17 +425,7 @@ export default function RevenueFlowPage() {
                   percentage="5%"
                   width={COL_W}
                 />
-                <VLine h={24} grey delay={7} />
-              </div>
-            </div>
-
-            {/* Two vertical lines dropping into stakers */}
-            <div className="flex justify-center" style={{ gap: GAP }}>
-              <div className="flex flex-col items-center" style={{ width: COL_W }}>
-                {/* Empty space to align with left column */}
-              </div>
-              <div className="flex flex-col items-center" style={{ width: COL_W }}>
-                {/* Empty space to align with right column */}
+                <VLine h={50} grey delay={7} />
               </div>
             </div>
 
