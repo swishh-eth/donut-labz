@@ -489,7 +489,7 @@ export default function LeaderboardPage() {
                       <Coins className="w-3.5 h-3.5 text-amber-400" />
                       <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
                     </div>
-                    <div className="text-2xl font-bold text-amber-400 prize-pulse fade-in-up stagger-3 opacity-0">
+                    <div className="text-2xl font-bold text-amber-400 fade-in-up stagger-3 opacity-0">
                       ${Math.floor(totalPrizeUsd).toLocaleString()}
                     </div>
                     <span className="absolute bottom-1 text-[7px] text-gray-600 animate-pulse">tap for tokens</span>
