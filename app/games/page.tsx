@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { HelpCircle, X, Sparkles, Dices, Lock, Bomb, Layers, Flame, TrendingUp, ArrowRight } from "lucide-react";
+import { Sparkles, Dices, Lock, Bomb, Layers, Flame, TrendingUp, ArrowRight } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -55,14 +55,65 @@ function WheelIcon({ className }: { className?: string }) {
   );
 }
 
+// Falling donut for revenue tile
+function FallingDonut({ delay, duration, left }: { delay: number; duration: number; left: number }) {
+  return (
+    <div
+      className="falling-donut absolute text-base pointer-events-none select-none opacity-60"
+      style={{
+        left: `${left}%`,
+        top: '-25px',
+        animationDelay: `${delay}s`,
+        animationDuration: `${duration}s`,
+      }}
+    >
+      🍩
+    </div>
+  );
+}
+
 // Revenue Info Tile Component
 function RevenueInfoTile({ onClick }: { onClick: () => void }) {
+  const [donuts, setDonuts] = useState<Array<{ id: number; delay: number; duration: number; left: number }>>([]);
+  const idCounter = useRef(0);
+
+  useEffect(() => {
+    const initialDonuts = Array.from({ length: 8 }, () => ({
+      id: idCounter.current++,
+      delay: Math.random() * 4,
+      duration: 3.5 + Math.random() * 1.5,
+      left: Math.random() * 90 + 5,
+    }));
+    setDonuts(initialDonuts);
+
+    const interval = setInterval(() => {
+      setDonuts(prev => {
+        const newDonut = {
+          id: idCounter.current++,
+          delay: 0,
+          duration: 3.5 + Math.random() * 1.5,
+          left: Math.random() * 90 + 5,
+        };
+        return [...prev.slice(-12), newDonut];
+      });
+    }, 700);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <button
       onClick={onClick}
       className="revenue-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
+      {/* Falling donuts */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-[1]">
+        {donuts.map((donut) => (
+          <FallingDonut key={donut.id} {...donut} />
+        ))}
+      </div>
+
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-2 right-2 w-20 h-20 bg-white/5 rounded-full blur-2xl" />
         <div className="absolute bottom-2 left-2 w-16 h-16 bg-white/5 rounded-full blur-xl" />
@@ -207,7 +258,6 @@ export default function GamesPage() {
   const readyRef = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
-  const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   
   // All last winners fetched from a single API call
@@ -352,9 +402,16 @@ export default function GamesPage() {
         @keyframes scroll-left { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
         @keyframes scroll-right { 0% { transform: translateX(-50%); } 100% { transform: translateX(0); } }
         @keyframes hot-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.95); } }
+        @keyframes donut-fall {
+          0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+          5% { opacity: 0.6; }
+          95% { opacity: 0.6; }
+          100% { transform: translateY(140px) rotate(360deg); opacity: 0; }
+        }
         .icon-breathe { animation: icon-breathe 2s ease-in-out infinite; }
         .icon-spin { animation: icon-spin 4s linear infinite; }
         .hot-pulse { animation: hot-pulse 2s ease-in-out infinite; }
+        .falling-donut { animation: donut-fall linear infinite; }
         .winner-container { overflow: hidden; max-width: 140px; -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); }
         .winner-track { display: flex; width: max-content; animation: scroll-left 6s linear infinite; }
         .winner-track-right { display: flex; width: max-content; animation: scroll-right 6s linear infinite; }
@@ -381,34 +438,7 @@ export default function GamesPage() {
                 </div>
               )}
             </div>
-
-            <button onClick={() => setShowHelpDialog(true)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-2 hover:bg-zinc-800 transition-colors">
-              <div className="flex items-center justify-center gap-2">
-                <Dices className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                <span className="text-xs font-semibold text-white">How Games Work</span>
-                <HelpCircle className="w-3 h-3 text-gray-400" />
-              </div>
-            </button>
           </div>
-
-          {/* How Games Work Dialog */}
-          {showHelpDialog && (
-            <div className="fixed inset-0 z-50">
-              <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHelpDialog(false)} />
-              <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
-                  <button onClick={() => setShowHelpDialog(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"><X className="h-4 w-4" /></button>
-                  <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2"><Dices className="w-4 h-4 text-white" /> Donut Labs Games</h2>
-                  <div className="space-y-2.5">
-                    <div className="flex gap-2.5"><div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">1</div><div><div className="font-semibold text-amber-400 text-xs">100% Onchain</div><div className="text-[11px] text-gray-400">All games run entirely on Base.</div></div></div>
-                    <div className="flex gap-2.5"><div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div><div><div className="font-semibold text-white text-xs">Provably Fair</div><div className="text-[11px] text-gray-400">All randomness is verifiable.</div></div></div>
-                    <div className="flex gap-2.5"><div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div><div><div className="font-semibold text-amber-400 text-xs">Transparent Fees</div><div className="text-[11px] text-gray-400">2% house edge: 1% pool, 0.5% LP, 0.5% treasury.</div></div></div>
-                  </div>
-                  <button onClick={() => setShowHelpDialog(false)} className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Got it</button>
-                </div>
-              </div>
-            </div>
-          )}
 
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden games-scroll" style={{ WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`, maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` }}>
             <div className="space-y-2 pb-4">
