@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { HelpCircle, X, Sparkles, Dices, Lock, Bomb, Layers, Flame, TrendingUp, ArrowRight, Coins } from "lucide-react";
+import { HelpCircle, X, Sparkles, Dices, Lock, Bomb, Layers, Flame, TrendingUp, ArrowRight } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -96,7 +96,7 @@ function RevenueInfoTile({ onClick }: { onClick: () => void }) {
           </div>
           
           <div className="px-3 py-2 rounded-xl bg-white/10 text-white font-bold text-xs border border-white/20">
-            Learn More →
+            View Flow →
           </div>
         </div>
       </div>
@@ -208,7 +208,6 @@ export default function GamesPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
-  const [showRevenueDialog, setShowRevenueDialog] = useState(false);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   
   // All last winners fetched from a single API call
@@ -411,116 +410,10 @@ export default function GamesPage() {
             </div>
           )}
 
-          {/* Revenue Flow Dialog */}
-          {showRevenueDialog && (
-            <div className="fixed inset-0 z-50">
-              <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowRevenueDialog(false)} />
-              <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl max-h-[80vh] overflow-y-auto">
-                  <button onClick={() => setShowRevenueDialog(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white z-10"><X className="h-4 w-4" /></button>
-                  
-                  <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                    SPRINKLES Revenue Flow
-                  </h2>
-                  <p className="text-[10px] text-gray-400 mb-4">Where does the revenue go?</p>
-                  
-                  {/* Revenue Sources */}
-                  <div className="space-y-3 mb-4">
-                    <div className="text-[10px] text-gray-500 uppercase tracking-wider">Revenue Sources</div>
-                    
-                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                      <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                        <span className="text-lg">🍩</span>
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs font-bold text-amber-400">DONUT Miner</div>
-                        <div className="text-[10px] text-gray-400">ETH payments for mining DONUT</div>
-                      </div>
-                      <div className="text-[9px] text-green-400 font-bold">LIVE</div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-white/5 border border-white/20">
-                      <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-                        <Sparkles className="w-4 h-4 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs font-bold text-white">SPRINKLES Miner</div>
-                        <div className="text-[10px] text-gray-400">DONUT payments for mining SPRINKLES</div>
-                      </div>
-                      <div className="text-[9px] text-green-400 font-bold">LIVE</div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-800/50 border border-zinc-700">
-                      <div className="w-8 h-8 rounded-lg bg-zinc-700 flex items-center justify-center">
-                        <Dices className="w-4 h-4 text-gray-400" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs font-bold text-white">Games (2% Fee)</div>
-                        <div className="text-[10px] text-gray-400">House edge from all games</div>
-                      </div>
-                      <div className="text-[9px] text-green-400 font-bold">LIVE</div>
-                    </div>
-                  </div>
-                  
-                  {/* Flow Arrow */}
-                  <div className="flex justify-center my-3">
-                    <div className="flex flex-col items-center gap-1 text-gray-500">
-                      <div className="w-0.5 h-4 bg-gradient-to-b from-transparent to-gray-600" />
-                      <ArrowRight className="w-4 h-4 rotate-90" />
-                    </div>
-                  </div>
-                  
-                  {/* Distribution */}
-                  <div className="space-y-3">
-                    <div className="text-[10px] text-gray-500 uppercase tracking-wider">Revenue Distribution</div>
-                    
-                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-green-500/10 border border-green-500/30">
-                      <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
-                        <TrendingUp className="w-4 h-4 text-green-400" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs font-bold text-green-400">Liquidity Pool</div>
-                        <div className="text-[10px] text-gray-400">Adds to SPRINKLES/DONUT LP</div>
-                      </div>
-                      <div className="text-xs font-bold text-green-400">50%</div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                      <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                        <Coins className="w-4 h-4 text-amber-400" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs font-bold text-amber-400">Weekly Leaderboard</div>
-                        <div className="text-[10px] text-gray-400">Prizes for top miners</div>
-                      </div>
-                      <div className="text-xs font-bold text-amber-400">50%</div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-800/50 border border-zinc-700 opacity-50">
-                      <div className="w-8 h-8 rounded-lg bg-zinc-700 flex items-center justify-center">
-                        <Sparkles className="w-4 h-4 text-gray-500" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs font-bold text-gray-400">SPRINKLES Stakers</div>
-                        <div className="text-[10px] text-gray-500">Revenue share for stakers</div>
-                      </div>
-                      <div className="text-[9px] text-gray-500 font-bold flex items-center gap-1">
-                        <Lock className="w-2.5 h-2.5" /> SOON
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <button onClick={() => setShowRevenueDialog(false)} className="mt-4 w-full rounded-xl bg-white py-2 text-sm font-bold text-black">Got it</button>
-                </div>
-              </div>
-            </div>
-          )}
-
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden games-scroll" style={{ WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`, maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` }}>
             <div className="space-y-2 pb-4">
               {/* Revenue Info Tile */}
-              <RevenueInfoTile onClick={() => setShowRevenueDialog(true)} />
+              <RevenueInfoTile onClick={() => window.location.href = "/revenue"} />
               
               {games.map((game) => (
                 <GameTile
