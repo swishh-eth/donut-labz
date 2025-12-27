@@ -68,12 +68,25 @@ function FlowNode({
   );
 }
 
-// Simple vertical line
-function VLine({ height = 24, grey = false }: { height?: number; grey?: boolean }) {
+// Animated vertical line with dot
+function VLine({ height = 24, grey = false, delay = 0 }: { height?: number; grey?: boolean; delay?: number }) {
   return (
     <div 
-      className={`w-0.5 ${grey ? 'bg-zinc-600' : 'bg-amber-500/50'} mx-auto`}
-      style={{ height }}
+      className={`vline ${grey ? 'vline-grey' : ''}`}
+      style={{ 
+        height,
+        animationDelay: `${delay * 0.3}s`
+      }}
+    />
+  );
+}
+
+// Horizontal line
+function HLine({ width = 24, grey = false }: { width?: number; grey?: boolean }) {
+  return (
+    <div 
+      className={`h-0.5 ${grey ? 'bg-zinc-600' : 'bg-amber-500/50'}`}
+      style={{ width }}
     />
   );
 }
@@ -114,6 +127,41 @@ export default function RevenueFlowPage() {
       <style jsx global>{`
         .flow-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .flow-scroll::-webkit-scrollbar { display: none; }
+        
+        @keyframes dot-flow {
+          0% { top: 0; opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { top: calc(100% - 6px); opacity: 0; }
+        }
+        
+        .vline {
+          width: 2px;
+          background: rgba(251, 191, 36, 0.5);
+          position: relative;
+        }
+        
+        .vline::after {
+          content: '';
+          position: absolute;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 6px;
+          height: 6px;
+          background: #fbbf24;
+          border-radius: 50%;
+          box-shadow: 0 0 6px #fbbf24;
+          animation: dot-flow 2s ease-in-out infinite;
+        }
+        
+        .vline-grey {
+          background: rgba(113, 113, 122, 0.5);
+        }
+        
+        .vline-grey::after {
+          background: #71717a;
+          box-shadow: 0 0 4px #71717a;
+        }
       `}</style>
 
       <div 
@@ -150,9 +198,9 @@ export default function RevenueFlowPage() {
             <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-2 text-center">Miner Revenue</div>
             
             {/* Two miners side by side */}
-            <div className="grid grid-cols-2 gap-3 mb-0">
+            <div className="grid grid-cols-2 gap-3">
               
-              {/* ===== LEFT COLUMN: DONUT Miner (ETH) ===== */}
+              {/* ===== LEFT COLUMN: DONUT Miner (ETH) ===== än */}
               <div className="flex flex-col items-center">
                 <FlowNode
                   title="DONUT Miner"
@@ -164,7 +212,7 @@ export default function RevenueFlowPage() {
                   bgColor="bg-amber-500/10"
                   isSource
                 />
-                <VLine height={16} />
+                <VLine height={20} delay={0} />
                 <FlowNode
                   title="Previous Miner"
                   value="80%"
@@ -176,8 +224,9 @@ export default function RevenueFlowPage() {
                   bgColor="bg-green-500/10"
                   percentage="80%"
                 />
-                <VLine height={16} />
-                <div className="text-[8px] text-green-400 font-bold mb-1">Ξ ETH FEES (5%)</div>
+                <VLine height={20} delay={1} />
+                <div className="text-[8px] text-green-400 font-bold my-1">Ξ ETH FEES (5%)</div>
+                <VLine height={12} delay={2} />
                 <FlowNode
                   title="Leaderboard"
                   value="2.5%"
@@ -189,7 +238,7 @@ export default function RevenueFlowPage() {
                   bgColor="bg-amber-500/10"
                   percentage="2.5%"
                 />
-                <VLine height={16} />
+                <VLine height={20} delay={3} />
                 <FlowNode
                   title="Sprinkles App"
                   value="2.5%"
@@ -201,7 +250,7 @@ export default function RevenueFlowPage() {
                   bgColor="bg-zinc-800/50"
                   percentage="2.5%"
                 />
-                <VLine height={32} grey />
+                <VLine height={40} grey delay={4} />
               </div>
 
               {/* ===== RIGHT COLUMN: SPRINKLES Miner (DONUT) ===== */}
@@ -217,7 +266,7 @@ export default function RevenueFlowPage() {
                   bgColor="bg-white/5"
                   isSource
                 />
-                <VLine height={16} />
+                <VLine height={20} delay={1} />
                 <FlowNode
                   title="Previous Miner"
                   value="80%"
@@ -229,8 +278,9 @@ export default function RevenueFlowPage() {
                   bgColor="bg-amber-500/10"
                   percentage="80%"
                 />
-                <VLine height={16} />
-                <div className="text-[8px] text-amber-400 font-bold mb-1">🍩 DONUT FEES (20%)</div>
+                <VLine height={20} delay={2} />
+                <div className="text-[8px] text-amber-400 font-bold my-1">🍩 DONUT FEES (20%)</div>
+                <VLine height={12} delay={3} />
                 <FlowNode
                   title="Buy & Burn"
                   value="10%"
@@ -242,7 +292,7 @@ export default function RevenueFlowPage() {
                   bgColor="bg-red-500/10"
                   percentage="10%"
                 />
-                <VLine height={16} />
+                <VLine height={20} delay={4} />
                 <FlowNode
                   title="LP Burn Pool"
                   value="2.5%"
@@ -254,7 +304,7 @@ export default function RevenueFlowPage() {
                   bgColor="bg-green-500/10"
                   percentage="2.5%"
                 />
-                <VLine height={16} />
+                <VLine height={20} delay={5} />
                 <FlowNode
                   title="Leaderboard"
                   value="2.5%"
@@ -266,7 +316,7 @@ export default function RevenueFlowPage() {
                   bgColor="bg-amber-500/10"
                   percentage="2.5%"
                 />
-                <VLine height={16} />
+                <VLine height={20} delay={6} />
                 <FlowNode
                   title="Sprinkles App"
                   value="5%"
@@ -278,8 +328,20 @@ export default function RevenueFlowPage() {
                   bgColor="bg-zinc-800/50"
                   percentage="5%"
                 />
-                <VLine height={16} grey />
+                <VLine height={20} grey delay={7} />
               </div>
+            </div>
+
+            {/* Horizontal connector lines to Stakers */}
+            <div className="flex justify-center items-center mb-0 -mt-1">
+              <div className="w-[72px] h-0.5 bg-zinc-600" />
+              <div className="w-2" />
+              <div className="w-[72px] h-0.5 bg-zinc-600" />
+            </div>
+            
+            {/* Vertical line down to stakers */}
+            <div className="flex justify-center">
+              <VLine height={16} grey delay={8} />
             </div>
 
             {/* ========== STAKERS (Coming Soon) - Centered ========== */}
@@ -298,9 +360,9 @@ export default function RevenueFlowPage() {
             </div>
 
             {/* ========== GAMES REVENUE ========== */}
-            <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-2 text-center">Games Revenue (2% House Edge)</div>
+            <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-2 text-center">Games Revenue</div>
             
-            <div className="flex flex-col items-center mb-2">
+            <div className="flex flex-col items-center">
               <FlowNode
                 title="Games"
                 value="DONUT"
@@ -312,12 +374,18 @@ export default function RevenueFlowPage() {
                 bgColor="bg-zinc-800/50"
                 isSource
               />
-              <VLine height={16} />
+              <VLine height={20} delay={0} />
             </div>
             
-            {/* Games fee split - 3 columns */}
+            {/* Horizontal split line */}
+            <div className="flex justify-center items-center">
+              <div className="w-[100px] h-0.5 bg-amber-500/50" />
+            </div>
+            
+            {/* Three vertical drops */}
             <div className="grid grid-cols-3 gap-2">
               <div className="flex flex-col items-center">
+                <VLine height={16} delay={1} />
                 <FlowNode
                   title="Prize Pool"
                   value="1%"
@@ -331,6 +399,7 @@ export default function RevenueFlowPage() {
                 />
               </div>
               <div className="flex flex-col items-center">
+                <VLine height={16} delay={2} />
                 <FlowNode
                   title="Sprinkles App"
                   value="0.5%"
@@ -342,12 +411,13 @@ export default function RevenueFlowPage() {
                   bgColor="bg-zinc-800/50"
                   percentage="0.5%"
                 />
-                <VLine height={16} grey />
+                <VLine height={20} grey delay={3} />
                 <div className="text-[8px] text-gray-500 flex items-center gap-1">
                   <Lock className="w-2 h-2" /> Stakers
                 </div>
               </div>
               <div className="flex flex-col items-center">
+                <VLine height={16} delay={3} />
                 <FlowNode
                   title="LP Burn"
                   value="0.5%"
