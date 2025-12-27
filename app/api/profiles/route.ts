@@ -84,7 +84,12 @@ export async function GET(req: NextRequest) {
         const profilesToUpsert: Array<{ address: string; profile: any }> = [];
 
         for (const addr of uncachedAddresses) {
-          const users = data[addr] || data[addr.toLowerCase()] || [];
+          // Neynar might return keys in checksummed case format
+          // Do a case-insensitive lookup to find the matching key
+          const matchingKey = Object.keys(data).find(
+            (key) => key.toLowerCase() === addr.toLowerCase()
+          );
+          const users = matchingKey ? data[matchingKey] : [];
           const user = users[0] || null;
 
           const profile = user
