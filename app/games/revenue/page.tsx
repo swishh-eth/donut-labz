@@ -378,11 +378,13 @@ export default function RevenueFlowPage() {
               </div>
             </div>
 
-            {/* T-connector to Stakers */}
-            <div className="flex justify-center items-start">
-              <HLine w={67} grey />
+            {/* T-connector to Stakers - single bar spanning both columns */}
+            <div className="flex justify-center">
+              {/* 130 + 16 (gap) + 130 = 276, we need bar from center of left to center of right */}
+              <HLine w={150} grey />
+            </div>
+            <div className="flex justify-center">
               <VLine h={16} grey delay={8} />
-              <HLine w={67} grey />
             </div>
 
             {/* ========== STAKERS (Coming Soon) ========== */}
@@ -420,16 +422,17 @@ export default function RevenueFlowPage() {
               <VLine h={16} delay={0} />
             </div>
             
-            {/* Horizontal bar for 3-way split */}
-            <div className="flex justify-center">
-              <HLine w={220} />
-            </div>
-            
-            {/* Three columns */}
+            {/* Three columns with integrated horizontal bar */}
             <div className="flex justify-center gap-1">
               {/* Left - Prize Pool */}
-              <div className="flex flex-col items-center">
-                <VLine h={16} delay={1} />
+              <div className="flex flex-col items-center" style={{ width: 95 }}>
+                <div className="flex items-start w-full">
+                  <div className="flex-1 flex items-center justify-end">
+                    <HLine w={48} />
+                  </div>
+                  <VLine h={16} delay={1} />
+                  <div className="flex-1" />
+                </div>
                 <FlowNode
                   title="Prize Pool"
                   value="1%"
@@ -445,8 +448,16 @@ export default function RevenueFlowPage() {
               </div>
               
               {/* Center - Sprinkles App */}
-              <div className="flex flex-col items-center">
-                <VLine h={16} delay={2} />
+              <div className="flex flex-col items-center" style={{ width: 95 }}>
+                <div className="flex items-start w-full">
+                  <div className="flex-1 flex items-center justify-end">
+                    <HLine w={48} />
+                  </div>
+                  <VLine h={16} delay={2} />
+                  <div className="flex-1 flex items-center justify-start">
+                    <HLine w={48} />
+                  </div>
+                </div>
                 <FlowNode
                   title="Sprinkles App"
                   value="0.5%"
@@ -463,8 +474,14 @@ export default function RevenueFlowPage() {
               </div>
               
               {/* Right - LP Burn */}
-              <div className="flex flex-col items-center">
-                <VLine h={16} delay={3} />
+              <div className="flex flex-col items-center" style={{ width: 95 }}>
+                <div className="flex items-start w-full">
+                  <div className="flex-1" />
+                  <VLine h={16} delay={3} />
+                  <div className="flex-1 flex items-center justify-start">
+                    <HLine w={48} />
+                  </div>
+                </div>
                 <FlowNode
                   title="LP Burn"
                   value="0.5%"
