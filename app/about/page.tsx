@@ -8,7 +8,7 @@ import { AddToFarcasterButton } from "@/components/add-to-farcaster-button";
 import { DuneDashboardButton } from "@/components/dune-dashboard-button";
 import { CommunityLPButton } from "@/components/community-lp-button";
 import { LearnMoreButton } from "@/components/learn-more-button";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { Sparkles, ArrowRight, Dices, TrendingUp } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -97,6 +97,54 @@ function SprinklesInfoTile({ onClick }: { onClick: () => void }) {
             <span className="text-white/80">Mine SPRINKLES</span>
             <ArrowRight className="w-3 h-3 text-white/30" />
             <span className="text-white/80">Sticky LP</span>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// Revenue Flow Tile Component
+function RevenueFlowTile({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="revenue-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+    >
+      {/* Floating donut */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-4xl floating-donut opacity-60">
+        🍩
+      </div>
+
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-2 right-2 w-20 h-20 bg-white/5 rounded-full blur-2xl" />
+        <div className="absolute bottom-2 left-2 w-16 h-16 bg-white/5 rounded-full blur-xl" />
+      </div>
+      
+      <div className="relative z-10 p-4 pr-16">
+        <div className="text-left">
+          <div className="flex items-center gap-2 mb-1">
+            <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
+            <span className="font-bold text-base text-white">Revenue Flow</span>
+          </div>
+          <div className="text-[10px] text-white/60 mb-2">See where miner & game fees go</div>
+          
+          <div className="flex items-center gap-3 text-[9px]">
+            <div className="flex items-center gap-1 text-amber-400">
+              <Dices className="w-3 h-3" />
+              <span>Games</span>
+            </div>
+            <ArrowRight className="w-3 h-3 text-white/30" />
+            <div className="flex items-center gap-1 text-green-400">
+              <TrendingUp className="w-3 h-3" />
+              <span>LP</span>
+            </div>
+            <ArrowRight className="w-3 h-3 text-white/30" />
+            <div className="flex items-center gap-1 text-white">
+              <Sparkles className="w-3 h-3" />
+              <span>Stakers</span>
+            </div>
           </div>
         </div>
       </div>
@@ -254,6 +302,9 @@ export default function AboutPage() {
 
               {/* What is $SPRINKLES Tile */}
               <SprinklesInfoTile onClick={() => window.location.href = "/about/sprinkles"} />
+
+              {/* Revenue Flow Tile */}
+              <RevenueFlowTile onClick={() => window.location.href = "/about/revenue"} />
             </div>
           </div>
         </div>
