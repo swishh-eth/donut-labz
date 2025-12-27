@@ -34,7 +34,7 @@ async function getProfile(address: string): Promise<{ username: string; pfpUrl?:
   try {
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/profiles?addresses=${address}`,
-      { next: { revalidate: 300 } } // Cache for 5 minutes
+      { cache: 'no-store' } // Force fresh fetch, no caching
     );
     if (response.ok) {
       const data = await response.json();
@@ -98,9 +98,13 @@ async function fetchLastWinner(
   }
 }
 
-export async function GET() {
-  // Return cached data if still fresh
-  if (cachedWinners && Date.now() - cacheTime < CACHE_DURATION) {
+export async function GET(request: Request) {
+  // Check for cache bust parameter
+  const { searchParams } = new URL(request.url);
+  const bustCache = searchParams.get('bust') === '1';
+  
+  // Return cached data if still fresh and not busting cache
+  if (!bustCache && cachedWinners && Date.now() - cacheTime < CACHE_DURATION) {
     return NextResponse.json(cachedWinners, {
       headers: {
         'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
