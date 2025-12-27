@@ -425,7 +425,7 @@ export default function RevenueFlowPage() {
                   percentage="5%"
                   width={COL_W}
                 />
-                <VLine h={16} grey delay={7} />
+                <VLine h={24} grey delay={7} />
               </div>
             </div>
 
@@ -469,7 +469,7 @@ export default function RevenueFlowPage() {
                 borderColor="border-zinc-600"
                 bgColor="bg-zinc-800/50"
                 isSource
-                width={160}
+                width={COL_W * 2 + GAP}
               />
             </div>
             
