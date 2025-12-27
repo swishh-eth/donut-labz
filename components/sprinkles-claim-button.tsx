@@ -13,8 +13,8 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { Sparkles, Gift, Loader2, CheckCircle, Clock, Calendar, Share2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Contract address - DEPLOYED
-const SPRINKLES_CLAIM_ADDRESS = "0x07fcAAEAcdFFA65fDe02191Cd1C4cd4CC2cCE17e";
+// Contract address - NEW VERIFIED CONTRACT
+const SPRINKLES_CLAIM_ADDRESS = "0x34e23573D49645558B856BCe26e32fDebae77AfD";
 
 const SPRINKLES_CLAIM_ABI = [
   {
@@ -37,10 +37,11 @@ const SPRINKLES_CLAIM_ABI = [
 ] as const;
 
 // ============== EPOCH CALCULATION (FRONTEND) ==============
-// Week 1 started on Friday, December 6, 2025 at 00:00 UTC
-const EPOCH_START_TIME = 1764979200; // Friday Dec 6, 2025 00:00:00 UTC
+// Week 1 started on Saturday, December 6, 2025 at 00:00 UTC (7pm EST Friday)
+// Claim window is 24 hours: Saturday 00:00 UTC to Sunday 00:00 UTC
+const EPOCH_START_TIME = 1764979200; // Saturday Dec 6, 2025 00:00:00 UTC
 const EPOCH_DURATION = 7 * 24 * 60 * 60; // 1 week in seconds
-const CLAIM_WINDOW_DURATION = 24 * 60 * 60; // 24 hours (all of Friday)
+const CLAIM_WINDOW_DURATION = 24 * 60 * 60; // 24 hours
 
 // Calculate current epoch based on time
 const calculateCurrentEpoch = (): number => {
