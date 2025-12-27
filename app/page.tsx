@@ -210,12 +210,28 @@ export default function HomePage() {
     },
   });
 
+  // Fallback: Also fetch price directly for display if interpolation fails
+  const { data: sprinklesPriceFallback } = useReadContract({
+    address: SPRINKLES_MINER_ADDRESS,
+    abi: SPRINKLES_MINER_ABI,
+    functionName: "getPrice",
+    chainId: base.id,
+    query: {
+      refetchInterval: 30_000,
+    },
+  });
+
   // Extract initPrice and startTime for client-side interpolation
   const donutInitPrice = rawMinerState ? (rawMinerState as any).initPrice as bigint : undefined;
   const donutStartTime = rawMinerState ? (rawMinerState as any).startTime as bigint : undefined;
   
-  const sprinklesInitPrice = sprinklesSlot0 ? (sprinklesSlot0 as any)[1] as bigint : undefined;
-  const sprinklesStartTime = sprinklesSlot0 ? (sprinklesSlot0 as any)[2] as bigint : undefined;
+  // Handle both named properties and array indices for slot0
+  const sprinklesInitPrice = sprinklesSlot0 
+    ? BigInt((sprinklesSlot0 as any).initPrice ?? (sprinklesSlot0 as any)[2] ?? 0)
+    : undefined;
+  const sprinklesStartTime = sprinklesSlot0 
+    ? Number((sprinklesSlot0 as any).startTime ?? (sprinklesSlot0 as any)[3] ?? 0)
+    : undefined;
 
   // Client-side price interpolation for DONUT - updates every second
   useEffect(() => {
@@ -251,7 +267,7 @@ export default function HomePage() {
 
   // Use interpolated prices for display, fallback to on-chain if not available
   const donutPrice = interpolatedDonutPrice ?? (rawMinerState ? (rawMinerState as any).price as bigint : undefined);
-  const sprinklesPriceValue = interpolatedSprinklesPrice;
+  const sprinklesPriceValue = interpolatedSprinklesPrice ?? (sprinklesPriceFallback as bigint | undefined);
 
   // OPTIMIZED: Reduced from 10s to 30s for burn tile data
   const { data: sprinklesAuctionRewards } = useReadContract({
