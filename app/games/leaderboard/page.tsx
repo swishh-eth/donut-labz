@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { ArrowLeft, Trophy, Clock, Gift, Lock, HelpCircle, History } from "lucide-react";
+import { ArrowLeft, Trophy, Clock, Gift, Lock, HelpCircle, History, X } from "lucide-react";
 import { NavBar } from "@/components/nav-bar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -185,15 +185,19 @@ export default function GamesLeaderboardPage() {
             <div className="grid grid-cols-2 gap-2">
               <button 
                 onClick={() => setShowHowToWin(true)}
-                className="flex items-center justify-center gap-2 p-4 rounded-xl bg-zinc-900 border border-zinc-800 text-white font-semibold text-sm hover:bg-zinc-800 transition-colors"
+                className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors"
               >
-                <Trophy className="w-4 h-4" />
-                <span>How to Win</span>
-                <HelpCircle className="w-3.5 h-3.5 text-gray-500" />
+                <div className="flex items-center justify-center gap-2">
+                  <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                  <span className="text-xs font-semibold text-white">How to Win</span>
+                  <HelpCircle className="w-3 h-3 text-gray-400" />
+                </div>
               </button>
-              <button className="flex items-center justify-center gap-2 p-4 rounded-xl bg-zinc-900 border border-zinc-800 text-white font-semibold text-sm hover:bg-zinc-800 transition-colors">
-                <History className="w-4 h-4" />
-                <span>Past Winners</span>
+              <button className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors">
+                <div className="flex items-center justify-center gap-2">
+                  <History className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-semibold text-white">Past Winners</span>
+                </div>
               </button>
             </div>
 
@@ -235,100 +239,92 @@ export default function GamesLeaderboardPage() {
 
         {/* How to Win Popup */}
         {showHowToWin && (
-          <div 
-            className="fixed inset-0 bg-black/80 flex items-end justify-center z-50"
-            onClick={() => setShowHowToWin(false)}
-          >
-            <div 
-              className="bg-zinc-900 border border-zinc-700 rounded-t-2xl p-5 w-full max-w-[520px]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-amber-400" />
-                  <span className="text-lg font-bold text-white">How to Win Prizes</span>
-                </div>
-                <button 
+          <div className="fixed inset-0 z-50">
+            <div
+              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+              onClick={() => setShowHowToWin(false)}
+            />
+            <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+              <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
+                <button
                   onClick={() => setShowHowToWin(false)}
-                  className="text-gray-500 hover:text-white transition-colors text-xl"
+                  className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
                 >
-                  ×
+                  <X className="h-4 w-4" />
+                </button>
+
+                <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                  How to Win Prizes
+                </h2>
+
+                <div className="space-y-2.5">
+                  <div className="flex gap-2.5">
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">1</div>
+                    <div>
+                      <div className="font-semibold text-amber-400 text-xs">Play Games = 1 Point</div>
+                      <div className="text-[11px] text-gray-400">Play any house game and earn 1 leaderboard point per game.</div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2.5">
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
+                    <div>
+                      <div className="font-semibold text-white text-xs">Win Games = +2 Bonus</div>
+                      <div className="text-[11px] text-gray-400">Win a game and earn 2 bonus leaderboard points.</div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2.5">
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">3</div>
+                    <div>
+                      <div className="font-semibold text-white text-xs">Climb the Ranks</div>
+                      <div className="text-[11px] text-gray-400">Compete weekly. Leaderboard resets every Friday at 12pm UTC.</div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2.5">
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
+                    <div>
+                      <div className="font-semibold text-amber-400 text-xs">Win Prizes</div>
+                      <div className="text-[11px] text-gray-400">Top 3 players split the prize pool: ETH, DONUT, and SPRINKLES!</div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2.5">
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">5</div>
+                    <div>
+                      <div className="font-semibold text-white text-xs">Where Rewards Come From</div>
+                      <div className="text-[11px] text-gray-400">Rewards funded from house game fees.</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-xl">
+                  <div className="text-[9px] text-gray-500 uppercase mb-1.5 text-center">Prize Distribution</div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <div className="text-base font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]">1st</div>
+                      <div className="text-amber-400 font-bold text-xs">50%</div>
+                    </div>
+                    <div>
+                      <div className="text-base font-bold text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]">2nd</div>
+                      <div className="text-gray-400 font-bold text-xs">30%</div>
+                    </div>
+                    <div>
+                      <div className="text-base font-bold text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]">3rd</div>
+                      <div className="text-amber-600 font-bold text-xs">20%</div>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowHowToWin(false)}
+                  className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
+                >
+                  Got it
                 </button>
               </div>
-              
-              <div className="space-y-4">
-                {/* Step 1 */}
-                <div className="flex gap-3">
-                  <div className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-black text-xs font-bold flex-shrink-0">1</div>
-                  <div>
-                    <p className="text-amber-400 font-bold text-sm">Play Games = 1 Point</p>
-                    <p className="text-gray-500 text-xs">Play any house game and earn 1 leaderboard point per game.</p>
-                  </div>
-                </div>
-                
-                {/* Step 2 */}
-                <div className="flex gap-3">
-                  <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">2</div>
-                  <div>
-                    <p className="text-white font-bold text-sm">Win Games = +2 Bonus</p>
-                    <p className="text-gray-500 text-xs">Win a game and earn 2 bonus leaderboard points.</p>
-                  </div>
-                </div>
-                
-                {/* Step 3 */}
-                <div className="flex gap-3">
-                  <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">3</div>
-                  <div>
-                    <p className="text-white font-bold text-sm">Climb the Ranks</p>
-                    <p className="text-gray-500 text-xs">Compete weekly. Leaderboard resets every Friday at 12pm UTC.</p>
-                  </div>
-                </div>
-                
-                {/* Step 4 */}
-                <div className="flex gap-3">
-                  <div className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-black text-xs font-bold flex-shrink-0">4</div>
-                  <div>
-                    <p className="text-amber-400 font-bold text-sm">Win Prizes</p>
-                    <p className="text-gray-500 text-xs">Top 3 players split the prize pool: ETH, DONUT, and SPRINKLES!</p>
-                  </div>
-                </div>
-                
-                {/* Step 5 */}
-                <div className="flex gap-3">
-                  <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">5</div>
-                  <div>
-                    <p className="text-white font-bold text-sm">Where Rewards Come From</p>
-                    <p className="text-gray-500 text-xs">Rewards funded from house game fees.</p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Prize Distribution */}
-              <div className="mt-5 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
-                <p className="text-[10px] text-gray-500 text-center mb-2">PRIZE DISTRIBUTION</p>
-                <div className="grid grid-cols-3 text-center">
-                  <div>
-                    <p className="text-lg font-bold text-white">1st</p>
-                    <p className="text-amber-400 font-bold">50%</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-white">2nd</p>
-                    <p className="text-gray-400 font-bold">30%</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-white">3rd</p>
-                    <p className="text-amber-600 font-bold">20%</p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Got it button */}
-              <button
-                onClick={() => setShowHowToWin(false)}
-                className="w-full mt-4 p-3 rounded-xl bg-white text-black font-bold text-sm hover:bg-gray-200 transition-colors"
-              >
-                Got it
-              </button>
             </div>
           </div>
         )}
