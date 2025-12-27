@@ -14,7 +14,7 @@ import { Sparkles, Gift, Loader2, CheckCircle, Clock, Calendar, Share2, XCircle 
 import { cn } from "@/lib/utils";
 
 // Contract address - NEW VERIFIED CONTRACT
-const SPRINKLES_CLAIM_ADDRESS = "0x34e23573D49645558B856BCe26e32fDebae77AfD";
+const SPRINKLES_CLAIM_ADDRESS = "0xD3FAc8568B887C2069BA9B1dEd9A4f6ea5e82701";
 
 const SPRINKLES_CLAIM_ABI = [
   {
