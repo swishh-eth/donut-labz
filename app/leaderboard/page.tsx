@@ -540,13 +540,15 @@ export default function LeaderboardPage() {
                       <Coins className="w-3.5 h-3.5 text-amber-400" />
                       <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
                     </div>
-                    {!pricesLoaded ? (
-                      <div className="w-5 h-5 border-2 border-amber-400/30 border-t-amber-400 rounded-full price-spinner" />
-                    ) : (
-                      <div className="text-2xl font-bold text-amber-400 prize-pulse price-value-enter">
-                        ${Math.floor(totalPrizeUsd).toLocaleString()}
-                      </div>
-                    )}
+                    <div className="h-8 flex items-center justify-center">
+                      {!pricesLoaded ? (
+                        <div className="w-5 h-5 border-2 border-amber-400/30 border-t-amber-400 rounded-full price-spinner" />
+                      ) : (
+                        <div className="text-2xl font-bold text-amber-400 prize-pulse price-value-enter">
+                          ${Math.floor(totalPrizeUsd).toLocaleString()}
+                        </div>
+                      )}
+                    </div>
                     <span className="absolute bottom-1 text-[7px] text-gray-600 animate-pulse">tap for tokens</span>
                   </>
                 ) : (
@@ -951,10 +953,12 @@ export default function LeaderboardPage() {
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 h-5">
                               <span className="font-semibold text-white truncate text-sm">No one yet</span>
-                              {isWinner && pricesLoaded && prizeUsd > 0 && (
-                                <span className="text-amber-400 text-xs font-bold">+${prizeUsd}</span>
+                              {isWinner && (
+                                <span className={`text-amber-400 text-xs font-bold min-w-[45px] ${pricesLoaded && prizeUsd > 0 ? '' : 'invisible'}`}>
+                                  +${prizeUsd || 0}
+                                </span>
                               )}
                             </div>
                             <div className="text-[10px] text-gray-400 truncate">
@@ -1027,10 +1031,12 @@ export default function LeaderboardPage() {
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 h-5">
                             <span className="font-semibold text-white truncate text-sm">{displayName}</span>
-                            {isWinner && pricesLoaded && prizeUsd > 0 && (
-                              <span className="text-amber-400 text-xs font-bold">+${prizeUsd}</span>
+                            {isWinner && (
+                              <span className={`text-amber-400 text-xs font-bold min-w-[45px] ${pricesLoaded && prizeUsd > 0 ? '' : 'invisible'}`}>
+                                +${prizeUsd || 0}
+                              </span>
                             )}
                           </div>
                           {username && (

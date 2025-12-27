@@ -187,6 +187,9 @@ export default function BurnPage() {
 
   // Fetch DONUT price and SPRINKLES LP price from prices API
   useEffect(() => {
+    let retryCount = 0;
+    const maxRetries = 3;
+    
     const fetchPrices = async () => {
       try {
         const res = await fetch("/api/prices");
@@ -198,15 +201,27 @@ export default function BurnPage() {
           }
           if (data.sprinklesLpPrice && data.sprinklesLpPrice > 0) {
             setSprinklesLpPrice(data.sprinklesLpPrice);
+          } else if (retryCount < maxRetries) {
+            // Retry if LP price is missing
+            retryCount++;
+            console.log(`[burn] LP price missing, retrying (${retryCount}/${maxRetries})...`);
+            setTimeout(fetchPrices, 2000);
           }
         }
       } catch (error) {
         console.error("Failed to fetch prices:", error);
+        if (retryCount < maxRetries) {
+          retryCount++;
+          setTimeout(fetchPrices, 2000);
+        }
       }
     };
     
     fetchPrices();
-    const interval = setInterval(fetchPrices, 60_000);
+    const interval = setInterval(() => {
+      retryCount = 0; // Reset retry count for periodic fetches
+      fetchPrices();
+    }, 60_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -576,8 +591,7 @@ export default function BurnPage() {
                 <div>
                   <div className="text-[10px] text-gray-400 uppercase tracking-wider">Pending Split</div>
                   <div className="text-sm font-bold text-white flex items-center gap-1">
-                    <span>{pendingDonutDisplay}</span>
-                    <span>DONUT</span>
+                    {pendingDonutDisplay} DONUT
                     {donutUsdPrice > 0 && pendingDonut && pendingDonut > 0n && (
                       <span className="text-[10px] text-gray-500 font-normal ml-1">
                         ${(Number(formatEther(pendingDonut)) * donutUsdPrice).toFixed(2)}
@@ -626,13 +640,17 @@ export default function BurnPage() {
               <div className="flex-1 rounded-lg border border-amber-500/30 bg-black/50 px-3 py-2">
                 <div className="text-[9px] text-gray-400 uppercase">Pay</div>
                 <div className="text-base font-bold text-amber-400">{sprinklesPriceDisplay} LP</div>
-                {lpPayUsd && <div className="text-[9px] text-gray-500">${lpPayUsd}</div>}
+                <div className="text-[9px] text-gray-500 h-3">
+                  {lpPayUsd ? `$${lpPayUsd}` : sprinklesLpPrice === 0 ? "loading..." : ""}
+                </div>
               </div>
               <div className="text-gray-600">→</div>
               <div className="flex-1 rounded-lg border border-zinc-700 bg-black/50 px-3 py-2">
                 <div className="text-[9px] text-gray-400 uppercase">Get</div>
                 <div className="text-base font-bold text-white">🍩 {sprinklesRewardsDisplay}</div>
-                {donutGetUsd && <div className="text-[9px] text-gray-500">${donutGetUsd}</div>}
+                <div className="text-[9px] text-gray-500 h-3">
+                  {donutGetUsd ? `$${donutGetUsd}` : donutUsdPrice === 0 ? "loading..." : ""}
+                </div>
               </div>
             </div>
 
