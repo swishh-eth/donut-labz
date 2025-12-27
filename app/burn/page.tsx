@@ -468,7 +468,7 @@ export default function BurnPage() {
   const sprinklesPriceDisplay = displayPrice ? formatTokenAmount(displayPrice, 2) : "—";
   const sprinklesRewardsDisplay = sprinklesAuctionState ? formatTokenAmount(sprinklesAuctionState.rewardsAvailable, 2) : "—";
   const sprinklesUserLPDisplay = sprinklesAuctionState ? formatTokenAmount(sprinklesAuctionState.userLPBalance, 2) : "0";
-  const pendingDonutDisplay = pendingDonut ? formatTokenAmount(pendingDonut, 2) : "0";
+  const pendingDonutDisplay = (pendingDonut && pendingDonut > 0n) ? formatTokenAmount(pendingDonut, 2) : "0";
 
   // Calculate USD values using interpolated price
   const lpPayUsd = displayPrice && sprinklesLpPrice > 0

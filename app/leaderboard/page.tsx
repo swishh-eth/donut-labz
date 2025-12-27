@@ -540,7 +540,7 @@ export default function LeaderboardPage() {
               {/* Week Tile */}
               <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
                 <div className="flex items-center gap-1">
-                  <Trophy className="w-3.5 h-3.5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                  <Trophy className="w-3.5 h-3.5 text-white/90" />
                   <span className="text-[10px] text-gray-400 uppercase tracking-wide">Week</span>
                 </div>
                 <div className="text-2xl font-bold text-white fade-in-up stagger-1 opacity-0">#{weekNumber}</div>
