@@ -32,7 +32,7 @@ function FallingDonut({ delay, duration, left }: { delay: number; duration: numb
   );
 }
 
-// Standard flow node with fixed width
+// Standard flow node
 function FlowNode({ 
   title, 
   subtitle, 
@@ -45,8 +45,7 @@ function FlowNode({
   isComingSoon = false,
   isSource = false,
   percentage,
-  wide = false,
-  small = false,
+  width = 130,
 }: { 
   title: string;
   subtitle?: string;
@@ -59,10 +58,8 @@ function FlowNode({
   isComingSoon?: boolean;
   isSource?: boolean;
   percentage?: string;
-  wide?: boolean;
-  small?: boolean;
+  width?: number;
 }) {
-  const width = small ? 95 : wide ? 160 : 130;
   return (
     <div 
       className={`flow-node relative rounded-xl border-2 ${borderColor} ${bgColor} p-2 ${isComingSoon ? 'opacity-50' : ''} flex flex-col items-center text-center`}
@@ -103,16 +100,6 @@ function VLine({ h, grey = false, delay = 0 }: { h: number; grey?: boolean; dela
         style={{ animationDelay: `${delay * 0.3}s` }}
       />
     </div>
-  );
-}
-
-// Horizontal line
-function HLine({ w, grey = false }: { w: number; grey?: boolean }) {
-  return (
-    <div 
-      className={`shrink-0 ${grey ? 'bg-zinc-600' : 'bg-amber-500/60'}`}
-      style={{ height: 2, width: w }}
-    />
   );
 }
 
@@ -172,6 +159,10 @@ export default function RevenueFlowPage() {
     }, 1200);
     return () => clearTimeout(timeout);
   }, []);
+
+  // Column width for miners
+  const COL_W = 130;
+  const GAP = 16;
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -242,11 +233,11 @@ export default function RevenueFlowPage() {
             {/* ========== MINER REVENUE ========== */}
             <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-3 text-center">Miner Revenue</div>
             
-            {/* Two miners side by side - fixed width container */}
-            <div className="flex justify-center gap-4">
+            {/* Two miners side by side */}
+            <div className="flex justify-center" style={{ gap: GAP }}>
               
               {/* ===== LEFT COLUMN: DONUT Miner (ETH) ===== */}
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center" style={{ width: COL_W }}>
                 <FlowNode
                   title="DONUT Miner"
                   value="ETH"
@@ -256,6 +247,7 @@ export default function RevenueFlowPage() {
                   borderColor="border-amber-500/50"
                   bgColor="bg-amber-500/10"
                   isSource
+                  width={COL_W}
                 />
                 <VLine h={16} delay={0} />
                 <FlowNode
@@ -268,6 +260,7 @@ export default function RevenueFlowPage() {
                   borderColor="border-green-500/50"
                   bgColor="bg-green-500/10"
                   percentage="80%"
+                  width={COL_W}
                 />
                 <VLine h={16} delay={1} />
                 <div className="text-[8px] text-green-400 font-bold py-1 bg-black px-2">Ξ ETH FEES (5%)</div>
@@ -282,6 +275,7 @@ export default function RevenueFlowPage() {
                   borderColor="border-amber-500/50"
                   bgColor="bg-amber-500/10"
                   percentage="2.5%"
+                  width={COL_W}
                 />
                 <VLine h={16} delay={3} />
                 <FlowNode
@@ -294,13 +288,13 @@ export default function RevenueFlowPage() {
                   borderColor="border-zinc-700"
                   bgColor="bg-zinc-800/50"
                   percentage="2.5%"
+                  width={COL_W}
                 />
-                {/* Long grey line to reach stakers level */}
-                <VLine h={200} grey delay={4} />
+                <VLine h={172} grey delay={4} />
               </div>
 
               {/* ===== RIGHT COLUMN: SPRINKLES Miner (DONUT) ===== */}
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center" style={{ width: COL_W }}>
                 <FlowNode
                   title="SPRINKLES Miner"
                   value="DONUT"
@@ -311,6 +305,7 @@ export default function RevenueFlowPage() {
                   borderColor="border-white/30"
                   bgColor="bg-white/5"
                   isSource
+                  width={COL_W}
                 />
                 <VLine h={16} delay={1} />
                 <FlowNode
@@ -323,6 +318,7 @@ export default function RevenueFlowPage() {
                   borderColor="border-amber-500/50"
                   bgColor="bg-amber-500/10"
                   percentage="80%"
+                  width={COL_W}
                 />
                 <VLine h={16} delay={2} />
                 <div className="text-[8px] text-amber-400 font-bold py-1 bg-black px-2">🍩 DONUT FEES (20%)</div>
@@ -337,6 +333,7 @@ export default function RevenueFlowPage() {
                   borderColor="border-red-500/50"
                   bgColor="bg-red-500/10"
                   percentage="10%"
+                  width={COL_W}
                 />
                 <VLine h={16} delay={4} />
                 <FlowNode
@@ -349,6 +346,7 @@ export default function RevenueFlowPage() {
                   borderColor="border-green-500/50"
                   bgColor="bg-green-500/10"
                   percentage="2.5%"
+                  width={COL_W}
                 />
                 <VLine h={16} delay={5} />
                 <FlowNode
@@ -361,6 +359,7 @@ export default function RevenueFlowPage() {
                   borderColor="border-amber-500/50"
                   bgColor="bg-amber-500/10"
                   percentage="2.5%"
+                  width={COL_W}
                 />
                 <VLine h={16} delay={6} />
                 <FlowNode
@@ -373,16 +372,18 @@ export default function RevenueFlowPage() {
                   borderColor="border-zinc-700"
                   bgColor="bg-zinc-800/50"
                   percentage="5%"
+                  width={COL_W}
                 />
                 <VLine h={16} grey delay={7} />
               </div>
             </div>
 
-            {/* T-connector to Stakers - single bar spanning both columns */}
+            {/* Horizontal bar connecting both columns to center */}
             <div className="flex justify-center">
-              {/* 130 + 16 (gap) + 130 = 276, we need bar from center of left to center of right */}
-              <HLine w={150} grey />
+              <div className="bg-zinc-600" style={{ width: COL_W + GAP + 2, height: 2 }} />
             </div>
+            
+            {/* Center drop to stakers */}
             <div className="flex justify-center">
               <VLine h={16} grey delay={8} />
             </div>
@@ -399,7 +400,7 @@ export default function RevenueFlowPage() {
                 borderColor="border-zinc-700"
                 bgColor="bg-zinc-800/50"
                 isComingSoon
-                wide
+                width={160}
               />
             </div>
 
@@ -417,22 +418,21 @@ export default function RevenueFlowPage() {
                 borderColor="border-zinc-600"
                 bgColor="bg-zinc-800/50"
                 isSource
-                wide
+                width={160}
               />
               <VLine h={16} delay={0} />
             </div>
             
-            {/* Three columns with integrated horizontal bar */}
-            <div className="flex justify-center gap-1">
+            {/* Simple horizontal bar */}
+            <div className="flex justify-center">
+              <div className="bg-amber-500/60" style={{ width: 200, height: 2 }} />
+            </div>
+            
+            {/* Three columns */}
+            <div className="flex justify-center" style={{ gap: 4 }}>
               {/* Left - Prize Pool */}
-              <div className="flex flex-col items-center" style={{ width: 95 }}>
-                <div className="flex items-start w-full">
-                  <div className="flex-1 flex items-center justify-end">
-                    <HLine w={48} />
-                  </div>
-                  <VLine h={16} delay={1} />
-                  <div className="flex-1" />
-                </div>
+              <div className="flex flex-col items-center" style={{ width: 100 }}>
+                <VLine h={16} delay={1} />
                 <FlowNode
                   title="Prize Pool"
                   value="1%"
@@ -443,21 +443,13 @@ export default function RevenueFlowPage() {
                   borderColor="border-amber-500/50"
                   bgColor="bg-amber-500/10"
                   percentage="1%"
-                  small
+                  width={100}
                 />
               </div>
               
               {/* Center - Sprinkles App */}
-              <div className="flex flex-col items-center" style={{ width: 95 }}>
-                <div className="flex items-start w-full">
-                  <div className="flex-1 flex items-center justify-end">
-                    <HLine w={48} />
-                  </div>
-                  <VLine h={16} delay={2} />
-                  <div className="flex-1 flex items-center justify-start">
-                    <HLine w={48} />
-                  </div>
-                </div>
+              <div className="flex flex-col items-center" style={{ width: 100 }}>
+                <VLine h={16} delay={2} />
                 <FlowNode
                   title="Sprinkles App"
                   value="0.5%"
@@ -468,20 +460,14 @@ export default function RevenueFlowPage() {
                   borderColor="border-zinc-700"
                   bgColor="bg-zinc-800/50"
                   percentage="0.5%"
-                  small
+                  width={100}
                 />
                 <VLine h={16} grey delay={3} />
               </div>
               
               {/* Right - LP Burn */}
-              <div className="flex flex-col items-center" style={{ width: 95 }}>
-                <div className="flex items-start w-full">
-                  <div className="flex-1" />
-                  <VLine h={16} delay={3} />
-                  <div className="flex-1 flex items-center justify-start">
-                    <HLine w={48} />
-                  </div>
-                </div>
+              <div className="flex flex-col items-center" style={{ width: 100 }}>
+                <VLine h={16} delay={3} />
                 <FlowNode
                   title="LP Burn"
                   value="0.5%"
@@ -492,7 +478,7 @@ export default function RevenueFlowPage() {
                   borderColor="border-green-500/50"
                   bgColor="bg-green-500/10"
                   percentage="0.5%"
-                  small
+                  width={100}
                 />
               </div>
             </div>
@@ -509,7 +495,7 @@ export default function RevenueFlowPage() {
                 borderColor="border-zinc-700"
                 bgColor="bg-zinc-800/50"
                 isComingSoon
-                wide
+                width={160}
               />
             </div>
 
