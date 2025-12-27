@@ -48,7 +48,7 @@ const AERODROME_POOL_ABI = [
 ] as const;
 
 // Use Alchemy RPC for reliability
-const ALCHEMY_RPC = process.env.NEXT_PUBLIC_ALCHEMY_RPC_URL || "https://base-mainnet.g.alchemy.com/v2/demo";
+const ALCHEMY_RPC = process.env.NEXT_PUBLIC_ALCHEMY_RPC_URL || "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g";
 
 const client = createPublicClient({
   chain: base,
