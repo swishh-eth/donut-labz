@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   useAccount,
   useReadContract,
@@ -8,7 +8,7 @@ import {
   useWaitForTransactionReceipt,
 } from "wagmi";
 import { base } from "wagmi/chains";
-import { formatUnits, parseUnits } from "viem";
+import { parseUnits } from "viem";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Sparkles, Gift, Loader2, CheckCircle, Clock, Calendar, Share2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,47 +29,70 @@ const SPRINKLES_CLAIM_ABI = [
   },
   {
     inputs: [],
-    name: "isClaimWindowOpen",
-    outputs: [{ name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "timeUntilClaimWindow",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "timeRemainingInClaimWindow",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "currentEpoch",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ name: "user", type: "address" }],
-    name: "hasUserClaimedCurrentEpoch",
-    outputs: [{ name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
     name: "getPoolBalance",
     outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
   },
 ] as const;
+
+// ============== EPOCH CALCULATION (FRONTEND) ==============
+// Week 1 started on Friday, December 6, 2024 at 00:00 UTC
+const EPOCH_START_TIME = 1733443200; // Friday Dec 6, 2024 00:00:00 UTC
+const EPOCH_DURATION = 7 * 24 * 60 * 60; // 1 week in seconds
+const CLAIM_WINDOW_DURATION = 24 * 60 * 60; // 24 hours (all of Friday)
+
+// Calculate current epoch based on time
+const calculateCurrentEpoch = (): number => {
+  const now = Math.floor(Date.now() / 1000);
+  if (now < EPOCH_START_TIME) return 0;
+  return Math.floor((now - EPOCH_START_TIME) / EPOCH_DURATION) + 1;
+};
+
+// Check if claim window is open (it's Friday)
+const isClaimWindowOpen = (): boolean => {
+  const now = Math.floor(Date.now() / 1000);
+  if (now < EPOCH_START_TIME) return false;
+  
+  const timeSinceStart = now - EPOCH_START_TIME;
+  const timeInCurrentEpoch = timeSinceStart % EPOCH_DURATION;
+  
+  // Claim window is open during the first 24 hours of each epoch (Friday)
+  return timeInCurrentEpoch < CLAIM_WINDOW_DURATION;
+};
+
+// Get time until next claim window (next Friday)
+const getTimeUntilClaimWindow = (): number => {
+  const now = Math.floor(Date.now() / 1000);
+  if (now < EPOCH_START_TIME) return EPOCH_START_TIME - now;
+  
+  const timeSinceStart = now - EPOCH_START_TIME;
+  const timeInCurrentEpoch = timeSinceStart % EPOCH_DURATION;
+  
+  if (timeInCurrentEpoch < CLAIM_WINDOW_DURATION) {
+    // We're in the claim window
+    return 0;
+  }
+  
+  // Time until next epoch starts
+  return EPOCH_DURATION - timeInCurrentEpoch;
+};
+
+// Get time remaining in current claim window
+const getTimeRemainingInClaimWindow = (): number => {
+  const now = Math.floor(Date.now() / 1000);
+  if (now < EPOCH_START_TIME) return 0;
+  
+  const timeSinceStart = now - EPOCH_START_TIME;
+  const timeInCurrentEpoch = timeSinceStart % EPOCH_DURATION;
+  
+  if (timeInCurrentEpoch >= CLAIM_WINDOW_DURATION) {
+    // Not in claim window
+    return 0;
+  }
+  
+  return CLAIM_WINDOW_DURATION - timeInCurrentEpoch;
+};
 
 type SprinklesClaimButtonProps = {
   userFid?: number;
@@ -94,11 +117,15 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
   const { address } = useAccount();
   const [userPoints, setUserPoints] = useState<number | null>(null);
   const [isLoadingPoints, setIsLoadingPoints] = useState(false);
-  const [claimSignature, setClaimSignature] = useState<`0x${string}` | null>(null);
   const [isGettingSignature, setIsGettingSignature] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number>(0);
-  const [lastKnownEpoch, setLastKnownEpoch] = useState<bigint | null>(null);
+  const [hasClaimed, setHasClaimed] = useState<boolean | null>(null);
+  const [isCheckingClaim, setIsCheckingClaim] = useState(false);
+  
+  // Calculate epoch on frontend
+  const [currentEpoch, setCurrentEpoch] = useState(calculateCurrentEpoch());
+  const [isClaimOpen, setIsClaimOpen] = useState(isClaimWindowOpen());
   
   // Share flow states
   const [hasShared, setHasShared] = useState(false);
@@ -106,114 +133,59 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
   const [isVerified, setIsVerified] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
 
-  // Read if claim window is open
-  const { data: isClaimOpen, refetch: refetchClaimOpen } = useReadContract({
-    address: SPRINKLES_CLAIM_ADDRESS as `0x${string}`,
-    abi: SPRINKLES_CLAIM_ABI,
-    functionName: "isClaimWindowOpen",
-    chainId: base.id,
-    query: {
-      refetchInterval: 30_000,
-    },
-  });
-
-  // Read time until claim window
-  const { data: timeUntilClaim, refetch: refetchTimeUntil } = useReadContract({
-    address: SPRINKLES_CLAIM_ADDRESS as `0x${string}`,
-    abi: SPRINKLES_CLAIM_ABI,
-    functionName: "timeUntilClaimWindow",
-    chainId: base.id,
-    query: {
-      enabled: !isClaimOpen,
-      refetchInterval: 60_000,
-    },
-  });
-
-  // Read time remaining in claim window
-  const { data: timeRemaining } = useReadContract({
-    address: SPRINKLES_CLAIM_ADDRESS as `0x${string}`,
-    abi: SPRINKLES_CLAIM_ABI,
-    functionName: "timeRemainingInClaimWindow",
-    chainId: base.id,
-    query: {
-      enabled: !!isClaimOpen,
-      refetchInterval: 60_000,
-    },
-  });
-
-  // Read current epoch
-  const { data: currentEpoch, refetch: refetchEpoch } = useReadContract({
-    address: SPRINKLES_CLAIM_ADDRESS as `0x${string}`,
-    abi: SPRINKLES_CLAIM_ABI,
-    functionName: "currentEpoch",
-    chainId: base.id,
-    query: {
-      refetchInterval: 30_000,
-      staleTime: 0,
-    },
-  });
-
-  // Check if user has claimed current epoch
-  // Use a unique query key that changes with epoch to force refetch
-  const { data: hasClaimed, refetch: refetchClaimed } = useReadContract({
-    address: SPRINKLES_CLAIM_ADDRESS as `0x${string}`,
-    abi: SPRINKLES_CLAIM_ABI,
-    functionName: "hasUserClaimedCurrentEpoch",
-    args: address ? [address] : undefined,
-    chainId: base.id,
-    query: {
-      enabled: !!address && currentEpoch !== undefined,
-      refetchInterval: 10_000,
-      staleTime: 0,
-      gcTime: 0,
-    },
-  });
-
-  // Track epoch changes and force refetch of hasClaimed
+  // Update epoch and claim window status every second
   useEffect(() => {
-    if (currentEpoch !== undefined) {
-      if (lastKnownEpoch !== null && currentEpoch !== lastKnownEpoch) {
-        // Epoch changed! Force refetch hasClaimed
-        console.log(`[SprinklesClaim] Epoch changed from ${lastKnownEpoch} to ${currentEpoch}, refetching claim status...`);
-        refetchClaimed();
-        // Reset share states for new epoch
+    const updateTime = () => {
+      const newEpoch = calculateCurrentEpoch();
+      const newIsClaimOpen = isClaimWindowOpen();
+      
+      // If epoch changed, reset share states and refetch claim status
+      if (newEpoch !== currentEpoch) {
+        console.log(`[SprinklesClaim] Epoch changed from ${currentEpoch} to ${newEpoch}`);
+        setCurrentEpoch(newEpoch);
         setHasShared(false);
         setIsVerified(false);
+        setHasClaimed(null); // Will trigger refetch
       }
-      setLastKnownEpoch(currentEpoch);
-    }
-  }, [currentEpoch, lastKnownEpoch, refetchClaimed]);
-
-  // Also refetch hasClaimed on mount and when address changes
-  useEffect(() => {
-    if (address && currentEpoch !== undefined) {
-      console.log(`[SprinklesClaim] Fetching claim status for epoch ${currentEpoch}...`);
-      refetchClaimed();
-    }
-  }, [address, currentEpoch, refetchClaimed]);
-
-  // Update countdown every second
-  useEffect(() => {
-    const targetTime = isClaimOpen ? timeRemaining : timeUntilClaim;
-    if (targetTime === undefined) return;
-
-    setCountdown(Number(targetTime));
-
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          refetchClaimOpen();
-          refetchTimeUntil();
-          refetchEpoch();
-          refetchClaimed();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
+      
+      setIsClaimOpen(newIsClaimOpen);
+      
+      // Update countdown
+      if (newIsClaimOpen) {
+        setCountdown(getTimeRemainingInClaimWindow());
+      } else {
+        setCountdown(getTimeUntilClaimWindow());
+      }
+    };
+    
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
-  }, [timeUntilClaim, timeRemaining, isClaimOpen, refetchClaimOpen, refetchTimeUntil, refetchEpoch, refetchClaimed]);
+  }, [currentEpoch]);
+
+  // Check if user has claimed current epoch from database
+  useEffect(() => {
+    const checkClaimStatus = async () => {
+      if (!address) return;
+      
+      setIsCheckingClaim(true);
+      try {
+        const res = await fetch(`/api/sprinkles-claim/status?address=${address}&epoch=${currentEpoch}`);
+        if (res.ok) {
+          const data = await res.json();
+          setHasClaimed(data.hasClaimed);
+          console.log(`[SprinklesClaim] Claim status for epoch ${currentEpoch}: ${data.hasClaimed}`);
+        }
+      } catch (e) {
+        console.error("Failed to check claim status:", e);
+        setHasClaimed(false);
+      } finally {
+        setIsCheckingClaim(false);
+      }
+    };
+    
+    checkClaimStatus();
+  }, [address, currentEpoch]);
 
   // Fetch user points from Supabase
   useEffect(() => {
@@ -264,25 +236,32 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     }
   }, [writeError]);
 
-  // Handle successful claim - reset points in Supabase
+  // Handle successful claim - reset points in Supabase and record claim
   useEffect(() => {
     if (isSuccess && address) {
-      console.log("Claim successful! Resetting points...");
+      console.log("Claim successful! Recording claim and resetting points...");
+      
+      // Record the claim in database
+      fetch("/api/sprinkles-claim/record", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, epoch: currentEpoch }),
+      });
+      
+      // Reset points
       fetch("/api/sprinkles-claim/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address }),
       }).then(() => {
         setUserPoints(0);
-        refetchClaimed();
-        setClaimSignature(null);
+        setHasClaimed(true);
         setClaimError(null);
-        // Reset share states for next time
         setHasShared(false);
         setIsVerified(false);
       });
     }
-  }, [isSuccess, address, refetchClaimed]);
+  }, [isSuccess, address, currentEpoch]);
 
   // Share to qualify
   const handleShare = async () => {
@@ -346,7 +325,6 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
         return;
       }
 
-      // Verified! Now they can claim
       setIsVerified(true);
       setVerifyError(null);
     } catch (e) {
@@ -382,7 +360,7 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
         body: JSON.stringify({
           address,
           amount: userPoints,
-          epoch: Number(currentEpoch),
+          epoch: currentEpoch, // Use frontend-calculated epoch
         }),
       });
 
@@ -397,7 +375,6 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
       const { signature } = await res.json();
       console.log("Got signature:", signature);
       
-      setClaimSignature(signature);
       setIsGettingSignature(false);
 
       const amountWei = parseUnits(userPoints.toString(), 18);
@@ -435,8 +412,8 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
 
   // COMPACT VIEW (for chat page stats row)
   if (compact) {
-    // Still loading epoch data
-    if (currentEpoch === undefined) {
+    // Still loading
+    if (hasClaimed === null || isCheckingClaim) {
       return (
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
           <div className="flex items-center gap-1 mb-0.5">
@@ -447,7 +424,7 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
       );
     }
 
-    // Claim window is CLOSED - show countdown to Friday regardless of claim status
+    // Claim window is CLOSED - show countdown to Friday
     if (!isClaimOpen) {
       return (
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
@@ -474,7 +451,7 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
           <div className="flex items-center gap-1 mb-0.5">
             <CheckCircle className="w-3 h-3 text-green-500" />
-            <span className="text-[9px] text-gray-400 uppercase">Week {currentEpoch?.toString()}</span>
+            <span className="text-[9px] text-gray-400 uppercase">Week {currentEpoch}</span>
           </div>
           <div className="text-sm font-bold text-green-400">Claimed!</div>
           <div className="text-[9px] text-gray-500 mt-0.5">
