@@ -86,9 +86,10 @@ export default function LeaderboardPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [timeUntilDistribution, setTimeUntilDistribution] = useState("");
-  const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
+  const [ethUsdPrice, setEthUsdPrice] = useState<number>(0);
   const [donutPrice, setDonutPrice] = useState<number>(0);
   const [sprinklesPrice, setSprinklesPrice] = useState<number>(0);
+  const [pricesLoaded, setPricesLoaded] = useState(false);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showPastWinnersDialog, setShowPastWinnersDialog] = useState(false);
   const [showUsdPrize, setShowUsdPrize] = useState(true);
@@ -133,20 +134,35 @@ export default function LeaderboardPage() {
         const res = await fetch('/api/prices');
         if (res.ok) {
           const data = await res.json();
-          if (data.ethPrice) setEthUsdPrice(data.ethPrice);
-          if (data.donutPrice) setDonutPrice(data.donutPrice);
-          if (data.sprinklesPrice) setSprinklesPrice(data.sprinklesPrice);
+          // Set all prices atomically to avoid partial updates
+          if (data.ethPrice && data.donutPrice && data.sprinklesPrice) {
+            setEthUsdPrice(data.ethPrice);
+            setDonutPrice(data.donutPrice);
+            setSprinklesPrice(data.sprinklesPrice);
+            setPricesLoaded(true);
+          } else {
+            // Partial data - set what we have
+            if (data.ethPrice) setEthUsdPrice(data.ethPrice);
+            if (data.donutPrice) setDonutPrice(data.donutPrice);
+            if (data.sprinklesPrice) setSprinklesPrice(data.sprinklesPrice);
+            // Only mark loaded if we have all three
+            if (data.ethPrice && data.donutPrice && data.sprinklesPrice) {
+              setPricesLoaded(true);
+            }
+          }
         }
       } catch {
         console.error('Failed to fetch prices from API');
       }
 
       // Fallback: fetch ETH price from CoinGecko if API fails
-      if (ethUsdPrice === 3500) {
+      if (ethUsdPrice === 0) {
         try {
           const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
           const data = await res.json();
-          setEthUsdPrice(data.ethereum.usd);
+          if (data.ethereum?.usd) {
+            setEthUsdPrice(data.ethereum.usd);
+          }
         } catch {
           console.error('Failed to fetch ETH price');
         }
@@ -410,6 +426,20 @@ export default function LeaderboardPage() {
           }
         }
         
+        @keyframes fadeOut {
+          from {
+            opacity: 1;
+          }
+          to {
+            opacity: 0;
+          }
+        }
+        
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        
         @keyframes pulseGlow {
           0%, 100% {
             text-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
@@ -421,6 +451,20 @@ export default function LeaderboardPage() {
         
         .fade-in-up {
           animation: fadeInUp 0.5s ease-out forwards;
+        }
+        
+        .fade-out {
+          animation: fadeOut 0.3s ease-out forwards;
+        }
+        
+        .price-spinner {
+          animation: spin 1s linear infinite, fadeInUp 0.5s ease-out forwards;
+          animation-delay: 0.3s, 0.3s;
+          opacity: 0;
+        }
+        
+        .price-value-enter {
+          animation: fadeInUp 0.4s ease-out forwards;
         }
         
         .prize-pulse {
@@ -496,9 +540,13 @@ export default function LeaderboardPage() {
                       <Coins className="w-3.5 h-3.5 text-amber-400" />
                       <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
                     </div>
-                    <div className="text-2xl font-bold text-amber-400 prize-pulse">
-                      ${Math.floor(totalPrizeUsd).toLocaleString()}
-                    </div>
+                    {!pricesLoaded ? (
+                      <div className="w-5 h-5 border-2 border-amber-400/30 border-t-amber-400 rounded-full price-spinner" />
+                    ) : (
+                      <div className="text-2xl font-bold text-amber-400 prize-pulse price-value-enter">
+                        ${Math.floor(totalPrizeUsd).toLocaleString()}
+                      </div>
+                    )}
                     <span className="absolute bottom-1 text-[7px] text-gray-600 animate-pulse">tap for tokens</span>
                   </>
                 ) : (
@@ -905,7 +953,7 @@ export default function LeaderboardPage() {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
                               <span className="font-semibold text-white truncate text-sm">No one yet</span>
-                              {isWinner && prizeUsd > 0 && (
+                              {isWinner && pricesLoaded && prizeUsd > 0 && (
                                 <span className="text-amber-400 text-xs font-bold">+${prizeUsd}</span>
                               )}
                             </div>
@@ -981,7 +1029,7 @@ export default function LeaderboardPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
                             <span className="font-semibold text-white truncate text-sm">{displayName}</span>
-                            {isWinner && prizeUsd > 0 && (
+                            {isWinner && pricesLoaded && prizeUsd > 0 && (
                               <span className="text-amber-400 text-xs font-bold">+${prizeUsd}</span>
                             )}
                           </div>
