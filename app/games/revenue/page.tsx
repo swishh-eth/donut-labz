@@ -213,6 +213,15 @@ export default function RevenueFlowPage() {
         .falling-donut {
           animation: donut-fall linear infinite;
         }
+        
+        @keyframes burn-glow {
+          0%, 100% { box-shadow: 0 0 8px rgba(255, 255, 255, 0.3); }
+          50% { box-shadow: 0 0 16px rgba(255, 255, 255, 0.6); }
+        }
+        
+        .burn-glow > div {
+          animation: burn-glow 2s ease-in-out infinite;
+        }
       `}</style>
 
       <div 
@@ -294,7 +303,7 @@ export default function RevenueFlowPage() {
                   value="ETH"
                   subtitle="Payments"
                   valueColor="text-amber-400"
-                  icon={() => <span className="text-sm">🍩</span>}
+                  icon={() => <span className="text-xs">🍩</span>}
                   borderColor="border-white/30"
                   bgColor="bg-white/5"
                   isSource
@@ -354,7 +363,7 @@ export default function RevenueFlowPage() {
                   percentage="2.5%"
                   width={COL_W}
                 />
-                <VLine h={95} grey delay={5} />
+                <VLine h={190} grey delay={5} />
               </div>
 
               {/* ===== RIGHT COLUMN: SPRINKLES Miner (DONUT) ===== */}
@@ -387,18 +396,20 @@ export default function RevenueFlowPage() {
                 <VLine h={16} delay={2} />
                 <div className="text-[8px] text-amber-400 font-bold py-1 bg-black px-2">🍩 DONUT FEES (20%)</div>
                 <VLine h={8} delay={3} />
-                <FlowNode
-                  title="Buy & Burn"
-                  value="10%"
-                  subtitle="SPRINKLES burned"
-                  valueColor="text-red-400"
-                  icon={Flame}
-                  iconColor="text-red-400"
-                  borderColor="border-red-500/50"
-                  bgColor="bg-red-500/10"
-                  percentage="10%"
-                  width={COL_W}
-                />
+                <div className="burn-glow">
+                  <FlowNode
+                    title="Buy & Burn"
+                    value="10%"
+                    subtitle="SPRINKLES burned"
+                    valueColor="text-white"
+                    icon={Flame}
+                    iconColor="text-white"
+                    borderColor="border-white/30"
+                    bgColor="bg-zinc-800/50"
+                    percentage="10%"
+                    width={COL_W}
+                  />
+                </div>
                 <VLine h={16} delay={4} />
                 <FlowNode
                   title="LP Burn Pool"
@@ -438,7 +449,7 @@ export default function RevenueFlowPage() {
                   percentage="5%"
                   width={COL_W}
                 />
-                <VLine h={95} grey delay={7} />
+                <VLine h={24} grey delay={7} />
               </div>
             </div>
 
