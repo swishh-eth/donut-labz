@@ -46,6 +46,7 @@ function FlowNode({
   isSource = false,
   percentage,
   wide = false,
+  small = false,
 }: { 
   title: string;
   subtitle?: string;
@@ -59,11 +60,13 @@ function FlowNode({
   isSource?: boolean;
   percentage?: string;
   wide?: boolean;
+  small?: boolean;
 }) {
+  const width = small ? 95 : wide ? 160 : 130;
   return (
     <div 
-      className={`flow-node relative rounded-xl border-2 ${borderColor} ${bgColor} p-2.5 ${isComingSoon ? 'opacity-50' : ''}`}
-      style={{ width: wide ? 160 : 130, minHeight: wide ? 'auto' : 70 }}
+      className={`flow-node relative rounded-xl border-2 ${borderColor} ${bgColor} p-2 ${isComingSoon ? 'opacity-50' : ''} flex flex-col items-center text-center`}
+      style={{ width }}
     >
       {isSource && (
         <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
@@ -73,11 +76,11 @@ function FlowNode({
           {percentage}
         </div>
       )}
-      <div className="text-[7px] text-gray-500 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+      <div className="text-[7px] text-gray-500 uppercase tracking-wider mb-0.5 flex items-center justify-center gap-1">
         {title}
         {isComingSoon && <Lock className="w-2 h-2" />}
       </div>
-      <div className={`text-xs font-bold ${valueColor} flex items-center gap-1`}>
+      <div className={`text-xs font-bold ${valueColor} flex items-center justify-center gap-1`}>
         <Icon className={`w-3 h-3 ${iconColor}`} />
         {value || subtitle}
       </div>
@@ -293,7 +296,7 @@ export default function RevenueFlowPage() {
                   percentage="2.5%"
                 />
                 {/* Long grey line to reach stakers level */}
-                <VLine h={160} grey delay={4} />
+                <VLine h={200} grey delay={4} />
               </div>
 
               {/* ===== RIGHT COLUMN: SPRINKLES Miner (DONUT) ===== */}
@@ -419,11 +422,11 @@ export default function RevenueFlowPage() {
             
             {/* Horizontal bar for 3-way split */}
             <div className="flex justify-center">
-              <HLine w={280} />
+              <HLine w={220} />
             </div>
             
             {/* Three columns */}
-            <div className="flex justify-center gap-2">
+            <div className="flex justify-center gap-1">
               {/* Left - Prize Pool */}
               <div className="flex flex-col items-center">
                 <VLine h={16} delay={1} />
@@ -437,7 +440,7 @@ export default function RevenueFlowPage() {
                   borderColor="border-amber-500/50"
                   bgColor="bg-amber-500/10"
                   percentage="1%"
-                  wide
+                  small
                 />
               </div>
               
@@ -454,7 +457,7 @@ export default function RevenueFlowPage() {
                   borderColor="border-zinc-700"
                   bgColor="bg-zinc-800/50"
                   percentage="0.5%"
-                  wide
+                  small
                 />
                 <VLine h={16} grey delay={3} />
               </div>
@@ -472,7 +475,7 @@ export default function RevenueFlowPage() {
                   borderColor="border-green-500/50"
                   bgColor="bg-green-500/10"
                   percentage="0.5%"
-                  wide
+                  small
                 />
               </div>
             </div>
