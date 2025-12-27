@@ -126,79 +126,30 @@ export default function LeaderboardPage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Fetch prices from our API (includes SPRINKLES price based on DONUT)
+  // Fetch prices from our API (cached server-side, refreshes every 10 min)
   useEffect(() => {
-    let retryCount = 0;
-    const maxRetries = 3;
-    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
-    
     const fetchPrices = async () => {
       try {
-        // Fetch from our prices API which calculates SPRINKLES price
         const res = await fetch('/api/prices');
         if (res.ok) {
           const data = await res.json();
-          
-          // Set prices as they come in
           if (data.ethPrice) setEthUsdPrice(data.ethPrice);
           if (data.donutPrice) setDonutPrice(data.donutPrice);
           if (data.sprinklesPrice) setSprinklesPrice(data.sprinklesPrice);
-          
-          // Check if we have all three prices
-          if (data.ethPrice && data.donutPrice && data.sprinklesPrice) {
-            setPricesLoaded(true);
-          } else if (retryCount < maxRetries) {
-            // Missing some prices, retry
-            retryCount++;
-            console.log(`[leaderboard] Missing prices, retrying (${retryCount}/${maxRetries})...`);
-            retryTimeout = setTimeout(fetchPrices, 2000);
-          } else {
-            // After max retries, mark as loaded anyway with what we have
-            // This prevents infinite spinner
-            console.log('[leaderboard] Max retries reached, showing available prices');
-            setPricesLoaded(true);
-          }
-        } else if (retryCount < maxRetries) {
-          retryCount++;
-          retryTimeout = setTimeout(fetchPrices, 2000);
-        } else {
-          setPricesLoaded(true); // Prevent infinite spinner
+          setPricesLoaded(true);
         }
       } catch {
         console.error('Failed to fetch prices from API');
-        if (retryCount < maxRetries) {
-          retryCount++;
-          retryTimeout = setTimeout(fetchPrices, 2000);
-        } else {
-          setPricesLoaded(true); // Prevent infinite spinner
-        }
-      }
-
-      // Fallback: fetch ETH price from CoinGecko if still 0
-      if (ethUsdPrice === 0) {
-        try {
-          const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-          const data = await res.json();
-          if (data.ethereum?.usd) {
-            setEthUsdPrice(data.ethereum.usd);
-          }
-        } catch {
-          console.error('Failed to fetch ETH price');
-        }
+        // Still mark as loaded - we have defaults
+        setPricesLoaded(true);
       }
     };
 
     fetchPrices();
-    const interval = setInterval(() => {
-      retryCount = 0; // Reset retry count for periodic fetches
-      fetchPrices();
-    }, 60_000);
-    
-    return () => {
-      clearInterval(interval);
-      if (retryTimeout) clearTimeout(retryTimeout);
-    };
-  }, [ethUsdPrice]);
+    // Refresh client-side every 5 min to pick up server cache updates
+    const interval = setInterval(fetchPrices, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const { data: leaderboardData, isLoading } = useQuery<LeaderboardResponse>({
     queryKey: ["leaderboard"],
@@ -452,20 +403,6 @@ export default function LeaderboardPage() {
           }
         }
         
-        @keyframes fadeOut {
-          from {
-            opacity: 1;
-          }
-          to {
-            opacity: 0;
-          }
-        }
-        
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        
         @keyframes pulseGlow {
           0%, 100% {
             text-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
@@ -477,20 +414,6 @@ export default function LeaderboardPage() {
         
         .fade-in-up {
           animation: fadeInUp 0.5s ease-out forwards;
-        }
-        
-        .fade-out {
-          animation: fadeOut 0.3s ease-out forwards;
-        }
-        
-        .price-spinner {
-          animation: spin 1s linear infinite, fadeInUp 0.5s ease-out forwards;
-          animation-delay: 0.3s, 0.3s;
-          opacity: 0;
-        }
-        
-        .price-value-enter {
-          animation: fadeInUp 0.4s ease-out forwards;
         }
         
         .prize-pulse {
@@ -566,14 +489,8 @@ export default function LeaderboardPage() {
                       <Coins className="w-3.5 h-3.5 text-amber-400" />
                       <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
                     </div>
-                    <div className="h-8 flex items-center justify-center">
-                      {!pricesLoaded ? (
-                        <div className="w-5 h-5 border-2 border-amber-400/30 border-t-amber-400 rounded-full price-spinner" />
-                      ) : (
-                        <div className="text-2xl font-bold text-amber-400 prize-pulse price-value-enter">
-                          ${Math.floor(totalPrizeUsd).toLocaleString()}
-                        </div>
-                      )}
+                    <div className="text-2xl font-bold text-amber-400 prize-pulse fade-in-up stagger-3 opacity-0">
+                      ${Math.floor(totalPrizeUsd).toLocaleString()}
                     </div>
                     <span className="absolute bottom-1 text-[7px] text-gray-600 animate-pulse">tap for tokens</span>
                   </>
@@ -979,16 +896,10 @@ export default function LeaderboardPage() {
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 h-5">
+                            <div className="flex items-center gap-1.5">
                               <span className="font-semibold text-white truncate text-sm">No one yet</span>
-                              {isWinner && (
-                                pricesLoaded ? (
-                                  <span className="text-amber-400 text-xs font-bold min-w-[45px]">
-                                    +${prizeUsd || 0}
-                                  </span>
-                                ) : (
-                                  <div className="w-3 h-3 border border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
-                                )
+                              {isWinner && prizeUsd > 0 && (
+                                <span className="text-amber-400 text-xs font-bold">+${prizeUsd}</span>
                               )}
                             </div>
                             <div className="text-[10px] text-gray-400 truncate">
@@ -1061,16 +972,10 @@ export default function LeaderboardPage() {
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 h-5">
+                          <div className="flex items-center gap-1.5">
                             <span className="font-semibold text-white truncate text-sm">{displayName}</span>
-                            {isWinner && (
-                              pricesLoaded ? (
-                                <span className="text-amber-400 text-xs font-bold min-w-[45px]">
-                                  +${prizeUsd || 0}
-                                </span>
-                              ) : (
-                                <div className="w-3 h-3 border border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
-                              )
+                            {isWinner && prizeUsd > 0 && (
+                              <span className="text-amber-400 text-xs font-bold">+${prizeUsd}</span>
                             )}
                           </div>
                           {username && (
