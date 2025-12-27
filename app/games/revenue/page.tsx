@@ -77,9 +77,9 @@ function FlowNode({
         {title}
         {isComingSoon && <Lock className="w-2 h-2" />}
       </div>
-      <div className={`text-xs font-bold ${valueColor} flex items-center justify-center gap-1`}>
-        <Icon className={`w-3 h-3 ${iconColor}`} />
-        {value || subtitle}
+      <div className={`text-xs font-bold ${valueColor} flex items-center justify-center gap-1 w-full`}>
+        <Icon className={`w-3 h-3 flex-shrink-0 ${iconColor}`} />
+        <span>{value || subtitle}</span>
       </div>
       {value && subtitle && (
         <div className="text-[8px] text-gray-500 mt-0.5">{subtitle}</div>
@@ -550,19 +550,106 @@ export default function RevenueFlowPage() {
               </div>
             </div>
             
-            {/* Stakers node for games - wide to catch the line */}
+            {/* Stakers node for DONUT games */}
             <div className="flex justify-center">
               <FlowNode
-                title="SPRINKLES Stakers"
+                title="Stakers"
                 value="Revenue Share"
-                subtitle="From provider fees"
+                subtitle="Coming Soon"
                 valueColor="text-gray-500"
                 icon={Sparkles}
                 iconColor="text-gray-500"
                 borderColor="border-zinc-700"
                 bgColor="bg-zinc-800/50"
                 isComingSoon
+                width={90}
+              />
+            </div>
+
+            {/* ========== SPRINKLES GAMES REVENUE ========== */}
+            <div className="flex flex-col items-center mt-6">
+              <FlowNode
+                title="On Player Loss"
+                value="SPRINKLES"
+                subtitle="House edge distributed"
+                valueColor="text-white"
+                icon={Dices}
+                iconColor="text-white"
+                borderColor="border-zinc-600"
+                bgColor="bg-zinc-800/50"
+                isSource
                 width={COL_W * 2 + GAP}
+              />
+            </div>
+            
+            {/* Three columns with direct vertical drops from Games tile */}
+            <div className="flex justify-center" style={{ gap: 4 }}>
+              {/* Left - Prize Pool */}
+              <div className="flex flex-col items-center" style={{ width: 90 }}>
+                <VLine h={16} delay={1} />
+                <FlowNode
+                  title="Prize Pool"
+                  value="50%"
+                  subtitle="Next winner"
+                  valueColor="text-amber-400"
+                  icon={Trophy}
+                  iconColor="text-amber-400"
+                  borderColor="border-amber-500/50"
+                  bgColor="bg-amber-500/10"
+                  percentage="50%"
+                  width={90}
+                />
+              </div>
+              
+              {/* Center - Sprinkles App */}
+              <div className="flex flex-col items-center" style={{ width: 90 }}>
+                <VLine h={16} delay={2} />
+                <FlowNode
+                  title="Sprinkles App"
+                  value="25%"
+                  subtitle="Provider"
+                  valueColor="text-gray-400"
+                  icon={Coins}
+                  iconColor="text-gray-400"
+                  borderColor="border-zinc-700"
+                  bgColor="bg-zinc-800/50"
+                  percentage="25%"
+                  width={90}
+                />
+                <VLine h={16} grey delay={3} />
+              </div>
+              
+              {/* Right - LP Burn */}
+              <div className="flex flex-col items-center" style={{ width: 90 }}>
+                <VLine h={16} delay={3} />
+                <FlowNode
+                  title="LP Burn"
+                  value="25%"
+                  subtitle="Rewards"
+                  valueColor="text-green-400"
+                  icon={Flame}
+                  iconColor="text-green-400"
+                  borderColor="border-green-500/50"
+                  bgColor="bg-green-500/10"
+                  percentage="25%"
+                  width={90}
+                />
+              </div>
+            </div>
+            
+            {/* Stakers node for SPRINKLES games */}
+            <div className="flex justify-center">
+              <FlowNode
+                title="Stakers"
+                value="Revenue Share"
+                subtitle="Coming Soon"
+                valueColor="text-gray-500"
+                icon={Sparkles}
+                iconColor="text-gray-500"
+                borderColor="border-zinc-700"
+                bgColor="bg-zinc-800/50"
+                isComingSoon
+                width={90}
               />
             </div>
 
