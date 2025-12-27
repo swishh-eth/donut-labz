@@ -185,13 +185,13 @@ export default function GamesLeaderboardPage() {
             <div className="grid grid-cols-2 gap-2">
               <button 
                 onClick={() => setShowHowToWin(true)}
-                className="flex items-center justify-center gap-2 p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-white font-semibold text-sm hover:bg-zinc-800 transition-colors"
+                className="flex items-center justify-center gap-2 p-4 rounded-xl bg-zinc-900 border border-zinc-800 text-white font-semibold text-sm hover:bg-zinc-800 transition-colors"
               >
                 <Trophy className="w-4 h-4" />
                 <span>How to Win</span>
                 <HelpCircle className="w-3.5 h-3.5 text-gray-500" />
               </button>
-              <button className="flex items-center justify-center gap-2 p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-white font-semibold text-sm hover:bg-zinc-800 transition-colors">
+              <button className="flex items-center justify-center gap-2 p-4 rounded-xl bg-zinc-900 border border-zinc-800 text-white font-semibold text-sm hover:bg-zinc-800 transition-colors">
                 <History className="w-4 h-4" />
                 <span>Past Winners</span>
               </button>
@@ -236,46 +236,99 @@ export default function GamesLeaderboardPage() {
         {/* How to Win Popup */}
         {showHowToWin && (
           <div 
-            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/80 flex items-end justify-center z-50"
             onClick={() => setShowHowToWin(false)}
           >
             <div 
-              className="bg-zinc-900 border border-zinc-700 rounded-2xl p-5 max-w-sm w-full"
+              className="bg-zinc-900 border border-zinc-700 rounded-t-2xl p-5 w-full max-w-[520px]"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-amber-400" />
-                  <span className="text-lg font-bold text-white">How to Win</span>
+                  <span className="text-lg font-bold text-white">How to Win Prizes</span>
                 </div>
                 <button 
                   onClick={() => setShowHowToWin(false)}
-                  className="text-gray-500 hover:text-white transition-colors"
+                  className="text-gray-500 hover:text-white transition-colors text-xl"
                 >
-                  ✕
+                  ×
                 </button>
               </div>
               
-              <div className="space-y-3 text-sm text-gray-400">
-                <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50">
-                  <span>Play any game</span>
-                  <span className="text-amber-400 font-bold">+1 point</span>
+              <div className="space-y-4">
+                {/* Step 1 */}
+                <div className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-black text-xs font-bold flex-shrink-0">1</div>
+                  <div>
+                    <p className="text-amber-400 font-bold text-sm">Play Games = 1 Point</p>
+                    <p className="text-gray-500 text-xs">Play any house game and earn 1 leaderboard point per game.</p>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50">
-                  <span>Win a game</span>
-                  <span className="text-green-400 font-bold">+2 bonus</span>
+                
+                {/* Step 2 */}
+                <div className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">2</div>
+                  <div>
+                    <p className="text-white font-bold text-sm">Win Games = +2 Bonus</p>
+                    <p className="text-gray-500 text-xs">Win a game and earn 2 bonus leaderboard points.</p>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50">
-                  <span>Win streak (3+)</span>
-                  <span className="text-purple-400 font-bold">+5 bonus</span>
+                
+                {/* Step 3 */}
+                <div className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">3</div>
+                  <div>
+                    <p className="text-white font-bold text-sm">Climb the Ranks</p>
+                    <p className="text-gray-500 text-xs">Compete weekly. Leaderboard resets every Friday at 12pm UTC.</p>
+                  </div>
+                </div>
+                
+                {/* Step 4 */}
+                <div className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-black text-xs font-bold flex-shrink-0">4</div>
+                  <div>
+                    <p className="text-amber-400 font-bold text-sm">Win Prizes</p>
+                    <p className="text-gray-500 text-xs">Top 3 players split the prize pool: ETH, DONUT, and SPRINKLES!</p>
+                  </div>
+                </div>
+                
+                {/* Step 5 */}
+                <div className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">5</div>
+                  <div>
+                    <p className="text-white font-bold text-sm">Where Rewards Come From</p>
+                    <p className="text-gray-500 text-xs">Rewards funded from house game fees.</p>
+                  </div>
                 </div>
               </div>
               
-              <div className="mt-4 pt-4 border-t border-zinc-800">
-                <p className="text-[11px] text-gray-500 text-center">
-                  Top 3 players each week win prizes! 🥇 50% • 🥈 30% • 🥉 20%
-                </p>
+              {/* Prize Distribution */}
+              <div className="mt-5 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
+                <p className="text-[10px] text-gray-500 text-center mb-2">PRIZE DISTRIBUTION</p>
+                <div className="grid grid-cols-3 text-center">
+                  <div>
+                    <p className="text-lg font-bold text-white">1st</p>
+                    <p className="text-amber-400 font-bold">50%</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-white">2nd</p>
+                    <p className="text-gray-400 font-bold">30%</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-white">3rd</p>
+                    <p className="text-amber-600 font-bold">20%</p>
+                  </div>
+                </div>
               </div>
+              
+              {/* Got it button */}
+              <button
+                onClick={() => setShowHowToWin(false)}
+                className="w-full mt-4 p-3 rounded-xl bg-white text-black font-bold text-sm hover:bg-gray-200 transition-colors"
+              >
+                Got it
+              </button>
             </div>
           </div>
         )}
