@@ -25,6 +25,14 @@ type MiniAppContext = {
   };
 };
 
+// Dutch auction constants for DONUT miner
+const DONUT_AUCTION_DURATION = 3600; // 1 hour
+const DONUT_MIN_PRICE = 100000000000000n; // 0.0001 ETH
+
+// Dutch auction constants for SPRINKLES miner
+const SPRINKLES_AUCTION_DURATION = 3600; // 1 hour
+const SPRINKLES_MIN_PRICE = 1000000000000000000n; // 1 DONUT
+
 const initialsFrom = (label?: string) => {
   if (!label) return "";
   const stripped = label.replace(/[^a-zA-Z0-9]/g, "");
@@ -58,6 +66,37 @@ const formatTokenAmount = (
   });
 };
 
+// Client-side price calculation for Dutch auction
+const calculateDonutPrice = (initPrice: bigint, startTime: number | bigint): bigint => {
+  const now = Math.floor(Date.now() / 1000);
+  const start = typeof startTime === 'bigint' ? Number(startTime) : startTime;
+  const elapsed = now - start;
+  
+  if (elapsed >= DONUT_AUCTION_DURATION) return DONUT_MIN_PRICE;
+  if (elapsed <= 0) return initPrice;
+  
+  const priceRange = initPrice - DONUT_MIN_PRICE;
+  const decay = (priceRange * BigInt(elapsed)) / BigInt(DONUT_AUCTION_DURATION);
+  const currentPrice = initPrice - decay;
+  
+  return currentPrice > DONUT_MIN_PRICE ? currentPrice : DONUT_MIN_PRICE;
+};
+
+const calculateSprinklesPrice = (initPrice: bigint, startTime: number | bigint): bigint => {
+  const now = Math.floor(Date.now() / 1000);
+  const start = typeof startTime === 'bigint' ? Number(startTime) : startTime;
+  const elapsed = now - start;
+  
+  if (elapsed >= SPRINKLES_AUCTION_DURATION) return SPRINKLES_MIN_PRICE;
+  if (elapsed <= 0) return initPrice;
+  
+  const priceRange = initPrice - SPRINKLES_MIN_PRICE;
+  const decay = (priceRange * BigInt(elapsed)) / BigInt(SPRINKLES_AUCTION_DURATION);
+  const currentPrice = initPrice - decay;
+  
+  return currentPrice > SPRINKLES_MIN_PRICE ? currentPrice : SPRINKLES_MIN_PRICE;
+};
+
 // Video tile component with lazy loading
 function VideoTile({ 
   videoSrc, 
@@ -78,7 +117,6 @@ function VideoTile({
     const handleCanPlay = () => setIsLoaded(true);
     video.addEventListener('canplay', handleCanPlay);
     
-    // Start loading after a short delay to prioritize other content
     const timeout = setTimeout(() => {
       video.load();
     }, 100);
@@ -94,7 +132,6 @@ function VideoTile({
       onClick={onClick}
       className="relative flex-1 rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
     >
-      {/* Black background fallback */}
       <div className="absolute inset-0 bg-black" />
       
       <video
@@ -120,11 +157,14 @@ export default function HomePage() {
   const readyRef = useRef(false);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [selectedMiner, setSelectedMiner] = useState<"donut" | "sprinkles" | null>(null);
+  
+  // Client-side interpolated prices
+  const [interpolatedDonutPrice, setInterpolatedDonutPrice] = useState<bigint | null>(null);
+  const [interpolatedSprinklesPrice, setInterpolatedSprinklesPrice] = useState<bigint | null>(null);
 
   const { address, isConnected } = useAccount();
   const { connectors, connectAsync, isPending: isConnecting } = useConnect();
 
-  // Find the best connector for desktop
   const getConnector = useCallback(() => {
     const injected = connectors.find(c => c.id === 'injected' || c.name === 'MetaMask');
     if (injected) return injected;
@@ -147,6 +187,7 @@ export default function HomePage() {
     }
   }, [connectAsync, primaryConnector]);
 
+  // OPTIMIZED: Reduced from 3s to 15s - we interpolate price client-side
   const { data: rawMinerState } = useReadContract({
     address: CONTRACT_ADDRESSES.multicall,
     abi: MULTICALL_ABI,
@@ -154,24 +195,65 @@ export default function HomePage() {
     args: [address ?? zeroAddress],
     chainId: base.id,
     query: {
-      refetchInterval: 3_000,
+      refetchInterval: 15_000, // Was 3_000
     },
   });
 
-  const { data: sprinklesPrice } = useReadContract({
+  // OPTIMIZED: Reduced from 3s to 15s - we interpolate price client-side
+  const { data: sprinklesSlot0 } = useReadContract({
     address: SPRINKLES_MINER_ADDRESS,
     abi: SPRINKLES_MINER_ABI,
-    functionName: "getPrice",
+    functionName: "getSlot0",
     chainId: base.id,
     query: {
-      refetchInterval: 3_000,
+      refetchInterval: 15_000, // Was 3_000
     },
   });
 
-  const donutPrice = rawMinerState ? (rawMinerState as any).price as bigint : undefined;
-  const sprinklesPriceValue = sprinklesPrice as bigint | undefined;
+  // Extract initPrice and startTime for client-side interpolation
+  const donutInitPrice = rawMinerState ? (rawMinerState as any).initPrice as bigint : undefined;
+  const donutStartTime = rawMinerState ? (rawMinerState as any).startTime as bigint : undefined;
+  
+  const sprinklesInitPrice = sprinklesSlot0 ? (sprinklesSlot0 as any)[1] as bigint : undefined;
+  const sprinklesStartTime = sprinklesSlot0 ? (sprinklesSlot0 as any)[2] as bigint : undefined;
 
-  // SPRINKLES auction rewards for burn tile
+  // Client-side price interpolation for DONUT - updates every second
+  useEffect(() => {
+    if (!donutInitPrice || !donutStartTime) {
+      setInterpolatedDonutPrice(null);
+      return;
+    }
+    
+    setInterpolatedDonutPrice(calculateDonutPrice(donutInitPrice, donutStartTime));
+    
+    const interval = setInterval(() => {
+      setInterpolatedDonutPrice(calculateDonutPrice(donutInitPrice, donutStartTime));
+    }, 1_000);
+    
+    return () => clearInterval(interval);
+  }, [donutInitPrice, donutStartTime]);
+
+  // Client-side price interpolation for SPRINKLES - updates every second
+  useEffect(() => {
+    if (!sprinklesInitPrice || !sprinklesStartTime) {
+      setInterpolatedSprinklesPrice(null);
+      return;
+    }
+    
+    setInterpolatedSprinklesPrice(calculateSprinklesPrice(sprinklesInitPrice, sprinklesStartTime));
+    
+    const interval = setInterval(() => {
+      setInterpolatedSprinklesPrice(calculateSprinklesPrice(sprinklesInitPrice, sprinklesStartTime));
+    }, 1_000);
+    
+    return () => clearInterval(interval);
+  }, [sprinklesInitPrice, sprinklesStartTime]);
+
+  // Use interpolated prices for display, fallback to on-chain if not available
+  const donutPrice = interpolatedDonutPrice ?? (rawMinerState ? (rawMinerState as any).price as bigint : undefined);
+  const sprinklesPriceValue = interpolatedSprinklesPrice;
+
+  // OPTIMIZED: Reduced from 10s to 30s for burn tile data
   const { data: sprinklesAuctionRewards } = useReadContract({
     address: "0xaCCeeB232556f20Ec6c0690938DBda936D153630" as `0x${string}`,
     abi: [
@@ -186,11 +268,11 @@ export default function HomePage() {
     functionName: "getRewardsAvailable",
     chainId: base.id,
     query: {
-      refetchInterval: 10_000,
+      refetchInterval: 30_000, // Was 10_000
     },
   });
 
-  // SPRINKLES auction current price (LP tokens required)
+  // OPTIMIZED: Reduced from 10s to 30s
   const { data: sprinklesAuctionPrice } = useReadContract({
     address: "0xaCCeeB232556f20Ec6c0690938DBda936D153630" as `0x${string}`,
     abi: [
@@ -205,11 +287,11 @@ export default function HomePage() {
     functionName: "getPrice",
     chainId: base.id,
     query: {
-      refetchInterval: 10_000,
+      refetchInterval: 30_000, // Was 10_000
     },
   });
 
-  // Pending DONUT in splitter (half goes to burn pool)
+  // OPTIMIZED: Reduced from 10s to 30s
   const { data: pendingSplitterDonut } = useReadContract({
     address: "0x99DABA873CC4c701280624603B28d3e3F286b590" as `0x${string}`,
     abi: [
@@ -224,11 +306,11 @@ export default function HomePage() {
     functionName: "pendingDonut",
     chainId: base.id,
     query: {
-      refetchInterval: 10_000,
+      refetchInterval: 30_000, // Was 10_000
     },
   });
 
-  // DONUT price for USD conversion
+  // DONUT price for USD conversion - fetched from cached API
   const [donutUsdPrice, setDonutUsdPrice] = useState<number>(0);
 
   useEffect(() => {
@@ -250,7 +332,7 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Calculate total burn pool value: auction rewards + half of pending splitter
+  // Calculate total burn pool value
   const auctionRewardsValue = sprinklesAuctionRewards 
     ? Number(formatEther(sprinklesAuctionRewards as bigint)) 
     : 0;
@@ -263,7 +345,6 @@ export default function HomePage() {
     : "0.00";
   
   // Calculate if burn is profitable
-  // LP price ≈ $0.022 per token (hardcoded estimate)
   const LP_PRICE_USD = 0.022;
   const auctionPriceValue = sprinklesAuctionPrice 
     ? Number(formatEther(sprinklesAuctionPrice as bigint)) 
@@ -512,7 +593,6 @@ export default function HomePage() {
             <ShareRewardButton userFid={context?.user?.fid} tile />
           </div>
 
-          {/* Add the keyframes for the subtle pulse animation */}
           <style jsx>{`
             @keyframes pulse-scale {
               0%, 100% {

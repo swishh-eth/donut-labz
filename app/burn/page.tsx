@@ -33,6 +33,10 @@ const DONUT_SPLITTER = "0x99DABA873CC4c701280624603B28d3e3F286b590" as Address;
 
 const DEADLINE_BUFFER_SECONDS = 5 * 60;
 
+// Dutch auction constants for burn auction
+const BURN_AUCTION_DURATION = 3600; // 1 hour in seconds (adjust to match contract)
+const BURN_MIN_PRICE = 1000000000000000000n; // 1 LP token minimum (adjust as needed)
+
 const ERC20_ABI = [
   {
     inputs: [
@@ -119,6 +123,22 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
+// Client-side price calculation for Dutch auction
+const calculateBurnPrice = (initPrice: bigint, startTime: number | bigint): bigint => {
+  const now = Math.floor(Date.now() / 1000);
+  const start = typeof startTime === 'bigint' ? Number(startTime) : startTime;
+  const elapsed = now - start;
+  
+  if (elapsed >= BURN_AUCTION_DURATION) return BURN_MIN_PRICE;
+  if (elapsed <= 0) return initPrice;
+  
+  const priceRange = initPrice - BURN_MIN_PRICE;
+  const decay = (priceRange * BigInt(elapsed)) / BigInt(BURN_AUCTION_DURATION);
+  const currentPrice = initPrice - decay;
+  
+  return currentPrice > BURN_MIN_PRICE ? currentPrice : BURN_MIN_PRICE;
+};
+
 export default function BurnPage() {
   const router = useRouter();
   const readyRef = useRef(false);
@@ -126,6 +146,9 @@ export default function BurnPage() {
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [donutUsdPrice, setDonutUsdPrice] = useState<number>(0);
   const [sprinklesLpPrice, setSprinklesLpPrice] = useState<number>(0);
+
+  // Client-side interpolated price
+  const [interpolatedPrice, setInterpolatedPrice] = useState<bigint | null>(null);
 
   // SPRINKLES LP Burn state
   const [sprinklesBurnResult, setSprinklesBurnResult] = useState<"success" | "failure" | null>(null);
@@ -205,10 +228,7 @@ export default function BurnPage() {
       }
     };
     
-    // Fetch immediately
     fetchPrices();
-    
-    // Then set up interval
     const interval = setInterval(fetchPrices, 60_000);
     return () => clearInterval(interval);
   }, []);
@@ -230,13 +250,14 @@ export default function BurnPage() {
   }, []);
 
   // ============== SPRINKLES LP BURN ==============
+  // OPTIMIZED: Reduced from 3s to 15s - we interpolate price client-side
   const { data: sprinklesAuctionData, refetch: refetchSprinklesAuction } = useReadContract({
     address: SPRINKLES_AUCTION,
     abi: SPRINKLES_AUCTION_ABI,
     functionName: "getAuctionState",
     args: [address ?? zeroAddress],
     chainId: base.id,
-    query: { refetchInterval: 3_000 },
+    query: { refetchInterval: 15_000 }, // Was 3_000
   });
 
   const sprinklesAuctionState = useMemo(() => {
@@ -245,13 +266,32 @@ export default function BurnPage() {
     return { epochId, initPrice, startTime, price, rewardsAvailable, userLPBalance };
   }, [sprinklesAuctionData]);
 
+  // Client-side price interpolation - updates every second without RPC calls
+  useEffect(() => {
+    if (!sprinklesAuctionState) {
+      setInterpolatedPrice(null);
+      return;
+    }
+
+    // Initial calculation
+    setInterpolatedPrice(calculateBurnPrice(sprinklesAuctionState.initPrice, sprinklesAuctionState.startTime));
+
+    // Update every second
+    const interval = setInterval(() => {
+      setInterpolatedPrice(calculateBurnPrice(sprinklesAuctionState.initPrice, sprinklesAuctionState.startTime));
+    }, 1_000);
+
+    return () => clearInterval(interval);
+  }, [sprinklesAuctionState]);
+
   // ============== SPLITTER ==============
+  // OPTIMIZED: Reduced from 10s to 30s
   const { data: pendingDonut, refetch: refetchPendingDonut } = useReadContract({
     address: DONUT_SPLITTER,
     abi: SPLITTER_ABI,
     functionName: "pendingDonut",
     chainId: base.id,
-    query: { refetchInterval: 10_000 },
+    query: { refetchInterval: 30_000 }, // Was 10_000
   });
 
   // ============== WRITE CONTRACTS ==============
@@ -302,6 +342,9 @@ export default function BurnPage() {
     // Prevent multiple firings
     if (isBuyingRef.current && sprinklesTxStep === "buying") return;
     
+    // Refetch fresh on-chain data before transaction
+    await refetchSprinklesAuction();
+    
     setSprinklesBurnResult(null);
     
     try {
@@ -313,6 +356,7 @@ export default function BurnPage() {
       }
       if (!targetAddress) throw new Error("Unable to determine wallet address");
 
+      // Use fresh on-chain price for transaction
       const price = sprinklesAuctionState.price;
       const epochId = BigInt(sprinklesAuctionState.epochId);
       const deadline = BigInt(Math.floor(Date.now() / 1000) + DEADLINE_BUFFER_SECONDS);
@@ -346,7 +390,7 @@ export default function BurnPage() {
       showSprinklesResult("failure");
       resetSprinklesState();
     }
-  }, [address, connectAsync, sprinklesAuctionState, primaryConnector, sprinklesTxStep, writeSprinklesContract, showSprinklesResult, resetSprinklesState]);
+  }, [address, connectAsync, sprinklesAuctionState, primaryConnector, sprinklesTxStep, writeSprinklesContract, showSprinklesResult, resetSprinklesState, refetchSprinklesAuction]);
 
   // Handle write errors (user rejection, etc)
   useEffect(() => {
@@ -445,14 +489,16 @@ export default function BurnPage() {
   }, [splitReceipt, refetchPendingDonut, refetchSprinklesAuction, resetSplitWrite]);
 
   // ============== DISPLAY VALUES ==============
-  const sprinklesPriceDisplay = sprinklesAuctionState ? formatTokenAmount(sprinklesAuctionState.price, 2) : "—";
+  // Use interpolated price for display, fallback to on-chain price
+  const displayPrice = interpolatedPrice ?? sprinklesAuctionState?.price;
+  const sprinklesPriceDisplay = displayPrice ? formatTokenAmount(displayPrice, 2) : "—";
   const sprinklesRewardsDisplay = sprinklesAuctionState ? formatTokenAmount(sprinklesAuctionState.rewardsAvailable, 2) : "—";
   const sprinklesUserLPDisplay = sprinklesAuctionState ? formatTokenAmount(sprinklesAuctionState.userLPBalance, 2) : "0";
   const pendingDonutDisplay = pendingDonut ? formatTokenAmount(pendingDonut, 2) : "0";
 
-  // Calculate USD values
-  const lpPayUsd = sprinklesAuctionState && sprinklesLpPrice > 0
-    ? (Number(formatEther(sprinklesAuctionState.price)) * sprinklesLpPrice).toFixed(2)
+  // Calculate USD values using interpolated price
+  const lpPayUsd = displayPrice && sprinklesLpPrice > 0
+    ? (Number(formatEther(displayPrice)) * sprinklesLpPrice).toFixed(2)
     : null;
   const donutGetUsd = sprinklesAuctionState && donutUsdPrice > 0
     ? (Number(formatEther(sprinklesAuctionState.rewardsAvailable)) * donutUsdPrice).toFixed(2)
@@ -477,21 +523,21 @@ export default function BurnPage() {
     return "SPLIT";
   }, [splitResult, isSplitting, isSplitWriting, isSplitConfirming]);
 
-  const hasInsufficientSprinklesLP = sprinklesAuctionState && sprinklesAuctionState.userLPBalance < sprinklesAuctionState.price;
+  const hasInsufficientSprinklesLP = sprinklesAuctionState && displayPrice && sprinklesAuctionState.userLPBalance < displayPrice;
   const hasNoSprinklesRewards = sprinklesAuctionState && sprinklesAuctionState.rewardsAvailable === 0n;
-  const sprinklesPriceIsZero = sprinklesAuctionState && sprinklesAuctionState.price === 0n;
+  const sprinklesPriceIsZero = displayPrice === 0n;
 
   const isSprinklesBurnDisabled = !sprinklesAuctionState || isSprinklesWriting || isSprinklesConfirming || sprinklesBurnResult !== null || hasInsufficientSprinklesLP || hasNoSprinklesRewards || sprinklesPriceIsZero;
   const isSplitDisabled = !pendingDonut || pendingDonut === 0n || isSplitting || isSplitWriting || isSplitConfirming || splitResult !== null;
 
-  // Calculate profit/loss for SPRINKLES burn
+  // Calculate profit/loss for SPRINKLES burn using interpolated price
   const sprinklesProfitLoss = useMemo(() => {
-    if (!sprinklesAuctionState || sprinklesLpPrice <= 0 || donutUsdPrice <= 0) return null;
-    const lpValueUsd = Number(formatEther(sprinklesAuctionState.price)) * sprinklesLpPrice;
+    if (!sprinklesAuctionState || !displayPrice || sprinklesLpPrice <= 0 || donutUsdPrice <= 0) return null;
+    const lpValueUsd = Number(formatEther(displayPrice)) * sprinklesLpPrice;
     const rewardsValueUsd = Number(formatEther(sprinklesAuctionState.rewardsAvailable)) * donutUsdPrice;
     const profitLoss = rewardsValueUsd - lpValueUsd;
     return { profitLoss, isProfitable: profitLoss > 0, lpValueUsd, rewardsValueUsd };
-  }, [sprinklesAuctionState, sprinklesLpPrice, donutUsdPrice]);
+  }, [sprinklesAuctionState, displayPrice, sprinklesLpPrice, donutUsdPrice]);
 
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userHandle = context?.user?.username ? `@${context.user.username}` : context?.user?.fid ? `fid ${context.user.fid}` : "";

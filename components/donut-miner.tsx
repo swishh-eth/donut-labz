@@ -46,6 +46,10 @@ type MinerState = {
 const DONUT_DECIMALS = 18;
 const DEADLINE_BUFFER_SECONDS = 15 * 60;
 
+// Dutch auction constants (adjust to match your contract)
+const AUCTION_DURATION = 3600; // 1 hour in seconds
+const MIN_PRICE = 100000000000000n; // 0.0001 ETH minimum (adjust as needed)
+
 const DEFAULT_MESSAGES = [
   "Every donut needs sprinkles - Donut Labs",
   "Sprinkling magic on Base - Donut Labs",
@@ -118,6 +122,28 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
+// Client-side price calculation to match contract's Dutch auction
+const calculatePrice = (initPrice: bigint, startTime: number | bigint): bigint => {
+  const now = Math.floor(Date.now() / 1000);
+  const start = typeof startTime === 'bigint' ? Number(startTime) : startTime;
+  const elapsed = now - start;
+  
+  if (elapsed >= AUCTION_DURATION) {
+    return MIN_PRICE;
+  }
+  
+  if (elapsed <= 0) {
+    return initPrice;
+  }
+  
+  // Linear decay from initPrice to MIN_PRICE over AUCTION_DURATION
+  const priceRange = initPrice - MIN_PRICE;
+  const decay = (priceRange * BigInt(elapsed)) / BigInt(AUCTION_DURATION);
+  const currentPrice = initPrice - decay;
+  
+  return currentPrice > MIN_PRICE ? currentPrice : MIN_PRICE;
+};
+
 interface DonutMinerProps {
   context: MiniAppContext | null;
 }
@@ -135,6 +161,9 @@ export default function DonutMiner({ context }: DonutMinerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const glazeResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const defaultMessageRef = useRef<string>(getRandomDefaultMessage());
+  
+  // Client-side interpolated price (updates every second)
+  const [interpolatedPrice, setInterpolatedPrice] = useState<bigint | null>(null);
 
   const resetGlazeResult = useCallback(() => {
     if (glazeResultTimeoutRef.current) {
@@ -231,6 +260,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     }).catch(() => {});
   }, [connectAsync, isConnected, isConnecting, primaryConnector]);
 
+  // OPTIMIZED: Reduced from 3s to 15s - we interpolate price client-side
   const { data: rawMinerState, refetch: refetchMinerState } = useReadContract({
     address: CONTRACT_ADDRESSES.multicall,
     abi: MULTICALL_ABI,
@@ -238,7 +268,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     args: [address ?? zeroAddress],
     chainId: base.id,
     query: {
-      refetchInterval: 3_000,
+      refetchInterval: 15_000, // Was 3_000
     },
   });
 
@@ -246,6 +276,24 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     if (!rawMinerState) return undefined;
     return rawMinerState as unknown as MinerState;
   }, [rawMinerState]);
+
+  // Client-side price interpolation - updates every second without RPC calls
+  useEffect(() => {
+    if (!minerState) {
+      setInterpolatedPrice(null);
+      return;
+    }
+
+    // Initial calculation
+    setInterpolatedPrice(calculatePrice(minerState.initPrice, minerState.startTime));
+
+    // Update every second
+    const interval = setInterval(() => {
+      setInterpolatedPrice(calculatePrice(minerState.initPrice, minerState.startTime));
+    }, 1_000);
+
+    return () => clearInterval(interval);
+  }, [minerState]);
 
   const { data: accountData } = useAccountData(address);
 
@@ -267,10 +315,8 @@ export default function DonutMiner({ context }: DonutMinerProps) {
       showGlazeResult(receipt.status === "success" ? "success" : "failure");
 
       if (receipt.status === "success" && address) {
-        // Pick a new random message for next time
         defaultMessageRef.current = getRandomDefaultMessage();
         
-        // Delay to allow RPC to index the tx, then retry if needed
         const recordGlazeWithRetry = async (attempt = 1, maxAttempts = 3) => {
           try {
             const res = await fetch("/api/record-glaze", {
@@ -289,8 +335,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
               setTimeout(() => recordGlazeWithRetry(attempt + 1, maxAttempts), 3000);
             } else if (res.ok) {
               console.log("record-glaze success:", data);
-              
-              // Only post to chat AFTER successful verification
               fetch("/api/chat/mining", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -313,7 +357,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           }
         };
 
-        // Initial delay of 2 seconds before first attempt
         setTimeout(() => recordGlazeWithRetry(), 2000);
       }
 
@@ -328,7 +371,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
 
   const minerAddress = minerState?.miner ?? zeroAddress;
   const hasMiner = minerAddress !== zeroAddress;
-
   const claimedHandleParam = (minerState?.uri ?? "").trim();
 
   const { data: profileData } = useQuery<{
@@ -341,12 +383,8 @@ export default function DonutMiner({ context }: DonutMinerProps) {
   }>({
     queryKey: ["cached-profile", minerAddress],
     queryFn: async () => {
-      const res = await fetch(
-        `/api/profiles?addresses=${encodeURIComponent(minerAddress)}`
-      );
-      if (!res.ok) {
-        throw new Error("Failed to load Farcaster profile.");
-      }
+      const res = await fetch(`/api/profiles?addresses=${encodeURIComponent(minerAddress)}`);
+      if (!res.ok) throw new Error("Failed to load Farcaster profile.");
       return res.json();
     },
     enabled: hasMiner,
@@ -360,30 +398,22 @@ export default function DonutMiner({ context }: DonutMinerProps) {
 
   const handleGlaze = useCallback(async () => {
     if (!minerState) return;
+    await refetchMinerState();
     resetGlazeResult();
+    
     try {
       let targetAddress = address;
       if (!targetAddress) {
-        if (!primaryConnector) {
-          throw new Error("Wallet connector not available yet.");
-        }
-        const result = await connectAsync({
-          connector: primaryConnector,
-          chainId: base.id,
-        });
+        if (!primaryConnector) throw new Error("Wallet connector not available yet.");
+        const result = await connectAsync({ connector: primaryConnector, chainId: base.id });
         targetAddress = result.accounts[0];
       }
-      if (!targetAddress) {
-        throw new Error("Unable to determine wallet address.");
-      }
+      if (!targetAddress) throw new Error("Unable to determine wallet address.");
+      
       const price = minerState.price;
       const epochId = toBigInt(minerState.epochId);
-      const deadline = BigInt(
-        Math.floor(Date.now() / 1000) + DEADLINE_BUFFER_SECONDS
-      );
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + DEADLINE_BUFFER_SECONDS);
       const maxPrice = price === 0n ? 0n : (price * 105n) / 100n;
-      
-      // Use custom message if provided, otherwise use the random default
       const messageToSend = customMessage.trim() || defaultMessageRef.current;
       
       await writeContract({
@@ -391,13 +421,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
         address: CONTRACT_ADDRESSES.multicall as Address,
         abi: MULTICALL_ABI,
         functionName: "mine",
-        args: [
-          CONTRACT_ADDRESSES.provider as Address,
-          epochId,
-          deadline,
-          maxPrice,
-          messageToSend,
-        ],
+        args: [CONTRACT_ADDRESSES.provider as Address, epochId, deadline, maxPrice, messageToSend],
         value: price,
         chainId: base.id,
       });
@@ -406,508 +430,197 @@ export default function DonutMiner({ context }: DonutMinerProps) {
       showGlazeResult("failure");
       resetWrite();
     }
-  }, [
-    address,
-    connectAsync,
-    customMessage,
-    minerState,
-    primaryConnector,
-    resetGlazeResult,
-    resetWrite,
-    showGlazeResult,
-    writeContract,
-  ]);
+  }, [address, connectAsync, customMessage, minerState, primaryConnector, refetchMinerState, resetGlazeResult, resetWrite, showGlazeResult, writeContract]);
 
   const [interpolatedGlazed, setInterpolatedGlazed] = useState<bigint | null>(null);
   const [glazeElapsedSeconds, setGlazeElapsedSeconds] = useState<number>(0);
 
   useEffect(() => {
-    if (!minerState) {
-      setInterpolatedGlazed(null);
-      return;
-    }
-
+    if (!minerState) { setInterpolatedGlazed(null); return; }
     setInterpolatedGlazed(minerState.glazed);
-
     const interval = setInterval(() => {
       if (minerState.nextDps > 0n) {
-        setInterpolatedGlazed((prev) => {
-          if (!prev) return minerState.glazed;
-          return prev + minerState.nextDps;
-        });
+        setInterpolatedGlazed((prev) => prev ? prev + minerState.nextDps : minerState.glazed);
       }
     }, 1_000);
-
     return () => clearInterval(interval);
   }, [minerState]);
 
   useEffect(() => {
-    if (!minerState) {
-      setGlazeElapsedSeconds(0);
-      return;
-    }
-
+    if (!minerState) { setGlazeElapsedSeconds(0); return; }
     const startTimeSeconds = Number(minerState.startTime);
-    const initialElapsed = Math.floor(Date.now() / 1000) - startTimeSeconds;
-    setGlazeElapsedSeconds(initialElapsed);
-
+    setGlazeElapsedSeconds(Math.floor(Date.now() / 1000) - startTimeSeconds);
     const interval = setInterval(() => {
-      const currentElapsed = Math.floor(Date.now() / 1000) - startTimeSeconds;
-      setGlazeElapsedSeconds(currentElapsed);
+      setGlazeElapsedSeconds(Math.floor(Date.now() / 1000) - startTimeSeconds);
     }, 1_000);
-
     return () => clearInterval(interval);
   }, [minerState]);
 
   const occupantDisplay = useMemo(() => {
-    if (!minerState) {
-      return {
-        primary: "—",
-        secondary: "",
-        isYou: false,
-        avatarUrl: null as string | null,
-        isUnknown: true,
-        addressLabel: "—",
-      };
-    }
+    if (!minerState) return { primary: "—", secondary: "", isYou: false, avatarUrl: null as string | null, isUnknown: true, addressLabel: "—" };
     const minerAddr = minerState.miner;
     const fallback = formatAddress(minerAddr);
-    const isYou =
-      !!address && minerAddr.toLowerCase() === (address as string).toLowerCase();
-
+    const isYou = !!address && minerAddr.toLowerCase() === (address as string).toLowerCase();
     const fallbackAvatarUrl = getAnonPfp(minerAddr);
-
     const profile = neynarUser?.user ?? null;
     const profileUsername = profile?.username ? `@${profile.username}` : null;
     const profileDisplayName = profile?.displayName ?? null;
-
     const contextProfile = context?.user ?? null;
-    const contextHandle = contextProfile?.username
-      ? `@${contextProfile.username}`
-      : null;
+    const contextHandle = contextProfile?.username ? `@${contextProfile.username}` : null;
     const contextDisplayName = contextProfile?.displayName ?? null;
-
     const addressLabel = fallback;
-
-    const labelCandidates = [
-      profileDisplayName,
-      profileUsername,
-      isYou ? contextDisplayName : null,
-      isYou ? contextHandle : null,
-      addressLabel,
-    ].filter((label): label is string => !!label);
-
+    const labelCandidates = [profileDisplayName, profileUsername, isYou ? contextDisplayName : null, isYou ? contextHandle : null, addressLabel].filter((label): label is string => !!label);
     const seenLabels = new Set<string>();
-    const uniqueLabels = labelCandidates.filter((label) => {
-      const key = label.toLowerCase();
-      if (seenLabels.has(key)) return false;
-      seenLabels.add(key);
-      return true;
-    });
-
+    const uniqueLabels = labelCandidates.filter((label) => { const key = label.toLowerCase(); if (seenLabels.has(key)) return false; seenLabels.add(key); return true; });
     const primary = uniqueLabels[0] ?? addressLabel;
+    const secondary = uniqueLabels.find((label) => label !== primary && label.startsWith("@")) ?? "";
+    const avatarUrl = profile?.pfpUrl ?? (isYou ? contextProfile?.pfpUrl ?? null : null) ?? fallbackAvatarUrl;
+    const isUnknown = !profile && !claimedHandleParam && !(isYou && (contextHandle || contextDisplayName));
+    return { primary, secondary, isYou, avatarUrl, isUnknown, addressLabel };
+  }, [address, claimedHandleParam, context?.user, minerState, neynarUser?.user]);
 
-    const secondary =
-      uniqueLabels.find(
-        (label) => label !== primary && label.startsWith("@")
-      ) ?? "";
-
-    const avatarUrl =
-      profile?.pfpUrl ??
-      (isYou ? contextProfile?.pfpUrl ?? null : null) ??
-      fallbackAvatarUrl;
-
-    const isUnknown =
-      !profile && !claimedHandleParam && !(isYou && (contextHandle || contextDisplayName));
-
-    return {
-      primary,
-      secondary,
-      isYou,
-      avatarUrl,
-      isUnknown,
-      addressLabel,
-    };
-  }, [
-    address,
-    claimedHandleParam,
-    context?.user,
-    minerState,
-    neynarUser?.user,
-  ]);
-
-  const glazeRateDisplay = minerState
-    ? formatTokenAmount(minerState.nextDps, DONUT_DECIMALS, 4)
-    : "—";
-  const glazePriceDisplay = minerState
-    ? formatEth(minerState.price, 3)
-    : "—";
-  const glazedDisplay =
-    minerState && interpolatedGlazed !== null
-      ? formatTokenAmount(interpolatedGlazed, DONUT_DECIMALS, 2)
-      : "—";
+  const glazeRateDisplay = minerState ? formatTokenAmount(minerState.nextDps, DONUT_DECIMALS, 4) : "—";
+  const displayPrice = interpolatedPrice ?? minerState?.price;
+  const glazePriceDisplay = displayPrice ? formatEth(displayPrice, 3) : "—";
+  const glazedDisplay = minerState && interpolatedGlazed !== null ? formatTokenAmount(interpolatedGlazed, DONUT_DECIMALS, 2) : "—";
 
   const formatGlazeTime = (seconds: number): string => {
     if (seconds < 0) return "0s";
-
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${secs}s`;
-    }
-    if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
-    }
+    if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
+    if (minutes > 0) return `${minutes}m ${secs}s`;
     return `${secs}s`;
   };
 
   const glazeTimeDisplay = minerState ? formatGlazeTime(glazeElapsedSeconds) : "—";
-
-  const glazedUsdValue =
-    minerState && minerState.donutPrice > 0n && interpolatedGlazed !== null
-      ? (
-          Number(formatEther(interpolatedGlazed)) *
-          Number(formatEther(minerState.donutPrice)) *
-          ethUsdPrice
-        ).toFixed(2)
-      : "0.00";
-
-  const glazeRateUsdValue =
-    minerState && minerState.donutPrice > 0n
-      ? (
-          Number(formatUnits(minerState.nextDps, DONUT_DECIMALS)) *
-          Number(formatEther(minerState.donutPrice)) *
-          ethUsdPrice
-        ).toFixed(4)
-      : "0.0000";
+  const glazedUsdValue = minerState && minerState.donutPrice > 0n && interpolatedGlazed !== null
+    ? (Number(formatEther(interpolatedGlazed)) * Number(formatEther(minerState.donutPrice)) * ethUsdPrice).toFixed(2) : "0.00";
+  const glazeRateUsdValue = minerState && minerState.donutPrice > 0n
+    ? (Number(formatUnits(minerState.nextDps, DONUT_DECIMALS)) * Number(formatEther(minerState.donutPrice)) * ethUsdPrice).toFixed(4) : "0.0000";
 
   const pnlData = useMemo(() => {
-    if (!minerState) return { eth: "0", usd: "$0.00", isPositive: true };
-    const pnl = (minerState.price * 80n) / 100n - minerState.initPrice / 2n;
+    if (!minerState || !displayPrice) return { eth: "0", usd: "$0.00", isPositive: true };
+    const pnl = (displayPrice * 80n) / 100n - minerState.initPrice / 2n;
     const isPositive = pnl >= 0n;
     const absolutePnl = pnl >= 0n ? pnl : -pnl;
     const pnlEth = Number(formatEther(absolutePnl));
     const pnlUsd = pnlEth * ethUsdPrice;
-    return {
-      eth: `${isPositive ? "+" : "-"}Ξ${formatEth(absolutePnl, 3)}`,
-      usd: `${isPositive ? "+" : "-"}$${pnlUsd.toFixed(2)}`,
-      isPositive,
-    };
-  }, [minerState, ethUsdPrice]);
+    return { eth: `${isPositive ? "+" : "-"}Ξ${formatEth(absolutePnl, 3)}`, usd: `${isPositive ? "+" : "-"}$${pnlUsd.toFixed(2)}`, isPositive };
+  }, [minerState, displayPrice, ethUsdPrice]);
 
   const totalPnl = useMemo(() => {
-    if (!minerState) return { value: "$0.00", isPositive: true };
-    const pnl = (minerState.price * 80n) / 100n - minerState.initPrice / 2n;
+    if (!minerState || !displayPrice) return { value: "$0.00", isPositive: true };
+    const pnl = (displayPrice * 80n) / 100n - minerState.initPrice / 2n;
     const pnlEth = Number(formatEther(pnl >= 0n ? pnl : -pnl));
     const pnlUsd = pnlEth * ethUsdPrice * (pnl >= 0n ? 1 : -1);
     const glazedUsd = Number(glazedUsdValue);
     const total = glazedUsd + pnlUsd;
-    return {
-      value: `${total >= 0 ? "+" : "-"}$${Math.abs(total).toFixed(2)}`,
-      isPositive: total >= 0,
-    };
-  }, [minerState, ethUsdPrice, glazedUsdValue]);
+    return { value: `${total >= 0 ? "+" : "-"}$${Math.abs(total).toFixed(2)}`, isPositive: total >= 0 };
+  }, [minerState, displayPrice, ethUsdPrice, glazedUsdValue]);
 
-  const occupantInitialsSource = occupantDisplay.isUnknown
-    ? occupantDisplay.addressLabel
-    : occupantDisplay.primary || occupantDisplay.addressLabel;
-
-  const occupantFallbackInitials = occupantDisplay.isUnknown
-    ? (occupantInitialsSource?.slice(-2) ?? "??").toUpperCase()
-    : initialsFrom(occupantInitialsSource);
-
-  const donutBalanceDisplay =
-    minerState && minerState.donutBalance !== undefined
-      ? Math.floor(Number(formatUnits(minerState.donutBalance, DONUT_DECIMALS))).toLocaleString()
-      : "—";
-  const ethBalanceDisplay =
-    minerState && minerState.ethBalance !== undefined
-      ? formatEth(minerState.ethBalance, 3)
-      : "—";
+  const occupantInitialsSource = occupantDisplay.isUnknown ? occupantDisplay.addressLabel : occupantDisplay.primary || occupantDisplay.addressLabel;
+  const occupantFallbackInitials = occupantDisplay.isUnknown ? (occupantInitialsSource?.slice(-2) ?? "??").toUpperCase() : initialsFrom(occupantInitialsSource);
+  const donutBalanceDisplay = minerState && minerState.donutBalance !== undefined ? Math.floor(Number(formatUnits(minerState.donutBalance, DONUT_DECIMALS))).toLocaleString() : "—";
+  const ethBalanceDisplay = minerState && minerState.ethBalance !== undefined ? formatEth(minerState.ethBalance, 3) : "—";
 
   const buttonLabel = useMemo(() => {
     if (!minerState) return "Loading…";
     if (glazeResult === "success") return "SUCCESS";
     if (glazeResult === "failure") return "FAILURE";
-    if (isWriting || isConfirming) {
-      return "GLAZING…";
-    }
+    if (isWriting || isConfirming) return "GLAZING…";
     return "GLAZE";
   }, [glazeResult, isConfirming, isWriting, minerState]);
 
-  const isGlazeDisabled =
-    !minerState || isWriting || isConfirming || glazeResult !== null;
+  const isGlazeDisabled = !minerState || isWriting || isConfirming || glazeResult !== null;
 
   const handleViewKingGlazerProfile = useCallback(async () => {
-  const fid = neynarUser?.user?.fid;
-  const username = neynarUser?.user?.username;
+    const fid = neynarUser?.user?.fid;
+    const username = neynarUser?.user?.username;
+    const url = username ? `https://warpcast.com/${username}` : fid ? `https://warpcast.com/~/profiles/${fid}` : null;
+    if (!url) return;
+    try {
+      const { sdk } = await import("@farcaster/miniapp-sdk");
+      await sdk.actions.openUrl(url);
+    } catch (e) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }, [neynarUser?.user?.fid, neynarUser?.user?.username]);
 
-  const url = username 
-    ? `https://warpcast.com/${username}`
-    : fid 
-      ? `https://warpcast.com/~/profiles/${fid}`
-      : null;
-
-  if (!url) return;
-
-  try {
-    // Use Farcaster SDK to open URL (minimizes miniapp and opens in Warpcast)
-    const { sdk } = await import("@farcaster/miniapp-sdk");
-    await sdk.actions.openUrl(url);
-  } catch (e) {
-    // Fallback for non-Farcaster environment
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
-}, [neynarUser?.user?.fid, neynarUser?.user?.username]);
-
-  const scrollMessage =
-    minerState?.uri && minerState.uri.trim() !== ""
-      ? minerState.uri
-      : "We Glaze The World";
+  const scrollMessage = minerState?.uri && minerState.uri.trim() !== "" ? minerState.uri : "We Glaze The World";
 
   return (
     <>
       <div className="-mx-2 w-[calc(100%+1rem)] overflow-hidden flex-1">
-        <video
-          ref={videoRef}
-          className="w-full h-full object-contain"
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          src="/media/donut-loop.mp4"
-        />
+        <video ref={videoRef} className="w-full h-full object-contain" autoPlay loop muted playsInline preload="auto" src="/media/donut-loop.mp4" />
       </div>
 
       <div className="mt-auto flex flex-col gap-2">
         <div className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-lg">
-          <div
-            ref={scrollRef}
-            className="flex whitespace-nowrap py-1.5 text-xs font-bold text-white"
-          >
-            {Array.from({ length: 20 }).map((_, i) => (
-              <span key={i} className="inline-block px-8">
-                {scrollMessage}
-              </span>
-            ))}
+          <div ref={scrollRef} className="flex whitespace-nowrap py-1.5 text-xs font-bold text-white">
+            {Array.from({ length: 20 }).map((_, i) => (<span key={i} className="inline-block px-8">{scrollMessage}</span>))}
           </div>
         </div>
 
-        <div
-          className={cn(
-            "bg-zinc-900 border rounded-lg p-2",
-            occupantDisplay.isYou
-              ? "border-white shadow-[inset_0_0_16px_rgba(255,255,255,0.2)]"
-              : "border-zinc-800"
-          )}
-        >
+        <div className={cn("bg-zinc-900 border rounded-lg p-2", occupantDisplay.isYou ? "border-white shadow-[inset_0_0_16px_rgba(255,255,255,0.2)]" : "border-zinc-800")}>
           <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                "flex-shrink-0",
-                neynarUser?.user?.fid &&
-                  "cursor-pointer hover:opacity-80 transition-opacity"
-              )}
-              onClick={
-                neynarUser?.user?.fid ? handleViewKingGlazerProfile : undefined
-              }
-            >
+            <div className={cn("flex-shrink-0", neynarUser?.user?.fid && "cursor-pointer hover:opacity-80 transition-opacity")} onClick={neynarUser?.user?.fid ? handleViewKingGlazerProfile : undefined}>
               <Avatar className="h-10 w-10 border border-zinc-700">
-                <AvatarImage
-                  src={occupantDisplay.avatarUrl || undefined}
-                  alt={occupantDisplay.primary}
-                  className="object-cover"
-                />
-                <AvatarFallback className="bg-zinc-800 text-white text-sm">
-                  {minerState ? (
-                    occupantFallbackInitials
-                  ) : (
-                    <CircleUserRound className="h-4 w-4" />
-                  )}
-                </AvatarFallback>
+                <AvatarImage src={occupantDisplay.avatarUrl || undefined} alt={occupantDisplay.primary} className="object-cover" />
+                <AvatarFallback className="bg-zinc-800 text-white text-sm">{minerState ? occupantFallbackInitials : <CircleUserRound className="h-4 w-4" />}</AvatarFallback>
               </Avatar>
             </div>
-
             <div className="flex-1 min-w-0">
-              <div className="text-[8px] text-gray-500 uppercase tracking-wider">
-                King Glazer
-              </div>
-              <div className="font-bold text-white text-sm truncate">
-                {occupantDisplay.primary}
-              </div>
-              {minerState && minerState.initPrice > 0n && (
-                <div className="text-[9px] text-gray-500">
-                  Paid Ξ{parseFloat(formatEther(minerState.initPrice / 2n)).toFixed(3)}
-                </div>
-              )}
+              <div className="text-[8px] text-gray-500 uppercase tracking-wider">King Glazer</div>
+              <div className="font-bold text-white text-sm truncate">{occupantDisplay.primary}</div>
+              {minerState && minerState.initPrice > 0n && (<div className="text-[9px] text-gray-500">Paid Ξ{parseFloat(formatEther(minerState.initPrice / 2n)).toFixed(3)}</div>)}
             </div>
-
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-right flex-shrink-0">
-              <div>
-                <div className="text-[8px] text-gray-500">TIME</div>
-                <div className="text-xs font-bold text-white">
-                  {glazeTimeDisplay}
-                </div>
-              </div>
-              <div>
-                <div className="text-[8px] text-gray-500">EARNED</div>
-                <div className="text-xs font-bold text-white">
-                  🍩{glazedDisplay}
-                </div>
-              </div>
-              <div>
-                <div className="text-[8px] text-gray-500">PNL</div>
-                <div
-                  className={cn(
-                    "text-xs font-bold",
-                    pnlData.isPositive ? "text-green-400" : "text-red-400"
-                  )}
-                >
-                  {pnlData.eth}
-                </div>
-              </div>
-              <div>
-                <div className="text-[8px] text-gray-500">TOTAL</div>
-                <div
-                  className={cn(
-                    "text-xs font-bold",
-                    totalPnl.isPositive ? "text-green-400" : "text-red-400"
-                  )}
-                >
-                  {totalPnl.value}
-                </div>
-              </div>
+              <div><div className="text-[8px] text-gray-500">TIME</div><div className="text-xs font-bold text-white">{glazeTimeDisplay}</div></div>
+              <div><div className="text-[8px] text-gray-500">EARNED</div><div className="text-xs font-bold text-white">🍩{glazedDisplay}</div></div>
+              <div><div className="text-[8px] text-gray-500">PNL</div><div className={cn("text-xs font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>{pnlData.eth}</div></div>
+              <div><div className="text-[8px] text-gray-500">TOTAL</div><div className={cn("text-xs font-bold", totalPnl.isPositive ? "text-green-400" : "text-red-400")}>{totalPnl.value}</div></div>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-center">
-            <div className="flex items-center justify-center gap-1 mb-0.5">
-              <TrendingUp className="w-3 h-3 text-white" />
-              <span className="text-[9px] text-gray-400 uppercase">
-                Glaze Rate
-              </span>
-            </div>
-            <div className="text-lg font-bold text-white">
-              🍩{glazeRateDisplay}
-              <span className="text-xs text-gray-400">/s</span>
-            </div>
-            <div className="text-[10px] text-gray-400">
-              ${glazeRateUsdValue}/s
-            </div>
+            <div className="flex items-center justify-center gap-1 mb-0.5"><TrendingUp className="w-3 h-3 text-white" /><span className="text-[9px] text-gray-400 uppercase">Glaze Rate</span></div>
+            <div className="text-lg font-bold text-white">🍩{glazeRateDisplay}<span className="text-xs text-gray-400">/s</span></div>
+            <div className="text-[10px] text-gray-400">${glazeRateUsdValue}/s</div>
           </div>
-
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-center">
-            <div className="flex items-center justify-center gap-1 mb-0.5">
-              <Coins className="w-3 h-3 text-white" />
-              <span className="text-[9px] text-gray-400 uppercase">
-                Glaze Price
-              </span>
-            </div>
-            <div className="text-lg font-bold text-white">
-              Ξ{glazePriceDisplay}
-            </div>
-            <div className="text-[10px] text-gray-400">
-              $
-              {minerState
-                ? (Number(formatEther(minerState.price)) * ethUsdPrice).toFixed(2)
-                : "0.00"}
-            </div>
+            <div className="flex items-center justify-center gap-1 mb-0.5"><Coins className="w-3 h-3 text-white" /><span className="text-[9px] text-gray-400 uppercase">Glaze Price</span></div>
+            <div className="text-lg font-bold text-white">Ξ{glazePriceDisplay}</div>
+            <div className="text-[10px] text-gray-400">${displayPrice ? (Number(formatEther(displayPrice)) * ethUsdPrice).toFixed(2) : "0.00"}</div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => setShowHelpDialog(true)}
-            className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5 hover:bg-zinc-800 transition-colors"
-          >
-            <div className="flex items-center justify-center gap-1.5">
-              <Timer className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-              <span className="text-xs font-semibold text-white">
-                Dutch Auction
-              </span>
-              <HelpCircle className="w-3 h-3 text-gray-400" />
-            </div>
+          <button onClick={() => setShowHelpDialog(true)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5 hover:bg-zinc-800 transition-colors">
+            <div className="flex items-center justify-center gap-1.5"><Timer className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" /><span className="text-xs font-semibold text-white">Dutch Auction</span><HelpCircle className="w-3 h-3 text-gray-400" /></div>
           </button>
-
-          <button
-            onClick={() => setShowCompeteDialog(true)}
-            className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5 hover:bg-zinc-800 transition-colors"
-          >
-            <div className="flex items-center justify-center gap-1.5">
-              <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-              <span className="text-xs font-semibold text-white">
-                Compete Weekly
-              </span>
-              <HelpCircle className="w-3 h-3 text-gray-400" />
-            </div>
+          <button onClick={() => setShowCompeteDialog(true)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5 hover:bg-zinc-800 transition-colors">
+            <div className="flex items-center justify-center gap-1.5"><Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" /><span className="text-xs font-semibold text-white">Compete Weekly</span><HelpCircle className="w-3 h-3 text-gray-400" /></div>
           </button>
         </div>
 
         {showHelpDialog && (
           <div className="fixed inset-0 z-50">
-            <div
-              className="absolute inset-0 bg-black/90 backdrop-blur-md"
-              onClick={() => setShowHelpDialog(false)}
-            />
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHelpDialog(false)} />
             <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
               <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
-                <button
-                  onClick={() => setShowHelpDialog(false)}
-                  className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-
-                <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <Timer className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                  How Glazing Works
-                </h2>
-
+                <button onClick={() => setShowHelpDialog(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"><X className="h-4 w-4" /></button>
+                <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Timer className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />How Glazing Works</h2>
                 <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">1</div>
-                    <div>
-                      <div className="font-semibold text-white text-sm">Become King Glazer</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Pay the current glaze price to take control of the donut mine.</div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">2</div>
-                    <div>
-                      <div className="font-semibold text-white text-sm">Earn 🍩DONUT</div>
-                      <div className="text-xs text-gray-400 mt-0.5">While you are King Glazer, you earn DONUT tokens every second.</div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">3</div>
-                    <div>
-                      <div className="font-semibold text-white text-sm">Dutch Auction</div>
-                      <div className="text-xs text-gray-400 mt-0.5">The glaze price starts high and decreases over time.</div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">4</div>
-                    <div>
-                      <div className="font-semibold text-white text-sm">Get Refunded</div>
-                      <div className="text-xs text-gray-400 mt-0.5">When someone else glazes, you get 80% of their payment back.</div>
-                    </div>
-                  </div>
+                  <div className="flex gap-3"><div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">1</div><div><div className="font-semibold text-white text-sm">Become King Glazer</div><div className="text-xs text-gray-400 mt-0.5">Pay the current glaze price to take control of the donut mine.</div></div></div>
+                  <div className="flex gap-3"><div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">2</div><div><div className="font-semibold text-white text-sm">Earn 🍩DONUT</div><div className="text-xs text-gray-400 mt-0.5">While you are King Glazer, you earn DONUT tokens every second.</div></div></div>
+                  <div className="flex gap-3"><div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">3</div><div><div className="font-semibold text-white text-sm">Dutch Auction</div><div className="text-xs text-gray-400 mt-0.5">The glaze price starts high and decreases over time.</div></div></div>
+                  <div className="flex gap-3"><div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">4</div><div><div className="font-semibold text-white text-sm">Get Refunded</div><div className="text-xs text-gray-400 mt-0.5">When someone else glazes, you get 80% of their payment back.</div></div></div>
                 </div>
-
-                <button
-                  onClick={() => setShowHelpDialog(false)}
-                  className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
-                >
-                  Got it
-                </button>
+                <button onClick={() => setShowHelpDialog(false)} className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors">Got it</button>
               </div>
             </div>
           </div>
@@ -915,174 +628,45 @@ export default function DonutMiner({ context }: DonutMinerProps) {
 
         {showCompeteDialog && (
           <div className="fixed inset-0 z-50">
-            <div
-              className="absolute inset-0 bg-black/90 backdrop-blur-md"
-              onClick={() => setShowCompeteDialog(false)}
-            />
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowCompeteDialog(false)} />
             <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
               <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
-                <button
-                  onClick={() => setShowCompeteDialog(false)}
-                  className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-
-                <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                  Compete for Weekly Rewards
-                </h2>
-
+                <button onClick={() => setShowCompeteDialog(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"><X className="h-4 w-4" /></button>
+                <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Trophy className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />Compete for Weekly Rewards</h2>
                 <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-black">1</div>
-                    <div>
-                      <div className="font-semibold text-amber-400 text-sm">Mine 🍩DONUT = 2 Points</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Pay ETH to glaze the factory and earn 2 leaderboard points.</div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">2</div>
-                    <div>
-                      <div className="font-semibold text-white text-sm flex items-center gap-1">Mine <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES = 1 Point</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Pay DONUT to mine SPRINKLES and earn 1 leaderboard point.</div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">3</div>
-                    <div>
-                      <div className="font-semibold text-white text-sm">Weekly Leaderboard</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Compete with other miners. Resets every Friday at 12pm UTC.</div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-black">4</div>
-                    <div>
-                      <div className="font-semibold text-amber-400 text-sm">Win Prizes</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Top 3 miners split the prize pool: 50% / 30% / 20%</div>
-                    </div>
-                  </div>
+                  <div className="flex gap-3"><div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-black">1</div><div><div className="font-semibold text-amber-400 text-sm">Mine 🍩DONUT = 2 Points</div><div className="text-xs text-gray-400 mt-0.5">Pay ETH to glaze the factory and earn 2 leaderboard points.</div></div></div>
+                  <div className="flex gap-3"><div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">2</div><div><div className="font-semibold text-white text-sm flex items-center gap-1">Mine <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES = 1 Point</div><div className="text-xs text-gray-400 mt-0.5">Pay DONUT to mine SPRINKLES and earn 1 leaderboard point.</div></div></div>
+                  <div className="flex gap-3"><div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">3</div><div><div className="font-semibold text-white text-sm">Weekly Leaderboard</div><div className="text-xs text-gray-400 mt-0.5">Compete with other miners. Resets every Friday at 12pm UTC.</div></div></div>
+                  <div className="flex gap-3"><div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-black">4</div><div><div className="font-semibold text-amber-400 text-sm">Win Prizes</div><div className="text-xs text-gray-400 mt-0.5">Top 3 miners split the prize pool: 50% / 30% / 20%</div></div></div>
                 </div>
-
-                <p className="text-[10px] text-gray-500 text-center mt-4 flex items-center justify-center gap-1">
-                  Prize pool includes ETH, 🍩DONUT, and <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES!
-                </p>
-
-                <button
-                  onClick={() => setShowCompeteDialog(false)}
-                  className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
-                >
-                  Got it
-                </button>
+                <p className="text-[10px] text-gray-500 text-center mt-4 flex items-center justify-center gap-1">Prize pool includes ETH, 🍩DONUT, and <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES!</p>
+                <button onClick={() => setShowCompeteDialog(false)} className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors">Got it</button>
               </div>
             </div>
           </div>
         )}
 
-        <input
-          type="text"
-          value={customMessage}
-          onChange={(e) => setCustomMessage(e.target.value)}
-          placeholder="Add a GLOBAL message (optional)"
-          maxLength={100}
-          className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-2 text-base text-white placeholder-gray-500 focus:outline-none focus:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
-          style={{ fontSize: '16px' }}
-          disabled={isGlazeDisabled}
-        />
+        <input type="text" value={customMessage} onChange={(e) => setCustomMessage(e.target.value)} placeholder="Add a GLOBAL message (optional)" maxLength={100} className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-2 text-base text-white placeholder-gray-500 focus:outline-none focus:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-40" style={{ fontSize: '16px' }} disabled={isGlazeDisabled} />
 
-        <button
-          className={cn(
-            "w-full rounded-xl py-4 text-lg font-bold transition-all duration-300",
-            glazeResult === "success"
-              ? "bg-green-500 text-white"
-              : glazeResult === "failure"
-                ? "bg-red-500 text-white"
-                : isGlazeDisabled
-                  ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
-                  : "bg-white text-black hover:bg-gray-200",
-            isPulsing && !isGlazeDisabled && !glazeResult && "scale-[0.95]"
-          )}
-          onClick={handleGlaze}
-          disabled={isGlazeDisabled}
-        >
-          {buttonLabel}
-        </button>
+        <button className={cn("w-full rounded-xl py-4 text-lg font-bold transition-all duration-300", glazeResult === "success" ? "bg-green-500 text-white" : glazeResult === "failure" ? "bg-red-500 text-white" : isGlazeDisabled ? "bg-zinc-800 text-gray-500 cursor-not-allowed" : "bg-white text-black hover:bg-gray-200", isPulsing && !isGlazeDisabled && !glazeResult && "scale-[0.95]")} onClick={handleGlaze} disabled={isGlazeDisabled}>{buttonLabel}</button>
 
-        <button
-          onClick={() => setShowStats(!showStats)}
-          className={cn(
-            "w-full border rounded-lg p-2 transition-colors text-left",
-            showStats ? "bg-zinc-950 border-zinc-700" : "bg-zinc-900 border-zinc-800"
-          )}
-        >
+        <button onClick={() => setShowStats(!showStats)} className={cn("w-full border rounded-lg p-2 transition-colors text-left", showStats ? "bg-zinc-950 border-zinc-700" : "bg-zinc-900 border-zinc-800")}>
           <div className="flex items-center justify-between mb-1.5">
-            <div className="text-[9px] text-gray-400 uppercase tracking-wider">
-              {showStats ? "Your Stats" : "Your Balances"}
-            </div>
+            <div className="text-[9px] text-gray-400 uppercase tracking-wider">{showStats ? "Your Stats" : "Your Balances"}</div>
             <div className="text-[8px] text-gray-500">Tap to switch</div>
           </div>
-
           <div className="grid grid-cols-3 gap-2 text-center">
             {!showStats ? (
               <>
-                <div>
-                  <div className="text-[8px] text-gray-500 mb-0.5">DONUT</div>
-                  <div className="text-xs font-bold text-white">
-                    🍩 {donutBalanceDisplay}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[8px] text-gray-500 mb-0.5">ETH</div>
-                  <div className="text-xs font-bold text-white">
-                    Ξ {ethBalanceDisplay}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[8px] text-gray-500 mb-0.5">WETH</div>
-                  <div className="text-xs font-bold text-white">
-                    wΞ{" "}
-                    {minerState && minerState.wethBalance !== undefined
-                      ? formatEth(minerState.wethBalance, 3)
-                      : "—"}
-                  </div>
-                </div>
+                <div><div className="text-[8px] text-gray-500 mb-0.5">DONUT</div><div className="text-xs font-bold text-white">🍩 {donutBalanceDisplay}</div></div>
+                <div><div className="text-[8px] text-gray-500 mb-0.5">ETH</div><div className="text-xs font-bold text-white">Ξ {ethBalanceDisplay}</div></div>
+                <div><div className="text-[8px] text-gray-500 mb-0.5">WETH</div><div className="text-xs font-bold text-white">wΞ {minerState && minerState.wethBalance !== undefined ? formatEth(minerState.wethBalance, 3) : "—"}</div></div>
               </>
             ) : (
               <>
-                <div>
-                  <div className="text-[8px] text-gray-500 mb-0.5">Mined</div>
-                  <div className="text-xs font-bold text-white">
-                    🍩{" "}
-                    {address && accountData?.mined
-                      ? Math.floor(Number(accountData.mined)).toLocaleString()
-                      : "0"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[8px] text-gray-500 mb-0.5">Spent</div>
-                  <div className="text-xs font-bold text-white">
-                    Ξ{" "}
-                    {address && accountData?.spent
-                      ? Number(accountData.spent).toLocaleString(undefined, {
-                          maximumFractionDigits: 3,
-                        })
-                      : "0"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[8px] text-gray-500 mb-0.5">Earned</div>
-                  <div className="text-xs font-bold text-white">
-                    wΞ{" "}
-                    {address && accountData?.earned
-                      ? Number(accountData.earned).toLocaleString(undefined, {
-                          maximumFractionDigits: 3,
-                        })
-                      : "0"}
-                  </div>
-                </div>
+                <div><div className="text-[8px] text-gray-500 mb-0.5">Mined</div><div className="text-xs font-bold text-white">🍩 {address && accountData?.mined ? Math.floor(Number(accountData.mined)).toLocaleString() : "0"}</div></div>
+                <div><div className="text-[8px] text-gray-500 mb-0.5">Spent</div><div className="text-xs font-bold text-white">Ξ {address && accountData?.spent ? Number(accountData.spent).toLocaleString(undefined, { maximumFractionDigits: 3 }) : "0"}</div></div>
+                <div><div className="text-[8px] text-gray-500 mb-0.5">Earned</div><div className="text-xs font-bold text-white">wΞ {address && accountData?.earned ? Number(accountData.earned).toLocaleString(undefined, { maximumFractionDigits: 3 }) : "0"}</div></div>
               </>
             )}
           </div>

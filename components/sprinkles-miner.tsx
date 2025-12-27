@@ -40,6 +40,10 @@ const SPRINKLES_DECIMALS = 18;
 const DONUT_DECIMALS = 18;
 const DEADLINE_BUFFER_SECONDS = 15 * 60;
 
+// Dutch auction constants (match your contract)
+const AUCTION_DURATION = 3600; // 1 hour in seconds
+const MIN_PRICE = 1n * 10n ** 18n; // 1 DONUT minimum
+
 const SPRINKLES_DONUT_PAIR = "0x47E8b03017d8b8d058bA5926838cA4dD4531e668";
 
 const DEFAULT_MESSAGES = [
@@ -100,6 +104,23 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
+// Client-side price calculation to match contract's Dutch auction
+const calculatePrice = (initPrice: bigint, startTime: number): bigint => {
+  const now = Math.floor(Date.now() / 1000);
+  const elapsed = now - startTime;
+  
+  if (elapsed >= AUCTION_DURATION) {
+    return MIN_PRICE;
+  }
+  
+  // Linear decay from initPrice to MIN_PRICE over AUCTION_DURATION
+  const priceRange = initPrice - MIN_PRICE;
+  const decay = (priceRange * BigInt(elapsed)) / BigInt(AUCTION_DURATION);
+  const currentPrice = initPrice - decay;
+  
+  return currentPrice > MIN_PRICE ? currentPrice : MIN_PRICE;
+};
+
 interface SprinklesMinerProps {
   context: MiniAppContext | null;
 }
@@ -122,6 +143,9 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const mineResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const approvalInputRef = useRef<HTMLInputElement>(null);
   const defaultMessageRef = useRef<string>(getRandomDefaultMessage());
+  
+  // Client-side interpolated price (updates every second)
+  const [interpolatedPrice, setInterpolatedPrice] = useState<bigint | null>(null);
 
   const resetMineResult = useCallback(() => {
     if (mineResultTimeoutRef.current) {
@@ -239,26 +263,30 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     }).catch(() => {});
   }, [connectAsync, isConnected, isConnecting, primaryConnector]);
 
+  // OPTIMIZED: Reduced from 3s to 15s - we interpolate price client-side
   const { data: rawSlot0, refetch: refetchSlot0 } = useReadContract({
     address: SPRINKLES_MINER_ADDRESS,
     abi: SPRINKLES_MINER_ABI,
     functionName: "getSlot0",
     chainId: base.id,
     query: {
-      refetchInterval: 3_000,
+      refetchInterval: 15_000, // Was 3_000
     },
   });
 
+  // REMOVED: getPrice polling - we calculate client-side now
+  // Fetch once on mount and after transactions for accuracy
   const { data: currentPrice, refetch: refetchPrice } = useReadContract({
     address: SPRINKLES_MINER_ADDRESS,
     abi: SPRINKLES_MINER_ABI,
     functionName: "getPrice",
     chainId: base.id,
     query: {
-      refetchInterval: 3_000,
+      refetchInterval: 60_000, // Was 3_000 - now just periodic sync
     },
   });
 
+  // OPTIMIZED: Keep at 30s - this is fine
   const { data: currentDps } = useReadContract({
     address: SPRINKLES_MINER_ADDRESS,
     abi: SPRINKLES_MINER_ABI,
@@ -269,6 +297,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     },
   });
 
+  // OPTIMIZED: Increased from 10s to 30s
   const { data: donutBalance } = useReadContract({
     address: DONUT_ADDRESS,
     abi: DONUT_ABI,
@@ -276,11 +305,12 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     args: [address ?? zeroAddress],
     chainId: base.id,
     query: {
-      refetchInterval: 10_000,
+      refetchInterval: 30_000, // Was 10_000
       enabled: !!address,
     },
   });
 
+  // OPTIMIZED: Increased from 10s to 30s
   const { data: donutAllowance, refetch: refetchAllowance } = useReadContract({
     address: DONUT_ADDRESS,
     abi: DONUT_ABI,
@@ -288,7 +318,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     args: [address ?? zeroAddress, SPRINKLES_MINER_ADDRESS],
     chainId: base.id,
     query: {
-      refetchInterval: 10_000,
+      refetchInterval: 30_000, // Was 10_000
       enabled: !!address,
     },
   });
@@ -307,7 +337,26 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     } as Slot0;
   }, [rawSlot0]);
 
-  const price = currentPrice as bigint | undefined;
+  // Client-side price interpolation - updates every second without RPC calls
+  useEffect(() => {
+    if (!slot0) {
+      setInterpolatedPrice(null);
+      return;
+    }
+
+    // Initial calculation
+    setInterpolatedPrice(calculatePrice(slot0.initPrice, slot0.startTime));
+
+    // Update every second
+    const interval = setInterval(() => {
+      setInterpolatedPrice(calculatePrice(slot0.initPrice, slot0.startTime));
+    }, 1_000);
+
+    return () => clearInterval(interval);
+  }, [slot0]);
+
+  // Use interpolated price for display, fall back to on-chain price
+  const price = interpolatedPrice ?? (currentPrice as bigint | undefined);
   const dps = currentDps as bigint | undefined;
 
   const {
@@ -330,7 +379,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     if (receipt.status === "success" || receipt.status === "reverted") {
       showMineResult(receipt.status === "success" ? "success" : "failure");
       refetchSlot0();
-      refetchPrice();
+      refetchPrice(); // Sync with on-chain after tx
       refetchAllowance();
       
       if (receipt.status === "success" && txType === "approve") {
@@ -483,6 +532,10 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
   const handleMine = useCallback(async () => {
     if (!slot0 || !price) return;
+    
+    // Fetch fresh price right before mining for accuracy
+    await refetchPrice();
+    
     resetMineResult();
     setPendingTxType("mine");
     pendingTxTypeRef.current = "mine";
@@ -506,7 +559,9 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       const deadline = BigInt(
         Math.floor(Date.now() / 1000) + DEADLINE_BUFFER_SECONDS
       );
-      const maxPrice = price === 0n ? 0n : (price * 105n) / 100n;
+      // Use fresh on-chain price for maxPrice calculation
+      const freshPrice = (currentPrice as bigint) ?? price;
+      const maxPrice = freshPrice === 0n ? 0n : (freshPrice * 105n) / 100n;
 
       // Use custom message if provided, otherwise use the random default
       const messageToSend = customMessage.trim() || defaultMessageRef.current;
@@ -536,10 +591,12 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   }, [
     address,
     connectAsync,
+    currentPrice,
     customMessage,
     slot0,
     price,
     primaryConnector,
+    refetchPrice,
     resetMineResult,
     resetWrite,
     showMineResult,

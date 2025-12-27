@@ -3,23 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { createPublicClient, http, formatUnits } from "viem";
-import { base } from "viem/chains";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { Ticket, Clock, HelpCircle, X, Sparkles, Dices, Lock, Bomb, Layers, Flame, Users } from "lucide-react";
-
-// Contract addresses - V5 contracts
-const DONUT_DICE_ADDRESS = "0xD6f1Eb5858efF6A94B853251BE2C27c4038BB7CE" as const;
-const DONUT_MINES_ADDRESS = "0xc5D771DaEEBCEdf8e7e53512eA533C9B07F8bE4f" as const;
-const GLAZE_WHEEL_ADDRESS = "0xDd89E2535e460aDb63adF09494AcfB99C33c43d8" as const;
-const DONUT_TOWER_ADDRESS = "0x59c140b50FfBe620ea8d770478A833bdF60387bA" as const;
-
-// Create a public client for Base
-const publicClient = createPublicClient({
-  chain: base,
-  transport: http('https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g'),
-});
 
 type MiniAppContext = {
   user?: {
@@ -29,6 +15,12 @@ type MiniAppContext = {
     pfpUrl?: string;
   };
 };
+
+type LastWinner = {
+  username: string;
+  amount: string;
+  pfpUrl?: string;
+} | null;
 
 const initialsFrom = (label?: string) => {
   if (!label) return "";
@@ -91,7 +83,7 @@ function LotteryTile({
   currentPot: number;
   totalTickets: number;
   timeRemaining: string;
-  lastWinner?: { username: string; amount: string; pfpUrl?: string } | null;
+  lastWinner?: LastWinner;
   onClick: () => void;
 }) {
   const [donuts, setDonuts] = useState<Array<{ id: number; delay: number; duration: number; left: number }>>([]);
@@ -100,7 +92,6 @@ function LotteryTile({
   
   const isComingSoon = currentPot === 0 && totalTickets === 0;
 
-  // Generate falling donuts
   useEffect(() => {
     const initialDonuts = Array.from({ length: 10 }, () => ({
       id: idCounter.current++,
@@ -133,16 +124,13 @@ function LotteryTile({
       className="lottery-tile-main relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]"
       style={{ minHeight: '130px' }}
     >
-      {/* Falling donuts container */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-[1]">
         {donuts.map((donut) => (
           <FallingDonut key={donut.id} {...donut} />
         ))}
       </div>
       
-      {/* Content */}
       <div className="relative z-10 p-4">
-        {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div className="text-left">
             <div className="flex items-center gap-2">
@@ -160,7 +148,6 @@ function LotteryTile({
             <div className="text-[9px] text-white/80">1 DONUT = 1 Ticket • Winner Takes All</div>
           </div>
           
-          {/* Timer */}
           <div className="flex flex-col items-end">
             <div className="flex items-center gap-1 text-white/60">
               <Clock className="w-2.5 h-2.5" />
@@ -170,7 +157,6 @@ function LotteryTile({
           </div>
         </div>
         
-        {/* Main pot display */}
         <div className="flex items-center justify-between">
           <div className="text-left">
             <div className="text-[8px] text-white/60 uppercase tracking-wider">Prize Pool</div>
@@ -196,13 +182,11 @@ function LotteryTile({
             </div>
           </div>
           
-          {/* CTA */}
           <div className={`px-4 py-2.5 rounded-xl bg-white text-black font-bold text-sm ${isHovered ? 'scale-105' : ''} transition-transform`}>
             {isComingSoon ? "View Details →" : "Buy Tickets →"}
           </div>
         </div>
         
-        {/* Last winner */}
         {lastWinner && !isComingSoon && (
           <div className="mt-2 pt-2 border-t border-amber-500/20">
             <div className="flex items-center justify-center gap-2 text-[9px]">
@@ -240,7 +224,7 @@ function GameTile({
   isNew?: boolean;
   isHot?: boolean;
   iconClassName?: string;
-  lastWinner?: { username: string; amount: string; pfpUrl?: string } | null;
+  lastWinner?: LastWinner;
   scrollDirection?: "left" | "right";
   onClick?: () => void;
 }) {
@@ -325,259 +309,43 @@ export default function GamesPage() {
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
-  const [diceLastWinner, setDiceLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
-  const [wheelLastWinner, setWheelLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
-  const [minesLastWinner, setMinesLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
-  const [towerLastWinner, setTowerLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
   
-  // Lottery state - Coming soon, no live data yet
-  const [lotteryPot, setLotteryPot] = useState(0);
-  const [lotteryTickets, setLotteryTickets] = useState(0);
-  const [lotteryTimeRemaining, setLotteryTimeRemaining] = useState("--:--:--");
-  const [lotteryLastWinner, setLotteryLastWinner] = useState<{ username: string; amount: string; pfpUrl?: string } | null>(null);
+  // All last winners fetched from a single API call
+  const [lastWinners, setLastWinners] = useState<{
+    dice: LastWinner;
+    mines: LastWinner;
+    wheel: LastWinner;
+    tower: LastWinner;
+  }>({
+    dice: null,
+    mines: null,
+    wheel: null,
+    tower: null,
+  });
+  
+  // Lottery state - Coming soon
+  const [lotteryPot] = useState(0);
+  const [lotteryTickets] = useState(0);
+  const [lotteryTimeRemaining] = useState("--:--:--");
+  const [lotteryLastWinner] = useState<LastWinner>(null);
 
-  // Fetch last winner for dice game
+  // Fetch all last winners from a single API endpoint
   useEffect(() => {
-    const fetchLastDiceWinner = async () => {
+    const fetchLastWinners = async () => {
       try {
-        const currentBlock = await publicClient.getBlockNumber();
-        const fromBlock = currentBlock > 900n ? currentBlock - 900n : 0n;
-        
-        const logs = await publicClient.getLogs({
-          address: DONUT_DICE_ADDRESS,
-          event: {
-            type: 'event',
-            name: 'BetRevealed',
-            inputs: [
-              { name: 'betId', type: 'uint256', indexed: true },
-              { name: 'player', type: 'address', indexed: true },
-              { name: 'blockHash', type: 'bytes32', indexed: false },
-              { name: 'result', type: 'uint8', indexed: false },
-              { name: 'won', type: 'bool', indexed: false },
-              { name: 'payout', type: 'uint256', indexed: false },
-            ],
-          },
-          fromBlock,
-          toBlock: 'latest',
-        });
-
-        let lastWin: { player: string; payout: bigint } | null = null;
-        for (let i = logs.length - 1; i >= 0 && i >= logs.length - 50; i--) {
-          const log = logs[i];
-          if (log.args.won && log.args.player && log.args.payout) {
-            lastWin = { player: log.args.player, payout: log.args.payout };
-            break;
-          }
+        const res = await fetch('/api/games/last-winners');
+        if (res.ok) {
+          const data = await res.json();
+          setLastWinners(data);
         }
-        
-        if (!lastWin) { setDiceLastWinner(null); return; }
-        
-        try {
-          const response = await fetch(`/api/profiles?addresses=${lastWin.player}`);
-          if (response.ok) {
-            const data = await response.json();
-            const profile = data.profiles[lastWin.player.toLowerCase()];
-            if (profile?.username) {
-              setDiceLastWinner({
-                username: profile.username,
-                amount: `${parseFloat(formatUnits(lastWin.payout, 18)).toFixed(2)} 🍩`,
-                pfpUrl: profile.pfpUrl || undefined
-              });
-              return;
-            }
-          }
-        } catch {}
-        
-        setDiceLastWinner({
-          username: `${lastWin.player.slice(0, 6)}...${lastWin.player.slice(-4)}`,
-          amount: `${parseFloat(formatUnits(lastWin.payout, 18)).toFixed(2)} 🍩`
-        });
-      } catch { setDiceLastWinner(null); }
+      } catch (error) {
+        console.error('Failed to fetch last winners:', error);
+      }
     };
 
-    fetchLastDiceWinner();
-    const interval = setInterval(fetchLastDiceWinner, 15 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Fetch last mines winner
-  useEffect(() => {
-    const fetchLastMinesWinner = async () => {
-      try {
-        const currentBlock = await publicClient.getBlockNumber();
-        const fromBlock = currentBlock > 900n ? currentBlock - 900n : 0n;
-        
-        const logs = await publicClient.getLogs({
-          address: DONUT_MINES_ADDRESS,
-          event: {
-            type: 'event',
-            name: 'GameCashedOut',
-            inputs: [
-              { type: 'uint256', name: 'gameId', indexed: true },
-              { type: 'address', name: 'player', indexed: true },
-              { type: 'uint256', name: 'tilesRevealed', indexed: false },
-              { type: 'uint256', name: 'multiplier', indexed: false },
-              { type: 'uint256', name: 'payout', indexed: false }
-            ]
-          },
-          fromBlock,
-          toBlock: 'latest'
-        });
-
-        if (logs.length === 0) { setMinesLastWinner(null); return; }
-
-        const lastLog = logs[logs.length - 1];
-        const player = lastLog.args.player as string;
-        const payout = lastLog.args.payout as bigint;
-
-        try {
-          const response = await fetch(`/api/profiles?addresses=${player}`);
-          if (response.ok) {
-            const data = await response.json();
-            const profile = data.profiles[player.toLowerCase()];
-            if (profile?.username) {
-              setMinesLastWinner({
-                username: profile.username,
-                amount: `${parseFloat(formatUnits(payout, 18)).toFixed(2)} 🍩`,
-                pfpUrl: profile.pfpUrl || undefined
-              });
-              return;
-            }
-          }
-        } catch {}
-        
-        setMinesLastWinner({
-          username: `${player.slice(0, 6)}...${player.slice(-4)}`,
-          amount: `${parseFloat(formatUnits(payout, 18)).toFixed(2)} 🍩`
-        });
-      } catch { setMinesLastWinner(null); }
-    };
-
-    fetchLastMinesWinner();
-    const interval = setInterval(fetchLastMinesWinner, 15 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Fetch last wheel winner
-  useEffect(() => {
-    const fetchLastWheelWinner = async () => {
-      try {
-        const currentBlock = await publicClient.getBlockNumber();
-        const fromBlock = currentBlock > 900n ? currentBlock - 900n : 0n;
-        
-        const logs = await publicClient.getLogs({
-          address: GLAZE_WHEEL_ADDRESS,
-          event: {
-            type: 'event',
-            name: 'SpinRevealed',
-            inputs: [
-              { type: 'uint256', name: 'spinId', indexed: true },
-              { type: 'address', name: 'player', indexed: true },
-              { type: 'uint8', name: 'result', indexed: false },
-              { type: 'uint256', name: 'multiplier', indexed: false },
-              { type: 'uint256', name: 'payout', indexed: false }
-            ]
-          },
-          fromBlock,
-          toBlock: 'latest'
-        });
-
-        let lastWin: { player: string; payout: bigint } | null = null;
-        for (let i = logs.length - 1; i >= 0 && i >= logs.length - 50; i--) {
-          const log = logs[i];
-          const payout = log.args.payout as bigint;
-          const player = log.args.player as string;
-          if (payout && payout > 0n && player) {
-            lastWin = { player, payout };
-            break;
-          }
-        }
-
-        if (!lastWin) { setWheelLastWinner(null); return; }
-
-        try {
-          const response = await fetch(`/api/profiles?addresses=${lastWin.player}`);
-          if (response.ok) {
-            const data = await response.json();
-            const profile = data.profiles[lastWin.player.toLowerCase()];
-            if (profile?.username) {
-              setWheelLastWinner({
-                username: profile.username,
-                amount: `${parseFloat(formatUnits(lastWin.payout, 18)).toFixed(2)} 🍩`,
-                pfpUrl: profile.pfpUrl || undefined
-              });
-              return;
-            }
-          }
-        } catch {}
-        
-        setWheelLastWinner({
-          username: `${lastWin.player.slice(0, 6)}...${lastWin.player.slice(-4)}`,
-          amount: `${parseFloat(formatUnits(lastWin.payout, 18)).toFixed(2)} 🍩`
-        });
-      } catch { setWheelLastWinner(null); }
-    };
-
-    fetchLastWheelWinner();
-    const interval = setInterval(fetchLastWheelWinner, 15 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Fetch last tower winner
-  useEffect(() => {
-    const fetchLastTowerWinner = async () => {
-      try {
-        const currentBlock = await publicClient.getBlockNumber();
-        const fromBlock = currentBlock > 900n ? currentBlock - 900n : 0n;
-        
-        const logs = await publicClient.getLogs({
-          address: DONUT_TOWER_ADDRESS,
-          event: {
-            type: 'event',
-            name: 'GameCashedOut',
-            inputs: [
-              { type: 'uint256', name: 'gameId', indexed: true },
-              { type: 'address', name: 'player', indexed: true },
-              { type: 'uint8', name: 'levelReached', indexed: false },
-              { type: 'uint256', name: 'multiplier', indexed: false },
-              { type: 'uint256', name: 'payout', indexed: false }
-            ]
-          },
-          fromBlock,
-          toBlock: 'latest'
-        });
-
-        if (logs.length === 0) { setTowerLastWinner(null); return; }
-
-        const lastLog = logs[logs.length - 1];
-        const player = lastLog.args.player as string;
-        const payout = lastLog.args.payout as bigint;
-
-        try {
-          const response = await fetch(`/api/profiles?addresses=${player}`);
-          if (response.ok) {
-            const data = await response.json();
-            const profile = data.profiles[player.toLowerCase()];
-            if (profile?.username) {
-              setTowerLastWinner({
-                username: profile.username,
-                amount: `${parseFloat(formatUnits(payout, 18)).toFixed(2)} 🍩`,
-                pfpUrl: profile.pfpUrl || undefined
-              });
-              return;
-            }
-          }
-        } catch {}
-        
-        setTowerLastWinner({
-          username: `${player.slice(0, 6)}...${player.slice(-4)}`,
-          amount: `${parseFloat(formatUnits(payout, 18)).toFixed(2)} 🍩`
-        });
-      } catch { setTowerLastWinner(null); }
-    };
-
-    fetchLastTowerWinner();
-    const interval = setInterval(fetchLastTowerWinner, 15 * 60 * 1000);
+    fetchLastWinners();
+    // Only refresh every 5 minutes instead of 15 minutes with 4 separate calls
+    const interval = setInterval(fetchLastWinners, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -629,7 +397,6 @@ export default function GamesPage() {
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
-  // Games list
   const games = [
     {
       id: "tower",
@@ -638,7 +405,7 @@ export default function GamesPage() {
       icon: Layers,
       comingSoon: false,
       isHot: true,
-      lastWinner: towerLastWinner,
+      lastWinner: lastWinners.tower,
       onClick: () => window.location.href = "/tower",
     },
     {
@@ -648,7 +415,7 @@ export default function GamesPage() {
       icon: WheelIcon,
       comingSoon: false,
       iconClassName: "icon-spin",
-      lastWinner: wheelLastWinner,
+      lastWinner: lastWinners.wheel,
       scrollDirection: "right" as const,
       onClick: () => router.push("/glaze-wheel"),
     },
@@ -658,7 +425,7 @@ export default function GamesPage() {
       description: "Roll over/under, set your multiplier!",
       icon: Dices,
       comingSoon: false,
-      lastWinner: diceLastWinner,
+      lastWinner: lastWinners.dice,
       onClick: () => router.push("/dice"),
     },
     {
@@ -667,7 +434,7 @@ export default function GamesPage() {
       description: "Avoid the bombs, cash out anytime",
       icon: Bomb,
       comingSoon: false,
-      lastWinner: minesLastWinner,
+      lastWinner: lastWinners.mines,
       scrollDirection: "right" as const,
       onClick: () => router.push("/mines"),
     },
@@ -700,7 +467,6 @@ export default function GamesPage() {
         .winner-track-right { display: flex; width: max-content; animation: scroll-right 6s linear infinite; }
         .winner-item { display: flex; align-items: center; gap: 4px; padding: 2px 8px; margin-right: 16px; font-size: 9px; color: #4ade80; background: rgba(34, 197, 94, 0.2); border-radius: 9999px; white-space: nowrap; }
         
-        /* Lottery tile styles */
         @keyframes lottery-donut-fall {
           0% { transform: translateY(0) rotate(0deg); opacity: 0; }
           5% { opacity: 0.6; }
@@ -719,7 +485,6 @@ export default function GamesPage() {
 
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4 shadow-inner" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
-          {/* Header */}
           <div className="flex-shrink-0">
             <div className="flex items-center justify-between mb-3">
               <h1 className="text-2xl font-bold tracking-wide">GAMES</h1>
@@ -739,7 +504,6 @@ export default function GamesPage() {
               )}
             </div>
 
-            {/* How It Works */}
             <button onClick={() => setShowHelpDialog(true)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 mb-2 hover:bg-zinc-800 transition-colors">
               <div className="flex items-center justify-center gap-2">
                 <Dices className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
@@ -749,7 +513,6 @@ export default function GamesPage() {
             </button>
           </div>
 
-          {/* Help Dialog */}
           {showHelpDialog && (
             <div className="fixed inset-0 z-50">
               <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHelpDialog(false)} />
@@ -768,10 +531,8 @@ export default function GamesPage() {
             </div>
           )}
 
-          {/* Scrollable Games List */}
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden games-scroll" style={{ WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`, maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` }}>
             <div className="space-y-2 pb-4">
-              {/* Special Lottery Tile at the top */}
               <LotteryTile
                 currentPot={lotteryPot}
                 totalTickets={lotteryTickets}
@@ -780,7 +541,6 @@ export default function GamesPage() {
                 onClick={() => window.location.href = "/games/lottery"}
               />
               
-              {/* Regular game tiles */}
               {games.map((game) => (
                 <GameTile
                   key={game.id}
