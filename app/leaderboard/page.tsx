@@ -316,9 +316,9 @@ export default function LeaderboardPage() {
       const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
-      // Show only days if more than 24 hours, otherwise show hours and minutes
-      if (days > 0) {
-        setTimeUntilDistribution(`${days}d`);
+      // Show days and hours if more than 1 day, otherwise show hours and minutes
+      if (days >= 1) {
+        setTimeUntilDistribution(`${days}d ${hours}h`);
       } else {
         setTimeUntilDistribution(`${hours}h ${minutes}m`);
       }
@@ -496,7 +496,7 @@ export default function LeaderboardPage() {
                       <Coins className="w-3.5 h-3.5 text-amber-400" />
                       <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
                     </div>
-                    <div className="text-2xl font-bold text-amber-400 prize-pulse fade-in-up stagger-3 opacity-0">
+                    <div className="text-2xl font-bold text-amber-400 prize-pulse">
                       ${Math.floor(totalPrizeUsd).toLocaleString()}
                     </div>
                     <span className="absolute bottom-1 text-[7px] text-gray-600 animate-pulse">tap for tokens</span>
