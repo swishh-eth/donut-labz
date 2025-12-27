@@ -295,8 +295,8 @@ export default function RevenueFlowPage() {
                   subtitle="Payments"
                   valueColor="text-green-400"
                   icon={() => <span className="text-sm">🍩</span>}
-                  borderColor="border-amber-500/50"
-                  bgColor="bg-amber-500/10"
+                  borderColor="border-white/30"
+                  bgColor="bg-white/5"
                   isSource
                   width={COL_W}
                 />
@@ -305,11 +305,11 @@ export default function RevenueFlowPage() {
                   title="Previous Miner"
                   value="80%"
                   subtitle="ETH rewards"
-                  valueColor="text-green-400"
+                  valueColor="text-amber-400"
                   icon={Users}
-                  iconColor="text-green-400"
-                  borderColor="border-green-500/50"
-                  bgColor="bg-green-500/10"
+                  iconColor="text-amber-400"
+                  borderColor="border-amber-500/50"
+                  bgColor="bg-amber-500/10"
                   percentage="80%"
                   width={COL_W}
                 />
@@ -319,7 +319,7 @@ export default function RevenueFlowPage() {
                 <FlowNode
                   title="Donut LSG"
                   value="15%"
-                  subtitle="Buybacks & treasury growth"
+                  subtitle="Buybacks & Growth"
                   valueColor="text-amber-400"
                   icon={TrendingUp}
                   iconColor="text-amber-400"
@@ -354,7 +354,7 @@ export default function RevenueFlowPage() {
                   percentage="2.5%"
                   width={COL_W}
                 />
-                <VLine h={100} grey delay={5} />
+                <VLine h={150} grey delay={5} />
               </div>
 
               {/* ===== RIGHT COLUMN: SPRINKLES Miner (DONUT) ===== */}
@@ -404,11 +404,11 @@ export default function RevenueFlowPage() {
                   title="LP Burn Pool"
                   value="2.5%"
                   subtitle="Burn rewards"
-                  valueColor="text-green-400"
+                  valueColor="text-amber-400"
                   icon={TrendingUp}
-                  iconColor="text-green-400"
-                  borderColor="border-green-500/50"
-                  bgColor="bg-green-500/10"
+                  iconColor="text-amber-400"
+                  borderColor="border-amber-500/50"
+                  bgColor="bg-amber-500/10"
                   percentage="2.5%"
                   width={COL_W}
                 />
@@ -463,9 +463,9 @@ export default function RevenueFlowPage() {
             
             <div className="flex flex-col items-center">
               <FlowNode
-                title="Games"
+                title="On Player Loss"
                 value="DONUT"
-                subtitle="2% House Edge"
+                subtitle="House edge distributed"
                 valueColor="text-amber-400"
                 icon={Dices}
                 iconColor="text-white"
@@ -483,14 +483,14 @@ export default function RevenueFlowPage() {
                 <VLine h={16} delay={1} />
                 <FlowNode
                   title="Prize Pool"
-                  value="1%"
-                  subtitle="Game prizes"
+                  value="50%"
+                  subtitle="Next winner"
                   valueColor="text-amber-400"
                   icon={Trophy}
                   iconColor="text-amber-400"
                   borderColor="border-amber-500/50"
                   bgColor="bg-amber-500/10"
-                  percentage="1%"
+                  percentage="50%"
                   width={90}
                 />
               </div>
@@ -500,14 +500,14 @@ export default function RevenueFlowPage() {
                 <VLine h={16} delay={2} />
                 <FlowNode
                   title="Sprinkles App"
-                  value="0.5%"
+                  value="25%"
                   subtitle="Provider"
                   valueColor="text-gray-400"
                   icon={Coins}
                   iconColor="text-gray-400"
                   borderColor="border-zinc-700"
                   bgColor="bg-zinc-800/50"
-                  percentage="0.5%"
+                  percentage="25%"
                   width={90}
                 />
                 <VLine h={16} grey delay={3} />
@@ -518,14 +518,14 @@ export default function RevenueFlowPage() {
                 <VLine h={16} delay={3} />
                 <FlowNode
                   title="LP Burn"
-                  value="0.5%"
+                  value="25%"
                   subtitle="Rewards"
                   valueColor="text-green-400"
                   icon={Flame}
                   iconColor="text-green-400"
                   borderColor="border-green-500/50"
                   bgColor="bg-green-500/10"
-                  percentage="0.5%"
+                  percentage="25%"
                   width={90}
                 />
               </div>
