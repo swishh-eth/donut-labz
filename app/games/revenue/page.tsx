@@ -32,7 +32,7 @@ function FallingDonut({ delay, duration, left }: { delay: number; duration: numb
   );
 }
 
-// Flow node with optional lines coming out
+// Simple flow node - no lines built in
 function FlowNode({ 
   title, 
   subtitle, 
@@ -45,12 +45,6 @@ function FlowNode({
   isComingSoon = false,
   isSource = false,
   percentage,
-  lineAbove = false,
-  lineBelow = false,
-  lineAboveHeight = 20,
-  lineBelowHeight = 20,
-  greyLine = false,
-  animDelay = 0,
 }: { 
   title: string;
   subtitle?: string;
@@ -63,75 +57,56 @@ function FlowNode({
   isComingSoon?: boolean;
   isSource?: boolean;
   percentage?: string;
-  lineAbove?: boolean;
-  lineBelow?: boolean;
-  lineAboveHeight?: number;
-  lineBelowHeight?: number;
-  greyLine?: boolean;
-  animDelay?: number;
 }) {
-  const lineColor = greyLine ? 'bg-zinc-600' : 'bg-amber-500/60';
-  const dotColor = greyLine ? 'bg-zinc-500' : 'bg-amber-400';
-  const glowColor = greyLine ? 'shadow-[0_0_4px_#71717a]' : 'shadow-[0_0_6px_#fbbf24]';
-  
   return (
-    <div className="flex flex-col items-center">
-      {/* Line above */}
-      {lineAbove && (
-        <div className={`w-0.5 ${lineColor} relative`} style={{ height: lineAboveHeight }}>
-          <div 
-            className={`absolute w-1.5 h-1.5 rounded-full ${dotColor} ${glowColor} left-1/2 -translate-x-1/2 animate-flow-dot`}
-            style={{ animationDelay: `${animDelay * 0.25}s` }}
-          />
+    <div 
+      className={`flow-node relative rounded-xl border-2 ${borderColor} ${bgColor} p-2.5 ${isComingSoon ? 'opacity-50' : ''}`}
+    >
+      {isSource && (
+        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+      )}
+      {percentage && (
+        <div className={`absolute -top-2 -left-2 ${isComingSoon ? 'bg-zinc-600 text-gray-300' : 'bg-amber-500 text-black'} text-[8px] font-bold px-1.5 py-0.5 rounded-full z-20`}>
+          {percentage}
         </div>
       )}
-      
-      {/* Node */}
-      <div 
-        className={`flow-node relative rounded-xl border-2 ${borderColor} ${bgColor} p-2.5 ${isComingSoon ? 'opacity-50' : ''}`}
-      >
-        {isSource && (
-          <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
-        )}
-        {percentage && (
-          <div className={`absolute -top-2 -left-2 ${isComingSoon ? 'bg-zinc-600 text-gray-300' : 'bg-amber-500 text-black'} text-[8px] font-bold px-1.5 py-0.5 rounded-full z-20`}>
-            {percentage}
-          </div>
-        )}
-        <div className="text-[7px] text-gray-500 uppercase tracking-wider mb-0.5 flex items-center gap-1">
-          {title}
-          {isComingSoon && <Lock className="w-2 h-2" />}
-        </div>
-        <div className={`text-xs font-bold ${valueColor} flex items-center gap-1`}>
-          <Icon className={`w-3 h-3 ${iconColor}`} />
-          {value || subtitle}
-        </div>
-        {value && subtitle && (
-          <div className="text-[8px] text-gray-500 mt-0.5">{subtitle}</div>
-        )}
+      <div className="text-[7px] text-gray-500 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+        {title}
+        {isComingSoon && <Lock className="w-2 h-2" />}
       </div>
-      
-      {/* Line below */}
-      {lineBelow && (
-        <div className={`w-0.5 ${lineColor} relative`} style={{ height: lineBelowHeight }}>
-          <div 
-            className={`absolute w-1.5 h-1.5 rounded-full ${dotColor} ${glowColor} left-1/2 -translate-x-1/2 animate-flow-dot`}
-            style={{ animationDelay: `${(animDelay + 1) * 0.25}s` }}
-          />
-        </div>
+      <div className={`text-xs font-bold ${valueColor} flex items-center gap-1`}>
+        <Icon className={`w-3 h-3 ${iconColor}`} />
+        {value || subtitle}
+      </div>
+      {value && subtitle && (
+        <div className="text-[8px] text-gray-500 mt-0.5">{subtitle}</div>
       )}
     </div>
   );
 }
 
-// Section label with lines
-function SectionLabel({ text, color = "text-gray-500", lineAbove = false, lineBelow = false }: { text: string; color?: string; lineAbove?: boolean; lineBelow?: boolean }) {
+// Vertical line with animated dot
+function VLine({ h, grey = false, delay = 0 }: { h: number; grey?: boolean; delay?: number }) {
   return (
-    <div className="flex flex-col items-center">
-      {lineAbove && <div className="w-0.5 h-4 bg-amber-500/60" />}
-      <div className={`text-[8px] ${color} font-bold py-1 bg-black px-2 z-10`}>{text}</div>
-      {lineBelow && <div className="w-0.5 h-4 bg-amber-500/60" />}
+    <div 
+      className={`relative ${grey ? 'bg-zinc-600' : 'bg-amber-500/60'}`}
+      style={{ width: 2, height: h }}
+    >
+      <div 
+        className={`absolute w-1.5 h-1.5 rounded-full left-1/2 -translate-x-1/2 animate-flow-dot ${grey ? 'bg-zinc-500 shadow-[0_0_4px_#71717a]' : 'bg-amber-400 shadow-[0_0_6px_#fbbf24]'}`}
+        style={{ animationDelay: `${delay * 0.3}s` }}
+      />
     </div>
+  );
+}
+
+// Horizontal line
+function HLine({ w, grey = false }: { w: number; grey?: boolean }) {
+  return (
+    <div 
+      className={grey ? 'bg-zinc-600' : 'bg-amber-500/60'}
+      style={{ height: 2, width: w }}
+    />
   );
 }
 
@@ -142,7 +117,6 @@ export default function RevenueFlowPage() {
   const [donuts, setDonuts] = useState<Array<{ id: number; delay: number; duration: number; left: number }>>([]);
   const donutIdCounter = useRef(0);
 
-  // Initialize falling donuts
   useEffect(() => {
     const initialDonuts = Array.from({ length: 12 }, () => ({
       id: donutIdCounter.current++,
@@ -257,16 +231,16 @@ export default function RevenueFlowPage() {
 
         {/* Scrollable Flow Container */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden flow-scroll relative z-10">
-          <div className="pb-8 px-1">
+          <div className="pb-8">
             
             {/* ========== MINER REVENUE ========== */}
             <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-3 text-center">Miner Revenue</div>
             
             {/* Two miners side by side */}
-            <div className="flex justify-center gap-4">
+            <div className="flex justify-center gap-6">
               
               {/* ===== LEFT COLUMN: DONUT Miner (ETH) ===== */}
-              <div className="flex flex-col items-center" style={{ width: '145px' }}>
+              <div className="flex flex-col items-center">
                 <FlowNode
                   title="DONUT Miner"
                   value="ETH"
@@ -276,10 +250,8 @@ export default function RevenueFlowPage() {
                   borderColor="border-amber-500/50"
                   bgColor="bg-amber-500/10"
                   isSource
-                  lineBelow
-                  lineBelowHeight={20}
-                  animDelay={0}
                 />
+                <VLine h={20} delay={0} />
                 <FlowNode
                   title="Previous Miner"
                   value="80%"
@@ -290,11 +262,10 @@ export default function RevenueFlowPage() {
                   borderColor="border-green-500/50"
                   bgColor="bg-green-500/10"
                   percentage="80%"
-                  lineBelow
-                  lineBelowHeight={20}
-                  animDelay={1}
                 />
-                <SectionLabel text="Ξ ETH FEES (5%)" color="text-green-400" lineBelow />
+                <VLine h={20} delay={1} />
+                <div className="text-[8px] text-green-400 font-bold py-1 bg-black px-2">Ξ ETH FEES (5%)</div>
+                <VLine h={12} delay={2} />
                 <FlowNode
                   title="Leaderboard"
                   value="2.5%"
@@ -305,10 +276,8 @@ export default function RevenueFlowPage() {
                   borderColor="border-amber-500/50"
                   bgColor="bg-amber-500/10"
                   percentage="2.5%"
-                  lineBelow
-                  lineBelowHeight={20}
-                  animDelay={2}
                 />
+                <VLine h={20} delay={3} />
                 <FlowNode
                   title="Sprinkles App"
                   value="2.5%"
@@ -319,15 +288,12 @@ export default function RevenueFlowPage() {
                   borderColor="border-zinc-700"
                   bgColor="bg-zinc-800/50"
                   percentage="2.5%"
-                  lineBelow
-                  lineBelowHeight={50}
-                  greyLine
-                  animDelay={3}
                 />
+                <VLine h={20} grey delay={4} />
               </div>
 
               {/* ===== RIGHT COLUMN: SPRINKLES Miner (DONUT) ===== */}
-              <div className="flex flex-col items-center" style={{ width: '145px' }}>
+              <div className="flex flex-col items-center">
                 <FlowNode
                   title="SPRINKLES Miner"
                   value="DONUT"
@@ -338,10 +304,8 @@ export default function RevenueFlowPage() {
                   borderColor="border-white/30"
                   bgColor="bg-white/5"
                   isSource
-                  lineBelow
-                  lineBelowHeight={20}
-                  animDelay={1}
                 />
+                <VLine h={20} delay={1} />
                 <FlowNode
                   title="Previous Miner"
                   value="80%"
@@ -352,11 +316,10 @@ export default function RevenueFlowPage() {
                   borderColor="border-amber-500/50"
                   bgColor="bg-amber-500/10"
                   percentage="80%"
-                  lineBelow
-                  lineBelowHeight={20}
-                  animDelay={2}
                 />
-                <SectionLabel text="🍩 DONUT FEES (20%)" color="text-amber-400" lineBelow />
+                <VLine h={20} delay={2} />
+                <div className="text-[8px] text-amber-400 font-bold py-1 bg-black px-2">🍩 DONUT FEES (20%)</div>
+                <VLine h={12} delay={3} />
                 <FlowNode
                   title="Buy & Burn"
                   value="10%"
@@ -367,10 +330,8 @@ export default function RevenueFlowPage() {
                   borderColor="border-red-500/50"
                   bgColor="bg-red-500/10"
                   percentage="10%"
-                  lineBelow
-                  lineBelowHeight={20}
-                  animDelay={3}
                 />
+                <VLine h={20} delay={4} />
                 <FlowNode
                   title="LP Burn Pool"
                   value="2.5%"
@@ -381,10 +342,8 @@ export default function RevenueFlowPage() {
                   borderColor="border-green-500/50"
                   bgColor="bg-green-500/10"
                   percentage="2.5%"
-                  lineBelow
-                  lineBelowHeight={20}
-                  animDelay={4}
                 />
+                <VLine h={20} delay={5} />
                 <FlowNode
                   title="Leaderboard"
                   value="2.5%"
@@ -395,10 +354,8 @@ export default function RevenueFlowPage() {
                   borderColor="border-amber-500/50"
                   bgColor="bg-amber-500/10"
                   percentage="2.5%"
-                  lineBelow
-                  lineBelowHeight={20}
-                  animDelay={5}
                 />
+                <VLine h={20} delay={6} />
                 <FlowNode
                   title="Sprinkles App"
                   value="5%"
@@ -409,19 +366,23 @@ export default function RevenueFlowPage() {
                   borderColor="border-zinc-700"
                   bgColor="bg-zinc-800/50"
                   percentage="5%"
-                  lineBelow
-                  lineBelowHeight={20}
-                  greyLine
-                  animDelay={6}
                 />
+                <VLine h={20} grey delay={7} />
               </div>
             </div>
 
-            {/* Horizontal connector bar */}
-            <div className="flex justify-center items-start -mt-0.5">
-              <div className="h-0.5 bg-zinc-600" style={{ width: '145px' }} />
-              <div className="w-0.5 h-5 bg-zinc-600" />
-              <div className="h-0.5 bg-zinc-600" style={{ width: '145px' }} />
+            {/* T-connector to Stakers - both lines come down and connect */}
+            <div className="flex justify-center items-start">
+              {/* Left horizontal + down */}
+              <div className="flex flex-col items-end" style={{ width: '50%', paddingRight: '12px' }}>
+                <HLine w={60} grey />
+              </div>
+              {/* Center vertical */}
+              <VLine h={16} grey delay={8} />
+              {/* Right horizontal */}
+              <div className="flex flex-col items-start" style={{ width: '50%', paddingLeft: '12px' }}>
+                <HLine w={60} grey />
+              </div>
             </div>
 
             {/* ========== STAKERS (Coming Soon) ========== */}
@@ -440,7 +401,7 @@ export default function RevenueFlowPage() {
             </div>
 
             {/* ========== GAMES REVENUE ========== */}
-            <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-3 text-center mt-8">Games Revenue</div>
+            <div className="text-[9px] text-gray-500 uppercase tracking-wider mt-8 mb-3 text-center">Games Revenue</div>
             
             <div className="flex flex-col items-center">
               <FlowNode
@@ -453,75 +414,69 @@ export default function RevenueFlowPage() {
                 borderColor="border-zinc-600"
                 bgColor="bg-zinc-800/50"
                 isSource
-                lineBelow
-                lineBelowHeight={20}
-                animDelay={0}
               />
+              <VLine h={20} delay={0} />
             </div>
             
-            {/* Horizontal split bar */}
-            <div className="flex justify-center -mt-0.5">
-              <div className="h-0.5 bg-amber-500/60" style={{ width: '200px' }} />
+            {/* Horizontal bar spanning all 3 */}
+            <div className="flex justify-center">
+              <HLine w={240} />
             </div>
             
-            {/* Three columns */}
-            <div className="flex justify-center gap-2 -mt-0.5">
-              <div className="flex flex-col items-center" style={{ width: '100px' }}>
-                <div className="w-0.5 h-4 bg-amber-500/60 relative">
-                  <div className="absolute w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_#fbbf24] left-1/2 -translate-x-1/2 animate-flow-dot" style={{ animationDelay: '0.5s' }} />
+            {/* Three columns dropping down */}
+            <div className="flex justify-center">
+              <div className="flex" style={{ width: 240 }}>
+                {/* Left - Prize Pool */}
+                <div className="flex flex-col items-center flex-1">
+                  <VLine h={16} delay={1} />
+                  <FlowNode
+                    title="Prize Pool"
+                    value="1%"
+                    subtitle="Game prizes"
+                    valueColor="text-amber-400"
+                    icon={Trophy}
+                    iconColor="text-amber-400"
+                    borderColor="border-amber-500/50"
+                    bgColor="bg-amber-500/10"
+                    percentage="1%"
+                  />
                 </div>
-                <FlowNode
-                  title="Prize Pool"
-                  value="1%"
-                  subtitle="Game prizes"
-                  valueColor="text-amber-400"
-                  icon={Trophy}
-                  iconColor="text-amber-400"
-                  borderColor="border-amber-500/50"
-                  bgColor="bg-amber-500/10"
-                  percentage="1%"
-                />
-              </div>
-              
-              <div className="flex flex-col items-center" style={{ width: '100px' }}>
-                <div className="w-0.5 h-4 bg-amber-500/60 relative">
-                  <div className="absolute w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_#fbbf24] left-1/2 -translate-x-1/2 animate-flow-dot" style={{ animationDelay: '0.75s' }} />
+                
+                {/* Center - Sprinkles App */}
+                <div className="flex flex-col items-center flex-1">
+                  <VLine h={16} delay={2} />
+                  <FlowNode
+                    title="Sprinkles App"
+                    value="0.5%"
+                    subtitle="Provider"
+                    valueColor="text-gray-400"
+                    icon={Coins}
+                    iconColor="text-gray-400"
+                    borderColor="border-zinc-700"
+                    bgColor="bg-zinc-800/50"
+                    percentage="0.5%"
+                  />
+                  <VLine h={20} grey delay={3} />
+                  <div className="text-[8px] text-gray-500 flex items-center gap-1">
+                    <Lock className="w-2 h-2" /> Stakers
+                  </div>
                 </div>
-                <FlowNode
-                  title="Sprinkles App"
-                  value="0.5%"
-                  subtitle="Provider"
-                  valueColor="text-gray-400"
-                  icon={Coins}
-                  iconColor="text-gray-400"
-                  borderColor="border-zinc-700"
-                  bgColor="bg-zinc-800/50"
-                  percentage="0.5%"
-                  lineBelow
-                  lineBelowHeight={20}
-                  greyLine
-                  animDelay={2}
-                />
-                <div className="text-[8px] text-gray-500 flex items-center gap-1">
-                  <Lock className="w-2 h-2" /> Stakers
+                
+                {/* Right - LP Burn */}
+                <div className="flex flex-col items-center flex-1">
+                  <VLine h={16} delay={3} />
+                  <FlowNode
+                    title="LP Burn"
+                    value="0.5%"
+                    subtitle="Rewards"
+                    valueColor="text-green-400"
+                    icon={Flame}
+                    iconColor="text-green-400"
+                    borderColor="border-green-500/50"
+                    bgColor="bg-green-500/10"
+                    percentage="0.5%"
+                  />
                 </div>
-              </div>
-              
-              <div className="flex flex-col items-center" style={{ width: '100px' }}>
-                <div className="w-0.5 h-4 bg-amber-500/60 relative">
-                  <div className="absolute w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_#fbbf24] left-1/2 -translate-x-1/2 animate-flow-dot" style={{ animationDelay: '1s' }} />
-                </div>
-                <FlowNode
-                  title="LP Burn"
-                  value="0.5%"
-                  subtitle="Rewards"
-                  valueColor="text-green-400"
-                  icon={Flame}
-                  iconColor="text-green-400"
-                  borderColor="border-green-500/50"
-                  bgColor="bg-green-500/10"
-                  percentage="0.5%"
-                />
               </div>
             </div>
 
