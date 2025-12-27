@@ -341,7 +341,7 @@ export default function RevenueFlowPage() {
                   percentage="2.5%"
                   width={COL_W}
                 />
-                <VLine h={178} grey delay={4} />
+                <VLine h={185} grey delay={4} />
               </div>
 
               {/* ===== RIGHT COLUMN: SPRINKLES Miner (DONUT) ===== */}
@@ -476,11 +476,11 @@ export default function RevenueFlowPage() {
             
             {/* Simple horizontal bar - width matches 3 columns + gaps */}
             <div className="flex justify-center">
-              <div className="bg-amber-500/60" style={{ width: 290, height: 2 }} />
+              <div className="bg-amber-500/60" style={{ width: 270, height: 2 }} />
             </div>
             
             {/* Three columns */}
-            <div className="flex justify-center" style={{ gap: 4, width: 290, margin: '0 auto' }}>
+            <div className="flex justify-center" style={{ gap: 4, width: 270, margin: '0 auto' }}>
               {/* Left - Prize Pool */}
               <div className="flex flex-col items-center flex-1">
                 <VLine h={16} delay={1} />
