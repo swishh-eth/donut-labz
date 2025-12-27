@@ -109,6 +109,8 @@ export default function RevenueFlowPage() {
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [donuts, setDonuts] = useState<Array<{ id: number; delay: number; duration: number; left: number }>>([]);
   const donutIdCounter = useRef(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
 
   useEffect(() => {
     const initialDonuts = Array.from({ length: 12 }, () => ({
@@ -158,6 +160,26 @@ export default function RevenueFlowPage() {
       }
     }, 1200);
     return () => clearTimeout(timeout);
+  }, []);
+
+  // Handle scroll fade effect
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const scrollTop = container.scrollTop;
+      const scrollHeight = container.scrollHeight - container.clientHeight;
+      if (scrollHeight > 0) {
+        const topFade = Math.min(1, scrollTop / 100);
+        const bottomFade = Math.min(1, (scrollHeight - scrollTop) / 100);
+        setScrollFade({ top: topFade, bottom: bottomFade });
+      }
+    };
+
+    handleScroll();
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Column width for miners
@@ -227,7 +249,14 @@ export default function RevenueFlowPage() {
         </div>
 
         {/* Scrollable Flow Container */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden flow-scroll relative z-10">
+        <div 
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto overflow-x-hidden flow-scroll relative z-10"
+          style={{ 
+            WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`, 
+            maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` 
+          }}
+        >
           <div className="pb-8">
             
             {/* ========== MINER REVENUE ========== */}
@@ -380,7 +409,7 @@ export default function RevenueFlowPage() {
 
             {/* Horizontal bar connecting both columns to center */}
             <div className="flex justify-center">
-              <div className="bg-zinc-600" style={{ width: COL_W + GAP + 2, height: 2 }} />
+              <div className="bg-zinc-600" style={{ width: COL_W + GAP + 4, height: 2 }} />
             </div>
             
             {/* Center drop to stakers */}
@@ -423,15 +452,15 @@ export default function RevenueFlowPage() {
               <VLine h={16} delay={0} />
             </div>
             
-            {/* Simple horizontal bar */}
+            {/* Simple horizontal bar - width matches 3 columns + gaps */}
             <div className="flex justify-center">
-              <div className="bg-amber-500/60" style={{ width: 200, height: 2 }} />
+              <div className="bg-amber-500/60" style={{ width: 312, height: 2 }} />
             </div>
             
             {/* Three columns */}
-            <div className="flex justify-center" style={{ gap: 4 }}>
+            <div className="flex justify-center" style={{ gap: 4, width: 312, margin: '0 auto' }}>
               {/* Left - Prize Pool */}
-              <div className="flex flex-col items-center" style={{ width: 100 }}>
+              <div className="flex flex-col items-center flex-1">
                 <VLine h={16} delay={1} />
                 <FlowNode
                   title="Prize Pool"
@@ -448,7 +477,7 @@ export default function RevenueFlowPage() {
               </div>
               
               {/* Center - Sprinkles App */}
-              <div className="flex flex-col items-center" style={{ width: 100 }}>
+              <div className="flex flex-col items-center flex-1">
                 <VLine h={16} delay={2} />
                 <FlowNode
                   title="Sprinkles App"
@@ -466,7 +495,7 @@ export default function RevenueFlowPage() {
               </div>
               
               {/* Right - LP Burn */}
-              <div className="flex flex-col items-center" style={{ width: 100 }}>
+              <div className="flex flex-col items-center flex-1">
                 <VLine h={16} delay={3} />
                 <FlowNode
                   title="LP Burn"
