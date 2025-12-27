@@ -317,6 +317,19 @@ export default function RevenueFlowPage() {
                 <div className="text-[8px] text-green-400 font-bold py-1 bg-black px-2">Ξ ETH FEES (5%)</div>
                 <VLine h={8} delay={2} />
                 <FlowNode
+                  title="Donut LSG"
+                  value="15%"
+                  subtitle="Buybacks & treasury growth"
+                  valueColor="text-amber-400"
+                  icon={TrendingUp}
+                  iconColor="text-amber-400"
+                  borderColor="border-amber-500/50"
+                  bgColor="bg-amber-500/10"
+                  percentage="15%"
+                  width={COL_W}
+                />
+                <VLine h={16} delay={3} />
+                <FlowNode
                   title="Leaderboard"
                   value="2.5%"
                   subtitle="Weekly Prizes"
@@ -328,7 +341,7 @@ export default function RevenueFlowPage() {
                   percentage="2.5%"
                   width={COL_W}
                 />
-                <VLine h={16} delay={3} />
+                <VLine h={16} delay={4} />
                 <FlowNode
                   title="Sprinkles App"
                   value="2.5%"
@@ -341,7 +354,7 @@ export default function RevenueFlowPage() {
                   percentage="2.5%"
                   width={COL_W}
                 />
-                <VLine h={185} grey delay={4} />
+                <VLine h={100} grey delay={5} />
               </div>
 
               {/* ===== RIGHT COLUMN: SPRINKLES Miner (DONUT) ===== */}
