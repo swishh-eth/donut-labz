@@ -37,8 +37,8 @@ const SPRINKLES_CLAIM_ABI = [
 ] as const;
 
 // ============== EPOCH CALCULATION (FRONTEND) ==============
-// Week 1 started on Friday, December 6, 2024 at 00:00 UTC
-const EPOCH_START_TIME = 1733443200; // Friday Dec 6, 2024 00:00:00 UTC
+// Week 1 started on Friday, December 6, 2025 at 00:00 UTC
+const EPOCH_START_TIME = 1764979200; // Friday Dec 6, 2025 00:00:00 UTC
 const EPOCH_DURATION = 7 * 24 * 60 * 60; // 1 week in seconds
 const CLAIM_WINDOW_DURATION = 24 * 60 * 60; // 24 hours (all of Friday)
 
@@ -166,18 +166,26 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
   // Check if user has claimed current epoch from database
   useEffect(() => {
     const checkClaimStatus = async () => {
-      if (!address) return;
+      if (!address) {
+        setHasClaimed(false);
+        return;
+      }
       
       setIsCheckingClaim(true);
       try {
         const res = await fetch(`/api/sprinkles-claim/status?address=${address}&epoch=${currentEpoch}`);
         if (res.ok) {
           const data = await res.json();
-          setHasClaimed(data.hasClaimed);
+          setHasClaimed(data.hasClaimed ?? false);
           console.log(`[SprinklesClaim] Claim status for epoch ${currentEpoch}: ${data.hasClaimed}`);
+        } else {
+          // API error - assume not claimed so user can try
+          console.warn(`[SprinklesClaim] Status API returned ${res.status}, assuming not claimed`);
+          setHasClaimed(false);
         }
       } catch (e) {
         console.error("Failed to check claim status:", e);
+        // On error, assume not claimed so user can try
         setHasClaimed(false);
       } finally {
         setIsCheckingClaim(false);
