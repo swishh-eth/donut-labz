@@ -185,6 +185,17 @@ export async function GET(request: NextRequest) {
       console.log("[prices] LP reserves - SPRINKLES:", formatEther(sprinklesReserve), "DONUT:", formatEther(donutReserve));
       console.log("[prices] LP totalSupply:", formatEther(totalSupply));
 
+      // If SPRINKLES price is 0, calculate it from the LP reserves using DONUT price
+      if (sprinklesPrice === 0 && donutPrice > 0 && sprinklesReserve > 0n) {
+        // SPRINKLES price = (DONUT reserve / SPRINKLES reserve) * DONUT price
+        const sprinklesReserveNum = Number(formatEther(sprinklesReserve));
+        const donutReserveNum = Number(formatEther(donutReserve));
+        if (sprinklesReserveNum > 0) {
+          sprinklesPrice = (donutReserveNum / sprinklesReserveNum) * donutPrice;
+          console.log("[prices] SPRINKLES price calculated from LP:", sprinklesPrice);
+        }
+      }
+
       if (totalSupply > 0n && (sprinklesPrice > 0 || donutPrice > 0)) {
         // Calculate total value of reserves in USD
         const sprinklesValueUsd = Number(formatEther(sprinklesReserve)) * sprinklesPrice;

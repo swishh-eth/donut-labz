@@ -54,8 +54,6 @@ type PastWinner = {
   created_at?: string;
 };
 
-const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C";
-
 const ANON_PFPS = [
   "/media/anonpfp1.png",
   "/media/anonpfp2.png",
@@ -90,6 +88,7 @@ export default function LeaderboardPage() {
   const [timeUntilDistribution, setTimeUntilDistribution] = useState("");
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
   const [donutPrice, setDonutPrice] = useState<number>(0);
+  const [sprinklesPrice, setSprinklesPrice] = useState<number>(0);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showPastWinnersDialog, setShowPastWinnersDialog] = useState(false);
   const [showUsdPrize, setShowUsdPrize] = useState(true);
@@ -126,31 +125,38 @@ export default function LeaderboardPage() {
     return () => clearTimeout(timeout);
   }, []);
 
+  // Fetch prices from our API (includes SPRINKLES price based on DONUT)
   useEffect(() => {
     const fetchPrices = async () => {
       try {
-        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-        const data = await res.json();
-        setEthUsdPrice(data.ethereum.usd);
-      } catch {
-        console.error('Failed to fetch ETH price');
-      }
-
-      try {
-        const res = await fetch('https://api.dexscreener.com/latest/dex/tokens/' + DONUT_ADDRESS);
-        const data = await res.json();
-        if (data.pairs && data.pairs.length > 0) {
-          setDonutPrice(parseFloat(data.pairs[0].priceUsd || 0));
+        // Fetch from our prices API which calculates SPRINKLES price
+        const res = await fetch('/api/prices');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ethPrice) setEthUsdPrice(data.ethPrice);
+          if (data.donutPrice) setDonutPrice(data.donutPrice);
+          if (data.sprinklesPrice) setSprinklesPrice(data.sprinklesPrice);
         }
       } catch {
-        console.error('Failed to fetch DONUT price');
+        console.error('Failed to fetch prices from API');
+      }
+
+      // Fallback: fetch ETH price from CoinGecko if API fails
+      if (ethUsdPrice === 3500) {
+        try {
+          const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+          const data = await res.json();
+          setEthUsdPrice(data.ethereum.usd);
+        } catch {
+          console.error('Failed to fetch ETH price');
+        }
       }
     };
 
     fetchPrices();
     const interval = setInterval(fetchPrices, 60_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [ethUsdPrice]);
 
   const { data: leaderboardData, isLoading } = useQuery<LeaderboardResponse>({
     queryKey: ["leaderboard"],
@@ -333,7 +339,8 @@ export default function LeaderboardPage() {
     ? parseFloat(formatEther(BigInt(prizePoolData.sprinklesBalance)))
     : 0;
 
-  const totalPrizeUsd = (ethBalance * ethUsdPrice) + (donutBalance * donutPrice);
+  // Total prize USD now includes SPRINKLES value
+  const totalPrizeUsd = (ethBalance * ethUsdPrice) + (donutBalance * donutPrice) + (sprinklesBalance * sprinklesPrice);
 
   const firstPlaceEth = (ethBalance * 0.5).toFixed(4);
   const secondPlaceEth = (ethBalance * 0.3).toFixed(4);
@@ -347,6 +354,7 @@ export default function LeaderboardPage() {
   const secondPlaceSprinkles = (sprinklesBalance * 0.3).toFixed(0);
   const thirdPlaceSprinkles = (sprinklesBalance * 0.2).toFixed(0);
 
+  // USD values now include SPRINKLES
   const firstPlaceUsd = Math.floor(totalPrizeUsd * 0.5);
   const secondPlaceUsd = Math.floor(totalPrizeUsd * 0.3);
   const thirdPlaceUsd = Math.floor(totalPrizeUsd * 0.2);
@@ -460,7 +468,7 @@ export default function LeaderboardPage() {
                       <span className="text-[10px] font-bold text-amber-400">🍩{Math.floor(donutBalance)}</span>
                       <span className="text-[10px] font-bold text-white flex items-center drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
                         <Sparkles className="w-2.5 h-2.5" />
-                        {Math.floor(sprinklesBalance/1000)}k
+                        {sprinklesBalance >= 1000 ? `${(sprinklesBalance/1000).toFixed(0)}k` : Math.floor(sprinklesBalance)}
                       </span>
                     </div>
                     <span className="text-[8px] text-gray-500 mt-1">tap to see USD</span>
