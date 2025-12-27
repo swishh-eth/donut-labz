@@ -43,13 +43,13 @@ function FlowNode({
 }) {
   return (
     <div 
-      className={`flow-node relative rounded-xl border-2 ${borderColor} ${bgColor} p-2.5 ${isComingSoon ? 'opacity-50' : ''}`}
+      className={`flow-node relative rounded-xl border-2 ${borderColor} ${bgColor} p-2.5 ${isComingSoon ? 'opacity-50' : ''} z-10`}
     >
       {isSource && (
         <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
       )}
       {percentage && (
-        <div className={`absolute -top-2 -left-2 ${isComingSoon ? 'bg-zinc-600 text-gray-300' : 'bg-amber-500 text-black'} text-[8px] font-bold px-1.5 py-0.5 rounded-full`}>
+        <div className={`absolute -top-2 -left-2 ${isComingSoon ? 'bg-zinc-600 text-gray-300' : 'bg-amber-500 text-black'} text-[8px] font-bold px-1.5 py-0.5 rounded-full z-20`}>
           {percentage}
         </div>
       )}
@@ -65,29 +65,6 @@ function FlowNode({
         <div className="text-[8px] text-gray-500 mt-0.5">{subtitle}</div>
       )}
     </div>
-  );
-}
-
-// Animated vertical line with dot
-function VLine({ height = 24, grey = false, delay = 0 }: { height?: number; grey?: boolean; delay?: number }) {
-  return (
-    <div 
-      className={`vline ${grey ? 'vline-grey' : ''}`}
-      style={{ 
-        height,
-        animationDelay: `${delay * 0.3}s`
-      }}
-    />
-  );
-}
-
-// Horizontal line
-function HLine({ width = 24, grey = false }: { width?: number; grey?: boolean }) {
-  return (
-    <div 
-      className={`h-0.5 ${grey ? 'bg-zinc-600' : 'bg-amber-500/50'}`}
-      style={{ width }}
-    />
   );
 }
 
@@ -139,6 +116,7 @@ export default function RevenueFlowPage() {
           width: 2px;
           background: rgba(251, 191, 36, 0.5);
           position: relative;
+          margin: -1px 0;
         }
         
         .vline::after {
@@ -155,13 +133,29 @@ export default function RevenueFlowPage() {
         }
         
         .vline-grey {
-          background: rgba(113, 113, 122, 0.5);
+          background: rgba(113, 113, 122, 0.6);
         }
         
         .vline-grey::after {
           background: #71717a;
           box-shadow: 0 0 4px #71717a;
         }
+        
+        .hline {
+          height: 2px;
+          background: rgba(251, 191, 36, 0.5);
+        }
+        
+        .hline-grey {
+          background: rgba(113, 113, 122, 0.6);
+        }
+        
+        .delay-1::after { animation-delay: 0.3s; }
+        .delay-2::after { animation-delay: 0.6s; }
+        .delay-3::after { animation-delay: 0.9s; }
+        .delay-4::after { animation-delay: 1.2s; }
+        .delay-5::after { animation-delay: 1.5s; }
+        .delay-6::after { animation-delay: 1.8s; }
       `}</style>
 
       <div 
@@ -198,10 +192,10 @@ export default function RevenueFlowPage() {
             <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-2 text-center">Miner Revenue</div>
             
             {/* Two miners side by side */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex justify-center gap-4">
               
-              {/* ===== LEFT COLUMN: DONUT Miner (ETH) ===== än */}
-              <div className="flex flex-col items-center">
+              {/* ===== LEFT COLUMN: DONUT Miner (ETH) ===== */}
+              <div className="flex flex-col items-center" style={{ width: '140px' }}>
                 <FlowNode
                   title="DONUT Miner"
                   value="ETH"
@@ -212,7 +206,7 @@ export default function RevenueFlowPage() {
                   bgColor="bg-amber-500/10"
                   isSource
                 />
-                <VLine height={20} delay={0} />
+                <div className="vline delay-1" style={{ height: '24px' }} />
                 <FlowNode
                   title="Previous Miner"
                   value="80%"
@@ -224,9 +218,9 @@ export default function RevenueFlowPage() {
                   bgColor="bg-green-500/10"
                   percentage="80%"
                 />
-                <VLine height={20} delay={1} />
-                <div className="text-[8px] text-green-400 font-bold my-1">Ξ ETH FEES (5%)</div>
-                <VLine height={12} delay={2} />
+                <div className="vline delay-2" style={{ height: '24px' }} />
+                <div className="text-[8px] text-green-400 font-bold py-1 z-10 bg-black">Ξ ETH FEES (5%)</div>
+                <div className="vline delay-2" style={{ height: '16px' }} />
                 <FlowNode
                   title="Leaderboard"
                   value="2.5%"
@@ -238,7 +232,7 @@ export default function RevenueFlowPage() {
                   bgColor="bg-amber-500/10"
                   percentage="2.5%"
                 />
-                <VLine height={20} delay={3} />
+                <div className="vline delay-3" style={{ height: '24px' }} />
                 <FlowNode
                   title="Sprinkles App"
                   value="2.5%"
@@ -250,11 +244,11 @@ export default function RevenueFlowPage() {
                   bgColor="bg-zinc-800/50"
                   percentage="2.5%"
                 />
-                <VLine height={40} grey delay={4} />
+                <div className="vline vline-grey delay-4" style={{ height: '60px' }} />
               </div>
 
               {/* ===== RIGHT COLUMN: SPRINKLES Miner (DONUT) ===== */}
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center" style={{ width: '140px' }}>
                 <FlowNode
                   title="SPRINKLES Miner"
                   value="DONUT"
@@ -266,7 +260,7 @@ export default function RevenueFlowPage() {
                   bgColor="bg-white/5"
                   isSource
                 />
-                <VLine height={20} delay={1} />
+                <div className="vline delay-1" style={{ height: '24px' }} />
                 <FlowNode
                   title="Previous Miner"
                   value="80%"
@@ -278,9 +272,9 @@ export default function RevenueFlowPage() {
                   bgColor="bg-amber-500/10"
                   percentage="80%"
                 />
-                <VLine height={20} delay={2} />
-                <div className="text-[8px] text-amber-400 font-bold my-1">🍩 DONUT FEES (20%)</div>
-                <VLine height={12} delay={3} />
+                <div className="vline delay-2" style={{ height: '24px' }} />
+                <div className="text-[8px] text-amber-400 font-bold py-1 z-10 bg-black">🍩 DONUT FEES (20%)</div>
+                <div className="vline delay-2" style={{ height: '16px' }} />
                 <FlowNode
                   title="Buy & Burn"
                   value="10%"
@@ -292,7 +286,7 @@ export default function RevenueFlowPage() {
                   bgColor="bg-red-500/10"
                   percentage="10%"
                 />
-                <VLine height={20} delay={4} />
+                <div className="vline delay-3" style={{ height: '24px' }} />
                 <FlowNode
                   title="LP Burn Pool"
                   value="2.5%"
@@ -304,7 +298,7 @@ export default function RevenueFlowPage() {
                   bgColor="bg-green-500/10"
                   percentage="2.5%"
                 />
-                <VLine height={20} delay={5} />
+                <div className="vline delay-4" style={{ height: '24px' }} />
                 <FlowNode
                   title="Leaderboard"
                   value="2.5%"
@@ -316,7 +310,7 @@ export default function RevenueFlowPage() {
                   bgColor="bg-amber-500/10"
                   percentage="2.5%"
                 />
-                <VLine height={20} delay={6} />
+                <div className="vline delay-5" style={{ height: '24px' }} />
                 <FlowNode
                   title="Sprinkles App"
                   value="5%"
@@ -328,24 +322,19 @@ export default function RevenueFlowPage() {
                   bgColor="bg-zinc-800/50"
                   percentage="5%"
                 />
-                <VLine height={20} grey delay={7} />
+                <div className="vline vline-grey delay-6" style={{ height: '24px' }} />
               </div>
             </div>
 
-            {/* Horizontal connector lines to Stakers */}
-            <div className="flex justify-center items-center mb-0 -mt-1">
-              <div className="w-[72px] h-0.5 bg-zinc-600" />
-              <div className="w-2" />
-              <div className="w-[72px] h-0.5 bg-zinc-600" />
-            </div>
-            
-            {/* Vertical line down to stakers */}
-            <div className="flex justify-center">
-              <VLine height={16} grey delay={8} />
+            {/* Horizontal connector to Stakers */}
+            <div className="flex justify-center items-start" style={{ marginTop: '-1px' }}>
+              <div className="hline hline-grey" style={{ width: '70px' }} />
+              <div className="vline vline-grey" style={{ height: '20px', margin: 0 }} />
+              <div className="hline hline-grey" style={{ width: '70px' }} />
             </div>
 
-            {/* ========== STAKERS (Coming Soon) - Centered ========== */}
-            <div className="flex justify-center mb-6">
+            {/* ========== STAKERS (Coming Soon) ========== */}
+            <div className="flex justify-center" style={{ marginTop: '-1px' }}>
               <FlowNode
                 title="SPRINKLES Stakers"
                 value="Revenue Share"
@@ -360,7 +349,7 @@ export default function RevenueFlowPage() {
             </div>
 
             {/* ========== GAMES REVENUE ========== */}
-            <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-2 text-center">Games Revenue</div>
+            <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-2 text-center mt-8">Games Revenue</div>
             
             <div className="flex flex-col items-center">
               <FlowNode
@@ -374,18 +363,16 @@ export default function RevenueFlowPage() {
                 bgColor="bg-zinc-800/50"
                 isSource
               />
-              <VLine height={20} delay={0} />
+              <div className="vline delay-1" style={{ height: '20px' }} />
             </div>
             
-            {/* Horizontal split line */}
-            <div className="flex justify-center items-center">
-              <div className="w-[100px] h-0.5 bg-amber-500/50" />
-            </div>
-            
-            {/* Three vertical drops */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="flex flex-col items-center">
-                <VLine height={16} delay={1} />
+            {/* Three-way split with connected lines */}
+            <div className="flex justify-center items-start">
+              <div className="flex flex-col items-center" style={{ width: '100px' }}>
+                <div className="flex items-start">
+                  <div className="hline" style={{ width: '50px', marginTop: '0px' }} />
+                </div>
+                <div className="vline delay-2" style={{ height: '16px' }} />
                 <FlowNode
                   title="Prize Pool"
                   value="1%"
@@ -398,8 +385,9 @@ export default function RevenueFlowPage() {
                   percentage="1%"
                 />
               </div>
-              <div className="flex flex-col items-center">
-                <VLine height={16} delay={2} />
+              
+              <div className="flex flex-col items-center" style={{ width: '100px' }}>
+                <div className="vline delay-2" style={{ height: '16px' }} />
                 <FlowNode
                   title="Sprinkles App"
                   value="0.5%"
@@ -411,13 +399,17 @@ export default function RevenueFlowPage() {
                   bgColor="bg-zinc-800/50"
                   percentage="0.5%"
                 />
-                <VLine height={20} grey delay={3} />
-                <div className="text-[8px] text-gray-500 flex items-center gap-1">
+                <div className="vline vline-grey delay-3" style={{ height: '20px' }} />
+                <div className="text-[8px] text-gray-500 flex items-center gap-1 z-10">
                   <Lock className="w-2 h-2" /> Stakers
                 </div>
               </div>
-              <div className="flex flex-col items-center">
-                <VLine height={16} delay={3} />
+              
+              <div className="flex flex-col items-center" style={{ width: '100px' }}>
+                <div className="flex items-start">
+                  <div className="hline" style={{ width: '50px', marginTop: '0px' }} />
+                </div>
+                <div className="vline delay-3" style={{ height: '16px' }} />
                 <FlowNode
                   title="LP Burn"
                   value="0.5%"
