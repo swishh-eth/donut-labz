@@ -33,10 +33,6 @@ const DONUT_SPLITTER = "0x99DABA873CC4c701280624603B28d3e3F286b590" as Address;
 
 const DEADLINE_BUFFER_SECONDS = 5 * 60;
 
-// Dutch auction constants for burn auction
-const BURN_AUCTION_DURATION = 3600; // 1 hour in seconds (adjust to match contract)
-const BURN_MIN_PRICE = 1000000000000000000n; // 1 LP token minimum (adjust as needed)
-
 const ERC20_ABI = [
   {
     inputs: [
@@ -123,22 +119,6 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
-// Client-side price calculation for Dutch auction
-const calculateBurnPrice = (initPrice: bigint, startTime: number | bigint): bigint => {
-  const now = Math.floor(Date.now() / 1000);
-  const start = typeof startTime === 'bigint' ? Number(startTime) : startTime;
-  const elapsed = now - start;
-  
-  if (elapsed >= BURN_AUCTION_DURATION) return BURN_MIN_PRICE;
-  if (elapsed <= 0) return initPrice;
-  
-  const priceRange = initPrice - BURN_MIN_PRICE;
-  const decay = (priceRange * BigInt(elapsed)) / BigInt(BURN_AUCTION_DURATION);
-  const currentPrice = initPrice - decay;
-  
-  return currentPrice > BURN_MIN_PRICE ? currentPrice : BURN_MIN_PRICE;
-};
-
 export default function BurnPage() {
   const router = useRouter();
   const readyRef = useRef(false);
@@ -146,9 +126,6 @@ export default function BurnPage() {
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [donutUsdPrice, setDonutUsdPrice] = useState<number>(0);
   const [sprinklesLpPrice, setSprinklesLpPrice] = useState<number>(0);
-
-  // Client-side interpolated price
-  const [interpolatedPrice, setInterpolatedPrice] = useState<bigint | null>(null);
 
   // SPRINKLES LP Burn state
   const [sprinklesBurnResult, setSprinklesBurnResult] = useState<"success" | "failure" | null>(null);
@@ -250,14 +227,14 @@ export default function BurnPage() {
   }, []);
 
   // ============== SPRINKLES LP BURN ==============
-  // OPTIMIZED: Reduced from 3s to 15s - we interpolate price client-side
+  // Using on-chain price directly (burn auction has different mechanics than miner Dutch auctions)
   const { data: sprinklesAuctionData, refetch: refetchSprinklesAuction } = useReadContract({
     address: SPRINKLES_AUCTION,
     abi: SPRINKLES_AUCTION_ABI,
     functionName: "getAuctionState",
     args: [address ?? zeroAddress],
     chainId: base.id,
-    query: { refetchInterval: 15_000 }, // Was 3_000
+    query: { refetchInterval: 15_000 },
   });
 
   const sprinklesAuctionState = useMemo(() => {
@@ -265,24 +242,6 @@ export default function BurnPage() {
     const [epochId, initPrice, startTime, price, rewardsAvailable, userLPBalance] = sprinklesAuctionData;
     return { epochId, initPrice, startTime, price, rewardsAvailable, userLPBalance };
   }, [sprinklesAuctionData]);
-
-  // Client-side price interpolation - updates every second without RPC calls
-  useEffect(() => {
-    if (!sprinklesAuctionState) {
-      setInterpolatedPrice(null);
-      return;
-    }
-
-    // Initial calculation
-    setInterpolatedPrice(calculateBurnPrice(sprinklesAuctionState.initPrice, sprinklesAuctionState.startTime));
-
-    // Update every second
-    const interval = setInterval(() => {
-      setInterpolatedPrice(calculateBurnPrice(sprinklesAuctionState.initPrice, sprinklesAuctionState.startTime));
-    }, 1_000);
-
-    return () => clearInterval(interval);
-  }, [sprinklesAuctionState]);
 
   // ============== SPLITTER ==============
   // OPTIMIZED: Reduced from 10s to 30s
@@ -489,8 +448,8 @@ export default function BurnPage() {
   }, [splitReceipt, refetchPendingDonut, refetchSprinklesAuction, resetSplitWrite]);
 
   // ============== DISPLAY VALUES ==============
-  // Use interpolated price for display, fallback to on-chain price
-  const displayPrice = interpolatedPrice ?? sprinklesAuctionState?.price;
+  // Use on-chain price directly (burn auction doesn't need client-side interpolation)
+  const displayPrice = sprinklesAuctionState?.price;
   const sprinklesPriceDisplay = displayPrice ? formatTokenAmount(displayPrice, 2) : "—";
   const sprinklesRewardsDisplay = sprinklesAuctionState ? formatTokenAmount(sprinklesAuctionState.rewardsAvailable, 2) : "—";
   const sprinklesUserLPDisplay = sprinklesAuctionState ? formatTokenAmount(sprinklesAuctionState.userLPBalance, 2) : "0";
