@@ -471,19 +471,12 @@ export default function RevenueFlowPage() {
                 isSource
                 width={160}
               />
-              <VLine h={16} delay={0} />
             </div>
             
-            {/* Simple horizontal bar - width matches 3 columns + gaps exactly */}
-            {/* 3 tiles at 66px each + 2 gaps at 4px = 198 + 8 = 206px */}
-            <div className="flex justify-center">
-              <div className="bg-amber-500/60" style={{ width: 206, height: 2 }} />
-            </div>
-            
-            {/* Three columns */}
+            {/* Three columns with direct vertical drops from Games tile */}
             <div className="flex justify-center" style={{ gap: 4 }}>
               {/* Left - Prize Pool */}
-              <div className="flex flex-col items-center" style={{ width: 66 }}>
+              <div className="flex flex-col items-center" style={{ width: 90 }}>
                 <VLine h={16} delay={1} />
                 <FlowNode
                   title="Prize Pool"
@@ -495,12 +488,12 @@ export default function RevenueFlowPage() {
                   borderColor="border-amber-500/50"
                   bgColor="bg-amber-500/10"
                   percentage="1%"
-                  width={66}
+                  width={90}
                 />
               </div>
               
               {/* Center - Sprinkles App */}
-              <div className="flex flex-col items-center" style={{ width: 66 }}>
+              <div className="flex flex-col items-center" style={{ width: 90 }}>
                 <VLine h={16} delay={2} />
                 <FlowNode
                   title="Sprinkles App"
@@ -512,13 +505,13 @@ export default function RevenueFlowPage() {
                   borderColor="border-zinc-700"
                   bgColor="bg-zinc-800/50"
                   percentage="0.5%"
-                  width={66}
+                  width={90}
                 />
                 <VLine h={16} grey delay={3} />
               </div>
               
               {/* Right - LP Burn */}
-              <div className="flex flex-col items-center" style={{ width: 66 }}>
+              <div className="flex flex-col items-center" style={{ width: 90 }}>
                 <VLine h={16} delay={3} />
                 <FlowNode
                   title="LP Burn"
@@ -530,7 +523,7 @@ export default function RevenueFlowPage() {
                   borderColor="border-green-500/50"
                   bgColor="bg-green-500/10"
                   percentage="0.5%"
-                  width={66}
+                  width={90}
                 />
               </div>
             </div>
