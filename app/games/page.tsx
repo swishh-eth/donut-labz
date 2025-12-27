@@ -299,7 +299,7 @@ export default function GamesPage() {
       comingSoon: false,
       isHot: true,
       lastWinner: lastWinners.tower,
-      onClick: () => window.location.href = "/tower",
+      onClick: () => window.location.href = "/games/tower",
     },
     {
       id: "wheel",
@@ -310,7 +310,7 @@ export default function GamesPage() {
       iconClassName: "icon-spin",
       lastWinner: lastWinners.wheel,
       scrollDirection: "right" as const,
-      onClick: () => router.push("/glaze-wheel"),
+      onClick: () => window.location.href = "/games/glaze-wheel",
     },
     {
       id: "dice",
@@ -319,7 +319,7 @@ export default function GamesPage() {
       icon: Dices,
       comingSoon: false,
       lastWinner: lastWinners.dice,
-      onClick: () => router.push("/dice"),
+      onClick: () => window.location.href = "/games/dice",
     },
     {
       id: "mines",
@@ -329,7 +329,7 @@ export default function GamesPage() {
       comingSoon: false,
       lastWinner: lastWinners.mines,
       scrollDirection: "right" as const,
-      onClick: () => router.push("/mines"),
+      onClick: () => window.location.href = "/games/mines",
     },
     {
       id: "slots",
@@ -413,7 +413,7 @@ export default function GamesPage() {
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden games-scroll" style={{ WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`, maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` }}>
             <div className="space-y-2 pb-4">
               {/* Revenue Info Tile */}
-              <RevenueInfoTile onClick={() => window.location.href = "/revenue"} />
+              <RevenueInfoTile onClick={() => window.location.href = "/games/revenue"} />
               
               {games.map((game) => (
                 <GameTile
