@@ -15,23 +15,6 @@ type MiniAppContext = {
   };
 };
 
-// Falling donut component
-function FallingDonut({ delay, duration, left }: { delay: number; duration: number; left: number }) {
-  return (
-    <div
-      className="falling-donut absolute text-lg pointer-events-none select-none"
-      style={{
-        left: `${left}%`,
-        top: '-30px',
-        animationDelay: `${delay}s`,
-        animationDuration: `${duration}s`,
-      }}
-    >
-      🍩
-    </div>
-  );
-}
-
 type SectionProps = {
   icon: React.ReactNode;
   title: string;
@@ -58,32 +41,6 @@ export default function AboutDonutPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
-  const [donuts, setDonuts] = useState<Array<{ id: number; delay: number; duration: number; left: number }>>([]);
-  const donutIdCounter = useRef(0);
-
-  useEffect(() => {
-    const initialDonuts = Array.from({ length: 10 }, () => ({
-      id: donutIdCounter.current++,
-      delay: Math.random() * 5,
-      duration: 4 + Math.random() * 3,
-      left: Math.random() * 90 + 5,
-    }));
-    setDonuts(initialDonuts);
-
-    const interval = setInterval(() => {
-      setDonuts(prev => {
-        const newDonut = {
-          id: donutIdCounter.current++,
-          delay: 0,
-          duration: 4 + Math.random() * 3,
-          left: Math.random() * 90 + 5,
-        };
-        return [...prev.slice(-12), newDonut];
-      });
-    }, 800);
-
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,17 +92,6 @@ export default function AboutDonutPage() {
       <style>{`
         .page-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .page-scroll::-webkit-scrollbar { display: none; }
-        
-        @keyframes donut-fall {
-          0% { transform: translateY(0) rotate(0deg); opacity: 0; }
-          5% { opacity: 0.25; }
-          95% { opacity: 0.25; }
-          100% { transform: translateY(calc(100vh + 50px)) rotate(360deg); opacity: 0; }
-        }
-        
-        .falling-donut {
-          animation: donut-fall linear infinite;
-        }
       `}</style>
 
       <div 
@@ -155,13 +101,6 @@ export default function AboutDonutPage() {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)",
         }}
       >
-        {/* Falling donuts background */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-          {donuts.map((donut) => (
-            <FallingDonut key={donut.id} {...donut} />
-          ))}
-        </div>
-
         {/* Top fade overlay */}
         <div 
           className="absolute left-0 right-0 pointer-events-none"

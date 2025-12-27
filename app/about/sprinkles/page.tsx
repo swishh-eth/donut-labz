@@ -16,22 +16,6 @@ type MiniAppContext = {
   };
 };
 
-// Floating sprinkle component
-function FloatingSprinkle({ delay, left }: { delay: number; left: number }) {
-  return (
-    <div
-      className="floating-sprinkle absolute pointer-events-none select-none"
-      style={{
-        left: `${left}%`,
-        top: '20%',
-        animationDelay: `${delay}s`,
-      }}
-    >
-      <Sparkles className="w-5 h-5 text-white/20" />
-    </div>
-  );
-}
-
 type SectionProps = {
   icon: React.ReactNode;
   title: string;
@@ -205,27 +189,11 @@ export default function AboutSprinklesPage() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Generate floating sprinkles
-  const sprinkles = Array.from({ length: 8 }, (_, i) => ({
-    id: i,
-    delay: i * 0.5,
-    left: 10 + (i * 12),
-  }));
-
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style>{`
         .page-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .page-scroll::-webkit-scrollbar { display: none; }
-        
-        @keyframes float-sprinkle {
-          0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.2; }
-          50% { transform: translateY(-20px) rotate(10deg); opacity: 0.4; }
-        }
-        
-        .floating-sprinkle {
-          animation: float-sprinkle 4s ease-in-out infinite;
-        }
       `}</style>
 
       <div 
@@ -235,13 +203,6 @@ export default function AboutSprinklesPage() {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)",
         }}
       >
-        {/* Floating sprinkles background */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-          {sprinkles.map((s) => (
-            <FloatingSprinkle key={s.id} delay={s.delay} left={s.left} />
-          ))}
-        </div>
-
         {/* Top fade overlay */}
         <div 
           className="absolute left-0 right-0 pointer-events-none"
