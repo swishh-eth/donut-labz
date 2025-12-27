@@ -469,7 +469,7 @@ export default function LeaderboardPage() {
             <div className="grid grid-cols-3 gap-2 mb-3">
               {/* Week Tile */}
               <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
-                <div className="flex items-center gap-1 mb-1">
+                <div className="flex items-center gap-1">
                   <Trophy className="w-3.5 h-3.5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                   <span className="text-[10px] text-gray-400 uppercase tracking-wide">Week</span>
                 </div>
@@ -478,7 +478,7 @@ export default function LeaderboardPage() {
 
               {/* Ends In Tile */}
               <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
-                <div className="flex items-center gap-1 mb-1">
+                <div className="flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-amber-400" />
                   <span className="text-[10px] text-gray-400 uppercase tracking-wide">Ends In</span>
                 </div>
@@ -492,17 +492,17 @@ export default function LeaderboardPage() {
               >
                 {showUsdPrize ? (
                   <>
-                    <div className="flex items-center gap-1 mb-1">
+                    <div className="flex items-center gap-1">
                       <Coins className="w-3.5 h-3.5 text-amber-400" />
                       <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
                     </div>
                     <div className="text-2xl font-bold text-amber-400 prize-pulse fade-in-up stagger-3 opacity-0">
                       ${Math.floor(totalPrizeUsd).toLocaleString()}
                     </div>
-                    <span className="text-[8px] text-gray-500 mt-0.5">tap for tokens</span>
+                    <span className="absolute bottom-1 text-[7px] text-gray-600 animate-pulse">tap for tokens</span>
                   </>
                 ) : (
-                  <div className="flex flex-col w-full h-full justify-center">
+                  <div className="flex flex-col w-full h-full justify-center gap-0.5">
                     <div className="flex items-center justify-between w-full px-1">
                       <span className="text-green-400 text-sm">Ξ</span>
                       <span className="text-sm font-bold text-green-400">{ethBalance.toFixed(3)}</span>
