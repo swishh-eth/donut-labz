@@ -128,34 +128,53 @@ export default function LeaderboardPage() {
 
   // Fetch prices from our API (includes SPRINKLES price based on DONUT)
   useEffect(() => {
+    let retryCount = 0;
+    const maxRetries = 3;
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+    
     const fetchPrices = async () => {
       try {
         // Fetch from our prices API which calculates SPRINKLES price
         const res = await fetch('/api/prices');
         if (res.ok) {
           const data = await res.json();
-          // Set all prices atomically to avoid partial updates
+          
+          // Set prices as they come in
+          if (data.ethPrice) setEthUsdPrice(data.ethPrice);
+          if (data.donutPrice) setDonutPrice(data.donutPrice);
+          if (data.sprinklesPrice) setSprinklesPrice(data.sprinklesPrice);
+          
+          // Check if we have all three prices
           if (data.ethPrice && data.donutPrice && data.sprinklesPrice) {
-            setEthUsdPrice(data.ethPrice);
-            setDonutPrice(data.donutPrice);
-            setSprinklesPrice(data.sprinklesPrice);
             setPricesLoaded(true);
+          } else if (retryCount < maxRetries) {
+            // Missing some prices, retry
+            retryCount++;
+            console.log(`[leaderboard] Missing prices, retrying (${retryCount}/${maxRetries})...`);
+            retryTimeout = setTimeout(fetchPrices, 2000);
           } else {
-            // Partial data - set what we have
-            if (data.ethPrice) setEthUsdPrice(data.ethPrice);
-            if (data.donutPrice) setDonutPrice(data.donutPrice);
-            if (data.sprinklesPrice) setSprinklesPrice(data.sprinklesPrice);
-            // Only mark loaded if we have all three
-            if (data.ethPrice && data.donutPrice && data.sprinklesPrice) {
-              setPricesLoaded(true);
-            }
+            // After max retries, mark as loaded anyway with what we have
+            // This prevents infinite spinner
+            console.log('[leaderboard] Max retries reached, showing available prices');
+            setPricesLoaded(true);
           }
+        } else if (retryCount < maxRetries) {
+          retryCount++;
+          retryTimeout = setTimeout(fetchPrices, 2000);
+        } else {
+          setPricesLoaded(true); // Prevent infinite spinner
         }
       } catch {
         console.error('Failed to fetch prices from API');
+        if (retryCount < maxRetries) {
+          retryCount++;
+          retryTimeout = setTimeout(fetchPrices, 2000);
+        } else {
+          setPricesLoaded(true); // Prevent infinite spinner
+        }
       }
 
-      // Fallback: fetch ETH price from CoinGecko if API fails
+      // Fallback: fetch ETH price from CoinGecko if still 0
       if (ethUsdPrice === 0) {
         try {
           const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
@@ -170,8 +189,15 @@ export default function LeaderboardPage() {
     };
 
     fetchPrices();
-    const interval = setInterval(fetchPrices, 60_000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      retryCount = 0; // Reset retry count for periodic fetches
+      fetchPrices();
+    }, 60_000);
+    
+    return () => {
+      clearInterval(interval);
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
   }, [ethUsdPrice]);
 
   const { data: leaderboardData, isLoading } = useQuery<LeaderboardResponse>({
@@ -956,9 +982,13 @@ export default function LeaderboardPage() {
                             <div className="flex items-center gap-1.5 h-5">
                               <span className="font-semibold text-white truncate text-sm">No one yet</span>
                               {isWinner && (
-                                <span className={`text-amber-400 text-xs font-bold min-w-[45px] ${pricesLoaded && prizeUsd > 0 ? '' : 'invisible'}`}>
-                                  +${prizeUsd || 0}
-                                </span>
+                                pricesLoaded ? (
+                                  <span className="text-amber-400 text-xs font-bold min-w-[45px]">
+                                    +${prizeUsd || 0}
+                                  </span>
+                                ) : (
+                                  <div className="w-3 h-3 border border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+                                )
                               )}
                             </div>
                             <div className="text-[10px] text-gray-400 truncate">
@@ -1034,9 +1064,13 @@ export default function LeaderboardPage() {
                           <div className="flex items-center gap-1.5 h-5">
                             <span className="font-semibold text-white truncate text-sm">{displayName}</span>
                             {isWinner && (
-                              <span className={`text-amber-400 text-xs font-bold min-w-[45px] ${pricesLoaded && prizeUsd > 0 ? '' : 'invisible'}`}>
-                                +${prizeUsd || 0}
-                              </span>
+                              pricesLoaded ? (
+                                <span className="text-amber-400 text-xs font-bold min-w-[45px]">
+                                  +${prizeUsd || 0}
+                                </span>
+                              ) : (
+                                <div className="w-3 h-3 border border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+                              )
                             )}
                           </div>
                           {username && (
