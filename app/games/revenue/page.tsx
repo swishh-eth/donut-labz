@@ -289,7 +289,7 @@ export default function RevenueFlowPage() {
                   bgColor="bg-zinc-800/50"
                   percentage="2.5%"
                 />
-                <VLine h={20} grey delay={4} />
+                <VLine h={140} grey delay={4} />
               </div>
 
               {/* ===== RIGHT COLUMN: SPRINKLES Miner (DONUT) ===== */}
@@ -375,13 +375,13 @@ export default function RevenueFlowPage() {
             <div className="flex justify-center items-start">
               {/* Left horizontal + down */}
               <div className="flex flex-col items-end" style={{ width: '50%', paddingRight: '12px' }}>
-                <HLine w={60} grey />
+                <HLine w={45} grey />
               </div>
               {/* Center vertical */}
               <VLine h={16} grey delay={8} />
               {/* Right horizontal */}
               <div className="flex flex-col items-start" style={{ width: '50%', paddingLeft: '12px' }}>
-                <HLine w={60} grey />
+                <HLine w={45} grey />
               </div>
             </div>
 
@@ -457,9 +457,17 @@ export default function RevenueFlowPage() {
                     percentage="0.5%"
                   />
                   <VLine h={20} grey delay={3} />
-                  <div className="text-[8px] text-gray-500 flex items-center gap-1">
-                    <Lock className="w-2 h-2" /> Stakers
-                  </div>
+                  <FlowNode
+                    title="SPRINKLES Stakers"
+                    value="Revenue Share"
+                    subtitle="From provider fees"
+                    valueColor="text-gray-500"
+                    icon={Sparkles}
+                    iconColor="text-gray-500"
+                    borderColor="border-zinc-700"
+                    bgColor="bg-zinc-800/50"
+                    isComingSoon
+                  />
                 </div>
                 
                 {/* Right - LP Burn */}
