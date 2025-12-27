@@ -289,7 +289,7 @@ export default function RevenueFlowPage() {
                   bgColor="bg-zinc-800/50"
                   percentage="2.5%"
                 />
-                <VLine h={140} grey delay={4} />
+                <VLine h={180} grey delay={4} />
               </div>
 
               {/* ===== RIGHT COLUMN: SPRINKLES Miner (DONUT) ===== */}
@@ -420,12 +420,12 @@ export default function RevenueFlowPage() {
             
             {/* Horizontal bar spanning all 3 */}
             <div className="flex justify-center">
-              <HLine w={240} />
+              <HLine w={200} />
             </div>
             
             {/* Three columns dropping down */}
             <div className="flex justify-center">
-              <div className="flex" style={{ width: 240 }}>
+              <div className="flex" style={{ width: 200 }}>
                 {/* Left - Prize Pool */}
                 <div className="flex flex-col items-center flex-1">
                   <VLine h={16} delay={1} />
@@ -457,17 +457,6 @@ export default function RevenueFlowPage() {
                     percentage="0.5%"
                   />
                   <VLine h={20} grey delay={3} />
-                  <FlowNode
-                    title="SPRINKLES Stakers"
-                    value="Revenue Share"
-                    subtitle="From provider fees"
-                    valueColor="text-gray-500"
-                    icon={Sparkles}
-                    iconColor="text-gray-500"
-                    borderColor="border-zinc-700"
-                    bgColor="bg-zinc-800/50"
-                    isComingSoon
-                  />
                 </div>
                 
                 {/* Right - LP Burn */}
@@ -486,6 +475,21 @@ export default function RevenueFlowPage() {
                   />
                 </div>
               </div>
+            </div>
+            
+            {/* Stakers node for games - same width as miner stakers */}
+            <div className="flex justify-center">
+              <FlowNode
+                title="SPRINKLES Stakers"
+                value="Revenue Share"
+                subtitle="From provider fees"
+                valueColor="text-gray-500"
+                icon={Sparkles}
+                iconColor="text-gray-500"
+                borderColor="border-zinc-700"
+                bgColor="bg-zinc-800/50"
+                isComingSoon
+              />
             </div>
 
             <div className="h-8" />
