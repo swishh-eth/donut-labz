@@ -316,7 +316,12 @@ export default function LeaderboardPage() {
       const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
-      setTimeUntilDistribution(`${days}d ${hours}h ${minutes}m`);
+      // Show only days if more than 24 hours, otherwise show hours and minutes
+      if (days > 0) {
+        setTimeUntilDistribution(`${days}d`);
+      } else {
+        setTimeUntilDistribution(`${hours}h ${minutes}m`);
+      }
     };
 
     updateCountdown();
@@ -393,6 +398,38 @@ export default function LeaderboardPage() {
           scroll-snap-align: start;
           scroll-snap-stop: always;
         }
+        
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes pulseGlow {
+          0%, 100% {
+            text-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
+          }
+          50% {
+            text-shadow: 0 0 16px rgba(251, 191, 36, 0.9), 0 0 24px rgba(251, 191, 36, 0.4);
+          }
+        }
+        
+        .fade-in-up {
+          animation: fadeInUp 0.5s ease-out forwards;
+        }
+        
+        .prize-pulse {
+          animation: pulseGlow 2s ease-in-out infinite;
+        }
+        
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.2s; }
+        .stagger-3 { animation-delay: 0.3s; }
       `}</style>
 
       <div
@@ -430,48 +467,56 @@ export default function LeaderboardPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-2 mb-3">
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
-                <div className="flex items-center gap-1 mb-0.5">
-                  <Trophy className="w-3 h-3 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                  <span className="text-[9px] text-gray-400 uppercase">Week</span>
+              {/* Week Tile */}
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
+                <div className="flex items-center gap-1 mb-1">
+                  <Trophy className="w-3.5 h-3.5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Week</span>
                 </div>
-                <div className="text-lg font-bold text-white">#{weekNumber}</div>
+                <div className="text-2xl font-bold text-white fade-in-up stagger-1 opacity-0">#{weekNumber}</div>
               </div>
 
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
-                <div className="flex items-center gap-1 mb-0.5">
-                  <Clock className="w-3 h-3 text-amber-400" />
-                  <span className="text-[9px] text-gray-400 uppercase">Ends In</span>
+              {/* Ends In Tile */}
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
+                <div className="flex items-center gap-1 mb-1">
+                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Ends In</span>
                 </div>
-                <div className="text-sm font-bold text-amber-400">{timeUntilDistribution}</div>
+                <div className="text-2xl font-bold text-amber-400 fade-in-up stagger-2 opacity-0">{timeUntilDistribution}</div>
               </div>
 
+              {/* Prize Tile */}
               <button
                 onClick={() => setShowUsdPrize(!showUsdPrize)}
-                className="border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center transition-all h-[72px] bg-zinc-900"
+                className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center transition-all h-[80px] relative overflow-hidden"
               >
                 {showUsdPrize ? (
                   <>
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <Coins className="w-3 h-3 text-amber-400" />
-                      <span className="text-[9px] text-gray-400 uppercase">Prizes</span>
+                    <div className="flex items-center gap-1 mb-1">
+                      <Coins className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
                     </div>
-                    <div className="flex flex-col items-center">
-                      <span className="text-xl font-bold text-amber-400">${Math.floor(totalPrizeUsd).toLocaleString()}</span>
-                      <span className="text-[8px] text-gray-500">tap to see tokens</span>
+                    <div className="text-2xl font-bold text-amber-400 prize-pulse fade-in-up stagger-3 opacity-0">
+                      ${Math.floor(totalPrizeUsd).toLocaleString()}
                     </div>
+                    <span className="text-[8px] text-gray-500 mt-0.5">tap for tokens</span>
                   </>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <span className="text-[10px] font-bold text-green-400">Ξ{ethBalance.toFixed(3)}</span>
-                      <span className="text-[10px] font-bold text-amber-400">🍩{Math.floor(donutBalance)}</span>
-                      <span className="text-[10px] font-bold text-white flex items-center drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
-                        <Sparkles className="w-2.5 h-2.5" />
+                  <div className="flex flex-col w-full h-full justify-center">
+                    <div className="flex items-center justify-between w-full px-1">
+                      <span className="text-green-400 text-sm">Ξ</span>
+                      <span className="text-sm font-bold text-green-400">{ethBalance.toFixed(3)}</span>
+                    </div>
+                    <div className="flex items-center justify-between w-full px-1">
+                      <span className="text-amber-400 text-sm">🍩</span>
+                      <span className="text-sm font-bold text-amber-400">{Math.floor(donutBalance)}</span>
+                    </div>
+                    <div className="flex items-center justify-between w-full px-1">
+                      <Sparkles className="w-3.5 h-3.5 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
+                      <span className="text-sm font-bold text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
                         {sprinklesBalance >= 1000 ? `${(sprinklesBalance/1000).toFixed(0)}k` : Math.floor(sprinklesBalance)}
                       </span>
                     </div>
-                    <span className="text-[8px] text-gray-500 mt-1">tap to see USD</span>
                   </div>
                 )}
               </button>
