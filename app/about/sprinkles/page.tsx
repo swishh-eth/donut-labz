@@ -423,9 +423,12 @@ export default function AboutSprinklesPage() {
               <p>The Sprinkles App features onchain games where you can win ETH, DONUT, and SPRINKLES.</p>
               <p>All games are <span className="text-white font-semibold">100% onchain</span> and <span className="text-white font-semibold">provably fair</span> — every bet, spin, and outcome is recorded on Base and verifiable.</p>
               <div className="pl-2 border-l border-white/20 ml-1 space-y-1 mt-2">
-                <p>• <span className="text-white">Glaze Wheel</span> — Spin to win from the prize pool</p>
-                <p>• <span className="text-white">Daily Lottery</span> — Buy tickets for daily glaze</p>
-                <p>• <span className="text-gray-500">More games coming soon...</span></p>
+                <p>• <span className="text-white">Donut Tower</span> — Climb levels to win big</p>
+                <p>• <span className="text-white">Glaze Wheel</span> — Spin to win multipliers</p>
+                <p>• <span className="text-white">Sugar Cubes</span> — Roll over/under dice</p>
+                <p>• <span className="text-white">Bakery Mines</span> — Avoid bombs, cash out anytime</p>
+                <p>• <span className="text-gray-500">Donut Slots</span> — Coming soon</p>
+                <p>• <span className="text-gray-500">Keno</span> — Coming soon</p>
               </div>
             </Section>
 

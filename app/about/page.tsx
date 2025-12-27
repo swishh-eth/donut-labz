@@ -34,8 +34,8 @@ function DonutInfoTile({ onClick }: { onClick: () => void }) {
       className="donut-tile relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
     >
-      {/* Spinning donut */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-5xl spinning-donut opacity-80">
+      {/* Floating donut */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-5xl floating-donut opacity-80">
         🍩
       </div>
 
@@ -181,18 +181,13 @@ export default function AboutPage() {
           display: none;
         }
         
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        
         @keyframes float-updown {
           0%, 100% { transform: translateY(-50%) translateY(-5px); }
           50% { transform: translateY(-50%) translateY(5px); }
         }
         
-        .spinning-donut {
-          animation: spin-slow 8s linear infinite;
+        .floating-donut {
+          animation: float-updown 3s ease-in-out infinite;
         }
         
         .floating-sparkle {
