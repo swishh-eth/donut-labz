@@ -15,6 +15,23 @@ type MiniAppContext = {
   };
 };
 
+// Falling donut component
+function FallingDonut({ delay, duration, left, size = 'text-lg' }: { delay: number; duration: number; left: number; size?: string }) {
+  return (
+    <div
+      className={`falling-donut absolute ${size} pointer-events-none select-none`}
+      style={{
+        left: `${left}%`,
+        top: '-30px',
+        animationDelay: `${delay}s`,
+        animationDuration: `${duration}s`,
+      }}
+    >
+      🍩
+    </div>
+  );
+}
+
 // Flow node component
 function FlowNode({ 
   title, 
@@ -72,6 +89,33 @@ export default function RevenueFlowPage() {
   const router = useRouter();
   const readyRef = useRef(false);
   const [context, setContext] = useState<MiniAppContext | null>(null);
+  const [donuts, setDonuts] = useState<Array<{ id: number; delay: number; duration: number; left: number }>>([]);
+  const donutIdCounter = useRef(0);
+
+  // Initialize falling donuts
+  useEffect(() => {
+    const initialDonuts = Array.from({ length: 12 }, () => ({
+      id: donutIdCounter.current++,
+      delay: Math.random() * 5,
+      duration: 4 + Math.random() * 3,
+      left: Math.random() * 90 + 5,
+    }));
+    setDonuts(initialDonuts);
+
+    const interval = setInterval(() => {
+      setDonuts(prev => {
+        const newDonut = {
+          id: donutIdCounter.current++,
+          delay: 0,
+          duration: 4 + Math.random() * 3,
+          left: Math.random() * 90 + 5,
+        };
+        return [...prev.slice(-15), newDonut];
+      });
+    }, 800);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,6 +154,18 @@ export default function RevenueFlowPage() {
           10% { opacity: 1; }
           90% { opacity: 1; }
           100% { top: calc(100% - 6px); opacity: 0; }
+        }
+        
+        @keyframes donut-fall {
+          0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+          5% { opacity: 0.3; }
+          95% { opacity: 0.3; }
+          100% { transform: translateY(calc(100vh + 50px)) rotate(360deg); opacity: 0; }
+        }
+        
+        .falling-donut {
+          animation: donut-fall linear infinite;
+          opacity: 0.3;
         }
         
         .vline {
@@ -165,8 +221,15 @@ export default function RevenueFlowPage() {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)",
         }}
       >
+        {/* Falling donuts background */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          {donuts.map((donut) => (
+            <FallingDonut key={donut.id} {...donut} />
+          ))}
+        </div>
+
         {/* Header */}
-        <div className="flex-shrink-0 mb-3">
+        <div className="flex-shrink-0 mb-3 relative z-10">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
@@ -185,7 +248,7 @@ export default function RevenueFlowPage() {
         </div>
 
         {/* Scrollable Flow Container */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden flow-scroll">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden flow-scroll relative z-10">
           <div className="pb-8 px-1">
             
             {/* ========== MINER REVENUE ========== */}
