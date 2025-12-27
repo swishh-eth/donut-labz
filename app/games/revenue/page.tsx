@@ -222,12 +222,34 @@ export default function RevenueFlowPage() {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)",
         }}
       >
-        {/* Falling donuts background */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        {/* Falling donuts background - behind everything */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
           {donuts.map((donut) => (
             <FallingDonut key={donut.id} {...donut} />
           ))}
         </div>
+
+        {/* Top fade overlay for header area */}
+        <div 
+          className="absolute left-0 right-0 pointer-events-none"
+          style={{
+            top: 0,
+            height: "calc(env(safe-area-inset-top, 0px) + 70px)",
+            background: "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)",
+            zIndex: 5,
+          }}
+        />
+        
+        {/* Bottom fade overlay for nav area */}
+        <div 
+          className="absolute left-0 right-0 pointer-events-none"
+          style={{
+            bottom: 0,
+            height: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
+            background: "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)",
+            zIndex: 5,
+          }}
+        />
 
         {/* Header */}
         <div className="flex-shrink-0 mb-3 relative z-10">
@@ -319,7 +341,7 @@ export default function RevenueFlowPage() {
                   percentage="2.5%"
                   width={COL_W}
                 />
-                <VLine h={172} grey delay={4} />
+                <VLine h={178} grey delay={4} />
               </div>
 
               {/* ===== RIGHT COLUMN: SPRINKLES Miner (DONUT) ===== */}
@@ -454,11 +476,11 @@ export default function RevenueFlowPage() {
             
             {/* Simple horizontal bar - width matches 3 columns + gaps */}
             <div className="flex justify-center">
-              <div className="bg-amber-500/60" style={{ width: 312, height: 2 }} />
+              <div className="bg-amber-500/60" style={{ width: 290, height: 2 }} />
             </div>
             
             {/* Three columns */}
-            <div className="flex justify-center" style={{ gap: 4, width: 312, margin: '0 auto' }}>
+            <div className="flex justify-center" style={{ gap: 4, width: 290, margin: '0 auto' }}>
               {/* Left - Prize Pool */}
               <div className="flex flex-col items-center flex-1">
                 <VLine h={16} delay={1} />
