@@ -55,71 +55,14 @@ function WheelIcon({ className }: { className?: string }) {
   );
 }
 
-// Falling item for leaderboard tile (donuts and sprinkles)
-function FallingItem({ delay, duration, left, type }: { delay: number; duration: number; left: number; type: 'donut' | 'sprinkle' }) {
-  return (
-    <div
-      className="falling-item absolute pointer-events-none select-none opacity-60"
-      style={{
-        left: `${left}%`,
-        top: '-25px',
-        animationDelay: `${delay}s`,
-        animationDuration: `${duration}s`,
-      }}
-    >
-      {type === 'donut' ? (
-        <span className="text-sm">🍩</span>
-      ) : (
-        <Sparkles className="w-4 h-4 text-white" />
-      )}
-    </div>
-  );
-}
-
 // Games Leaderboard Tile Component
 function GamesLeaderboardTile({ onClick }: { onClick: () => void }) {
-  const [items, setItems] = useState<Array<{ id: number; delay: number; duration: number; left: number; type: 'donut' | 'sprinkle' }>>([]);
-  const idCounter = useRef(0);
-
-  useEffect(() => {
-    const initialItems = Array.from({ length: 8 }, () => ({
-      id: idCounter.current++,
-      delay: Math.random() * 4,
-      duration: 3.5 + Math.random() * 1.5,
-      left: Math.random() * 90 + 5,
-      type: (Math.random() > 0.5 ? 'donut' : 'sprinkle') as 'donut' | 'sprinkle',
-    }));
-    setItems(initialItems);
-
-    const interval = setInterval(() => {
-      setItems(prev => {
-        const newItem = {
-          id: idCounter.current++,
-          delay: 0,
-          duration: 3.5 + Math.random() * 1.5,
-          left: Math.random() * 90 + 5,
-          type: (Math.random() > 0.5 ? 'donut' : 'sprinkle') as 'donut' | 'sprinkle',
-        };
-        return [...prev.slice(-12), newItem];
-      });
-    }, 700);
-
-    return () => clearInterval(interval);
-  }, []);
-
   return (
     <button
       onClick={onClick}
       className="leaderboard-tile relative w-full rounded-2xl border-2 border-amber-500/30 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/50"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.1) 0%, rgba(234,88,12,0.05) 100%)' }}
     >
-      {/* Falling donuts and sprinkles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-[1]">
-        {items.map((item) => (
-          <FallingItem key={item.id} {...item} />
-        ))}
-      </div>
-
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-2 right-2 w-20 h-20 bg-amber-500/10 rounded-full blur-2xl" />
         <div className="absolute bottom-2 left-2 w-16 h-16 bg-amber-500/10 rounded-full blur-xl" />
@@ -408,16 +351,9 @@ export default function GamesPage() {
         @keyframes scroll-left { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
         @keyframes scroll-right { 0% { transform: translateX(-50%); } 100% { transform: translateX(0); } }
         @keyframes hot-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.95); } }
-        @keyframes item-fall {
-          0% { transform: translateY(0) rotate(0deg); opacity: 0; }
-          5% { opacity: 0.6; }
-          95% { opacity: 0.6; }
-          100% { transform: translateY(140px) rotate(360deg); opacity: 0; }
-        }
         .icon-breathe { animation: icon-breathe 2s ease-in-out infinite; }
         .icon-spin { animation: icon-spin 4s linear infinite; }
         .hot-pulse { animation: hot-pulse 2s ease-in-out infinite; }
-        .falling-item { animation: item-fall linear infinite; }
         .winner-container { overflow: hidden; max-width: 140px; -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); }
         .winner-track { display: flex; width: max-content; animation: scroll-left 6s linear infinite; }
         .winner-track-right { display: flex; width: max-content; animation: scroll-right 6s linear infinite; }
