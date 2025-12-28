@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CircleUserRound, HelpCircle, X, Coins, Timer, TrendingUp, Sparkles, Trophy } from "lucide-react";
+import { CircleUserRound, HelpCircle, X, Share2, MessageCircle, Sparkles, Trophy } from "lucide-react";
 import {
   useAccount,
   useConnect,
@@ -39,10 +39,8 @@ type Slot0 = {
 const SPRINKLES_DECIMALS = 18;
 const DONUT_DECIMALS = 18;
 const DEADLINE_BUFFER_SECONDS = 15 * 60;
-
-// Dutch auction constants (match your contract)
-const AUCTION_DURATION = 3600; // 1 hour in seconds
-const MIN_PRICE = 1n * 10n ** 18n; // 1 DONUT minimum
+const AUCTION_DURATION = 3600;
+const MIN_PRICE = 1n * 10n ** 18n;
 
 const SPRINKLES_DONUT_PAIR = "0x47E8b03017d8b8d058bA5926838cA4dD4531e668";
 
@@ -94,7 +92,7 @@ const formatAddress = (addr?: string) => {
   if (!addr) return "—";
   const normalized = addr.toLowerCase();
   if (normalized === zeroAddress) return "No miner";
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 };
 
 const initialsFrom = (label?: string) => {
@@ -104,16 +102,12 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
-// Client-side price calculation to match contract's Dutch auction
 const calculatePrice = (initPrice: bigint, startTime: number): bigint => {
   const now = Math.floor(Date.now() / 1000);
   const elapsed = now - startTime;
   
-  if (elapsed >= AUCTION_DURATION) {
-    return MIN_PRICE;
-  }
+  if (elapsed >= AUCTION_DURATION) return MIN_PRICE;
   
-  // Linear decay from initPrice to MIN_PRICE over AUCTION_DURATION
   const priceRange = initPrice - MIN_PRICE;
   const decay = (priceRange * BigInt(elapsed)) / BigInt(AUCTION_DURATION);
   const currentPrice = initPrice - decay;
@@ -132,19 +126,15 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const [sprinklesPerDonut, setSprinklesPerDonut] = useState<number>(0);
   const [mineResult, setMineResult] = useState<"success" | "failure" | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
-  const [showCompeteDialog, setShowCompeteDialog] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
   const [approvalAmount, setApprovalAmount] = useState("");
   const [isApprovalMode, setIsApprovalMode] = useState(false);
   const [pendingTxType, setPendingTxType] = useState<"mine" | "approve" | null>(null);
   const pendingTxTypeRef = useRef<"mine" | "approve" | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const mineResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const approvalInputRef = useRef<HTMLInputElement>(null);
   const defaultMessageRef = useRef<string>(getRandomDefaultMessage());
-  
-  // Client-side interpolated price (updates every second)
   const [interpolatedPrice, setInterpolatedPrice] = useState<bigint | null>(null);
 
   const resetMineResult = useCallback(() => {
@@ -181,7 +171,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         console.error("Failed to fetch SPRINKLES/DONUT price:", e);
       }
     };
-
     fetchPrices();
     const interval = setInterval(fetchPrices, 60_000);
     return () => clearInterval(interval);
@@ -194,7 +183,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       const nextPulse = 3000 + Math.random() * 5000;
       setTimeout(triggerPulse, nextPulse);
     };
-
     const initialDelay = setTimeout(triggerPulse, 2000);
     return () => clearTimeout(initialDelay);
   }, []);
@@ -212,35 +200,9 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       const price = await getEthPrice();
       setEthUsdPrice(price);
     };
-
     fetchPrice();
     const interval = setInterval(fetchPrice, 60_000);
-
     return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const scrollContainer = scrollRef.current;
-    if (!scrollContainer) return;
-
-    let animationId: number;
-    let position = 0;
-    const speed = 0.5;
-
-    const animate = () => {
-      position += speed;
-      const halfWidth = scrollContainer.scrollWidth / 2;
-
-      if (position >= halfWidth) {
-        position = 0;
-      }
-
-      scrollContainer.style.transform = `translateX(-${position}px)`;
-      animationId = requestAnimationFrame(animate);
-    };
-
-    animationId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationId);
   }, []);
 
   const { address, isConnected } = useAccount();
@@ -248,79 +210,51 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const primaryConnector = connectors[0];
 
   useEffect(() => {
-    if (
-      autoConnectAttempted.current ||
-      isConnected ||
-      !primaryConnector ||
-      isConnecting
-    ) {
-      return;
-    }
+    if (autoConnectAttempted.current || isConnected || !primaryConnector || isConnecting) return;
     autoConnectAttempted.current = true;
-    connectAsync({
-      connector: primaryConnector,
-      chainId: base.id,
-    }).catch(() => {});
+    connectAsync({ connector: primaryConnector, chainId: base.id }).catch(() => {});
   }, [connectAsync, isConnected, isConnecting, primaryConnector]);
 
-  // OPTIMIZED: Reduced from 3s to 15s - we interpolate price client-side
   const { data: rawSlot0, refetch: refetchSlot0 } = useReadContract({
     address: SPRINKLES_MINER_ADDRESS,
     abi: SPRINKLES_MINER_ABI,
     functionName: "getSlot0",
     chainId: base.id,
-    query: {
-      refetchInterval: 15_000, // Was 3_000
-    },
+    query: { refetchInterval: 15_000 },
   });
 
-  // REMOVED: getPrice polling - we calculate client-side now
-  // Fetch once on mount and after transactions for accuracy
   const { data: currentPrice, refetch: refetchPrice } = useReadContract({
     address: SPRINKLES_MINER_ADDRESS,
     abi: SPRINKLES_MINER_ABI,
     functionName: "getPrice",
     chainId: base.id,
-    query: {
-      refetchInterval: 60_000, // Was 3_000 - now just periodic sync
-    },
+    query: { refetchInterval: 60_000 },
   });
 
-  // OPTIMIZED: Keep at 30s - this is fine
   const { data: currentDps } = useReadContract({
     address: SPRINKLES_MINER_ADDRESS,
     abi: SPRINKLES_MINER_ABI,
     functionName: "getDps",
     chainId: base.id,
-    query: {
-      refetchInterval: 30_000,
-    },
+    query: { refetchInterval: 30_000 },
   });
 
-  // OPTIMIZED: Increased from 10s to 30s
   const { data: donutBalance } = useReadContract({
     address: DONUT_ADDRESS,
     abi: DONUT_ABI,
     functionName: "balanceOf",
     args: [address ?? zeroAddress],
     chainId: base.id,
-    query: {
-      refetchInterval: 30_000, // Was 10_000
-      enabled: !!address,
-    },
+    query: { refetchInterval: 30_000, enabled: !!address },
   });
 
-  // OPTIMIZED: Increased from 10s to 30s
   const { data: donutAllowance, refetch: refetchAllowance } = useReadContract({
     address: DONUT_ADDRESS,
     abi: DONUT_ABI,
     functionName: "allowance",
     args: [address ?? zeroAddress, SPRINKLES_MINER_ADDRESS],
     chainId: base.id,
-    query: {
-      refetchInterval: 30_000, // Was 10_000
-      enabled: !!address,
-    },
+    query: { refetchInterval: 30_000, enabled: !!address },
   });
 
   const slot0 = useMemo(() => {
@@ -337,25 +271,18 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     } as Slot0;
   }, [rawSlot0]);
 
-  // Client-side price interpolation - updates every second without RPC calls
   useEffect(() => {
     if (!slot0) {
       setInterpolatedPrice(null);
       return;
     }
-
-    // Initial calculation
     setInterpolatedPrice(calculatePrice(slot0.initPrice, slot0.startTime));
-
-    // Update every second
     const interval = setInterval(() => {
       setInterpolatedPrice(calculatePrice(slot0.initPrice, slot0.startTime));
     }, 1_000);
-
     return () => clearInterval(interval);
   }, [slot0]);
 
-  // Use interpolated price for display, fall back to on-chain price
   const price = interpolatedPrice ?? (currentPrice as bigint | undefined);
   const dps = currentDps as bigint | undefined;
 
@@ -379,7 +306,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     if (receipt.status === "success" || receipt.status === "reverted") {
       showMineResult(receipt.status === "success" ? "success" : "failure");
       refetchSlot0();
-      refetchPrice(); // Sync with on-chain after tx
+      refetchPrice();
       refetchAllowance();
       
       if (receipt.status === "success" && txType === "approve") {
@@ -387,9 +314,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         setApprovalAmount("");
       }
       
-      // Record leaderboard points and post to chat for successful mine
       if (receipt.status === "success" && txType === "mine" && address) {
-        // Pick a new random message for next time
         defaultMessageRef.current = getRandomDefaultMessage();
         
         const fetchWithRetry = async (url: string, body: object, attempt = 1, maxAttempts = 3): Promise<boolean> => {
@@ -402,43 +327,34 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             const data = await res.json();
             
             if (!res.ok && attempt < maxAttempts) {
-              console.log(`${url} attempt ${attempt} failed, retrying in 3s...`);
               return new Promise((resolve) => {
                 setTimeout(async () => {
                   resolve(await fetchWithRetry(url, body, attempt + 1, maxAttempts));
                 }, 3000);
               });
             } else if (res.ok) {
-              console.log(`${url} success:`, data);
               return true;
-            } else {
-              console.error(`${url} failed after retries:`, data);
-              return false;
             }
+            return false;
           } catch (err) {
             if (attempt < maxAttempts) {
-              console.log(`${url} attempt ${attempt} error, retrying in 3s...`);
               return new Promise((resolve) => {
                 setTimeout(async () => {
                   resolve(await fetchWithRetry(url, body, attempt + 1, maxAttempts));
                 }, 3000);
               });
-            } else {
-              console.error(`${url} error after retries:`, err);
-              return false;
             }
+            return false;
           }
         };
 
         setTimeout(async () => {
-          // Record leaderboard points (1 point for SPRINKLES mining)
           const leaderboardSuccess = await fetchWithRetry("/api/record-glaze", {
             address: address,
             txHash: receipt.transactionHash,
             mineType: "sprinkles",
           });
           
-          // Only post to chat AFTER successful verification
           if (leaderboardSuccess) {
             fetch("/api/chat/mining", {
               method: "POST",
@@ -456,12 +372,9 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       setPendingTxType(null);
       pendingTxTypeRef.current = null;
       
-      const resetTimer = setTimeout(() => {
-        resetWrite();
-      }, 500);
+      const resetTimer = setTimeout(() => resetWrite(), 500);
       return () => clearTimeout(resetTimer);
     }
-    return;
   }, [receipt, refetchSlot0, refetchPrice, refetchAllowance, resetWrite, showMineResult, address]);
 
   const minerAddress = slot0?.miner ?? zeroAddress;
@@ -477,12 +390,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   }>({
     queryKey: ["cached-profile-sprinkles", minerAddress],
     queryFn: async () => {
-      const res = await fetch(
-        `/api/profiles?addresses=${encodeURIComponent(minerAddress)}`
-      );
-      if (!res.ok) {
-        throw new Error("Failed to load Farcaster profile.");
-      }
+      const res = await fetch(`/api/profiles?addresses=${encodeURIComponent(minerAddress)}`);
+      if (!res.ok) throw new Error("Failed to load Farcaster profile.");
       return res.json();
     },
     enabled: hasMiner,
@@ -532,38 +441,23 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
   const handleMine = useCallback(async () => {
     if (!slot0 || !price) return;
-    
-    // Fetch fresh price right before mining for accuracy
     await refetchPrice();
-    
     resetMineResult();
     setPendingTxType("mine");
     pendingTxTypeRef.current = "mine";
     try {
       let targetAddress = address;
       if (!targetAddress) {
-        if (!primaryConnector) {
-          throw new Error("Wallet connector not available yet.");
-        }
-        const result = await connectAsync({
-          connector: primaryConnector,
-          chainId: base.id,
-        });
+        if (!primaryConnector) throw new Error("Wallet connector not available yet.");
+        const result = await connectAsync({ connector: primaryConnector, chainId: base.id });
         targetAddress = result.accounts[0];
       }
-      if (!targetAddress) {
-        throw new Error("Unable to determine wallet address.");
-      }
+      if (!targetAddress) throw new Error("Unable to determine wallet address.");
 
       const epochId = slot0.epochId;
-      const deadline = BigInt(
-        Math.floor(Date.now() / 1000) + DEADLINE_BUFFER_SECONDS
-      );
-      // Use fresh on-chain price for maxPrice calculation
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + DEADLINE_BUFFER_SECONDS);
       const freshPrice = (currentPrice as bigint) ?? price;
       const maxPrice = freshPrice === 0n ? 0n : (freshPrice * 105n) / 100n;
-
-      // Use custom message if provided, otherwise use the random default
       const messageToSend = customMessage.trim() || defaultMessageRef.current;
 
       await writeContract({
@@ -571,14 +465,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         address: SPRINKLES_MINER_ADDRESS,
         abi: SPRINKLES_MINER_ABI,
         functionName: "mine",
-        args: [
-          targetAddress as Address,
-          zeroAddress,
-          BigInt(epochId),
-          deadline,
-          maxPrice,
-          messageToSend,
-        ],
+        args: [targetAddress as Address, zeroAddress, BigInt(epochId), deadline, maxPrice, messageToSend],
         chainId: base.id,
       });
     } catch (error) {
@@ -588,38 +475,19 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       setPendingTxType(null);
       pendingTxTypeRef.current = null;
     }
-  }, [
-    address,
-    connectAsync,
-    currentPrice,
-    customMessage,
-    slot0,
-    price,
-    primaryConnector,
-    refetchPrice,
-    resetMineResult,
-    resetWrite,
-    showMineResult,
-    writeContract,
-  ]);
+  }, [address, connectAsync, currentPrice, customMessage, slot0, price, primaryConnector, refetchPrice, resetMineResult, resetWrite, showMineResult, writeContract]);
 
   const [mineElapsedSeconds, setMineElapsedSeconds] = useState<number>(0);
 
   useEffect(() => {
-    if (!slot0) {
-      setMineElapsedSeconds(0);
-      return;
-    }
-
+    if (!slot0) { setMineElapsedSeconds(0); return; }
     const startTimeSeconds = slot0.startTime;
     const initialElapsed = Math.floor(Date.now() / 1000) - startTimeSeconds;
     setMineElapsedSeconds(initialElapsed);
-
     const interval = setInterval(() => {
       const currentElapsed = Math.floor(Date.now() / 1000) - startTimeSeconds;
       setMineElapsedSeconds(currentElapsed);
     }, 1_000);
-
     return () => clearInterval(interval);
   }, [slot0]);
 
@@ -629,151 +497,91 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   }, [slot0, dps, mineElapsedSeconds]);
 
   const occupantDisplay = useMemo(() => {
-    if (!slot0) {
-      return {
-        primary: "—",
-        secondary: "",
-        isYou: false,
-        avatarUrl: null as string | null,
-        isUnknown: true,
-        addressLabel: "—",
-      };
-    }
+    if (!slot0) return { primary: "—", secondary: "", isYou: false, avatarUrl: null as string | null, isUnknown: true, addressLabel: "—" };
     const minerAddr = slot0.miner;
     const fallback = formatAddress(minerAddr);
-    const isYou =
-      !!address && minerAddr.toLowerCase() === (address as string).toLowerCase();
-
+    const isYou = !!address && minerAddr.toLowerCase() === (address as string).toLowerCase();
     const fallbackAvatarUrl = getAnonPfp(minerAddr);
-
     const profile = neynarUser?.user ?? null;
     const profileUsername = profile?.username ? `@${profile.username}` : null;
     const profileDisplayName = profile?.displayName ?? null;
-
     const contextProfile = context?.user ?? null;
-    const contextHandle = contextProfile?.username
-      ? `@${contextProfile.username}`
-      : null;
+    const contextHandle = contextProfile?.username ? `@${contextProfile.username}` : null;
     const contextDisplayName = contextProfile?.displayName ?? null;
-
     const addressLabel = fallback;
-
-    const labelCandidates = [
-      profileDisplayName,
-      profileUsername,
-      isYou ? contextDisplayName : null,
-      isYou ? contextHandle : null,
-      addressLabel,
-    ].filter((label): label is string => !!label);
-
+    const labelCandidates = [profileDisplayName, profileUsername, isYou ? contextDisplayName : null, isYou ? contextHandle : null, addressLabel].filter((label): label is string => !!label);
     const seenLabels = new Set<string>();
-    const uniqueLabels = labelCandidates.filter((label) => {
-      const key = label.toLowerCase();
-      if (seenLabels.has(key)) return false;
-      seenLabels.add(key);
-      return true;
-    });
-
+    const uniqueLabels = labelCandidates.filter((label) => { const key = label.toLowerCase(); if (seenLabels.has(key)) return false; seenLabels.add(key); return true; });
     const primary = uniqueLabels[0] ?? addressLabel;
-
-    const secondary =
-      uniqueLabels.find(
-        (label) => label !== primary && label.startsWith("@")
-      ) ?? "";
-
-    const avatarUrl =
-      profile?.pfpUrl ??
-      (isYou ? contextProfile?.pfpUrl ?? null : null) ??
-      fallbackAvatarUrl;
-
-    const isUnknown =
-      !profile && !(isYou && (contextHandle || contextDisplayName));
-
-    return {
-      primary,
-      secondary,
-      isYou,
-      avatarUrl,
-      isUnknown,
-      addressLabel,
-    };
+    const secondary = uniqueLabels.find((label) => label !== primary && label.startsWith("@")) ?? "";
+    const avatarUrl = profile?.pfpUrl ?? (isYou ? contextProfile?.pfpUrl ?? null : null) ?? fallbackAvatarUrl;
+    const isUnknown = !profile && !(isYou && (contextHandle || contextDisplayName));
+    return { primary, secondary, isYou, avatarUrl, isUnknown, addressLabel };
   }, [address, context?.user, slot0, neynarUser?.user]);
 
-  const mineRateDisplay = dps
-    ? formatTokenAmount(dps, SPRINKLES_DECIMALS, 4)
-    : "—";
-  const minePriceDisplay = price
-    ? Math.floor(Number(formatUnits(price, DONUT_DECIMALS))).toLocaleString()
-    : "—";
-  const earnedDisplay = formatTokenAmount(earnedSprinkles, SPRINKLES_DECIMALS, 2);
-
-  const minerPaidDisplay = useMemo(() => {
-    if (!slot0 || !slot0.initPrice) return "—";
-    const actualPaid = slot0.initPrice / 2n;
-    return Math.floor(Number(formatUnits(actualPaid, DONUT_DECIMALS))).toLocaleString();
-  }, [slot0]);
-
-  const pnlData = useMemo(() => {
-    if (!slot0 || !slot0.initPrice || !price || sprinklesPerDonut === 0) {
-      return { donut: "0", isPositive: true };
-    }
-    
-    const paid = slot0.initPrice / 2n;
-    const paidNumber = Number(formatUnits(paid, DONUT_DECIMALS));
-    
-    const refund = (price * 80n) / 100n;
-    const refundNumber = Number(formatUnits(refund, DONUT_DECIMALS));
-    
-    const sprinklesEarnedNumber = Number(formatUnits(earnedSprinkles, SPRINKLES_DECIMALS));
-    const sprinklesValueInDonut = sprinklesEarnedNumber / sprinklesPerDonut;
-    
-    const pnl = sprinklesValueInDonut + refundNumber - paidNumber;
-    const isPositive = pnl >= 0;
-    
-    return {
-      donut: `${isPositive ? "+" : ""}${Math.floor(pnl).toLocaleString()}`,
-      isPositive,
-    };
-  }, [slot0, price, earnedSprinkles, sprinklesPerDonut]);
+  const mineRateDisplay = dps ? formatTokenAmount(dps, SPRINKLES_DECIMALS, 2) : "—";
+  const minePriceDisplay = price ? Math.floor(Number(formatUnits(price, DONUT_DECIMALS))).toLocaleString() : "—";
+  const earnedDisplay = formatTokenAmount(earnedSprinkles, SPRINKLES_DECIMALS, 0);
 
   const donutPerSecondDisplay = useMemo(() => {
     if (!dps || sprinklesPerDonut === 0) return null;
     const sprinklesPerSecond = Number(dps) / 1e18;
     const donutEquivalent = sprinklesPerSecond / sprinklesPerDonut;
-    
     if (donutEquivalent < 0.0001) return null;
     return donutEquivalent.toFixed(4);
   }, [dps, sprinklesPerDonut]);
 
+  const earnedInDonut = useMemo(() => {
+    if (sprinklesPerDonut === 0) return "0.00";
+    const sprinklesNum = Number(formatUnits(earnedSprinkles, SPRINKLES_DECIMALS));
+    return (sprinklesNum / sprinklesPerDonut).toFixed(2);
+  }, [earnedSprinkles, sprinklesPerDonut]);
+
+  const pnlData = useMemo(() => {
+    if (!slot0 || !slot0.initPrice || !price || sprinklesPerDonut === 0) {
+      return { donut: "+🍩0", isPositive: true };
+    }
+    const paid = slot0.initPrice / 2n;
+    const paidNumber = Number(formatUnits(paid, DONUT_DECIMALS));
+    const refund = (price * 80n) / 100n;
+    const refundNumber = Number(formatUnits(refund, DONUT_DECIMALS));
+    const sprinklesEarnedNumber = Number(formatUnits(earnedSprinkles, SPRINKLES_DECIMALS));
+    const sprinklesValueInDonut = sprinklesEarnedNumber / sprinklesPerDonut;
+    const pnl = sprinklesValueInDonut + refundNumber - paidNumber;
+    const isPositive = pnl >= 0;
+    return { donut: `${isPositive ? "+" : ""}🍩${Math.floor(Math.abs(pnl)).toLocaleString()}`, isPositive };
+  }, [slot0, price, earnedSprinkles, sprinklesPerDonut]);
+
+  const totalPnlUsd = useMemo(() => {
+    if (!slot0 || !price || sprinklesPerDonut === 0) return { value: "+$0.00", isPositive: true };
+    const paid = slot0.initPrice / 2n;
+    const paidNumber = Number(formatUnits(paid, DONUT_DECIMALS));
+    const refund = (price * 80n) / 100n;
+    const refundNumber = Number(formatUnits(refund, DONUT_DECIMALS));
+    const sprinklesEarnedNumber = Number(formatUnits(earnedSprinkles, SPRINKLES_DECIMALS));
+    const sprinklesValueInDonut = sprinklesEarnedNumber / sprinklesPerDonut;
+    const pnlDonut = sprinklesValueInDonut + refundNumber - paidNumber;
+    // Rough USD estimate - would need DONUT price for accuracy
+    const total = pnlDonut * 0.00001 * ethUsdPrice; // Rough approximation
+    return { value: `${total >= 0 ? "+" : "-"}$${Math.abs(total).toFixed(2)}`, isPositive: total >= 0 };
+  }, [slot0, price, earnedSprinkles, sprinklesPerDonut, ethUsdPrice]);
+
   const formatMineTime = (seconds: number): string => {
     if (seconds < 0) return "0s";
-
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-
-    if (days > 0) {
-      return `${days}d ${hours}h ${minutes}m`;
-    }
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${secs}s`;
-    }
-    if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
-    }
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes}m ${secs}s`;
     return `${secs}s`;
   };
 
   const mineTimeDisplay = slot0 ? formatMineTime(mineElapsedSeconds) : "—";
 
-  const occupantInitialsSource = occupantDisplay.isUnknown
-    ? occupantDisplay.addressLabel
-    : occupantDisplay.primary || occupantDisplay.addressLabel;
-
-  const occupantFallbackInitials = occupantDisplay.isUnknown
-    ? (occupantInitialsSource?.slice(-2) ?? "??").toUpperCase()
-    : initialsFrom(occupantInitialsSource);
+  const occupantInitialsSource = occupantDisplay.isUnknown ? occupantDisplay.addressLabel : occupantDisplay.primary || occupantDisplay.addressLabel;
+  const occupantFallbackInitials = occupantDisplay.isUnknown ? (occupantInitialsSource?.slice(-2) ?? "??").toUpperCase() : initialsFrom(occupantInitialsSource);
 
   const donutBalanceDisplay = donutBalance
     ? Math.floor(Number(formatUnits(donutBalance as bigint, DONUT_DECIMALS))).toLocaleString()
@@ -786,7 +594,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const buttonLabel = useMemo(() => {
     if (!slot0 || price === undefined) return "Loading…";
     if (mineResult === "success") return "SUCCESS";
-    if (mineResult === "failure") return "FAILURE";
+    if (mineResult === "failure") return "FAILED";
     if (isWriting || isConfirming) {
       return pendingTxType === "approve" ? "APPROVING…" : "MINING…";
     }
@@ -794,24 +602,14 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     return "MINE";
   }, [mineResult, isConfirming, isWriting, slot0, price, needsApproval, isApprovalMode, pendingTxType]);
 
-  const isMineDisabled =
-    !slot0 || price === undefined || isWriting || isConfirming || mineResult !== null;
-
-  const isApproveButtonDisabled = 
-    isMineDisabled || parsedApprovalAmount === 0n || !approvalAmount;
+  const isMineDisabled = !slot0 || price === undefined || isWriting || isConfirming || mineResult !== null;
+  const isApproveButtonDisabled = isMineDisabled || parsedApprovalAmount === 0n || !approvalAmount;
 
   const handleViewMinerProfile = useCallback(async () => {
     const fid = neynarUser?.user?.fid;
     const username = neynarUser?.user?.username;
-
-    const url = username 
-      ? `https://warpcast.com/${username}`
-      : fid 
-        ? `https://warpcast.com/~/profiles/${fid}`
-        : null;
-
+    const url = username ? `https://warpcast.com/${username}` : fid ? `https://warpcast.com/~/profiles/${fid}` : null;
     if (!url) return;
-
     try {
       const { sdk } = await import("@farcaster/miniapp-sdk");
       await sdk.actions.openUrl(url);
@@ -820,26 +618,45 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     }
   }, [neynarUser?.user?.fid, neynarUser?.user?.username]);
 
-  const scrollMessage =
-    slot0?.uri && slot0.uri.trim() !== ""
-      ? slot0.uri
-      : defaultMessageRef.current;
-
   const handleApproveClick = useCallback(() => {
     if (needsApproval && !isApprovalMode) {
       setIsApprovalMode(true);
-      setTimeout(() => {
-        approvalInputRef.current?.focus();
-      }, 100);
+      setTimeout(() => approvalInputRef.current?.focus(), 100);
     }
   }, [needsApproval, isApprovalMode]);
 
+  const handleCast = useCallback(async () => {
+    try {
+      const { sdk } = await import("@farcaster/miniapp-sdk");
+      const text = `I'm mining SPRINKLES on @sprinkles! ✨\n\nCurrent price: 🍩${minePriceDisplay}`;
+      await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(text)}`);
+    } catch (e) {
+      console.error("Failed to cast:", e);
+    }
+  }, [minePriceDisplay]);
+
+  const handleShare = useCallback(async () => {
+    try {
+      const { sdk } = await import("@farcaster/miniapp-sdk");
+      await sdk.actions.openUrl("https://warpcast.com/~/channel/sprinkles");
+    } catch (e) {
+      window.open("https://warpcast.com/~/channel/sprinkles", "_blank");
+    }
+  }, []);
+
   return (
-    <>
-      <div className="-mx-2 w-[calc(100%+1rem)] overflow-hidden flex-1">
+    <div className="flex flex-col h-full -mx-2">
+      {/* Video Section with Fades */}
+      <div className="relative flex-1 overflow-hidden">
+        {/* Top fade */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-10"
+          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
+        />
+        
         <video
           ref={videoRef}
-          className="w-full h-full object-contain"
+          className="w-full h-full object-cover"
           autoPlay
           loop
           muted
@@ -847,380 +664,244 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           preload="auto"
           src="/media/sprinkles-loop.mp4"
         />
+        
+        {/* Bottom fade */}
+        <div 
+          className="absolute bottom-0 left-0 right-0 h-24 pointer-events-none z-10"
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
+        />
       </div>
 
-      <div className="mt-auto flex flex-col gap-2">
-        <div className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-lg">
-          <div
-            ref={scrollRef}
-            className="flex whitespace-nowrap py-1.5 text-xs font-bold text-white"
-          >
-            {Array.from({ length: 20 }).map((_, i) => (
-              <span key={i} className="inline-block px-8">
-                {scrollMessage}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div
-          className={cn(
-            "bg-zinc-900 border rounded-lg p-2",
-            occupantDisplay.isYou
-              ? "border-white shadow-[inset_0_0_16px_rgba(255,255,255,0.2)]"
-              : "border-zinc-800"
-          )}
-        >
+      {/* Content Section */}
+      <div className="flex flex-col gap-3 px-2 pb-2">
+        {/* Header with Miner label and buttons */}
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                "flex-shrink-0",
-                neynarUser?.user?.fid &&
-                  "cursor-pointer hover:opacity-80 transition-opacity"
-              )}
-              onClick={
-                neynarUser?.user?.fid ? handleViewMinerProfile : undefined
-              }
+            <span className="text-lg font-bold text-white">Miner</span>
+            <button onClick={() => setShowHelpDialog(true)} className="text-gray-500 hover:text-white">
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCast}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 transition-colors"
             >
-              <Avatar className="h-10 w-10 border border-zinc-700">
-                <AvatarImage
-                  src={occupantDisplay.avatarUrl || undefined}
-                  alt={occupantDisplay.primary}
-                  className="object-cover"
-                />
-                <AvatarFallback className="bg-zinc-800 text-white text-sm">
-                  {slot0 ? (
-                    occupantFallbackInitials
-                  ) : (
-                    <CircleUserRound className="h-4 w-4" />
-                  )}
-                </AvatarFallback>
-              </Avatar>
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="text-[8px] text-gray-500 uppercase tracking-wider">
-                Current Miner
-              </div>
-              <div className="font-bold text-white text-sm truncate">
-                {occupantDisplay.primary}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-right flex-shrink-0">
-              <div>
-                <div className="text-[8px] text-gray-500">PAID</div>
-                <div className="text-xs font-bold text-amber-400">
-                  🍩{minerPaidDisplay}
-                </div>
-              </div>
-              <div>
-                <div className="text-[8px] text-gray-500">PNL</div>
-                <div className={cn(
-                  "text-xs font-bold",
-                  pnlData.isPositive ? "text-green-400" : "text-red-400"
-                )}>
-                  🍩{pnlData.donut}
-                </div>
-              </div>
-              <div>
-                <div className="text-[8px] text-gray-500">TIME</div>
-                <div className="text-xs font-bold text-white">
-                  {mineTimeDisplay}
-                </div>
-              </div>
-              <div>
-                <div className="text-[8px] text-gray-500">EARNED</div>
-                <div className="text-xs font-bold text-white flex items-center justify-end gap-0.5">
-                  <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />{earnedDisplay}
-                </div>
-              </div>
-            </div>
+              <MessageCircle className="w-3.5 h-3.5 text-white" />
+              <span className="text-xs font-medium text-white">Cast</span>
+            </button>
+            <button
+              onClick={handleShare}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 transition-colors"
+            >
+              <Share2 className="w-3.5 h-3.5 text-white" />
+              <span className="text-xs font-medium text-white">Share</span>
+            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-center">
-            <div className="flex items-center justify-center gap-1 mb-0.5">
-              <TrendingUp className="w-3 h-3 text-white" />
-              <span className="text-[9px] text-gray-400 uppercase">
-                Mine Rate
-              </span>
+        {/* Miner Info Row */}
+        <div className="flex items-center justify-between">
+          <div 
+            className={cn(
+              "flex items-center gap-3",
+              neynarUser?.user?.fid && "cursor-pointer"
+            )}
+            onClick={neynarUser?.user?.fid ? handleViewMinerProfile : undefined}
+          >
+            <Avatar className="h-10 w-10 border border-zinc-700">
+              <AvatarImage
+                src={occupantDisplay.avatarUrl || undefined}
+                alt={occupantDisplay.primary}
+                className="object-cover"
+              />
+              <AvatarFallback className="bg-zinc-800 text-white text-sm">
+                {slot0 ? occupantFallbackInitials : <CircleUserRound className="h-4 w-4" />}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="font-bold text-white">{occupantDisplay.primary}</div>
+              <div className="text-xs text-gray-500">{formatAddress(minerAddress)}</div>
             </div>
-            <div className="text-lg font-bold text-white flex items-center justify-center gap-0.5">
-              <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />{mineRateDisplay}
-              <span className="text-xs text-gray-400">/s</span>
+          </div>
+          <div className="text-right">
+            <div className="text-xl font-bold text-white">{mineTimeDisplay}</div>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+          <div>
+            <div className="text-xs text-gray-500">Mine rate</div>
+            <div className="text-lg font-bold text-white flex items-center gap-1">
+              <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+              <span>{mineRateDisplay}/s</span>
             </div>
             {donutPerSecondDisplay && (
-              <div className="text-[10px] text-amber-400 mt-0.5">
-                ≈ 🍩{donutPerSecondDisplay}/s
-              </div>
+              <div className="text-xs text-amber-400">≈ 🍩{donutPerSecondDisplay}/s</div>
             )}
           </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-center flex flex-col items-center justify-center">
-            <div className="flex items-center justify-center gap-1 mb-0.5">
-              <Coins className="w-3 h-3 text-white" />
-              <span className="text-[9px] text-gray-400 uppercase">
-                Mine Price
-              </span>
+          <div>
+            <div className="text-xs text-gray-500">Mined</div>
+            <div className="text-lg font-bold text-white flex items-center gap-1">
+              <span className="text-amber-400">+</span>
+              <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+              <span>{earnedDisplay}</span>
             </div>
-            <div className="text-lg font-bold text-white">
-              🍩{minePriceDisplay}
+            <div className="text-xs text-gray-500">≈ 🍩{earnedInDonut}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">Total</div>
+            <div className={cn("text-lg font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>
+              {totalPnlUsd.value}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">PnL</div>
+            <div className={cn("text-lg font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
+              {pnlData.donut}
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => setShowHelpDialog(true)}
-            className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5 hover:bg-zinc-800 transition-colors"
-          >
-            <div className="flex items-center justify-center gap-1.5">
-              <Timer className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-              <span className="text-xs font-semibold text-white">
-                Dutch Auction
-              </span>
-              <HelpCircle className="w-3 h-3 text-gray-400" />
-            </div>
-          </button>
-
-          <button
-            onClick={() => setShowCompeteDialog(true)}
-            className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5 hover:bg-zinc-800 transition-colors"
-          >
-            <div className="flex items-center justify-center gap-1.5">
-              <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-              <span className="text-xs font-semibold text-white">
-                Compete Weekly
-              </span>
-              <HelpCircle className="w-3 h-3 text-gray-400" />
-            </div>
-          </button>
-        </div>
-
-        {showHelpDialog && (
-          <div className="fixed inset-0 z-50">
-            <div
-              className="absolute inset-0 bg-black/90 backdrop-blur-md"
-              onClick={() => setShowHelpDialog(false)}
-            />
-            <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-              <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
-                <button
-                  onClick={() => setShowHelpDialog(false)}
-                  className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-
-                <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <Timer className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                  How <Sparkles className="w-4 h-4 inline drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES Mining Works
-                </h2>
-
-                <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">1</div>
-                    <div>
-                      <div className="font-semibold text-white text-sm">Pay 🍩DONUT to Mine</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Pay the current price in DONUT to become the miner.</div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">2</div>
-                    <div>
-                      <div className="font-semibold text-white text-sm flex items-center gap-1">Earn <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES</div>
-                      <div className="text-xs text-gray-400 mt-0.5">While you are the miner, you earn SPRINKLES every second.</div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">3</div>
-                    <div>
-                      <div className="font-semibold text-white text-sm">Dutch Auction</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Price starts high and drops to 1 🍩DONUT over 1 hour.</div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">4</div>
-                    <div>
-                      <div className="font-semibold text-white text-sm">Get Paid Back</div>
-                      <div className="text-xs text-gray-400 mt-0.5">When someone outbids you, you get 80% of their 🍩DONUT payment.</div>
-                    </div>
-                  </div>
-                </div>
-
-                <p className="text-[10px] text-gray-500 text-center mt-4 flex items-center justify-center gap-1">
-                  10% of all 🍩DONUT payments are used to buy and burn <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES!
-                </p>
-
-                <button
-                  onClick={() => setShowHelpDialog(false)}
-                  className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
-                >
-                  Got it
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showCompeteDialog && (
-          <div className="fixed inset-0 z-50">
-            <div
-              className="absolute inset-0 bg-black/90 backdrop-blur-md"
-              onClick={() => setShowCompeteDialog(false)}
-            />
-            <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-              <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
-                <button
-                  onClick={() => setShowCompeteDialog(false)}
-                  className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-
-                <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                  Compete for Weekly Rewards
-                </h2>
-
-                <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-black">1</div>
-                    <div>
-                      <div className="font-semibold text-amber-400 text-sm">Mine 🍩DONUT = 2 Points</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Pay ETH to glaze the factory and earn 2 leaderboard points.</div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">2</div>
-                    <div>
-                      <div className="font-semibold text-white text-sm flex items-center gap-1">Mine <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES = 1 Point</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Pay DONUT to mine SPRINKLES and earn 1 leaderboard point.</div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">3</div>
-                    <div>
-                      <div className="font-semibold text-white text-sm">Weekly Leaderboard</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Compete with other miners. Resets every Friday at 12pm UTC.</div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-black">4</div>
-                    <div>
-                      <div className="font-semibold text-amber-400 text-sm">Win Prizes</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Top 3 miners split the prize pool: 50% / 30% / 20%</div>
-                    </div>
-                  </div>
-                </div>
-
-                <p className="text-[10px] text-gray-500 text-center mt-4 flex items-center justify-center gap-1">
-                  Prize pool includes ETH, 🍩DONUT, and <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES!
-                </p>
-
-                <button
-                  onClick={() => setShowCompeteDialog(false)}
-                  className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
-                >
-                  Got it
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
+        {/* Message Input */}
         <input
           type="text"
           value={customMessage}
           onChange={(e) => setCustomMessage(e.target.value)}
-          placeholder="Add a GLOBAL message (optional)"
+          placeholder="Add a message..."
           maxLength={100}
-          className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-2 text-base text-white placeholder-gray-500 focus:outline-none focus:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-zinc-600"
           style={{ fontSize: '16px' }}
           disabled={isMineDisabled}
         />
 
-        {needsApproval && isApprovalMode ? (
-          <div className="flex w-full rounded-xl overflow-hidden">
-            <input
-              ref={approvalInputRef}
-              type="text"
-              inputMode="decimal"
-              value={approvalAmount}
-              onChange={(e) => {
-                const value = e.target.value.replace(/[^0-9.]/g, '');
-                const parts = value.split('.');
-                if (parts.length > 2) return;
-                setApprovalAmount(value);
-              }}
-              placeholder="Enter DONUT amount"
-              className="flex-1 bg-zinc-800 text-white px-4 py-4 text-lg font-bold placeholder-gray-500 focus:outline-none"
-              style={{ fontSize: '16px' }}
-              disabled={isWriting || isConfirming}
-            />
-            <button
-              className={cn(
-                "px-6 py-4 text-lg font-bold transition-all duration-300",
-                isApproveButtonDisabled
-                  ? "bg-zinc-700 text-gray-500 cursor-not-allowed"
-                  : "bg-amber-500 text-black hover:bg-amber-400",
-                mineResult === "success" && "bg-green-500 text-white",
-                mineResult === "failure" && "bg-red-500 text-white"
-              )}
-              onClick={handleApprove}
-              disabled={isApproveButtonDisabled}
-            >
-              {isWriting || isConfirming ? "…" : mineResult === "success" ? "✓" : mineResult === "failure" ? "✗" : "APPROVE"}
-            </button>
-          </div>
-        ) : (
-          <button
-            className={cn(
-              "w-full rounded-xl py-4 text-lg font-bold transition-all duration-300",
-              mineResult === "success"
-                ? "bg-green-500 text-white"
-                : mineResult === "failure"
-                  ? "bg-red-500 text-white"
-                  : isMineDisabled
-                    ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
-                    : needsApproval
-                      ? "bg-amber-500 text-black hover:bg-amber-400"
-                      : "bg-white text-black hover:bg-gray-200",
-              isPulsing && !isMineDisabled && !mineResult && "scale-[0.95]"
-            )}
-            onClick={needsApproval ? handleApproveClick : handleMine}
-            disabled={isMineDisabled}
-          >
-            {buttonLabel}
-          </button>
-        )}
-
-        <div className="w-full border border-zinc-800 rounded-lg p-2 bg-zinc-900">
-          <div className="flex items-center justify-between mb-1.5">
-            <div className="text-[9px] text-gray-400 uppercase tracking-wider">
-              Your DONUT Balance
-            </div>
+        {/* Bottom Action Row */}
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <div className="text-xs text-gray-500">Mine price</div>
+            <div className="text-2xl font-bold text-white">🍩{minePriceDisplay}</div>
             {(donutAllowance as bigint) > 0n && (
-              <div className="text-[9px] text-amber-400">
-                Approved: 🍩{currentAllowanceDisplay}
-              </div>
+              <div className="text-xs text-amber-400">Approved: 🍩{currentAllowanceDisplay}</div>
             )}
           </div>
-          <div className="text-center">
-            <div className="text-lg font-bold text-white">
-              🍩 {donutBalanceDisplay}
-            </div>
+          
+          <div className="flex flex-col items-end gap-1">
+            <div className="text-xs text-gray-500">Balance: 🍩{donutBalanceDisplay}</div>
+            
+            {needsApproval && isApprovalMode ? (
+              <div className="flex rounded-xl overflow-hidden">
+                <input
+                  ref={approvalInputRef}
+                  type="text"
+                  inputMode="decimal"
+                  value={approvalAmount}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9.]/g, '');
+                    const parts = value.split('.');
+                    if (parts.length > 2) return;
+                    setApprovalAmount(value);
+                  }}
+                  placeholder="Amount"
+                  className="w-24 bg-zinc-800 text-white px-3 py-3 text-sm font-bold placeholder-gray-500 focus:outline-none"
+                  style={{ fontSize: '16px' }}
+                  disabled={isWriting || isConfirming}
+                />
+                <button
+                  className={cn(
+                    "px-4 py-3 text-sm font-bold transition-all duration-300",
+                    isApproveButtonDisabled
+                      ? "bg-zinc-700 text-gray-500 cursor-not-allowed"
+                      : "bg-amber-500 text-black hover:bg-amber-400",
+                    mineResult === "success" && "bg-green-500 text-white",
+                    mineResult === "failure" && "bg-red-500 text-white"
+                  )}
+                  onClick={handleApprove}
+                  disabled={isApproveButtonDisabled}
+                >
+                  {isWriting || isConfirming ? "…" : "OK"}
+                </button>
+              </div>
+            ) : (
+              <button
+                className={cn(
+                  "px-8 py-3 rounded-xl text-base font-bold transition-all duration-300",
+                  mineResult === "success"
+                    ? "bg-green-500 text-white"
+                    : mineResult === "failure"
+                      ? "bg-red-500 text-white"
+                      : isMineDisabled
+                        ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
+                        : needsApproval
+                          ? "bg-amber-500 text-black hover:bg-amber-400"
+                          : "bg-amber-500 text-black hover:bg-amber-400",
+                  isPulsing && !isMineDisabled && !mineResult && "scale-[0.95]"
+                )}
+                onClick={needsApproval ? handleApproveClick : handleMine}
+                disabled={isMineDisabled}
+              >
+                {buttonLabel}
+              </button>
+            )}
           </div>
         </div>
       </div>
-    </>
+
+      {/* Help Dialog */}
+      {showHelpDialog && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHelpDialog(false)} />
+          <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+            <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
+              <button onClick={() => setShowHelpDialog(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white">
+                <X className="h-4 w-4" />
+              </button>
+              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                How Mining Works
+              </h2>
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-black">1</div>
+                  <div>
+                    <div className="font-semibold text-white text-sm">Pay 🍩DONUT to Mine</div>
+                    <div className="text-xs text-gray-400 mt-0.5">Pay the current price in DONUT.</div>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">2</div>
+                  <div>
+                    <div className="font-semibold text-white text-sm flex items-center gap-1">
+                      Earn <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES
+                    </div>
+                    <div className="text-xs text-gray-400 mt-0.5">Earn SPRINKLES every second.</div>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">3</div>
+                  <div>
+                    <div className="font-semibold text-white text-sm">Dutch Auction</div>
+                    <div className="text-xs text-gray-400 mt-0.5">Price drops to 🍩1 over 1 hour.</div>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-black">4</div>
+                  <div>
+                    <div className="font-semibold text-amber-400 text-sm">Get Paid Back</div>
+                    <div className="text-xs text-gray-400 mt-0.5">When outbid, get 80% of their DONUT.</div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-500 text-center mt-4 flex items-center justify-center gap-1">
+                10% of all 🍩DONUT buys and burns <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES!
+              </p>
+              <button onClick={() => setShowHelpDialog(false)} className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors">
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
