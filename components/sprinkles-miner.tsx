@@ -55,7 +55,7 @@ const MIN_PRICE = 1n * 10n ** 18n;
 
 const SPRINKLES_DONUT_PAIR = "0x47E8b03017d8b8d058bA5926838cA4dD4531e668";
 const TREASURY_ADDRESS = "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d" as const;
-const DONUT_TOKEN_ADDRESS = "0x3afe25a2739b5c2e08cfec439f9621d91ff7fbfb" as const;
+const DONUT_TOKEN_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
 const IMAGE_FEE = 1n * 10n ** 18n; // 1 DONUT for image upload
 
 // Simple ERC20 transfer ABI
