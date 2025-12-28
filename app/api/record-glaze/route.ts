@@ -27,6 +27,10 @@ const DONUT_MINE_SELECTOR = keccak256(toBytes('mine(address,uint256,uint256,uint
 // SPRINKLES: mine(address,address,uint256,uint256,uint256,string)
 const SPRINKLES_MINE_SELECTOR = keccak256(toBytes('mine(address,address,uint256,uint256,uint256,string)')).slice(0, 10);
 
+// Event signatures for extracting actual paid amounts
+// Sprinkles Mine event: Mine(address indexed miner, uint256 indexed epochId, uint256 price, string uri)
+const SPRINKLES_MINE_EVENT_TOPIC = keccak256(toBytes('Mine(address,uint256,uint256,string)'));
+
 export async function POST(request: Request) {
   try {
     const { address, txHash, mineType = 'donut' } = await request.json();
@@ -75,6 +79,8 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const receipt = receiptData.result;
 
     // Get the actual transaction to check the input data
     const txResponse = await fetch(rpcUrl, {
@@ -171,19 +177,41 @@ export async function POST(request: Request) {
         );
       }
       
-      // Decode the input to extract maxPrice and message
+      // Extract message from input params
       try {
         const params = decodeAbiParameters(
           parseAbiParameters('address to, address referrer, uint256 epochId, uint256 deadline, uint256 maxPrice, string uri'),
           `0x${inputData.slice(10)}` as `0x${string}`
         );
-        
-        // Extract amount (maxPrice in DONUT) and message
-        amount = (params[4] as bigint).toString();
         message = params[5] as string || '';
       } catch (decodeError) {
-        console.error('Failed to decode SPRINKLES transaction input:', decodeError);
-        // Continue without amount/message - not critical
+        console.error('Failed to decode SPRINKLES message:', decodeError);
+      }
+      
+      // Extract actual paid amount from Mine event logs
+      try {
+        const logs = receipt.logs || [];
+        for (const log of logs) {
+          // Check if this is a Mine event from the sprinkles miner contract
+          if (log.address?.toLowerCase() === SPRINKLES_MINER_ADDRESS && 
+              log.topics?.[0]?.toLowerCase() === SPRINKLES_MINE_EVENT_TOPIC.toLowerCase()) {
+            // Mine event: Mine(address indexed miner, uint256 indexed epochId, uint256 price, string uri)
+            // topics[0] = event signature
+            // topics[1] = miner (indexed)
+            // topics[2] = epochId (indexed)
+            // data = abi.encode(price, uri)
+            const decodedData = decodeAbiParameters(
+              parseAbiParameters('uint256 price, string uri'),
+              log.data as `0x${string}`
+            );
+            amount = (decodedData[0] as bigint).toString();
+            console.log('Extracted actual SPRINKLES price from event:', amount);
+            break;
+          }
+        }
+      } catch (eventError) {
+        console.error('Failed to decode Mine event:', eventError);
+        // Fallback: don't save amount if we can't get the real one
       }
     }
 

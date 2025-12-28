@@ -849,16 +849,18 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                 )}
                 onClick={neynarUser?.user?.fid ? handleViewMinerProfile : undefined}
               >
-                <Avatar className="h-24 w-24 border-2 border-amber-500/50 spin-slow bg-black">
-                  <AvatarImage
-                    src={occupantDisplay.avatarUrl || undefined}
-                    alt={occupantDisplay.primary}
-                    className="object-cover"
-                  />
-                  <AvatarFallback className="bg-zinc-900 text-white text-lg">
-                    {slot0 ? occupantFallbackInitials : <CircleUserRound className="h-6 w-6" />}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="rounded-full bg-black p-0.5 spin-slow">
+                  <Avatar className="h-24 w-24 border-2 border-amber-500/50">
+                    <AvatarImage
+                      src={occupantDisplay.avatarUrl || undefined}
+                      alt={occupantDisplay.primary}
+                      className="object-cover bg-black"
+                    />
+                    <AvatarFallback className="bg-zinc-900 text-white text-lg">
+                      {slot0 ? occupantFallbackInitials : <CircleUserRound className="h-6 w-6" />}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
                 <div className="mt-2 text-center">
                   <div className="font-bold text-amber-400 text-sm drop-shadow-lg">{occupantDisplay.primary}</div>
                   <div className="text-[10px] text-amber-400/70 drop-shadow-lg">{formatAddress(minerAddress)}</div>
@@ -879,14 +881,14 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                   <span>
                     {(() => {
                       const formatted = formatCompactNumber(earnedDisplay);
-                      const match = formatted.match(/^([\d,]+)(\.?\d*)?([KM]?)$/);
+                      const match = formatted.match(/^([\d,]+)(\.?\d*)([KM]?)$/);
                       if (match) {
                         const [, whole, decimal, suffix] = match;
                         return (
                           <>
                             <span>{whole}</span>
                             {decimal && <span className="text-sm text-gray-300">{decimal}</span>}
-                            {suffix && <span>{suffix}</span>}
+                            {suffix && <span className="text-sm text-gray-300">{suffix}</span>}
                           </>
                         );
                       }
