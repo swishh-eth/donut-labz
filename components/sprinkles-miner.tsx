@@ -837,6 +837,12 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                   <div className="font-bold text-white text-sm drop-shadow-lg">{occupantDisplay.primary}</div>
                   <div className="text-[10px] text-gray-300 drop-shadow-lg">{formatAddress(minerAddress)}</div>
                 </div>
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-xs font-bold text-white drop-shadow-lg">Miner</span>
+                  <button onClick={() => setShowHelpDialog(true)} className="text-gray-400 hover:text-white pointer-events-auto">
+                    <HelpCircle className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
               
               {/* Right - Mined */}
@@ -873,14 +879,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             </div>
           </div>
 
-          {/* Header with Miner label and Cast button */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-bold text-white">Miner</span>
-              <button onClick={() => setShowHelpDialog(true)} className="text-gray-500 hover:text-white">
-                <HelpCircle className="w-4 h-4" />
-              </button>
-            </div>
+          {/* Header with Cast button */}
+          <div className="flex items-center justify-end">
             <button
               onClick={handleCast}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 transition-colors"
@@ -931,7 +931,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             </div>
             
             <div className="flex flex-col gap-1">
-              <div className="text-xs text-gray-500 text-right">Balance: 🍩{donutBalanceDisplay}</div>
+              <div className="text-xs text-gray-500">Balance: 🍩{donutBalanceDisplay}</div>
               
               {needsApproval && isApprovalMode ? (
                 <div className="flex w-full rounded-xl overflow-hidden">
@@ -991,21 +991,22 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           </div>
 
           {/* Message Input */}
-          <input
-            type="text"
-            value={customMessage}
-            onChange={(e) => setCustomMessage(e.target.value)}
-            placeholder="Add a message..."
-            maxLength={100}
-            className="w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-zinc-600"
-            style={{ fontSize: '16px' }}
-            disabled={isMineDisabled}
-          />
+          <div className="mt-2">
+            <input
+              type="text"
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              placeholder="Add a message..."
+              maxLength={100}
+              className="w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-zinc-600"
+              style={{ fontSize: '16px' }}
+              disabled={isMineDisabled}
+            />
+          </div>
 
           {/* Scroll Hint */}
-          <div className="flex flex-col items-center gap-2 pt-4 pb-2">
+          <div className="flex flex-col items-center pt-4 pb-2">
             <div className="text-[10px] text-gray-500 uppercase tracking-wider">Scroll down for miner history</div>
-            <div className="w-12 h-1 bg-zinc-700 rounded-full" />
           </div>
 
           {/* Recent Miners Section */}
