@@ -849,23 +849,23 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                 )}
                 onClick={neynarUser?.user?.fid ? handleViewMinerProfile : undefined}
               >
-                <Avatar className="h-24 w-24 border-2 border-white/30 spin-slow">
+                <Avatar className="h-24 w-24 border-2 border-amber-500/50 spin-slow bg-black">
                   <AvatarImage
                     src={occupantDisplay.avatarUrl || undefined}
                     alt={occupantDisplay.primary}
                     className="object-cover"
                   />
-                  <AvatarFallback className="bg-zinc-800 text-white text-lg">
+                  <AvatarFallback className="bg-zinc-900 text-white text-lg">
                     {slot0 ? occupantFallbackInitials : <CircleUserRound className="h-6 w-6" />}
                   </AvatarFallback>
                 </Avatar>
                 <div className="mt-2 text-center">
-                  <div className="font-bold text-white text-sm drop-shadow-lg">{occupantDisplay.primary}</div>
-                  <div className="text-[10px] text-gray-300 drop-shadow-lg">{formatAddress(minerAddress)}</div>
+                  <div className="font-bold text-amber-400 text-sm drop-shadow-lg">{occupantDisplay.primary}</div>
+                  <div className="text-[10px] text-amber-400/70 drop-shadow-lg">{formatAddress(minerAddress)}</div>
                 </div>
                 <div className="flex items-center gap-1 mt-1">
-                  <span className="text-[10px] font-bold text-white drop-shadow-lg uppercase tracking-wider">Current Miner</span>
-                  <button onClick={() => setShowHelpDialog(true)} className="text-gray-400 hover:text-white pointer-events-auto">
+                  <span className="text-[10px] font-bold text-amber-400 drop-shadow-lg uppercase tracking-wider">Current Miner</span>
+                  <button onClick={() => setShowHelpDialog(true)} className="text-amber-400/70 hover:text-amber-300 pointer-events-auto">
                     <HelpCircle className="w-3 h-3" />
                   </button>
                 </div>
@@ -876,7 +876,23 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                 <div className="text-[10px] text-gray-400 uppercase">Mined</div>
                 <div className="text-lg font-bold text-white flex items-center gap-1 justify-center whitespace-nowrap">
                   <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                  <span>{formatCompactNumber(earnedDisplay)}</span>
+                  <span>
+                    {(() => {
+                      const formatted = formatCompactNumber(earnedDisplay);
+                      const match = formatted.match(/^([\d,]+)(\.?\d*)?([KM]?)$/);
+                      if (match) {
+                        const [, whole, decimal, suffix] = match;
+                        return (
+                          <>
+                            <span>{whole}</span>
+                            {decimal && <span className="text-sm text-gray-300">{decimal}</span>}
+                            {suffix && <span>{suffix}</span>}
+                          </>
+                        );
+                      }
+                      return formatted;
+                    })()}
+                  </span>
                 </div>
               </div>
             </div>
