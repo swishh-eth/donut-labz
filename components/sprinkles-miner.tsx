@@ -830,8 +830,12 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           <style>{`
             @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
             @keyframes pulse-scale { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.9; } }
+            @keyframes scroll-left { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+            @keyframes scroll-right { 0% { transform: translateX(-50%); } 100% { transform: translateX(0); } }
             .spin-slow { animation: spin-slow 8s linear infinite; }
             .pulse-scale { animation: pulse-scale 3s ease-in-out infinite; }
+            .scroll-left { animation: scroll-left 15s linear infinite; }
+            .scroll-right { animation: scroll-right 15s linear infinite; }
             .scrollbar-hide::-webkit-scrollbar { display: none; }
             .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
           `}</style>
@@ -1089,7 +1093,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           {/* Scroll Hint */}
           <div 
             className="flex flex-col items-center mt-2"
-            style={{ opacity: Math.max(0, 1 - scrollFade.top * 2) }}
+            style={{ opacity: Math.max(0, 1 - scrollFade.top * 0.5) }}
           >
             <div className="text-[10px] text-gray-500 uppercase tracking-wider">Scroll down for miner history</div>
           </div>
@@ -1132,9 +1136,10 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                         </span>
                       </div>
                       {miner.message && (
-                        <div className="overflow-x-auto scrollbar-hide mt-0.5">
-                          <div className="text-xs text-gray-400 whitespace-nowrap">
-                            "{miner.message}"
+                        <div className="overflow-hidden mt-0.5">
+                          <div className={`flex whitespace-nowrap ${index % 2 === 0 ? 'scroll-left' : 'scroll-right'}`}>
+                            <span className="text-xs text-gray-400 pr-8">"{miner.message}"</span>
+                            <span className="text-xs text-gray-400 pr-8">"{miner.message}"</span>
                           </div>
                         </div>
                       )}
