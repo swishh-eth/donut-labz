@@ -26,6 +26,16 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
+// Donut Circle Icon Component
+function DonutIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="4" fill="black" />
+    </svg>
+  );
+}
+
 // Donut Info Tile Component
 function DonutInfoTile({ onClick }: { onClick: () => void }) {
   return (
@@ -34,20 +44,15 @@ function DonutInfoTile({ onClick }: { onClick: () => void }) {
       className="donut-tile relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
     >
-      {/* Floating donut */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-5xl floating-donut opacity-80">
-        🍩
-      </div>
-
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-2 right-2 w-20 h-20 bg-amber-500/10 rounded-full blur-2xl" />
-        <div className="absolute bottom-2 left-2 w-16 h-16 bg-amber-500/10 rounded-full blur-xl" />
+      {/* Large background donut symbol */}
+      <div className="absolute -right-8 top-1/2 -translate-y-1/2 pointer-events-none">
+        <DonutIcon className="w-40 h-40 text-white/10" />
       </div>
       
       <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xl">🍩</span>
+            <DonutIcon className="w-5 h-5 text-amber-400" />
             <span className="font-bold text-base text-amber-400">What is $DONUT</span>
           </div>
           <div className="text-[10px] text-amber-200/60 mb-2">Store-of-value token on Base</div>
@@ -73,14 +78,9 @@ function SprinklesInfoTile({ onClick }: { onClick: () => void }) {
       className="sprinkles-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Floating sprinkle */}
-      <div className="absolute right-6 top-1/2 -translate-y-1/2 floating-sparkle">
-        <Sparkles className="w-10 h-10 text-white/60 drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
-      </div>
-
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-2 right-2 w-20 h-20 bg-white/5 rounded-full blur-2xl" />
-        <div className="absolute bottom-2 left-2 w-16 h-16 bg-white/5 rounded-full blur-xl" />
+      {/* Large background sparkles symbol */}
+      <div className="absolute -right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Sparkles className="w-36 h-36 text-white/10" />
       </div>
       
       <div className="relative z-10 p-4 pr-20">
@@ -112,20 +112,15 @@ function RevenueFlowTile({ onClick }: { onClick: () => void }) {
       className="revenue-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Floating donut */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-4xl floating-donut opacity-60">
-        🍩
-      </div>
-
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-2 right-2 w-20 h-20 bg-white/5 rounded-full blur-2xl" />
-        <div className="absolute bottom-2 left-2 w-16 h-16 bg-white/5 rounded-full blur-xl" />
+      {/* Large background donut symbol */}
+      <div className="absolute -right-8 top-1/2 -translate-y-1/2 pointer-events-none">
+        <DonutIcon className="w-40 h-40 text-white/10" />
       </div>
       
       <div className="relative z-10 p-4 pr-16">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
+            <DonutIcon className="w-4 h-4 text-white" />
             <span className="font-bold text-base text-white">Revenue Flow</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">See where miner & game fees go</div>
@@ -227,19 +222,6 @@ export default function AboutPage() {
         }
         .about-scroll::-webkit-scrollbar {
           display: none;
-        }
-        
-        @keyframes float-updown {
-          0%, 100% { transform: translateY(-50%) translateY(-5px); }
-          50% { transform: translateY(-50%) translateY(5px); }
-        }
-        
-        .floating-donut {
-          animation: float-updown 3s ease-in-out infinite;
-        }
-        
-        .floating-sparkle {
-          animation: float-updown 3s ease-in-out infinite;
         }
       `}</style>
 
