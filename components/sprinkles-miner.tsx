@@ -843,7 +843,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           <div className="flex items-center justify-between">
             <div 
               className={cn(
-                "flex items-center gap-3",
+                "flex items-center gap-3 flex-1",
                 neynarUser?.user?.fid && "cursor-pointer"
               )}
               onClick={neynarUser?.user?.fid ? handleViewMinerProfile : undefined}
@@ -863,9 +863,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                 <div className="text-xs text-gray-500">{formatAddress(minerAddress)}</div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-xl font-bold text-white">{mineTimeDisplay}</div>
-            </div>
           </div>
 
           {/* Stats Grid */}
@@ -881,6 +878,10 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               )}
             </div>
             <div>
+              <div className="text-xs text-gray-500">Mining time</div>
+              <div className="text-lg font-bold text-white">{mineTimeDisplay}</div>
+            </div>
+            <div>
               <div className="text-xs text-gray-500">Mined</div>
               <div className="text-lg font-bold text-white flex items-center gap-1">
                 <span className="text-amber-400">+</span>
@@ -890,22 +891,22 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               <div className="text-xs text-gray-500">≈ 🍩{earnedInDonut}</div>
             </div>
             <div>
-              <div className="text-xs text-gray-500">Total</div>
-              <div className={cn("text-lg font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>
-                {totalPnlUsd.value}
-              </div>
-            </div>
-            <div>
               <div className="text-xs text-gray-500">PnL</div>
               <div className={cn("text-lg font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
                 {pnlData.donut}
               </div>
             </div>
+            <div>
+              <div className="text-xs text-gray-500">Total</div>
+              <div className={cn("text-lg font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>
+                {totalPnlUsd.value}
+              </div>
+            </div>
           </div>
 
           {/* Mine Action Row */}
-          <div className="flex items-end gap-4">
-            <div className="flex-shrink-0">
+          <div className="grid grid-cols-2 gap-x-6 items-end">
+            <div>
               <div className="text-xs text-gray-500">Mine price</div>
               <div className="text-2xl font-bold text-white">🍩{minePriceDisplay}</div>
               {(donutAllowance as bigint) > 0n && (
@@ -913,8 +914,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               )}
             </div>
             
-            <div className="flex flex-col items-end gap-1 flex-1">
-              <div className="text-xs text-gray-500">Balance: 🍩{donutBalanceDisplay}</div>
+            <div className="flex flex-col gap-1">
+              <div className="text-xs text-gray-500 text-right">Balance: 🍩{donutBalanceDisplay}</div>
               
               {needsApproval && isApprovalMode ? (
                 <div className="flex w-full rounded-xl overflow-hidden">
@@ -929,8 +930,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                       if (parts.length > 2) return;
                       setApprovalAmount(value);
                     }}
-                    placeholder="Amount"
-                    className="w-24 flex-shrink-0 bg-zinc-800 text-white px-2 py-3 text-sm font-bold placeholder-gray-500 focus:outline-none"
+                    placeholder="Amt"
+                    className="w-20 flex-shrink-0 bg-zinc-800 text-white px-2 py-3 text-sm font-bold placeholder-gray-500 focus:outline-none"
                     style={{ fontSize: '16px' }}
                     disabled={isWriting || isConfirming}
                   />
@@ -946,7 +947,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                     onClick={handleApprove}
                     disabled={isApproveButtonDisabled}
                   >
-                    {isWriting || isConfirming ? "Confirming..." : "APPROVE"}
+                    {isWriting || isConfirming ? "..." : "APPROVE"}
                   </button>
                 </div>
               ) : (
@@ -985,9 +986,15 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             disabled={isMineDisabled}
           />
 
+          {/* Scroll Hint */}
+          <div className="flex flex-col items-center gap-2 pt-4 pb-2">
+            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Scroll down for miner history</div>
+            <div className="w-12 h-1 bg-zinc-700 rounded-full" />
+          </div>
+
           {/* Recent Miners Section */}
           {recentMiners.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-zinc-800">
+            <div className="pt-2">
               <div className="text-xs text-gray-500 mb-2 font-semibold">Recent Miners</div>
               <div className="space-y-2">
                 {recentMiners.map((miner, index) => (

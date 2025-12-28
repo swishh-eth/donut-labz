@@ -692,7 +692,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           <div className="flex items-center justify-between">
             <div 
               className={cn(
-                "flex items-center gap-3",
+                "flex items-center gap-3 flex-1",
                 neynarUser?.user?.fid && "cursor-pointer"
               )}
               onClick={neynarUser?.user?.fid ? handleViewKingGlazerProfile : undefined}
@@ -712,9 +712,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                 <div className="text-xs text-gray-500">{formatAddress(minerAddress)}</div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-xl font-bold text-white">{glazeTimeDisplay}</div>
-            </div>
           </div>
 
           {/* Stats Grid */}
@@ -723,6 +720,10 @@ export default function DonutMiner({ context }: DonutMinerProps) {
               <div className="text-xs text-gray-500">Mine rate</div>
               <div className="text-lg font-bold text-white">{glazeRateDisplay}/s</div>
               <div className="text-xs text-gray-500">${glazeRateUsdValue}/s</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Mining time</div>
+              <div className="text-lg font-bold text-white">{glazeTimeDisplay}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500">Mined</div>
@@ -734,22 +735,22 @@ export default function DonutMiner({ context }: DonutMinerProps) {
               <div className="text-xs text-gray-500">${glazedUsdValue}</div>
             </div>
             <div>
-              <div className="text-xs text-gray-500">Total</div>
-              <div className={cn("text-lg font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>
-                {totalPnlUsd.value}
-              </div>
-            </div>
-            <div>
               <div className="text-xs text-gray-500">PnL</div>
               <div className={cn("text-lg font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
                 {pnlData.eth}
               </div>
             </div>
+            <div>
+              <div className="text-xs text-gray-500">Total</div>
+              <div className={cn("text-lg font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>
+                {totalPnlUsd.value}
+              </div>
+            </div>
           </div>
 
           {/* Mine Action Row */}
-          <div className="flex items-end gap-4">
-            <div className="flex-shrink-0">
+          <div className="grid grid-cols-2 gap-x-6 items-end">
+            <div>
               <div className="text-xs text-gray-500">Mine price</div>
               <div className="text-2xl font-bold text-white">Ξ{glazePriceDisplay}</div>
               <div className="text-xs text-gray-500">
@@ -757,8 +758,8 @@ export default function DonutMiner({ context }: DonutMinerProps) {
               </div>
             </div>
             
-            <div className="flex flex-col items-end gap-1 flex-1">
-              <div className="text-xs text-gray-500">Balance: Ξ{ethBalanceDisplay}</div>
+            <div className="flex flex-col gap-1">
+              <div className="text-xs text-gray-500 text-right">Balance: Ξ{ethBalanceDisplay}</div>
               <button
                 className={cn(
                   "w-full py-3 rounded-xl text-base font-bold transition-all duration-300",
@@ -791,9 +792,15 @@ export default function DonutMiner({ context }: DonutMinerProps) {
             disabled={isGlazeDisabled}
           />
 
+          {/* Scroll Hint */}
+          <div className="flex flex-col items-center gap-2 pt-4 pb-2">
+            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Scroll down for miner history</div>
+            <div className="w-12 h-1 bg-zinc-700 rounded-full" />
+          </div>
+
           {/* Recent Miners Section */}
           {recentMiners.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-zinc-800">
+            <div className="pt-2">
               <div className="text-xs text-gray-500 mb-2 font-semibold">Recent Miners</div>
               <div className="space-y-2">
                 {recentMiners.map((miner, index) => (
