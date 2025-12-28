@@ -660,7 +660,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
             <div className="flex items-center gap-6">
               {/* Left - Mining Time */}
-              <div className="text-center pulse-scale w-20">
+              <div className="text-center w-20">
                 <div className="text-[10px] text-gray-400 uppercase">Time</div>
                 <div className="text-lg font-bold text-white leading-tight whitespace-nowrap">
                   {(() => {
@@ -686,7 +686,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                 )}
                 onClick={neynarUser?.user?.fid ? handleViewKingGlazerProfile : undefined}
               >
-                <Avatar className="h-20 w-20 border-2 border-white/30 spin-slow">
+                <Avatar className="h-24 w-24 border-2 border-white/30 spin-slow">
                   <AvatarImage
                     src={occupantDisplay.avatarUrl || undefined}
                     alt={occupantDisplay.primary}
@@ -709,7 +709,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
               </div>
               
               {/* Right - Mined */}
-              <div className="text-center pulse-scale w-20">
+              <div className="text-center w-20">
                 <div className="text-[10px] text-gray-400 uppercase">Mined</div>
                 <div className="text-lg font-bold text-white flex items-center gap-1 justify-center whitespace-nowrap">
                   <span>🍩</span>
