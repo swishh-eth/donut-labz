@@ -43,6 +43,15 @@ type MinerState = {
   donutBalance: bigint;
 };
 
+type RecentMiner = {
+  address: string;
+  username: string | null;
+  pfpUrl: string | null;
+  amount: string;
+  message: string;
+  timestamp: number;
+};
+
 const DONUT_DECIMALS = 18;
 const DEADLINE_BUFFER_SECONDS = 15 * 60;
 const AUCTION_DURATION = 3600;
@@ -148,9 +157,12 @@ export default function DonutMiner({ context }: DonutMinerProps) {
   const [isPulsing, setIsPulsing] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const glazeResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const defaultMessageRef = useRef<string>(getRandomDefaultMessage());
   const [interpolatedPrice, setInterpolatedPrice] = useState<bigint | null>(null);
+  const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
+  const [recentMiners, setRecentMiners] = useState<RecentMiner[]>([]);
 
   const resetGlazeResult = useCallback(() => {
     if (glazeResultTimeoutRef.current) {
@@ -224,6 +236,45 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     return () => cancelAnimationFrame(animationId);
   }, []);
 
+  // Scroll fade effect
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const scrollTop = container.scrollTop;
+      const scrollHeight = container.scrollHeight - container.clientHeight;
+      if (scrollHeight > 0) {
+        const topFade = Math.min(1, scrollTop / 50);
+        const bottomFade = Math.min(1, (scrollHeight - scrollTop) / 50);
+        setScrollFade({ top: topFade, bottom: bottomFade });
+      }
+    };
+
+    handleScroll();
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Fetch recent miners
+  useEffect(() => {
+    const fetchRecentMiners = async () => {
+      try {
+        const res = await fetch('/api/miners/recent?type=donut&limit=3');
+        if (res.ok) {
+          const data = await res.json();
+          setRecentMiners(data.miners || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch recent miners:', error);
+      }
+    };
+
+    fetchRecentMiners();
+    const interval = setInterval(fetchRecentMiners, 30_000);
+    return () => clearInterval(interval);
+  }, []);
+
   const { address, isConnected } = useAccount();
   const { connectors, connectAsync, isPending: isConnecting } = useConnect();
   const primaryConnector = connectors[0];
@@ -293,20 +344,9 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                 mineType: "donut",
               }),
             });
-            const data = await res.json();
             
             if (!res.ok && attempt < maxAttempts) {
               setTimeout(() => recordGlazeWithRetry(attempt + 1, maxAttempts), 3000);
-            } else if (res.ok) {
-              fetch("/api/chat/mining", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  address: address,
-                  type: "mine_donut",
-                  txHash: receipt.transactionHash,
-                }),
-              }).catch(console.error);
             }
           } catch (err) {
             if (attempt < maxAttempts) {
@@ -315,6 +355,17 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           }
         };
         setTimeout(() => recordGlazeWithRetry(), 2000);
+        
+        // Refresh recent miners list
+        setTimeout(async () => {
+          try {
+            const res = await fetch('/api/miners/recent?type=donut&limit=3');
+            if (res.ok) {
+              const data = await res.json();
+              setRecentMiners(data.miners || []);
+            }
+          } catch {}
+        }, 3000);
       }
 
       refetchMinerState();
@@ -536,166 +587,217 @@ export default function DonutMiner({ context }: DonutMinerProps) {
 
   return (
     <div className="flex flex-col h-full -mx-2 overflow-hidden">
-      {/* Video Section with Fades */}
-      <div className="relative flex-1 min-h-0 overflow-hidden">
-        {/* Top fade */}
-        <div 
-          className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-10"
-          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
-        />
-        
-        <video
-          ref={videoRef}
-          className="w-full h-full object-cover"
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          src="/media/donut-loop.mp4"
-        />
-        
-        {/* Bottom fade */}
-        <div 
-          className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-10"
-          style={{ background: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
-        />
-      </div>
-
-      {/* Content Section */}
-      <div className="flex flex-col gap-2 px-2 pt-1 pb-6 flex-shrink-0">
-        {/* Scrolling Message Ticker */}
-        <div className="relative overflow-hidden bg-black border border-zinc-800 rounded-lg">
-          <div
-            ref={scrollRef}
-            className="flex whitespace-nowrap py-1.5 text-xs font-bold text-white"
-          >
-            {Array.from({ length: 20 }).map((_, i) => (
-              <span key={i} className="inline-block px-8">
-                {scrollMessage}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Header with Miner label and Cast button */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-white">Miner</span>
-            <button onClick={() => setShowHelpDialog(true)} className="text-gray-500 hover:text-white">
-              <HelpCircle className="w-4 h-4" />
-            </button>
-          </div>
-          <button
-            onClick={handleCast}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 transition-colors"
-          >
-            <MessageCircle className="w-3.5 h-3.5 text-white" />
-            <span className="text-xs font-medium text-white">Cast</span>
-          </button>
-        </div>
-
-        {/* Miner Info Row */}
-        <div className="flex items-center justify-between">
+      <style>{`
+        .miner-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+        .miner-scroll::-webkit-scrollbar { display: none; }
+      `}</style>
+      
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto miner-scroll"
+        style={{ 
+          WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
+          maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`
+        }}
+      >
+        {/* Video Section with Fades */}
+        <div className="relative h-[280px] overflow-hidden">
+          {/* Top fade */}
           <div 
-            className={cn(
-              "flex items-center gap-3",
-              neynarUser?.user?.fid && "cursor-pointer"
-            )}
-            onClick={neynarUser?.user?.fid ? handleViewKingGlazerProfile : undefined}
-          >
-            <Avatar className="h-10 w-10 border border-zinc-700">
-              <AvatarImage
-                src={occupantDisplay.avatarUrl || undefined}
-                alt={occupantDisplay.primary}
-                className="object-cover"
-              />
-              <AvatarFallback className="bg-zinc-800 text-white text-sm">
-                {minerState ? occupantFallbackInitials : <CircleUserRound className="h-4 w-4" />}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="font-bold text-white">{occupantDisplay.primary}</div>
-              <div className="text-xs text-gray-500">{formatAddress(minerAddress)}</div>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-xl font-bold text-white">{glazeTimeDisplay}</div>
-          </div>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-          <div>
-            <div className="text-xs text-gray-500">Mine rate</div>
-            <div className="text-lg font-bold text-white">{glazeRateDisplay}/s</div>
-            <div className="text-xs text-gray-500">${glazeRateUsdValue}/s</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">Mined</div>
-            <div className="text-lg font-bold text-white flex items-center gap-1">
-              <span className="text-amber-400">+</span>
-              <span>🍩</span>
-              <span>{glazedDisplay}</span>
-            </div>
-            <div className="text-xs text-gray-500">${glazedUsdValue}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">Total</div>
-            <div className={cn("text-lg font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>
-              {totalPnlUsd.value}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">PnL</div>
-            <div className={cn("text-lg font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
-              {pnlData.eth}
-            </div>
-          </div>
-        </div>
-
-        {/* Message Input */}
-        <input
-          type="text"
-          value={customMessage}
-          onChange={(e) => setCustomMessage(e.target.value)}
-          placeholder="Add a message..."
-          maxLength={100}
-          className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-zinc-600"
-          style={{ fontSize: '16px' }}
-          disabled={isGlazeDisabled}
-        />
-
-        {/* Bottom Action Row */}
-        <div className="flex items-end gap-4">
-          <div className="flex-shrink-0">
-            <div className="text-xs text-gray-500">Mine price</div>
-            <div className="text-2xl font-bold text-white">Ξ{glazePriceDisplay}</div>
-            <div className="text-xs text-gray-500">
-              ${displayPrice ? (Number(formatEther(displayPrice)) * ethUsdPrice).toFixed(2) : "0.00"}
-            </div>
-          </div>
+            className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-10"
+            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
+          />
           
-          <div className="flex flex-col items-end gap-1 flex-1">
-            <div className="text-xs text-gray-500">Balance: Ξ{ethBalanceDisplay}</div>
-            <button
-              className={cn(
-                "w-full py-3 rounded-xl text-base font-bold transition-all duration-300",
-                glazeResult === "success"
-                  ? "bg-green-500 text-white"
-                  : glazeResult === "failure"
-                    ? "bg-red-500 text-white"
-                    : isGlazeDisabled
-                      ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
-                      : "bg-amber-500 text-black hover:bg-amber-400",
-                isPulsing && !isGlazeDisabled && !glazeResult && "scale-[0.95]"
-              )}
-              onClick={handleGlaze}
-              disabled={isGlazeDisabled}
+          <video
+            ref={videoRef}
+            className="w-full h-full object-cover"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            src="/media/donut-loop.mp4"
+          />
+          
+          {/* Bottom fade */}
+          <div 
+            className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-10"
+            style={{ background: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
+          />
+        </div>
+
+        {/* Content Section */}
+        <div className="flex flex-col gap-2 px-2 pt-1 pb-4">
+          {/* Scrolling Message Ticker */}
+          <div className="relative overflow-hidden bg-black border border-zinc-800 rounded-lg">
+            <div
+              ref={scrollRef}
+              className="flex whitespace-nowrap py-1.5 text-xs font-bold text-white"
             >
-              {buttonLabel}
+              {Array.from({ length: 20 }).map((_, i) => (
+                <span key={i} className="inline-block px-8">
+                  {scrollMessage}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Header with Miner label and Cast button */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-bold text-white">Miner</span>
+              <button onClick={() => setShowHelpDialog(true)} className="text-gray-500 hover:text-white">
+                <HelpCircle className="w-4 h-4" />
+              </button>
+            </div>
+            <button
+              onClick={handleCast}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 transition-colors"
+            >
+              <MessageCircle className="w-3.5 h-3.5 text-white" />
+              <span className="text-xs font-medium text-white">Cast</span>
             </button>
           </div>
+
+          {/* Miner Info Row */}
+          <div className="flex items-center justify-between">
+            <div 
+              className={cn(
+                "flex items-center gap-3",
+                neynarUser?.user?.fid && "cursor-pointer"
+              )}
+              onClick={neynarUser?.user?.fid ? handleViewKingGlazerProfile : undefined}
+            >
+              <Avatar className="h-10 w-10 border border-zinc-700">
+                <AvatarImage
+                  src={occupantDisplay.avatarUrl || undefined}
+                  alt={occupantDisplay.primary}
+                  className="object-cover"
+                />
+                <AvatarFallback className="bg-zinc-800 text-white text-sm">
+                  {minerState ? occupantFallbackInitials : <CircleUserRound className="h-4 w-4" />}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="font-bold text-white">{occupantDisplay.primary}</div>
+                <div className="text-xs text-gray-500">{formatAddress(minerAddress)}</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold text-white">{glazeTimeDisplay}</div>
+            </div>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+            <div>
+              <div className="text-xs text-gray-500">Mine rate</div>
+              <div className="text-lg font-bold text-white">{glazeRateDisplay}/s</div>
+              <div className="text-xs text-gray-500">${glazeRateUsdValue}/s</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Mined</div>
+              <div className="text-lg font-bold text-white flex items-center gap-1">
+                <span className="text-amber-400">+</span>
+                <span>🍩</span>
+                <span>{glazedDisplay}</span>
+              </div>
+              <div className="text-xs text-gray-500">${glazedUsdValue}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Total</div>
+              <div className={cn("text-lg font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>
+                {totalPnlUsd.value}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">PnL</div>
+              <div className={cn("text-lg font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
+                {pnlData.eth}
+              </div>
+            </div>
+          </div>
+
+          {/* Message Input */}
+          <input
+            type="text"
+            value={customMessage}
+            onChange={(e) => setCustomMessage(e.target.value)}
+            placeholder="Add a message..."
+            maxLength={100}
+            className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-zinc-600"
+            style={{ fontSize: '16px' }}
+            disabled={isGlazeDisabled}
+          />
+
+          {/* Bottom Action Row */}
+          <div className="flex items-end gap-4">
+            <div className="flex-shrink-0">
+              <div className="text-xs text-gray-500">Mine price</div>
+              <div className="text-2xl font-bold text-white">Ξ{glazePriceDisplay}</div>
+              <div className="text-xs text-gray-500">
+                ${displayPrice ? (Number(formatEther(displayPrice)) * ethUsdPrice).toFixed(2) : "0.00"}
+              </div>
+            </div>
+            
+            <div className="flex flex-col items-end gap-1 flex-1">
+              <div className="text-xs text-gray-500">Balance: Ξ{ethBalanceDisplay}</div>
+              <button
+                className={cn(
+                  "w-full py-3 rounded-xl text-base font-bold transition-all duration-300",
+                  glazeResult === "success"
+                    ? "bg-green-500 text-white"
+                    : glazeResult === "failure"
+                      ? "bg-red-500 text-white"
+                      : isGlazeDisabled
+                        ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
+                        : "bg-amber-500 text-black hover:bg-amber-400",
+                  isPulsing && !isGlazeDisabled && !glazeResult && "scale-[0.95]"
+                )}
+                onClick={handleGlaze}
+                disabled={isGlazeDisabled}
+              >
+                {buttonLabel}
+              </button>
+            </div>
+          </div>
+
+          {/* Recent Miners Section */}
+          {recentMiners.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-zinc-800">
+              <div className="text-xs text-gray-500 mb-2 font-semibold">Recent Miners</div>
+              <div className="space-y-2">
+                {recentMiners.map((miner, index) => (
+                  <div 
+                    key={`${miner.address}-${miner.timestamp}`}
+                    className="flex items-center gap-3 p-2 rounded-lg bg-zinc-900 border border-zinc-800"
+                  >
+                    <Avatar className="h-8 w-8 border border-zinc-700 flex-shrink-0">
+                      <AvatarImage src={miner.pfpUrl || undefined} className="object-cover" />
+                      <AvatarFallback className="bg-zinc-800 text-white text-xs">
+                        {miner.username ? initialsFrom(miner.username) : miner.address.slice(-2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-white text-sm truncate">
+                          {miner.username ? `@${miner.username}` : formatAddress(miner.address)}
+                        </span>
+                        <span className="text-amber-400 text-xs font-bold flex-shrink-0">
+                          Ξ{miner.amount}
+                        </span>
+                      </div>
+                      {miner.message && (
+                        <div className="text-xs text-gray-400 truncate mt-0.5">
+                          "{miner.message}"
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

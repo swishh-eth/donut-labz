@@ -36,6 +36,15 @@ type Slot0 = {
   uri: string;
 };
 
+type RecentMiner = {
+  address: string;
+  username: string | null;
+  pfpUrl: string | null;
+  amount: string;
+  message: string;
+  timestamp: number;
+};
+
 const SPRINKLES_DECIMALS = 18;
 const DONUT_DECIMALS = 18;
 const DEADLINE_BUFFER_SECONDS = 15 * 60;
@@ -133,10 +142,13 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const pendingTxTypeRef = useRef<"mine" | "approve" | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const mineResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const approvalInputRef = useRef<HTMLInputElement>(null);
   const defaultMessageRef = useRef<string>(getRandomDefaultMessage());
   const [interpolatedPrice, setInterpolatedPrice] = useState<bigint | null>(null);
+  const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
+  const [recentMiners, setRecentMiners] = useState<RecentMiner[]>([]);
 
   const resetMineResult = useCallback(() => {
     if (mineResultTimeoutRef.current) {
@@ -228,6 +240,45 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
     animationId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationId);
+  }, []);
+
+  // Scroll fade effect
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const scrollTop = container.scrollTop;
+      const scrollHeight = container.scrollHeight - container.clientHeight;
+      if (scrollHeight > 0) {
+        const topFade = Math.min(1, scrollTop / 50);
+        const bottomFade = Math.min(1, (scrollHeight - scrollTop) / 50);
+        setScrollFade({ top: topFade, bottom: bottomFade });
+      }
+    };
+
+    handleScroll();
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Fetch recent miners
+  useEffect(() => {
+    const fetchRecentMiners = async () => {
+      try {
+        const res = await fetch('/api/miners/recent?type=sprinkles&limit=3');
+        if (res.ok) {
+          const data = await res.json();
+          setRecentMiners(data.miners || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch recent miners:', error);
+      }
+    };
+
+    fetchRecentMiners();
+    const interval = setInterval(fetchRecentMiners, 30_000);
+    return () => clearInterval(interval);
   }, []);
 
   const { address, isConnected } = useAccount();
@@ -349,7 +400,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(body),
             });
-            const data = await res.json();
             
             if (!res.ok && attempt < maxAttempts) {
               return new Promise((resolve) => {
@@ -374,24 +424,23 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         };
 
         setTimeout(async () => {
-          const leaderboardSuccess = await fetchWithRetry("/api/record-glaze", {
+          await fetchWithRetry("/api/record-glaze", {
             address: address,
             txHash: receipt.transactionHash,
             mineType: "sprinkles",
           });
-          
-          if (leaderboardSuccess) {
-            fetch("/api/chat/mining", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                address: address,
-                type: "mine_sprinkles",
-                txHash: receipt.transactionHash,
-              }),
-            }).catch(console.error);
-          }
         }, 2000);
+        
+        // Refresh recent miners list
+        setTimeout(async () => {
+          try {
+            const res = await fetch('/api/miners/recent?type=sprinkles&limit=3');
+            if (res.ok) {
+              const data = await res.json();
+              setRecentMiners(data.miners || []);
+            }
+          } catch {}
+        }, 3000);
       }
       
       setPendingTxType(null);
@@ -683,209 +732,260 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
   return (
     <div className="flex flex-col h-full -mx-2 overflow-hidden">
-      {/* Video Section with Fades */}
-      <div className="relative flex-1 min-h-0 overflow-hidden">
-        {/* Top fade */}
-        <div 
-          className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-10"
-          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
-        />
-        
-        <video
-          ref={videoRef}
-          className="w-full h-full object-cover"
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          src="/media/sprinkles-loop.mp4"
-        />
-        
-        {/* Bottom fade */}
-        <div 
-          className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-10"
-          style={{ background: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
-        />
-      </div>
-
-      {/* Content Section */}
-      <div className="flex flex-col gap-2 px-2 pt-1 pb-6 flex-shrink-0">
-        {/* Scrolling Message Ticker */}
-        <div className="relative overflow-hidden bg-black border border-zinc-800 rounded-lg">
-          <div
-            ref={scrollRef}
-            className="flex whitespace-nowrap py-1.5 text-xs font-bold text-white"
-          >
-            {Array.from({ length: 20 }).map((_, i) => (
-              <span key={i} className="inline-block px-8">
-                {scrollMessage}
-              </span>
-            ))}
-          </div>
+      <style>{`
+        .miner-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+        .miner-scroll::-webkit-scrollbar { display: none; }
+      `}</style>
+      
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto miner-scroll"
+        style={{ 
+          WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
+          maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`
+        }}
+      >
+        {/* Video Section with Fades */}
+        <div className="relative h-[280px] overflow-hidden">
+          {/* Top fade */}
+          <div 
+            className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-10"
+            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
+          />
+          
+          <video
+            ref={videoRef}
+            className="w-full h-full object-cover"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            src="/media/sprinkles-loop.mp4"
+          />
+          
+          {/* Bottom fade */}
+          <div 
+            className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-10"
+            style={{ background: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
+          />
         </div>
 
-        {/* Header with Miner label and Cast button */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-white">Miner</span>
-            <button onClick={() => setShowHelpDialog(true)} className="text-gray-500 hover:text-white">
-              <HelpCircle className="w-4 h-4" />
+        {/* Content Section */}
+        <div className="flex flex-col gap-2 px-2 pt-1 pb-4">
+          {/* Scrolling Message Ticker */}
+          <div className="relative overflow-hidden bg-black border border-zinc-800 rounded-lg">
+            <div
+              ref={scrollRef}
+              className="flex whitespace-nowrap py-1.5 text-xs font-bold text-white"
+            >
+              {Array.from({ length: 20 }).map((_, i) => (
+                <span key={i} className="inline-block px-8">
+                  {scrollMessage}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Header with Miner label and Cast button */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-bold text-white">Miner</span>
+              <button onClick={() => setShowHelpDialog(true)} className="text-gray-500 hover:text-white">
+                <HelpCircle className="w-4 h-4" />
+              </button>
+            </div>
+            <button
+              onClick={handleCast}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 transition-colors"
+            >
+              <MessageCircle className="w-3.5 h-3.5 text-white" />
+              <span className="text-xs font-medium text-white">Cast</span>
             </button>
           </div>
-          <button
-            onClick={handleCast}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 transition-colors"
-          >
-            <MessageCircle className="w-3.5 h-3.5 text-white" />
-            <span className="text-xs font-medium text-white">Cast</span>
-          </button>
-        </div>
 
-        {/* Miner Info Row */}
-        <div className="flex items-center justify-between">
-          <div 
-            className={cn(
-              "flex items-center gap-3",
-              neynarUser?.user?.fid && "cursor-pointer"
-            )}
-            onClick={neynarUser?.user?.fid ? handleViewMinerProfile : undefined}
-          >
-            <Avatar className="h-10 w-10 border border-zinc-700">
-              <AvatarImage
-                src={occupantDisplay.avatarUrl || undefined}
-                alt={occupantDisplay.primary}
-                className="object-cover"
-              />
-              <AvatarFallback className="bg-zinc-800 text-white text-sm">
-                {slot0 ? occupantFallbackInitials : <CircleUserRound className="h-4 w-4" />}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="font-bold text-white">{occupantDisplay.primary}</div>
-              <div className="text-xs text-gray-500">{formatAddress(minerAddress)}</div>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-xl font-bold text-white">{mineTimeDisplay}</div>
-          </div>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-          <div>
-            <div className="text-xs text-gray-500">Mine rate</div>
-            <div className="text-lg font-bold text-white flex items-center gap-1">
-              <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-              <span>{mineRateDisplay}/s</span>
-            </div>
-            {donutPerSecondDisplay && (
-              <div className="text-xs text-amber-400">≈ 🍩{donutPerSecondDisplay}/s</div>
-            )}
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">Mined</div>
-            <div className="text-lg font-bold text-white flex items-center gap-1">
-              <span className="text-amber-400">+</span>
-              <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-              <span>{earnedDisplay}</span>
-            </div>
-            <div className="text-xs text-gray-500">≈ 🍩{earnedInDonut}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">Total</div>
-            <div className={cn("text-lg font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>
-              {totalPnlUsd.value}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">PnL</div>
-            <div className={cn("text-lg font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
-              {pnlData.donut}
-            </div>
-          </div>
-        </div>
-
-        {/* Message Input */}
-        <input
-          type="text"
-          value={customMessage}
-          onChange={(e) => setCustomMessage(e.target.value)}
-          placeholder="Add a message..."
-          maxLength={100}
-          className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-zinc-600"
-          style={{ fontSize: '16px' }}
-          disabled={isMineDisabled}
-        />
-
-        {/* Bottom Action Row */}
-        <div className="flex items-end gap-4">
-          <div className="flex-shrink-0">
-            <div className="text-xs text-gray-500">Mine price</div>
-            <div className="text-2xl font-bold text-white">🍩{minePriceDisplay}</div>
-            {(donutAllowance as bigint) > 0n && (
-              <div className="text-xs text-amber-400">Approved: 🍩{currentAllowanceDisplay}</div>
-            )}
-          </div>
-          
-          <div className="flex flex-col items-end gap-1 flex-1">
-            <div className="text-xs text-gray-500">Balance: 🍩{donutBalanceDisplay}</div>
-            
-            {needsApproval && isApprovalMode ? (
-              <div className="flex w-full rounded-xl overflow-hidden">
-                <input
-                  ref={approvalInputRef}
-                  type="text"
-                  inputMode="decimal"
-                  value={approvalAmount}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9.]/g, '');
-                    const parts = value.split('.');
-                    if (parts.length > 2) return;
-                    setApprovalAmount(value);
-                  }}
-                  placeholder="Amount"
-                  className="flex-1 bg-zinc-800 text-white px-3 py-3 text-sm font-bold placeholder-gray-500 focus:outline-none"
-                  style={{ fontSize: '16px' }}
-                  disabled={isWriting || isConfirming}
+          {/* Miner Info Row */}
+          <div className="flex items-center justify-between">
+            <div 
+              className={cn(
+                "flex items-center gap-3",
+                neynarUser?.user?.fid && "cursor-pointer"
+              )}
+              onClick={neynarUser?.user?.fid ? handleViewMinerProfile : undefined}
+            >
+              <Avatar className="h-10 w-10 border border-zinc-700">
+                <AvatarImage
+                  src={occupantDisplay.avatarUrl || undefined}
+                  alt={occupantDisplay.primary}
+                  className="object-cover"
                 />
+                <AvatarFallback className="bg-zinc-800 text-white text-sm">
+                  {slot0 ? occupantFallbackInitials : <CircleUserRound className="h-4 w-4" />}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="font-bold text-white">{occupantDisplay.primary}</div>
+                <div className="text-xs text-gray-500">{formatAddress(minerAddress)}</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold text-white">{mineTimeDisplay}</div>
+            </div>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+            <div>
+              <div className="text-xs text-gray-500">Mine rate</div>
+              <div className="text-lg font-bold text-white flex items-center gap-1">
+                <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <span>{mineRateDisplay}/s</span>
+              </div>
+              {donutPerSecondDisplay && (
+                <div className="text-xs text-amber-400">≈ 🍩{donutPerSecondDisplay}/s</div>
+              )}
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Mined</div>
+              <div className="text-lg font-bold text-white flex items-center gap-1">
+                <span className="text-amber-400">+</span>
+                <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <span>{earnedDisplay}</span>
+              </div>
+              <div className="text-xs text-gray-500">≈ 🍩{earnedInDonut}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Total</div>
+              <div className={cn("text-lg font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>
+                {totalPnlUsd.value}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">PnL</div>
+              <div className={cn("text-lg font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
+                {pnlData.donut}
+              </div>
+            </div>
+          </div>
+
+          {/* Message Input */}
+          <input
+            type="text"
+            value={customMessage}
+            onChange={(e) => setCustomMessage(e.target.value)}
+            placeholder="Add a message..."
+            maxLength={100}
+            className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-zinc-600"
+            style={{ fontSize: '16px' }}
+            disabled={isMineDisabled}
+          />
+
+          {/* Bottom Action Row */}
+          <div className="flex items-end gap-4">
+            <div className="flex-shrink-0">
+              <div className="text-xs text-gray-500">Mine price</div>
+              <div className="text-2xl font-bold text-white">🍩{minePriceDisplay}</div>
+              {(donutAllowance as bigint) > 0n && (
+                <div className="text-xs text-amber-400">Approved: 🍩{currentAllowanceDisplay}</div>
+              )}
+            </div>
+            
+            <div className="flex flex-col items-end gap-1 flex-1">
+              <div className="text-xs text-gray-500">Balance: 🍩{donutBalanceDisplay}</div>
+              
+              {needsApproval && isApprovalMode ? (
+                <div className="flex w-full rounded-xl overflow-hidden">
+                  <input
+                    ref={approvalInputRef}
+                    type="text"
+                    inputMode="decimal"
+                    value={approvalAmount}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, '');
+                      const parts = value.split('.');
+                      if (parts.length > 2) return;
+                      setApprovalAmount(value);
+                    }}
+                    placeholder="Amount"
+                    className="flex-1 bg-zinc-800 text-white px-3 py-3 text-sm font-bold placeholder-gray-500 focus:outline-none"
+                    style={{ fontSize: '16px' }}
+                    disabled={isWriting || isConfirming}
+                  />
+                  <button
+                    className={cn(
+                      "px-6 py-3 text-sm font-bold transition-all duration-300",
+                      isApproveButtonDisabled
+                        ? "bg-zinc-700 text-gray-500 cursor-not-allowed"
+                        : "bg-amber-500 text-black hover:bg-amber-400",
+                      mineResult === "success" && "bg-green-500 text-white",
+                      mineResult === "failure" && "bg-red-500 text-white"
+                    )}
+                    onClick={handleApprove}
+                    disabled={isApproveButtonDisabled}
+                  >
+                    {isWriting || isConfirming ? "…" : "OK"}
+                  </button>
+                </div>
+              ) : (
                 <button
                   className={cn(
-                    "px-6 py-3 text-sm font-bold transition-all duration-300",
-                    isApproveButtonDisabled
-                      ? "bg-zinc-700 text-gray-500 cursor-not-allowed"
-                      : "bg-amber-500 text-black hover:bg-amber-400",
-                    mineResult === "success" && "bg-green-500 text-white",
-                    mineResult === "failure" && "bg-red-500 text-white"
+                    "w-full py-3 rounded-xl text-base font-bold transition-all duration-300",
+                    mineResult === "success"
+                      ? "bg-green-500 text-white"
+                      : mineResult === "failure"
+                        ? "bg-red-500 text-white"
+                        : isMineDisabled
+                          ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
+                          : needsApproval
+                            ? "bg-amber-500 text-black hover:bg-amber-400"
+                            : "bg-amber-500 text-black hover:bg-amber-400",
+                    isPulsing && !isMineDisabled && !mineResult && "scale-[0.95]"
                   )}
-                  onClick={handleApprove}
-                  disabled={isApproveButtonDisabled}
+                  onClick={needsApproval ? handleApproveClick : handleMine}
+                  disabled={isMineDisabled}
                 >
-                  {isWriting || isConfirming ? "…" : "OK"}
+                  {buttonLabel}
                 </button>
-              </div>
-            ) : (
-              <button
-                className={cn(
-                  "w-full py-3 rounded-xl text-base font-bold transition-all duration-300",
-                  mineResult === "success"
-                    ? "bg-green-500 text-white"
-                    : mineResult === "failure"
-                      ? "bg-red-500 text-white"
-                      : isMineDisabled
-                        ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
-                        : needsApproval
-                          ? "bg-amber-500 text-black hover:bg-amber-400"
-                          : "bg-amber-500 text-black hover:bg-amber-400",
-                  isPulsing && !isMineDisabled && !mineResult && "scale-[0.95]"
-                )}
-                onClick={needsApproval ? handleApproveClick : handleMine}
-                disabled={isMineDisabled}
-              >
-                {buttonLabel}
-              </button>
-            )}
+              )}
+            </div>
           </div>
+
+          {/* Recent Miners Section */}
+          {recentMiners.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-zinc-800">
+              <div className="text-xs text-gray-500 mb-2 font-semibold">Recent Miners</div>
+              <div className="space-y-2">
+                {recentMiners.map((miner, index) => (
+                  <div 
+                    key={`${miner.address}-${miner.timestamp}`}
+                    className="flex items-center gap-3 p-2 rounded-lg bg-zinc-900 border border-zinc-800"
+                  >
+                    <Avatar className="h-8 w-8 border border-zinc-700 flex-shrink-0">
+                      <AvatarImage src={miner.pfpUrl || undefined} className="object-cover" />
+                      <AvatarFallback className="bg-zinc-800 text-white text-xs">
+                        {miner.username ? initialsFrom(miner.username) : miner.address.slice(-2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-white text-sm truncate">
+                          {miner.username ? `@${miner.username}` : formatAddress(miner.address)}
+                        </span>
+                        <span className="text-amber-400 text-xs font-bold flex-shrink-0">
+                          🍩{miner.amount}
+                        </span>
+                      </div>
+                      {miner.message && (
+                        <div className="text-xs text-gray-400 truncate mt-0.5">
+                          "{miner.message}"
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

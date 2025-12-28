@@ -1,6 +1,16 @@
+// app/api/record-glaze/route.ts
+// Updated to also store mining events for the Recent Miners feature
+
 import { NextResponse } from 'next/server';
 import { recordGlaze } from '@/lib/supabase-leaderboard';
 import { decodeAbiParameters, parseAbiParameters, keccak256, toBytes } from 'viem';
+import { createClient } from '@supabase/supabase-js';
+
+// Supabase client for mining events
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // Your provider address - glazes must use this to count
 const YOUR_PROVIDER_ADDRESS = '0x30cb501B97c6b87B7b240755C730A9795dBB84f5'.toLowerCase();
@@ -90,6 +100,10 @@ export async function POST(request: Request) {
 
     const toAddress = tx.to?.toLowerCase();
     const inputData = tx.input || '';
+    
+    // Variables to store for mining_events
+    let amount = '0';
+    let message = '';
 
     // Verify based on mine type
     if (mineType === 'donut') {
@@ -111,7 +125,7 @@ export async function POST(request: Request) {
         );
       }
 
-      // Decode the input to check the provider address
+      // Decode the input to check the provider address and extract message
       try {
         const params = decodeAbiParameters(
           parseAbiParameters('address provider, uint256 epochId, uint256 deadline, uint256 maxPrice, string uri'),
@@ -127,6 +141,10 @@ export async function POST(request: Request) {
             { status: 400 }
           );
         }
+        
+        // Extract amount from tx.value (ETH sent) and message from uri
+        amount = tx.value || '0';
+        message = params[4] as string || '';
       } catch (decodeError) {
         console.error('Failed to decode transaction input:', decodeError);
         return NextResponse.json(
@@ -152,6 +170,21 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
+      
+      // Decode the input to extract maxPrice and message
+      try {
+        const params = decodeAbiParameters(
+          parseAbiParameters('address to, address referrer, uint256 epochId, uint256 deadline, uint256 maxPrice, string uri'),
+          `0x${inputData.slice(10)}` as `0x${string}`
+        );
+        
+        // Extract amount (maxPrice in DONUT) and message
+        amount = (params[4] as bigint).toString();
+        message = params[5] as string || '';
+      } catch (decodeError) {
+        console.error('Failed to decode SPRINKLES transaction input:', decodeError);
+        // Continue without amount/message - not critical
+      }
     }
 
     // Verify the sender matches the claimed address
@@ -161,6 +194,26 @@ export async function POST(request: Request) {
         { success: false, error: 'Transaction sender does not match' },
         { status: 400 }
       );
+    }
+
+    // Store mining event for Recent Miners feature
+    try {
+      await supabase
+        .from('mining_events')
+        .upsert(
+          {
+            address: address.toLowerCase(),
+            tx_hash: txHash.toLowerCase(),
+            mine_type: mineType,
+            amount,
+            message,
+            created_at: new Date().toISOString(),
+          },
+          { onConflict: 'tx_hash' }
+        );
+    } catch (dbError) {
+      console.error('Failed to store mining event:', dbError);
+      // Don't fail the request - leaderboard is more important
     }
 
     // All checks passed - record the glaze with txHash and mineType
