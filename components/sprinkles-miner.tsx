@@ -947,9 +947,11 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             <div>
               <div className="text-xs text-gray-500">Paid</div>
               <div className="text-lg font-bold text-white">🍩{
-                recentMiners.length > 0 && recentMiners[0].address.toLowerCase() === minerAddress.toLowerCase()
+                recentMiners.length > 0 && 
+                recentMiners[0].address.toLowerCase() === minerAddress.toLowerCase() &&
+                recentMiners[0].amount !== '0' && recentMiners[0].amount !== ''
                   ? recentMiners[0].amount.replace(/,/g, '')
-                  : slot0 ? formatUnits(slot0.initPrice / 2n, DONUT_DECIMALS).split('.')[0] : '0'
+                  : slot0 ? formatUnits(slot0.initPrice / 2n, DONUT_DECIMALS).split('.')[0] : '—'
               }</div>
             </div>
             <div>

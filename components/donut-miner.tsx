@@ -515,7 +515,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
 
   const glazeRateDisplay = minerState ? formatTokenAmount(minerState.nextDps, DONUT_DECIMALS, 2) : "—";
   const displayPrice = interpolatedPrice ?? minerState?.price;
-  const glazePriceDisplay = displayPrice ? formatEth(displayPrice, 6) : "—";
+  const glazePriceDisplay = displayPrice ? formatEth(displayPrice, 3) : "—";
   const glazedDisplay = minerState && interpolatedGlazed !== null ? formatTokenAmount(interpolatedGlazed, DONUT_DECIMALS, 0) : "—";
 
   const formatGlazeTime = (seconds: number): string => {
@@ -776,9 +776,11 @@ export default function DonutMiner({ context }: DonutMinerProps) {
             <div>
               <div className="text-xs text-gray-500">Paid</div>
               <div className="text-lg font-bold text-white">Ξ{
-                recentMiners.length > 0 && recentMiners[0].address.toLowerCase() === minerAddress.toLowerCase()
+                recentMiners.length > 0 && 
+                recentMiners[0].address.toLowerCase() === minerAddress.toLowerCase() &&
+                recentMiners[0].amount !== '0' && recentMiners[0].amount !== ''
                   ? recentMiners[0].amount
-                  : minerState ? Number(formatEther(minerState.initPrice / 2n)).toFixed(3) : '0'
+                  : minerState ? Number(formatEther(minerState.initPrice / 2n)).toFixed(3) : '—'
               }</div>
             </div>
             <div>
