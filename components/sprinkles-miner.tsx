@@ -780,8 +780,15 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`
         }}
       >
-        {/* Video Section with Fades */}
+        {/* Video Section with Fades and Miner Overlay */}
         <div className="relative h-[200px] overflow-hidden">
+          <style>{`
+            @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            @keyframes pulse-scale { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.9; } }
+            .spin-slow { animation: spin-slow 8s linear infinite; }
+            .pulse-scale { animation: pulse-scale 3s ease-in-out infinite; }
+          `}</style>
+          
           {/* Top fade */}
           <div 
             className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-10"
@@ -798,6 +805,50 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             preload="auto"
             src="/media/sprinkles-loop.mp4"
           />
+          
+          {/* Miner Overlay */}
+          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+            <div className="flex items-center gap-6">
+              {/* Left - Paid */}
+              <div className="text-center pulse-scale">
+                <div className="text-[10px] text-gray-400 uppercase">Paid</div>
+                <div className="text-lg font-bold text-white">🍩{slot0 ? formatUnits(slot0.initPrice / 2n, DONUT_DECIMALS).split('.')[0] : '0'}</div>
+              </div>
+              
+              {/* Center - Avatar and Name */}
+              <div 
+                className={cn(
+                  "flex flex-col items-center pulse-scale",
+                  neynarUser?.user?.fid && "cursor-pointer pointer-events-auto"
+                )}
+                onClick={neynarUser?.user?.fid ? handleViewMinerProfile : undefined}
+              >
+                <Avatar className="h-16 w-16 border-2 border-white/30 spin-slow">
+                  <AvatarImage
+                    src={occupantDisplay.avatarUrl || undefined}
+                    alt={occupantDisplay.primary}
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="bg-zinc-800 text-white text-lg">
+                    {slot0 ? occupantFallbackInitials : <CircleUserRound className="h-6 w-6" />}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="mt-2 text-center">
+                  <div className="font-bold text-white text-sm drop-shadow-lg">{occupantDisplay.primary}</div>
+                  <div className="text-[10px] text-gray-300 drop-shadow-lg">{formatAddress(minerAddress)}</div>
+                </div>
+              </div>
+              
+              {/* Right - Mined */}
+              <div className="text-center pulse-scale">
+                <div className="text-[10px] text-gray-400 uppercase">Mined</div>
+                <div className="text-lg font-bold text-white flex items-center gap-1 justify-center">
+                  <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                  <span>{earnedDisplay}</span>
+                </div>
+              </div>
+            </div>
+          </div>
           
           {/* Bottom fade */}
           <div 
@@ -839,36 +890,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             </button>
           </div>
 
-          {/* Miner Info Row */}
-          <div className="flex items-center justify-between">
-            <div 
-              className={cn(
-                "flex items-center gap-3",
-                neynarUser?.user?.fid && "cursor-pointer"
-              )}
-              onClick={neynarUser?.user?.fid ? handleViewMinerProfile : undefined}
-            >
-              <Avatar className="h-10 w-10 border border-zinc-700">
-                <AvatarImage
-                  src={occupantDisplay.avatarUrl || undefined}
-                  alt={occupantDisplay.primary}
-                  className="object-cover"
-                />
-                <AvatarFallback className="bg-zinc-800 text-white text-sm">
-                  {slot0 ? occupantFallbackInitials : <CircleUserRound className="h-4 w-4" />}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <div className="font-bold text-white">{occupantDisplay.primary}</div>
-                <div className="text-xs text-gray-500">{formatAddress(minerAddress)}</div>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-gray-500">Paid</div>
-              <div className="text-lg font-bold text-white">🍩{slot0 ? formatUnits(slot0.initPrice, DONUT_DECIMALS).split('.')[0] : '0'}</div>
-            </div>
-          </div>
-
           {/* Stats Grid */}
           <div className="grid grid-cols-2 gap-x-6 gap-y-1">
             <div>
@@ -886,25 +907,15 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               <div className="text-lg font-bold text-white">{mineTimeDisplay}</div>
             </div>
             <div>
-              <div className="text-xs text-gray-500">Mined</div>
-              <div className="text-lg font-bold text-white flex items-center gap-1">
-                <span className="text-amber-400">+</span>
-                <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                <span>{earnedDisplay}</span>
+              <div className="text-xs text-gray-500">Total</div>
+              <div className={cn("text-lg font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>
+                {totalPnlUsd.value}
               </div>
-              <div className="text-xs text-gray-500">≈ 🍩{earnedInDonut}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500">PnL</div>
               <div className={cn("text-lg font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
                 {pnlData.donut}
-              </div>
-            </div>
-            <div></div>
-            <div>
-              <div className="text-xs text-gray-500">Total</div>
-              <div className={cn("text-lg font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>
-                {totalPnlUsd.value}
               </div>
             </div>
           </div>
