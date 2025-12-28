@@ -662,7 +662,11 @@ export default function DonutMiner({ context }: DonutMinerProps) {
               {/* Left - Paid */}
               <div className="text-center pulse-scale w-20">
                 <div className="text-[10px] text-gray-400 uppercase">Paid</div>
-                <div className="text-lg font-bold text-white">Ξ{minerState ? Number(formatEther(minerState.initPrice)).toFixed(3) : '0'}</div>
+                <div className="text-lg font-bold text-white">Ξ{
+                  recentMiners.length > 0 && recentMiners[0].address.toLowerCase() === minerAddress.toLowerCase()
+                    ? recentMiners[0].amount
+                    : minerState ? Number(formatEther(minerState.initPrice / 2n)).toFixed(3) : '0'
+                }</div>
               </div>
               
               {/* Center - Avatar and Name */}

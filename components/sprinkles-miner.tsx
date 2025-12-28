@@ -825,7 +825,11 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               {/* Left - Paid */}
               <div className="text-center pulse-scale w-16">
                 <div className="text-[10px] text-gray-400 uppercase">Paid</div>
-                <div className="text-lg font-bold text-white">🍩{slot0 ? formatUnits(slot0.initPrice, DONUT_DECIMALS).split('.')[0] : '0'}</div>
+                <div className="text-lg font-bold text-white">🍩{
+                  recentMiners.length > 0 && recentMiners[0].address.toLowerCase() === minerAddress.toLowerCase()
+                    ? recentMiners[0].amount.replace(/,/g, '')
+                    : slot0 ? formatUnits(slot0.initPrice / 2n, DONUT_DECIMALS).split('.')[0] : '0'
+                }</div>
               </div>
               
               {/* Center - Avatar and Name */}
