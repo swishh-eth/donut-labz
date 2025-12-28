@@ -655,12 +655,29 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   }, [needsApproval, isApprovalMode]);
 
   const handleCast = useCallback(async () => {
+    const text = `I'm mining some sweet $SPRINKLES ✨\n\nCurrent price: 🍩${minePriceDisplay}`;
+    
     try {
       const { sdk } = await import("@farcaster/miniapp-sdk");
-      const text = `I'm mining some sweet $SPRINKLES ✨\n\nCurrent price: 🍩${minePriceDisplay}\n\nhttps://warpcast.com/~/miniapps/sprinkles/1PUhyHqL85k3`;
-      await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(text)}`);
+      await sdk.actions.composeCast({
+        text,
+        embeds: ["https://donutlabs.vercel.app"],
+      });
     } catch (e) {
-      console.error("Failed to cast:", e);
+      // Fallback to URL method
+      try {
+        const { sdk } = await import("@farcaster/miniapp-sdk");
+        const encodedText = encodeURIComponent(text);
+        await sdk.actions.openUrl({
+          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
+        });
+      } catch {
+        const encodedText = encodeURIComponent(text);
+        window.open(
+          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
+          "_blank"
+        );
+      }
     }
   }, [minePriceDisplay]);
 
