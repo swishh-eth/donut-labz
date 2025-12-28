@@ -86,6 +86,7 @@ export async function GET(request: NextRequest) {
           fid: profile?.fid || null,
           amount: formattedAmount,
           message: event.message || "",
+          imageUrl: event.image_url || null,
           timestamp: new Date(event.created_at).getTime(),
         };
       })

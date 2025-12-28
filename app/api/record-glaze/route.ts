@@ -29,7 +29,7 @@ const SPRINKLES_MINE_SELECTOR = keccak256(toBytes('mine(address,address,uint256,
 
 export async function POST(request: Request) {
   try {
-    const { address, txHash, mineType = 'donut' } = await request.json();
+    const { address, txHash, mineType = 'donut', imageUrl } = await request.json();
 
     if (!address || !txHash) {
       return NextResponse.json(
@@ -239,6 +239,7 @@ export async function POST(request: Request) {
             mine_type: mineType,
             amount,
             message,
+            image_url: imageUrl || null,
             created_at: new Date().toISOString(),
           },
           { onConflict: 'tx_hash' }
