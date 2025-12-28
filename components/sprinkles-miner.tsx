@@ -1015,14 +1015,20 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           </div>
 
           {/* Scroll Hint */}
-          <div className="flex flex-col items-center pt-4 pb-2">
+          <div 
+            className="flex flex-col items-center mt-2"
+            style={{ opacity: Math.max(0, 1 - scrollFade.top * 2) }}
+          >
             <div className="text-[10px] text-gray-500 uppercase tracking-wider">Scroll down for miner history</div>
           </div>
 
           {/* Recent Miners Section */}
           {recentMiners.length > 0 && (
-            <div className="pt-2">
-              <div className="text-xs text-gray-500 mb-2 font-semibold">Recent Miners</div>
+            <div className="mt-2">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs text-gray-500 font-semibold">Recent Miners</div>
+                <div className="text-xs text-gray-500 font-semibold">Price Paid</div>
+              </div>
               <div className="space-y-2">
                 {recentMiners.map((miner, index) => (
                   <div 
