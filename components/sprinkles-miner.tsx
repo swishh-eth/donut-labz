@@ -667,7 +667,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   return (
     <div className="flex flex-col h-full -mx-2">
       {/* Video Section with Fades */}
-      <div className="relative flex-1 overflow-hidden">
+      <div className="relative flex-1 min-h-0 overflow-hidden">
         {/* Top fade */}
         <div 
           className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-10"
@@ -687,15 +687,15 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         
         {/* Bottom fade */}
         <div 
-          className="absolute bottom-0 left-0 right-0 h-24 pointer-events-none z-10"
+          className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-10"
           style={{ background: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
         />
       </div>
 
       {/* Content Section */}
-      <div className="flex flex-col gap-3 px-2 pb-2">
+      <div className="flex flex-col gap-3 px-2 pt-1 pb-6 flex-shrink-0">
         {/* Scrolling Message Ticker */}
-        <div className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-lg -mt-1">
+        <div className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-lg">
           <div
             ref={scrollRef}
             className="flex whitespace-nowrap py-1.5 text-xs font-bold text-white"
