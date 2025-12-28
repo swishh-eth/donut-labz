@@ -502,6 +502,38 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     prevMinerRef.current = minerAddress;
   }, [minerAddress]);
 
+  // Fix database if current miner's amount is 0 but we can calculate it
+  useEffect(() => {
+    if (
+      recentMiners.length > 0 &&
+      recentMiners[0].address.toLowerCase() === minerAddress.toLowerCase() &&
+      (recentMiners[0].amount === '0' || recentMiners[0].amount === '') &&
+      slot0?.initPrice
+    ) {
+      const calculatedAmount = (slot0.initPrice / 2n).toString();
+      
+      // Update the database with the calculated amount
+      fetch('/api/miners/update-amount', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: minerAddress,
+          mineType: 'sprinkles',
+          amount: calculatedAmount,
+        }),
+      }).then(async (res) => {
+        if (res.ok) {
+          // Refresh recent miners to show updated amount
+          const refreshRes = await fetch('/api/miners/recent?type=sprinkles&limit=5');
+          if (refreshRes.ok) {
+            const data = await refreshRes.json();
+            setRecentMiners(data.miners || []);
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [recentMiners, minerAddress, slot0?.initPrice]);
+
   const { data: profileData } = useQuery<{
     profiles: Record<string, {
       fid: number | null;
