@@ -659,14 +659,10 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           {/* Miner Overlay */}
           <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
             <div className="flex items-center gap-6">
-              {/* Left - Paid */}
+              {/* Left - Mining Time */}
               <div className="text-center pulse-scale w-20">
-                <div className="text-[10px] text-gray-400 uppercase">Paid</div>
-                <div className="text-lg font-bold text-white">Ξ{
-                  recentMiners.length > 0 && recentMiners[0].address.toLowerCase() === minerAddress.toLowerCase()
-                    ? recentMiners[0].amount
-                    : minerState ? Number(formatEther(minerState.initPrice / 2n)).toFixed(3) : '0'
-                }</div>
+                <div className="text-[10px] text-gray-400 uppercase">Time</div>
+                <div className="text-lg font-bold text-white">{glazeTimeDisplay}</div>
               </div>
               
               {/* Center - Avatar and Name */}
@@ -692,7 +688,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                   <div className="text-[10px] text-gray-300 drop-shadow-lg">{formatAddress(minerAddress)}</div>
                 </div>
                 <div className="flex items-center gap-1 mt-1">
-                  <span className="text-xs font-bold text-white drop-shadow-lg">Miner</span>
+                  <span className="text-[10px] font-bold text-white drop-shadow-lg uppercase tracking-wider">Current Miner</span>
                   <button onClick={() => setShowHelpDialog(true)} className="text-gray-400 hover:text-white pointer-events-auto">
                     <HelpCircle className="w-3 h-3" />
                   </button>
@@ -750,8 +746,12 @@ export default function DonutMiner({ context }: DonutMinerProps) {
               <div className="text-xs text-gray-500">${glazeRateUsdValue}/s</div>
             </div>
             <div>
-              <div className="text-xs text-gray-500">Mining time</div>
-              <div className="text-lg font-bold text-white">{glazeTimeDisplay}</div>
+              <div className="text-xs text-gray-500">Paid</div>
+              <div className="text-lg font-bold text-white">Ξ{
+                recentMiners.length > 0 && recentMiners[0].address.toLowerCase() === minerAddress.toLowerCase()
+                  ? recentMiners[0].amount
+                  : minerState ? Number(formatEther(minerState.initPrice / 2n)).toFixed(3) : '0'
+              }</div>
             </div>
             <div>
               <div className="text-xs text-gray-500">Total</div>
