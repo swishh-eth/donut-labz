@@ -662,7 +662,20 @@ export default function DonutMiner({ context }: DonutMinerProps) {
               {/* Left - Mining Time */}
               <div className="text-center pulse-scale w-20">
                 <div className="text-[10px] text-gray-400 uppercase">Time</div>
-                <div className="text-lg font-bold text-white">{glazeTimeDisplay}</div>
+                <div className="text-lg font-bold text-white leading-tight whitespace-nowrap">
+                  {(() => {
+                    const parts = glazeTimeDisplay.split(' ');
+                    if (parts.length === 2) {
+                      return (
+                        <>
+                          <span>{parts[0]}</span>
+                          <span className="text-sm text-gray-300"> {parts[1]}</span>
+                        </>
+                      );
+                    }
+                    return glazeTimeDisplay;
+                  })()}
+                </div>
               </div>
               
               {/* Center - Avatar and Name */}
@@ -673,7 +686,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                 )}
                 onClick={neynarUser?.user?.fid ? handleViewKingGlazerProfile : undefined}
               >
-                <Avatar className="h-16 w-16 border-2 border-white/30 spin-slow">
+                <Avatar className="h-20 w-20 border-2 border-white/30 spin-slow">
                   <AvatarImage
                     src={occupantDisplay.avatarUrl || undefined}
                     alt={occupantDisplay.primary}
@@ -698,7 +711,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
               {/* Right - Mined */}
               <div className="text-center pulse-scale w-20">
                 <div className="text-[10px] text-gray-400 uppercase">Mined</div>
-                <div className="text-lg font-bold text-white flex items-center gap-1 justify-center">
+                <div className="text-lg font-bold text-white flex items-center gap-1 justify-center whitespace-nowrap">
                   <span>🍩</span>
                   <span>{glazedDisplay}</span>
                 </div>
