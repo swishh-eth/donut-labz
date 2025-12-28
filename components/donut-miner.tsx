@@ -518,7 +518,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
   }, [glazePriceDisplay]);
 
   return (
-    <div className="flex flex-col h-full -mx-2">
+    <div className="flex flex-col h-full -mx-2 overflow-hidden">
       {/* Video Section with Fades */}
       <div className="relative flex-1 min-h-0 overflow-hidden">
         {/* Top fade */}
@@ -546,9 +546,9 @@ export default function DonutMiner({ context }: DonutMinerProps) {
       </div>
 
       {/* Content Section */}
-      <div className="flex flex-col gap-3 px-2 pt-1 pb-6 flex-shrink-0">
+      <div className="flex flex-col gap-2 px-2 pt-1 pb-6 flex-shrink-0">
         {/* Scrolling Message Ticker */}
-        <div className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-lg">
+        <div className="relative overflow-hidden bg-black border border-zinc-800 rounded-lg">
           <div
             ref={scrollRef}
             className="flex whitespace-nowrap py-1.5 text-xs font-bold text-white"
@@ -608,7 +608,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1">
           <div>
             <div className="text-xs text-gray-500">Mine rate</div>
             <div className="text-lg font-bold text-white">{glazeRateDisplay}/s</div>
@@ -644,7 +644,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           onChange={(e) => setCustomMessage(e.target.value)}
           placeholder="Add a message..."
           maxLength={100}
-          className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-zinc-600"
+          className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-zinc-600"
           style={{ fontSize: '16px' }}
           disabled={isGlazeDisabled}
         />
