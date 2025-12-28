@@ -5,10 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { AddToFarcasterButton } from "@/components/add-to-farcaster-button";
-import { DuneDashboardButton } from "@/components/dune-dashboard-button";
-import { CommunityLPButton } from "@/components/community-lp-button";
-import { LearnMoreButton } from "@/components/learn-more-button";
-import { Sparkles, ArrowRight, Dices, TrendingUp } from "lucide-react";
+import { Sparkles, ArrowRight, Dices, TrendingUp, Link2, Coins, BarChart3 } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -112,15 +109,15 @@ function RevenueFlowTile({ onClick }: { onClick: () => void }) {
       className="revenue-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Large background donut symbol */}
-      <div className="absolute -right-8 top-1/2 -translate-y-1/2 pointer-events-none">
-        <DonutIcon className="w-40 h-40 text-white/10" />
+      {/* Large background coins symbol */}
+      <div className="absolute -right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Coins className="w-36 h-36 text-white/10" />
       </div>
       
       <div className="relative z-10 p-4 pr-16">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <DonutIcon className="w-4 h-4 text-white" />
+            <Coins className="w-4 h-4 text-white" />
             <span className="font-bold text-base text-white">Revenue Flow</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">See where miner & game fees go</div>
@@ -140,6 +137,74 @@ function RevenueFlowTile({ onClick }: { onClick: () => void }) {
               <Sparkles className="w-3 h-3" />
               <span>Stakers</span>
             </div>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// Links & Contracts Tile Component
+function LinksContractsTile({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="links-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+    >
+      {/* Large background chain symbol */}
+      <div className="absolute -right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Link2 className="w-36 h-36 text-white/10" />
+      </div>
+      
+      <div className="relative z-10 p-4 pr-16">
+        <div className="text-left">
+          <div className="flex items-center gap-2 mb-1">
+            <Link2 className="w-4 h-4 text-white" />
+            <span className="font-bold text-base text-white">Links & Contracts</span>
+          </div>
+          <div className="text-[10px] text-white/60 mb-2">Smart contracts & useful links</div>
+          
+          <div className="flex items-center gap-3 text-[9px]">
+            <span className="text-white/80">Contracts</span>
+            <ArrowRight className="w-3 h-3 text-white/30" />
+            <span className="text-white/80">Socials</span>
+            <ArrowRight className="w-3 h-3 text-white/30" />
+            <span className="text-white/80">Resources</span>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// Dune Dashboard Tile Component
+function DuneDashboardTile({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="dune-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+    >
+      {/* Large background chart symbol */}
+      <div className="absolute -right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+        <BarChart3 className="w-36 h-36 text-white/10" />
+      </div>
+      
+      <div className="relative z-10 p-4 pr-16">
+        <div className="text-left">
+          <div className="flex items-center gap-2 mb-1">
+            <BarChart3 className="w-4 h-4 text-white" />
+            <span className="font-bold text-base text-white">Dune Dashboard</span>
+          </div>
+          <div className="text-[10px] text-white/60 mb-2">View analytics & on-chain data</div>
+          
+          <div className="flex items-center gap-3 text-[9px]">
+            <span className="text-white/80">TVL</span>
+            <ArrowRight className="w-3 h-3 text-white/30" />
+            <span className="text-white/80">Volume</span>
+            <ArrowRight className="w-3 h-3 text-white/30" />
+            <span className="text-white/80">Holders</span>
           </div>
         </div>
       </div>
@@ -262,9 +327,19 @@ export default function AboutPage() {
             {/* Quick Links */}
             <div className="grid grid-cols-2 gap-2 mb-3">
               <AddToFarcasterButton variant="default" />
-              <DuneDashboardButton variant="default" />
-              <CommunityLPButton variant="default" />
-              <LearnMoreButton variant="default" />
+              <button
+                onClick={async () => {
+                  try {
+                    await sdk.actions.openUrl({ url: "https://farcaster.xyz/miniapps/fOIgVq2bFKru/glazecorp" });
+                  } catch (e) {
+                    window.open("https://farcaster.xyz/miniapps/fOIgVq2bFKru/glazecorp", "_blank");
+                  }
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.98]"
+              >
+                <DonutIcon className="h-4 w-4 text-amber-400" />
+                <span>Stake Donut</span>
+              </button>
             </div>
           </div>
 
@@ -287,6 +362,18 @@ export default function AboutPage() {
 
               {/* Revenue Flow Tile */}
               <RevenueFlowTile onClick={() => window.location.href = "/about/revenue"} />
+
+              {/* Links & Contracts Tile */}
+              <LinksContractsTile onClick={() => window.location.href = "/about/links-contracts"} />
+
+              {/* Dune Dashboard Tile */}
+              <DuneDashboardTile onClick={async () => {
+                try {
+                  await sdk.actions.openUrl({ url: "https://dune.com/chromium_donut_tech/donut-labs" });
+                } catch {
+                  window.open("https://dune.com/chromium_donut_tech/donut-labs", "_blank");
+                }
+              }} />
             </div>
           </div>
         </div>
