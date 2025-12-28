@@ -111,6 +111,18 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
+const formatCompactNumber = (value: string): string => {
+  const num = parseFloat(value.replace(/,/g, ''));
+  if (isNaN(num)) return value;
+  if (num >= 1_000_000) {
+    return (num / 1_000_000).toFixed(2) + 'M';
+  }
+  if (num >= 10_000) {
+    return (num / 1_000).toFixed(2) + 'K';
+  }
+  return value;
+};
+
 const calculatePrice = (initPrice: bigint, startTime: number): bigint => {
   const now = Math.floor(Date.now() / 1000);
   const elapsed = now - startTime;
@@ -810,7 +822,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
             <div className="flex items-center gap-6">
               {/* Left - Paid */}
-              <div className="text-center pulse-scale">
+              <div className="text-center pulse-scale w-16">
                 <div className="text-[10px] text-gray-400 uppercase">Paid</div>
                 <div className="text-lg font-bold text-white">🍩{slot0 ? formatUnits(slot0.initPrice / 2n, DONUT_DECIMALS).split('.')[0] : '0'}</div>
               </div>
@@ -846,11 +858,11 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               </div>
               
               {/* Right - Mined */}
-              <div className="text-center pulse-scale">
+              <div className="text-center pulse-scale w-16">
                 <div className="text-[10px] text-gray-400 uppercase">Mined</div>
                 <div className="text-lg font-bold text-white flex items-center gap-1 justify-center">
                   <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                  <span>{earnedDisplay}</span>
+                  <span>{formatCompactNumber(earnedDisplay)}</span>
                 </div>
               </div>
             </div>
@@ -865,25 +877,23 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
         {/* Content Section */}
         <div className="flex flex-col gap-2 px-2 pt-1 pb-4">
-          {/* Scrolling Message Ticker */}
-          <div className="relative overflow-hidden bg-black border border-zinc-800 rounded-lg">
-            <div
-              ref={scrollRef}
-              className="flex whitespace-nowrap py-1.5 text-xs font-bold text-white"
-            >
-              {Array.from({ length: 20 }).map((_, i) => (
-                <span key={i} className="inline-block px-8">
-                  {scrollMessage}
-                </span>
-              ))}
+          {/* Scrolling Message Ticker + Cast Button */}
+          <div className="flex items-stretch gap-2">
+            <div className="flex-1 relative overflow-hidden bg-black border border-zinc-800 rounded-lg">
+              <div
+                ref={scrollRef}
+                className="flex whitespace-nowrap py-1.5 text-xs font-bold text-white"
+              >
+                {Array.from({ length: 20 }).map((_, i) => (
+                  <span key={i} className="inline-block px-8">
+                    {scrollMessage}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
-
-          {/* Header with Cast button */}
-          <div className="flex items-center justify-end">
             <button
               onClick={handleCast}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 transition-colors"
+              className="flex items-center gap-1.5 px-3 rounded-lg border border-zinc-800 bg-black hover:bg-zinc-900 transition-colors"
             >
               <MessageCircle className="w-3.5 h-3.5 text-white" />
               <span className="text-xs font-medium text-white">Cast</span>
