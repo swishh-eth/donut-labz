@@ -1002,7 +1002,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                       "flex-1 py-3 text-sm font-bold transition-all duration-300",
                       isApproveButtonDisabled
                         ? "bg-zinc-700 text-gray-500 cursor-not-allowed"
-                        : "bg-amber-500 text-black hover:bg-amber-400",
+                        : "bg-white text-black hover:bg-gray-200",
                       mineResult === "success" && "bg-green-500 text-white",
                       mineResult === "failure" && "bg-red-500 text-white"
                     )}
@@ -1023,8 +1023,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                         : isMineDisabled
                           ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
                           : needsApproval
-                            ? "bg-amber-500 text-black hover:bg-amber-400"
-                            : "bg-amber-500 text-black hover:bg-amber-400",
+                            ? "bg-white text-black hover:bg-gray-200"
+                            : "bg-white text-black hover:bg-gray-200",
                     isPulsing && !isMineDisabled && !mineResult && "scale-[0.95]"
                   )}
                   onClick={needsApproval ? handleApproveClick : handleMine}

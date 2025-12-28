@@ -686,16 +686,18 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                 )}
                 onClick={neynarUser?.user?.fid ? handleViewKingGlazerProfile : undefined}
               >
-                <Avatar className="h-24 w-24 border-2 border-amber-500/50 spin-slow bg-black">
-                  <AvatarImage
-                    src={occupantDisplay.avatarUrl || undefined}
-                    alt={occupantDisplay.primary}
-                    className="object-cover"
-                  />
-                  <AvatarFallback className="bg-zinc-900 text-white text-lg">
-                    {minerState ? occupantFallbackInitials : <CircleUserRound className="h-6 w-6" />}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="rounded-full bg-black p-0.5 spin-slow">
+                  <Avatar className="h-24 w-24 border-2 border-amber-500/50">
+                    <AvatarImage
+                      src={occupantDisplay.avatarUrl || undefined}
+                      alt={occupantDisplay.primary}
+                      className="object-cover bg-black"
+                    />
+                    <AvatarFallback className="bg-zinc-900 text-white text-lg">
+                      {minerState ? occupantFallbackInitials : <CircleUserRound className="h-6 w-6" />}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
                 <div className="mt-2 text-center">
                   <div className="font-bold text-amber-400 text-sm drop-shadow-lg">{occupantDisplay.primary}</div>
                   <div className="text-[10px] text-amber-400/70 drop-shadow-lg">{formatAddress(minerAddress)}</div>
@@ -814,7 +816,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                       ? "bg-red-500 text-white"
                       : isGlazeDisabled
                         ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
-                        : "bg-amber-500 text-black hover:bg-amber-400",
+                        : "bg-white text-black hover:bg-gray-200",
                   isPulsing && !isGlazeDisabled && !glazeResult && "scale-[0.95]"
                 )}
                 onClick={handleGlaze}
