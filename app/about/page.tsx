@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { AddToFarcasterButton } from "@/components/add-to-farcaster-button";
 import { Sparkles, ArrowRight, Dices, TrendingUp, Link2, Coins, BarChart3 } from "lucide-react";
 
 type MiniAppContext = {
@@ -42,8 +41,8 @@ function DonutInfoTile({ onClick }: { onClick: () => void }) {
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
     >
       {/* Large background donut symbol */}
-      <div className="absolute -right-8 top-1/2 -translate-y-1/2 pointer-events-none">
-        <DonutIcon className="w-40 h-40 text-white/10" />
+      <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+        <DonutIcon className="w-28 h-28 text-white/10" />
       </div>
       
       <div className="relative z-10 p-4 pr-20">
@@ -76,8 +75,8 @@ function SprinklesInfoTile({ onClick }: { onClick: () => void }) {
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
       {/* Large background sparkles symbol */}
-      <div className="absolute -right-6 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Sparkles className="w-36 h-36 text-white/10" />
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Sparkles className="w-24 h-24 text-white/10" />
       </div>
       
       <div className="relative z-10 p-4 pr-20">
@@ -110,8 +109,8 @@ function RevenueFlowTile({ onClick }: { onClick: () => void }) {
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
       {/* Large background coins symbol */}
-      <div className="absolute -right-6 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Coins className="w-36 h-36 text-white/10" />
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Coins className="w-24 h-24 text-white/10" />
       </div>
       
       <div className="relative z-10 p-4 pr-16">
@@ -153,8 +152,8 @@ function LinksContractsTile({ onClick }: { onClick: () => void }) {
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
       {/* Large background chain symbol */}
-      <div className="absolute -right-6 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Link2 className="w-36 h-36 text-white/10" />
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Link2 className="w-24 h-24 text-white/10" />
       </div>
       
       <div className="relative z-10 p-4 pr-16">
@@ -187,8 +186,8 @@ function DuneDashboardTile({ onClick }: { onClick: () => void }) {
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
       {/* Large background chart symbol */}
-      <div className="absolute -right-6 top-1/2 -translate-y-1/2 pointer-events-none">
-        <BarChart3 className="w-36 h-36 text-white/10" />
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <BarChart3 className="w-24 h-24 text-white/10" />
       </div>
       
       <div className="relative z-10 p-4 pr-16">
@@ -326,7 +325,21 @@ export default function AboutPage() {
 
             {/* Quick Links */}
             <div className="grid grid-cols-2 gap-2 mb-3">
-              <AddToFarcasterButton variant="default" />
+              <button
+                onClick={async () => {
+                  try {
+                    await sdk.actions.addMiniApp();
+                  } catch (e) {
+                    console.error("Failed to add mini app:", e);
+                  }
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.98]"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Added to Farcaster</span>
+              </button>
               <button
                 onClick={async () => {
                   try {
@@ -339,6 +352,32 @@ export default function AboutPage() {
               >
                 <DonutIcon className="h-4 w-4 text-amber-400" />
                 <span>Stake Donut</span>
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await sdk.actions.openUrl({ url: "https://farcaster.xyz/miniapps/OBSXNsOaGYv1/peeples-donuts" });
+                  } catch (e) {
+                    window.open("https://farcaster.xyz/miniapps/OBSXNsOaGYv1/peeples-donuts", "_blank");
+                  }
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.98]"
+              >
+                <Coins className="h-4 w-4 text-amber-400" />
+                <span>Pool To Mine</span>
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await sdk.actions.openUrl({ url: "https://farcaster.xyz/miniapps/yetHcJ1rdN-n/franchiser" });
+                  } catch (e) {
+                    window.open("https://farcaster.xyz/miniapps/yetHcJ1rdN-n/franchiser", "_blank");
+                  }
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.98]"
+              >
+                <Sparkles className="h-4 w-4 text-amber-400" />
+                <span>Eco Tokens</span>
               </button>
             </div>
           </div>
