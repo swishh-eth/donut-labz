@@ -47,6 +47,7 @@ type RecentMiner = {
   address: string;
   username: string | null;
   pfpUrl: string | null;
+  fid: number | null;
   amount: string;
   message: string;
   timestamp: number;
@@ -661,7 +662,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
               {/* Left - Paid */}
               <div className="text-center pulse-scale w-20">
                 <div className="text-[10px] text-gray-400 uppercase">Paid</div>
-                <div className="text-lg font-bold text-white">Ξ{minerState ? Number(formatEther(minerState.initPrice / 2n)).toFixed(3) : '0'}</div>
+                <div className="text-lg font-bold text-white">Ξ{minerState ? Number(formatEther(minerState.initPrice)).toFixed(3) : '0'}</div>
               </div>
               
               {/* Center - Avatar and Name */}
@@ -827,7 +828,16 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                 {recentMiners.map((miner, index) => (
                   <div 
                     key={`${miner.address}-${miner.timestamp}`}
-                    className="flex items-center gap-3 p-2 rounded-lg bg-zinc-900 border border-zinc-800"
+                    className="flex items-center gap-3 p-2 rounded-lg bg-zinc-900 border border-zinc-800 cursor-pointer hover:bg-zinc-800 transition-colors"
+                    onClick={async () => {
+                      if (miner.fid) {
+                        const { sdk } = await import("@farcaster/miniapp-sdk");
+                        sdk.actions.viewProfile({ fid: miner.fid }).catch(() => {});
+                      } else {
+                        const { sdk } = await import("@farcaster/miniapp-sdk");
+                        sdk.actions.openUrl({ url: `https://basescan.org/address/${miner.address}` }).catch(() => {});
+                      }
+                    }}
                   >
                     <Avatar className="h-8 w-8 border border-zinc-700 flex-shrink-0">
                       <AvatarImage src={miner.pfpUrl || undefined} className="object-cover" />

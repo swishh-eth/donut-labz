@@ -12,6 +12,7 @@ const supabase = createClient(
 async function getProfile(address: string): Promise<{
   username: string | null;
   pfpUrl: string | null;
+  fid: number | null;
 } | null> {
   try {
     const res = await fetch(
@@ -25,6 +26,7 @@ async function getProfile(address: string): Promise<{
       return {
         username: profile.username,
         pfpUrl: profile.pfpUrl,
+        fid: profile.fid || null,
       };
     }
     return null;
@@ -81,6 +83,7 @@ export async function GET(request: NextRequest) {
           address: event.address,
           username: profile?.username || null,
           pfpUrl: profile?.pfpUrl || null,
+          fid: profile?.fid || null,
           amount: formattedAmount,
           message: event.message || "",
           timestamp: new Date(event.created_at).getTime(),
