@@ -793,7 +793,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         }}
       >
         {/* Video Section with Fades and Miner Overlay */}
-        <div className="relative h-[200px] overflow-hidden">
+        <div className="relative h-[280px] overflow-hidden">
           <style>{`
             @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
             @keyframes pulse-scale { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.9; } }
