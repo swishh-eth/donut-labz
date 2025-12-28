@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CircleUserRound, HelpCircle, X, Share2, MessageCircle, Sparkles, Trophy } from "lucide-react";
+import { CircleUserRound, HelpCircle, X, MessageCircle, Sparkles, Trophy } from "lucide-react";
 import {
   useAccount,
   useConnect,
@@ -132,6 +132,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const [pendingTxType, setPendingTxType] = useState<"mine" | "approve" | null>(null);
   const pendingTxTypeRef = useRef<"mine" | "approve" | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const mineResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const approvalInputRef = useRef<HTMLInputElement>(null);
   const defaultMessageRef = useRef<string>(getRandomDefaultMessage());
@@ -203,6 +204,30 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     fetchPrice();
     const interval = setInterval(fetchPrice, 60_000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer) return;
+
+    let animationId: number;
+    let position = 0;
+    const speed = 0.5;
+
+    const animate = () => {
+      position += speed;
+      const halfWidth = scrollContainer.scrollWidth / 2;
+
+      if (position >= halfWidth) {
+        position = 0;
+      }
+
+      scrollContainer.style.transform = `translateX(-${position}px)`;
+      animationId = requestAnimationFrame(animate);
+    };
+
+    animationId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationId);
   }, []);
 
   const { address, isConnected } = useAccount();
@@ -591,6 +616,10 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     ? Math.floor(Number(formatUnits(donutAllowance as bigint, DONUT_DECIMALS))).toLocaleString()
     : "0";
 
+  const scrollMessage = slot0?.uri && slot0.uri.trim() !== ""
+    ? slot0.uri
+    : "Every donut needs sprinkles - Donut Labs";
+
   const buttonLabel = useMemo(() => {
     if (!slot0 || price === undefined) return "Loading…";
     if (mineResult === "success") return "SUCCESS";
@@ -628,21 +657,12 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const handleCast = useCallback(async () => {
     try {
       const { sdk } = await import("@farcaster/miniapp-sdk");
-      const text = `I'm mining SPRINKLES on @sprinkles! ✨\n\nCurrent price: 🍩${minePriceDisplay}`;
+      const text = `I'm mining some sweet $SPRINKLES ✨\n\nCurrent price: 🍩${minePriceDisplay}\n\nhttps://warpcast.com/~/miniapps/sprinkles/1PUhyHqL85k3`;
       await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(text)}`);
     } catch (e) {
       console.error("Failed to cast:", e);
     }
   }, [minePriceDisplay]);
-
-  const handleShare = useCallback(async () => {
-    try {
-      const { sdk } = await import("@farcaster/miniapp-sdk");
-      await sdk.actions.openUrl("https://warpcast.com/~/channel/sprinkles");
-    } catch (e) {
-      window.open("https://warpcast.com/~/channel/sprinkles", "_blank");
-    }
-  }, []);
 
   return (
     <div className="flex flex-col h-full -mx-2">
@@ -674,7 +694,21 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
       {/* Content Section */}
       <div className="flex flex-col gap-3 px-2 pb-2">
-        {/* Header with Miner label and buttons */}
+        {/* Scrolling Message Ticker */}
+        <div className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-lg -mt-1">
+          <div
+            ref={scrollRef}
+            className="flex whitespace-nowrap py-1.5 text-xs font-bold text-white"
+          >
+            {Array.from({ length: 20 }).map((_, i) => (
+              <span key={i} className="inline-block px-8">
+                {scrollMessage}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Header with Miner label and Cast button */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold text-white">Miner</span>
@@ -682,22 +716,13 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               <HelpCircle className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleCast}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 transition-colors"
-            >
-              <MessageCircle className="w-3.5 h-3.5 text-white" />
-              <span className="text-xs font-medium text-white">Cast</span>
-            </button>
-            <button
-              onClick={handleShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 transition-colors"
-            >
-              <Share2 className="w-3.5 h-3.5 text-white" />
-              <span className="text-xs font-medium text-white">Share</span>
-            </button>
-          </div>
+          <button
+            onClick={handleCast}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 transition-colors"
+          >
+            <MessageCircle className="w-3.5 h-3.5 text-white" />
+            <span className="text-xs font-medium text-white">Cast</span>
+          </button>
         </div>
 
         {/* Miner Info Row */}
@@ -777,8 +802,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         />
 
         {/* Bottom Action Row */}
-        <div className="flex items-end justify-between gap-4">
-          <div>
+        <div className="flex items-end gap-4">
+          <div className="flex-shrink-0">
             <div className="text-xs text-gray-500">Mine price</div>
             <div className="text-2xl font-bold text-white">🍩{minePriceDisplay}</div>
             {(donutAllowance as bigint) > 0n && (
@@ -786,11 +811,11 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             )}
           </div>
           
-          <div className="flex flex-col items-end gap-1">
+          <div className="flex flex-col items-end gap-1 flex-1">
             <div className="text-xs text-gray-500">Balance: 🍩{donutBalanceDisplay}</div>
             
             {needsApproval && isApprovalMode ? (
-              <div className="flex rounded-xl overflow-hidden">
+              <div className="flex w-full rounded-xl overflow-hidden">
                 <input
                   ref={approvalInputRef}
                   type="text"
@@ -803,13 +828,13 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                     setApprovalAmount(value);
                   }}
                   placeholder="Amount"
-                  className="w-24 bg-zinc-800 text-white px-3 py-3 text-sm font-bold placeholder-gray-500 focus:outline-none"
+                  className="flex-1 bg-zinc-800 text-white px-3 py-3 text-sm font-bold placeholder-gray-500 focus:outline-none"
                   style={{ fontSize: '16px' }}
                   disabled={isWriting || isConfirming}
                 />
                 <button
                   className={cn(
-                    "px-4 py-3 text-sm font-bold transition-all duration-300",
+                    "px-6 py-3 text-sm font-bold transition-all duration-300",
                     isApproveButtonDisabled
                       ? "bg-zinc-700 text-gray-500 cursor-not-allowed"
                       : "bg-amber-500 text-black hover:bg-amber-400",
@@ -825,7 +850,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             ) : (
               <button
                 className={cn(
-                  "px-8 py-3 rounded-xl text-base font-bold transition-all duration-300",
+                  "w-full py-3 rounded-xl text-base font-bold transition-all duration-300",
                   mineResult === "success"
                     ? "bg-green-500 text-white"
                     : mineResult === "failure"
