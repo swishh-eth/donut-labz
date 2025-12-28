@@ -160,6 +160,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const glazeResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const defaultMessageRef = useRef<string>(getRandomDefaultMessage());
+  const prevMinerRef = useRef<string>("");
   const [interpolatedPrice, setInterpolatedPrice] = useState<bigint | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [recentMiners, setRecentMiners] = useState<RecentMiner[]>([]);
@@ -260,7 +261,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
   useEffect(() => {
     const fetchRecentMiners = async () => {
       try {
-        const res = await fetch('/api/miners/recent?type=donut&limit=3');
+        const res = await fetch('/api/miners/recent?type=donut&limit=5');
         if (res.ok) {
           const data = await res.json();
           setRecentMiners(data.miners || []);
@@ -271,7 +272,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     };
 
     fetchRecentMiners();
-    const interval = setInterval(fetchRecentMiners, 30_000);
+    const interval = setInterval(fetchRecentMiners, 10_000); // More aggressive polling
     return () => clearInterval(interval);
   }, []);
 
@@ -291,7 +292,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     functionName: "getMiner",
     args: [address ?? zeroAddress],
     chainId: base.id,
-    query: { refetchInterval: 15_000 },
+    query: { refetchInterval: 10_000 },
   });
 
   const minerState = useMemo(() => {
@@ -330,6 +331,13 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     if (receipt.status === "success" || receipt.status === "reverted") {
       showGlazeResult(receipt.status === "success" ? "success" : "failure");
 
+      // Haptic feedback on success
+      if (receipt.status === "success") {
+        import("@farcaster/miniapp-sdk").then(({ sdk }) => {
+          sdk.haptics.notificationOccurred("success").catch(() => {});
+        }).catch(() => {});
+      }
+
       if (receipt.status === "success" && address) {
         defaultMessageRef.current = getRandomDefaultMessage();
         
@@ -359,7 +367,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
         // Refresh recent miners list
         setTimeout(async () => {
           try {
-            const res = await fetch('/api/miners/recent?type=donut&limit=3');
+            const res = await fetch('/api/miners/recent?type=donut&limit=5');
             if (res.ok) {
               const data = await res.json();
               setRecentMiners(data.miners || []);
@@ -376,6 +384,27 @@ export default function DonutMiner({ context }: DonutMinerProps) {
 
   const minerAddress = minerState?.miner ?? zeroAddress;
   const hasMiner = minerAddress !== zeroAddress;
+
+  // Detect when miner changes (someone else mined) and refresh
+  useEffect(() => {
+    if (prevMinerRef.current && minerAddress !== prevMinerRef.current && minerAddress !== zeroAddress) {
+      // Miner changed - someone mined! Refresh recent miners with haptic
+      import("@farcaster/miniapp-sdk").then(({ sdk }) => {
+        sdk.haptics.impactOccurred("light").catch(() => {});
+      }).catch(() => {});
+      
+      setTimeout(async () => {
+        try {
+          const res = await fetch('/api/miners/recent?type=donut&limit=5');
+          if (res.ok) {
+            const data = await res.json();
+            setRecentMiners(data.miners || []);
+          }
+        } catch {}
+      }, 2000);
+    }
+    prevMinerRef.current = minerAddress;
+  }, [minerAddress]);
 
   const { data: profileData } = useQuery<{
     profiles: Record<string, {
@@ -601,7 +630,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
         }}
       >
         {/* Video Section with Fades */}
-        <div className="relative h-[280px] overflow-hidden">
+        <div className="relative h-[200px] overflow-hidden">
           {/* Top fade */}
           <div 
             className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-10"
@@ -718,19 +747,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
             </div>
           </div>
 
-          {/* Message Input */}
-          <input
-            type="text"
-            value={customMessage}
-            onChange={(e) => setCustomMessage(e.target.value)}
-            placeholder="Add a message..."
-            maxLength={100}
-            className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-zinc-600"
-            style={{ fontSize: '16px' }}
-            disabled={isGlazeDisabled}
-          />
-
-          {/* Bottom Action Row */}
+          {/* Mine Action Row */}
           <div className="flex items-end gap-4">
             <div className="flex-shrink-0">
               <div className="text-xs text-gray-500">Mine price</div>
@@ -761,6 +778,18 @@ export default function DonutMiner({ context }: DonutMinerProps) {
               </button>
             </div>
           </div>
+
+          {/* Message Input */}
+          <input
+            type="text"
+            value={customMessage}
+            onChange={(e) => setCustomMessage(e.target.value)}
+            placeholder="Add a message..."
+            maxLength={100}
+            className="w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-zinc-600"
+            style={{ fontSize: '16px' }}
+            disabled={isGlazeDisabled}
+          />
 
           {/* Recent Miners Section */}
           {recentMiners.length > 0 && (

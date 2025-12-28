@@ -146,6 +146,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const mineResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const approvalInputRef = useRef<HTMLInputElement>(null);
   const defaultMessageRef = useRef<string>(getRandomDefaultMessage());
+  const prevMinerRef = useRef<string>("");
   const [interpolatedPrice, setInterpolatedPrice] = useState<bigint | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [recentMiners, setRecentMiners] = useState<RecentMiner[]>([]);
@@ -266,7 +267,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   useEffect(() => {
     const fetchRecentMiners = async () => {
       try {
-        const res = await fetch('/api/miners/recent?type=sprinkles&limit=3');
+        const res = await fetch('/api/miners/recent?type=sprinkles&limit=5');
         if (res.ok) {
           const data = await res.json();
           setRecentMiners(data.miners || []);
@@ -277,7 +278,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     };
 
     fetchRecentMiners();
-    const interval = setInterval(fetchRecentMiners, 30_000);
+    const interval = setInterval(fetchRecentMiners, 10_000); // More aggressive polling
     return () => clearInterval(interval);
   }, []);
 
@@ -296,7 +297,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     abi: SPRINKLES_MINER_ABI,
     functionName: "getSlot0",
     chainId: base.id,
-    query: { refetchInterval: 15_000 },
+    query: { refetchInterval: 10_000 },
   });
 
   const { data: currentPrice, refetch: refetchPrice } = useReadContract({
@@ -304,7 +305,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     abi: SPRINKLES_MINER_ABI,
     functionName: "getPrice",
     chainId: base.id,
-    query: { refetchInterval: 60_000 },
+    query: { refetchInterval: 20_000 },
   });
 
   const { data: currentDps } = useReadContract({
@@ -381,6 +382,15 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     
     if (receipt.status === "success" || receipt.status === "reverted") {
       showMineResult(receipt.status === "success" ? "success" : "failure");
+      
+      // Haptic feedback on success
+      if (receipt.status === "success") {
+        import("@farcaster/miniapp-sdk").then(({ sdk }) => {
+          sdk.haptics.notificationOccurred("success").catch(() => {});
+        }).catch(() => {});
+      }
+      
+      // Force refresh all data
       refetchSlot0();
       refetchPrice();
       refetchAllowance();
@@ -388,6 +398,10 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       if (receipt.status === "success" && txType === "approve") {
         setIsApprovalMode(false);
         setApprovalAmount("");
+        // Extra delay refetch to ensure chain state is updated
+        setTimeout(() => {
+          refetchAllowance();
+        }, 1000);
       }
       
       if (receipt.status === "success" && txType === "mine" && address) {
@@ -434,7 +448,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         // Refresh recent miners list
         setTimeout(async () => {
           try {
-            const res = await fetch('/api/miners/recent?type=sprinkles&limit=3');
+            const res = await fetch('/api/miners/recent?type=sprinkles&limit=5');
             if (res.ok) {
               const data = await res.json();
               setRecentMiners(data.miners || []);
@@ -453,6 +467,27 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
   const minerAddress = slot0?.miner ?? zeroAddress;
   const hasMiner = minerAddress !== zeroAddress;
+
+  // Detect when miner changes (someone else mined) and refresh
+  useEffect(() => {
+    if (prevMinerRef.current && minerAddress !== prevMinerRef.current && minerAddress !== zeroAddress) {
+      // Miner changed - someone mined! Refresh recent miners with haptic
+      import("@farcaster/miniapp-sdk").then(({ sdk }) => {
+        sdk.haptics.impactOccurred("light").catch(() => {});
+      }).catch(() => {});
+      
+      setTimeout(async () => {
+        try {
+          const res = await fetch('/api/miners/recent?type=sprinkles&limit=5');
+          if (res.ok) {
+            const data = await res.json();
+            setRecentMiners(data.miners || []);
+          }
+        } catch {}
+      }, 2000);
+    }
+    prevMinerRef.current = minerAddress;
+  }, [minerAddress]);
 
   const { data: profileData } = useQuery<{
     profiles: Record<string, {
@@ -746,7 +781,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         }}
       >
         {/* Video Section with Fades */}
-        <div className="relative h-[280px] overflow-hidden">
+        <div className="relative h-[200px] overflow-hidden">
           {/* Top fade */}
           <div 
             className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-10"
@@ -868,19 +903,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             </div>
           </div>
 
-          {/* Message Input */}
-          <input
-            type="text"
-            value={customMessage}
-            onChange={(e) => setCustomMessage(e.target.value)}
-            placeholder="Add a message..."
-            maxLength={100}
-            className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-zinc-600"
-            style={{ fontSize: '16px' }}
-            disabled={isMineDisabled}
-          />
-
-          {/* Bottom Action Row */}
+          {/* Mine Action Row */}
           <div className="flex items-end gap-4">
             <div className="flex-shrink-0">
               <div className="text-xs text-gray-500">Mine price</div>
@@ -907,13 +930,13 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                       setApprovalAmount(value);
                     }}
                     placeholder="Amount"
-                    className="flex-1 bg-zinc-800 text-white px-3 py-3 text-sm font-bold placeholder-gray-500 focus:outline-none"
+                    className="w-24 flex-shrink-0 bg-zinc-800 text-white px-2 py-3 text-sm font-bold placeholder-gray-500 focus:outline-none"
                     style={{ fontSize: '16px' }}
                     disabled={isWriting || isConfirming}
                   />
                   <button
                     className={cn(
-                      "px-6 py-3 text-sm font-bold transition-all duration-300",
+                      "flex-1 py-3 text-sm font-bold transition-all duration-300",
                       isApproveButtonDisabled
                         ? "bg-zinc-700 text-gray-500 cursor-not-allowed"
                         : "bg-amber-500 text-black hover:bg-amber-400",
@@ -923,7 +946,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                     onClick={handleApprove}
                     disabled={isApproveButtonDisabled}
                   >
-                    {isWriting || isConfirming ? "…" : "OK"}
+                    {isWriting || isConfirming ? "Confirming..." : "APPROVE"}
                   </button>
                 </div>
               ) : (
@@ -949,6 +972,18 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               )}
             </div>
           </div>
+
+          {/* Message Input */}
+          <input
+            type="text"
+            value={customMessage}
+            onChange={(e) => setCustomMessage(e.target.value)}
+            placeholder="Add a message..."
+            maxLength={100}
+            className="w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-zinc-600"
+            style={{ fontSize: '16px' }}
+            disabled={isMineDisabled}
+          />
 
           {/* Recent Miners Section */}
           {recentMiners.length > 0 && (
