@@ -27,10 +27,6 @@ const DONUT_MINE_SELECTOR = keccak256(toBytes('mine(address,uint256,uint256,uint
 // SPRINKLES: mine(address,address,uint256,uint256,uint256,string)
 const SPRINKLES_MINE_SELECTOR = keccak256(toBytes('mine(address,address,uint256,uint256,uint256,string)')).slice(0, 10);
 
-// Event signatures for extracting actual paid amounts
-// Sprinkles Mine event: Mine(address indexed miner, uint256 indexed epochId, uint256 price, string uri)
-const SPRINKLES_MINE_EVENT_TOPIC = keccak256(toBytes('Mine(address,uint256,uint256,string)'));
-
 export async function POST(request: Request) {
   try {
     const { address, txHash, mineType = 'donut' } = await request.json();
@@ -177,65 +173,49 @@ export async function POST(request: Request) {
         );
       }
       
-      // Extract maxPrice and message from input params as fallback
-      let maxPrice = '0';
+      // Extract message from input params
       try {
         const params = decodeAbiParameters(
           parseAbiParameters('address to, address referrer, uint256 epochId, uint256 deadline, uint256 maxPrice, string uri'),
           `0x${inputData.slice(10)}` as `0x${string}`
         );
-        maxPrice = (params[4] as bigint).toString();
         message = params[5] as string || '';
       } catch (decodeError) {
         console.error('Failed to decode SPRINKLES input:', decodeError);
       }
       
-      // Try to extract actual paid amount from Mine event logs
-      let foundInEvent = false;
+      // Look for DONUT Transfer event to get actual amount paid
+      // Transfer(address indexed from, address indexed to, uint256 value)
+      const TRANSFER_EVENT_TOPIC = keccak256(toBytes('Transfer(address,address,uint256)'));
+      const DONUT_TOKEN_ADDRESS = '0x3afe25a2739b5c2e08cfec439f9621d91ff7fbfb'.toLowerCase();
+      
       try {
         const logs = receipt.logs || [];
         for (const log of logs) {
-          // Check if this is a Mine event from the sprinkles miner contract
-          if (log.address?.toLowerCase() === SPRINKLES_MINER_ADDRESS && 
-              log.topics?.[0]?.toLowerCase() === SPRINKLES_MINE_EVENT_TOPIC.toLowerCase()) {
-            // Mine event: Mine(address indexed miner, uint256 indexed epochId, uint256 price, string uri)
-            // topics[0] = event signature
-            // topics[1] = miner (indexed)
-            // topics[2] = epochId (indexed)
-            // data = abi.encode(price, uri)
-            try {
-              const decodedData = decodeAbiParameters(
-                parseAbiParameters('uint256 price, string uri'),
-                log.data as `0x${string}`
-              );
-              amount = (decodedData[0] as bigint).toString();
-              foundInEvent = true;
-              console.log('Extracted actual SPRINKLES price from event:', amount);
-            } catch (decodeErr) {
-              // Try decoding just the price if uri decoding fails
-              try {
-                const priceOnly = decodeAbiParameters(
-                  parseAbiParameters('uint256'),
-                  log.data.slice(0, 66) as `0x${string}`
-                );
-                amount = (priceOnly[0] as bigint).toString();
-                foundInEvent = true;
-                console.log('Extracted SPRINKLES price (price only):', amount);
-              } catch {
-                console.error('Failed to decode price from event data');
-              }
+          // Look for Transfer event from DONUT token where recipient is the miner contract
+          if (log.address?.toLowerCase() === DONUT_TOKEN_ADDRESS && 
+              log.topics?.[0]?.toLowerCase() === TRANSFER_EVENT_TOPIC.toLowerCase()) {
+            // topics[1] = from (padded address)
+            // topics[2] = to (padded address)
+            const toAddr = '0x' + log.topics[2].slice(26).toLowerCase();
+            
+            // Check if this transfer is TO the sprinkles miner contract
+            if (toAddr === SPRINKLES_MINER_ADDRESS) {
+              // data = uint256 value
+              const value = BigInt(log.data);
+              amount = value.toString();
+              console.log('Extracted actual DONUT amount from Transfer event:', amount);
+              break;
             }
-            break;
           }
         }
       } catch (eventError) {
-        console.error('Failed to process Mine event logs:', eventError);
+        console.error('Failed to process Transfer event logs:', eventError);
       }
       
-      // Fallback to maxPrice if we couldn't extract from event
-      if (!foundInEvent || amount === '0') {
-        amount = maxPrice;
-        console.log('Using maxPrice as fallback:', amount);
+      // If we still don't have an amount, log a warning
+      if (amount === '0') {
+        console.warn('Could not extract amount from Transfer event for tx:', txHash);
       }
     }
 
