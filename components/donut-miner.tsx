@@ -262,7 +262,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
   useEffect(() => {
     const fetchRecentMiners = async () => {
       try {
-        const res = await fetch('/api/miners/recent?type=donut&limit=5');
+        const res = await fetch('/api/miners/recent?type=donut&limit=10');
         if (res.ok) {
           const data = await res.json();
           setRecentMiners(data.miners || []);
@@ -368,7 +368,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
         // Refresh recent miners list
         setTimeout(async () => {
           try {
-            const res = await fetch('/api/miners/recent?type=donut&limit=5');
+            const res = await fetch('/api/miners/recent?type=donut&limit=10');
             if (res.ok) {
               const data = await res.json();
               setRecentMiners(data.miners || []);
@@ -396,7 +396,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
       
       setTimeout(async () => {
         try {
-          const res = await fetch('/api/miners/recent?type=donut&limit=5');
+          const res = await fetch('/api/miners/recent?type=donut&limit=10');
           if (res.ok) {
             const data = await res.json();
             setRecentMiners(data.miners || []);
@@ -429,7 +429,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
       }).then(async (res) => {
         if (res.ok) {
           // Refresh recent miners to show updated amount
-          const refreshRes = await fetch('/api/miners/recent?type=donut&limit=5');
+          const refreshRes = await fetch('/api/miners/recent?type=donut&limit=10');
           if (refreshRes.ok) {
             const data = await refreshRes.json();
             setRecentMiners(data.miners || []);
@@ -669,6 +669,8 @@ export default function DonutMiner({ context }: DonutMinerProps) {
             @keyframes pulse-scale { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.9; } }
             .spin-slow { animation: spin-slow 8s linear infinite; }
             .pulse-scale { animation: pulse-scale 3s ease-in-out infinite; }
+            .scrollbar-hide::-webkit-scrollbar { display: none; }
+            .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
           `}</style>
           
           {/* Top fade */}
@@ -921,8 +923,10 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                         </span>
                       </div>
                       {miner.message && (
-                        <div className="text-xs text-gray-400 truncate mt-0.5">
-                          "{miner.message}"
+                        <div className="overflow-x-auto scrollbar-hide mt-0.5">
+                          <div className="text-xs text-gray-400 whitespace-nowrap">
+                            "{miner.message}"
+                          </div>
                         </div>
                       )}
                     </div>
