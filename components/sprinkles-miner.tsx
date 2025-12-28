@@ -843,7 +843,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           <div className="flex items-center justify-between">
             <div 
               className={cn(
-                "flex items-center gap-3 flex-1",
+                "flex items-center gap-3",
                 neynarUser?.user?.fid && "cursor-pointer"
               )}
               onClick={neynarUser?.user?.fid ? handleViewMinerProfile : undefined}
@@ -862,6 +862,10 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                 <div className="font-bold text-white">{occupantDisplay.primary}</div>
                 <div className="text-xs text-gray-500">{formatAddress(minerAddress)}</div>
               </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-gray-500">Paid</div>
+              <div className="text-lg font-bold text-white">🍩{slot0 ? formatUnits(slot0.initPrice, DONUT_DECIMALS).split('.')[0] : '0'}</div>
             </div>
           </div>
 
@@ -896,6 +900,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                 {pnlData.donut}
               </div>
             </div>
+            <div></div>
             <div>
               <div className="text-xs text-gray-500">Total</div>
               <div className={cn("text-lg font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>

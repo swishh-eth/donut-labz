@@ -692,7 +692,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           <div className="flex items-center justify-between">
             <div 
               className={cn(
-                "flex items-center gap-3 flex-1",
+                "flex items-center gap-3",
                 neynarUser?.user?.fid && "cursor-pointer"
               )}
               onClick={neynarUser?.user?.fid ? handleViewKingGlazerProfile : undefined}
@@ -711,6 +711,10 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                 <div className="font-bold text-white">{occupantDisplay.primary}</div>
                 <div className="text-xs text-gray-500">{formatAddress(minerAddress)}</div>
               </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-gray-500">Paid</div>
+              <div className="text-lg font-bold text-white">Ξ{minerState ? Number(formatEther(minerState.initPrice)).toFixed(4) : '0'}</div>
             </div>
           </div>
 
@@ -740,6 +744,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                 {pnlData.eth}
               </div>
             </div>
+            <div></div>
             <div>
               <div className="text-xs text-gray-500">Total</div>
               <div className={cn("text-lg font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>
