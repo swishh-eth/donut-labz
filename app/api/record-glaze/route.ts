@@ -177,18 +177,21 @@ export async function POST(request: Request) {
         );
       }
       
-      // Extract message from input params
+      // Extract maxPrice and message from input params as fallback
+      let maxPrice = '0';
       try {
         const params = decodeAbiParameters(
           parseAbiParameters('address to, address referrer, uint256 epochId, uint256 deadline, uint256 maxPrice, string uri'),
           `0x${inputData.slice(10)}` as `0x${string}`
         );
+        maxPrice = (params[4] as bigint).toString();
         message = params[5] as string || '';
       } catch (decodeError) {
-        console.error('Failed to decode SPRINKLES message:', decodeError);
+        console.error('Failed to decode SPRINKLES input:', decodeError);
       }
       
-      // Extract actual paid amount from Mine event logs
+      // Try to extract actual paid amount from Mine event logs
+      let foundInEvent = false;
       try {
         const logs = receipt.logs || [];
         for (const log of logs) {
@@ -200,18 +203,39 @@ export async function POST(request: Request) {
             // topics[1] = miner (indexed)
             // topics[2] = epochId (indexed)
             // data = abi.encode(price, uri)
-            const decodedData = decodeAbiParameters(
-              parseAbiParameters('uint256 price, string uri'),
-              log.data as `0x${string}`
-            );
-            amount = (decodedData[0] as bigint).toString();
-            console.log('Extracted actual SPRINKLES price from event:', amount);
+            try {
+              const decodedData = decodeAbiParameters(
+                parseAbiParameters('uint256 price, string uri'),
+                log.data as `0x${string}`
+              );
+              amount = (decodedData[0] as bigint).toString();
+              foundInEvent = true;
+              console.log('Extracted actual SPRINKLES price from event:', amount);
+            } catch (decodeErr) {
+              // Try decoding just the price if uri decoding fails
+              try {
+                const priceOnly = decodeAbiParameters(
+                  parseAbiParameters('uint256'),
+                  log.data.slice(0, 66) as `0x${string}`
+                );
+                amount = (priceOnly[0] as bigint).toString();
+                foundInEvent = true;
+                console.log('Extracted SPRINKLES price (price only):', amount);
+              } catch {
+                console.error('Failed to decode price from event data');
+              }
+            }
             break;
           }
         }
       } catch (eventError) {
-        console.error('Failed to decode Mine event:', eventError);
-        // Fallback: don't save amount if we can't get the real one
+        console.error('Failed to process Mine event logs:', eventError);
+      }
+      
+      // Fallback to maxPrice if we couldn't extract from event
+      if (!foundInEvent || amount === '0') {
+        amount = maxPrice;
+        console.log('Using maxPrice as fallback:', amount);
       }
     }
 

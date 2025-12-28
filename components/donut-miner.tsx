@@ -885,7 +885,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                           {miner.username ? `@${miner.username}` : formatAddress(miner.address)}
                         </span>
                         <span className="text-amber-400 text-xs font-bold flex-shrink-0">
-                          Ξ{miner.amount}
+                          Ξ{miner.amount === '0' || miner.amount === '' ? '—' : miner.amount}
                         </span>
                       </div>
                       {miner.message && (

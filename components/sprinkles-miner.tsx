@@ -1094,7 +1094,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                           {miner.username ? `@${miner.username}` : formatAddress(miner.address)}
                         </span>
                         <span className="text-amber-400 text-xs font-bold flex-shrink-0">
-                          🍩{miner.amount}
+                          🍩{miner.amount === '0' || miner.amount === '' ? '—' : miner.amount}
                         </span>
                       </div>
                       {miner.message && (
