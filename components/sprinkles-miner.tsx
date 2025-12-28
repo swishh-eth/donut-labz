@@ -1203,7 +1203,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               <div className="text-xs text-gray-500">Mine price</div>
               <div className="text-2xl font-bold text-white">🍩{minePriceDisplay}</div>
               {selectedImage && (
-                <div className="text-xs text-amber-400">Includes +1 🍩 image fee</div>
+                <div className="text-xs text-amber-400">Includes +1 🍩 image upload fee</div>
               )}
               {!selectedImage && (donutAllowance as bigint) > 0n && (
                 <div className="text-xs text-amber-400">Approved: 🍩{currentAllowanceDisplay}</div>
@@ -1300,7 +1300,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                     : "border-zinc-800 bg-black text-gray-500 hover:text-white hover:border-zinc-600",
                   isMineDisabled && "opacity-50 cursor-not-allowed"
                 )}
-                title="Add image (+1 🍩)"
+                title="Add image (+1 🍩 fee)"
               >
                 <ImagePlus className="w-5 h-5" />
               </button>
@@ -1308,11 +1308,11 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             
             {/* Image Preview */}
             {imagePreviewUrl && (
-              <div className="relative inline-block">
+              <div className="relative w-full">
                 <img
                   src={imagePreviewUrl}
                   alt="Preview"
-                  className="h-20 w-auto rounded-lg border border-zinc-800 object-cover"
+                  className="w-full h-32 rounded-lg border border-zinc-800 object-cover"
                 />
                 <button
                   onClick={handleRemoveImage}
@@ -1320,8 +1320,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                 >
                   <X className="w-3 h-3" />
                 </button>
-                <div className="absolute bottom-1 left-1 bg-black/80 text-amber-400 text-[10px] px-1 rounded">
-                  +1 🍩
+                <div className="absolute bottom-1 left-1 bg-black/80 text-amber-400 text-[10px] px-1.5 py-0.5 rounded">
+                  +1 🍩 image upload fee
                 </div>
               </div>
             )}
@@ -1347,7 +1347,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                   <div 
                     key={`${miner.address}-${miner.timestamp}`}
                     className={cn(
-                      "flex gap-3 p-2 rounded-lg bg-zinc-900 border border-zinc-800 cursor-pointer hover:bg-zinc-800 transition-colors",
+                      "flex gap-3 p-2 rounded-lg bg-zinc-900 border border-zinc-800 cursor-pointer hover:bg-zinc-800 transition-colors w-full",
                       miner.imageUrl ? "items-start" : "items-center"
                     )}
                     onClick={async () => {
@@ -1366,7 +1366,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                         {miner.username ? initialsFrom(miner.username) : miner.address.slice(-2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 overflow-hidden">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-semibold text-white text-sm truncate">
                           {miner.username ? `@${miner.username}` : formatAddress(miner.address)}
@@ -1383,11 +1383,11 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                         </div>
                       )}
                       {miner.imageUrl && (
-                        <div className="mt-1.5">
+                        <div className="mt-1.5 w-full">
                           <img
                             src={miner.imageUrl}
                             alt="Miner attachment"
-                            className="h-24 w-auto rounded-lg border border-zinc-700 object-cover"
+                            className="w-full h-32 rounded-lg border border-zinc-700 object-cover"
                             onClick={(e) => {
                               e.stopPropagation();
                               import("@farcaster/miniapp-sdk").then(({ sdk }) => {
