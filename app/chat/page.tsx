@@ -27,8 +27,6 @@ type ChatMessage = {
   timestamp: bigint;
   transactionHash: string;
   blockNumber: bigint;
-  isSystemMessage?: boolean;
-  systemType?: "mine_donut" | "mine_sprinkles";
 };
 
 type FarcasterProfile = {
@@ -261,15 +259,15 @@ export default function ChatPage() {
       const res = await fetch("/api/chat/messages?limit=20");
       if (!res.ok) throw new Error("Failed to fetch messages");
       const data = await res.json();
-      return data.messages.map((m: any) => ({
-        sender: m.sender,
-        message: m.message,
-        timestamp: BigInt(m.timestamp),
-        transactionHash: m.transaction_hash,
-        blockNumber: BigInt(m.block_number),
-        isSystemMessage: m.is_system_message || false,
-        systemType: m.system_type || null,
-      })) as ChatMessage[];
+      return data.messages
+        .filter((m: any) => !m.is_system_message) // Filter out system messages
+        .map((m: any) => ({
+          sender: m.sender,
+          message: m.message,
+          timestamp: BigInt(m.timestamp),
+          transactionHash: m.transaction_hash,
+          blockNumber: BigInt(m.block_number),
+        })) as ChatMessage[];
     },
     refetchInterval: 10000,
     staleTime: 5000,
@@ -804,28 +802,6 @@ export default function ChatPage() {
                   const isOwnMessage = address?.toLowerCase() === msg.sender.toLowerCase();
                   const isTipping = tippingMessageHash === msg.transactionHash;
                   const tipCount = tipCounts[msg.transactionHash] || 0;
-
-                  if (msg.isSystemMessage) {
-                    const tokenName = msg.systemType === "mine_donut" ? "DONUT" : "SPRINKLES";
-                    return (
-                      <div key={`${msg.transactionHash}-${index}`} className="flex gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                        <button onClick={() => openUserProfile(username)} disabled={!username} className={`flex-shrink-0 ${username ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}>
-                          <Avatar className="h-8 w-8 border border-amber-500/50">
-                            <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
-                            <AvatarFallback className="bg-amber-500/20 text-amber-400 text-xs">{initialsFrom(displayName)}</AvatarFallback>
-                          </Avatar>
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <button onClick={() => openUserProfile(username)} disabled={!username} className={`font-semibold text-amber-400 text-xs truncate ${username ? "hover:text-amber-300" : ""}`}>{displayName}</button>
-                            {username && <button onClick={() => openUserProfile(username)} className="text-[10px] text-amber-400/60 truncate hover:text-amber-400">{username}</button>}
-                            <span className="text-[10px] text-amber-400/40 ml-auto flex-shrink-0">{timeAgo(msg.timestamp)}</span>
-                          </div>
-                          <p className="text-xs text-amber-400">started mining {tokenName}</p>
-                        </div>
-                      </div>
-                    );
-                  }
 
                   return (
                     <div key={`${msg.transactionHash}-${index}`} className={`flex gap-2 p-2 rounded-lg ${isOwnMessage ? "bg-zinc-800 border border-zinc-700" : "bg-zinc-900 border border-zinc-800"}`}>
