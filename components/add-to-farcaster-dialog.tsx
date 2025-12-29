@@ -146,10 +146,10 @@ export function AddToFarcasterDialog({
           {/* Content */}
           <div className="mb-6 text-center">
             <h2 className="mb-2 text-2xl font-bold text-white">
-              Install Donut Labs
+              Install Sprinkles
             </h2>
             <p className="text-sm text-gray-400">
-              a premium De-Fi &quot;Donut-Finance&quot; glazeing experience on base.
+              Earn & Burn Sprinkles while chatting with fellow $Donut enjoyers.
             </p>
           </div>
 
@@ -212,15 +212,15 @@ export function AddToFarcasterDialog({
           <div className="mt-6 space-y-2 border-t border-zinc-800 pt-4">
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <div className="h-1.5 w-1.5 rounded-full bg-white" />
-              <span>Quick access to the Global $Donut Auction</span>
+              <span>Quick access to the Global $Donut Auction and $Sprinkles Mines!</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <div className="h-1.5 w-1.5 rounded-full bg-white" />
-              <span>Compete in weekly eth reward leaderboards powered by in app glazes.</span>
+              <span>Compete in weekly ETH, Donut, & Sprinkles reward leaderboards powered by in app glazes.</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <div className="h-1.5 w-1.5 rounded-full bg-white" />
-              <span>Talk with fellow $Donut enjoyers in the onchain glazery chat!</span>
+              <span>Talk with fellow $Donut enjoyers in the glazery chat. Earn Sprinkles & claim weekly every friday.</span>
             </div>
           </div>
         </div>
