@@ -34,10 +34,10 @@ const initialsFrom = (label?: string) => {
 // Ad Carousel Tile Component - static ads baked in at build time
 // To add/remove ads, update this array with files from /public/adspot/
 const AD_FILES: string[] = [
-  "adspot1.png",
+  "adspot1.mp4",
   "adspot2.png",
   "adspot3.mp4",
-  "adspot4.gif",
+  "adspot4.png",
 ];
 
 function AdCarouselTile() {
