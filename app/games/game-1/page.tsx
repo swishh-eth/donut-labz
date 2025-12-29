@@ -487,15 +487,15 @@ export default function FlappyDonutPage() {
       return;
     }
     
-    // Check allowance
+    // Check allowance - only approve 100 more if needed
     if (!allowance || allowance < costWei) {
-      // Need approval
+      // Approve 100 DONUT at a time
       try {
         writeContract({
           address: DONUT_ADDRESS,
           abi: ERC20_ABI,
           functionName: "approve",
-          args: [FLAPPY_POOL_ADDRESS, parseUnits("1000000", 18)], // Approve 1M DONUT
+          args: [FLAPPY_POOL_ADDRESS, parseUnits("100", 18)],
         });
       } catch (e) {
         setError("Approval failed");
