@@ -6,84 +6,59 @@ function getPlayDate(): string {
   const now = new Date();
   const utcHour = now.getUTCHours();
   
+  let playDate = new Date(now);
   if (utcHour >= 23) {
-    const tomorrow = new Date(now);
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
+    playDate.setUTCDate(playDate.getUTCDate() + 1);
   }
   
-  return now.toISOString().split('T')[0];
+  return playDate.toISOString().split('T')[0];
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { playerAddress, username, pfpUrl, score, weekNumber } = body;
+    const { playerAddress, username, pfpUrl, score, weekNumber, costPaid } = body;
     
     if (!playerAddress || score === undefined || !weekNumber) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     
-    const playDate = getPlayDate();
     const address = playerAddress.toLowerCase();
-    
-    // Get current attempt count
-    const { data: attemptData } = await supabase
-      .from('flappy_daily_attempts')
-      .select('attempts')
-      .eq('player_address', address)
-      .eq('play_date', playDate)
-      .single();
-    
-    const currentAttempts = attemptData?.attempts || 0;
-    const costPaid = currentAttempts + 1; // Cost was attempts + 1 when they started
+    const cost = costPaid || 1;
     
     // Calculate fee split (5% LP, 5% treasury, 90% prize pool)
-    const toLpBurn = costPaid * 0.05;
-    const toTreasury = costPaid * 0.05;
-    const toPrizePool = costPaid * 0.90;
+    const toLpBurn = cost * 0.05;
+    const toTreasury = cost * 0.05;
+    const toPrizePool = cost * 0.90;
     
     // Insert game record
-    const { error: gameError } = await supabase
+    const { data, error: gameError } = await supabase
       .from('flappy_games')
       .insert({
         player_address: address,
         username: username || `${playerAddress.slice(0, 6)}...${playerAddress.slice(-4)}`,
         pfp_url: pfpUrl || null,
         score,
-        cost_paid: costPaid,
+        cost_paid: cost,
         to_prize_pool: toPrizePool,
         to_lp_burn: toLpBurn,
         to_treasury: toTreasury,
         week_number: weekNumber,
-      });
+      })
+      .select()
+      .single();
     
     if (gameError) {
       console.error('Failed to insert game:', gameError);
-      throw gameError;
+      return NextResponse.json({ error: 'Failed to save game', details: gameError.message }, { status: 500 });
     }
     
-    // Update attempt count
-    const { error: attemptError } = await supabase
-      .from('flappy_daily_attempts')
-      .upsert({
-        player_address: address,
-        play_date: playDate,
-        attempts: currentAttempts + 1,
-        last_attempt_at: new Date().toISOString(),
-      }, {
-        onConflict: 'player_address,play_date',
-      });
-    
-    if (attemptError) {
-      console.error('Failed to update attempts:', attemptError);
-    }
+    console.log('Game saved:', data);
     
     return NextResponse.json({
       success: true,
       score,
-      attempts: currentAttempts + 1,
-      nextCost: currentAttempts + 2,
+      gameId: data?.id,
     });
   } catch (error) {
     console.error('Failed to submit score:', error);

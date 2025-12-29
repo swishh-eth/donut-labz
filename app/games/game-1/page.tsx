@@ -78,8 +78,8 @@ type LeaderboardEntry = {
 // Game constants
 const CANVAS_WIDTH = 360;
 const CANVAS_HEIGHT = 540;
-const GRAVITY = 0.4;
-const FLAP_STRENGTH = -7;
+const GRAVITY = 0.25;
+const FLAP_STRENGTH = -6;
 const PIPE_WIDTH = 60;
 const PIPE_GAP = 160;
 const PIPE_SPEED = 2.5;
@@ -94,11 +94,13 @@ export default function FlappyDonutPage() {
   const [context, setContext] = useState<MiniAppContext | null>(null);
   
   // Game state
-  const [gameState, setGameState] = useState<"menu" | "playing" | "gameover">("menu");
+  const [gameState, setGameState] = useState<"menu" | "countdown" | "playing" | "gameover">("menu");
+  const [countdown, setCountdown] = useState(3);
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [entryCost, setEntryCost] = useState(1);
+  const [paidCost, setPaidCost] = useState(1); // Track what was actually paid for current game
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -201,6 +203,8 @@ export default function FlappyDonutPage() {
   // Handle transaction success
   useEffect(() => {
     if (isTxSuccess && gameState === "menu") {
+      // Store the cost that was paid before starting
+      setPaidCost(entryCost);
       refetchAllowance();
       startGame();
     }
@@ -405,7 +409,7 @@ export default function FlappyDonutPage() {
     }
   }, [gameState]);
   
-  // Start game
+  // Start game with countdown
   const startGame = useCallback(() => {
     // Reset game state
     donutRef.current = { y: CANVAS_HEIGHT / 2, velocity: 0 };
@@ -413,14 +417,27 @@ export default function FlappyDonutPage() {
     scoreRef.current = 0;
     setScore(0);
     setError(null);
-    gameActiveRef.current = true;
-    setGameState("playing");
+    setCountdown(3);
+    setGameState("countdown");
     
-    // Start game loop
-    if (gameLoopRef.current) {
-      cancelAnimationFrame(gameLoopRef.current);
-    }
-    gameLoopRef.current = requestAnimationFrame(gameLoop);
+    // Start countdown
+    let count = 3;
+    const countdownInterval = setInterval(() => {
+      count--;
+      setCountdown(count);
+      
+      if (count <= 0) {
+        clearInterval(countdownInterval);
+        gameActiveRef.current = true;
+        setGameState("playing");
+        
+        // Start game loop
+        if (gameLoopRef.current) {
+          cancelAnimationFrame(gameLoopRef.current);
+        }
+        gameLoopRef.current = requestAnimationFrame(gameLoop);
+      }
+    }, 1000);
   }, [gameLoop]);
   
   // End game
@@ -440,7 +457,7 @@ export default function FlappyDonutPage() {
     // Submit score to backend
     if (address && finalScore > 0) {
       try {
-        await fetch('/api/games/flappy/submit-score', {
+        const res = await fetch('/api/games/flappy/submit-score', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -449,8 +466,14 @@ export default function FlappyDonutPage() {
             pfpUrl: context?.user?.pfpUrl,
             score: finalScore,
             weekNumber: currentWeek ? Number(currentWeek) : 1,
+            costPaid: paidCost,
           }),
         });
+        
+        if (!res.ok) {
+          const err = await res.json();
+          console.error('Submit score error:', err);
+        }
         
         // Refresh leaderboard
         const lbRes = await fetch('/api/games/flappy/leaderboard');
@@ -458,15 +481,19 @@ export default function FlappyDonutPage() {
           const data = await lbRes.json();
           setLeaderboard(data.leaderboard);
         }
+        
+        // Refresh attempts to get updated cost
+        const attemptsRes = await fetch(`/api/games/flappy/attempts?address=${address}`);
+        if (attemptsRes.ok) {
+          const data = await attemptsRes.json();
+          setAttempts(data.attempts);
+          setEntryCost(data.nextCost);
+        }
       } catch (e) {
         console.error("Failed to submit score:", e);
       }
     }
-    
-    // Update attempts
-    setAttempts(prev => prev + 1);
-    setEntryCost(prev => prev + 1);
-  }, [address, context, currentWeek, highScore]);
+  }, [address, context, currentWeek, highScore, paidCost]);
   
   // Handle play button
   const handlePlay = async () => {
@@ -518,7 +545,7 @@ export default function FlappyDonutPage() {
     }
   };
   
-  // Draw menu/gameover screen
+  // Draw menu/countdown/gameover screen
   useEffect(() => {
     if (gameState === "playing") return;
     
@@ -555,6 +582,17 @@ export default function FlappyDonutPage() {
     ctx.textAlign = "center";
     ctx.fillText("FLAPPY DONUT", CANVAS_WIDTH / 2, 80);
     
+    if (gameState === "countdown") {
+      // Big countdown number
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 120px monospace";
+      ctx.fillText(countdown.toString(), CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40);
+      
+      ctx.fillStyle = "#888888";
+      ctx.font = "16px monospace";
+      ctx.fillText("GET READY!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80);
+    }
+    
     if (gameState === "gameover") {
       ctx.fillStyle = "#FF6B6B";
       ctx.font = "bold 24px monospace";
@@ -573,7 +611,7 @@ export default function FlappyDonutPage() {
       ctx.fillText("Share your score to challenge friends!", CANVAS_WIDTH / 2, 250);
     }
     
-  }, [gameState, score, highScore, drawDonut]);
+  }, [gameState, score, highScore, countdown, drawDonut]);
   
   // Keyboard controls
   useEffect(() => {
@@ -656,7 +694,7 @@ export default function FlappyDonutPage() {
             />
             
             {/* Overlay UI */}
-            {gameState !== "playing" && (
+            {(gameState === "menu" || gameState === "gameover") && (
               <div className="absolute inset-0 flex flex-col items-center justify-end pb-8 pointer-events-none">
                 <div className="pointer-events-auto flex flex-col items-center gap-3">
                   {/* Share Button (Game Over only) */}

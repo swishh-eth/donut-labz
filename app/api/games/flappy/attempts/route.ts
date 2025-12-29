@@ -6,14 +6,14 @@ function getPlayDate(): string {
   const now = new Date();
   const utcHour = now.getUTCHours();
   
-  // If after 23:00 UTC (6pm EST), we're in the next "play day"
+  // If before 23:00 UTC (6pm EST), use today
+  // If after 23:00 UTC, use tomorrow as the "play day"
+  let playDate = new Date(now);
   if (utcHour >= 23) {
-    const tomorrow = new Date(now);
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
+    playDate.setUTCDate(playDate.getUTCDate() + 1);
   }
   
-  return now.toISOString().split('T')[0];
+  return playDate.toISOString().split('T')[0];
 }
 
 export async function GET(request: Request) {
@@ -27,18 +27,28 @@ export async function GET(request: Request) {
   try {
     const playDate = getPlayDate();
     
-    const { data, error } = await supabase
-      .from('flappy_daily_attempts')
-      .select('attempts')
-      .eq('player_address', address.toLowerCase())
-      .eq('play_date', playDate)
-      .single();
+    // Get start of play day (11pm UTC previous day) and end (11pm UTC current day)
+    const dayStart = new Date(playDate);
+    dayStart.setUTCHours(23, 0, 0, 0);
+    dayStart.setUTCDate(dayStart.getUTCDate() - 1);
     
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
-      throw error;
+    const dayEnd = new Date(playDate);
+    dayEnd.setUTCHours(23, 0, 0, 0);
+    
+    // Count games played today by this address
+    const { count, error } = await supabase
+      .from('flappy_games')
+      .select('*', { count: 'exact', head: true })
+      .eq('player_address', address.toLowerCase())
+      .gte('created_at', dayStart.toISOString())
+      .lt('created_at', dayEnd.toISOString());
+    
+    if (error) {
+      console.error('Failed to fetch attempts:', error);
+      return NextResponse.json({ attempts: 0, nextCost: 1, playDate });
     }
     
-    const attempts = data?.attempts || 0;
+    const attempts = count || 0;
     
     return NextResponse.json({
       attempts,

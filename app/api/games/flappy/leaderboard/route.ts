@@ -1,13 +1,21 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase-leaderboard';
 
+// Calculate current week number (starting from a fixed date)
+function getCurrentWeekNumber(): number {
+  // Start from Jan 1, 2025
+  const startDate = new Date('2025-01-01T00:00:00Z');
+  const now = new Date();
+  const diffMs = now.getTime() - startDate.getTime();
+  const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+  return diffWeeks + 1;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const playerAddress = searchParams.get('address')?.toLowerCase();
   
   try {
-    // Get current week number from contract or use a calculated one
-    // For now, calculate based on a fixed start date
     const weekNumber = getCurrentWeekNumber();
     
     // Get all scores for current week
@@ -17,7 +25,24 @@ export async function GET(request: Request) {
       .eq('week_number', weekNumber)
       .order('score', { ascending: false });
     
-    if (scoresError) throw scoresError;
+    if (scoresError) {
+      console.error('Leaderboard query error:', scoresError);
+      return NextResponse.json({ 
+        leaderboard: [], 
+        playerRank: null, 
+        weekNumber,
+        error: scoresError.message 
+      });
+    }
+    
+    if (!allScores || allScores.length === 0) {
+      return NextResponse.json({
+        leaderboard: [],
+        playerRank: null,
+        weekNumber,
+        totalPlayers: 0,
+      });
+    }
     
     // Get best score per player (dedup)
     const playerBestScores = new Map<string, {
@@ -27,7 +52,7 @@ export async function GET(request: Request) {
       score: number;
     }>();
     
-    for (const row of allScores || []) {
+    for (const row of allScores) {
       const addr = row.player_address.toLowerCase();
       if (!playerBestScores.has(addr) || row.score > playerBestScores.get(addr)!.score) {
         playerBestScores.set(addr, {
@@ -67,16 +92,6 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('Failed to fetch leaderboard:', error);
-    return NextResponse.json({ leaderboard: [], playerRank: null }, { status: 500 });
+    return NextResponse.json({ leaderboard: [], playerRank: null, error: String(error) }, { status: 500 });
   }
-}
-
-// Calculate current week number (starting from a fixed date)
-function getCurrentWeekNumber(): number {
-  // Start from Jan 1, 2025 or whenever you deployed
-  const startDate = new Date('2025-01-01T00:00:00Z');
-  const now = new Date();
-  const diffMs = now.getTime() - startDate.getTime();
-  const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
-  return diffWeeks + 1;
 }
