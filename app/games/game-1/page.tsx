@@ -521,7 +521,7 @@ export default function FlappyDonutPage() {
           {/* Skins button - always visible below canvas */}
           {(gameState === "menu" || gameState === "gameover") && (
             <button onClick={() => setShowSkins(true)} className="mt-3 flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
-              <Palette className="w-3 h-3 text-pink-400" /><span className="text-xs">Skins</span>
+              <Palette className="w-3 h-3 text-zinc-400" /><span className="text-xs">Skins</span>
             </button>
           )}
         </div>
@@ -553,7 +553,7 @@ export default function FlappyDonutPage() {
           <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
             <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
               <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-                <div className="flex items-center gap-2"><Palette className="w-5 h-5 text-pink-400" /><span className="font-bold">My Skins</span></div>
+                <div className="flex items-center gap-2"><Palette className="w-5 h-5 text-zinc-400" /><span className="font-bold">My Skins</span></div>
                 <button onClick={() => { setShowSkins(false); setPreviewSkin(null); }} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
               </div>
               
@@ -564,11 +564,10 @@ export default function FlappyDonutPage() {
                     onClick={() => handleSelectSkin(skin)}
                     onMouseEnter={() => setPreviewSkin(skin)}
                     onMouseLeave={() => setPreviewSkin(null)}
-                    className={`relative p-3 rounded-xl border-2 transition-all ${selectedSkin.id === skin.id ? "border-pink-500 bg-pink-500/10" : "border-zinc-700 hover:border-zinc-500"}`}
+                    className={`relative p-3 rounded-xl border-2 transition-all ${selectedSkin.id === skin.id ? "border-white bg-zinc-800" : "border-zinc-700 hover:border-zinc-500"}`}
                   >
-                    <div className="w-12 h-12 mx-auto mb-2 rounded-full relative" style={{ backgroundColor: "#D4A574" }}>
-                      <div className="absolute inset-1 rounded-full" style={{ background: `linear-gradient(180deg, ${skin.frostingColor} 0%, ${skin.frostingColor} 50%, transparent 50%)` }} />
-                      <div className="absolute inset-0 flex items-center justify-center"><div className="w-3 h-3 rounded-full bg-zinc-900" /></div>
+                    <div className="w-12 h-12 mx-auto mb-2 rounded-full relative" style={{ backgroundColor: skin.frostingColor }}>
+                      <div className="absolute inset-0 flex items-center justify-center"><div className="w-3 h-3 rounded-full bg-zinc-900 border border-zinc-700" /></div>
                     </div>
                     <p className="text-[10px] font-bold truncate text-center">{skin.name}</p>
                     {selectedSkin.id === skin.id && <div className="flex items-center justify-center gap-1 mt-1"><Check className="w-3 h-3 text-green-400" /></div>}
@@ -577,7 +576,7 @@ export default function FlappyDonutPage() {
               </div>
               
               <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
-                <button onClick={() => { setShowSkins(false); window.location.href = "/games"; }} className="w-full flex items-center justify-center gap-2 py-2 text-purple-400 hover:text-purple-300">
+                <button onClick={() => { setShowSkins(false); window.location.href = "/games"; }} className="w-full flex items-center justify-center gap-2 py-2 text-zinc-400 hover:text-white">
                   <ExternalLink className="w-4 h-4" /><span className="text-sm">Get More Skins</span>
                 </button>
               </div>

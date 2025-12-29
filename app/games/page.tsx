@@ -68,20 +68,19 @@ function SkinsTile({ ownedSkins, onOpenShop }: { ownedSkins: string[]; onOpenSho
   return (
     <button
       onClick={onOpenShop}
-      className="relative w-full rounded-2xl border-2 border-purple-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-purple-500/80"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(168,85,247,0.15) 0%, rgba(236,72,153,0.1) 100%)' }}
+      className="relative w-full rounded-2xl border-2 border-zinc-700 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-zinc-500"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(63,63,70,0.3) 0%, rgba(39,39,42,0.3) 100%)' }}
     >
       <div className="absolute inset-0 overflow-hidden">
         <div className="skins-scroll flex items-center gap-3 py-4 px-2">
           {[...GAME_SKINS, ...GAME_SKINS].map((skin: GameSkin, i: number) => (
             <div 
               key={`${skin.id}-${i}`}
-              className="flex-shrink-0 w-12 h-12 rounded-full relative opacity-30"
-              style={{ backgroundColor: "#D4A574" }}
+              className="flex-shrink-0 w-12 h-12 rounded-full relative opacity-40"
+              style={{ backgroundColor: skin.frostingColor }}
             >
-              <div className="absolute inset-1 rounded-full" style={{ background: `linear-gradient(180deg, ${skin.frostingColor} 0%, ${skin.frostingColor} 50%, transparent 50%)` }} />
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-3 h-3 rounded-full bg-zinc-900" />
+                <div className="w-3 h-3 rounded-full bg-zinc-900 border border-zinc-700" />
               </div>
             </div>
           ))}
@@ -91,11 +90,11 @@ function SkinsTile({ ownedSkins, onOpenShop }: { ownedSkins: string[]; onOpenSho
       <div className="relative z-10 p-4">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Palette className="w-5 h-5 text-purple-400" />
-            <span className="font-bold text-base text-purple-400">Skin Shop</span>
-            <span className="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full">{ownedSkins.length}/{GAME_SKINS.length}</span>
+            <Palette className="w-5 h-5 text-zinc-400" />
+            <span className="font-bold text-base text-white">Skin Shop</span>
+            <span className="text-[9px] bg-zinc-700 text-zinc-300 px-1.5 py-0.5 rounded-full">{ownedSkins.length}/{GAME_SKINS.length}</span>
           </div>
-          <div className="text-[10px] text-purple-200/60">Customize your donut for all games!</div>
+          <div className="text-[10px] text-zinc-500">Customize your donut for all games!</div>
         </div>
       </div>
     </button>
@@ -379,7 +378,7 @@ export default function GamesPage() {
           <div className="w-full max-w-md bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-zinc-800">
               <div className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-purple-400" />
+                <Palette className="w-5 h-5 text-zinc-400" />
                 <span className="font-bold">Skin Shop</span>
                 <span className="text-xs text-zinc-500">{ownedSkins.length}/{GAME_SKINS.length}</span>
               </div>
@@ -388,15 +387,15 @@ export default function GamesPage() {
             
             {/* Purchase Progress */}
             {buyingSkin && purchaseStep !== "idle" && (
-              <div className="px-4 py-3 bg-purple-500/10 border-b border-zinc-800">
+              <div className="px-4 py-3 bg-zinc-800 border-b border-zinc-700">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-sm text-purple-300">Purchasing {buyingSkin.name}...</span>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm text-white">Purchasing {buyingSkin.name}...</span>
                 </div>
                 <div className="flex gap-1">
-                  <div className={`h-1 flex-1 rounded-full ${purchaseStep === "burn" || purchaseStep === "lp" || purchaseStep === "treasury" ? "bg-purple-500" : "bg-zinc-700"}`} />
-                  <div className={`h-1 flex-1 rounded-full ${purchaseStep === "lp" || purchaseStep === "treasury" ? "bg-purple-500" : "bg-zinc-700"}`} />
-                  <div className={`h-1 flex-1 rounded-full ${purchaseStep === "treasury" ? "bg-purple-500" : "bg-zinc-700"}`} />
+                  <div className={`h-1 flex-1 rounded-full ${purchaseStep === "burn" || purchaseStep === "lp" || purchaseStep === "treasury" ? "bg-white" : "bg-zinc-700"}`} />
+                  <div className={`h-1 flex-1 rounded-full ${purchaseStep === "lp" || purchaseStep === "treasury" ? "bg-white" : "bg-zinc-700"}`} />
+                  <div className={`h-1 flex-1 rounded-full ${purchaseStep === "treasury" ? "bg-white" : "bg-zinc-700"}`} />
                 </div>
                 <p className="text-[10px] text-zinc-500 mt-1">
                   {purchaseStep === "burn" && "Step 1/3: Burning 25%..."}
@@ -422,14 +421,10 @@ export default function GamesPage() {
                     key={skin.id}
                     onClick={() => !isOwned && skin.cost > 0 && !buyingSkin && handleBuySkin(skin)}
                     disabled={isOwned || !!buyingSkin || isPaying}
-                    className={`relative p-4 rounded-xl border-2 transition-all ${isOwned ? "border-green-500/50 bg-green-500/10" : "border-zinc-700 hover:border-purple-500/50"} ${isBuying ? "border-purple-500 bg-purple-500/10" : ""} ${buyingSkin && !isBuying ? "opacity-50" : ""}`}
+                    className={`relative p-4 rounded-xl border-2 transition-all ${isOwned ? "border-green-500/50 bg-green-500/10" : "border-zinc-700 hover:border-zinc-500"} ${isBuying ? "border-white bg-zinc-800" : ""} ${buyingSkin && !isBuying ? "opacity-50" : ""}`}
                   >
-                    <div className="w-16 h-16 mx-auto mb-3 rounded-full relative" style={{ backgroundColor: "#D4A574" }}>
-                      <div className="absolute inset-1 rounded-full" style={{ background: `linear-gradient(180deg, ${skin.frostingColor} 0%, ${skin.frostingColor} 50%, transparent 50%)` }} />
-                      <div className="absolute inset-0 flex items-center justify-center"><div className="w-4 h-4 rounded-full bg-zinc-900" /></div>
-                      <div className="absolute top-2 left-3 w-1.5 h-0.5 rounded-full" style={{ backgroundColor: skin.sprinkleColors[0] }} />
-                      <div className="absolute top-3 right-3 w-1.5 h-0.5 rounded-full rotate-45" style={{ backgroundColor: skin.sprinkleColors[1] }} />
-                      <div className="absolute top-4 left-5 w-1.5 h-0.5 rounded-full -rotate-45" style={{ backgroundColor: skin.sprinkleColors[2] }} />
+                    <div className="w-16 h-16 mx-auto mb-3 rounded-full relative" style={{ backgroundColor: skin.frostingColor }}>
+                      <div className="absolute inset-0 flex items-center justify-center"><div className="w-4 h-4 rounded-full bg-zinc-900 border border-zinc-700" /></div>
                     </div>
                     
                     <p className="text-sm font-bold truncate">{skin.name}</p>
@@ -440,7 +435,7 @@ export default function GamesPage() {
                       <span className="text-xs text-zinc-500 mt-2 block">Free</span>
                     ) : (
                       <div className="flex items-center justify-center gap-1 mt-2">
-                        {isBuying ? <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" /> : <><Lock className="w-3 h-3 text-amber-400" /><span className="text-xs text-amber-400">{skin.cost} 🍩</span></>}
+                        {isBuying ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Lock className="w-3 h-3 text-amber-400" /><span className="text-xs text-amber-400">{skin.cost} 🍩</span></>}
                       </div>
                     )}
                   </button>
