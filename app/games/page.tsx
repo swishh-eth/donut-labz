@@ -37,7 +37,6 @@ const AD_FILES: string[] = [
   "adspot1.mp4",
   "adspot2.png",
   "adspot3.mp4",
-  "adspot4.png",
 ];
 
 function AdCarouselTile() {
@@ -88,16 +87,6 @@ function AdCarouselTile() {
           />
         )}
       </div>
-      {ads.length > 1 && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-          {ads.map((_, i) => (
-            <div
-              key={i}
-              className={`w-1.5 h-1.5 rounded-full transition-colors ${i === currentIndex ? 'bg-white' : 'bg-white/30'}`}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
