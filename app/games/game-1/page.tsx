@@ -37,7 +37,6 @@ const PIPE_SPEED_MAX = 4.0;
 const PIPE_SPAWN_DISTANCE = 240;
 const DONUT_SIZE = 36;
 const DONUT_X = 80;
-const EDGE_FADE = 40; // Pixels for edge fade
 
 type MiniAppContext = { user?: { fid: number; username?: string; displayName?: string; pfpUrl?: string } };
 type LeaderboardEntry = { rank: number; username: string; pfpUrl?: string; score: number };
@@ -137,36 +136,7 @@ export default function FlappyDonutPage() {
     }
   }, [isTxSuccess, gameState]);
   
-  // Draw edge fade overlay
-  const drawEdgeFade = useCallback((ctx: CanvasRenderingContext2D) => {
-    // Top fade
-    const topGrad = ctx.createLinearGradient(0, 0, 0, EDGE_FADE);
-    topGrad.addColorStop(0, "rgba(0, 0, 0, 1)");
-    topGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = topGrad;
-    ctx.fillRect(0, 0, CANVAS_WIDTH, EDGE_FADE);
-    
-    // Bottom fade
-    const botGrad = ctx.createLinearGradient(0, CANVAS_HEIGHT - EDGE_FADE, 0, CANVAS_HEIGHT);
-    botGrad.addColorStop(0, "rgba(0, 0, 0, 0)");
-    botGrad.addColorStop(1, "rgba(0, 0, 0, 1)");
-    ctx.fillStyle = botGrad;
-    ctx.fillRect(0, CANVAS_HEIGHT - EDGE_FADE, CANVAS_WIDTH, EDGE_FADE);
-    
-    // Left fade
-    const leftGrad = ctx.createLinearGradient(0, 0, EDGE_FADE, 0);
-    leftGrad.addColorStop(0, "rgba(0, 0, 0, 0.8)");
-    leftGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = leftGrad;
-    ctx.fillRect(0, 0, EDGE_FADE, CANVAS_HEIGHT);
-    
-    // Right fade
-    const rightGrad = ctx.createLinearGradient(CANVAS_WIDTH - EDGE_FADE, 0, CANVAS_WIDTH, 0);
-    rightGrad.addColorStop(0, "rgba(0, 0, 0, 0)");
-    rightGrad.addColorStop(1, "rgba(0, 0, 0, 0.8)");
-    ctx.fillStyle = rightGrad;
-    ctx.fillRect(CANVAS_WIDTH - EDGE_FADE, 0, EDGE_FADE, CANVAS_HEIGHT);
-  }, []);
+
   
   const drawDonut = useCallback((ctx: CanvasRenderingContext2D, y: number, velocity: number, skin: GameSkin = selectedSkin) => {
     const x = DONUT_X;
@@ -319,9 +289,6 @@ export default function FlappyDonutPage() {
     pipesRef.current.forEach(pipe => drawPipe(ctx, pipe.x, pipe.topHeight, pipe.gap));
     drawDonut(ctx, donutRef.current.y, donutRef.current.velocity);
     
-    // Draw edge fades
-    drawEdgeFade(ctx);
-    
     ctx.shadowColor = "#FFD700";
     ctx.shadowBlur = 20;
     ctx.fillStyle = "#FFFFFF";
@@ -359,7 +326,7 @@ export default function FlappyDonutPage() {
     }
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawDonut, drawPipe, drawEdgeFade, address, context, paidCost]);
+  }, [drawDonut, drawPipe, address, context, paidCost]);
   
   const handleFlap = useCallback(() => {
     if (gameState === "playing" && gameActiveRef.current) donutRef.current.velocity = FLAP_STRENGTH;
@@ -437,9 +404,6 @@ export default function FlappyDonutPage() {
       const floatOffset = Math.sin(Date.now() / 500) * 6;
       drawDonut(ctx, menuDonutY + floatOffset, 0, previewSkin || selectedSkin);
       
-      // Draw edge fades
-      drawEdgeFade(ctx);
-      
       // Title
       ctx.shadowColor = "#FF69B4";
       ctx.shadowBlur = 30;
@@ -489,7 +453,7 @@ export default function FlappyDonutPage() {
       const interval = setInterval(draw, 50);
       return () => clearInterval(interval);
     }
-  }, [gameState, score, highScore, drawDonut, drawEdgeFade, previewSkin, selectedSkin]);
+  }, [gameState, score, highScore, drawDonut, previewSkin, selectedSkin]);
   
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => { if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); handleFlap(); } };
@@ -530,7 +494,7 @@ export default function FlappyDonutPage() {
         {/* Game Area */}
         <div className="flex-1 flex flex-col items-center justify-center min-h-0">
           <div className="relative">
-            <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} onClick={handleFlap} onTouchStart={(e) => { e.preventDefault(); handleFlap(); }} className="rounded-2xl cursor-pointer" style={{ touchAction: "none", maxHeight: "calc(100vh - 280px)" }} />
+            <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} onClick={handleFlap} onTouchStart={(e) => { e.preventDefault(); handleFlap(); }} className="rounded-2xl cursor-pointer border border-zinc-800" style={{ touchAction: "none", maxHeight: "calc(100vh - 280px)" }} />
             
             {/* Menu/Gameover overlay buttons */}
             {(gameState === "menu" || gameState === "gameover") && (

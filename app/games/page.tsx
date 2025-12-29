@@ -68,7 +68,7 @@ function SkinsTile({ ownedSkins, onOpenShop }: { ownedSkins: string[]; onOpenSho
   return (
     <button
       onClick={onOpenShop}
-      className="relative w-full rounded-2xl overflow-hidden transition-all duration-300 active:scale-[0.98]"
+      className="relative w-full rounded-2xl border-2 border-purple-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-purple-500/80"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(168,85,247,0.15) 0%, rgba(236,72,153,0.1) 100%)' }}
     >
       <div className="absolute inset-0 overflow-hidden">
@@ -76,7 +76,7 @@ function SkinsTile({ ownedSkins, onOpenShop }: { ownedSkins: string[]; onOpenSho
           {[...GAME_SKINS, ...GAME_SKINS].map((skin: GameSkin, i: number) => (
             <div 
               key={`${skin.id}-${i}`}
-              className="flex-shrink-0 w-12 h-12 rounded-full relative opacity-40"
+              className="flex-shrink-0 w-12 h-12 rounded-full relative opacity-30"
               style={{ backgroundColor: "#D4A574" }}
             >
               <div className="absolute inset-1 rounded-full" style={{ background: `linear-gradient(180deg, ${skin.frostingColor} 0%, ${skin.frostingColor} 50%, transparent 50%)` }} />
@@ -87,8 +87,6 @@ function SkinsTile({ ownedSkins, onOpenShop }: { ownedSkins: string[]; onOpenSho
           ))}
         </div>
       </div>
-      
-      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-black/80 pointer-events-none" />
       
       <div className="relative z-10 p-4">
         <div className="text-left">
@@ -109,17 +107,15 @@ function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlay
   return (
     <button
       onClick={() => window.location.href = "/games/game-1"}
-      className="relative w-full rounded-2xl overflow-hidden transition-all duration-300 active:scale-[0.98]"
-      style={{ minHeight: '120px', background: 'radial-gradient(ellipse at center, rgba(236,72,153,0.2) 0%, rgba(236,72,153,0.05) 50%, transparent 70%)' }}
+      className="relative w-full rounded-2xl border-2 border-pink-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-500/80"
+      style={{ minHeight: '120px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(251,146,60,0.1) 100%)' }}
     >
-      <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 30% 50%, rgba(251,146,60,0.1) 0%, transparent 50%)' }} />
-      
-      <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+      <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
         <div className="donut-float">
           <svg width="100" height="100" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="40" fill="rgba(236,72,153,0.3)" />
+            <circle cx="50" cy="50" r="40" fill="rgba(236,72,153,0.5)" />
             <circle cx="50" cy="50" r="16" fill="#1a1a1a" />
-            <path d="M 20 50 A 30 30 0 0 1 80 50" fill="rgba(236,72,153,0.4)" />
+            <path d="M 20 50 A 30 30 0 0 1 80 50" fill="rgba(236,72,153,0.6)" />
           </svg>
         </div>
       </div>
@@ -131,29 +127,29 @@ function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlay
             <span className="font-bold text-base text-pink-400">Flappy Donut</span>
             <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
-          <div className="text-[10px] text-pink-200/40 mb-2">Tap to fly, dodge the rolling pins!</div>
+          <div className="text-[10px] text-pink-200/60 mb-2">Tap to fly, dodge the rolling pins!</div>
           
           <div className="flex items-center gap-3 mb-2">
             <div className="flex items-center gap-1">
               <Coins className="w-3 h-3 text-amber-400" />
-              <span className="text-[10px] text-amber-400/80">Pool: {prizePool} 🍩</span>
+              <span className="text-[10px] text-amber-400">Pool: {prizePool} 🍩</span>
             </div>
             <div className="flex items-center gap-1">
               <Trophy className="w-3 h-3 text-amber-400" />
-              <span className="text-[10px] text-amber-400/80">Weekly prizes</span>
+              <span className="text-[10px] text-amber-400">Weekly prizes</span>
             </div>
           </div>
           
           {recentPlayer ? (
             <div className="flex items-center gap-2">
-              <span className="text-[9px] text-zinc-500">Last play:</span>
-              <span className="text-[9px] text-white/70 bg-zinc-800/50 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span className="text-[9px] text-zinc-400">Last play:</span>
+              <span className="text-[9px] text-white bg-zinc-800/80 px-2 py-0.5 rounded-full flex items-center gap-1">
                 {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />}
                 @{recentPlayer.username} scored {recentPlayer.score}
               </span>
             </div>
           ) : (
-            <span className="text-[9px] text-zinc-600">Be the first to play today!</span>
+            <span className="text-[9px] text-zinc-500">Be the first to play today!</span>
           )}
         </div>
       </div>
@@ -164,7 +160,7 @@ function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlay
 // Coming Soon Tile
 function ComingSoonTile() {
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden opacity-60" style={{ minHeight: '90px', background: 'rgba(39,39,42,0.2)' }}>
+    <div className="relative w-full rounded-2xl border border-zinc-800 overflow-hidden opacity-60" style={{ minHeight: '90px', background: 'rgba(39,39,42,0.3)' }}>
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <Settings className="w-20 h-20 text-zinc-800 gear-spin" />
       </div>
