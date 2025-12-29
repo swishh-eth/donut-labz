@@ -170,9 +170,9 @@ function GamesLeaderboardTile({ onClick }: { onClick: () => void }) {
       className="relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
     >
-      {/* Large background trophy symbol */}
+      {/* Large background trophy symbol - solid color */}
       <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Trophy className="w-28 h-28 text-amber-950/50" />
+        <Trophy className="w-28 h-28" style={{ color: 'rgb(69, 26, 3)' }} />
       </div>
       
       <div className="relative z-10 p-4 pr-20">
@@ -204,7 +204,6 @@ function GameTile({
   comingSoon = true,
   isNew = false,
   isHot = false,
-  flowItems,
   lastWinner,
   animationType,
   onClick 
@@ -215,7 +214,6 @@ function GameTile({
   comingSoon?: boolean;
   isNew?: boolean;
   isHot?: boolean;
-  flowItems?: string[];
   lastWinner?: LastWinner;
   animationType?: 'wheel' | 'tower' | 'dice' | 'bomb';
   onClick?: () => void;
@@ -288,29 +286,25 @@ function GameTile({
           </div>
           <div className={`text-[10px] mb-2 ${comingSoon ? "text-gray-600" : "text-white/60"}`}>{description}</div>
           
-          {flowItems && flowItems.length > 0 && (
-            <div className="flex items-center gap-2 text-[9px]">
-              {flowItems.map((item, index) => (
-                <span key={index} className="flex items-center gap-2">
-                  <span className={comingSoon ? "text-gray-600" : "text-white/80"}>{item}</span>
-                  {index < flowItems.length - 1 && (
-                    <ArrowRight className={`w-3 h-3 ${comingSoon ? "text-gray-700" : "text-white/30"}`} />
-                  )}
-                </span>
-              ))}
-            </div>
-          )}
-          
-          {!comingSoon && lastWinner && (
-            <div className="mt-2 flex items-center gap-2">
+          {/* Last Winner or Placeholder - always show to prevent layout jump */}
+          <div className="flex items-center gap-2">
+            {!comingSoon && lastWinner ? (
               <span className="text-[9px] text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
                 {lastWinner.pfpUrl && (
                   <img src={lastWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
                 )}
                 @{lastWinner.username} +{lastWinner.amount}
               </span>
-            </div>
-          )}
+            ) : !comingSoon ? (
+              <span className="text-[9px] text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">
+                No Recent Wins
+              </span>
+            ) : (
+              <span className="text-[9px] text-zinc-600 bg-zinc-800/50 px-2 py-0.5 rounded-full">
+                Coming Soon
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </button>
@@ -412,7 +406,6 @@ export default function GamesPage() {
       icon: Layers,
       comingSoon: false,
       isHot: true,
-      flowItems: ["Bet DONUT", "Climb Tower", "Cash Out"],
       lastWinner: lastWinners.tower,
       animationType: "tower" as const,
       onClick: () => window.location.href = "/games/tower",
@@ -423,7 +416,6 @@ export default function GamesPage() {
       description: "Spin to win some real glaze!",
       icon: WheelIcon,
       comingSoon: false,
-      flowItems: ["Place Bet", "Spin Wheel", "Win Big"],
       lastWinner: lastWinners.wheel,
       animationType: "wheel" as const,
       onClick: () => window.location.href = "/games/glaze-wheel",
@@ -434,7 +426,6 @@ export default function GamesPage() {
       description: "Roll over/under, set your multiplier!",
       icon: Dices,
       comingSoon: false,
-      flowItems: ["Set Target", "Roll Dice", "Win"],
       lastWinner: lastWinners.dice,
       animationType: "dice" as const,
       onClick: () => window.location.href = "/games/dice",
@@ -445,7 +436,6 @@ export default function GamesPage() {
       description: "Avoid the bombs, cash out anytime",
       icon: Bomb,
       comingSoon: false,
-      flowItems: ["Set Mines", "Reveal Tiles", "Cash Out"],
       lastWinner: lastWinners.mines,
       animationType: "bomb" as const,
       onClick: () => window.location.href = "/games/mines",
@@ -456,7 +446,6 @@ export default function GamesPage() {
       description: "Pick numbers, win multipliers",
       icon: Grid3X3,
       comingSoon: true,
-      flowItems: ["Pick Numbers", "Draw", "Match & Win"],
       lastWinner: null,
     },
     {
@@ -465,7 +454,6 @@ export default function GamesPage() {
       description: "Match symbols to win big",
       icon: Sparkles,
       comingSoon: true,
-      flowItems: ["Spin Reels", "Match Symbols", "Jackpot"],
       lastWinner: null,
     },
   ];
@@ -498,33 +486,33 @@ export default function GamesPage() {
         }
         .tower-stack { animation: tower-stack 2s ease-in-out infinite; }
         
-        /* Dice shake animation */
+        /* Dice shake animation - slowed down */
         @keyframes dice-shake {
           0%, 100% { transform: rotate(0deg); }
-          10% { transform: rotate(-8deg); }
-          20% { transform: rotate(8deg); }
-          30% { transform: rotate(-6deg); }
-          40% { transform: rotate(6deg); }
-          50% { transform: rotate(-4deg); }
-          60% { transform: rotate(4deg); }
+          10% { transform: rotate(-5deg); }
+          20% { transform: rotate(5deg); }
+          30% { transform: rotate(-4deg); }
+          40% { transform: rotate(4deg); }
+          50% { transform: rotate(-3deg); }
+          60% { transform: rotate(3deg); }
           70% { transform: rotate(-2deg); }
           80% { transform: rotate(2deg); }
           90% { transform: rotate(0deg); }
         }
-        .dice-shake { animation: dice-shake 1.5s ease-in-out infinite; }
+        .dice-shake { animation: dice-shake 3s ease-in-out infinite; }
         
-        /* Bomb pulse animation with fuse */
+        /* Bomb pulse animation - slowed down */
         @keyframes bomb-pulse {
           0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.05); }
+          50% { transform: scale(1.03); }
         }
-        .bomb-pulse { animation: bomb-pulse 1s ease-in-out infinite; }
+        .bomb-pulse { animation: bomb-pulse 2.5s ease-in-out infinite; }
         
         @keyframes fuse-glow {
           0%, 100% { opacity: 1; box-shadow: 0 0 4px 2px rgba(251, 146, 60, 0.8); }
           50% { opacity: 0.5; box-shadow: 0 0 8px 4px rgba(239, 68, 68, 1); }
         }
-        .bomb-fuse { animation: fuse-glow 0.3s ease-in-out infinite; }
+        .bomb-fuse { animation: fuse-glow 0.5s ease-in-out infinite; }
       `}</style>
 
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4 shadow-inner" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
@@ -566,7 +554,6 @@ export default function GamesPage() {
                   comingSoon={game.comingSoon}
                   isNew={(game as any).isNew}
                   isHot={(game as any).isHot}
-                  flowItems={game.flowItems}
                   lastWinner={game.lastWinner}
                   animationType={(game as any).animationType}
                   onClick={game.onClick}

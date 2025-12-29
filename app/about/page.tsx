@@ -22,12 +22,11 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
-// Donut Circle Icon Component
-function DonutIcon({ className }: { className?: string }) {
+// Donut Circle Icon Component - uses clipPath for true transparency
+function DonutIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-      <circle cx="12" cy="12" r="10" />
-      <circle cx="12" cy="12" r="4" fill="black" />
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} style={style}>
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" fillRule="evenodd" />
     </svg>
   );
 }
@@ -40,9 +39,9 @@ function DonutInfoTile({ onClick }: { onClick: () => void }) {
       className="donut-tile relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
     >
-      {/* Large background donut symbol */}
+      {/* Large background donut symbol - solid color */}
       <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-        <DonutIcon className="w-28 h-28 text-amber-950/50" />
+        <DonutIcon className="w-28 h-28 text-amber-900/80" />
       </div>
       
       <div className="relative z-10 p-4 pr-20">
