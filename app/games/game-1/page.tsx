@@ -82,6 +82,7 @@ export default function FlappyDonutPage() {
   const gameActiveRef = useRef(false);
   const frameCountRef = useRef(0);
   const countdownRef = useRef(3);
+  const paidCostRef = useRef(1);
   
   const { writeContract, data: txHash, isPending: isWritePending, reset: resetWrite } = useWriteContract();
   const { isLoading: isTxLoading, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({ hash: txHash });
@@ -129,6 +130,7 @@ export default function FlappyDonutPage() {
   useEffect(() => {
     if (isTxSuccess && gameState === "menu") {
       setPaidCost(entryCost);
+      paidCostRef.current = entryCost;
       refetchAllowance();
       refetchBalance();
       startGame();
@@ -310,7 +312,7 @@ export default function FlappyDonutPage() {
         fetch('/api/games/flappy/submit-score', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ playerAddress: address, username: context?.user?.username || `${address.slice(0, 6)}...${address.slice(-4)}`, pfpUrl: context?.user?.pfpUrl, score: scoreRef.current, costPaid: paidCost }),
+          body: JSON.stringify({ playerAddress: address, username: context?.user?.username || `${address.slice(0, 6)}...${address.slice(-4)}`, pfpUrl: context?.user?.pfpUrl, score: scoreRef.current, costPaid: paidCostRef.current }),
         }).then(() => {
           fetch(`/api/games/flappy/attempts?address=${address}`).then(r => r.json()).then(data => { setAttempts(data.attempts); setEntryCost(data.nextCost); });
           fetch('/api/games/flappy/leaderboard').then(r => r.json()).then(data => setLeaderboard(data.leaderboard || []));
@@ -326,7 +328,7 @@ export default function FlappyDonutPage() {
     }
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawDonut, drawPipe, address, context, paidCost]);
+  }, [drawDonut, drawPipe, address, context]);
   
   const handleFlap = useCallback(() => {
     if (gameState === "playing" && gameActiveRef.current) donutRef.current.velocity = FLAP_STRENGTH;
