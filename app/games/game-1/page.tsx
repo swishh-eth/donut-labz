@@ -6,14 +6,27 @@ import { ArrowLeft, Trophy, Play, Coins, Zap, Share2, RotateCcw } from "lucide-r
 // Game constants - TWEAK THESE FOR FEEL
 const CANVAS_WIDTH = 360;
 const CANVAS_HEIGHT = 540;
-const GRAVITY = 0.35;           // How fast donut falls (lower = floatier)
-const FLAP_STRENGTH = -7;       // How strong each flap is (more negative = stronger)
+const GRAVITY = 0.32;           // How fast donut falls (lower = floatier)
+const FLAP_STRENGTH = -5.5;     // How strong each flap is (more negative = stronger)
 const PIPE_WIDTH = 60;          // Width of rolling pins
-const PIPE_GAP = 180;           // Gap between top and bottom pipes (bigger = easier)
-const PIPE_SPEED = 2.2;         // How fast pipes move (lower = easier)
-const PIPE_SPAWN_DISTANCE = 220; // Distance between pipes (bigger = easier)
+const PIPE_GAP_START = 190;     // Starting gap between pipes (bigger = easier)
+const PIPE_GAP_MIN = 130;       // Minimum gap at high scores
+const PIPE_SPEED_START = 2.0;   // Starting pipe speed (lower = easier)
+const PIPE_SPEED_MAX = 4.0;     // Maximum pipe speed at high scores
+const PIPE_SPAWN_DISTANCE = 240; // Distance between pipes (bigger = easier)
 const DONUT_SIZE = 36;          // Size of the donut
 const DONUT_X = 80;             // Donut's X position
+
+// Difficulty scaling - returns values based on current score
+const getDifficulty = (score: number) => {
+  // Gradually increase difficulty every 5 points
+  const progress = Math.min(score / 50, 1); // Max difficulty at score 50
+  
+  return {
+    pipeGap: PIPE_GAP_START - (PIPE_GAP_START - PIPE_GAP_MIN) * progress,
+    pipeSpeed: PIPE_SPEED_START + (PIPE_SPEED_MAX - PIPE_SPEED_START) * progress,
+  };
+};
 
 // Mock leaderboard data for testing
 const MOCK_LEADERBOARD = [
@@ -44,7 +57,7 @@ export default function FlappyDonutTestPage() {
   
   // Game objects refs
   const donutRef = useRef({ y: CANVAS_HEIGHT / 2, velocity: 0 });
-  const pipesRef = useRef<{ x: number; topHeight: number; passed: boolean }[]>([]);
+  const pipesRef = useRef<{ x: number; topHeight: number; gap: number; passed: boolean }[]>([]);
   const scoreRef = useRef(0);
   const gameActiveRef = useRef(false);
   const frameCountRef = useRef(0);
@@ -158,7 +171,7 @@ export default function FlappyDonutTestPage() {
   }, []);
   
   // Draw rolling pin pipe
-  const drawPipe = useCallback((ctx: CanvasRenderingContext2D, x: number, topHeight: number) => {
+  const drawPipe = useCallback((ctx: CanvasRenderingContext2D, x: number, topHeight: number, gap: number) => {
     // Top pipe (rolling pin)
     const gradient = ctx.createLinearGradient(x, 0, x + PIPE_WIDTH, 0);
     gradient.addColorStop(0, "#C4A77D");
@@ -190,7 +203,7 @@ export default function FlappyDonutTestPage() {
     ctx.fill();
     
     // Bottom pipe
-    const bottomY = topHeight + PIPE_GAP;
+    const bottomY = topHeight + gap;
     const bottomHeight = CANVAS_HEIGHT - bottomY + 10;
     
     // Bottom rolling pin body
@@ -222,6 +235,9 @@ export default function FlappyDonutTestPage() {
     
     frameCountRef.current++;
     
+    // Get current difficulty based on score
+    const difficulty = getDifficulty(scoreRef.current);
+    
     // Clear canvas with gradient background
     const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
     bgGradient.addColorStop(0, "#1a1a1a");
@@ -247,12 +263,12 @@ export default function FlappyDonutTestPage() {
     
     // Update donut physics
     donutRef.current.velocity += GRAVITY;
-    donutRef.current.velocity = Math.min(donutRef.current.velocity, 12); // Terminal velocity
+    donutRef.current.velocity = Math.min(donutRef.current.velocity, 10); // Terminal velocity
     donutRef.current.y += donutRef.current.velocity;
     
-    // Update pipes
+    // Update pipes with dynamic speed
     pipesRef.current.forEach((pipe, index) => {
-      pipe.x -= PIPE_SPEED;
+      pipe.x -= difficulty.pipeSpeed;
       
       // Check if passed
       if (!pipe.passed && pipe.x + PIPE_WIDTH < DONUT_X) {
@@ -267,18 +283,19 @@ export default function FlappyDonutTestPage() {
       }
     });
     
-    // Add new pipes
+    // Add new pipes with dynamic gap
     const lastPipe = pipesRef.current[pipesRef.current.length - 1];
     if (!lastPipe || lastPipe.x < CANVAS_WIDTH - PIPE_SPAWN_DISTANCE) {
-      const minHeight = 80;
-      const maxHeight = CANVAS_HEIGHT - PIPE_GAP - 80;
+      const currentGap = difficulty.pipeGap;
+      const minHeight = 60;
+      const maxHeight = CANVAS_HEIGHT - currentGap - 60;
       const topHeight = Math.random() * (maxHeight - minHeight) + minHeight;
-      pipesRef.current.push({ x: CANVAS_WIDTH + 20, topHeight, passed: false });
+      pipesRef.current.push({ x: CANVAS_WIDTH + 20, topHeight, gap: currentGap, passed: false });
     }
     
     // Draw pipes
     pipesRef.current.forEach(pipe => {
-      drawPipe(ctx, pipe.x, pipe.topHeight);
+      drawPipe(ctx, pipe.x, pipe.topHeight, pipe.gap);
     });
     
     // Draw donut
@@ -293,13 +310,31 @@ export default function FlappyDonutTestPage() {
     ctx.fillText(scoreRef.current.toString(), CANVAS_WIDTH / 2, 60);
     ctx.shadowBlur = 0;
     
+    // Draw difficulty indicator
+    const diffPercent = Math.round((scoreRef.current / 50) * 100);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.font = "10px monospace";
+    ctx.fillText(`Difficulty: ${Math.min(diffPercent, 100)}%`, CANVAS_WIDTH / 2, 80);
+    
     // Collision detection
     const donutY = donutRef.current.y;
     const hitboxRadius = DONUT_SIZE / 2 - 6; // Slightly smaller hitbox for fairness
     
     // Floor/ceiling collision
     if (donutY - hitboxRadius < 0 || donutY + hitboxRadius > CANVAS_HEIGHT) {
-      endGame();
+      // End game inline to avoid circular dependency
+      gameActiveRef.current = false;
+      if (gameLoopRef.current) {
+        cancelAnimationFrame(gameLoopRef.current);
+      }
+      setGameState("gameover");
+      setHighScore(prev => Math.max(prev, scoreRef.current));
+      setAttempts(prev => prev + 1);
+      setLeaderboard(prev => {
+        const newEntry = { rank: 0, username: "you", pfpUrl: null, score: scoreRef.current };
+        const combined = [...prev.filter(e => e.username !== "you"), newEntry].sort((a, b) => b.score - a.score);
+        return combined.slice(0, 10).map((entry, i) => ({ ...entry, rank: i + 1 }));
+      });
       return;
     }
     
@@ -309,8 +344,20 @@ export default function FlappyDonutTestPage() {
         DONUT_X + hitboxRadius > pipe.x &&
         DONUT_X - hitboxRadius < pipe.x + PIPE_WIDTH
       ) {
-        if (donutY - hitboxRadius < pipe.topHeight || donutY + hitboxRadius > pipe.topHeight + PIPE_GAP) {
-          endGame();
+        if (donutY - hitboxRadius < pipe.topHeight || donutY + hitboxRadius > pipe.topHeight + pipe.gap) {
+          // End game inline
+          gameActiveRef.current = false;
+          if (gameLoopRef.current) {
+            cancelAnimationFrame(gameLoopRef.current);
+          }
+          setGameState("gameover");
+          setHighScore(prev => Math.max(prev, scoreRef.current));
+          setAttempts(prev => prev + 1);
+          setLeaderboard(prev => {
+            const newEntry = { rank: 0, username: "you", pfpUrl: null, score: scoreRef.current };
+            const combined = [...prev.filter(e => e.username !== "you"), newEntry].sort((a, b) => b.score - a.score);
+            return combined.slice(0, 10).map((entry, i) => ({ ...entry, rank: i + 1 }));
+          });
           return;
         }
       }
@@ -356,31 +403,6 @@ export default function FlappyDonutTestPage() {
       }
     }, 1000);
   }, [gameLoop]);
-  
-  // End game
-  const endGame = useCallback(() => {
-    gameActiveRef.current = false;
-    if (gameLoopRef.current) {
-      cancelAnimationFrame(gameLoopRef.current);
-    }
-    
-    const finalScore = scoreRef.current;
-    if (finalScore > highScore) {
-      setHighScore(finalScore);
-    }
-    
-    setGameState("gameover");
-    setAttempts(prev => prev + 1);
-    
-    // Update mock leaderboard if score is good enough
-    if (finalScore > 0) {
-      setLeaderboard(prev => {
-        const newEntry = { rank: 0, username: "you", pfpUrl: null, score: finalScore };
-        const combined = [...prev, newEntry].sort((a, b) => b.score - a.score);
-        return combined.slice(0, 10).map((entry, i) => ({ ...entry, rank: i + 1 }));
-      });
-    }
-  }, [highScore]);
   
   // Draw menu/countdown/gameover screen
   useEffect(() => {
@@ -610,7 +632,10 @@ export default function FlappyDonutTestPage() {
         {/* Game feel tweaks info */}
         <div className="mx-4 mt-2 p-3 bg-zinc-900/50 rounded-xl border border-zinc-800">
           <p className="text-[10px] text-zinc-500 text-center">
-            Gravity: {GRAVITY} | Flap: {FLAP_STRENGTH} | Gap: {PIPE_GAP} | Speed: {PIPE_SPEED}
+            Flap: {FLAP_STRENGTH} | Gap: {PIPE_GAP_START}→{PIPE_GAP_MIN} | Speed: {PIPE_SPEED_START}→{PIPE_SPEED_MAX}
+          </p>
+          <p className="text-[10px] text-zinc-600 text-center mt-1">
+            Difficulty increases as you score (max at 50 pts)
           </p>
         </div>
         
