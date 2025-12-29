@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Sparkles, Dices, Lock, Bomb, Layers, Flame, TrendingUp, ArrowRight, Trophy, Grid3X3 } from "lucide-react";
+import { Sparkles, Dices, Lock, Bomb, Layers, Flame, TrendingUp, ArrowRight, Trophy, Grid3X3, Coins } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -60,43 +60,28 @@ function GamesLeaderboardTile({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="leaderboard-tile relative w-full rounded-2xl border-2 border-amber-500/30 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/50"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.1) 0%, rgba(234,88,12,0.05) 100%)' }}
+      className="relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
     >
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-2 right-2 w-20 h-20 bg-amber-500/10 rounded-full blur-2xl" />
-        <div className="absolute bottom-2 left-2 w-16 h-16 bg-amber-500/10 rounded-full blur-xl" />
+      {/* Large background trophy symbol */}
+      <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Trophy className="w-28 h-28 text-white/10" />
       </div>
       
-      <div className="relative z-10 p-4">
-        <div className="flex items-center justify-between">
-          <div className="text-left flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <Trophy className="w-4 h-4 text-amber-400" />
-              <span className="font-bold text-base text-amber-400">Games Leaderboard</span>
-            </div>
-            <div className="text-[10px] text-amber-200/60 mb-2">Compete weekly for prize pool rewards</div>
-            
-            <div className="flex items-center gap-3 text-[9px]">
-              <div className="flex items-center gap-1 text-amber-400">
-                <Dices className="w-3 h-3" />
-                <span>Play Games</span>
-              </div>
-              <ArrowRight className="w-3 h-3 text-amber-500/30" />
-              <div className="flex items-center gap-1 text-amber-400">
-                <TrendingUp className="w-3 h-3" />
-                <span>Earn Points</span>
-              </div>
-              <ArrowRight className="w-3 h-3 text-amber-500/30" />
-              <div className="flex items-center gap-1 text-amber-400">
-                <Trophy className="w-3 h-3" />
-                <span>Win Prizes</span>
-              </div>
-            </div>
+      <div className="relative z-10 p-4 pr-20">
+        <div className="text-left">
+          <div className="flex items-center gap-2 mb-1">
+            <Trophy className="w-5 h-5 text-amber-400" />
+            <span className="font-bold text-base text-amber-400">Games Leaderboard</span>
           </div>
+          <div className="text-[10px] text-amber-200/60 mb-2">Compete weekly for prize pool rewards</div>
           
-          <div className="px-3 py-2 rounded-xl bg-amber-500/20 text-amber-400 font-bold text-xs border border-amber-500/30">
-            View →
+          <div className="flex items-center gap-2 text-[9px]">
+            <span className="text-amber-400">Play Games</span>
+            <ArrowRight className="w-3 h-3 text-amber-500/50" />
+            <span className="text-amber-400">Earn Points</span>
+            <ArrowRight className="w-3 h-3 text-amber-500/50" />
+            <span className="text-amber-400">Win Prizes</span>
           </div>
         </div>
       </div>
@@ -104,7 +89,7 @@ function GamesLeaderboardTile({ onClick }: { onClick: () => void }) {
   );
 }
 
-// Game tile component
+// Game tile component - new design matching info page
 function GameTile({ 
   title, 
   description, 
@@ -112,9 +97,8 @@ function GameTile({
   comingSoon = true,
   isNew = false,
   isHot = false,
-  iconClassName,
+  flowItems,
   lastWinner,
-  scrollDirection = "left",
   onClick 
 }: { 
   title: string;
@@ -123,79 +107,78 @@ function GameTile({
   comingSoon?: boolean;
   isNew?: boolean;
   isHot?: boolean;
-  iconClassName?: string;
+  flowItems?: string[];
   lastWinner?: LastWinner;
-  scrollDirection?: "left" | "right";
   onClick?: () => void;
 }) {
-  const [isFocused, setIsFocused] = useState(false);
-
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setIsFocused(true)}
-      onMouseLeave={() => setIsFocused(false)}
       disabled={comingSoon}
-      className={`game-tile flex items-center justify-between rounded-xl p-4 border transition-all duration-200 w-full text-left ${
-        isFocused && !comingSoon
-          ? "border-zinc-700 bg-zinc-800"
-          : "bg-zinc-900 border-zinc-800"
-      } ${comingSoon ? "opacity-60 cursor-not-allowed" : "hover:border-zinc-700 hover:bg-zinc-800 active:scale-[0.98]"}`}
-      style={{ minHeight: '90px' }}
+      className={`relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300 active:scale-[0.98] ${
+        comingSoon 
+          ? "border-zinc-700/30 opacity-50 cursor-not-allowed" 
+          : "border-white/20 hover:border-white/40"
+      }`}
+      style={{ minHeight: '100px', background: comingSoon ? 'rgba(39,39,42,0.3)' : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      <div className="flex items-center gap-4 min-w-0 flex-1">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-zinc-800 ${
-          !comingSoon ? "border border-zinc-600" : ""
-        }`}>
-          <Icon className={`w-6 h-6 ${!comingSoon ? "text-white" : "text-gray-400"} ${iconClassName || (!comingSoon ? "icon-breathe" : "")}`} />
-        </div>
-        
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className={`font-semibold text-base ${!comingSoon ? "text-white" : "text-gray-400"} flex-shrink-0`}>
-              {title}
-            </span>
+      {/* Large background icon */}
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Icon className={`w-24 h-24 ${comingSoon ? "text-white/5" : "text-white/10"}`} />
+      </div>
+      
+      <div className="relative z-10 p-4 pr-20">
+        <div className="text-left">
+          <div className="flex items-center gap-2 mb-1">
+            <Icon className={`w-5 h-5 ${comingSoon ? "text-gray-500" : "text-white"}`} />
+            <span className={`font-bold text-base ${comingSoon ? "text-gray-500" : "text-white"}`}>{title}</span>
             {comingSoon && (
-              <span className="text-[9px] bg-zinc-700 text-gray-400 px-1.5 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0">
+              <span className="text-[9px] bg-zinc-700 text-gray-400 px-1.5 py-0.5 rounded-full flex items-center gap-1">
                 <Lock className="w-2.5 h-2.5" />
                 Soon
               </span>
             )}
             {!comingSoon && isHot && (
-              <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold hot-pulse flex items-center gap-0.5">
+              <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full font-bold hot-pulse flex items-center gap-0.5">
                 <Flame className="w-2.5 h-2.5" /> HOT
               </span>
             )}
             {!comingSoon && isNew && !isHot && (
-              <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold">
+              <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full font-bold">
                 NEW
               </span>
             )}
             {!comingSoon && !isNew && !isHot && (
-              <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full flex-shrink-0">
+              <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">
                 LIVE
               </span>
             )}
-            {!comingSoon && lastWinner && (
-              <div className="winner-container min-w-0">
-                <div className={scrollDirection === "right" ? "winner-track-right" : "winner-track"}>
-                  <span className="winner-item">
-                    {lastWinner.pfpUrl && (
-                      <img src={lastWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
-                    )}
-                    @{lastWinner.username} +{lastWinner.amount}
-                  </span>
-                  <span className="winner-item">
-                    {lastWinner.pfpUrl && (
-                      <img src={lastWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
-                    )}
-                    @{lastWinner.username} +{lastWinner.amount}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
-          <div className="text-xs text-gray-400 mt-0.5">{description}</div>
+          <div className={`text-[10px] mb-2 ${comingSoon ? "text-gray-600" : "text-white/60"}`}>{description}</div>
+          
+          {flowItems && flowItems.length > 0 && (
+            <div className="flex items-center gap-2 text-[9px]">
+              {flowItems.map((item, index) => (
+                <span key={index} className="flex items-center gap-2">
+                  <span className={comingSoon ? "text-gray-600" : "text-white/80"}>{item}</span>
+                  {index < flowItems.length - 1 && (
+                    <ArrowRight className={`w-3 h-3 ${comingSoon ? "text-gray-700" : "text-white/30"}`} />
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
+          
+          {!comingSoon && lastWinner && (
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-[9px] text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                {lastWinner.pfpUrl && (
+                  <img src={lastWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
+                )}
+                @{lastWinner.username} +{lastWinner.amount}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </button>
@@ -297,6 +280,7 @@ export default function GamesPage() {
       icon: Layers,
       comingSoon: false,
       isHot: true,
+      flowItems: ["Bet DONUT", "Climb Tower", "Cash Out"],
       lastWinner: lastWinners.tower,
       onClick: () => window.location.href = "/games/tower",
     },
@@ -306,9 +290,8 @@ export default function GamesPage() {
       description: "Spin to win some real glaze!",
       icon: WheelIcon,
       comingSoon: false,
-      iconClassName: "icon-spin",
+      flowItems: ["Place Bet", "Spin Wheel", "Win Big"],
       lastWinner: lastWinners.wheel,
-      scrollDirection: "right" as const,
       onClick: () => window.location.href = "/games/glaze-wheel",
     },
     {
@@ -317,6 +300,7 @@ export default function GamesPage() {
       description: "Roll over/under, set your multiplier!",
       icon: Dices,
       comingSoon: false,
+      flowItems: ["Set Target", "Roll Dice", "Win"],
       lastWinner: lastWinners.dice,
       onClick: () => window.location.href = "/games/dice",
     },
@@ -326,8 +310,8 @@ export default function GamesPage() {
       description: "Avoid the bombs, cash out anytime",
       icon: Bomb,
       comingSoon: false,
+      flowItems: ["Set Mines", "Reveal Tiles", "Cash Out"],
       lastWinner: lastWinners.mines,
-      scrollDirection: "right" as const,
       onClick: () => window.location.href = "/games/mines",
     },
     {
@@ -336,6 +320,7 @@ export default function GamesPage() {
       description: "Pick numbers, win multipliers",
       icon: Grid3X3,
       comingSoon: true,
+      flowItems: ["Pick Numbers", "Draw", "Match & Win"],
       lastWinner: null,
     },
     {
@@ -344,6 +329,7 @@ export default function GamesPage() {
       description: "Match symbols to win big",
       icon: Sparkles,
       comingSoon: true,
+      flowItems: ["Spin Reels", "Match Symbols", "Jackpot"],
       lastWinner: null,
     },
   ];
@@ -353,19 +339,8 @@ export default function GamesPage() {
       <style>{`
         .games-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .games-scroll::-webkit-scrollbar { display: none; }
-        .game-tile { scroll-snap-align: start; }
-        @keyframes icon-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
-        @keyframes icon-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes scroll-left { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        @keyframes scroll-right { 0% { transform: translateX(-50%); } 100% { transform: translateX(0); } }
         @keyframes hot-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.95); } }
-        .icon-breathe { animation: icon-breathe 2s ease-in-out infinite; }
-        .icon-spin { animation: icon-spin 4s linear infinite; }
         .hot-pulse { animation: hot-pulse 2s ease-in-out infinite; }
-        .winner-container { overflow: hidden; max-width: 140px; -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); }
-        .winner-track { display: flex; width: max-content; animation: scroll-left 6s linear infinite; }
-        .winner-track-right { display: flex; width: max-content; animation: scroll-right 6s linear infinite; }
-        .winner-item { display: flex; align-items: center; gap: 4px; padding: 2px 8px; margin-right: 16px; font-size: 9px; color: #4ade80; background: rgba(34, 197, 94, 0.2); border-radius: 9999px; white-space: nowrap; }
       `}</style>
 
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4 shadow-inner" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
@@ -391,7 +366,7 @@ export default function GamesPage() {
           </div>
 
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden games-scroll" style={{ WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`, maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` }}>
-            <div className="space-y-2 pb-4">
+            <div className="space-y-3 pb-4">
               {/* Games Leaderboard Tile */}
               <GamesLeaderboardTile onClick={() => window.location.href = "/games/leaderboard"} />
               
@@ -404,9 +379,8 @@ export default function GamesPage() {
                   comingSoon={game.comingSoon}
                   isNew={(game as any).isNew}
                   isHot={(game as any).isHot}
-                  iconClassName={(game as any).iconClassName}
+                  flowItems={game.flowItems}
                   lastWinner={game.lastWinner}
-                  scrollDirection={(game as any).scrollDirection}
                   onClick={game.onClick}
                 />
               ))}
