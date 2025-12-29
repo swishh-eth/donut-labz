@@ -6,7 +6,7 @@ function getPlayDate(): string {
   const now = new Date();
   const utcHour = now.getUTCHours();
   
-  // If before 23:00 UTC (6pm EST), use today
+  // If before 23:00 UTC (6pm EST), use today's date
   // If after 23:00 UTC, use tomorrow as the "play day"
   let playDate = new Date(now);
   if (utcHour >= 23) {
@@ -26,29 +26,22 @@ export async function GET(request: Request) {
   
   try {
     const playDate = getPlayDate();
+    const normalizedAddress = address.toLowerCase();
     
-    // Get start of play day (11pm UTC previous day) and end (11pm UTC current day)
-    const dayStart = new Date(playDate);
-    dayStart.setUTCHours(23, 0, 0, 0);
-    dayStart.setUTCDate(dayStart.getUTCDate() - 1);
+    // Get attempts from flappy_daily_attempts table
+    const { data, error } = await supabase
+      .from('flappy_daily_attempts')
+      .select('attempts')
+      .eq('player_address', normalizedAddress)
+      .eq('play_date', playDate)
+      .single();
     
-    const dayEnd = new Date(playDate);
-    dayEnd.setUTCHours(23, 0, 0, 0);
-    
-    // Count games played today by this address
-    const { count, error } = await supabase
-      .from('flappy_games')
-      .select('*', { count: 'exact', head: true })
-      .eq('player_address', address.toLowerCase())
-      .gte('created_at', dayStart.toISOString())
-      .lt('created_at', dayEnd.toISOString());
-    
-    if (error) {
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 = no rows returned, which is fine (0 attempts)
       console.error('Failed to fetch attempts:', error);
-      return NextResponse.json({ attempts: 0, nextCost: 1, playDate });
     }
     
-    const attempts = count || 0;
+    const attempts = data?.attempts || 0;
     
     return NextResponse.json({
       attempts,

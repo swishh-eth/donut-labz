@@ -22,12 +22,11 @@ const ERC20_ABI = [
 const FLAPPY_POOL_ABI = [
   { inputs: [{ name: "amount", type: "uint256" }], name: "payEntry", outputs: [], stateMutability: "nonpayable", type: "function" },
   { inputs: [], name: "getPrizePool", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
-  { inputs: [], name: "currentWeek", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
 ] as const;
 
 // Game constants
 const CANVAS_WIDTH = 360;
-const CANVAS_HEIGHT = 540;
+const CANVAS_HEIGHT = 480;
 const GRAVITY = 0.32;
 const FLAP_STRENGTH = -5.5;
 const PIPE_WIDTH = 60;
@@ -38,6 +37,7 @@ const PIPE_SPEED_MAX = 4.0;
 const PIPE_SPAWN_DISTANCE = 240;
 const DONUT_SIZE = 36;
 const DONUT_X = 80;
+const EDGE_FADE = 40; // Pixels for edge fade
 
 type MiniAppContext = { user?: { fid: number; username?: string; displayName?: string; pfpUrl?: string } };
 type LeaderboardEntry = { rank: number; username: string; pfpUrl?: string; score: number };
@@ -82,6 +82,7 @@ export default function FlappyDonutPage() {
   const scoreRef = useRef(0);
   const gameActiveRef = useRef(false);
   const frameCountRef = useRef(0);
+  const countdownRef = useRef(3);
   
   const { writeContract, data: txHash, isPending: isWritePending, reset: resetWrite } = useWriteContract();
   const { isLoading: isTxLoading, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({ hash: txHash });
@@ -89,7 +90,6 @@ export default function FlappyDonutPage() {
   const { data: allowance, refetch: refetchAllowance } = useReadContract({ address: DONUT_ADDRESS, abi: ERC20_ABI, functionName: "allowance", args: address ? [address, FLAPPY_POOL_ADDRESS] : undefined });
   const { data: balance, refetch: refetchBalance } = useReadContract({ address: DONUT_ADDRESS, abi: ERC20_ABI, functionName: "balanceOf", args: address ? [address] : undefined });
   const { data: prizePoolData } = useReadContract({ address: FLAPPY_POOL_ADDRESS, abi: FLAPPY_POOL_ABI, functionName: "getPrizePool" });
-  const { data: currentWeek } = useReadContract({ address: FLAPPY_POOL_ADDRESS, abi: FLAPPY_POOL_ABI, functionName: "currentWeek" });
   
   useEffect(() => {
     let cancelled = false;
@@ -100,21 +100,19 @@ export default function FlappyDonutPage() {
     return () => { cancelled = true; };
   }, []);
   
-  // Load owned skins from global system
+  // Load owned skins
   useEffect(() => {
     if (address) {
       const ownedIds = getOwnedSkins(address);
       const owned = GAME_SKINS.filter(s => ownedIds.includes(s.id));
       setOwnedSkins(owned.length > 0 ? owned : [GAME_SKINS[0]]);
-      
       const selectedId = getSelectedSkin(address);
       const selected = getSkinById(selectedId);
-      if (ownedIds.includes(selected.id)) {
-        setSelectedSkin(selected);
-      }
+      if (ownedIds.includes(selected.id)) setSelectedSkin(selected);
     }
   }, [address]);
   
+  // Fetch attempts and leaderboard
   useEffect(() => {
     if (!address) return;
     (async () => {
@@ -138,6 +136,37 @@ export default function FlappyDonutPage() {
       resetWrite();
     }
   }, [isTxSuccess, gameState]);
+  
+  // Draw edge fade overlay
+  const drawEdgeFade = useCallback((ctx: CanvasRenderingContext2D) => {
+    // Top fade
+    const topGrad = ctx.createLinearGradient(0, 0, 0, EDGE_FADE);
+    topGrad.addColorStop(0, "rgba(0, 0, 0, 1)");
+    topGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = topGrad;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, EDGE_FADE);
+    
+    // Bottom fade
+    const botGrad = ctx.createLinearGradient(0, CANVAS_HEIGHT - EDGE_FADE, 0, CANVAS_HEIGHT);
+    botGrad.addColorStop(0, "rgba(0, 0, 0, 0)");
+    botGrad.addColorStop(1, "rgba(0, 0, 0, 1)");
+    ctx.fillStyle = botGrad;
+    ctx.fillRect(0, CANVAS_HEIGHT - EDGE_FADE, CANVAS_WIDTH, EDGE_FADE);
+    
+    // Left fade
+    const leftGrad = ctx.createLinearGradient(0, 0, EDGE_FADE, 0);
+    leftGrad.addColorStop(0, "rgba(0, 0, 0, 0.8)");
+    leftGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = leftGrad;
+    ctx.fillRect(0, 0, EDGE_FADE, CANVAS_HEIGHT);
+    
+    // Right fade
+    const rightGrad = ctx.createLinearGradient(CANVAS_WIDTH - EDGE_FADE, 0, CANVAS_WIDTH, 0);
+    rightGrad.addColorStop(0, "rgba(0, 0, 0, 0)");
+    rightGrad.addColorStop(1, "rgba(0, 0, 0, 0.8)");
+    ctx.fillStyle = rightGrad;
+    ctx.fillRect(CANVAS_WIDTH - EDGE_FADE, 0, EDGE_FADE, CANVAS_HEIGHT);
+  }, []);
   
   const drawDonut = useCallback((ctx: CanvasRenderingContext2D, y: number, velocity: number, skin: GameSkin = selectedSkin) => {
     const x = DONUT_X;
@@ -290,12 +319,15 @@ export default function FlappyDonutPage() {
     pipesRef.current.forEach(pipe => drawPipe(ctx, pipe.x, pipe.topHeight, pipe.gap));
     drawDonut(ctx, donutRef.current.y, donutRef.current.velocity);
     
+    // Draw edge fades
+    drawEdgeFade(ctx);
+    
     ctx.shadowColor = "#FFD700";
     ctx.shadowBlur = 20;
     ctx.fillStyle = "#FFFFFF";
     ctx.font = "bold 48px monospace";
     ctx.textAlign = "center";
-    ctx.fillText(scoreRef.current.toString(), CANVAS_WIDTH / 2, 60);
+    ctx.fillText(scoreRef.current.toString(), CANVAS_WIDTH / 2, 70);
     ctx.shadowBlur = 0;
     
     const donutY = donutRef.current.y;
@@ -307,11 +339,11 @@ export default function FlappyDonutPage() {
       setGameState("gameover");
       setHighScore(prev => Math.max(prev, scoreRef.current));
       
-      if (address && scoreRef.current > 0) {
+      if (address && scoreRef.current >= 0) {
         fetch('/api/games/flappy/submit-score', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ playerAddress: address, username: context?.user?.username || `${address.slice(0, 6)}...${address.slice(-4)}`, pfpUrl: context?.user?.pfpUrl, score: scoreRef.current, weekNumber: currentWeek ? Number(currentWeek) : 1, costPaid: paidCost }),
+          body: JSON.stringify({ playerAddress: address, username: context?.user?.username || `${address.slice(0, 6)}...${address.slice(-4)}`, pfpUrl: context?.user?.pfpUrl, score: scoreRef.current, costPaid: paidCost }),
         }).then(() => {
           fetch(`/api/games/flappy/attempts?address=${address}`).then(r => r.json()).then(data => { setAttempts(data.attempts); setEntryCost(data.nextCost); });
           fetch('/api/games/flappy/leaderboard').then(r => r.json()).then(data => setLeaderboard(data.leaderboard || []));
@@ -327,7 +359,7 @@ export default function FlappyDonutPage() {
     }
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawDonut, drawPipe, address, context, currentWeek, paidCost]);
+  }, [drawDonut, drawPipe, drawEdgeFade, address, context, paidCost]);
   
   const handleFlap = useCallback(() => {
     if (gameState === "playing" && gameActiveRef.current) donutRef.current.velocity = FLAP_STRENGTH;
@@ -338,6 +370,7 @@ export default function FlappyDonutPage() {
     pipesRef.current = [];
     scoreRef.current = 0;
     frameCountRef.current = 0;
+    countdownRef.current = 3;
     setScore(0);
     setCountdown(3);
     setGameState("countdown");
@@ -346,6 +379,7 @@ export default function FlappyDonutPage() {
     let count = 3;
     const countdownInterval = setInterval(() => {
       count--;
+      countdownRef.current = count;
       setCountdown(count);
       if (count <= 0) {
         clearInterval(countdownInterval);
@@ -378,11 +412,15 @@ export default function FlappyDonutPage() {
     catch { try { await navigator.clipboard.writeText(castText + "\n\nhttps://sprinklesapp.xyz/games/game-1"); alert("Copied!"); } catch {} }
   }, [score]);
   
+  // Draw menu/countdown/gameover - donut position is fixed
   useEffect(() => {
     if (gameState === "playing") return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
+    
+    // Fixed donut Y position for menu/countdown/gameover
+    const menuDonutY = CANVAS_HEIGHT / 2 - 40;
     
     const draw = () => {
       const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
@@ -395,56 +433,63 @@ export default function FlappyDonutPage() {
       for (let i = 0; i < CANVAS_WIDTH; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, CANVAS_HEIGHT); ctx.stroke(); }
       for (let i = 0; i < CANVAS_HEIGHT; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_WIDTH, i); ctx.stroke(); }
       
-      const floatOffset = Math.sin(Date.now() / 500) * 8;
-      drawDonut(ctx, CANVAS_HEIGHT / 2 - 60 + floatOffset, 0, previewSkin || selectedSkin);
+      // Draw donut at fixed position with gentle float
+      const floatOffset = Math.sin(Date.now() / 500) * 6;
+      drawDonut(ctx, menuDonutY + floatOffset, 0, previewSkin || selectedSkin);
       
+      // Draw edge fades
+      drawEdgeFade(ctx);
+      
+      // Title
       ctx.shadowColor = "#FF69B4";
       ctx.shadowBlur = 30;
       ctx.fillStyle = "#FFFFFF";
-      ctx.font = "bold 32px monospace";
+      ctx.font = "bold 28px monospace";
       ctx.textAlign = "center";
-      ctx.fillText("FLAPPY DONUT", CANVAS_WIDTH / 2, 70);
+      ctx.fillText("FLAPPY DONUT", CANVAS_WIDTH / 2, 60);
       ctx.shadowBlur = 0;
       
       if (gameState === "countdown") {
-        const scale = 1 + Math.sin(Date.now() / 100) * 0.1;
+        // Countdown number - centered, pulsing
+        const scale = 1 + Math.sin(Date.now() / 100) * 0.08;
         ctx.save();
-        ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+        ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
         ctx.scale(scale, scale);
         ctx.shadowColor = "#FFFFFF";
         ctx.shadowBlur = 40;
         ctx.fillStyle = "#FFFFFF";
-        ctx.font = "bold 140px monospace";
-        ctx.fillText(countdown.toString(), 0, 40);
+        ctx.font = "bold 120px monospace";
+        ctx.fillText(countdownRef.current.toString(), 0, 30);
         ctx.shadowBlur = 0;
         ctx.restore();
+        
         ctx.fillStyle = "#FF69B4";
-        ctx.font = "bold 18px monospace";
-        ctx.fillText("GET READY!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
+        ctx.font = "bold 16px monospace";
+        ctx.fillText("GET READY!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 120);
       }
       
       if (gameState === "gameover") {
         ctx.fillStyle = "#FF6B6B";
-        ctx.font = "bold 28px monospace";
-        ctx.fillText("GAME OVER", CANVAS_WIDTH / 2, 130);
+        ctx.font = "bold 24px monospace";
+        ctx.fillText("GAME OVER", CANVAS_WIDTH / 2, 100);
         ctx.shadowColor = "#FFD700";
         ctx.shadowBlur = 20;
         ctx.fillStyle = "#FFFFFF";
-        ctx.font = "bold 56px monospace";
-        ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 200);
+        ctx.font = "bold 48px monospace";
+        ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 150);
         ctx.shadowBlur = 0;
         ctx.fillStyle = "#888888";
-        ctx.font = "16px monospace";
-        ctx.fillText(`Best: ${Math.max(score, highScore)}`, CANVAS_WIDTH / 2, 235);
+        ctx.font = "14px monospace";
+        ctx.fillText(`Best: ${Math.max(score, highScore)}`, CANVAS_WIDTH / 2, 180);
       }
     };
     
     draw();
-    if (gameState === "menu" || gameState === "gameover") {
+    if (gameState === "menu" || gameState === "gameover" || gameState === "countdown") {
       const interval = setInterval(draw, 50);
       return () => clearInterval(interval);
     }
-  }, [gameState, score, highScore, countdown, drawDonut, previewSkin, selectedSkin]);
+  }, [gameState, score, highScore, drawDonut, drawEdgeFade, previewSkin, selectedSkin]);
   
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => { if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); handleFlap(); } };
@@ -458,55 +503,59 @@ export default function FlappyDonutPage() {
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
-      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
+      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 70px)" }}>
         
-        <div className="flex items-center justify-between mb-3">
-          <h1 className="text-2xl font-bold tracking-wide">FLAPPY DONUT</h1>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-xl font-bold tracking-wide">FLAPPY DONUT</h1>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowLeaderboard(true)} className="p-2 text-amber-400 hover:text-amber-300"><Trophy className="w-5 h-5" /></button>
             {context?.user && (
-              <Avatar className="h-8 w-8 border border-zinc-800">
+              <Avatar className="h-7 w-7 border border-zinc-800">
                 <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
-                <AvatarFallback className="bg-zinc-800 text-white">{initialsFrom(userDisplayName)}</AvatarFallback>
+                <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(userDisplayName)}</AvatarFallback>
               </Avatar>
             )}
           </div>
         </div>
         
-        <div className="mx-2 mb-3 px-4 py-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl">
+        {/* Prize Pool */}
+        <div className="mx-1 mb-2 px-3 py-1.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2"><Coins className="w-4 h-4 text-amber-400" /><span className="text-xs text-amber-200/60">Weekly Prize Pool</span></div>
-            <span className="text-lg font-bold text-amber-400">{prizePool} 🍩</span>
+            <div className="flex items-center gap-2"><Coins className="w-3 h-3 text-amber-400" /><span className="text-[10px] text-amber-200/60">Weekly Pool</span></div>
+            <span className="text-sm font-bold text-amber-400">{prizePool} 🍩</span>
           </div>
         </div>
         
-        <div className="flex-1 flex flex-col items-center justify-center">
+        {/* Game Area */}
+        <div className="flex-1 flex flex-col items-center justify-center min-h-0">
           <div className="relative">
-            <div className="absolute inset-0 pointer-events-none z-10 rounded-2xl" style={{ boxShadow: 'inset 0 0 60px 30px rgba(0,0,0,0.9)' }} />
-            <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} onClick={handleFlap} onTouchStart={(e) => { e.preventDefault(); handleFlap(); }} className="rounded-2xl cursor-pointer" style={{ touchAction: "none" }} />
+            <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} onClick={handleFlap} onTouchStart={(e) => { e.preventDefault(); handleFlap(); }} className="rounded-2xl cursor-pointer" style={{ touchAction: "none", maxHeight: "calc(100vh - 280px)" }} />
             
+            {/* Menu/Gameover overlay buttons */}
             {(gameState === "menu" || gameState === "gameover") && (
-              <div className="absolute inset-0 flex flex-col items-center justify-end pb-8 pointer-events-none z-20">
-                <div className="pointer-events-auto flex flex-col items-center gap-3">
+              <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-2 pointer-events-none z-20">
+                <div className="pointer-events-auto flex flex-col items-center gap-2">
                   {gameState === "gameover" && score > 0 && (
-                    <button onClick={handleShare} className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white font-bold rounded-full hover:bg-purple-500"><Share2 className="w-4 h-4" /><span>Share Score</span></button>
+                    <button onClick={handleShare} className="flex items-center gap-2 px-5 py-1.5 bg-purple-600 text-white text-sm font-bold rounded-full hover:bg-purple-500"><Share2 className="w-3 h-3" /><span>Share</span></button>
                   )}
-                  <div className="flex items-center gap-2 px-4 py-2 bg-zinc-900/90 rounded-full border border-zinc-700"><Zap className="w-4 h-4 text-yellow-400" /><span className="text-sm">Entry: <span className="font-bold">{entryCost} 🍩</span></span></div>
-                  <button onClick={handlePlay} disabled={isPaying || isLoading} className="flex items-center gap-2 px-8 py-3 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95 disabled:opacity-50">
-                    {isPaying ? <><div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" /><span>Processing...</span></> : <><Play className="w-5 h-5" /><span>{gameState === "gameover" ? "Play Again" : "Play"}</span></>}
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 rounded-full border border-zinc-700"><Zap className="w-3 h-3 text-yellow-400" /><span className="text-xs">Entry: <span className="font-bold">{entryCost} 🍩</span></span></div>
+                  <button onClick={handlePlay} disabled={isPaying || isLoading} className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95 disabled:opacity-50">
+                    {isPaying ? <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Processing...</span></> : <><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span></>}
                   </button>
-                  {error && <p className="text-red-400 text-sm">{error}</p>}
-                  <p className="text-zinc-500 text-xs">Attempts today: {attempts}</p>
+                  {error && <p className="text-red-400 text-xs">{error}</p>}
+                  <p className="text-zinc-500 text-[10px]">Attempts today: {attempts}</p>
                 </div>
               </div>
             )}
             
-            {gameState === "playing" && <div className="absolute bottom-4 left-0 right-0 text-center pointer-events-none z-20"><p className="text-zinc-500 text-xs">Tap to flap</p></div>}
+            {gameState === "playing" && <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none z-20"><p className="text-zinc-600 text-[10px]">Tap to flap</p></div>}
           </div>
           
+          {/* Skins button - always visible below canvas */}
           {(gameState === "menu" || gameState === "gameover") && (
-            <button onClick={() => setShowSkins(true)} className="mt-4 flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
-              <Palette className="w-4 h-4 text-pink-400" /><span className="text-sm">Skins</span>
+            <button onClick={() => setShowSkins(true)} className="mt-3 flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
+              <Palette className="w-3 h-3 text-pink-400" /><span className="text-xs">Skins</span>
             </button>
           )}
         </div>
@@ -533,7 +582,7 @@ export default function FlappyDonutPage() {
           </div>
         )}
         
-        {/* Skins Modal - Only owned skins */}
+        {/* Skins Modal */}
         {showSkins && (
           <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
             <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
