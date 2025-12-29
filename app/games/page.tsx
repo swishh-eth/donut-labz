@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Settings } from "lucide-react";
+import { Settings, Gamepad2, Trophy, Coins } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -13,6 +13,12 @@ type MiniAppContext = {
     displayName?: string;
     pfpUrl?: string;
   };
+};
+
+type RecentPlayer = {
+  username: string;
+  score: number;
+  pfpUrl?: string;
 };
 
 const initialsFrom = (label?: string) => {
@@ -81,6 +87,69 @@ function AdCarouselTile() {
   );
 }
 
+// Flappy Donut Game Tile
+function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer | null; prizePool: string }) {
+  return (
+    <button
+      onClick={() => window.location.href = "/games/game-1"}
+      className="relative w-full rounded-2xl border-2 border-pink-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-500/80"
+      style={{ minHeight: '120px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(251,146,60,0.1) 100%)' }}
+    >
+      {/* Animated donut background */}
+      <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+        <div className="donut-float">
+          <svg width="100" height="100" viewBox="0 0 100 100" className="text-pink-900/50">
+            {/* Outer donut */}
+            <circle cx="50" cy="50" r="40" fill="currentColor" />
+            {/* Inner hole */}
+            <circle cx="50" cy="50" r="16" fill="#1a1a1a" />
+            {/* Frosting arc */}
+            <path d="M 20 50 A 30 30 0 0 1 80 50" fill="rgba(236,72,153,0.3)" />
+          </svg>
+        </div>
+      </div>
+      
+      <div className="relative z-10 p-4 pr-24">
+        <div className="text-left">
+          <div className="flex items-center gap-2 mb-1">
+            <Gamepad2 className="w-5 h-5 text-pink-400" />
+            <span className="font-bold text-base text-pink-400">Flappy Donut</span>
+            <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
+          </div>
+          <div className="text-[10px] text-pink-200/60 mb-2">Tap to fly, dodge the rolling pins!</div>
+          
+          {/* Prize Pool */}
+          <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-1">
+              <Coins className="w-3 h-3 text-amber-400" />
+              <span className="text-[10px] text-amber-400">Pool: {prizePool} 🍩</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Trophy className="w-3 h-3 text-amber-400" />
+              <span className="text-[10px] text-amber-400">Weekly prizes</span>
+            </div>
+          </div>
+          
+          {/* Recent Player */}
+          {recentPlayer ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] text-zinc-400">Last play:</span>
+              <span className="text-[9px] text-white bg-zinc-800/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                {recentPlayer.pfpUrl && (
+                  <img src={recentPlayer.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
+                )}
+                @{recentPlayer.username} scored {recentPlayer.score}
+              </span>
+            </div>
+          ) : (
+            <span className="text-[9px] text-zinc-500">Be the first to play today!</span>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
 // Coming Soon Tile with spinning gear
 function ComingSoonTile() {
   return (
@@ -111,6 +180,8 @@ export default function GamesPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
+  const [recentPlayer, setRecentPlayer] = useState<RecentPlayer | null>(null);
+  const [prizePool, setPrizePool] = useState<string>("0");
 
   useEffect(() => {
     let cancelled = false;
@@ -136,6 +207,26 @@ export default function GamesPage() {
       }
     }, 1200);
     return () => clearTimeout(timeout);
+  }, []);
+
+  // Fetch recent player and prize pool
+  useEffect(() => {
+    const fetchGameData = async () => {
+      try {
+        const res = await fetch('/api/games/flappy/recent');
+        if (res.ok) {
+          const data = await res.json();
+          setRecentPlayer(data.recentPlayer);
+          setPrizePool(data.prizePool || "0");
+        }
+      } catch (e) {
+        console.error("Failed to fetch game data:", e);
+      }
+    };
+    
+    fetchGameData();
+    const interval = setInterval(fetchGameData, 30000); // Refresh every 30s
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -172,6 +263,13 @@ export default function GamesPage() {
           100% { transform: rotate(360deg); }
         }
         .gear-spin { animation: gear-spin 8s linear infinite; }
+        
+        /* Donut float animation */
+        @keyframes donut-float {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-5px) rotate(10deg); }
+        }
+        .donut-float { animation: donut-float 3s ease-in-out infinite; }
       `}</style>
 
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4 shadow-inner" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
@@ -201,8 +299,11 @@ export default function GamesPage() {
               {/* Ad Carousel */}
               <AdCarouselTile />
               
-              {/* 6 Coming Soon tiles */}
-              {[...Array(6)].map((_, i) => (
+              {/* Flappy Donut - Live Game */}
+              <FlappyDonutTile recentPlayer={recentPlayer} prizePool={prizePool} />
+              
+              {/* 5 Coming Soon tiles */}
+              {[...Array(5)].map((_, i) => (
                 <ComingSoonTile key={i} />
               ))}
             </div>
