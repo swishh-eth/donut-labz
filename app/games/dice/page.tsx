@@ -465,15 +465,29 @@ export default function DicePage() {
           
           setTimeout(() => setCooldown(false), 3000);
           
-          if (won) {
-            playWinSound();
-            flushSync(() => {
-              setStreak(prev => prev + 1);
-              setShowConfetti(true);
-            });
-            try { sdk.haptics.impactOccurred("heavy"); } catch {}
-            setTimeout(() => setShowConfetti(false), 3000);
-          } else {
+if (won) {
+  playWinSound();
+  flushSync(() => {
+    setStreak(prev => prev + 1);
+    setShowConfetti(true);
+  });
+  try { sdk.haptics.impactOccurred("heavy"); } catch {}
+  setTimeout(() => setShowConfetti(false), 3000);
+  
+  // Record win to database
+  const formattedAmount = `${parseFloat(formatUnits(bet.payout, 18)).toFixed(2)} 🍩`;
+  fetch('/api/games/record-win', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      game: 'dice',
+      username: context?.user?.username || `${address?.slice(0, 6)}...${address?.slice(-4)}`,
+      amount: formattedAmount,
+      pfpUrl: context?.user?.pfpUrl,
+      playerAddress: address,
+    }),
+  }).catch(() => {});
+} else {
             playLoseSound();
             flushSync(() => { setStreak(0); });
             try { sdk.haptics.impactOccurred("heavy"); } catch {}

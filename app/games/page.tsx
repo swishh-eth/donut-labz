@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Sparkles, Dices, Lock, Bomb, Layers, Flame, TrendingUp, ArrowRight, Trophy, Grid3X3, Coins } from "lucide-react";
+import { Sparkles, Dices, Lock, Bomb, Layers, ArrowRight, Trophy, Grid3X3 } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -20,7 +20,9 @@ type LastWinner = {
   username: string;
   amount: string;
   pfpUrl?: string;
-} | null;
+};
+
+type GameWinners = LastWinner[];
 
 const initialsFrom = (label?: string) => {
   if (!label) return "";
@@ -29,29 +31,20 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
-// Ad Carousel Tile Component
+// Ad Carousel Tile Component - static ads baked in at build time
+// To add/remove ads, update this array with files from /public/adspot/
+const AD_FILES: string[] = [
+  "adspot1.png",
+  "adspot2.gif",
+  "adspot3.png",
+  "adspot4.png",
+];
+
 function AdCarouselTile() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [ads, setAds] = useState<string[]>([]);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Fetch ad files from API
-  useEffect(() => {
-    const fetchAds = async () => {
-      try {
-        const res = await fetch('/api/ads/list');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.files && data.files.length > 0) {
-            setAds(data.files.map((f: string) => `/adspot/${f}`));
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch ads:', error);
-      }
-    };
-    fetchAds();
-  }, []);
+  const ads = AD_FILES.map(f => `/adspot/${f}`);
 
   // Auto-rotate ads
   useEffect(() => {
@@ -66,6 +59,7 @@ function AdCarouselTile() {
     return () => clearInterval(interval);
   }, [ads.length]);
 
+  // Don't render if no ads configured
   if (ads.length === 0) return null;
 
   const currentAd = ads[currentIndex];
@@ -202,9 +196,7 @@ function GameTile({
   description, 
   icon: Icon, 
   comingSoon = true,
-  isNew = false,
-  isHot = false,
-  lastWinner,
+  winners = [],
   animationType,
   onClick 
 }: { 
@@ -212,12 +204,23 @@ function GameTile({
   description: string;
   icon: React.ElementType;
   comingSoon?: boolean;
-  isNew?: boolean;
-  isHot?: boolean;
-  lastWinner?: LastWinner;
+  winners?: GameWinners;
   animationType?: 'wheel' | 'tower' | 'dice' | 'bomb';
   onClick?: () => void;
 }) {
+  const [winnerIndex, setWinnerIndex] = useState(0);
+  
+  // Cycle through winners every 4 seconds
+  useEffect(() => {
+    if (winners.length <= 1) return;
+    const interval = setInterval(() => {
+      setWinnerIndex((prev) => (prev + 1) % winners.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [winners.length]);
+  
+  const currentWinner = winners[winnerIndex] || null;
+
   // Render the appropriate animated background icon
   const renderBackgroundIcon = () => {
     const baseClass = "w-24 h-24";
@@ -268,42 +271,23 @@ function GameTile({
                 Soon
               </span>
             )}
-            {!comingSoon && isHot && (
-              <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full font-bold hot-pulse flex items-center gap-0.5">
-                <Flame className="w-2.5 h-2.5" /> HOT
-              </span>
-            )}
-            {!comingSoon && isNew && !isHot && (
-              <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full font-bold">
-                NEW
-              </span>
-            )}
-            {!comingSoon && !isNew && !isHot && (
-              <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">
-                LIVE
-              </span>
-            )}
           </div>
           <div className={`text-[10px] mb-2 ${comingSoon ? "text-gray-600" : "text-white/60"}`}>{description}</div>
           
-          {/* Last Winner or Placeholder - always show to prevent layout jump */}
-          <div className="flex items-center gap-2">
-            {!comingSoon && lastWinner ? (
-              <span className="text-[9px] text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-                {lastWinner.pfpUrl && (
-                  <img src={lastWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
+          {/* Last Winner - show winner or placeholder for consistent height */}
+          <div className="flex items-center gap-2 h-5">
+            {!comingSoon && currentWinner ? (
+              <span className="text-[9px] text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 transition-opacity duration-300">
+                {currentWinner.pfpUrl && (
+                  <img src={currentWinner.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
                 )}
-                @{lastWinner.username} +{lastWinner.amount}
+                @{currentWinner.username} +{currentWinner.amount}
               </span>
             ) : !comingSoon ? (
-              <span className="text-[9px] text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">
-                No Recent Wins
-              </span>
-            ) : (
               <span className="text-[9px] text-zinc-600 bg-zinc-800/50 px-2 py-0.5 rounded-full">
-                Coming Soon
+                Be the first to win!
               </span>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -318,35 +302,35 @@ export default function GamesPage() {
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   
-  // All last winners fetched from a single API call
-  const [lastWinners, setLastWinners] = useState<{
-    dice: LastWinner;
-    mines: LastWinner;
-    wheel: LastWinner;
-    tower: LastWinner;
+  // All winners fetched from database
+  const [gameWinners, setGameWinners] = useState<{
+    dice: GameWinners;
+    mines: GameWinners;
+    wheel: GameWinners;
+    tower: GameWinners;
   }>({
-    dice: null,
-    mines: null,
-    wheel: null,
-    tower: null,
+    dice: [],
+    mines: [],
+    wheel: [],
+    tower: [],
   });
 
-  // Fetch all last winners from a single API endpoint
+  // Fetch winners from database
   useEffect(() => {
-    const fetchLastWinners = async () => {
+    const fetchWinners = async () => {
       try {
         const res = await fetch('/api/games/last-winners');
         if (res.ok) {
           const data = await res.json();
-          setLastWinners(data);
+          setGameWinners(data);
         }
       } catch (error) {
-        console.error('Failed to fetch last winners:', error);
+        console.error('Failed to fetch winners:', error);
       }
     };
 
-    fetchLastWinners();
-    const interval = setInterval(fetchLastWinners, 5 * 60 * 1000);
+    fetchWinners();
+    const interval = setInterval(fetchWinners, 60 * 1000); // Refresh every minute
     return () => clearInterval(interval);
   }, []);
 
@@ -405,8 +389,7 @@ export default function GamesPage() {
       description: "Climb levels to win some dough!",
       icon: Layers,
       comingSoon: false,
-      isHot: true,
-      lastWinner: lastWinners.tower,
+      winners: gameWinners.tower,
       animationType: "tower" as const,
       onClick: () => window.location.href = "/games/tower",
     },
@@ -416,7 +399,7 @@ export default function GamesPage() {
       description: "Spin to win some real glaze!",
       icon: WheelIcon,
       comingSoon: false,
-      lastWinner: lastWinners.wheel,
+      winners: gameWinners.wheel,
       animationType: "wheel" as const,
       onClick: () => window.location.href = "/games/glaze-wheel",
     },
@@ -426,7 +409,7 @@ export default function GamesPage() {
       description: "Roll over/under, set your multiplier!",
       icon: Dices,
       comingSoon: false,
-      lastWinner: lastWinners.dice,
+      winners: gameWinners.dice,
       animationType: "dice" as const,
       onClick: () => window.location.href = "/games/dice",
     },
@@ -436,7 +419,7 @@ export default function GamesPage() {
       description: "Avoid the bombs, cash out anytime",
       icon: Bomb,
       comingSoon: false,
-      lastWinner: lastWinners.mines,
+      winners: gameWinners.mines,
       animationType: "bomb" as const,
       onClick: () => window.location.href = "/games/mines",
     },
@@ -446,7 +429,7 @@ export default function GamesPage() {
       description: "Pick numbers, win multipliers",
       icon: Grid3X3,
       comingSoon: true,
-      lastWinner: null,
+      winners: [],
     },
     {
       id: "slots",
@@ -454,7 +437,7 @@ export default function GamesPage() {
       description: "Match symbols to win big",
       icon: Sparkles,
       comingSoon: true,
-      lastWinner: null,
+      winners: [],
     },
   ];
 
@@ -463,12 +446,6 @@ export default function GamesPage() {
       <style>{`
         .games-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .games-scroll::-webkit-scrollbar { display: none; }
-        
-        @keyframes hot-pulse { 
-          0%, 100% { opacity: 1; transform: scale(1); } 
-          50% { opacity: 0.7; transform: scale(0.95); } 
-        }
-        .hot-pulse { animation: hot-pulse 2s ease-in-out infinite; }
         
         /* Wheel spin animation */
         @keyframes wheel-spin {
@@ -552,9 +529,7 @@ export default function GamesPage() {
                   description={game.description}
                   icon={game.icon}
                   comingSoon={game.comingSoon}
-                  isNew={(game as any).isNew}
-                  isHot={(game as any).isHot}
-                  lastWinner={game.lastWinner}
+                  winners={game.winners}
                   animationType={(game as any).animationType}
                   onClick={game.onClick}
                 />

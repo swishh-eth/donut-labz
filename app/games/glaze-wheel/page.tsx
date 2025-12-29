@@ -929,12 +929,26 @@ export default function GlazeWheelPage() {
                     
                     setTimeout(() => setCooldown(false), 3000);
                     
-                    if (won) {
-                      playWinSound();
-                      flushSync(() => setShowConfetti(true));
-                      try { sdk.haptics.impactOccurred("heavy"); } catch {}
-                      setTimeout(() => setShowConfetti(false), 3000);
-                    } else {
+if (won) {
+  playWinSound();
+  flushSync(() => setShowConfetti(true));
+  try { sdk.haptics.impactOccurred("heavy"); } catch {}
+  setTimeout(() => setShowConfetti(false), 3000);
+  
+  // Record win to database
+  const formattedAmount = `${parseFloat(formatUnits(spin.payout, 18)).toFixed(2)} 🍩`;
+  fetch('/api/games/record-win', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      game: 'wheel',
+      username: context?.user?.username || `${address?.slice(0, 6)}...${address?.slice(-4)}`,
+      amount: formattedAmount,
+      pfpUrl: context?.user?.pfpUrl,
+      playerAddress: address,
+    }),
+  }).catch(() => {});
+} else {
                       playLoseSound();
                       try { sdk.haptics.impactOccurred("heavy"); } catch {}
                     }

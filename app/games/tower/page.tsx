@@ -246,6 +246,9 @@ export default function TowerPage() {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
 
+  // Farcaster context
+  const [context, setContext] = useState<{ user?: { fid: number; username?: string; pfpUrl?: string } } | null>(null);
+
   // UI State
   const [difficulty, setDifficulty] = useState(0);
   const [betAmount, setBetAmount] = useState("1");
@@ -310,6 +313,17 @@ export default function TowerPage() {
       }
     } catch {}
   }, [soundEnabled]);
+
+  // Load Farcaster context
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const ctx = await sdk.context;
+        setContext(ctx as any);
+      } catch {}
+    };
+    load();
+  }, []);
 
   // Contract reads
   const { data: tokenBalance, refetch: refetchBalance } = useReadContract({
@@ -688,6 +702,20 @@ export default function TowerPage() {
               setGameResult("won");
               setShowConfetti(true);
               
+              // Record win to games leaderboard (max level reached)
+              const winPayout = parseFloat(formatUnits(newState.betAmount, 18)) * (Number(newState.currentMultiplier) / 10000) * 0.98;
+              fetch('/api/games/record-win', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  game: 'tower',
+                  username: context?.user?.username || `${address?.slice(0, 6)}...${address?.slice(-4)}`,
+                  amount: `${winPayout.toFixed(2)} 🍩`,
+                  pfpUrl: context?.user?.pfpUrl,
+                  playerAddress: address,
+                }),
+              }).catch(() => {});
+              
               setTimeout(() => {
                 setShowConfetti(false);
                 setActiveGameId(null);
@@ -723,7 +751,7 @@ export default function TowerPage() {
     pollForUpdate();
     
     return () => { cancelled = true; };
-  }, [isClimbing, climbHash, isClimbPending, activeGameId, publicClient, gameState?.currentLevel, fetchGameState, playSound, refetchActiveGame, refetchBalance, resetClimb]);
+  }, [isClimbing, climbHash, isClimbPending, activeGameId, publicClient, gameState?.currentLevel, fetchGameState, playSound, refetchActiveGame, refetchBalance, resetClimb, context, address]);
 
   // Handle climb error
   useEffect(() => {
@@ -755,10 +783,24 @@ export default function TowerPage() {
   };
 
   useEffect(() => {
-    if (isCashOutSuccess && isCashingOut) {
+    if (isCashOutSuccess && isCashingOut && gameState) {
       playSound("win");
       setGameResult("won");
       setShowConfetti(true);
+      
+      // Record win to games leaderboard
+      const winPayout = parseFloat(formatUnits(gameState.betAmount, 18)) * (Number(gameState.currentMultiplier) / 10000) * 0.98;
+      fetch('/api/games/record-win', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          game: 'tower',
+          username: context?.user?.username || `${address?.slice(0, 6)}...${address?.slice(-4)}`,
+          amount: `${winPayout.toFixed(2)} 🍩`,
+          pfpUrl: context?.user?.pfpUrl,
+          playerAddress: address,
+        }),
+      }).catch(() => {});
       
       setTimeout(() => {
         setShowConfetti(false);
@@ -770,7 +812,7 @@ export default function TowerPage() {
         refetchBalance();
       }, 3000);
     }
-  }, [isCashOutSuccess, isCashingOut, playSound, refetchActiveGame, refetchBalance]);
+  }, [isCashOutSuccess, isCashingOut, gameState, playSound, refetchActiveGame, refetchBalance, context, address]);
 
   // ===========================================
   // RENDER TOWER

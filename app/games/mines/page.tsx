@@ -1041,14 +1041,29 @@ export default function BakeryMinesPage() {
   };
 
   // Handle cash out success
-  useEffect(() => {
-    if (isCashOutSuccess && isCashingOut) {
-      playWinSound();
-      setGameResult("won");
-      flushSync(() => setShowConfetti(true));
-      try { sdk.haptics.impactOccurred("heavy"); } catch {}
-      
-      setTimeout(() => {
+useEffect(() => {
+  if (isCashOutSuccess && isCashingOut && gameState) {
+    playWinSound();
+    setGameResult("won");
+    flushSync(() => setShowConfetti(true));
+    try { sdk.haptics.impactOccurred("heavy"); } catch {}
+    
+    // Record win to database
+    const payout = parseFloat(formatUnits(gameState.betAmount, 18)) * (Number(gameState.currentMultiplier) / 10000) * 0.98;
+    const formattedAmount = `${payout.toFixed(2)} 🍩`;
+    fetch('/api/games/record-win', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        game: 'mines',
+        username: context?.user?.username || `${address?.slice(0, 6)}...${address?.slice(-4)}`,
+        amount: formattedAmount,
+        pfpUrl: context?.user?.pfpUrl,
+        playerAddress: address,
+      }),
+    }).catch(() => {});
+    
+    setTimeout(() => {
         setShowConfetti(false);
         setConfirmedTiles(0);
         setActiveGameId(null);
