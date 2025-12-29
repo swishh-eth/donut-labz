@@ -1,97 +1,37 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { sdk } from "@farcaster/miniapp-sdk";
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { formatUnits, parseUnits } from "viem";
-import { ArrowLeft, Trophy, Play, Coins, Zap, Share2 } from "lucide-react";
+import { ArrowLeft, Trophy, Play, Coins, Zap, Share2, RotateCcw } from "lucide-react";
 
-// Contract addresses
-const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
-const FLAPPY_POOL_ADDRESS = "0xA3419c6eFbb7a227fC3e24189d8099591327a14A" as const;
-
-// ABIs
-const ERC20_ABI = [
-  {
-    inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }],
-    name: "approve",
-    outputs: [{ type: "bool" }],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }],
-    name: "allowance",
-    outputs: [{ type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ name: "account", type: "address" }],
-    name: "balanceOf",
-    outputs: [{ type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
-
-const FLAPPY_POOL_ABI = [
-  {
-    inputs: [{ name: "amount", type: "uint256" }],
-    name: "payEntry",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "getPrizePool",
-    outputs: [{ type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "currentWeek",
-    outputs: [{ type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
-
-type MiniAppContext = {
-  user?: {
-    fid: number;
-    username?: string;
-    displayName?: string;
-    pfpUrl?: string;
-  };
-};
-
-type LeaderboardEntry = {
-  rank: number;
-  username: string;
-  pfpUrl?: string;
-  score: number;
-};
-
-// Game constants
+// Game constants - TWEAK THESE FOR FEEL
 const CANVAS_WIDTH = 360;
 const CANVAS_HEIGHT = 540;
-const GRAVITY = 0.25;
-const FLAP_STRENGTH = -6;
-const PIPE_WIDTH = 60;
-const PIPE_GAP = 160;
-const PIPE_SPEED = 2.5;
-const DONUT_SIZE = 36;
+const GRAVITY = 0.35;           // How fast donut falls (lower = floatier)
+const FLAP_STRENGTH = -7;       // How strong each flap is (more negative = stronger)
+const PIPE_WIDTH = 60;          // Width of rolling pins
+const PIPE_GAP = 180;           // Gap between top and bottom pipes (bigger = easier)
+const PIPE_SPEED = 2.2;         // How fast pipes move (lower = easier)
+const PIPE_SPAWN_DISTANCE = 220; // Distance between pipes (bigger = easier)
+const DONUT_SIZE = 36;          // Size of the donut
+const DONUT_X = 80;             // Donut's X position
 
-export default function FlappyDonutPage() {
+// Mock leaderboard data for testing
+const MOCK_LEADERBOARD = [
+  { rank: 1, username: "donutking", pfpUrl: null, score: 42 },
+  { rank: 2, username: "sprinklemaster", pfpUrl: null, score: 38 },
+  { rank: 3, username: "glazedgamer", pfpUrl: null, score: 35 },
+  { rank: 4, username: "flapjack", pfpUrl: null, score: 29 },
+  { rank: 5, username: "sugarhigh", pfpUrl: null, score: 24 },
+  { rank: 6, username: "doughboy", pfpUrl: null, score: 21 },
+  { rank: 7, username: "crispycream", pfpUrl: null, score: 18 },
+  { rank: 8, username: "bakersman", pfpUrl: null, score: 15 },
+  { rank: 9, username: "sweetooth", pfpUrl: null, score: 12 },
+  { rank: 10, username: "rollingpin", pfpUrl: null, score: 8 },
+];
+
+export default function FlappyDonutTestPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number | null>(null);
-  const { address } = useAccount();
-  
-  // Farcaster context
-  const [context, setContext] = useState<MiniAppContext | null>(null);
   
   // Game state
   const [gameState, setGameState] = useState<"menu" | "countdown" | "playing" | "gameover">("menu");
@@ -99,170 +39,119 @@ export default function FlappyDonutPage() {
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [attempts, setAttempts] = useState(0);
-  const [entryCost, setEntryCost] = useState(1);
-  const [paidCost, setPaidCost] = useState(1); // Track what was actually paid for current game
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [playerRank, setPlayerRank] = useState<number | null>(null);
-  const [prizePool, setPrizePool] = useState<string>("0");
+  const [leaderboard, setLeaderboard] = useState(MOCK_LEADERBOARD);
   
   // Game objects refs
   const donutRef = useRef({ y: CANVAS_HEIGHT / 2, velocity: 0 });
   const pipesRef = useRef<{ x: number; topHeight: number; passed: boolean }[]>([]);
   const scoreRef = useRef(0);
   const gameActiveRef = useRef(false);
+  const frameCountRef = useRef(0);
   
-  // Contract interactions
-  const { writeContract, data: txHash, isPending: isWritePending } = useWriteContract();
-  const { isLoading: isTxLoading, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({ hash: txHash });
-  
-  // Read allowance
-  const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    address: DONUT_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: "allowance",
-    args: address ? [address, FLAPPY_POOL_ADDRESS] : undefined,
-  });
-  
-  // Read balance
-  const { data: balance } = useReadContract({
-    address: DONUT_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-  });
-  
-  // Read prize pool
-  const { data: prizePoolData } = useReadContract({
-    address: FLAPPY_POOL_ADDRESS,
-    abi: FLAPPY_POOL_ABI,
-    functionName: "getPrizePool",
-  });
-  
-  // Read current week
-  const { data: currentWeek } = useReadContract({
-    address: FLAPPY_POOL_ADDRESS,
-    abi: FLAPPY_POOL_ABI,
-    functionName: "currentWeek",
-  });
-  
-  // Load Farcaster context
-  useEffect(() => {
-    let cancelled = false;
-    const hydrateContext = async () => {
-      try {
-        const ctx = await (sdk as any).context;
-        if (!cancelled) setContext(ctx);
-      } catch {
-        if (!cancelled) setContext(null);
-      }
-    };
-    hydrateContext();
-    sdk.actions.ready().catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-  
-  // Fetch attempts and leaderboard
-  useEffect(() => {
-    if (!address) return;
-    
-    const fetchData = async () => {
-      try {
-        // Fetch attempts
-        const attemptsRes = await fetch(`/api/games/flappy/attempts?address=${address}`);
-        if (attemptsRes.ok) {
-          const data = await attemptsRes.json();
-          setAttempts(data.attempts);
-          setEntryCost(data.attempts + 1);
-        }
-        
-        // Fetch leaderboard
-        const lbRes = await fetch('/api/games/flappy/leaderboard');
-        if (lbRes.ok) {
-          const data = await lbRes.json();
-          setLeaderboard(data.leaderboard);
-          setPlayerRank(data.playerRank);
-        }
-      } catch (e) {
-        console.error("Failed to fetch data:", e);
-      }
-    };
-    
-    fetchData();
-  }, [address]);
-  
-  // Update prize pool display
-  useEffect(() => {
-    if (prizePoolData) {
-      setPrizePool(Number(formatUnits(prizePoolData, 18)).toFixed(2));
-    }
-  }, [prizePoolData]);
-  
-  // Handle transaction success
-  useEffect(() => {
-    if (isTxSuccess && gameState === "menu") {
-      // Store the cost that was paid before starting
-      setPaidCost(entryCost);
-      refetchAllowance();
-      startGame();
-    }
-  }, [isTxSuccess]);
-  
-  // Draw donut
+  // Draw donut with wings
   const drawDonut = useCallback((ctx: CanvasRenderingContext2D, y: number, velocity: number) => {
-    const x = 80;
-    const rotation = velocity * 0.05;
+    const x = DONUT_X;
+    const rotation = Math.min(Math.max(velocity * 0.04, -0.5), 0.5);
     
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(rotation);
     
-    // Outer donut
+    // Shadow
+    ctx.beginPath();
+    ctx.ellipse(3, 5, DONUT_SIZE / 2, DONUT_SIZE / 2.5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+    ctx.fill();
+    
+    // Outer donut body
     ctx.beginPath();
     ctx.arc(0, 0, DONUT_SIZE / 2, 0, Math.PI * 2);
     ctx.fillStyle = "#D4A574";
     ctx.fill();
-    ctx.strokeStyle = "#8B6914";
+    ctx.strokeStyle = "#B8956C";
     ctx.lineWidth = 2;
     ctx.stroke();
     
-    // Frosting (top half)
+    // Pink frosting (wavy top half)
     ctx.beginPath();
-    ctx.arc(0, 0, DONUT_SIZE / 2 - 2, Math.PI, 0);
+    ctx.arc(0, -2, DONUT_SIZE / 2 - 3, Math.PI * 1.15, Math.PI * -0.15);
     ctx.fillStyle = "#FF69B4";
     ctx.fill();
+    
+    // Frosting drips
+    for (let i = 0; i < 5; i++) {
+      const angle = Math.PI * 1.15 + (i / 4) * (Math.PI * 0.7);
+      const dripX = Math.cos(angle) * (DONUT_SIZE / 2 - 3);
+      const dripY = Math.sin(angle) * (DONUT_SIZE / 2 - 3) - 2;
+      const dripLength = 4 + Math.sin(i * 2) * 3;
+      
+      ctx.beginPath();
+      ctx.ellipse(dripX, dripY + dripLength / 2, 3, dripLength, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "#FF69B4";
+      ctx.fill();
+    }
     
     // Inner hole
     ctx.beginPath();
     ctx.arc(0, 0, DONUT_SIZE / 5, 0, Math.PI * 2);
     ctx.fillStyle = "#1a1a1a";
     ctx.fill();
+    ctx.strokeStyle = "#B8956C";
+    ctx.lineWidth = 1;
+    ctx.stroke();
     
-    // Sprinkles
-    const sprinkleColors = ["#FFD700", "#00FF00", "#00BFFF", "#FF4500", "#FFFFFF"];
-    for (let i = 0; i < 8; i++) {
-      const angle = (i / 8) * Math.PI + Math.PI;
-      const r = DONUT_SIZE / 3;
+    // Sprinkles on frosting
+    const sprinkleColors = ["#FFD700", "#00FF00", "#00BFFF", "#FF4500", "#FFFFFF", "#FF00FF"];
+    for (let i = 0; i < 12; i++) {
+      const angle = Math.PI + (i / 12) * Math.PI;
+      const r = DONUT_SIZE / 3 + (i % 2) * 4;
       const sx = Math.cos(angle) * r;
-      const sy = Math.sin(angle) * r * 0.5 - 2;
+      const sy = Math.sin(angle) * r - 2;
+      const sprinkleAngle = angle + Math.PI / 4;
+      
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(sprinkleAngle);
       ctx.fillStyle = sprinkleColors[i % sprinkleColors.length];
-      ctx.fillRect(sx - 2, sy - 1, 4, 2);
+      ctx.beginPath();
+      ctx.roundRect(-3, -1, 6, 2, 1);
+      ctx.fill();
+      ctx.restore();
     }
     
-    // Wings
-    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+    // Wings - flapping based on velocity
+    const wingFlap = Math.sin(frameCountRef.current * 0.3) * 5;
+    const wingY = velocity < 0 ? -8 - wingFlap : -5;
+    
     // Left wing
+    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
     ctx.beginPath();
-    ctx.ellipse(-DONUT_SIZE / 2 - 8, -5, 12, 8, -0.3, 0, Math.PI * 2);
+    ctx.ellipse(-DONUT_SIZE / 2 - 10, wingY, 14, 9, -0.4 + (velocity < 0 ? -0.2 : 0), 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+    ctx.strokeStyle = "rgba(200, 200, 200, 0.8)";
+    ctx.lineWidth = 1;
     ctx.stroke();
-    // Right wing  
+    
+    // Left wing detail
     ctx.beginPath();
-    ctx.ellipse(DONUT_SIZE / 2 + 8, -5, 12, 8, 0.3, 0, Math.PI * 2);
+    ctx.ellipse(-DONUT_SIZE / 2 - 8, wingY + 2, 8, 5, -0.3, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(150, 150, 150, 0.3)";
+    ctx.stroke();
+    
+    // Right wing
+    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.beginPath();
+    ctx.ellipse(DONUT_SIZE / 2 + 10, wingY, 14, 9, 0.4 + (velocity < 0 ? 0.2 : 0), 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = "rgba(200, 200, 200, 0.8)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    // Right wing detail
+    ctx.beginPath();
+    ctx.ellipse(DONUT_SIZE / 2 + 8, wingY + 2, 8, 5, 0.3, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(150, 150, 150, 0.3)";
     ctx.stroke();
     
     ctx.restore();
@@ -270,40 +159,59 @@ export default function FlappyDonutPage() {
   
   // Draw rolling pin pipe
   const drawPipe = useCallback((ctx: CanvasRenderingContext2D, x: number, topHeight: number) => {
-    // Top pipe (rolling pin pointing down)
-    const topY = topHeight;
-    
-    // Rolling pin handle (top)
-    ctx.fillStyle = "#8B4513";
-    ctx.fillRect(x + 10, 0, PIPE_WIDTH - 20, 20);
-    
-    // Rolling pin body (top)
+    // Top pipe (rolling pin)
     const gradient = ctx.createLinearGradient(x, 0, x + PIPE_WIDTH, 0);
-    gradient.addColorStop(0, "#D2B48C");
-    gradient.addColorStop(0.5, "#F5DEB3");
-    gradient.addColorStop(1, "#D2B48C");
+    gradient.addColorStop(0, "#C4A77D");
+    gradient.addColorStop(0.3, "#E8D5B7");
+    gradient.addColorStop(0.5, "#F5E6D3");
+    gradient.addColorStop(0.7, "#E8D5B7");
+    gradient.addColorStop(1, "#C4A77D");
+    
+    // Top rolling pin body
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.roundRect(x, 20, PIPE_WIDTH, topY - 20, [0, 0, 10, 10]);
+    ctx.roundRect(x, -10, PIPE_WIDTH, topHeight + 10, [0, 0, 12, 12]);
     ctx.fill();
-    ctx.strokeStyle = "#8B7355";
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    
+    // Top wood grain lines
+    ctx.strokeStyle = "rgba(139, 90, 43, 0.15)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < topHeight; i += 15) {
+      ctx.beginPath();
+      ctx.moveTo(x + 10, i);
+      ctx.lineTo(x + PIPE_WIDTH - 10, i);
+      ctx.stroke();
+    }
+    
+    // Top handle end cap
+    ctx.fillStyle = "#8B5A2B";
+    ctx.beginPath();
+    ctx.roundRect(x + 8, topHeight - 8, PIPE_WIDTH - 16, 12, 6);
+    ctx.fill();
     
     // Bottom pipe
     const bottomY = topHeight + PIPE_GAP;
-    const bottomHeight = CANVAS_HEIGHT - bottomY;
+    const bottomHeight = CANVAS_HEIGHT - bottomY + 10;
     
-    // Rolling pin body (bottom)
+    // Bottom rolling pin body
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.roundRect(x, bottomY, PIPE_WIDTH, bottomHeight - 20, [10, 10, 0, 0]);
+    ctx.roundRect(x, bottomY, PIPE_WIDTH, bottomHeight, [12, 12, 0, 0]);
     ctx.fill();
-    ctx.stroke();
     
-    // Rolling pin handle (bottom)
-    ctx.fillStyle = "#8B4513";
-    ctx.fillRect(x + 10, CANVAS_HEIGHT - 20, PIPE_WIDTH - 20, 20);
+    // Bottom wood grain lines
+    for (let i = bottomY + 20; i < CANVAS_HEIGHT; i += 15) {
+      ctx.beginPath();
+      ctx.moveTo(x + 10, i);
+      ctx.lineTo(x + PIPE_WIDTH - 10, i);
+      ctx.stroke();
+    }
+    
+    // Bottom handle end cap
+    ctx.fillStyle = "#8B5A2B";
+    ctx.beginPath();
+    ctx.roundRect(x + 8, bottomY - 4, PIPE_WIDTH - 16, 12, 6);
+    ctx.fill();
   }, []);
   
   // Game loop
@@ -312,20 +220,25 @@ export default function FlappyDonutPage() {
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx || !gameActiveRef.current) return;
     
-    // Clear canvas
-    ctx.fillStyle = "#1a1a1a";
+    frameCountRef.current++;
+    
+    // Clear canvas with gradient background
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+    bgGradient.addColorStop(0, "#1a1a1a");
+    bgGradient.addColorStop(1, "#0d0d0d");
+    ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
-    // Draw grid pattern
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+    // Draw subtle grid pattern
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
     ctx.lineWidth = 1;
-    for (let i = 0; i < CANVAS_WIDTH; i += 30) {
+    for (let i = 0; i < CANVAS_WIDTH; i += 40) {
       ctx.beginPath();
       ctx.moveTo(i, 0);
       ctx.lineTo(i, CANVAS_HEIGHT);
       ctx.stroke();
     }
-    for (let i = 0; i < CANVAS_HEIGHT; i += 30) {
+    for (let i = 0; i < CANVAS_HEIGHT; i += 40) {
       ctx.beginPath();
       ctx.moveTo(0, i);
       ctx.lineTo(CANVAS_WIDTH, i);
@@ -334,6 +247,7 @@ export default function FlappyDonutPage() {
     
     // Update donut physics
     donutRef.current.velocity += GRAVITY;
+    donutRef.current.velocity = Math.min(donutRef.current.velocity, 12); // Terminal velocity
     donutRef.current.y += donutRef.current.velocity;
     
     // Update pipes
@@ -341,24 +255,25 @@ export default function FlappyDonutPage() {
       pipe.x -= PIPE_SPEED;
       
       // Check if passed
-      if (!pipe.passed && pipe.x + PIPE_WIDTH < 80) {
+      if (!pipe.passed && pipe.x + PIPE_WIDTH < DONUT_X) {
         pipe.passed = true;
         scoreRef.current++;
         setScore(scoreRef.current);
       }
       
       // Remove off-screen pipes
-      if (pipe.x + PIPE_WIDTH < 0) {
+      if (pipe.x + PIPE_WIDTH < -10) {
         pipesRef.current.splice(index, 1);
       }
     });
     
     // Add new pipes
-    if (pipesRef.current.length === 0 || pipesRef.current[pipesRef.current.length - 1].x < CANVAS_WIDTH - 200) {
-      const minHeight = 60;
-      const maxHeight = CANVAS_HEIGHT - PIPE_GAP - 60;
+    const lastPipe = pipesRef.current[pipesRef.current.length - 1];
+    if (!lastPipe || lastPipe.x < CANVAS_WIDTH - PIPE_SPAWN_DISTANCE) {
+      const minHeight = 80;
+      const maxHeight = CANVAS_HEIGHT - PIPE_GAP - 80;
       const topHeight = Math.random() * (maxHeight - minHeight) + minHeight;
-      pipesRef.current.push({ x: CANVAS_WIDTH, topHeight, passed: false });
+      pipesRef.current.push({ x: CANVAS_WIDTH + 20, topHeight, passed: false });
     }
     
     // Draw pipes
@@ -369,19 +284,21 @@ export default function FlappyDonutPage() {
     // Draw donut
     drawDonut(ctx, donutRef.current.y, donutRef.current.velocity);
     
-    // Draw score
+    // Draw score with glow
+    ctx.shadowColor = "#FFD700";
+    ctx.shadowBlur = 20;
     ctx.fillStyle = "#FFFFFF";
-    ctx.font = "bold 32px monospace";
+    ctx.font = "bold 48px monospace";
     ctx.textAlign = "center";
-    ctx.fillText(scoreRef.current.toString(), CANVAS_WIDTH / 2, 50);
+    ctx.fillText(scoreRef.current.toString(), CANVAS_WIDTH / 2, 60);
+    ctx.shadowBlur = 0;
     
     // Collision detection
-    const donutX = 80;
     const donutY = donutRef.current.y;
-    const donutRadius = DONUT_SIZE / 2 - 4;
+    const hitboxRadius = DONUT_SIZE / 2 - 6; // Slightly smaller hitbox for fairness
     
     // Floor/ceiling collision
-    if (donutY - donutRadius < 0 || donutY + donutRadius > CANVAS_HEIGHT) {
+    if (donutY - hitboxRadius < 0 || donutY + hitboxRadius > CANVAS_HEIGHT) {
       endGame();
       return;
     }
@@ -389,10 +306,10 @@ export default function FlappyDonutPage() {
     // Pipe collision
     for (const pipe of pipesRef.current) {
       if (
-        donutX + donutRadius > pipe.x &&
-        donutX - donutRadius < pipe.x + PIPE_WIDTH
+        DONUT_X + hitboxRadius > pipe.x &&
+        DONUT_X - hitboxRadius < pipe.x + PIPE_WIDTH
       ) {
-        if (donutY - donutRadius < pipe.topHeight || donutY + donutRadius > pipe.topHeight + PIPE_GAP) {
+        if (donutY - hitboxRadius < pipe.topHeight || donutY + hitboxRadius > pipe.topHeight + PIPE_GAP) {
           endGame();
           return;
         }
@@ -415,8 +332,8 @@ export default function FlappyDonutPage() {
     donutRef.current = { y: CANVAS_HEIGHT / 2, velocity: 0 };
     pipesRef.current = [];
     scoreRef.current = 0;
+    frameCountRef.current = 0;
     setScore(0);
-    setError(null);
     setCountdown(3);
     setGameState("countdown");
     
@@ -441,7 +358,7 @@ export default function FlappyDonutPage() {
   }, [gameLoop]);
   
   // End game
-  const endGame = useCallback(async () => {
+  const endGame = useCallback(() => {
     gameActiveRef.current = false;
     if (gameLoopRef.current) {
       cancelAnimationFrame(gameLoopRef.current);
@@ -453,97 +370,17 @@ export default function FlappyDonutPage() {
     }
     
     setGameState("gameover");
+    setAttempts(prev => prev + 1);
     
-    // Submit score to backend
-    if (address && finalScore > 0) {
-      try {
-        const res = await fetch('/api/games/flappy/submit-score', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            playerAddress: address,
-            username: context?.user?.username || `${address.slice(0, 6)}...${address.slice(-4)}`,
-            pfpUrl: context?.user?.pfpUrl,
-            score: finalScore,
-            weekNumber: currentWeek ? Number(currentWeek) : 1,
-            costPaid: paidCost,
-          }),
-        });
-        
-        if (!res.ok) {
-          const err = await res.json();
-          console.error('Submit score error:', err);
-        }
-        
-        // Refresh leaderboard
-        const lbRes = await fetch('/api/games/flappy/leaderboard');
-        if (lbRes.ok) {
-          const data = await lbRes.json();
-          setLeaderboard(data.leaderboard);
-        }
-        
-        // Refresh attempts to get updated cost
-        const attemptsRes = await fetch(`/api/games/flappy/attempts?address=${address}`);
-        if (attemptsRes.ok) {
-          const data = await attemptsRes.json();
-          setAttempts(data.attempts);
-          setEntryCost(data.nextCost);
-        }
-      } catch (e) {
-        console.error("Failed to submit score:", e);
-      }
-    }
-  }, [address, context, currentWeek, highScore, paidCost]);
-  
-  // Handle play button
-  const handlePlay = async () => {
-    if (!address) {
-      setError("Connect wallet to play");
-      return;
-    }
-    
-    setIsLoading(true);
-    setError(null);
-    
-    const costWei = parseUnits(entryCost.toString(), 18);
-    
-    // Check balance
-    if (balance && balance < costWei) {
-      setError(`Insufficient DONUT. Need ${entryCost} 🍩`);
-      setIsLoading(false);
-      return;
-    }
-    
-    // Check allowance - only approve 100 more if needed
-    if (!allowance || allowance < costWei) {
-      // Approve 100 DONUT at a time
-      try {
-        writeContract({
-          address: DONUT_ADDRESS,
-          abi: ERC20_ABI,
-          functionName: "approve",
-          args: [FLAPPY_POOL_ADDRESS, parseUnits("100", 18)],
-        });
-      } catch (e) {
-        setError("Approval failed");
-        setIsLoading(false);
-      }
-      return;
-    }
-    
-    // Pay entry and start
-    try {
-      writeContract({
-        address: FLAPPY_POOL_ADDRESS,
-        abi: FLAPPY_POOL_ABI,
-        functionName: "payEntry",
-        args: [costWei],
+    // Update mock leaderboard if score is good enough
+    if (finalScore > 0) {
+      setLeaderboard(prev => {
+        const newEntry = { rank: 0, username: "you", pfpUrl: null, score: finalScore };
+        const combined = [...prev, newEntry].sort((a, b) => b.score - a.score);
+        return combined.slice(0, 10).map((entry, i) => ({ ...entry, rank: i + 1 }));
       });
-    } catch (e) {
-      setError("Payment failed");
-      setIsLoading(false);
     }
-  };
+  }, [highScore]);
   
   // Draw menu/countdown/gameover screen
   useEffect(() => {
@@ -553,64 +390,96 @@ export default function FlappyDonutPage() {
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
     
-    // Background
-    ctx.fillStyle = "#1a1a1a";
+    // Background gradient
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+    bgGradient.addColorStop(0, "#1a1a1a");
+    bgGradient.addColorStop(1, "#0d0d0d");
+    ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
     // Grid pattern
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
     ctx.lineWidth = 1;
-    for (let i = 0; i < CANVAS_WIDTH; i += 30) {
+    for (let i = 0; i < CANVAS_WIDTH; i += 40) {
       ctx.beginPath();
       ctx.moveTo(i, 0);
       ctx.lineTo(i, CANVAS_HEIGHT);
       ctx.stroke();
     }
-    for (let i = 0; i < CANVAS_HEIGHT; i += 30) {
+    for (let i = 0; i < CANVAS_HEIGHT; i += 40) {
       ctx.beginPath();
       ctx.moveTo(0, i);
       ctx.lineTo(CANVAS_WIDTH, i);
       ctx.stroke();
     }
     
-    // Draw static donut
-    drawDonut(ctx, CANVAS_HEIGHT / 2 - 50, 0);
+    // Draw static donut (floating animation)
+    const floatOffset = Math.sin(Date.now() / 500) * 8;
+    drawDonut(ctx, CANVAS_HEIGHT / 2 - 60 + floatOffset, 0);
     
-    // Title
+    // Title with glow
+    ctx.shadowColor = "#FF69B4";
+    ctx.shadowBlur = 30;
     ctx.fillStyle = "#FFFFFF";
-    ctx.font = "bold 28px monospace";
+    ctx.font = "bold 32px monospace";
     ctx.textAlign = "center";
-    ctx.fillText("FLAPPY DONUT", CANVAS_WIDTH / 2, 80);
+    ctx.fillText("FLAPPY DONUT", CANVAS_WIDTH / 2, 70);
+    ctx.shadowBlur = 0;
+    
+    // Subtitle
+    ctx.fillStyle = "#888888";
+    ctx.font = "12px monospace";
+    ctx.fillText("TEST MODE - No wallet required", CANVAS_WIDTH / 2, 95);
     
     if (gameState === "countdown") {
-      // Big countdown number
-      ctx.fillStyle = "#FFFFFF";
-      ctx.font = "bold 120px monospace";
-      ctx.fillText(countdown.toString(), CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40);
+      // Big countdown number with pulse effect
+      const scale = 1 + Math.sin(Date.now() / 100) * 0.1;
+      ctx.save();
+      ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+      ctx.scale(scale, scale);
       
-      ctx.fillStyle = "#888888";
-      ctx.font = "16px monospace";
-      ctx.fillText("GET READY!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80);
+      ctx.shadowColor = "#FFFFFF";
+      ctx.shadowBlur = 40;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 140px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(countdown.toString(), 0, 40);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+      
+      ctx.fillStyle = "#FF69B4";
+      ctx.font = "bold 18px monospace";
+      ctx.fillText("GET READY!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
     }
     
     if (gameState === "gameover") {
+      // Game over text
       ctx.fillStyle = "#FF6B6B";
-      ctx.font = "bold 24px monospace";
+      ctx.font = "bold 28px monospace";
       ctx.fillText("GAME OVER", CANVAS_WIDTH / 2, 130);
       
+      // Score with glow
+      ctx.shadowColor = "#FFD700";
+      ctx.shadowBlur = 20;
       ctx.fillStyle = "#FFFFFF";
-      ctx.font = "bold 36px monospace";
-      ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 180);
+      ctx.font = "bold 56px monospace";
+      ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 200);
+      ctx.shadowBlur = 0;
       
+      // High score
       ctx.fillStyle = "#888888";
-      ctx.font = "14px monospace";
-      ctx.fillText(`Best: ${Math.max(score, highScore)}`, CANVAS_WIDTH / 2, 210);
-      
-      ctx.fillStyle = "#A855F7";
-      ctx.font = "12px monospace";
-      ctx.fillText("Share your score to challenge friends!", CANVAS_WIDTH / 2, 250);
+      ctx.font = "16px monospace";
+      ctx.fillText(`Best: ${Math.max(score, highScore)}`, CANVAS_WIDTH / 2, 235);
     }
     
+    // Animate the menu screen
+    if (gameState === "menu" || gameState === "gameover") {
+      const animFrame = requestAnimationFrame(() => {
+        // Trigger re-render for floating animation
+        setScore(s => s);
+      });
+      return () => cancelAnimationFrame(animFrame);
+    }
   }, [gameState, score, highScore, countdown, drawDonut]);
   
   // Keyboard controls
@@ -625,26 +494,8 @@ export default function FlappyDonutPage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleFlap]);
-  
-  const isPaying = isWritePending || isTxLoading;
-  
-  // Share score to Farcaster
-  const handleShare = useCallback(async () => {
-    const username = context?.user?.username || "someone";
-    const castText = `🍩 I just scored ${score} in Flappy Donut on @sprinkles!\n\nThink you can beat me? Play now and compete for the weekly prize pool! 🏆`;
-    
-    try {
-      await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=https://sprinklesapp.xyz/games/game-1`);
-    } catch (e) {
-      // Fallback: copy to clipboard
-      try {
-        await navigator.clipboard.writeText(castText + "\n\nhttps://sprinklesapp.xyz/games/game-1");
-        alert("Copied to clipboard!");
-      } catch {
-        console.error("Failed to share:", e);
-      }
-    }
-  }, [score, context]);
+
+  const entryCost = attempts + 1;
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -660,6 +511,10 @@ export default function FlappyDonutPage() {
             <span className="text-sm">Back</span>
           </button>
           
+          <div className="flex items-center gap-2 px-2 py-1 bg-yellow-500/20 border border-yellow-500/50 rounded-full">
+            <span className="text-[10px] text-yellow-400 font-bold">⚠️ TEST MODE</span>
+          </div>
+          
           <button
             onClick={() => setShowLeaderboard(!showLeaderboard)}
             className="flex items-center gap-2 text-amber-400 hover:text-amber-300 transition-colors"
@@ -669,14 +524,14 @@ export default function FlappyDonutPage() {
           </button>
         </div>
         
-        {/* Prize Pool Banner */}
+        {/* Prize Pool Banner (Mock) */}
         <div className="mx-4 mb-3 px-4 py-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Coins className="w-4 h-4 text-amber-400" />
-              <span className="text-xs text-amber-200/60">Weekly Prize Pool</span>
+              <span className="text-xs text-amber-200/60">Weekly Prize Pool (Test)</span>
             </div>
-            <span className="text-lg font-bold text-amber-400">{prizePool} 🍩</span>
+            <span className="text-lg font-bold text-amber-400">1,234 🍩</span>
           </div>
         </div>
         
@@ -700,7 +555,7 @@ export default function FlappyDonutPage() {
                   {/* Share Button (Game Over only) */}
                   {gameState === "gameover" && score > 0 && (
                     <button
-                      onClick={handleShare}
+                      onClick={() => alert(`Would share: "I scored ${score} in Flappy Donut! 🍩"`)}
                       className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white font-bold rounded-full hover:bg-purple-500 transition-all"
                     >
                       <Share2 className="w-4 h-4" />
@@ -708,39 +563,36 @@ export default function FlappyDonutPage() {
                     </button>
                   )}
                   
-                  {/* Entry Cost */}
+                  {/* Entry Cost (Mock) */}
                   <div className="flex items-center gap-2 px-4 py-2 bg-zinc-900/90 rounded-full border border-zinc-700">
                     <Zap className="w-4 h-4 text-yellow-400" />
                     <span className="text-sm">Entry: <span className="font-bold text-white">{entryCost} 🍩</span></span>
+                    <span className="text-[10px] text-zinc-500">(mock)</span>
                   </div>
                   
                   {/* Play Button */}
                   <button
-                    onClick={handlePlay}
-                    disabled={isPaying || isLoading}
-                    className="flex items-center gap-2 px-8 py-3 bg-white text-black font-bold rounded-full hover:bg-zinc-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={startGame}
+                    className="flex items-center gap-2 px-8 py-3 bg-white text-black font-bold rounded-full hover:bg-zinc-200 transition-all active:scale-95"
                   >
-                    {isPaying ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                        <span>Processing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-5 h-5" />
-                        <span>{gameState === "gameover" ? "Play Again" : "Play"}</span>
-                      </>
-                    )}
+                    <Play className="w-5 h-5" />
+                    <span>{gameState === "gameover" ? "Play Again" : "Play"}</span>
                   </button>
                   
-                  {/* Error */}
-                  {error && (
-                    <p className="text-red-400 text-sm text-center">{error}</p>
+                  {/* Reset attempts */}
+                  {attempts > 0 && (
+                    <button
+                      onClick={() => setAttempts(0)}
+                      className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Reset attempts
+                    </button>
                   )}
                   
                   {/* Attempt counter */}
                   <p className="text-zinc-500 text-xs">
-                    Today's attempts: {attempts} (resets 6pm EST)
+                    Today's attempts: {attempts} (test mode)
                   </p>
                 </div>
               </div>
@@ -755,6 +607,13 @@ export default function FlappyDonutPage() {
           </div>
         </div>
         
+        {/* Game feel tweaks info */}
+        <div className="mx-4 mt-2 p-3 bg-zinc-900/50 rounded-xl border border-zinc-800">
+          <p className="text-[10px] text-zinc-500 text-center">
+            Gravity: {GRAVITY} | Flap: {FLAP_STRENGTH} | Gap: {PIPE_GAP} | Speed: {PIPE_SPEED}
+          </p>
+        </div>
+        
         {/* Leaderboard Modal */}
         {showLeaderboard && (
           <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
@@ -763,53 +622,48 @@ export default function FlappyDonutPage() {
                 <div className="flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-amber-400" />
                   <span className="font-bold">Weekly Leaderboard</span>
+                  <span className="text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full">TEST</span>
                 </div>
                 <button
                   onClick={() => setShowLeaderboard(false)}
-                  className="text-zinc-400 hover:text-white"
+                  className="text-zinc-400 hover:text-white text-xl"
                 >
                   ✕
                 </button>
               </div>
               
               <div className="max-h-80 overflow-y-auto">
-                {leaderboard.length === 0 ? (
-                  <p className="text-zinc-500 text-center py-8">No scores yet. Be the first!</p>
-                ) : (
-                  leaderboard.map((entry, i) => (
-                    <div
-                      key={i}
-                      className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${
-                        entry.rank <= 3 ? "bg-amber-500/10" : ""
-                      }`}
-                    >
-                      <span className={`w-6 text-center font-bold ${
-                        entry.rank === 1 ? "text-amber-400" :
-                        entry.rank === 2 ? "text-zinc-300" :
-                        entry.rank === 3 ? "text-orange-400" :
-                        "text-zinc-500"
-                      }`}>
-                        {entry.rank}
-                      </span>
-                      {entry.pfpUrl ? (
-                        <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-zinc-700" />
-                      )}
-                      <span className="flex-1 truncate">{entry.username}</span>
-                      <span className="font-bold">{entry.score}</span>
+                {leaderboard.map((entry, i) => (
+                  <div
+                    key={i}
+                    className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${
+                      entry.rank <= 3 ? "bg-amber-500/10" : ""
+                    } ${entry.username === "you" ? "bg-green-500/10" : ""}`}
+                  >
+                    <span className={`w-6 text-center font-bold ${
+                      entry.rank === 1 ? "text-amber-400" :
+                      entry.rank === 2 ? "text-zinc-300" :
+                      entry.rank === 3 ? "text-orange-400" :
+                      "text-zinc-500"
+                    }`}>
+                      {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}
+                    </span>
+                    <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center text-sm">
+                      {entry.username === "you" ? "👤" : "🍩"}
                     </div>
-                  ))
-                )}
+                    <span className={`flex-1 truncate ${entry.username === "you" ? "text-green-400 font-bold" : ""}`}>
+                      {entry.username === "you" ? "You" : `@${entry.username}`}
+                    </span>
+                    <span className="font-bold">{entry.score}</span>
+                  </div>
+                ))}
               </div>
               
-              {playerRank && playerRank > 10 && (
-                <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
-                  <p className="text-sm text-zinc-400 text-center">
-                    Your rank: <span className="text-white font-bold">#{playerRank}</span>
-                  </p>
-                </div>
-              )}
+              <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
+                <p className="text-xs text-zinc-400 text-center">
+                  Top 10 split the weekly prize pool!
+                </p>
+              </div>
             </div>
           </div>
         )}
