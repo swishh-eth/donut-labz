@@ -35,9 +35,9 @@ const initialsFrom = (label?: string) => {
 // To add/remove ads, update this array with files from /public/adspot/
 const AD_FILES: string[] = [
   "adspot1.png",
-  "adspot2.gif",
+  "adspot2.png",
   "adspot3.png",
-  "adspot4.png",
+  "adspot4.gif",
 ];
 
 function AdCarouselTile() {
