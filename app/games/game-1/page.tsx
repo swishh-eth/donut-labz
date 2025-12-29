@@ -6,7 +6,7 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { formatUnits, parseUnits } from "viem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Trophy, Play, Coins, Zap, Share2, Palette, Check, X, ExternalLink } from "lucide-react";
+import { Trophy, Play, Coins, Zap, Share2, Palette, Check, X, ExternalLink, HelpCircle, Volume2, VolumeX } from "lucide-react";
 import { GAME_SKINS, getOwnedSkins, getSelectedSkin, saveSelectedSkin, getSkinById, type GameSkin } from "@/lib/game-skins";
 
 // Contract addresses
@@ -69,8 +69,17 @@ export default function FlappyDonutPage() {
   const [error, setError] = useState<string | null>(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showSkins, setShowSkins] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [prizePool, setPrizePool] = useState<string>("0");
+  
+  // Prize distribution percentages for top 10
+  const PRIZE_DISTRIBUTION = [30, 20, 15, 10, 8, 6, 5, 3, 2, 1];
+  
+  // Audio context and sounds
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const lastScoreRef = useRef(0);
   
   const [ownedSkins, setOwnedSkins] = useState<GameSkin[]>([GAME_SKINS[0]]);
   const [selectedSkin, setSelectedSkin] = useState<GameSkin>(GAME_SKINS[0]);
@@ -83,6 +92,66 @@ export default function FlappyDonutPage() {
   const frameCountRef = useRef(0);
   const countdownRef = useRef(3);
   const paidCostRef = useRef(1);
+  const graceFramesRef = useRef(0); // Grace period frames at start
+  
+  // Initialize audio context on first interaction
+  const getAudioContext = useCallback(() => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return audioContextRef.current;
+  }, []);
+  
+  // Play flap sound - short whoosh
+  const playFlapSound = useCallback(() => {
+    if (isMuted) return;
+    try {
+      const ctx = getAudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.frequency.setValueAtTime(400, ctx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.1);
+    } catch {}
+  }, [isMuted, getAudioContext]);
+  
+  // Play point sound - happy ding
+  const playPointSound = useCallback(() => {
+    if (isMuted) return;
+    try {
+      const ctx = getAudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+      oscillator.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.2);
+    } catch {}
+  }, [isMuted, getAudioContext]);
+  
+  // Haptic feedback - light for flap
+  const triggerFlapHaptic = useCallback(() => {
+    try {
+      if (navigator.vibrate) navigator.vibrate(10);
+    } catch {}
+  }, []);
+  
+  // Haptic feedback - stronger for point
+  const triggerPointHaptic = useCallback(() => {
+    try {
+      if (navigator.vibrate) navigator.vibrate([20, 30, 20]);
+    } catch {}
+  }, []);
   
   const { writeContract, data: txHash, isPending: isWritePending, reset: resetWrite } = useWriteContract();
   const { isLoading: isTxLoading, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({ hash: txHash });
@@ -247,13 +316,24 @@ export default function FlappyDonutPage() {
     for (let i = 0; i < CANVAS_WIDTH; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, CANVAS_HEIGHT); ctx.stroke(); }
     for (let i = 0; i < CANVAS_HEIGHT; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_WIDTH, i); ctx.stroke(); }
     
-    donutRef.current.velocity += GRAVITY;
+    // Grace period: reduced gravity for first 60 frames (about 1 second)
+    const currentGravity = graceFramesRef.current < 60 ? GRAVITY * 0.3 : GRAVITY;
+    graceFramesRef.current++;
+    
+    donutRef.current.velocity += currentGravity;
     donutRef.current.velocity = Math.min(donutRef.current.velocity, 10);
     donutRef.current.y += donutRef.current.velocity;
     
     pipesRef.current.forEach((pipe, index) => {
       pipe.x -= difficulty.pipeSpeed;
-      if (!pipe.passed && pipe.x + PIPE_WIDTH < DONUT_X) { pipe.passed = true; scoreRef.current++; setScore(scoreRef.current); }
+      if (!pipe.passed && pipe.x + PIPE_WIDTH < DONUT_X) { 
+        pipe.passed = true; 
+        scoreRef.current++; 
+        setScore(scoreRef.current);
+        // Play point sound and haptic
+        playPointSound();
+        triggerPointHaptic();
+      }
       if (pipe.x + PIPE_WIDTH < -10) pipesRef.current.splice(index, 1);
     });
     
@@ -304,11 +384,15 @@ export default function FlappyDonutPage() {
     }
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawDonut, drawPipe, address, context]);
+  }, [drawDonut, drawPipe, address, context, playPointSound, triggerPointHaptic]);
   
   const handleFlap = useCallback(() => {
-    if (gameState === "playing" && gameActiveRef.current) donutRef.current.velocity = FLAP_STRENGTH;
-  }, [gameState]);
+    if (gameState === "playing" && gameActiveRef.current) {
+      donutRef.current.velocity = FLAP_STRENGTH;
+      playFlapSound();
+      triggerFlapHaptic();
+    }
+  }, [gameState, playFlapSound, triggerFlapHaptic]);
   
   const startGame = useCallback(() => {
     donutRef.current = { y: CANVAS_HEIGHT / 2, velocity: 0 };
@@ -316,6 +400,7 @@ export default function FlappyDonutPage() {
     scoreRef.current = 0;
     frameCountRef.current = 0;
     countdownRef.current = 3;
+    graceFramesRef.current = 0; // Reset grace period
     setScore(0);
     setCountdown(3);
     setGameState("countdown");
@@ -494,11 +579,20 @@ export default function FlappyDonutPage() {
             {gameState === "playing" && <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none z-20"><p className="text-zinc-600 text-[10px]">Tap to flap</p></div>}
           </div>
           
-          {/* Skins button - always visible below canvas */}
+          {/* Skins, Help, and Mute buttons - always visible below canvas */}
           {(gameState === "menu" || gameState === "gameover") && (
-            <button onClick={() => setShowSkins(true)} className="mt-3 flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
-              <Palette className="w-3 h-3 text-zinc-400" /><span className="text-xs">Skins</span>
-            </button>
+            <div className="mt-3 flex items-center gap-2">
+              <button onClick={() => setShowSkins(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
+                <Palette className="w-3 h-3 text-zinc-400" /><span className="text-xs">Skins</span>
+              </button>
+              <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
+                <HelpCircle className="w-3 h-3 text-zinc-400" /><span className="text-xs">How to Play</span>
+              </button>
+              <button onClick={() => setIsMuted(!isMuted)} className={`flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border rounded-full hover:border-zinc-500 ${isMuted ? 'border-red-500/50' : 'border-zinc-700'}`}>
+                {isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-400" />}
+                <span className="text-xs">{isMuted ? 'Muted' : 'Sound'}</span>
+              </button>
+            </div>
           )}
         </div>
         
@@ -510,16 +604,39 @@ export default function FlappyDonutPage() {
                 <div className="flex items-center gap-2"><Trophy className="w-5 h-5 text-amber-400" /><span className="font-bold">Weekly Leaderboard</span></div>
                 <button onClick={() => setShowLeaderboard(false)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
               </div>
-              <div className="max-h-80 overflow-y-auto">
-                {leaderboard.length === 0 ? <p className="text-zinc-500 text-center py-8">No scores yet!</p> : leaderboard.map((entry, i) => (
-                  <div key={i} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${entry.rank <= 3 ? "bg-amber-500/10" : ""}`}>
-                    <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-amber-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>{entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}</span>
-                    {entry.pfpUrl ? <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center">🍩</div>}
-                    <span className="flex-1 truncate">{entry.username}</span>
-                    <span className="font-bold">{entry.score}</span>
-                  </div>
-                ))}
+              <div className="px-4 py-2 bg-zinc-800/50 border-b border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-400">Prize Pool</span>
+                  <span className="text-sm font-bold text-amber-400">{prizePool} 🍩</span>
+                </div>
               </div>
+              <div className="max-h-80 overflow-y-auto">
+                {leaderboard.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <p className="text-zinc-500">No scores yet!</p>
+                    <p className="text-zinc-600 text-xs mt-1">Be the first to play this week</p>
+                  </div>
+                ) : leaderboard.map((entry, i) => {
+                  const prizePercent = PRIZE_DISTRIBUTION[entry.rank - 1] || 0;
+                  const prizeAmount = ((parseFloat(prizePool) * prizePercent) / 100).toFixed(2);
+                  return (
+                    <div key={i} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${entry.rank <= 3 ? "bg-amber-500/10" : ""}`}>
+                      <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-amber-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>{entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}</span>
+                      {entry.pfpUrl ? <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center">🍩</div>}
+                      <div className="flex-1 min-w-0">
+                        <span className="block truncate text-sm">{entry.username}</span>
+                        <span className="text-xs text-amber-400">+{prizeAmount} 🍩</span>
+                      </div>
+                      <span className="font-bold text-sm">{entry.score}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {leaderboard.length > 0 && (
+                <div className="px-4 py-2 bg-zinc-800/50 border-t border-zinc-800">
+                  <p className="text-[10px] text-zinc-500 text-center">Top 10 split pool: 30% • 20% • 15% • 10% • 8% • 6% • 5% • 3% • 2% • 1%</p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -554,6 +671,70 @@ export default function FlappyDonutPage() {
               <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
                 <button onClick={() => { setShowSkins(false); window.location.href = "/games"; }} className="w-full flex items-center justify-center gap-2 py-2 text-zinc-400 hover:text-white">
                   <ExternalLink className="w-4 h-4" /><span className="text-sm">Get More Skins</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Help Modal */}
+        {showHelp && (
+          <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+            <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+                <div className="flex items-center gap-2"><HelpCircle className="w-5 h-5 text-zinc-400" /><span className="font-bold">How to Play</span></div>
+                <button onClick={() => setShowHelp(false)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
+              </div>
+              
+              <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                <div>
+                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Play className="w-4 h-4 text-amber-400" />Gameplay</h3>
+                  <p className="text-xs text-zinc-400">Tap or click to make your donut flap and fly. Navigate through the rolling pin obstacles without hitting them or the edges!</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-400" />Entry Cost</h3>
+                  <p className="text-xs text-zinc-400">Each game costs DONUT to play. The cost increases with each attempt:</p>
+                  <ul className="text-xs text-zinc-400 mt-1 space-y-1 pl-4">
+                    <li>• 1st game: <span className="text-white">1 DONUT</span></li>
+                    <li>• 2nd game: <span className="text-white">2 DONUT</span></li>
+                    <li>• 3rd game: <span className="text-white">3 DONUT</span></li>
+                    <li>• And so on...</li>
+                  </ul>
+                  <p className="text-xs text-zinc-500 mt-2">Cost resets daily at 6PM EST</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Coins className="w-4 h-4 text-amber-400" />Prize Pool</h3>
+                  <p className="text-xs text-zinc-400">90% of all entry fees go to the weekly prize pool. 5% goes to LP rewards, 5% to treasury.</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-amber-400" />Weekly Rewards</h3>
+                  <p className="text-xs text-zinc-400">Every week, the prize pool is distributed to the top 10 players based on their highest score:</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs">
+                    <div className="flex justify-between"><span className="text-amber-400">🥇 1st</span><span className="text-white">30%</span></div>
+                    <div className="flex justify-between"><span className="text-zinc-300">🥈 2nd</span><span className="text-white">20%</span></div>
+                    <div className="flex justify-between"><span className="text-orange-400">🥉 3rd</span><span className="text-white">15%</span></div>
+                    <div className="flex justify-between"><span className="text-zinc-400">4th</span><span className="text-white">10%</span></div>
+                    <div className="flex justify-between"><span className="text-zinc-400">5th</span><span className="text-white">8%</span></div>
+                    <div className="flex justify-between"><span className="text-zinc-400">6th</span><span className="text-white">6%</span></div>
+                    <div className="flex justify-between"><span className="text-zinc-400">7th</span><span className="text-white">5%</span></div>
+                    <div className="flex justify-between"><span className="text-zinc-400">8th</span><span className="text-white">3%</span></div>
+                    <div className="flex justify-between"><span className="text-zinc-400">9th</span><span className="text-white">2%</span></div>
+                    <div className="flex justify-between"><span className="text-zinc-400">10th</span><span className="text-white">1%</span></div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Palette className="w-4 h-4 text-zinc-400" />Skins</h3>
+                  <p className="text-xs text-zinc-400">Customize your donut with skins! Buy them from the Skin Shop on the Games page. Skins work across all Donut Labs games.</p>
+                </div>
+              </div>
+              
+              <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
+                <button onClick={() => setShowHelp(false)} className="w-full py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200">
+                  Got it!
                 </button>
               </div>
             </div>
