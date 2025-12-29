@@ -36,7 +36,7 @@ const initialsFrom = (label?: string) => {
 const AD_FILES: string[] = [
   "adspot1.png",
   "adspot2.png",
-  "adspot3.png",
+  "adspot3.mp4",
   "adspot4.gif",
 ];
 
