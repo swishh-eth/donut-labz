@@ -148,55 +148,31 @@ export default function FlappyDonutPage() {
     ctx.translate(x, y);
     ctx.rotate(rotation);
     
+    // Shadow
     ctx.beginPath();
     ctx.ellipse(3, 5, DONUT_SIZE / 2, DONUT_SIZE / 2.5, 0, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
     ctx.fill();
     
+    // Main donut body - full skin color
     ctx.beginPath();
     ctx.arc(0, 0, DONUT_SIZE / 2, 0, Math.PI * 2);
-    ctx.fillStyle = "#D4A574";
+    ctx.fillStyle = skin.frostingColor;
     ctx.fill();
-    ctx.strokeStyle = "#B8956C";
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
     ctx.lineWidth = 2;
     ctx.stroke();
     
-    ctx.beginPath();
-    ctx.arc(0, -2, DONUT_SIZE / 2 - 3, Math.PI * 1.15, Math.PI * -0.15);
-    ctx.fillStyle = skin.frostingColor;
-    ctx.fill();
-    
-    for (let i = 0; i < 5; i++) {
-      const angle = Math.PI * 1.15 + (i / 4) * (Math.PI * 0.7);
-      const dripX = Math.cos(angle) * (DONUT_SIZE / 2 - 3);
-      const dripY = Math.sin(angle) * (DONUT_SIZE / 2 - 3) - 2;
-      ctx.beginPath();
-      ctx.ellipse(dripX, dripY + (4 + Math.sin(i * 2) * 3) / 2, 3, 4 + Math.sin(i * 2) * 3, 0, 0, Math.PI * 2);
-      ctx.fillStyle = skin.frostingColor;
-      ctx.fill();
-    }
-    
+    // Donut hole
     ctx.beginPath();
     ctx.arc(0, 0, DONUT_SIZE / 5, 0, Math.PI * 2);
     ctx.fillStyle = "#1a1a1a";
     ctx.fill();
-    ctx.strokeStyle = "#B8956C";
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
     ctx.lineWidth = 1;
     ctx.stroke();
     
-    for (let i = 0; i < 12; i++) {
-      const angle = Math.PI + (i / 12) * Math.PI;
-      const r = DONUT_SIZE / 3 + (i % 2) * 4;
-      ctx.save();
-      ctx.translate(Math.cos(angle) * r, Math.sin(angle) * r - 2);
-      ctx.rotate(angle + Math.PI / 4);
-      ctx.fillStyle = skin.sprinkleColors[i % skin.sprinkleColors.length];
-      ctx.beginPath();
-      ctx.roundRect(-3, -1, 6, 2, 1);
-      ctx.fill();
-      ctx.restore();
-    }
-    
+    // Wings
     const wingFlap = Math.sin(frameCountRef.current * 0.3) * 5;
     const wingY = velocity < 0 ? -8 - wingFlap : -5;
     
