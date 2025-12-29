@@ -42,7 +42,7 @@ function DonutInfoTile({ onClick }: { onClick: () => void }) {
     >
       {/* Large background donut symbol */}
       <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-        <DonutIcon className="w-28 h-28 text-white/10" />
+        <DonutIcon className="w-28 h-28 text-amber-950/50" />
       </div>
       
       <div className="relative z-10 p-4 pr-20">
@@ -76,7 +76,7 @@ function SprinklesInfoTile({ onClick }: { onClick: () => void }) {
     >
       {/* Large background sparkles symbol */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Sparkles className="w-24 h-24 text-white/10" />
+        <Sparkles className="w-24 h-24 text-zinc-800" />
       </div>
       
       <div className="relative z-10 p-4 pr-20">
@@ -110,7 +110,7 @@ function RevenueFlowTile({ onClick }: { onClick: () => void }) {
     >
       {/* Large background coins symbol */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Coins className="w-24 h-24 text-white/10" />
+        <Coins className="w-24 h-24 text-zinc-800" />
       </div>
       
       <div className="relative z-10 p-4 pr-16">
@@ -153,7 +153,7 @@ function LinksContractsTile({ onClick }: { onClick: () => void }) {
     >
       {/* Large background chain symbol */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Link2 className="w-24 h-24 text-white/10" />
+        <Link2 className="w-24 h-24 text-zinc-800" />
       </div>
       
       <div className="relative z-10 p-4 pr-16">
@@ -187,7 +187,7 @@ function DuneDashboardTile({ onClick }: { onClick: () => void }) {
     >
       {/* Large background chart symbol */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <BarChart3 className="w-24 h-24 text-white/10" />
+        <BarChart3 className="w-24 h-24 text-zinc-800" />
       </div>
       
       <div className="relative z-10 p-4 pr-16">

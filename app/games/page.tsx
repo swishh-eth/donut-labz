@@ -29,8 +29,87 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
-// Custom Wheel Icon component
-function WheelIcon({ className }: { className?: string }) {
+// Ad Carousel Tile Component
+function AdCarouselTile() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [ads, setAds] = useState<string[]>([]);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Fetch ad files from API
+  useEffect(() => {
+    const fetchAds = async () => {
+      try {
+        const res = await fetch('/api/ads/list');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.files && data.files.length > 0) {
+            setAds(data.files.map((f: string) => `/adspot/${f}`));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch ads:', error);
+      }
+    };
+    fetchAds();
+  }, []);
+
+  // Auto-rotate ads
+  useEffect(() => {
+    if (ads.length <= 1) return;
+    const interval = setInterval(() => {
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % ads.length);
+        setIsTransitioning(false);
+      }, 500);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [ads.length]);
+
+  if (ads.length === 0) return null;
+
+  const currentAd = ads[currentIndex];
+  const isVideo = currentAd?.endsWith('.mp4') || currentAd?.endsWith('.webm');
+
+  return (
+    <div
+      className="relative w-full rounded-2xl border-2 border-zinc-700/50 overflow-hidden"
+      style={{ minHeight: '120px', background: 'linear-gradient(135deg, rgba(63,63,70,0.3) 0%, rgba(39,39,42,0.3) 100%)' }}
+    >
+      <div className={`w-full h-full transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+        {isVideo ? (
+          <video
+            src={currentAd}
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="w-full h-32 object-cover"
+          />
+        ) : (
+          <img
+            src={currentAd}
+            alt="Ad"
+            className="w-full h-32 object-cover"
+          />
+        )}
+      </div>
+      {ads.length > 1 && (
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+          {ads.map((_, i) => (
+            <div
+              key={i}
+              className={`w-1.5 h-1.5 rounded-full transition-colors ${i === currentIndex ? 'bg-white' : 'bg-white/30'}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Custom Wheel Icon component with spin animation
+function WheelIcon({ className, animated = false }: { className?: string; animated?: boolean }) {
   return (
     <svg 
       viewBox="0 0 24 24" 
@@ -39,7 +118,7 @@ function WheelIcon({ className }: { className?: string }) {
       strokeWidth="2" 
       strokeLinecap="round" 
       strokeLinejoin="round"
-      className={className}
+      className={`${className} ${animated ? 'wheel-spin text-zinc-800' : ''}`}
     >
       <circle cx="12" cy="12" r="10" />
       <circle cx="12" cy="12" r="2" />
@@ -55,6 +134,34 @@ function WheelIcon({ className }: { className?: string }) {
   );
 }
 
+// Animated Tower Icon
+function AnimatedTowerIcon({ className, animated = false }: { className?: string; animated?: boolean }) {
+  return (
+    <div className={`${className} ${animated ? 'tower-stack' : ''} text-zinc-800`}>
+      <Layers className="w-full h-full" />
+    </div>
+  );
+}
+
+// Animated Dice Icon
+function AnimatedDiceIcon({ className, animated = false }: { className?: string; animated?: boolean }) {
+  return (
+    <div className={`${className} ${animated ? 'dice-shake' : ''} text-zinc-800`}>
+      <Dices className="w-full h-full" />
+    </div>
+  );
+}
+
+// Animated Bomb Icon
+function AnimatedBombIcon({ className, animated = false }: { className?: string; animated?: boolean }) {
+  return (
+    <div className={`${className} relative ${animated ? 'bomb-pulse' : ''} text-zinc-800`}>
+      <Bomb className="w-full h-full" />
+      {animated && <div className="bomb-fuse absolute -top-1 right-1 w-2 h-2 bg-orange-500 rounded-full" />}
+    </div>
+  );
+}
+
 // Games Leaderboard Tile Component
 function GamesLeaderboardTile({ onClick }: { onClick: () => void }) {
   return (
@@ -65,7 +172,7 @@ function GamesLeaderboardTile({ onClick }: { onClick: () => void }) {
     >
       {/* Large background trophy symbol */}
       <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Trophy className="w-28 h-28 text-white/10" />
+        <Trophy className="w-28 h-28 text-amber-950/50" />
       </div>
       
       <div className="relative z-10 p-4 pr-20">
@@ -99,6 +206,7 @@ function GameTile({
   isHot = false,
   flowItems,
   lastWinner,
+  animationType,
   onClick 
 }: { 
   title: string;
@@ -109,8 +217,32 @@ function GameTile({
   isHot?: boolean;
   flowItems?: string[];
   lastWinner?: LastWinner;
+  animationType?: 'wheel' | 'tower' | 'dice' | 'bomb';
   onClick?: () => void;
 }) {
+  // Render the appropriate animated background icon
+  const renderBackgroundIcon = () => {
+    const baseClass = "w-24 h-24";
+    const colorClass = "text-zinc-800";
+    
+    if (comingSoon) {
+      return <Icon className={`${baseClass} text-zinc-900`} />;
+    }
+    
+    switch (animationType) {
+      case 'wheel':
+        return <WheelIcon className={`${baseClass} ${colorClass}`} animated />;
+      case 'tower':
+        return <AnimatedTowerIcon className={baseClass} animated />;
+      case 'dice':
+        return <AnimatedDiceIcon className={baseClass} animated />;
+      case 'bomb':
+        return <AnimatedBombIcon className={baseClass} animated />;
+      default:
+        return <Icon className={`${baseClass} ${colorClass}`} />;
+    }
+  };
+
   return (
     <button
       onClick={onClick}
@@ -122,9 +254,9 @@ function GameTile({
       }`}
       style={{ minHeight: '100px', background: comingSoon ? 'rgba(39,39,42,0.3)' : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Large background icon */}
-      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Icon className={`w-24 h-24 ${comingSoon ? "text-white/5" : "text-white/10"}`} />
+      {/* Large background icon - solid color, no transparency */}
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-100">
+        {renderBackgroundIcon()}
       </div>
       
       <div className="relative z-10 p-4 pr-20">
@@ -282,6 +414,7 @@ export default function GamesPage() {
       isHot: true,
       flowItems: ["Bet DONUT", "Climb Tower", "Cash Out"],
       lastWinner: lastWinners.tower,
+      animationType: "tower" as const,
       onClick: () => window.location.href = "/games/tower",
     },
     {
@@ -292,6 +425,7 @@ export default function GamesPage() {
       comingSoon: false,
       flowItems: ["Place Bet", "Spin Wheel", "Win Big"],
       lastWinner: lastWinners.wheel,
+      animationType: "wheel" as const,
       onClick: () => window.location.href = "/games/glaze-wheel",
     },
     {
@@ -302,6 +436,7 @@ export default function GamesPage() {
       comingSoon: false,
       flowItems: ["Set Target", "Roll Dice", "Win"],
       lastWinner: lastWinners.dice,
+      animationType: "dice" as const,
       onClick: () => window.location.href = "/games/dice",
     },
     {
@@ -312,6 +447,7 @@ export default function GamesPage() {
       comingSoon: false,
       flowItems: ["Set Mines", "Reveal Tiles", "Cash Out"],
       lastWinner: lastWinners.mines,
+      animationType: "bomb" as const,
       onClick: () => window.location.href = "/games/mines",
     },
     {
@@ -339,8 +475,56 @@ export default function GamesPage() {
       <style>{`
         .games-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .games-scroll::-webkit-scrollbar { display: none; }
-        @keyframes hot-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.95); } }
+        
+        @keyframes hot-pulse { 
+          0%, 100% { opacity: 1; transform: scale(1); } 
+          50% { opacity: 0.7; transform: scale(0.95); } 
+        }
         .hot-pulse { animation: hot-pulse 2s ease-in-out infinite; }
+        
+        /* Wheel spin animation */
+        @keyframes wheel-spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .wheel-spin { animation: wheel-spin 8s linear infinite; }
+        
+        /* Tower stack animation - layers dropping */
+        @keyframes tower-stack {
+          0%, 100% { transform: translateY(0); }
+          25% { transform: translateY(-3px); }
+          50% { transform: translateY(0); }
+          75% { transform: translateY(-2px); }
+        }
+        .tower-stack { animation: tower-stack 2s ease-in-out infinite; }
+        
+        /* Dice shake animation */
+        @keyframes dice-shake {
+          0%, 100% { transform: rotate(0deg); }
+          10% { transform: rotate(-8deg); }
+          20% { transform: rotate(8deg); }
+          30% { transform: rotate(-6deg); }
+          40% { transform: rotate(6deg); }
+          50% { transform: rotate(-4deg); }
+          60% { transform: rotate(4deg); }
+          70% { transform: rotate(-2deg); }
+          80% { transform: rotate(2deg); }
+          90% { transform: rotate(0deg); }
+        }
+        .dice-shake { animation: dice-shake 1.5s ease-in-out infinite; }
+        
+        /* Bomb pulse animation with fuse */
+        @keyframes bomb-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+        }
+        .bomb-pulse { animation: bomb-pulse 1s ease-in-out infinite; }
+        
+        @keyframes fuse-glow {
+          0%, 100% { opacity: 1; box-shadow: 0 0 4px 2px rgba(251, 146, 60, 0.8); }
+          50% { opacity: 0.5; box-shadow: 0 0 8px 4px rgba(239, 68, 68, 1); }
+        }
+        .bomb-fuse { animation: fuse-glow 0.3s ease-in-out infinite; }
       `}</style>
 
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4 shadow-inner" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
@@ -367,6 +551,9 @@ export default function GamesPage() {
 
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden games-scroll" style={{ WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`, maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` }}>
             <div className="space-y-3 pb-4">
+              {/* Ad Carousel */}
+              <AdCarouselTile />
+              
               {/* Games Leaderboard Tile */}
               <GamesLeaderboardTile onClick={() => window.location.href = "/games/leaderboard"} />
               
@@ -381,6 +568,7 @@ export default function GamesPage() {
                   isHot={(game as any).isHot}
                   flowItems={game.flowItems}
                   lastWinner={game.lastWinner}
+                  animationType={(game as any).animationType}
                   onClick={game.onClick}
                 />
               ))}
