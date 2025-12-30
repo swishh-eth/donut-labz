@@ -153,7 +153,7 @@ export default function FlappyDonutPage() {
   const [previewSkin, setPreviewSkin] = useState<GameSkin | null>(null);
   
   const donutRef = useRef({ y: CANVAS_HEIGHT / 2, velocity: 0 });
-  const pipesRef = useRef<{ x: number; topHeight: number; baseTopHeight: number; gap: number; passed: boolean; phase: number }[]>([]);
+  const pipesRef = useRef<{ x: number; topHeight: number; baseTopHeight: number; gap: number; passed: boolean; phase: number; oscillates: boolean; oscSpeed: number; oscAmount: number }[]>([]);
   const scoreRef = useRef(0);
   const gameActiveRef = useRef(false);
   const frameCountRef = useRef(0);
@@ -483,13 +483,9 @@ export default function FlappyDonutPage() {
     pipesRef.current.forEach((pipe, index) => {
       pipe.x -= difficulty.pipeSpeed;
       
-      // After 100 points, pipes oscillate up and down
-      if (scoreRef.current >= 100) {
-        // Oscillation increases with score: starts slow, gets faster and bigger
-        const oscillationProgress = Math.min((scoreRef.current - 100) / 100, 1); // 0 to 1 over 100 points
-        const oscillationSpeed = 0.02 + oscillationProgress * 0.02; // Speed increases
-        const oscillationAmount = 15 + oscillationProgress * 25; // 15-40 pixels
-        pipe.topHeight = pipe.baseTopHeight + Math.sin(frameCountRef.current * oscillationSpeed + pipe.phase) * oscillationAmount;
+      // Apply oscillation if pipe was spawned with it
+      if (pipe.oscillates) {
+        pipe.topHeight = pipe.baseTopHeight + Math.sin(frameCountRef.current * pipe.oscSpeed + pipe.phase) * pipe.oscAmount;
         
         // Clamp to valid range
         const minTop = 40;
@@ -512,8 +508,25 @@ export default function FlappyDonutPage() {
     if (!lastPipe || lastPipe.x < CANVAS_WIDTH - PIPE_SPAWN_DISTANCE) {
       const currentGap = difficulty.pipeGap;
       const topHeight = Math.random() * (CANVAS_HEIGHT - currentGap - 120) + 60;
-      const phase = Math.random() * Math.PI * 2; // Random starting phase for variety
-      pipesRef.current.push({ x: CANVAS_WIDTH + 20, topHeight, baseTopHeight: topHeight, gap: currentGap, passed: false, phase });
+      const phase = Math.random() * Math.PI * 2;
+      
+      // Determine oscillation at spawn time based on current score
+      const shouldOscillate = scoreRef.current >= 100;
+      const oscillationProgress = shouldOscillate ? Math.min((scoreRef.current - 100) / 100, 1) : 0;
+      const oscSpeed = 0.02 + oscillationProgress * 0.02;
+      const oscAmount = 15 + oscillationProgress * 25;
+      
+      pipesRef.current.push({ 
+        x: CANVAS_WIDTH + 20, 
+        topHeight, 
+        baseTopHeight: topHeight, 
+        gap: currentGap, 
+        passed: false, 
+        phase,
+        oscillates: shouldOscillate,
+        oscSpeed,
+        oscAmount,
+      });
     }
     
     pipesRef.current.forEach(pipe => drawPipe(ctx, pipe.x, pipe.topHeight, pipe.gap));
