@@ -65,18 +65,27 @@ export async function GET(request: NextRequest) {
         
         // Format amount based on type
         let formattedAmount: string;
+        const amountStr = event.amount || "0";
+        
         if (type === "donut") {
           // ETH amount - format with 4-6 decimals
-          const ethAmount = parseFloat(formatEther(BigInt(event.amount || "0")));
+          const ethAmount = parseFloat(formatEther(BigInt(amountStr)));
           formattedAmount = ethAmount < 0.001 
             ? ethAmount.toFixed(6) 
             : ethAmount < 1 
               ? ethAmount.toFixed(4) 
               : ethAmount.toFixed(2);
         } else {
-          // DONUT amount - format as integer
-          const donutAmount = parseFloat(formatUnits(BigInt(event.amount || "0"), 18));
-          formattedAmount = Math.floor(donutAmount).toLocaleString();
+          // SPRINKLES/DONUT token amount
+          // Check if amount is stored as wei (large number, >10 digits) or whole tokens (small number)
+          if (amountStr.length > 10) {
+            // Old format: stored as wei, need to convert
+            const donutAmount = parseFloat(formatUnits(BigInt(amountStr), 18));
+            formattedAmount = Math.floor(donutAmount).toLocaleString();
+          } else {
+            // New format: already stored as whole tokens
+            formattedAmount = parseInt(amountStr, 10).toLocaleString();
+          }
         }
 
         return {
