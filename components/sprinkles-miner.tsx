@@ -56,9 +56,8 @@ const MIN_PRICE = 1n * 10n ** 18n;
 const SPRINKLES_DONUT_PAIR = "0x47E8b03017d8b8d058bA5926838cA4dD4531e668";
 const TREASURY_ADDRESS = "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d" as const;
 const DONUT_TOKEN_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
-const IMAGE_FEE = 1n * 10n ** 18n; // 1 DONUT for image upload
+const IMAGE_FEE = 1n * 10n ** 18n;
 
-// Simple ERC20 transfer ABI
 const ERC20_TRANSFER_ABI = [
   {
     name: "transfer",
@@ -278,7 +277,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     return () => cancelAnimationFrame(animationId);
   }, []);
 
-  // Scroll fade effect
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -298,7 +296,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Fetch recent miners
   useEffect(() => {
     const fetchRecentMiners = async () => {
       try {
@@ -313,7 +310,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     };
 
     fetchRecentMiners();
-    const interval = setInterval(fetchRecentMiners, 10_000); // More aggressive polling
+    const interval = setInterval(fetchRecentMiners, 10_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -418,14 +415,12 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     if (receipt.status === "success" || receipt.status === "reverted") {
       showMineResult(receipt.status === "success" ? "success" : "failure");
       
-      // Haptic feedback on success
       if (receipt.status === "success") {
         import("@farcaster/miniapp-sdk").then(({ sdk }) => {
           sdk.haptics.notificationOccurred("success").catch(() => {});
         }).catch(() => {});
       }
       
-      // Force refresh all data
       refetchSlot0();
       refetchPrice();
       refetchAllowance();
@@ -433,28 +428,24 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       if (receipt.status === "success" && txType === "approve") {
         setIsApprovalMode(false);
         setApprovalAmount("");
-        // Extra delay refetch to ensure chain state is updated
         setTimeout(() => {
           refetchAllowance();
         }, 1000);
       }
       
-      // Handle image fee transfer completion - now execute the mine
       if (receipt.status === "success" && txType === "imageFee") {
         const mineParams = pendingMineParamsRef.current;
         if (mineParams) {
-          // Small delay then execute the mine transaction
           setTimeout(() => {
             resetWrite();
             if (executeMineRef.current) {
               executeMineRef.current(mineParams);
             }
           }, 500);
-          return; // Don't clear pendingTxType yet, mine will handle that
+          return;
         }
       }
       
-      // Handle image fee failure
       if (receipt.status !== "success" && txType === "imageFee") {
         showMineResult("failure");
         pendingImageUrlRef.current = null;
@@ -502,13 +493,11 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             mineType: "sprinkles",
             imageUrl: pendingImageUrlRef.current,
           });
-          // Clear image state after successful mine
           pendingImageUrlRef.current = null;
           setSelectedImage(null);
           setImagePreviewUrl(null);
         }, 2000);
         
-        // Refresh recent miners list
         setTimeout(async () => {
           try {
             const res = await fetch('/api/miners/recent?type=sprinkles&limit=10');
@@ -531,10 +520,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const minerAddress = slot0?.miner ?? zeroAddress;
   const hasMiner = minerAddress !== zeroAddress;
 
-  // Detect when miner changes (someone else mined) and refresh
   useEffect(() => {
     if (prevMinerRef.current && minerAddress !== prevMinerRef.current && minerAddress !== zeroAddress) {
-      // Miner changed - someone mined! Refresh recent miners with haptic
       import("@farcaster/miniapp-sdk").then(({ sdk }) => {
         sdk.haptics.impactOccurred("light").catch(() => {});
       }).catch(() => {});
@@ -552,7 +539,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     prevMinerRef.current = minerAddress;
   }, [minerAddress]);
 
-  // Fix database if current miner's amount is 0 but we can calculate it
   useEffect(() => {
     if (
       recentMiners.length > 0 &&
@@ -562,7 +548,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     ) {
       const calculatedAmount = (slot0.initPrice / 2n).toString();
       
-      // Update the database with the calculated amount
       fetch('/api/miners/update-amount', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -573,7 +558,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         }),
       }).then(async (res) => {
         if (res.ok) {
-          // Refresh recent miners to show updated amount
           const refreshRes = await fetch('/api/miners/recent?type=sprinkles&limit=10');
           if (refreshRes.ok) {
             const data = await refreshRes.json();
@@ -652,7 +636,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     message: string;
   } | null>(null);
 
-  // Ref to hold executeMine function to avoid circular dependency
   const executeMineRef = useRef<((params: {
     targetAddress: string;
     epochId: bigint;
@@ -661,7 +644,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     message: string;
   }) => Promise<void>) | null>(null);
 
-  // Function to execute the actual mine transaction
   const executeMine = useCallback(async (params: {
     targetAddress: string;
     epochId: bigint;
@@ -692,7 +674,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     }
   }, [writeContract, showMineResult, resetWrite]);
 
-  // Keep ref updated
   useEffect(() => {
     executeMineRef.current = executeMine;
   }, [executeMine]);
@@ -702,7 +683,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     await refetchPrice();
     resetMineResult();
     
-    // Upload image first if selected
     let uploadedImageUrl: string | null = null;
     if (selectedImage) {
       setIsUploadingImage(true);
@@ -750,9 +730,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       const maxPrice = freshPrice === 0n ? 0n : (freshPrice * 105n) / 100n;
       const messageToSend = customMessage.trim() || defaultMessageRef.current;
 
-      // If image was uploaded, first transfer 1 DONUT to treasury
       if (uploadedImageUrl) {
-        // Store mine params for after the fee transfer completes
         pendingMineParamsRef.current = {
           targetAddress,
           epochId: BigInt(epochId),
@@ -773,7 +751,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           chainId: base.id,
         });
       } else {
-        // No image, go straight to mine
         if (executeMineRef.current) {
           await executeMineRef.current({
             targetAddress,
@@ -795,17 +772,14 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     }
   }, [address, connectAsync, currentPrice, customMessage, slot0, price, primaryConnector, refetchPrice, resetMineResult, resetWrite, showMineResult, writeContract, selectedImage]);
 
-  // Image selection handler
   const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file size (2MB max)
       if (file.size > 2 * 1024 * 1024) {
         alert("Image too large. Max 2MB.");
         return;
       }
       setSelectedImage(file);
-      // Create preview URL
       const previewUrl = URL.createObjectURL(file);
       setImagePreviewUrl(previewUrl);
     }
@@ -883,6 +857,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     return (sprinklesNum / sprinklesPerDonut).toFixed(2);
   }, [earnedSprinkles, sprinklesPerDonut]);
 
+  const paidAmountDisplay = slot0 ? formatUnits(slot0.initPrice / 2n, DONUT_DECIMALS).split('.')[0] : '—';
+
   const pnlData = useMemo(() => {
     if (!slot0 || !slot0.initPrice || !price || sprinklesPerDonut === 0) {
       return { donut: "+🍩0", isPositive: true };
@@ -907,8 +883,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     const sprinklesEarnedNumber = Number(formatUnits(earnedSprinkles, SPRINKLES_DECIMALS));
     const sprinklesValueInDonut = sprinklesEarnedNumber / sprinklesPerDonut;
     const pnlDonut = sprinklesValueInDonut + refundNumber - paidNumber;
-    // Rough USD estimate - would need DONUT price for accuracy
-    const total = pnlDonut * 0.00001 * ethUsdPrice; // Rough approximation
+    const total = pnlDonut * 0.00001 * ethUsdPrice;
     return { value: `${total >= 0 ? "+" : "-"}$${Math.abs(total).toFixed(2)}`, isPositive: total >= 0 };
   }, [slot0, price, earnedSprinkles, sprinklesPerDonut, ethUsdPrice]);
 
@@ -988,7 +963,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         embeds: ["https://donutlabs.vercel.app"],
       });
     } catch (e) {
-      // Fallback to URL method
       try {
         const { sdk } = await import("@farcaster/miniapp-sdk");
         const encodedText = encodeURIComponent(text);
@@ -1020,7 +994,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`
         }}
       >
-        {/* Video Section with Fades and Miner Overlay */}
         <div className="relative h-[280px] overflow-hidden">
           <style>{`
             @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -1031,7 +1004,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
           `}</style>
           
-          {/* Top fade */}
           <div 
             className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-10"
             style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
@@ -1048,10 +1020,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             src="/media/sprinkles-loop.mp4"
           />
           
-          {/* Miner Overlay */}
           <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
             <div className="flex items-center gap-6">
-              {/* Left - Mining Time */}
               <div className="text-center w-20">
                 <div className="text-[10px] text-gray-400 uppercase">Time</div>
                 <div className="text-lg font-bold text-white leading-tight whitespace-nowrap">
@@ -1070,7 +1040,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                 </div>
               </div>
               
-              {/* Center - Avatar and Name */}
               <div 
                 className={cn(
                   "flex flex-col items-center pulse-scale",
@@ -1102,7 +1071,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                 </div>
               </div>
               
-              {/* Right - Mined */}
               <div className="text-center w-20">
                 <div className="text-[10px] text-gray-400 uppercase">Mined</div>
                 <div className="text-lg font-bold text-white flex items-center gap-1 justify-center whitespace-nowrap">
@@ -1129,16 +1097,13 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             </div>
           </div>
           
-          {/* Bottom fade */}
           <div 
             className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-10"
             style={{ background: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
           />
         </div>
 
-        {/* Content Section */}
         <div className="flex flex-col gap-2 px-2 pt-1 pb-4">
-          {/* Scrolling Message Ticker + Cast Button */}
           <div className="flex items-stretch gap-2">
             <div className="flex-1 relative overflow-hidden bg-black border border-zinc-800 rounded-lg">
               <div
@@ -1161,7 +1126,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             </button>
           </div>
 
-          {/* Stats Grid */}
           <div className="grid grid-cols-2 gap-x-6 gap-y-1">
             <div>
               <div className="text-xs text-gray-500">Mine rate</div>
@@ -1173,13 +1137,10 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                 <div className="text-xs text-amber-400">≈ 🍩{donutPerSecondDisplay}/s</div>
               )}
             </div>
-// ✅ NEW - Always use contract data for current miner's paid amount
-<div>
-  <div className="text-xs text-gray-500">Paid</div>
-  <div className="text-lg font-bold text-white">🍩{
-    slot0 ? formatUnits(slot0.initPrice / 2n, DONUT_DECIMALS).split('.')[0] : '—'
-  }</div>
-</div>
+            <div>
+              <div className="text-xs text-gray-500">Paid</div>
+              <div className="text-lg font-bold text-white">🍩{paidAmountDisplay}</div>
+            </div>
             <div>
               <div className="text-xs text-gray-500">Total</div>
               <div className={cn("text-lg font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>
@@ -1194,7 +1155,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             </div>
           </div>
 
-          {/* Mine Action Row */}
           <div className="grid grid-cols-2 gap-x-6 items-end">
             <div>
               <div className="text-xs text-gray-500">Mine price</div>
@@ -1267,7 +1227,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             </div>
           </div>
 
-          {/* Message Input with Image Upload */}
           <div className="mt-2 space-y-2">
             <div className="flex gap-2">
               <input
@@ -1303,7 +1262,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               </button>
             </div>
             
-            {/* Image Preview */}
             {imagePreviewUrl && (
               <div className="relative w-full">
                 <img
@@ -1324,7 +1282,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             )}
           </div>
 
-          {/* Scroll Hint */}
           <div 
             className="flex flex-col items-center mt-2"
             style={{ opacity: Math.max(0, 1 - scrollFade.top * 0.5) }}
@@ -1332,7 +1289,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             <div className="text-[10px] text-gray-500 uppercase tracking-wider">Scroll down for miner history</div>
           </div>
 
-          {/* Recent Miners Section */}
           {recentMiners.length > 0 && (
             <div className="mt-2">
               <div className="flex items-center justify-between mb-2">
@@ -1403,7 +1359,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         </div>
       </div>
 
-      {/* Help Dialog */}
       {showHelpDialog && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHelpDialog(false)} />
