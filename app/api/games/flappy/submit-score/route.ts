@@ -46,13 +46,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid score' }, { status: 400 });
     }
 
-    // Cap score at reasonable maximum (nobody scoring 1000+ legitimately)
-    const MAX_REALISTIC_SCORE = 500;
-    if (score > MAX_REALISTIC_SCORE) {
-      console.warn(`Suspicious score rejected: ${score} from ${playerAddress}`);
-      return NextResponse.json({ error: 'Invalid score' }, { status: 400 });
-    }
-
     let costPaid = 1;
     let sessionValid = false;
 
