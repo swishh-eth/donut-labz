@@ -90,25 +90,25 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Infinite scrolling donut carousel */}
         <div className="absolute inset-y-0 right-0 left-0 flex items-center">
-          <div className="donut-carousel flex gap-6 animate-scroll-donuts">
-            {[...Array(16)].map((_, i) => {
+          <div className="donut-carousel flex gap-4 animate-scroll-donuts">
+            {[...Array(12)].map((_, i) => {
               const colors = ['#F472B6', '#A78BFA', '#60A5FA', '#34D399', '#FBBF24', '#FB923C', '#F87171', '#E879F9', '#22D3EE', '#4ADE80'];
               const color = colors[i % colors.length];
               return (
-                <svg key={i} width="28" height="28" viewBox="0 0 40 40" className="opacity-20 flex-shrink-0">
-                  <circle cx="20" cy="20" r="16" fill={color} />
-                  <circle cx="20" cy="20" r="6" fill="#1a1a1a" />
+                <svg key={i} width="80" height="80" viewBox="0 0 40 40" className="opacity-15 flex-shrink-0">
+                  <circle cx="20" cy="20" r="18" fill={color} />
+                  <circle cx="20" cy="20" r="7" fill="#1a1a1a" />
                 </svg>
               );
             })}
             {/* Duplicate for seamless loop */}
-            {[...Array(16)].map((_, i) => {
+            {[...Array(12)].map((_, i) => {
               const colors = ['#F472B6', '#A78BFA', '#60A5FA', '#34D399', '#FBBF24', '#FB923C', '#F87171', '#E879F9', '#22D3EE', '#4ADE80'];
               const color = colors[i % colors.length];
               return (
-                <svg key={`dup-${i}`} width="28" height="28" viewBox="0 0 40 40" className="opacity-20 flex-shrink-0">
-                  <circle cx="20" cy="20" r="16" fill={color} />
-                  <circle cx="20" cy="20" r="6" fill="#1a1a1a" />
+                <svg key={`dup-${i}`} width="80" height="80" viewBox="0 0 40 40" className="opacity-15 flex-shrink-0">
+                  <circle cx="20" cy="20" r="18" fill={color} />
+                  <circle cx="20" cy="20" r="7" fill="#1a1a1a" />
                 </svg>
               );
             })}

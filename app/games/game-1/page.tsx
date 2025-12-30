@@ -33,8 +33,8 @@ const SCALED_HEIGHT = CANVAS_HEIGHT * CANVAS_SCALE;
 const GRAVITY = 0.32;
 const FLAP_STRENGTH = -5.5;
 const PIPE_WIDTH = 60;
-const PIPE_GAP_START = 175; // Reduced from 190 since we removed caps
-const PIPE_GAP_MIN = 115; // Reduced from 130 since we removed caps
+const PIPE_GAP_START = 175; // Starting gap size
+const PIPE_GAP_MIN = 140; // Minimum gap size (was 115, increased for playability)
 const PIPE_SPEED_START = 2.0;
 const PIPE_SPEED_MAX = 4.0;
 const PIPE_SPAWN_DISTANCE = 240;
@@ -1311,7 +1311,7 @@ export default function FlappyDonutPage() {
                 
                 <div>
                   <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Palette className="w-4 h-4 text-zinc-400" />Skins</h3>
-                  <p className="text-xs text-zinc-400">Customize your donut with skins! Buy them from the Skin Shop on the Games page. Skins work across all Sprinkles App games.</p>
+                  <p className="text-xs text-zinc-400">Customize your donut with skins! Buy them from the Skin Shop on the Games page. Skins work across all Donut Labs games.</p>
                 </div>
               </div>
               
