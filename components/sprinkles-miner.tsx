@@ -493,6 +493,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         setTimeout(async () => {
           // Use the captured paid amount from when mine was initiated
           const paidAmount = pendingPaidAmountRef.current;
+          console.log('Recording glaze with amount:', paidAmount);
           
           await fetchWithRetry("/api/record-glaze", {
             address: address,
@@ -672,9 +673,10 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     // Capture the paid amount NOW before any transaction changes the state
     // The user pays the current price, which becomes initPrice/2 after the mine
     // So we capture the current price as what they're paying
-    const paidAmountWei = price;
-    const paidAmountFormatted = Math.floor(Number(formatUnits(paidAmountWei, DONUT_DECIMALS))).toString();
+    const freshPrice = (currentPrice as bigint) ?? price;
+    const paidAmountFormatted = freshPrice ? Math.floor(Number(formatUnits(freshPrice, DONUT_DECIMALS))).toString() : '0';
     pendingPaidAmountRef.current = paidAmountFormatted;
+    console.log('Captured paid amount at mine time:', paidAmountFormatted);
     
     let uploadedImageUrl: string | null = null;
     if (selectedImage) {
@@ -1321,7 +1323,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                           {miner.username ? `@${miner.username}` : formatAddress(miner.address)}
                         </span>
                         <span className="text-amber-400 text-xs font-bold flex-shrink-0">
-                          🍩{miner.amount === '0' || miner.amount === '' ? '—' : miner.amount}
+                          🍩{!miner.amount || miner.amount === '0' || miner.amount === '' ? '—' : miner.amount}
                         </span>
                       </div>
                       {miner.message && (

@@ -105,7 +105,7 @@ export async function POST(request: Request) {
     
     // Variables to store for mining_events
     // Use provided amount if available (captured at mine time for accuracy)
-    let amount = providedAmount || '0';
+    let amount = providedAmount || '';
     let message = '';
 
     // Verify based on mine type
@@ -187,8 +187,8 @@ export async function POST(request: Request) {
         console.error('Failed to decode SPRINKLES input:', decodeError);
       }
       
-      // Only try to extract from Transfer event if amount wasn't provided
-      if (!providedAmount) {
+      // If no amount provided, try to extract from Transfer event as fallback
+      if (!providedAmount || providedAmount === '' || providedAmount === '0') {
         // Look for DONUT Transfer event to get actual amount paid
         // Transfer(address indexed from, address indexed to, uint256 value)
         const TRANSFER_EVENT_TOPIC = keccak256(toBytes('Transfer(address,address,uint256)'));
@@ -220,10 +220,11 @@ export async function POST(request: Request) {
         }
         
         // If we still don't have an amount, log a warning
-        if (amount === '0') {
+        if (!amount || amount === '' || amount === '0') {
           console.warn('Could not extract amount from Transfer event for tx:', txHash);
         }
       } else {
+        amount = providedAmount;
         console.log('Using provided amount:', providedAmount);
       }
     }
