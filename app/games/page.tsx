@@ -70,7 +70,7 @@ function getTimeUntilReset(): string {
   }
 }
 
-// Weekly Skin Tile - links to skin market
+// Weekly Skin Tile - links to skin market (amber theme)
 function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoading: boolean }) {
   const [timeLeft, setTimeLeft] = useState(getTimeUntilReset());
   
@@ -82,15 +82,15 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
   return (
     <button
       onClick={() => window.location.href = "/games/skin-market"}
-      className="relative w-full rounded-2xl border-2 border-purple-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-purple-400/80 group"
-      style={{ minHeight: '120px', background: 'linear-gradient(135deg, rgba(147,51,234,0.2) 0%, rgba(236,72,153,0.15) 50%, rgba(251,146,60,0.1) 100%)' }}
+      className="relative w-full rounded-2xl border border-amber-500/30 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/50 group bg-gradient-to-r from-amber-500/20 to-orange-500/20"
+      style={{ minHeight: '120px' }}
     >
-      <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-white/5 to-purple-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+      <div className="absolute inset-0 bg-gradient-to-r from-amber-500/0 via-white/5 to-amber-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
       
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <Sparkles className="absolute top-3 right-12 w-4 h-4 text-yellow-400/60 animate-pulse" />
-        <Sparkles className="absolute bottom-4 right-24 w-3 h-3 text-purple-400/60 animate-pulse" style={{ animationDelay: '0.5s' }} />
-        <Star className="absolute top-6 right-32 w-3 h-3 text-pink-400/50 animate-pulse" style={{ animationDelay: '1s' }} />
+        <Sparkles className="absolute bottom-4 right-24 w-3 h-3 text-amber-400/60 animate-pulse" style={{ animationDelay: '0.5s' }} />
+        <Star className="absolute top-6 right-32 w-3 h-3 text-orange-400/50 animate-pulse" style={{ animationDelay: '1s' }} />
       </div>
       
       {skin && !isLoading && (
@@ -110,28 +110,28 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
       <div className="relative z-10 p-4 pr-24">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <div className="p-1.5 rounded-lg bg-purple-500/20">
-              <Palette className="w-5 h-5 text-purple-400" />
+            <div className="p-1.5 rounded-lg bg-amber-500/20">
+              <Palette className="w-5 h-5 text-amber-400" />
             </div>
             <span className="font-bold text-lg text-white">Skin Market</span>
-            <span className="text-[10px] bg-yellow-500/30 text-yellow-200 px-2 py-0.5 rounded-full font-medium animate-pulse">NEW</span>
+            <span className="text-[10px] bg-amber-500/30 text-amber-200 px-2 py-0.5 rounded-full font-medium animate-pulse">NEW</span>
           </div>
           
           {isLoading ? (
             <div className="h-4 w-32 bg-zinc-800 rounded animate-pulse mb-2" />
           ) : skin ? (
             <>
-              <div className="text-sm text-purple-200/90 font-medium mb-1">"{skin.name}" by @{skin.artistUsername}</div>
-              <div className="flex items-center gap-3 text-xs text-purple-200/60">
+              <div className="text-sm text-amber-200/90 font-medium mb-1">"{skin.name}" by @{skin.artistUsername}</div>
+              <div className="flex items-center gap-3 text-xs text-amber-200/60">
                 <span className="flex items-center gap-1">🍩 {skin.price}</span>
                 <span className="flex items-center gap-1">👥 {skin.mintCount} minted</span>
               </div>
             </>
           ) : (
-            <div className="text-xs text-purple-200/70">Weekly artist collaboration skins</div>
+            <div className="text-xs text-amber-200/70">Weekly artist collaboration skins</div>
           )}
           
-          <div className="flex items-center gap-1 mt-2 text-[10px] text-purple-300/50">
+          <div className="flex items-center gap-1 mt-2 text-[10px] text-amber-300/50">
             <Clock className="w-3 h-3" />
             <span>Ends in {timeLeft}</span>
             <ChevronRight className="w-3 h-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -139,7 +139,7 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
         </div>
       </div>
       
-      <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 blur-xl" />
+      <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-gradient-to-br from-amber-500/20 to-orange-500/20 blur-xl" />
     </button>
   );
 }
