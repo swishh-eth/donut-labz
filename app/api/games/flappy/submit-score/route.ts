@@ -7,32 +7,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Game physics constants - must match frontend
-const PIPE_SPAWN_DISTANCE = 240;
-const PIPE_SPEED_START = 2.0;
-const PIPE_SPEED_MAX = 4.0;
-
-// Calculate minimum time to achieve a score (in ms)
-// This is based on how fast pipes move and spawn
-function getMinTimeForScore(score: number): number {
-  if (score <= 0) return 0;
-  
-  // Average pipe speed increases with score
-  // At score 0: 2.0 speed, at score 50+: 4.0 speed
-  // Time per pipe = distance / speed, roughly 1.5-3 seconds per point
-  // Being generous here to avoid false positives
-  const avgTimePerPipe = 1000; // 1 second minimum per pipe (very generous)
-  return score * avgTimePerPipe;
-}
-
-// Maximum realistic score based on time played
-// Even the best players can't score more than ~1 point per 1.2 seconds
-function getMaxScoreForTime(elapsedMs: number): number {
-  const maxPointsPerSecond = 1 / 1.2; // ~0.83 points per second max
-  const maxScore = Math.floor((elapsedMs / 1000) * maxPointsPerSecond);
-  return maxScore + 10; // Add buffer for timing variations
-}
-
 export async function POST(request: NextRequest) {
   try {
     const { sessionId, playerAddress, username, pfpUrl, score } = await request.json();
@@ -72,21 +46,6 @@ export async function POST(request: NextRequest) {
       if (session.player_address.toLowerCase() !== playerAddress.toLowerCase()) {
         console.warn(`Player mismatch: ${playerAddress} vs ${session.player_address}`);
         return NextResponse.json({ error: 'Player mismatch' }, { status: 400 });
-      }
-
-      // Check score is realistic for time played
-      const elapsedMs = Date.now() - session.start_time;
-      const maxPossibleScore = getMaxScoreForTime(elapsedMs);
-      
-      if (score > maxPossibleScore) {
-        console.warn(`Score too high for time: ${score} in ${elapsedMs}ms (max: ${maxPossibleScore})`);
-        return NextResponse.json({ error: 'Invalid score for time played' }, { status: 400 });
-      }
-
-      // Minimum time check - must play at least 2 seconds to submit
-      if (elapsedMs < 2000 && score > 0) {
-        console.warn(`Game too short: ${elapsedMs}ms with score ${score}`);
-        return NextResponse.json({ error: 'Game too short' }, { status: 400 });
       }
 
       // Mark session as used
