@@ -22,11 +22,11 @@ export async function POST(request: NextRequest) {
     const toTreasury = cost * 0.05;
     const toLpBurn = cost * 0.05;
     
-    // Calculate week number (ISO week)
+    // Calculate week number (same as leaderboard route - weeks since Jan 1, 2025)
+    const startDate = new Date('2025-01-01T00:00:00Z');
     const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const days = Math.floor((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
-    const weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+    const diffMs = now.getTime() - startDate.getTime();
+    const weekNumber = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
     
     const { error: insertError } = await supabase
       .from('flappy_games')
@@ -47,27 +47,47 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
+    // Get the current "play date" based on 6pm EST reset (11pm UTC)
+    function getPlayDate(): string {
+      const now = new Date();
+      const utcHour = now.getUTCHours();
+      
+      // If before 23:00 UTC (6pm EST), use today's date
+      // If after 23:00 UTC, use tomorrow as the "play day"
+      let playDate = new Date(now);
+      if (utcHour >= 23) {
+        playDate.setUTCDate(playDate.getUTCDate() + 1);
+      }
+      
+      return playDate.toISOString().split('T')[0];
+    }
+
     // Update daily attempts
-    const today = new Date().toISOString().split('T')[0];
+    const playDate = getPlayDate();
     const { data: attemptData } = await supabase
       .from('flappy_daily_attempts')
       .select('*')
       .eq('player_address', playerAddress.toLowerCase())
-      .eq('date', today)
+      .eq('play_date', playDate)
       .single();
 
     if (attemptData) {
       await supabase
         .from('flappy_daily_attempts')
-        .update({ attempts: attemptData.attempts + 1 })
-        .eq('id', attemptData.id);
+        .update({ 
+          attempts: attemptData.attempts + 1,
+          last_attempt_at: new Date().toISOString(),
+        })
+        .eq('player_address', playerAddress.toLowerCase())
+        .eq('play_date', playDate);
     } else {
       await supabase
         .from('flappy_daily_attempts')
         .insert({
           player_address: playerAddress.toLowerCase(),
-          date: today,
+          play_date: playDate,
           attempts: 1,
+          last_attempt_at: new Date().toISOString(),
         });
     }
 
