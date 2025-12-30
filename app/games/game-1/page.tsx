@@ -154,6 +154,8 @@ export default function FlappyDonutPage() {
   
   const donutRef = useRef({ y: CANVAS_HEIGHT / 2, velocity: 0 });
   const pipesRef = useRef<{ x: number; topHeight: number; baseTopHeight: number; gap: number; passed: boolean; phase: number; oscillates: boolean; oscSpeed: number; oscAmount: number }[]>([]);
+  const buildingsRef = useRef<{ x: number; width: number; height: number; shade: number; windows: number[] }[]>([]);
+  const bgOffsetRef = useRef(0);
   const scoreRef = useRef(0);
   const gameActiveRef = useRef(false);
   const frameCountRef = useRef(0);
@@ -397,25 +399,190 @@ export default function FlappyDonutPage() {
       }
     }
     
-    // Wings
-    const wingFlap = Math.sin(frameCountRef.current * 0.3) * 5;
-    const wingY = velocity < 0 ? -8 - wingFlap : -5;
+    // Wings - improved animation
+    const flapSpeed = velocity < 0 ? 0.6 : 0.25; // Faster flap when going up
+    const flapAmount = velocity < 0 ? 12 : 6;
+    const wingFlap = Math.sin(frameCountRef.current * flapSpeed) * flapAmount;
+    const wingAngle = velocity < 0 ? -0.6 : -0.1; // More dramatic angle when flapping up
+    const wingScale = velocity < 0 ? 1.2 : 1.0; // Wings expand when flapping
     
-    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    // Left wing
+    ctx.save();
+    ctx.translate(-DONUT_SIZE / 2 - 2, -2);
+    ctx.rotate(wingAngle + wingFlap * 0.08);
+    ctx.scale(wingScale, 1);
+    
+    // Wing gradient for depth
+    const wingGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 16);
+    wingGradient.addColorStop(0, "rgba(255, 255, 255, 0.95)");
+    wingGradient.addColorStop(0.7, "rgba(240, 240, 255, 0.9)");
+    wingGradient.addColorStop(1, "rgba(200, 200, 220, 0.8)");
+    
+    // Main wing shape
     ctx.beginPath();
-    ctx.ellipse(-DONUT_SIZE / 2 - 10, wingY, 14, 9, -0.4 + (velocity < 0 ? -0.2 : 0), 0, Math.PI * 2);
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(-8, -8 - wingFlap, -18, -4 - wingFlap * 0.8);
+    ctx.quadraticCurveTo(-20, 2, -14, 6);
+    ctx.quadraticCurveTo(-6, 8, 0, 4);
+    ctx.closePath();
+    ctx.fillStyle = wingGradient;
     ctx.fill();
-    ctx.strokeStyle = "rgba(200, 200, 200, 0.8)";
+    ctx.strokeStyle = "rgba(180, 180, 200, 0.6)";
+    ctx.lineWidth = 1;
     ctx.stroke();
     
-    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    // Wing feather details
+    ctx.strokeStyle = "rgba(150, 150, 180, 0.4)";
     ctx.beginPath();
-    ctx.ellipse(DONUT_SIZE / 2 + 10, wingY, 14, 9, 0.4 + (velocity < 0 ? 0.2 : 0), 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(-4, 0);
+    ctx.quadraticCurveTo(-10, -4 - wingFlap * 0.5, -14, -2 - wingFlap * 0.3);
     ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-6, 2);
+    ctx.quadraticCurveTo(-12, 0, -16, 2);
+    ctx.stroke();
+    ctx.restore();
+    
+    // Right wing (mirrored)
+    ctx.save();
+    ctx.translate(DONUT_SIZE / 2 + 2, -2);
+    ctx.rotate(-wingAngle - wingFlap * 0.08);
+    ctx.scale(-wingScale, 1);
+    
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(-8, -8 - wingFlap, -18, -4 - wingFlap * 0.8);
+    ctx.quadraticCurveTo(-20, 2, -14, 6);
+    ctx.quadraticCurveTo(-6, 8, 0, 4);
+    ctx.closePath();
+    ctx.fillStyle = wingGradient;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(180, 180, 200, 0.6)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    ctx.strokeStyle = "rgba(150, 150, 180, 0.4)";
+    ctx.beginPath();
+    ctx.moveTo(-4, 0);
+    ctx.quadraticCurveTo(-10, -4 - wingFlap * 0.5, -14, -2 - wingFlap * 0.3);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-6, 2);
+    ctx.quadraticCurveTo(-12, 0, -16, 2);
+    ctx.stroke();
+    ctx.restore();
     
     ctx.restore();
   }, [selectedSkin]);
+  
+  // Draw scrolling cityscape background
+  const drawCityscape = useCallback((ctx: CanvasRenderingContext2D, speed: number) => {
+    const GROUND_HEIGHT = 50;
+    const BUILDING_COLORS = ['#1a1a2e', '#16213e', '#1f1f3a', '#252545', '#2a2a4a'];
+    
+    // Helper to generate window brightness array for a building
+    const generateWindows = (width: number, height: number): number[] => {
+      const windowRows = Math.floor(height / 15);
+      const windowCols = Math.floor(width / 12);
+      const windows: number[] = [];
+      for (let i = 0; i < windowRows * windowCols; i++) {
+        windows.push(Math.random() > 0.3 ? 0.1 + Math.random() * 0.2 : 0);
+      }
+      return windows;
+    };
+    
+    // Update background offset
+    bgOffsetRef.current += speed * 0.5;
+    
+    // Initialize buildings if empty
+    if (buildingsRef.current.length === 0) {
+      let x = 0;
+      while (x < CANVAS_WIDTH + 100) {
+        const width = 25 + Math.random() * 35;
+        const height = 40 + Math.random() * 80;
+        const shade = Math.floor(Math.random() * BUILDING_COLORS.length);
+        const windows = generateWindows(width, height);
+        buildingsRef.current.push({ x, width, height, shade, windows });
+        x += width + 5 + Math.random() * 15;
+      }
+    }
+    
+    // Move buildings and recycle
+    buildingsRef.current.forEach(building => {
+      building.x -= speed * 0.5;
+    });
+    
+    // Remove off-screen buildings and add new ones
+    while (buildingsRef.current.length > 0 && buildingsRef.current[0].x + buildingsRef.current[0].width < -10) {
+      buildingsRef.current.shift();
+    }
+    
+    const lastBuilding = buildingsRef.current[buildingsRef.current.length - 1];
+    if (lastBuilding && lastBuilding.x + lastBuilding.width < CANVAS_WIDTH + 50) {
+      const width = 25 + Math.random() * 35;
+      const height = 40 + Math.random() * 80;
+      const shade = Math.floor(Math.random() * BUILDING_COLORS.length);
+      const windows = generateWindows(width, height);
+      const x = lastBuilding.x + lastBuilding.width + 5 + Math.random() * 15;
+      buildingsRef.current.push({ x, width, height, shade, windows });
+    }
+    
+    // Draw ground
+    ctx.fillStyle = '#0a0a12';
+    ctx.fillRect(0, CANVAS_HEIGHT - GROUND_HEIGHT, CANVAS_WIDTH, GROUND_HEIGHT);
+    
+    // Draw buildings
+    buildingsRef.current.forEach(building => {
+      const baseY = CANVAS_HEIGHT - GROUND_HEIGHT;
+      
+      // Building body
+      ctx.fillStyle = BUILDING_COLORS[building.shade];
+      ctx.fillRect(building.x, baseY - building.height, building.width, building.height);
+      
+      // Building edge highlight
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+      ctx.fillRect(building.x, baseY - building.height, 2, building.height);
+      
+      // Windows - use stored brightness values
+      const windowRows = Math.floor(building.height / 15);
+      const windowCols = Math.floor(building.width / 12);
+      let windowIdx = 0;
+      for (let row = 0; row < windowRows; row++) {
+        for (let col = 0; col < windowCols; col++) {
+          const brightness = building.windows[windowIdx] || 0;
+          if (brightness > 0) {
+            ctx.fillStyle = `rgba(255, 220, 150, ${brightness})`;
+          } else {
+            ctx.fillStyle = 'rgba(50, 50, 80, 0.5)';
+          }
+          ctx.fillRect(
+            building.x + 4 + col * 12,
+            baseY - building.height + 8 + row * 15,
+            6, 8
+          );
+          windowIdx++;
+        }
+      }
+    });
+    
+    // Ground line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, CANVAS_HEIGHT - GROUND_HEIGHT);
+    ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_HEIGHT);
+    ctx.stroke();
+    
+    // Ground texture - moving dashes
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    const dashOffset = bgOffsetRef.current % 20;
+    for (let i = -dashOffset; i < CANVAS_WIDTH + 20; i += 20) {
+      ctx.beginPath();
+      ctx.moveTo(i, CANVAS_HEIGHT - 25);
+      ctx.lineTo(i + 10, CANVAS_HEIGHT - 25);
+      ctx.stroke();
+    }
+  }, []);
   
   const drawPipe = useCallback((ctx: CanvasRenderingContext2D, x: number, topHeight: number, gap: number) => {
     const gradient = ctx.createLinearGradient(x, 0, x + PIPE_WIDTH, 0);
@@ -472,6 +639,9 @@ export default function FlappyDonutPage() {
     ctx.lineWidth = 1;
     for (let i = 0; i < CANVAS_WIDTH; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, CANVAS_HEIGHT); ctx.stroke(); }
     for (let i = 0; i < CANVAS_HEIGHT; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_WIDTH, i); ctx.stroke(); }
+    
+    // Draw scrolling cityscape
+    drawCityscape(ctx, difficulty.pipeSpeed);
     
     // Only apply gravity after first flap - donut hovers until player taps
     if (hasFlappedRef.current) {
@@ -603,7 +773,7 @@ export default function FlappyDonutPage() {
     }
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawDonut, drawPipe, address, context, playPointSound, triggerPointHaptic, selectedSkin]);
+  }, [drawDonut, drawPipe, drawCityscape, address, context, playPointSound, triggerPointHaptic, selectedSkin]);
   
   const handleFlap = useCallback(() => {
     if (gameState === "playing" && gameActiveRef.current) {
@@ -620,6 +790,8 @@ export default function FlappyDonutPage() {
     
     donutRef.current = { y: CANVAS_HEIGHT / 2, velocity: 0 };
     pipesRef.current = [];
+    buildingsRef.current = [];
+    bgOffsetRef.current = 0;
     scoreRef.current = 0;
     frameCountRef.current = 0;
     countdownRef.current = 3;
@@ -748,6 +920,9 @@ export default function FlappyDonutPage() {
       for (let i = 0; i < CANVAS_WIDTH; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, CANVAS_HEIGHT); ctx.stroke(); }
       for (let i = 0; i < CANVAS_HEIGHT; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_WIDTH, i); ctx.stroke(); }
       
+      // Draw scrolling cityscape (slow on menu)
+      drawCityscape(ctx, 0.5);
+      
       // Draw donut at fixed position with gentle float
       const floatOffset = Math.sin(Date.now() / 500) * 6;
       drawDonut(ctx, menuDonutY + floatOffset, 0, previewSkin || selectedSkin);
@@ -798,7 +973,7 @@ export default function FlappyDonutPage() {
       const interval = setInterval(draw, 50);
       return () => clearInterval(interval);
     }
-  }, [gameState, score, highScore, drawDonut, previewSkin, selectedSkin]);
+  }, [gameState, score, highScore, drawDonut, drawCityscape, previewSkin, selectedSkin]);
   
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => { if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); handleFlap(); } };
