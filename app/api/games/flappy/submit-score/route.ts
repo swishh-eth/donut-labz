@@ -16,6 +16,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert game into flappy_games
+    // cost_paid is split: 90% prize pool, 5% treasury, 5% LP burn rewards
+    const cost = costPaid || 1;
+    const toPrizePool = cost * 0.9;
+    const toDevWallet = cost * 0.05;  // treasury
+    const toLpBurn = cost * 0.05;     // LP burn rewards
+    
     const { error: insertError } = await supabase
       .from('flappy_games')
       .insert({
@@ -23,7 +29,10 @@ export async function POST(request: NextRequest) {
         username: username,
         pfp_url: pfpUrl,
         score: score,
-        cost_paid: costPaid || 1,
+        cost_paid: cost,
+        to_prize_pool: toPrizePool,
+        to_dev_wallet: toDevWallet,
+        to_lp_burn: toLpBurn,
       });
 
     if (insertError) {
