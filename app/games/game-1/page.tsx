@@ -737,10 +737,10 @@ export default function FlappyDonutPage() {
         {/* Prize Pool Tile - Clickable to open leaderboard */}
         <button
           onClick={() => setShowLeaderboard(true)}
-          className="relative w-full mb-3 px-4 py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl overflow-hidden transition-all active:scale-[0.98] hover:border-amber-500/50 group"
+          className="relative w-full mb-3 px-4 py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl transition-all active:scale-[0.98] hover:border-amber-500/50 group"
+          style={{ minHeight: '70px' }}
         >
-          <FallingDonuts />
-          <div className="relative z-10 flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <div className="flex flex-col items-start">
               <div className="flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-amber-400" />
