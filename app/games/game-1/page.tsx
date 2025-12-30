@@ -282,6 +282,38 @@ export default function FlappyDonutPage() {
   
 
   
+  // Helper to convert hex to HSL for rainbow animation
+  const hexToHsl = (hex: string): [number, number, number] => {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0, s = 0;
+    const l = (max + min) / 2;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+        case g: h = ((b - r) / d + 2) / 6; break;
+        case b: h = ((r - g) / d + 4) / 6; break;
+      }
+    }
+    return [h * 360, s * 100, l * 100];
+  };
+
+  const hslToHex = (h: number, s: number, l: number): string => {
+    s /= 100;
+    l /= 100;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) => {
+      const k = (n + h / 30) % 12;
+      const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+      return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+  };
+
   const drawDonut = useCallback((ctx: CanvasRenderingContext2D, y: number, velocity: number, skin: GameSkin = selectedSkin) => {
     const x = DONUT_X;
     const rotation = Math.min(Math.max(velocity * 0.04, -0.5), 0.5);
@@ -290,17 +322,48 @@ export default function FlappyDonutPage() {
     ctx.translate(x, y);
     ctx.rotate(rotation);
     
+    // Calculate animated color for legendary skins
+    let frostingColor = skin.frostingColor;
+    let glowIntensity = 0;
+    let sparkleOffset = 0;
+    
+    if (skin.animated) {
+      const time = Date.now();
+      
+      if (skin.animationType === 'rainbow') {
+        // Cycle through hue values
+        const hueShift = (time / 20) % 360;
+        const [, s, l] = hexToHsl(skin.frostingColor);
+        frostingColor = hslToHex(hueShift, s, l);
+      } else if (skin.animationType === 'glow') {
+        // Pulsing glow effect
+        glowIntensity = 15 + Math.sin(time / 200) * 10;
+      } else if (skin.animationType === 'sparkle') {
+        // Brightness variation
+        sparkleOffset = Math.sin(time / 100) * 0.3;
+        const [h, s, l] = hexToHsl(skin.frostingColor);
+        frostingColor = hslToHex(h, s, Math.min(100, l + sparkleOffset * 30));
+      }
+    }
+    
     // Shadow
     ctx.beginPath();
     ctx.ellipse(3, 5, DONUT_SIZE / 2, DONUT_SIZE / 2.5, 0, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
     ctx.fill();
     
+    // Glow effect for animated skins
+    if (skin.animated && (skin.animationType === 'glow' || skin.animationType === 'rainbow')) {
+      ctx.shadowColor = frostingColor;
+      ctx.shadowBlur = glowIntensity || 20;
+    }
+    
     // Main donut body - full skin color
     ctx.beginPath();
     ctx.arc(0, 0, DONUT_SIZE / 2, 0, Math.PI * 2);
-    ctx.fillStyle = skin.frostingColor;
+    ctx.fillStyle = frostingColor;
     ctx.fill();
+    ctx.shadowBlur = 0;
     ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
     ctx.lineWidth = 2;
     ctx.stroke();
@@ -313,6 +376,23 @@ export default function FlappyDonutPage() {
     ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
     ctx.lineWidth = 1;
     ctx.stroke();
+    
+    // Sparkle particles for sparkle animation
+    if (skin.animated && skin.animationType === 'sparkle') {
+      const time = Date.now();
+      for (let i = 0; i < 4; i++) {
+        const angle = (time / 500 + i * Math.PI / 2) % (Math.PI * 2);
+        const dist = DONUT_SIZE / 2 + 5 + Math.sin(time / 200 + i) * 3;
+        const sparkleX = Math.cos(angle) * dist;
+        const sparkleY = Math.sin(angle) * dist;
+        const sparkleSize = 2 + Math.sin(time / 150 + i * 2) * 1;
+        
+        ctx.beginPath();
+        ctx.arc(sparkleX, sparkleY, sparkleSize, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.5 + Math.sin(time / 100 + i) * 0.3})`;
+        ctx.fill();
+      }
+    }
     
     // Wings
     const wingFlap = Math.sin(frameCountRef.current * 0.3) * 5;
@@ -656,7 +736,7 @@ export default function FlappyDonutPage() {
         {/* Prize Pool Tile - Clickable to open leaderboard */}
         <button
           onClick={() => setShowLeaderboard(true)}
-          className="relative w-full px-4 py-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl overflow-hidden transition-all active:scale-[0.98] hover:border-amber-500/50 group"
+          className="relative w-full mb-4 px-4 py-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl overflow-hidden transition-all active:scale-[0.98] hover:border-amber-500/50 group"
         >
           <FallingDonuts />
           <div className="relative z-10 flex items-center justify-between">
@@ -681,7 +761,7 @@ export default function FlappyDonutPage() {
         </button>
         
         {/* Game Area - with consistent spacing */}
-        <div className="flex flex-col items-center mt-4">
+        <div className="flex flex-col items-center">
           <div className="relative" style={{ width: '100%', maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
             <canvas 
               ref={canvasRef} 
