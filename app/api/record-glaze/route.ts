@@ -30,6 +30,8 @@ const SPRINKLES_MINE_SELECTOR = keccak256(toBytes('mine(address,address,uint256,
 export async function POST(request: Request) {
   try {
     const { address, txHash, mineType = 'donut', imageUrl, amount: providedAmount } = await request.json();
+    
+    console.log('record-glaze called with:', { address, txHash, mineType, imageUrl, providedAmount });
 
     if (!address || !txHash) {
       return NextResponse.json(
@@ -241,7 +243,9 @@ export async function POST(request: Request) {
 
     // Store mining event for Recent Miners feature
     try {
-      await supabase
+      console.log('Upserting mining event:', { address: address.toLowerCase(), tx_hash: txHash.toLowerCase(), mine_type: mineType, amount, message, image_url: imageUrl || null });
+      
+      const { data: upsertData, error: upsertError } = await supabase
         .from('mining_events')
         .upsert(
           {
@@ -255,6 +259,12 @@ export async function POST(request: Request) {
           },
           { onConflict: 'tx_hash' }
         );
+      
+      if (upsertError) {
+        console.error('Supabase upsert error:', upsertError);
+      } else {
+        console.log('Supabase upsert success:', upsertData);
+      }
     } catch (dbError) {
       console.error('Failed to store mining event:', dbError);
       // Don't fail the request - leaderboard is more important

@@ -460,15 +460,27 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         defaultMessageRef.current = getRandomDefaultMessage();
         pendingMineParamsRef.current = null;
         
+        // Capture the paid amount immediately before any async operations
+        const paidAmount = pendingPaidAmountRef.current;
+        const imageUrl = pendingImageUrlRef.current;
+        const txHashToRecord = receipt.transactionHash;
+        
+        console.log('Mine success! Preparing to record glaze:', { paidAmount, imageUrl, txHashToRecord });
+        
         const fetchWithRetry = async (url: string, body: object, attempt = 1, maxAttempts = 3): Promise<boolean> => {
           try {
+            console.log(`Recording glaze attempt ${attempt}:`, body);
             const res = await fetch(url, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(body),
             });
             
+            const responseData = await res.json();
+            console.log(`Record glaze response (attempt ${attempt}):`, responseData);
+            
             if (!res.ok && attempt < maxAttempts) {
+              console.log(`Retrying in 3 seconds...`);
               return new Promise((resolve) => {
                 setTimeout(async () => {
                   resolve(await fetchWithRetry(url, body, attempt + 1, maxAttempts));
@@ -479,6 +491,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             }
             return false;
           } catch (err) {
+            console.error(`Record glaze error (attempt ${attempt}):`, err);
             if (attempt < maxAttempts) {
               return new Promise((resolve) => {
                 setTimeout(async () => {
@@ -490,26 +503,29 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           }
         };
 
-        setTimeout(async () => {
-          // Use the captured paid amount from when mine was initiated
-          const paidAmount = pendingPaidAmountRef.current;
-          console.log('Recording glaze with amount:', paidAmount);
-          
-          await fetchWithRetry("/api/record-glaze", {
-            address: address,
-            txHash: receipt.transactionHash,
-            mineType: "sprinkles",
-            imageUrl: pendingImageUrlRef.current,
-            amount: paidAmount, // Pass the captured amount
-          });
-          
-          // Clear refs after recording
-          pendingImageUrlRef.current = null;
-          pendingPaidAmountRef.current = null;
-          setSelectedImage(null);
-          setImagePreviewUrl(null);
-        }, 2000);
+        // Call record-glaze immediately, not in setTimeout
+        (async () => {
+          try {
+            const result = await fetchWithRetry("/api/record-glaze", {
+              address: address,
+              txHash: txHashToRecord,
+              mineType: "sprinkles",
+              imageUrl: imageUrl,
+              amount: paidAmount,
+            });
+            console.log('Record glaze final result:', result);
+          } catch (err) {
+            console.error('Record glaze failed:', err);
+          } finally {
+            // Clear refs after recording attempt
+            pendingImageUrlRef.current = null;
+            pendingPaidAmountRef.current = null;
+            setSelectedImage(null);
+            setImagePreviewUrl(null);
+          }
+        })();
         
+        // Refresh recent miners after a delay
         setTimeout(async () => {
           try {
             const res = await fetch('/api/miners/recent?type=sprinkles&limit=10');
