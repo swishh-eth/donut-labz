@@ -712,12 +712,14 @@ export default function FlappyDonutPage() {
         .falling-donut {
           animation: falling-donut 3s ease-in-out infinite;
         }
+        .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
       
-      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-3 overflow-y-auto" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 70px)" }}>
+      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-3 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
         
         {/* Header - matching Games page style */}
-        <div className="flex items-center justify-between mb-2 px-1 flex-shrink-0">
+        <div className="flex items-center justify-between mb-2 px-1">
           <h1 className="text-xl font-bold tracking-wide">FLAPPY DONUT</h1>
           {context?.user && (
             <div className="flex items-center gap-2 rounded-full bg-black px-2 py-0.5">
@@ -735,7 +737,7 @@ export default function FlappyDonutPage() {
         {/* Prize Pool Tile - Clickable to open leaderboard */}
         <button
           onClick={() => setShowLeaderboard(true)}
-          className="relative w-full mb-3 px-4 py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl overflow-hidden transition-all active:scale-[0.98] hover:border-amber-500/50 group flex-shrink-0"
+          className="relative w-full mb-3 px-4 py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl overflow-hidden transition-all active:scale-[0.98] hover:border-amber-500/50 group"
         >
           <FallingDonuts />
           <div className="relative z-10 flex items-center justify-between">
@@ -759,16 +761,16 @@ export default function FlappyDonutPage() {
           </div>
         </button>
         
-        {/* Game Area - flexible sizing */}
-        <div className="flex flex-col items-center flex-1 min-h-0">
-          <div className="relative w-full flex-1" style={{ maxWidth: `${CANVAS_WIDTH}px`, maxHeight: `${CANVAS_HEIGHT}px` }}>
+        {/* Game Area - fixed aspect ratio */}
+        <div className="flex flex-col items-center">
+          <div className="relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
             <canvas 
               ref={canvasRef} 
               width={SCALED_WIDTH} 
               height={SCALED_HEIGHT} 
               onClick={handleFlap} 
               onTouchStart={(e) => { e.preventDefault(); handleFlap(); }} 
-              className="rounded-2xl cursor-pointer border border-zinc-800 w-full h-full object-contain" 
+              className="rounded-2xl cursor-pointer border border-zinc-800 w-full h-full" 
               style={{ touchAction: "none" }} 
             />
             
@@ -795,7 +797,7 @@ export default function FlappyDonutPage() {
           
         {/* Skins, Help, and Mute buttons - always visible below canvas */}
         {(gameState === "menu" || gameState === "gameover") && (
-          <div className="py-3 flex items-center justify-center gap-2 flex-shrink-0">
+          <div className="py-4 flex items-center justify-center gap-2">
             <button onClick={() => setShowSkins(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
               <Palette className="w-3 h-3 text-zinc-400" /><span className="text-xs">Skins</span>
             </button>
