@@ -156,6 +156,7 @@ export default function FlappyDonutPage() {
   const pipesRef = useRef<{ x: number; topHeight: number; baseTopHeight: number; gap: number; passed: boolean; phase: number; oscillates: boolean; oscSpeed: number; oscAmount: number }[]>([]);
   const buildingsRef = useRef<{ x: number; width: number; height: number; shade: number; windows: number[] }[]>([]);
   const bgOffsetRef = useRef(0);
+  const lastFrameTimeRef = useRef(performance.now());
   const scoreRef = useRef(0);
   const gameActiveRef = useRef(false);
   const frameCountRef = useRef(0);
@@ -623,6 +624,11 @@ export default function FlappyDonutPage() {
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx || !gameActiveRef.current) return;
     
+    // Calculate delta time for smooth movement
+    const now = performance.now();
+    const deltaTime = Math.min((now - lastFrameTimeRef.current) / 16.667, 3); // Normalize to 60fps, cap at 3x
+    lastFrameTimeRef.current = now;
+    
     // Scale the context for high-DPI rendering
     ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
     
@@ -641,21 +647,22 @@ export default function FlappyDonutPage() {
     for (let i = 0; i < CANVAS_HEIGHT; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_WIDTH, i); ctx.stroke(); }
     
     // Draw scrolling cityscape
-    drawCityscape(ctx, difficulty.pipeSpeed);
+    drawCityscape(ctx, difficulty.pipeSpeed * deltaTime);
     
     // Only apply gravity after first flap - donut hovers until player taps
     if (hasFlappedRef.current) {
-      donutRef.current.velocity += GRAVITY;
+      donutRef.current.velocity += GRAVITY * deltaTime;
       donutRef.current.velocity = Math.min(donutRef.current.velocity, 10);
-      donutRef.current.y += donutRef.current.velocity;
+      donutRef.current.y += donutRef.current.velocity * deltaTime;
     }
     
     pipesRef.current.forEach((pipe, index) => {
-      pipe.x -= difficulty.pipeSpeed;
+      pipe.x -= difficulty.pipeSpeed * deltaTime;
       
-      // Apply oscillation if pipe was spawned with it
+      // Apply oscillation if pipe was spawned with it (time-based for smooth movement)
       if (pipe.oscillates) {
-        pipe.topHeight = pipe.baseTopHeight + Math.sin(frameCountRef.current * pipe.oscSpeed + pipe.phase) * pipe.oscAmount;
+        const time = performance.now() / 1000; // Use high-precision time
+        pipe.topHeight = pipe.baseTopHeight + Math.sin(time * pipe.oscSpeed * 60 + pipe.phase) * pipe.oscAmount;
         
         // Clamp to valid range
         const minTop = 40;
@@ -792,6 +799,7 @@ export default function FlappyDonutPage() {
     pipesRef.current = [];
     buildingsRef.current = [];
     bgOffsetRef.current = 0;
+    lastFrameTimeRef.current = performance.now();
     scoreRef.current = 0;
     frameCountRef.current = 0;
     countdownRef.current = 3;
@@ -808,6 +816,7 @@ export default function FlappyDonutPage() {
       setCountdown(count);
       if (count <= 0) {
         clearInterval(countdownInterval);
+        lastFrameTimeRef.current = performance.now(); // Reset for smooth first frame
         gameActiveRef.current = true;
         setGameState("playing");
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
