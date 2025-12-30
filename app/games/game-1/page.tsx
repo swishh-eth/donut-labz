@@ -681,7 +681,7 @@ export default function FlappyDonutPage() {
         </button>
         
         {/* Game Area - with consistent spacing */}
-        <div className="flex flex-col items-center mt-3 mb-3">
+        <div className="flex flex-col items-center mt-4">
           <div className="relative" style={{ width: '100%', maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
             <canvas 
               ref={canvasRef} 

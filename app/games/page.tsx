@@ -63,7 +63,7 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
-// Enhanced Skins Tile with sparkle effect
+// Enhanced Skins Tile with seamless scrolling
 function SkinsTile({ ownedSkins, onOpenShop }: { ownedSkins: string[]; onOpenShop: () => void }) {
   return (
     <button
@@ -81,12 +81,13 @@ function SkinsTile({ ownedSkins, onOpenShop }: { ownedSkins: string[]; onOpenSho
         <Star className="absolute top-6 right-32 w-3 h-3 text-pink-400/50 animate-pulse" style={{ animationDelay: '1s' }} />
       </div>
       
-      {/* Scrolling skins preview */}
+      {/* Seamless scrolling skins preview - duplicated for infinite loop */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="skins-scroll flex items-center gap-4 py-6 px-2">
-          {[...GAME_SKINS, ...GAME_SKINS].map((skin: GameSkin, i: number) => (
+          {/* First set */}
+          {GAME_SKINS.map((skin: GameSkin, i: number) => (
             <div 
-              key={`${skin.id}-${i}`}
+              key={`${skin.id}-1-${i}`}
               className="flex-shrink-0 w-14 h-14 rounded-full relative shadow-lg"
               style={{ 
                 backgroundColor: skin.frostingColor,
@@ -96,7 +97,22 @@ function SkinsTile({ ownedSkins, onOpenShop }: { ownedSkins: string[]; onOpenSho
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-4 h-4 rounded-full bg-zinc-900 border-2 border-zinc-700" />
               </div>
-              {/* Shine effect */}
+              <div className="absolute top-1 left-2 w-3 h-3 rounded-full bg-white/30" />
+            </div>
+          ))}
+          {/* Duplicate set for seamless loop */}
+          {GAME_SKINS.map((skin: GameSkin, i: number) => (
+            <div 
+              key={`${skin.id}-2-${i}`}
+              className="flex-shrink-0 w-14 h-14 rounded-full relative shadow-lg"
+              style={{ 
+                backgroundColor: skin.frostingColor,
+                boxShadow: `0 0 20px ${skin.frostingColor}40`
+              }}
+            >
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-4 h-4 rounded-full bg-zinc-900 border-2 border-zinc-700" />
+              </div>
               <div className="absolute top-1 left-2 w-3 h-3 rounded-full bg-white/30" />
             </div>
           ))}
@@ -122,13 +138,12 @@ function SkinsTile({ ownedSkins, onOpenShop }: { ownedSkins: string[]; onOpenSho
   );
 }
 
-// Flappy Donut Game Tile with smooth loading
+// Flappy Donut Game Tile with animated donut
 function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
   const [showPlayer, setShowPlayer] = useState(false);
   
   useEffect(() => {
     if (recentPlayer && !isLoading) {
-      // Small delay then fade in
       const timer = setTimeout(() => setShowPlayer(true), 100);
       return () => clearTimeout(timer);
     }
@@ -140,12 +155,27 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
       className="relative w-full rounded-2xl border-2 border-pink-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-500/80"
       style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(251,146,60,0.1) 100%)' }}
     >
-      <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
-        <div className="donut-float">
-          <svg width="100" height="100" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="40" fill="rgba(236,72,153,0.5)" />
-            <circle cx="50" cy="50" r="16" fill="#1a1a1a" />
-            <path d="M 20 50 A 30 30 0 0 1 80 50" fill="rgba(236,72,153,0.6)" />
+      {/* Animated Flappy Donut with wings */}
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <div className="flappy-donut-float relative">
+          {/* Left Wing */}
+          <svg className="absolute -left-6 top-1/2 -translate-y-1/2 wing-flap" width="28" height="20" viewBox="0 0 28 20">
+            <ellipse cx="14" cy="10" rx="12" ry="8" fill="rgba(255,255,255,0.85)" stroke="rgba(200,200,200,0.6)" strokeWidth="1"/>
+          </svg>
+          {/* Right Wing */}
+          <svg className="absolute -right-6 top-1/2 -translate-y-1/2 wing-flap-reverse" width="28" height="20" viewBox="0 0 28 20">
+            <ellipse cx="14" cy="10" rx="12" ry="8" fill="rgba(255,255,255,0.85)" stroke="rgba(200,200,200,0.6)" strokeWidth="1"/>
+          </svg>
+          {/* Donut Body */}
+          <svg width="80" height="80" viewBox="0 0 80 80">
+            {/* Shadow */}
+            <ellipse cx="43" cy="45" rx="28" ry="22" fill="rgba(0,0,0,0.15)" />
+            {/* Main donut */}
+            <circle cx="40" cy="40" r="28" fill="#F472B6" stroke="rgba(0,0,0,0.2)" strokeWidth="2"/>
+            {/* Donut hole */}
+            <circle cx="40" cy="40" r="10" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="1"/>
+            {/* Shine */}
+            <circle cx="30" cy="30" r="6" fill="rgba(255,255,255,0.3)"/>
           </svg>
         </div>
       </div>
@@ -376,10 +406,22 @@ export default function GamesPage() {
         .games-scroll::-webkit-scrollbar { display: none; }
         @keyframes gear-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .gear-spin { animation: gear-spin 8s linear infinite; }
-        @keyframes donut-float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-5px) rotate(10deg); } }
-        .donut-float { animation: donut-float 3s ease-in-out infinite; }
+        @keyframes flappy-donut-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        .flappy-donut-float { animation: flappy-donut-float 2s ease-in-out infinite; }
+        @keyframes wing-flap { 0%, 100% { transform: translateY(-50%) rotate(-15deg) scaleY(0.7); } 50% { transform: translateY(-50%) rotate(15deg) scaleY(1); } }
+        .wing-flap { animation: wing-flap 0.3s ease-in-out infinite; transform-origin: right center; }
+        @keyframes wing-flap-reverse { 0%, 100% { transform: translateY(-50%) rotate(15deg) scaleY(0.7); } 50% { transform: translateY(-50%) rotate(-15deg) scaleY(1); } }
+        .wing-flap-reverse { animation: wing-flap-reverse 0.3s ease-in-out infinite; transform-origin: left center; }
         @keyframes skins-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        .skins-scroll { animation: skins-scroll 15s linear infinite; }
+        .skins-scroll { animation: skins-scroll 20s linear infinite; width: max-content; }
+        @keyframes skin-pulse { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.05); filter: brightness(1.2); } }
+        .skin-animated-pulse { animation: skin-pulse 2s ease-in-out infinite; }
+        @keyframes skin-rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+        .skin-animated-rainbow { animation: skin-rainbow 3s linear infinite; }
+        @keyframes skin-glow { 0%, 100% { box-shadow: 0 0 20px currentColor; } 50% { box-shadow: 0 0 40px currentColor, 0 0 60px currentColor; } }
+        .skin-animated-glow { animation: skin-glow 2s ease-in-out infinite; }
+        @keyframes skin-sparkle { 0%, 100% { filter: brightness(1); } 25% { filter: brightness(1.3); } 50% { filter: brightness(1); } 75% { filter: brightness(1.4); } }
+        .skin-animated-sparkle { animation: skin-sparkle 1.5s ease-in-out infinite; }
       `}</style>
 
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
@@ -412,17 +454,16 @@ export default function GamesPage() {
         </div>
       </div>
       
-      {/* Enhanced Skin Shop Modal */}
+      {/* Skin Shop Modal - Clean zinc/black/white design */}
       {showSkinShop && (
         <div className="absolute inset-0 bg-black/95 flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-md bg-gradient-to-b from-zinc-900 to-zinc-950 rounded-3xl border border-zinc-700 overflow-hidden shadow-2xl">
-            {/* Header with gradient */}
-            <div className="relative px-5 pt-5 pb-4 border-b border-zinc-800">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-orange-500/10" />
-              <div className="relative flex items-center justify-between">
+          <div className="w-full max-w-md bg-zinc-900 rounded-3xl border border-zinc-700 overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="px-5 pt-5 pb-4 border-b border-zinc-800">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-purple-500/20">
-                    <Palette className="w-6 h-6 text-purple-400" />
+                  <div className="p-2 rounded-xl bg-zinc-800">
+                    <Palette className="w-6 h-6 text-white" />
                   </div>
                   <div>
                     <span className="font-bold text-lg">Skin Shop</span>
@@ -437,10 +478,10 @@ export default function GamesPage() {
             
             {/* Skin Preview */}
             {selectedPreview && (
-              <div className="px-5 py-4 border-b border-zinc-800 bg-zinc-900/50">
+              <div className="px-5 py-4 border-b border-zinc-800 bg-zinc-800/50">
                 <div className="flex items-center gap-4">
                   <div 
-                    className="w-20 h-20 rounded-full relative shadow-xl"
+                    className={`w-20 h-20 rounded-full relative shadow-xl ${selectedPreview.animated ? `skin-animated-${selectedPreview.animationType}` : ''}`}
                     style={{ 
                       backgroundColor: selectedPreview.frostingColor,
                       boxShadow: `0 0 30px ${selectedPreview.frostingColor}50`
@@ -453,6 +494,10 @@ export default function GamesPage() {
                   </div>
                   <div>
                     <div className="font-bold text-lg">{selectedPreview.name}</div>
+                    <div className={`text-xs mb-1 ${selectedPreview.rarity === 'legendary' ? 'text-yellow-400' : selectedPreview.rarity === 'rare' ? 'text-purple-400' : 'text-zinc-400'}`}>
+                      {selectedPreview.rarity.charAt(0).toUpperCase() + selectedPreview.rarity.slice(1)}
+                      {selectedPreview.animated && ' ✨ Animated'}
+                    </div>
                     {ownedSkins.includes(selectedPreview.id) ? (
                       <div className="flex items-center gap-1 text-green-400 text-sm">
                         <Check className="w-4 h-4" />
@@ -471,15 +516,15 @@ export default function GamesPage() {
             
             {/* Purchase Progress */}
             {buyingSkin && purchaseStep !== "idle" && (
-              <div className="px-5 py-3 bg-purple-500/10 border-b border-zinc-700">
+              <div className="px-5 py-3 bg-zinc-800 border-b border-zinc-700">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   <span className="text-sm text-white">Purchasing {buyingSkin.name}...</span>
                 </div>
                 <div className="flex gap-1">
-                  <div className={`h-1.5 flex-1 rounded-full transition-colors ${purchaseStep === "burn" || purchaseStep === "lp" || purchaseStep === "treasury" ? "bg-purple-500" : "bg-zinc-700"}`} />
-                  <div className={`h-1.5 flex-1 rounded-full transition-colors ${purchaseStep === "lp" || purchaseStep === "treasury" ? "bg-purple-500" : "bg-zinc-700"}`} />
-                  <div className={`h-1.5 flex-1 rounded-full transition-colors ${purchaseStep === "treasury" ? "bg-purple-500" : "bg-zinc-700"}`} />
+                  <div className={`h-1.5 flex-1 rounded-full transition-colors ${purchaseStep === "burn" || purchaseStep === "lp" || purchaseStep === "treasury" ? "bg-white" : "bg-zinc-700"}`} />
+                  <div className={`h-1.5 flex-1 rounded-full transition-colors ${purchaseStep === "lp" || purchaseStep === "treasury" ? "bg-white" : "bg-zinc-700"}`} />
+                  <div className={`h-1.5 flex-1 rounded-full transition-colors ${purchaseStep === "treasury" ? "bg-white" : "bg-zinc-700"}`} />
                 </div>
                 <p className="text-[10px] text-zinc-400 mt-1.5">
                   {purchaseStep === "burn" && "Step 1/3: Burning 25%..."}
@@ -505,23 +550,23 @@ export default function GamesPage() {
                 return (
                   <button
                     key={skin.id}
-                    onClick={() => {
-                      setSelectedPreview(skin);
-                      if (!isOwned && skin.cost > 0 && !buyingSkin) {
-                        // Don't auto-buy, just preview
-                      }
-                    }}
+                    onClick={() => setSelectedPreview(skin)}
                     disabled={!!buyingSkin || isPaying}
                     className={`relative p-3 rounded-2xl border-2 transition-all ${
                       isSelected 
-                        ? "border-purple-500 bg-purple-500/10 scale-105" 
+                        ? "border-white bg-zinc-800 scale-105" 
                         : isOwned 
-                          ? "border-green-500/30 bg-green-500/5" 
+                          ? "border-green-500/30 bg-zinc-800/30" 
                           : "border-zinc-700 hover:border-zinc-500 bg-zinc-800/30"
-                    } ${isBuying ? "border-purple-500 bg-purple-500/10" : ""} ${buyingSkin && !isBuying ? "opacity-50" : ""}`}
+                    } ${isBuying ? "border-white bg-zinc-800" : ""} ${buyingSkin && !isBuying ? "opacity-50" : ""}`}
                   >
+                    {/* Rarity indicator */}
+                    {skin.rarity !== 'common' && (
+                      <div className={`absolute top-1 right-1 w-2 h-2 rounded-full ${skin.rarity === 'legendary' ? 'bg-yellow-400' : 'bg-purple-400'}`} />
+                    )}
+                    
                     <div 
-                      className="w-14 h-14 mx-auto mb-2 rounded-full relative shadow-lg transition-transform"
+                      className={`w-14 h-14 mx-auto mb-2 rounded-full relative shadow-lg transition-transform ${skin.animated ? `skin-animated-${skin.animationType}` : ''}`}
                       style={{ 
                         backgroundColor: skin.frostingColor,
                         boxShadow: isSelected ? `0 0 20px ${skin.frostingColor}60` : 'none'
@@ -544,11 +589,11 @@ export default function GamesPage() {
                     ) : (
                       <div className="flex items-center justify-center gap-0.5 mt-1">
                         {isBuying ? (
-                          <div className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         ) : (
                           <>
                             <span className="text-[10px]">🍩</span>
-                            <span className="text-[10px] text-amber-400 font-bold">{skin.cost}</span>
+                            <span className={`text-[10px] font-bold ${skin.rarity === 'legendary' ? 'text-yellow-400' : skin.rarity === 'rare' ? 'text-purple-400' : 'text-amber-400'}`}>{skin.cost}</span>
                           </>
                         )}
                       </div>
@@ -564,7 +609,7 @@ export default function GamesPage() {
                 <button
                   onClick={() => handleBuySkin(selectedPreview)}
                   disabled={!!buyingSkin || isPaying}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold hover:from-purple-600 hover:to-pink-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-3 rounded-xl bg-white text-black font-bold hover:bg-zinc-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {buyingSkin ? "Purchasing..." : `Buy for ${selectedPreview.cost} 🍩`}
                 </button>
@@ -572,7 +617,7 @@ export default function GamesPage() {
             )}
             
             {/* Footer */}
-            <div className="px-5 py-3 bg-zinc-900/50 border-t border-zinc-800">
+            <div className="px-5 py-3 bg-zinc-800/50 border-t border-zinc-800">
               <p className="text-[10px] text-zinc-500 text-center">🔥 25% burned • 💧 25% LP rewards • 🏦 50% treasury</p>
             </div>
           </div>

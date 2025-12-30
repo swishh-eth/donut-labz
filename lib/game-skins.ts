@@ -1,54 +1,77 @@
-// Global skins system - shared across all games
-// Place at: lib/game-skins.ts
+// lib/game-skins.ts
 
-export const GAME_SKINS = [
-  { id: "classic", name: "Classic Pink", frostingColor: "#FF69B4", sprinkleColors: ["#FFD700", "#00FF00", "#00BFFF", "#FF4500", "#FFFFFF", "#FF00FF"], cost: 0 },
-  { id: "chocolate", name: "Chocolate", frostingColor: "#8B4513", sprinkleColors: ["#FFFFFF", "#FFD700", "#FF69B4", "#00BFFF", "#FF4500", "#00FF00"], cost: 100 },
-  { id: "blueberry", name: "Blueberry", frostingColor: "#4169E1", sprinkleColors: ["#FFFFFF", "#FFD700", "#FF69B4", "#00FF00", "#FF4500", "#00BFFF"], cost: 100 },
-  { id: "mint", name: "Mint Chip", frostingColor: "#98FB98", sprinkleColors: ["#8B4513", "#FFFFFF", "#FFD700", "#FF69B4", "#00BFFF", "#FF4500"], cost: 100 },
-  { id: "sunset", name: "Sunset", frostingColor: "#FF6347", sprinkleColors: ["#FFD700", "#FF4500", "#FFFFFF", "#FF69B4", "#FFA500", "#FFFF00"], cost: 100 },
-  { id: "galaxy", name: "Galaxy", frostingColor: "#9400D3", sprinkleColors: ["#FFFFFF", "#FFD700", "#00BFFF", "#FF69B4", "#4169E1", "#00FF00"], cost: 150 },
-  { id: "gold", name: "Golden Glaze", frostingColor: "#FFD700", sprinkleColors: ["#FFFFFF", "#8B4513", "#FF4500", "#FF69B4", "#FFA500", "#FFFF00"], cost: 150 },
-  { id: "rainbow", name: "Rainbow", frostingColor: "#FF1493", sprinkleColors: ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#9400D3"], cost: 200 },
-  { id: "neon", name: "Neon Glow", frostingColor: "#00FF00", sprinkleColors: ["#FF00FF", "#00FFFF", "#FFFF00", "#FF0000", "#0000FF", "#FF00FF"], cost: 200 },
-  { id: "void", name: "Void", frostingColor: "#1a1a2e", sprinkleColors: ["#9400D3", "#4169E1", "#00BFFF", "#9400D3", "#4169E1", "#00BFFF"], cost: 250 },
-] as const;
+export type GameSkin = {
+  id: string;
+  name: string;
+  frostingColor: string;
+  cost: number;
+  rarity: 'common' | 'rare' | 'legendary';
+  animated?: boolean;
+  animationType?: 'pulse' | 'rainbow' | 'sparkle' | 'glow';
+};
 
-export type GameSkin = typeof GAME_SKINS[number];
+export const GAME_SKINS: GameSkin[] = [
+  // Free starter skin
+  { id: 'classic', name: 'Classic', frostingColor: '#F472B6', cost: 0, rarity: 'common' },
+  
+  // Common skins - 10 DONUT
+  { id: 'mint', name: 'Mint', frostingColor: '#34D399', cost: 10, rarity: 'common' },
+  { id: 'blueberry', name: 'Blueberry', frostingColor: '#60A5FA', cost: 10, rarity: 'common' },
+  { id: 'grape', name: 'Grape', frostingColor: '#A78BFA', cost: 10, rarity: 'common' },
+  { id: 'lemon', name: 'Lemon', frostingColor: '#FBBF24', cost: 10, rarity: 'common' },
+  { id: 'orange', name: 'Orange', frostingColor: '#FB923C', cost: 10, rarity: 'common' },
+  
+  // Rare skins - 50 DONUT
+  { id: 'ruby', name: 'Ruby', frostingColor: '#EF4444', cost: 50, rarity: 'rare' },
+  { id: 'emerald', name: 'Emerald', frostingColor: '#10B981', cost: 50, rarity: 'rare' },
+  { id: 'sapphire', name: 'Sapphire', frostingColor: '#3B82F6', cost: 50, rarity: 'rare' },
+  { id: 'amethyst', name: 'Amethyst', frostingColor: '#8B5CF6', cost: 50, rarity: 'rare' },
+  
+  // Legendary animated skins - 100 DONUT
+  { id: 'rainbow', name: 'Rainbow', frostingColor: '#F472B6', cost: 100, rarity: 'legendary', animated: true, animationType: 'rainbow' },
+  { id: 'golden', name: 'Golden', frostingColor: '#FFD700', cost: 100, rarity: 'legendary', animated: true, animationType: 'glow' },
+  { id: 'cosmic', name: 'Cosmic', frostingColor: '#7C3AED', cost: 100, rarity: 'legendary', animated: true, animationType: 'sparkle' },
+];
 
-// Get owned skins from localStorage
+const STORAGE_KEY_OWNED = 'donut-labs-owned-skins';
+const STORAGE_KEY_SELECTED = 'donut-labs-selected-skin';
+
 export function getOwnedSkins(address: string): string[] {
   if (typeof window === 'undefined') return ['classic'];
-  const saved = localStorage.getItem(`game-skins-${address.toLowerCase()}`);
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch {
-      return ['classic'];
+  try {
+    const stored = localStorage.getItem(`${STORAGE_KEY_OWNED}-${address.toLowerCase()}`);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (!parsed.includes('classic')) parsed.unshift('classic');
+      return parsed;
     }
-  }
+  } catch {}
   return ['classic'];
 }
 
-// Save owned skins to localStorage
-export function saveOwnedSkins(address: string, skinIds: string[]) {
+export function saveOwnedSkins(address: string, skinIds: string[]): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(`game-skins-${address.toLowerCase()}`, JSON.stringify(skinIds));
+  try {
+    localStorage.setItem(`${STORAGE_KEY_OWNED}-${address.toLowerCase()}`, JSON.stringify(skinIds));
+  } catch {}
 }
 
-// Get selected skin from localStorage
 export function getSelectedSkin(address: string): string {
   if (typeof window === 'undefined') return 'classic';
-  return localStorage.getItem(`game-selected-skin-${address.toLowerCase()}`) || 'classic';
+  try {
+    const stored = localStorage.getItem(`${STORAGE_KEY_SELECTED}-${address.toLowerCase()}`);
+    if (stored) return stored;
+  } catch {}
+  return 'classic';
 }
 
-// Save selected skin to localStorage
-export function saveSelectedSkin(address: string, skinId: string) {
+export function saveSelectedSkin(address: string, skinId: string): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(`game-selected-skin-${address.toLowerCase()}`, skinId);
+  try {
+    localStorage.setItem(`${STORAGE_KEY_SELECTED}-${address.toLowerCase()}`, skinId);
+  } catch {}
 }
 
-// Get full skin object by ID
-export function getSkinById(skinId: string): GameSkin {
-  return GAME_SKINS.find(s => s.id === skinId) || GAME_SKINS[0];
+export function getSkinById(id: string): GameSkin {
+  return GAME_SKINS.find(s => s.id === id) || GAME_SKINS[0];
 }
