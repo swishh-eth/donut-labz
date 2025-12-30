@@ -33,8 +33,8 @@ const SCALED_HEIGHT = CANVAS_HEIGHT * CANVAS_SCALE;
 const GRAVITY = 0.32;
 const FLAP_STRENGTH = -5.5;
 const PIPE_WIDTH = 60;
-const PIPE_GAP_START = 190;
-const PIPE_GAP_MIN = 130;
+const PIPE_GAP_START = 175; // Reduced from 190 since we removed caps
+const PIPE_GAP_MIN = 115; // Reduced from 130 since we removed caps
 const PIPE_SPEED_START = 2.0;
 const PIPE_SPEED_MAX = 4.0;
 const PIPE_SPAWN_DISTANCE = 240;
@@ -116,6 +116,32 @@ function getTimeUntilReset(): string {
   }
 }
 
+// Calculate time until daily cost reset (6PM EST / 11PM UTC)
+function getTimeUntilCostReset(): string {
+  const now = new Date();
+  const utcNow = new Date(now.toUTCString());
+  
+  // Find next 11PM UTC
+  const nextReset = new Date(utcNow);
+  nextReset.setUTCHours(23, 0, 0, 0);
+  
+  // If it's already past 11PM UTC today, go to tomorrow
+  if (utcNow.getUTCHours() >= 23) {
+    nextReset.setUTCDate(nextReset.getUTCDate() + 1);
+  }
+  
+  const diff = nextReset.getTime() - utcNow.getTime();
+  
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  } else {
+    return `${minutes}m`;
+  }
+}
+
 export default function FlappyDonutPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number | null>(null);
@@ -138,6 +164,7 @@ export default function FlappyDonutPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [prizePool, setPrizePool] = useState<string>("0");
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
+  const [costResetCountdown, setCostResetCountdown] = useState<string>(getTimeUntilCostReset());
   const [pendingTxType, setPendingTxType] = useState<"approve" | "approved" | "pay" | null>(null);
   
   // Prize distribution percentages for top 10
@@ -163,6 +190,7 @@ export default function FlappyDonutPage() {
   const countdownRef = useRef(3);
   const paidCostRef = useRef(1);
   const hasFlappedRef = useRef(false); // Tracks if player has made first flap
+  const gameStartPendingRef = useRef(false); // Track if we're waiting to start a game after tx
   
   // Initialize audio context - call early to prevent lag on first flap
   const initAudioContext = useCallback(() => {
@@ -223,17 +251,43 @@ export default function FlappyDonutPage() {
     }, 0);
   }, [isMuted]);
   
-  // Haptic feedback - light for flap
-  const triggerFlapHaptic = useCallback(() => {
-    try {
-      if (navigator.vibrate) navigator.vibrate(10);
-    } catch {}
-  }, []);
+  // Play countdown sound
+  const playCountdownSound = useCallback((isLast: boolean) => {
+    if (isMuted || !audioInitializedRef.current) return;
+    setTimeout(() => {
+      try {
+        const ctx = audioContextRef.current;
+        if (!ctx) return;
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        oscillator.type = 'sine';
+        
+        if (isLast) {
+          // Higher pitch "go" sound
+          oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+          oscillator.frequency.setValueAtTime(1320, ctx.currentTime + 0.1);
+          gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+          oscillator.start(ctx.currentTime);
+          oscillator.stop(ctx.currentTime + 0.3);
+        } else {
+          // Regular countdown beep
+          oscillator.frequency.setValueAtTime(440, ctx.currentTime);
+          gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+          oscillator.start(ctx.currentTime);
+          oscillator.stop(ctx.currentTime + 0.15);
+        }
+      } catch {}
+    }, 0);
+  }, [isMuted]);
   
-  // Haptic feedback - stronger for point
+  // Haptic feedback - heavy for point only
   const triggerPointHaptic = useCallback(() => {
     try {
-      if (navigator.vibrate) navigator.vibrate([20, 30, 20]);
+      if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
     } catch {}
   }, []);
   
@@ -280,9 +334,12 @@ export default function FlappyDonutPage() {
   
   useEffect(() => { if (prizePoolData) setPrizePool(Number(formatUnits(prizePoolData, 18)).toFixed(2)); }, [prizePoolData]);
   
-  // Update reset countdown every minute
+  // Update reset countdowns every minute
   useEffect(() => {
-    const updateCountdown = () => setResetCountdown(getTimeUntilReset());
+    const updateCountdown = () => {
+      setResetCountdown(getTimeUntilReset());
+      setCostResetCountdown(getTimeUntilCostReset());
+    };
     updateCountdown();
     const interval = setInterval(updateCountdown, 60000);
     return () => clearInterval(interval);
@@ -479,7 +536,7 @@ export default function FlappyDonutPage() {
   // Draw scrolling cityscape background
   const drawCityscape = useCallback((ctx: CanvasRenderingContext2D, speed: number) => {
     const GROUND_HEIGHT = 50;
-    const BUILDING_COLORS = ['#1a1a2e', '#16213e', '#1f1f3a', '#252545', '#2a2a4a'];
+    const BUILDING_COLORS = ['#2a2a2a', '#3d3d3d', '#4a4a4a', '#5c5c5c', '#6e6e6e'];
     
     // Helper to generate window brightness array for a building
     const generateWindows = (width: number, height: number): number[] => {
@@ -529,7 +586,7 @@ export default function FlappyDonutPage() {
     }
     
     // Draw ground
-    ctx.fillStyle = '#0a0a12';
+    ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, CANVAS_HEIGHT - GROUND_HEIGHT, CANVAS_WIDTH, GROUND_HEIGHT);
     
     // Draw buildings
@@ -554,7 +611,7 @@ export default function FlappyDonutPage() {
           if (brightness > 0) {
             ctx.fillStyle = `rgba(255, 220, 150, ${brightness})`;
           } else {
-            ctx.fillStyle = 'rgba(50, 50, 80, 0.5)';
+            ctx.fillStyle = 'rgba(50, 50, 50, 0.5)';
           }
           ctx.fillRect(
             building.x + 4 + col * 12,
@@ -593,29 +650,17 @@ export default function FlappyDonutPage() {
     gradient.addColorStop(0.7, "#E8D5B7");
     gradient.addColorStop(1, "#C4A77D");
     
-    // Top pipe
+    // Top pipe - simple rounded ends, no caps
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.roundRect(x, -10, PIPE_WIDTH, topHeight + 10, [0, 0, 12, 12]);
+    ctx.roundRect(x, -10, PIPE_WIDTH, topHeight + 10, [0, 0, 8, 8]);
     ctx.fill();
     
-    // Top pipe cap
-    ctx.fillStyle = "#8B5A2B";
-    ctx.beginPath();
-    ctx.roundRect(x + 8, topHeight - 8, PIPE_WIDTH - 16, 12, 6);
-    ctx.fill();
-    
-    // Bottom pipe
+    // Bottom pipe - simple rounded ends, no caps
     const bottomY = topHeight + gap;
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.roundRect(x, bottomY, PIPE_WIDTH, CANVAS_HEIGHT - bottomY + 10, [12, 12, 0, 0]);
-    ctx.fill();
-    
-    // Bottom pipe cap
-    ctx.fillStyle = "#8B5A2B";
-    ctx.beginPath();
-    ctx.roundRect(x + 8, bottomY - 4, PIPE_WIDTH - 16, 12, 6);
+    ctx.roundRect(x, bottomY, PIPE_WIDTH, CANVAS_HEIGHT - bottomY + 10, [8, 8, 0, 0]);
     ctx.fill();
   }, []);
   
@@ -624,10 +669,14 @@ export default function FlappyDonutPage() {
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx || !gameActiveRef.current) return;
     
-    // Calculate delta time for smooth movement
+    // Calculate delta time for smooth movement - use fixed timestep for consistency
     const now = performance.now();
-    const deltaTime = Math.min((now - lastFrameTimeRef.current) / 16.667, 3); // Normalize to 60fps, cap at 3x
+    const rawDelta = now - lastFrameTimeRef.current;
     lastFrameTimeRef.current = now;
+    
+    // Use a fixed timestep approach - accumulate time and step at fixed intervals
+    // This prevents the jerky movement caused by variable delta times
+    const deltaTime = Math.min(rawDelta / 16.667, 2); // Normalize to 60fps, cap at 2x
     
     // Scale the context for high-DPI rendering
     ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
@@ -646,8 +695,8 @@ export default function FlappyDonutPage() {
     for (let i = 0; i < CANVAS_WIDTH; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, CANVAS_HEIGHT); ctx.stroke(); }
     for (let i = 0; i < CANVAS_HEIGHT; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_WIDTH, i); ctx.stroke(); }
     
-    // Draw scrolling cityscape
-    drawCityscape(ctx, difficulty.pipeSpeed * deltaTime);
+    // Draw scrolling cityscape - use fixed speed for background to prevent jitter
+    drawCityscape(ctx, difficulty.pipeSpeed);
     
     // Only apply gravity after first flap - donut hovers until player taps
     if (hasFlappedRef.current) {
@@ -656,8 +705,11 @@ export default function FlappyDonutPage() {
       donutRef.current.y += donutRef.current.velocity * deltaTime;
     }
     
+    // Move pipes with consistent speed - don't multiply by deltaTime for position checks
+    const pipeMovement = difficulty.pipeSpeed * deltaTime;
+    
     pipesRef.current.forEach((pipe, index) => {
-      pipe.x -= difficulty.pipeSpeed * deltaTime;
+      pipe.x -= pipeMovement;
       
       // Apply oscillation if pipe was spawned with it (time-based for smooth movement)
       if (pipe.oscillates) {
@@ -709,7 +761,8 @@ export default function FlappyDonutPage() {
     pipesRef.current.forEach(pipe => drawPipe(ctx, pipe.x, pipe.topHeight, pipe.gap));
     drawDonut(ctx, donutRef.current.y, donutRef.current.velocity);
     
-    ctx.shadowColor = "#FFD700";
+    // Score display - white with white glow
+    ctx.shadowColor = "#FFFFFF";
     ctx.shadowBlur = 20;
     ctx.fillStyle = "#FFFFFF";
     ctx.font = "bold 48px monospace";
@@ -787,9 +840,9 @@ export default function FlappyDonutPage() {
       hasFlappedRef.current = true; // Mark that player has started
       donutRef.current.velocity = FLAP_STRENGTH;
       playFlapSound();
-      triggerFlapHaptic();
+      // Removed tap haptic - only haptic on points now
     }
-  }, [gameState, playFlapSound, triggerFlapHaptic]);
+  }, [gameState, playFlapSound]);
   
   const startGame = useCallback(() => {
     // Pre-initialize audio during countdown to prevent lag on first flap
@@ -804,16 +857,28 @@ export default function FlappyDonutPage() {
     frameCountRef.current = 0;
     countdownRef.current = 3;
     hasFlappedRef.current = false; // Reset - donut hovers until first tap
+    gameStartPendingRef.current = false;
     setScore(0);
     setCountdown(3);
     setGameState("countdown");
     setError(null);
+    
+    // Play initial countdown sound
+    playCountdownSound(false);
     
     let count = 3;
     const countdownInterval = setInterval(() => {
       count--;
       countdownRef.current = count;
       setCountdown(count);
+      
+      // Play countdown sound
+      if (count > 0) {
+        playCountdownSound(false);
+      } else {
+        playCountdownSound(true); // "Go" sound
+      }
+      
       if (count <= 0) {
         clearInterval(countdownInterval);
         lastFrameTimeRef.current = performance.now(); // Reset for smooth first frame
@@ -823,7 +888,7 @@ export default function FlappyDonutPage() {
         gameLoopRef.current = requestAnimationFrame(gameLoop);
       }
     }, 1000);
-  }, [gameLoop, initAudioContext]);
+  }, [gameLoop, initAudioContext, playCountdownSound]);
 
   // Handle approval success - trigger payment
   useEffect(() => {
@@ -845,9 +910,9 @@ export default function FlappyDonutPage() {
     }
   }, [pendingTxType, allowance, entryCost, writeContract]);
 
-  // Handle payment success - start game
+  // Handle payment success - start game (works from both menu AND gameover states)
   useEffect(() => {
-    if (isTxSuccess && pendingTxType === "pay" && gameState === "menu") {
+    if (isTxSuccess && pendingTxType === "pay" && gameStartPendingRef.current) {
       setPendingTxType(null);
       setPaidCost(entryCost);
       paidCostRef.current = entryCost;
@@ -857,13 +922,14 @@ export default function FlappyDonutPage() {
       resetWrite();
       startGame();
     }
-  }, [isTxSuccess, pendingTxType, gameState, entryCost, refetchAllowance, refetchBalance, startGame, resetWrite]);
+  }, [isTxSuccess, pendingTxType, entryCost, refetchAllowance, refetchBalance, startGame, resetWrite]);
 
   // Handle transaction errors
   useEffect(() => {
     if (writeError || isTxError) {
       setIsLoading(false);
       setPendingTxType(null);
+      gameStartPendingRef.current = false;
       if (writeError) {
         const msg = (writeError as Error).message || "Transaction failed";
         if (msg.includes("rejected") || msg.includes("denied")) {
@@ -882,8 +948,9 @@ export default function FlappyDonutPage() {
     if (!address) { setError("Connect wallet to play"); return; }
     setIsLoading(true);
     setError(null);
+    gameStartPendingRef.current = true; // Mark that we want to start a game after tx
     const costWei = parseUnits(entryCost.toString(), 18);
-    if (balance && balance < costWei) { setError(`Insufficient DONUT. Need ${entryCost} 🍩`); setIsLoading(false); return; }
+    if (balance && balance < costWei) { setError(`Insufficient DONUT. Need ${entryCost} 🍩`); setIsLoading(false); gameStartPendingRef.current = false; return; }
     if (!allowance || allowance < costWei) { 
       setPendingTxType("approve");
       writeContract({ address: DONUT_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [FLAPPY_POOL_ADDRESS, parseUnits("100", 18)] }); 
@@ -965,7 +1032,7 @@ export default function FlappyDonutPage() {
         ctx.fillStyle = "#FF6B6B";
         ctx.font = "bold 24px monospace";
         ctx.fillText("GAME OVER", CANVAS_WIDTH / 2, 100);
-        ctx.shadowColor = "#FFD700";
+        ctx.shadowColor = "#FFFFFF";
         ctx.shadowBlur = 20;
         ctx.fillStyle = "#FFFFFF";
         ctx.font = "bold 48px monospace";
@@ -1087,7 +1154,7 @@ export default function FlappyDonutPage() {
                     {isPaying ? <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Processing...</span></> : <><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span></>}
                   </button>
                   {error && <p className="text-red-400 text-xs">{error}</p>}
-                  <p className="text-zinc-500 text-[10px]">Attempts today: {attempts}</p>
+                  <p className="text-zinc-500 text-[10px]">Attempts today: {attempts} • Resets in {costResetCountdown}</p>
                 </div>
               </div>
             )}
@@ -1244,7 +1311,7 @@ export default function FlappyDonutPage() {
                 
                 <div>
                   <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Palette className="w-4 h-4 text-zinc-400" />Skins</h3>
-                  <p className="text-xs text-zinc-400">Customize your donut with skins! Buy them from the Skin Shop on the Games page. Skins work across all Donut Labs games.</p>
+                  <p className="text-xs text-zinc-400">Customize your donut with skins! Buy them from the Skin Shop on the Games page. Skins work across all Sprinkles App games.</p>
                 </div>
               </div>
               
