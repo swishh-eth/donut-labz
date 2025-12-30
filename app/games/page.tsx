@@ -6,7 +6,7 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { parseUnits } from "viem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Settings, Gamepad2, Trophy, Coins, Palette, Lock, Check, X } from "lucide-react";
+import { Settings, Gamepad2, Trophy, Coins, Palette, Lock, Check, X, Sparkles, Star } from "lucide-react";
 import { GAME_SKINS, getOwnedSkins, saveOwnedSkins, type GameSkin } from "@/lib/game-skins";
 
 // Contract addresses
@@ -63,25 +63,41 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
-// Skins Tile with scrolling preview
+// Enhanced Skins Tile with sparkle effect
 function SkinsTile({ ownedSkins, onOpenShop }: { ownedSkins: string[]; onOpenShop: () => void }) {
   return (
     <button
       onClick={onOpenShop}
-      className="relative w-full rounded-2xl border-2 border-zinc-700 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-zinc-500"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(63,63,70,0.3) 0%, rgba(39,39,42,0.3) 100%)' }}
+      className="relative w-full rounded-2xl border-2 border-purple-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-purple-400/80 group"
+      style={{ minHeight: '110px', background: 'linear-gradient(135deg, rgba(147,51,234,0.2) 0%, rgba(236,72,153,0.15) 50%, rgba(251,146,60,0.1) 100%)' }}
     >
+      {/* Animated gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-white/5 to-purple-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+      
+      {/* Floating sparkles */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <Sparkles className="absolute top-3 right-12 w-4 h-4 text-yellow-400/60 animate-pulse" />
+        <Sparkles className="absolute bottom-4 right-24 w-3 h-3 text-purple-400/60 animate-pulse" style={{ animationDelay: '0.5s' }} />
+        <Star className="absolute top-6 right-32 w-3 h-3 text-pink-400/50 animate-pulse" style={{ animationDelay: '1s' }} />
+      </div>
+      
+      {/* Scrolling skins preview */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="skins-scroll flex items-center gap-3 py-4 px-2">
+        <div className="skins-scroll flex items-center gap-4 py-6 px-2">
           {[...GAME_SKINS, ...GAME_SKINS].map((skin: GameSkin, i: number) => (
             <div 
               key={`${skin.id}-${i}`}
-              className="flex-shrink-0 w-12 h-12 rounded-full relative opacity-40"
-              style={{ backgroundColor: skin.frostingColor }}
+              className="flex-shrink-0 w-14 h-14 rounded-full relative shadow-lg"
+              style={{ 
+                backgroundColor: skin.frostingColor,
+                boxShadow: `0 0 20px ${skin.frostingColor}40`
+              }}
             >
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-3 h-3 rounded-full bg-zinc-900 border border-zinc-700" />
+                <div className="w-4 h-4 rounded-full bg-zinc-900 border-2 border-zinc-700" />
               </div>
+              {/* Shine effect */}
+              <div className="absolute top-1 left-2 w-3 h-3 rounded-full bg-white/30" />
             </div>
           ))}
         </div>
@@ -90,24 +106,39 @@ function SkinsTile({ ownedSkins, onOpenShop }: { ownedSkins: string[]; onOpenSho
       <div className="relative z-10 p-4">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Palette className="w-5 h-5 text-zinc-400" />
-            <span className="font-bold text-base text-white">Skin Shop</span>
-            <span className="text-[9px] bg-zinc-700 text-zinc-300 px-1.5 py-0.5 rounded-full">{ownedSkins.length}/{GAME_SKINS.length}</span>
+            <div className="p-1.5 rounded-lg bg-purple-500/20">
+              <Palette className="w-5 h-5 text-purple-400" />
+            </div>
+            <span className="font-bold text-lg text-white">Skin Shop</span>
+            <span className="text-[10px] bg-purple-500/30 text-purple-200 px-2 py-0.5 rounded-full font-medium">{ownedSkins.length}/{GAME_SKINS.length}</span>
           </div>
-          <div className="text-[10px] text-zinc-500">Customize your donut for all games!</div>
+          <div className="text-xs text-purple-200/70">Unlock unique styles for all games!</div>
         </div>
       </div>
+      
+      {/* Corner decoration */}
+      <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 blur-xl" />
     </button>
   );
 }
 
-// Flappy Donut Game Tile
-function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer | null; prizePool: string }) {
+// Flappy Donut Game Tile with smooth loading
+function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
+  const [showPlayer, setShowPlayer] = useState(false);
+  
+  useEffect(() => {
+    if (recentPlayer && !isLoading) {
+      // Small delay then fade in
+      const timer = setTimeout(() => setShowPlayer(true), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [recentPlayer, isLoading]);
+  
   return (
     <button
       onClick={() => window.location.href = "/games/game-1"}
       className="relative w-full rounded-2xl border-2 border-pink-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-500/80"
-      style={{ minHeight: '120px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(251,146,60,0.1) 100%)' }}
+      style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(251,146,60,0.1) 100%)' }}
     >
       <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
         <div className="donut-float">
@@ -139,17 +170,20 @@ function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlay
             </div>
           </div>
           
-          {recentPlayer ? (
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] text-zinc-400">Last play:</span>
-              <span className="text-[9px] text-white bg-zinc-800/80 px-2 py-0.5 rounded-full flex items-center gap-1">
-                {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />}
-                @{recentPlayer.username} scored {recentPlayer.score}
-              </span>
+          <div className="flex items-center gap-2 h-5">
+            <span className="text-[9px] text-zinc-400">Last play:</span>
+            <div className={`transition-opacity duration-300 ${showPlayer ? 'opacity-100' : 'opacity-0'}`}>
+              {recentPlayer && (
+                <span className="text-[9px] text-white bg-zinc-800/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />}
+                  @{recentPlayer.username} scored {recentPlayer.score}
+                </span>
+              )}
             </div>
-          ) : (
-            <span className="text-[9px] text-zinc-500">Be the first to play today!</span>
-          )}
+            {isLoading && (
+              <div className="w-24 h-4 bg-zinc-800/50 rounded-full animate-pulse" />
+            )}
+          </div>
         </div>
       </div>
     </button>
@@ -183,12 +217,14 @@ export default function GamesPage() {
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [recentPlayer, setRecentPlayer] = useState<RecentPlayer | null>(null);
+  const [isLoadingRecent, setIsLoadingRecent] = useState(true);
   const [prizePool, setPrizePool] = useState<string>("0");
   const [showSkinShop, setShowSkinShop] = useState(false);
   const [ownedSkins, setOwnedSkins] = useState<string[]>(['classic']);
   const [buyingSkin, setBuyingSkin] = useState<GameSkin | null>(null);
   const [purchaseStep, setPurchaseStep] = useState<PurchaseStep>("idle");
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [selectedPreview, setSelectedPreview] = useState<GameSkin | null>(null);
 
   const { writeContract, data: txHash, isPending: isWritePending, reset: resetWrite } = useWriteContract();
   const { isLoading: isTxLoading, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({ hash: txHash });
@@ -270,6 +306,7 @@ export default function GamesPage() {
 
   useEffect(() => {
     const fetchGameData = async () => {
+      setIsLoadingRecent(true);
       try {
         const res = await fetch('/api/games/flappy/recent');
         if (res.ok) {
@@ -279,6 +316,8 @@ export default function GamesPage() {
         }
       } catch (e) {
         console.error("Failed to fetch game data:", e);
+      } finally {
+        setIsLoadingRecent(false);
       }
     };
     fetchGameData();
@@ -340,7 +379,7 @@ export default function GamesPage() {
         @keyframes donut-float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-5px) rotate(10deg); } }
         .donut-float { animation: donut-float 3s ease-in-out infinite; }
         @keyframes skins-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        .skins-scroll { animation: skins-scroll 20s linear infinite; }
+        .skins-scroll { animation: skins-scroll 15s linear infinite; }
       `}</style>
 
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
@@ -366,38 +405,83 @@ export default function GamesPage() {
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden games-scroll" style={{ WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` }}>
             <div className="space-y-3 pb-4">
               <SkinsTile ownedSkins={ownedSkins} onOpenShop={() => setShowSkinShop(true)} />
-              <FlappyDonutTile recentPlayer={recentPlayer} prizePool={prizePool} />
+              <FlappyDonutTile recentPlayer={recentPlayer} prizePool={prizePool} isLoading={isLoadingRecent} />
               {[...Array(5)].map((_, i) => <ComingSoonTile key={i} />)}
             </div>
           </div>
         </div>
       </div>
       
+      {/* Enhanced Skin Shop Modal */}
       {showSkinShop && (
-        <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-md bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-              <div className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-zinc-400" />
-                <span className="font-bold">Skin Shop</span>
-                <span className="text-xs text-zinc-500">{ownedSkins.length}/{GAME_SKINS.length}</span>
+        <div className="absolute inset-0 bg-black/95 flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-md bg-gradient-to-b from-zinc-900 to-zinc-950 rounded-3xl border border-zinc-700 overflow-hidden shadow-2xl">
+            {/* Header with gradient */}
+            <div className="relative px-5 pt-5 pb-4 border-b border-zinc-800">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-orange-500/10" />
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-purple-500/20">
+                    <Palette className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-lg">Skin Shop</span>
+                    <div className="text-xs text-zinc-400">{ownedSkins.length} of {GAME_SKINS.length} unlocked</div>
+                  </div>
+                </div>
+                <button onClick={() => { setShowSkinShop(false); setSelectedPreview(null); }} className="p-2 rounded-full bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button onClick={() => setShowSkinShop(false)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
+            
+            {/* Skin Preview */}
+            {selectedPreview && (
+              <div className="px-5 py-4 border-b border-zinc-800 bg-zinc-900/50">
+                <div className="flex items-center gap-4">
+                  <div 
+                    className="w-20 h-20 rounded-full relative shadow-xl"
+                    style={{ 
+                      backgroundColor: selectedPreview.frostingColor,
+                      boxShadow: `0 0 30px ${selectedPreview.frostingColor}50`
+                    }}
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-6 h-6 rounded-full bg-zinc-900 border-2 border-zinc-700" />
+                    </div>
+                    <div className="absolute top-2 left-4 w-4 h-4 rounded-full bg-white/30" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-lg">{selectedPreview.name}</div>
+                    {ownedSkins.includes(selectedPreview.id) ? (
+                      <div className="flex items-center gap-1 text-green-400 text-sm">
+                        <Check className="w-4 h-4" />
+                        <span>Owned</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-amber-400 text-sm">
+                        <span className="text-lg">🍩</span>
+                        <span className="font-bold">{selectedPreview.cost}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Purchase Progress */}
             {buyingSkin && purchaseStep !== "idle" && (
-              <div className="px-4 py-3 bg-zinc-800 border-b border-zinc-700">
+              <div className="px-5 py-3 bg-purple-500/10 border-b border-zinc-700">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
                   <span className="text-sm text-white">Purchasing {buyingSkin.name}...</span>
                 </div>
                 <div className="flex gap-1">
-                  <div className={`h-1 flex-1 rounded-full ${purchaseStep === "burn" || purchaseStep === "lp" || purchaseStep === "treasury" ? "bg-white" : "bg-zinc-700"}`} />
-                  <div className={`h-1 flex-1 rounded-full ${purchaseStep === "lp" || purchaseStep === "treasury" ? "bg-white" : "bg-zinc-700"}`} />
-                  <div className={`h-1 flex-1 rounded-full ${purchaseStep === "treasury" ? "bg-white" : "bg-zinc-700"}`} />
+                  <div className={`h-1.5 flex-1 rounded-full transition-colors ${purchaseStep === "burn" || purchaseStep === "lp" || purchaseStep === "treasury" ? "bg-purple-500" : "bg-zinc-700"}`} />
+                  <div className={`h-1.5 flex-1 rounded-full transition-colors ${purchaseStep === "lp" || purchaseStep === "treasury" ? "bg-purple-500" : "bg-zinc-700"}`} />
+                  <div className={`h-1.5 flex-1 rounded-full transition-colors ${purchaseStep === "treasury" ? "bg-purple-500" : "bg-zinc-700"}`} />
                 </div>
-                <p className="text-[10px] text-zinc-500 mt-1">
+                <p className="text-[10px] text-zinc-400 mt-1.5">
                   {purchaseStep === "burn" && "Step 1/3: Burning 25%..."}
                   {purchaseStep === "lp" && "Step 2/3: Sending 25% to LP rewards..."}
                   {purchaseStep === "treasury" && "Step 3/3: Sending 50% to treasury..."}
@@ -406,36 +490,67 @@ export default function GamesPage() {
             )}
             
             {purchaseError && (
-              <div className="px-4 py-2 bg-red-500/10 border-b border-zinc-800">
+              <div className="px-5 py-3 bg-red-500/10 border-b border-zinc-800">
                 <p className="text-sm text-red-400">{purchaseError}</p>
               </div>
             )}
             
-            <div className="p-4 grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto">
+            {/* Skin Grid */}
+            <div className="p-4 grid grid-cols-3 gap-3 max-h-[50vh] overflow-y-auto">
               {GAME_SKINS.map((skin: GameSkin) => {
                 const isOwned = ownedSkins.includes(skin.id);
                 const isBuying = buyingSkin?.id === skin.id;
+                const isSelected = selectedPreview?.id === skin.id;
                 
                 return (
                   <button
                     key={skin.id}
-                    onClick={() => !isOwned && skin.cost > 0 && !buyingSkin && handleBuySkin(skin)}
-                    disabled={isOwned || !!buyingSkin || isPaying}
-                    className={`relative p-4 rounded-xl border-2 transition-all ${isOwned ? "border-green-500/50 bg-green-500/10" : "border-zinc-700 hover:border-zinc-500"} ${isBuying ? "border-white bg-zinc-800" : ""} ${buyingSkin && !isBuying ? "opacity-50" : ""}`}
+                    onClick={() => {
+                      setSelectedPreview(skin);
+                      if (!isOwned && skin.cost > 0 && !buyingSkin) {
+                        // Don't auto-buy, just preview
+                      }
+                    }}
+                    disabled={!!buyingSkin || isPaying}
+                    className={`relative p-3 rounded-2xl border-2 transition-all ${
+                      isSelected 
+                        ? "border-purple-500 bg-purple-500/10 scale-105" 
+                        : isOwned 
+                          ? "border-green-500/30 bg-green-500/5" 
+                          : "border-zinc-700 hover:border-zinc-500 bg-zinc-800/30"
+                    } ${isBuying ? "border-purple-500 bg-purple-500/10" : ""} ${buyingSkin && !isBuying ? "opacity-50" : ""}`}
                   >
-                    <div className="w-16 h-16 mx-auto mb-3 rounded-full relative" style={{ backgroundColor: skin.frostingColor }}>
-                      <div className="absolute inset-0 flex items-center justify-center"><div className="w-4 h-4 rounded-full bg-zinc-900 border border-zinc-700" /></div>
+                    <div 
+                      className="w-14 h-14 mx-auto mb-2 rounded-full relative shadow-lg transition-transform"
+                      style={{ 
+                        backgroundColor: skin.frostingColor,
+                        boxShadow: isSelected ? `0 0 20px ${skin.frostingColor}60` : 'none'
+                      }}
+                    >
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-4 h-4 rounded-full bg-zinc-900 border-2 border-zinc-700" />
+                      </div>
+                      <div className="absolute top-1 left-3 w-3 h-3 rounded-full bg-white/30" />
                     </div>
                     
-                    <p className="text-sm font-bold truncate">{skin.name}</p>
+                    <p className="text-xs font-bold truncate text-center">{skin.name}</p>
                     
                     {isOwned ? (
-                      <div className="flex items-center justify-center gap-1 mt-2"><Check className="w-4 h-4 text-green-400" /><span className="text-xs text-green-400">Owned</span></div>
+                      <div className="flex items-center justify-center gap-1 mt-1">
+                        <Check className="w-3 h-3 text-green-400" />
+                      </div>
                     ) : skin.cost === 0 ? (
-                      <span className="text-xs text-zinc-500 mt-2 block">Free</span>
+                      <span className="text-[10px] text-zinc-500 mt-1 block text-center">Free</span>
                     ) : (
-                      <div className="flex items-center justify-center gap-1 mt-2">
-                        {isBuying ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Lock className="w-3 h-3 text-amber-400" /><span className="text-xs text-amber-400">{skin.cost} 🍩</span></>}
+                      <div className="flex items-center justify-center gap-0.5 mt-1">
+                        {isBuying ? (
+                          <div className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <span className="text-[10px]">🍩</span>
+                            <span className="text-[10px] text-amber-400 font-bold">{skin.cost}</span>
+                          </>
+                        )}
                       </div>
                     )}
                   </button>
@@ -443,8 +558,22 @@ export default function GamesPage() {
               })}
             </div>
             
-            <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
-              <p className="text-xs text-zinc-400 text-center">25% burned • 25% LP rewards • 50% treasury</p>
+            {/* Buy Button */}
+            {selectedPreview && !ownedSkins.includes(selectedPreview.id) && selectedPreview.cost > 0 && (
+              <div className="p-4 border-t border-zinc-800">
+                <button
+                  onClick={() => handleBuySkin(selectedPreview)}
+                  disabled={!!buyingSkin || isPaying}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold hover:from-purple-600 hover:to-pink-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {buyingSkin ? "Purchasing..." : `Buy for ${selectedPreview.cost} 🍩`}
+                </button>
+              </div>
+            )}
+            
+            {/* Footer */}
+            <div className="px-5 py-3 bg-zinc-900/50 border-t border-zinc-800">
+              <p className="text-[10px] text-zinc-500 text-center">🔥 25% burned • 💧 25% LP rewards • 🏦 50% treasury</p>
             </div>
           </div>
         </div>

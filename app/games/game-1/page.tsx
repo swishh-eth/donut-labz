@@ -6,7 +6,7 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { formatUnits, parseUnits } from "viem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Trophy, Play, Coins, Zap, Share2, Palette, Check, X, ExternalLink, HelpCircle, Volume2, VolumeX, ChevronRight } from "lucide-react";
+import { Trophy, Play, Coins, Zap, Share2, Palette, Check, X, ExternalLink, HelpCircle, Volume2, VolumeX, ChevronRight, Clock } from "lucide-react";
 import { GAME_SKINS, getOwnedSkins, getSelectedSkin, saveSelectedSkin, getSkinById, type GameSkin } from "@/lib/game-skins";
 
 // Contract addresses
@@ -52,7 +52,7 @@ const initialsFrom = (label?: string) => {
   return stripped ? stripped.slice(0, 2).toUpperCase() : label.slice(0, 2).toUpperCase();
 };
 
-// Falling Donut Animation Component
+// Falling Donut Animation Component - starts above view
 function FallingDonuts() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -62,6 +62,7 @@ function FallingDonuts() {
           className="absolute falling-donut"
           style={{
             left: `${10 + i * 12}%`,
+            top: '-30px',
             animationDelay: `${i * 0.4}s`,
             animationDuration: `${3 + (i % 3)}s`,
           }}
@@ -74,6 +75,42 @@ function FallingDonuts() {
       ))}
     </div>
   );
+}
+
+// Calculate time until next Friday 11PM UTC (6PM EST)
+function getTimeUntilReset(): string {
+  const now = new Date();
+  const utcNow = new Date(now.toUTCString());
+  
+  // Find next Friday at 23:00 UTC
+  const nextReset = new Date(utcNow);
+  const currentDay = utcNow.getUTCDay();
+  const currentHour = utcNow.getUTCHours();
+  
+  // Days until Friday (5)
+  let daysUntilFriday = (5 - currentDay + 7) % 7;
+  
+  // If it's Friday but past 11PM UTC, go to next Friday
+  if (daysUntilFriday === 0 && currentHour >= 23) {
+    daysUntilFriday = 7;
+  }
+  
+  nextReset.setUTCDate(utcNow.getUTCDate() + daysUntilFriday);
+  nextReset.setUTCHours(23, 0, 0, 0);
+  
+  const diff = nextReset.getTime() - utcNow.getTime();
+  
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  
+  if (days > 0) {
+    return `${days}d ${hours}h`;
+  } else if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  } else {
+    return `${minutes}m`;
+  }
 }
 
 export default function FlappyDonutPage() {
@@ -97,6 +134,7 @@ export default function FlappyDonutPage() {
   const [isMuted, setIsMuted] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [prizePool, setPrizePool] = useState<string>("0");
+  const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
   
   // Prize distribution percentages for top 10
   const PRIZE_DISTRIBUTION = [30, 20, 15, 10, 8, 6, 5, 3, 2, 1];
@@ -219,6 +257,14 @@ export default function FlappyDonutPage() {
   }, [address]);
   
   useEffect(() => { if (prizePoolData) setPrizePool(Number(formatUnits(prizePoolData, 18)).toFixed(2)); }, [prizePoolData]);
+  
+  // Update reset countdown every minute
+  useEffect(() => {
+    const updateCountdown = () => setResetCountdown(getTimeUntilReset());
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 60000);
+    return () => clearInterval(interval);
+  }, []);
   
   useEffect(() => {
     if (isTxSuccess && gameState === "menu") {
@@ -571,10 +617,8 @@ export default function FlappyDonutPage() {
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style>{`
         @keyframes falling-donut {
-          0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
-          10% { opacity: 0.3; }
-          90% { opacity: 0.3; }
-          100% { transform: translateY(100px) rotate(360deg); opacity: 0; }
+          0% { transform: translateY(0) rotate(0deg); opacity: 0.3; }
+          100% { transform: translateY(120px) rotate(360deg); opacity: 0; }
         }
         .falling-donut {
           animation: falling-donut 3s ease-in-out infinite;
@@ -603,28 +647,34 @@ export default function FlappyDonutPage() {
         {/* Prize Pool Tile - Clickable to open leaderboard */}
         <button
           onClick={() => setShowLeaderboard(true)}
-          className="relative mx-1 mb-3 px-4 py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl overflow-hidden transition-all active:scale-[0.98] hover:border-amber-500/50 group"
+          className="relative w-full mb-3 px-4 py-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl overflow-hidden transition-all active:scale-[0.98] hover:border-amber-500/50 group"
         >
           <FallingDonuts />
           <div className="relative z-10 flex items-center justify-between">
-            <div className="flex flex-col items-start gap-0.5">
+            <div className="flex flex-col items-start gap-1">
               <div className="flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-amber-400" />
                 <span className="text-xs text-amber-200/80 font-medium">Weekly Prize Pool</span>
               </div>
-              <span className="text-2xl font-bold text-amber-400">{prizePool} 🍩</span>
+              <span className="text-3xl font-bold text-amber-400">{prizePool} 🍩</span>
             </div>
-            <div className="flex items-center gap-1 text-amber-400/60 group-hover:text-amber-400 transition-colors">
-              <span className="text-xs">View Leaderboard</span>
-              <ChevronRight className="w-4 h-4" />
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-1 text-amber-400/60 group-hover:text-amber-400 transition-colors">
+                <span className="text-xs">View Leaderboard</span>
+                <ChevronRight className="w-4 h-4" />
+              </div>
+              <div className="text-xs text-amber-200/60 flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                <span>Resets in <span className="font-bold text-amber-300">{resetCountdown}</span></span>
+              </div>
             </div>
           </div>
         </button>
         
         {/* Game Area */}
         <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-          <div className="relative">
-            <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} onClick={handleFlap} onTouchStart={(e) => { e.preventDefault(); handleFlap(); }} className="rounded-2xl cursor-pointer border border-zinc-800" style={{ touchAction: "none", maxHeight: "calc(100vh - 300px)" }} />
+          <div className="relative w-full">
+            <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} onClick={handleFlap} onTouchStart={(e) => { e.preventDefault(); handleFlap(); }} className="rounded-2xl cursor-pointer border border-zinc-800 w-full" style={{ touchAction: "none", maxHeight: "calc(100vh - 320px)" }} />
             
             {/* Menu/Gameover overlay buttons */}
             {(gameState === "menu" || gameState === "gameover") && (
