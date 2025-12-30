@@ -269,28 +269,26 @@ export default function FlappyDonutPage() {
     gradient.addColorStop(0.7, "#E8D5B7");
     gradient.addColorStop(1, "#C4A77D");
     
+    // Top pipe
     ctx.fillStyle = gradient;
     ctx.beginPath();
     ctx.roundRect(x, -10, PIPE_WIDTH, topHeight + 10, [0, 0, 12, 12]);
     ctx.fill();
     
-    ctx.strokeStyle = "rgba(139, 90, 43, 0.15)";
-    ctx.lineWidth = 1;
-    for (let i = 0; i < topHeight; i += 15) { ctx.beginPath(); ctx.moveTo(x + 10, i); ctx.lineTo(x + PIPE_WIDTH - 10, i); ctx.stroke(); }
-    
+    // Top pipe cap
     ctx.fillStyle = "#8B5A2B";
     ctx.beginPath();
     ctx.roundRect(x + 8, topHeight - 8, PIPE_WIDTH - 16, 12, 6);
     ctx.fill();
     
+    // Bottom pipe
     const bottomY = topHeight + gap;
     ctx.fillStyle = gradient;
     ctx.beginPath();
     ctx.roundRect(x, bottomY, PIPE_WIDTH, CANVAS_HEIGHT - bottomY + 10, [12, 12, 0, 0]);
     ctx.fill();
     
-    for (let i = bottomY + 20; i < CANVAS_HEIGHT; i += 15) { ctx.beginPath(); ctx.moveTo(x + 10, i); ctx.lineTo(x + PIPE_WIDTH - 10, i); ctx.stroke(); }
-    
+    // Bottom pipe cap
     ctx.fillStyle = "#8B5A2B";
     ctx.beginPath();
     ctx.roundRect(x + 8, bottomY - 4, PIPE_WIDTH - 16, 12, 6);
@@ -365,6 +363,7 @@ export default function FlappyDonutPage() {
       setHighScore(prev => Math.max(prev, scoreRef.current));
       
       if (address && scoreRef.current >= 0) {
+        // Submit score to leaderboard
         fetch('/api/games/flappy/submit-score', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -373,6 +372,24 @@ export default function FlappyDonutPage() {
           fetch(`/api/games/flappy/attempts?address=${address}`).then(r => r.json()).then(data => { setAttempts(data.attempts); setEntryCost(data.nextCost); });
           fetch('/api/games/flappy/leaderboard').then(r => r.json()).then(data => setLeaderboard(data.leaderboard || []));
         }).catch(console.error);
+        
+        // Send game announcement to chat (only if score > 0)
+        if (scoreRef.current > 0) {
+          fetch('/api/chat/game-announce', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              playerAddress: address,
+              username: context?.user?.username || null,
+              pfpUrl: context?.user?.pfpUrl || null,
+              gameId: 'flappy-donut',
+              gameName: 'Flappy Donut',
+              score: scoreRef.current,
+              skinId: selectedSkin.id,
+              skinColor: selectedSkin.frostingColor,
+            }),
+          }).catch(console.error);
+        }
       }
     };
     
@@ -384,7 +401,7 @@ export default function FlappyDonutPage() {
     }
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawDonut, drawPipe, address, context, playPointSound, triggerPointHaptic]);
+  }, [drawDonut, drawPipe, address, context, playPointSound, triggerPointHaptic, selectedSkin]);
   
   const handleFlap = useCallback(() => {
     if (gameState === "playing" && gameActiveRef.current) {
@@ -467,14 +484,11 @@ export default function FlappyDonutPage() {
       const floatOffset = Math.sin(Date.now() / 500) * 6;
       drawDonut(ctx, menuDonutY + floatOffset, 0, previewSkin || selectedSkin);
       
-      // Title
-      ctx.shadowColor = "#FF69B4";
-      ctx.shadowBlur = 30;
+      // Title - clean white text
       ctx.fillStyle = "#FFFFFF";
       ctx.font = "bold 28px monospace";
       ctx.textAlign = "center";
       ctx.fillText("FLAPPY DONUT", CANVAS_WIDTH / 2, 60);
-      ctx.shadowBlur = 0;
       
       if (gameState === "countdown") {
         // Countdown number - centered, pulsing
@@ -490,7 +504,7 @@ export default function FlappyDonutPage() {
         ctx.shadowBlur = 0;
         ctx.restore();
         
-        ctx.fillStyle = "#FF69B4";
+        ctx.fillStyle = "#FFFFFF";
         ctx.font = "bold 16px monospace";
         ctx.fillText("GET READY!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 120);
       }

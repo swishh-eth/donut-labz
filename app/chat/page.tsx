@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer, Heart, Plus, Settings, Check } from "lucide-react";
+import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer, Heart, Plus, Settings, Check, Gamepad2, Trophy } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseUnits } from "viem";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
@@ -22,12 +22,29 @@ type MiniAppContext = {
 };
 
 type ChatMessage = {
+  type: 'message';
   sender: string;
   message: string;
   timestamp: bigint;
   transactionHash: string;
   blockNumber: bigint;
 };
+
+type GameAnnouncement = {
+  type: 'game';
+  id: number;
+  playerAddress: string;
+  username: string | null;
+  pfpUrl: string | null;
+  gameId: string;
+  gameName: string;
+  score: number;
+  skinId: string;
+  skinColor: string;
+  timestamp: bigint;
+};
+
+type FeedItem = ChatMessage | GameAnnouncement;
 
 type FarcasterProfile = {
   fid: number | null;
@@ -111,6 +128,32 @@ const DEFAULT_TIP_SETTINGS: TipSettings = {
 };
 
 const PRESET_AMOUNTS = ["1", "5", "10", "25", "50", "100"];
+
+// Game route mapping for click navigation
+const GAME_ROUTES: Record<string, string> = {
+  'flappy-donut': '/games/game-1',
+  // Add more games here as they're created
+};
+
+// Donut preview component for game announcements
+function DonutPreview({ color, size = 32 }: { color: string; size?: number }) {
+  return (
+    <div 
+      className="rounded-full flex items-center justify-center flex-shrink-0"
+      style={{ 
+        width: size, 
+        height: size, 
+        backgroundColor: color,
+        boxShadow: `0 0 8px ${color}40`
+      }}
+    >
+      <div 
+        className="rounded-full bg-zinc-900" 
+        style={{ width: size * 0.3, height: size * 0.3 }} 
+      />
+    </div>
+  );
+}
 
 export default function ChatPage() {
   const readyRef = useRef(false);
@@ -253,6 +296,7 @@ export default function ChatPage() {
     return () => clearTimeout(timeout);
   }, []);
 
+  // Fetch chat messages
   const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
     queryKey: ["chat-messages"],
     queryFn: async () => {
@@ -260,8 +304,9 @@ export default function ChatPage() {
       if (!res.ok) throw new Error("Failed to fetch messages");
       const data = await res.json();
       return data.messages
-        .filter((m: any) => !m.is_system_message) // Filter out system messages
+        .filter((m: any) => !m.is_system_message)
         .map((m: any) => ({
+          type: 'message' as const,
           sender: m.sender,
           message: m.message,
           timestamp: BigInt(m.timestamp),
@@ -272,6 +317,37 @@ export default function ChatPage() {
     refetchInterval: 10000,
     staleTime: 5000,
   });
+
+  // Fetch game announcements
+  const { data: gameAnnouncements, refetch: refetchAnnouncements } = useQuery({
+    queryKey: ["game-announcements"],
+    queryFn: async () => {
+      const res = await fetch("/api/chat/game-announce?limit=20");
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.announcements || []).map((a: any) => ({
+        type: 'game' as const,
+        id: a.id,
+        playerAddress: a.player_address,
+        username: a.username,
+        pfpUrl: a.pfp_url,
+        gameId: a.game_id,
+        gameName: a.game_name,
+        score: a.score,
+        skinId: a.skin_id,
+        skinColor: a.skin_color,
+        timestamp: BigInt(Math.floor(new Date(a.created_at).getTime() / 1000)),
+      })) as GameAnnouncement[];
+    },
+    refetchInterval: 10000,
+    staleTime: 5000,
+  });
+
+  // Merge and sort messages with game announcements
+  const feedItems: FeedItem[] = [
+    ...(messages || []),
+    ...(gameAnnouncements || []),
+  ].sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
 
   const { data: statsData } = useQuery({
     queryKey: ["chat-stats"],
@@ -288,7 +364,10 @@ export default function ChatPage() {
       entry.address.toLowerCase() === address?.toLowerCase()
   )?.total_points || 0;
 
-  const senderAddresses = [...new Set(messages?.map((m) => m.sender.toLowerCase()) || [])];
+  const senderAddresses = [...new Set([
+    ...(messages?.map((m) => m.sender.toLowerCase()) || []),
+    ...(gameAnnouncements?.map((a) => a.playerAddress.toLowerCase()) || []),
+  ])];
 
   const { data: profilesData } = useQuery<{ profiles: Record<string, FarcasterProfile | null> }>({
     queryKey: ["chat-profiles-batch", senderAddresses.join(",")],
@@ -454,12 +533,19 @@ export default function ChatPage() {
     }
   };
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  const navigateToGame = (gameId: string) => {
+    const route = GAME_ROUTES[gameId];
+    if (route) {
+      window.location.href = route;
+    }
+  };
 
   useEffect(() => {
-    if (messages && messages.length > 0) {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [feedItems]);
+
+  useEffect(() => {
+    if (feedItems && feedItems.length > 0) {
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 100);
     }
   }, []);
@@ -786,7 +872,7 @@ export default function ChatPage() {
           >
             {messagesLoading ? (
               <div className="flex items-center justify-center py-12"><div className="text-gray-400">Loading messages...</div></div>
-            ) : (!messages || messages.length === 0) && !pendingMessage ? (
+            ) : feedItems.length === 0 && !pendingMessage ? (
               <div className="flex flex-col items-center justify-center h-full py-12 px-4">
                 <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4"><MessageCircle className="w-8 h-8 text-gray-600" /></div>
                 <h3 className="text-lg font-semibold text-white mb-2">No messages yet</h3>
@@ -794,7 +880,50 @@ export default function ChatPage() {
               </div>
             ) : (
               <>
-                {[...(messages || [])].reverse().map((msg, index) => {
+                {feedItems.map((item, index) => {
+                  // Game Announcement
+                  if (item.type === 'game') {
+                    const gameItem = item as GameAnnouncement;
+                    const profile = profiles?.[gameItem.playerAddress.toLowerCase()];
+                    const displayName = gameItem.username || profile?.displayName || formatAddress(gameItem.playerAddress);
+                    const avatarUrl = gameItem.pfpUrl || profile?.pfpUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${gameItem.playerAddress.toLowerCase()}`;
+                    
+                    return (
+                      <button
+                        key={`game-${gameItem.id}`}
+                        onClick={() => navigateToGame(gameItem.gameId)}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 hover:border-amber-500/50 transition-all text-left"
+                      >
+                        <div className="relative flex-shrink-0">
+                          <Avatar className="h-10 w-10 border-2 border-amber-500/50">
+                            <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+                            <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(displayName)}</AvatarFallback>
+                          </Avatar>
+                          <div className="absolute -bottom-1 -right-1">
+                            <DonutPreview color={gameItem.skinColor} size={20} />
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <Gamepad2 className="w-3.5 h-3.5 text-amber-400" />
+                            <span className="text-xs text-amber-400 font-semibold">{gameItem.gameName}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-white font-bold truncate">{displayName}</span>
+                            <span className="text-xs text-gray-400">scored</span>
+                            <span className="text-sm text-amber-400 font-bold flex items-center gap-1">
+                              <Trophy className="w-3.5 h-3.5" />
+                              {gameItem.score}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-gray-600 flex-shrink-0">{timeAgo(gameItem.timestamp)}</div>
+                      </button>
+                    );
+                  }
+                  
+                  // Regular Chat Message
+                  const msg = item as ChatMessage;
                   const profile = profiles?.[msg.sender.toLowerCase()];
                   const displayName = profile?.displayName || formatAddress(msg.sender);
                   const username = profile?.username ? `@${profile.username}` : null;
