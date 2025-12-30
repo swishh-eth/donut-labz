@@ -478,10 +478,11 @@ export default function FlappyDonutPage() {
   };
   
   const handleShare = useCallback(async () => {
-    const castText = `🍩 I just scored ${score} in Flappy Donut on @sprinkles!\n\nThink you can beat me? Play now and compete for the weekly prize pool! 🏆`;
-    try { await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=https://sprinklesapp.xyz/games/game-1`); } 
-    catch { try { await navigator.clipboard.writeText(castText + "\n\nhttps://sprinklesapp.xyz/games/game-1"); alert("Copied!"); } catch {} }
-  }, [score]);
+    const miniappUrl = "https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles";
+    const castText = `🍩 I just scored ${score} in Flappy Donut on the Sprinkles App by @swishh.eth!\n\nThink you can beat me? Play now and compete for the ${prizePool} 🍩 weekly prize pool! 🏆`;
+    try { await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(miniappUrl)}`); } 
+    catch { try { await navigator.clipboard.writeText(castText + "\n\n" + miniappUrl); alert("Copied!"); } catch {} }
+  }, [score, prizePool]);
   
   // Draw menu/countdown/gameover - donut position is fixed
   useEffect(() => {
