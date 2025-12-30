@@ -159,7 +159,7 @@ export default function FlappyDonutPage() {
   const frameCountRef = useRef(0);
   const countdownRef = useRef(3);
   const paidCostRef = useRef(1);
-  const graceFramesRef = useRef(0); // Grace period frames at start
+  const hasFlappedRef = useRef(false); // Tracks if player has made first flap
   
   // Initialize audio context - call early to prevent lag on first flap
   const initAudioContext = useCallback(() => {
@@ -473,13 +473,12 @@ export default function FlappyDonutPage() {
     for (let i = 0; i < CANVAS_WIDTH; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, CANVAS_HEIGHT); ctx.stroke(); }
     for (let i = 0; i < CANVAS_HEIGHT; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_WIDTH, i); ctx.stroke(); }
     
-    // Grace period: reduced gravity for first 90 frames (about 1.5 seconds) - helps desktop users
-    const currentGravity = graceFramesRef.current < 90 ? GRAVITY * 0.2 : GRAVITY;
-    graceFramesRef.current++;
-    
-    donutRef.current.velocity += currentGravity;
-    donutRef.current.velocity = Math.min(donutRef.current.velocity, 10);
-    donutRef.current.y += donutRef.current.velocity;
+    // Only apply gravity after first flap - donut hovers until player taps
+    if (hasFlappedRef.current) {
+      donutRef.current.velocity += GRAVITY;
+      donutRef.current.velocity = Math.min(donutRef.current.velocity, 10);
+      donutRef.current.y += donutRef.current.velocity;
+    }
     
     pipesRef.current.forEach((pipe, index) => {
       pipe.x -= difficulty.pipeSpeed;
@@ -564,6 +563,7 @@ export default function FlappyDonutPage() {
   
   const handleFlap = useCallback(() => {
     if (gameState === "playing" && gameActiveRef.current) {
+      hasFlappedRef.current = true; // Mark that player has started
       donutRef.current.velocity = FLAP_STRENGTH;
       playFlapSound();
       triggerFlapHaptic();
@@ -579,7 +579,7 @@ export default function FlappyDonutPage() {
     scoreRef.current = 0;
     frameCountRef.current = 0;
     countdownRef.current = 3;
-    graceFramesRef.current = 0; // Reset grace period
+    hasFlappedRef.current = false; // Reset - donut hovers until first tap
     setScore(0);
     setCountdown(3);
     setGameState("countdown");
