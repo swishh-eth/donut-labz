@@ -19,8 +19,14 @@ export async function POST(request: NextRequest) {
     // cost_paid is split: 90% prize pool, 5% treasury, 5% LP burn rewards
     const cost = costPaid || 1;
     const toPrizePool = cost * 0.9;
-    const toDevWallet = cost * 0.05;  // treasury
-    const toLpBurn = cost * 0.05;     // LP burn rewards
+    const toTreasury = cost * 0.05;
+    const toLpBurn = cost * 0.05;
+    
+    // Calculate week number (ISO week)
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const days = Math.floor((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+    const weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);
     
     const { error: insertError } = await supabase
       .from('flappy_games')
@@ -31,8 +37,9 @@ export async function POST(request: NextRequest) {
         score: score,
         cost_paid: cost,
         to_prize_pool: toPrizePool,
-        to_dev_wallet: toDevWallet,
+        to_treasury: toTreasury,
         to_lp_burn: toLpBurn,
+        week_number: weekNumber,
       });
 
     if (insertError) {
