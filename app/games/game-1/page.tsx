@@ -24,9 +24,12 @@ const FLAPPY_POOL_ABI = [
   { inputs: [], name: "getPrizePool", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
 ] as const;
 
-// Game constants
+// Game constants - Base dimensions (will be scaled 2x for retina)
 const CANVAS_WIDTH = 360;
 const CANVAS_HEIGHT = 480;
+const CANVAS_SCALE = 2; // 2x resolution for crisp graphics
+const SCALED_WIDTH = CANVAS_WIDTH * CANVAS_SCALE;
+const SCALED_HEIGHT = CANVAS_HEIGHT * CANVAS_SCALE;
 const GRAVITY = 0.32;
 const FLAP_STRENGTH = -5.5;
 const PIPE_WIDTH = 60;
@@ -370,6 +373,9 @@ export default function FlappyDonutPage() {
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx || !gameActiveRef.current) return;
     
+    // Scale the context for high-DPI rendering
+    ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
+    
     frameCountRef.current++;
     const difficulty = getDifficulty(scoreRef.current);
     
@@ -541,6 +547,9 @@ export default function FlappyDonutPage() {
     const menuDonutY = CANVAS_HEIGHT / 2 - 40;
     
     const draw = () => {
+      // Scale the context for high-DPI rendering
+      ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
+      
       const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
       bgGradient.addColorStop(0, "#1a1a1a");
       bgGradient.addColorStop(1, "#0d0d0d");
@@ -628,7 +637,7 @@ export default function FlappyDonutPage() {
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 70px)" }}>
         
         {/* Header - matching Games page style */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 px-1">
           <h1 className="text-2xl font-bold tracking-wide">FLAPPY DONUT</h1>
           {context?.user && (
             <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
@@ -647,7 +656,7 @@ export default function FlappyDonutPage() {
         {/* Prize Pool Tile - Clickable to open leaderboard */}
         <button
           onClick={() => setShowLeaderboard(true)}
-          className="relative w-full mb-3 px-4 py-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl overflow-hidden transition-all active:scale-[0.98] hover:border-amber-500/50 group"
+          className="relative w-full px-4 py-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl overflow-hidden transition-all active:scale-[0.98] hover:border-amber-500/50 group"
         >
           <FallingDonuts />
           <div className="relative z-10 flex items-center justify-between">
@@ -671,10 +680,18 @@ export default function FlappyDonutPage() {
           </div>
         </button>
         
-        {/* Game Area */}
-        <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-          <div className="relative w-full">
-            <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} onClick={handleFlap} onTouchStart={(e) => { e.preventDefault(); handleFlap(); }} className="rounded-2xl cursor-pointer border border-zinc-800 w-full" style={{ touchAction: "none", maxHeight: "calc(100vh - 320px)" }} />
+        {/* Game Area - with consistent spacing */}
+        <div className="flex-1 flex flex-col items-center justify-center min-h-0 py-3">
+          <div className="relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
+            <canvas 
+              ref={canvasRef} 
+              width={SCALED_WIDTH} 
+              height={SCALED_HEIGHT} 
+              onClick={handleFlap} 
+              onTouchStart={(e) => { e.preventDefault(); handleFlap(); }} 
+              className="rounded-2xl cursor-pointer border border-zinc-800 w-full h-full" 
+              style={{ touchAction: "none" }} 
+            />
             
             {/* Menu/Gameover overlay buttons */}
             {(gameState === "menu" || gameState === "gameover") && (
@@ -695,23 +712,23 @@ export default function FlappyDonutPage() {
             
             {gameState === "playing" && <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none z-20"><p className="text-zinc-600 text-[10px]">Tap to flap</p></div>}
           </div>
-          
-          {/* Skins, Help, and Mute buttons - always visible below canvas */}
-          {(gameState === "menu" || gameState === "gameover") && (
-            <div className="mt-3 flex items-center gap-2">
-              <button onClick={() => setShowSkins(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
-                <Palette className="w-3 h-3 text-zinc-400" /><span className="text-xs">Skins</span>
-              </button>
-              <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
-                <HelpCircle className="w-3 h-3 text-zinc-400" /><span className="text-xs">How to Play</span>
-              </button>
-              <button onClick={() => setIsMuted(!isMuted)} className={`flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border rounded-full hover:border-zinc-500 ${isMuted ? 'border-red-500/50' : 'border-zinc-700'}`}>
-                {isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-400" />}
-                <span className="text-xs">{isMuted ? 'Muted' : 'Sound'}</span>
-              </button>
-            </div>
-          )}
         </div>
+          
+        {/* Skins, Help, and Mute buttons - always visible below canvas */}
+        {(gameState === "menu" || gameState === "gameover") && (
+          <div className="py-3 flex items-center justify-center gap-2">
+            <button onClick={() => setShowSkins(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
+              <Palette className="w-3 h-3 text-zinc-400" /><span className="text-xs">Skins</span>
+            </button>
+            <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
+              <HelpCircle className="w-3 h-3 text-zinc-400" /><span className="text-xs">How to Play</span>
+            </button>
+            <button onClick={() => setIsMuted(!isMuted)} className={`flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border rounded-full hover:border-zinc-500 ${isMuted ? 'border-red-500/50' : 'border-zinc-700'}`}>
+              {isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-400" />}
+              <span className="text-xs">{isMuted ? 'Muted' : 'Sound'}</span>
+            </button>
+          </div>
+        )}
         
         {/* Leaderboard Modal */}
         {showLeaderboard && (
