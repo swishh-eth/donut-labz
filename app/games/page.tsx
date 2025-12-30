@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount } from "wagmi";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Settings, Gamepad2, Trophy, Coins, Palette, Sparkles, Star, Clock, ChevronRight } from "lucide-react";
+import { Settings, Gamepad2, Trophy, Coins, Palette, Sparkles, Clock, ChevronRight } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -90,7 +90,7 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <Sparkles className="absolute top-3 right-12 w-4 h-4 text-yellow-400/60 animate-pulse" />
         <Sparkles className="absolute bottom-4 right-24 w-3 h-3 text-amber-400/60 animate-pulse" style={{ animationDelay: '0.5s' }} />
-        <Star className="absolute top-6 right-32 w-3 h-3 text-orange-400/50 animate-pulse" style={{ animationDelay: '1s' }} />
+        <Sparkles className="absolute top-6 right-32 w-3 h-3 text-orange-400/50 animate-pulse" style={{ animationDelay: '1s' }} />
       </div>
       
       {skin && !isLoading && (
@@ -114,7 +114,6 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
               <Palette className="w-5 h-5 text-amber-400" />
             </div>
             <span className="font-bold text-lg text-white">Skin Market</span>
-            <span className="text-[10px] bg-amber-500/30 text-amber-200 px-2 py-0.5 rounded-full font-medium animate-pulse">NEW</span>
           </div>
           
           {isLoading ? (
@@ -128,7 +127,7 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
               </div>
             </>
           ) : (
-            <div className="text-xs text-amber-200/70">Weekly artist collaboration skins</div>
+            <div className="text-xs text-amber-200/70">Limited Artist Collaboration Skins</div>
           )}
           
           <div className="flex items-center gap-1 mt-2 text-[10px] text-amber-300/50">
