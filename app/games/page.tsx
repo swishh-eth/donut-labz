@@ -155,32 +155,23 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
       className="relative w-full rounded-2xl border-2 border-pink-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-500/80"
       style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(251,146,60,0.1) 100%)' }}
     >
-      {/* Animated Flappy Donut with wings */}
+      {/* Simple floating donut */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <div className="flappy-donut-float relative">
-          {/* Left Wing */}
-          <svg className="absolute -left-6 top-1/2 -translate-y-1/2 wing-flap" width="28" height="20" viewBox="0 0 28 20">
-            <ellipse cx="14" cy="10" rx="12" ry="8" fill="rgba(255,255,255,0.85)" stroke="rgba(200,200,200,0.6)" strokeWidth="1"/>
-          </svg>
-          {/* Right Wing */}
-          <svg className="absolute -right-6 top-1/2 -translate-y-1/2 wing-flap-reverse" width="28" height="20" viewBox="0 0 28 20">
-            <ellipse cx="14" cy="10" rx="12" ry="8" fill="rgba(255,255,255,0.85)" stroke="rgba(200,200,200,0.6)" strokeWidth="1"/>
-          </svg>
-          {/* Donut Body */}
-          <svg width="80" height="80" viewBox="0 0 80 80">
+        <div className="flappy-donut-float">
+          <svg width="70" height="70" viewBox="0 0 70 70">
             {/* Shadow */}
-            <ellipse cx="43" cy="45" rx="28" ry="22" fill="rgba(0,0,0,0.15)" />
+            <ellipse cx="38" cy="40" rx="22" ry="16" fill="rgba(0,0,0,0.15)" />
             {/* Main donut */}
-            <circle cx="40" cy="40" r="28" fill="#F472B6" stroke="rgba(0,0,0,0.2)" strokeWidth="2"/>
+            <circle cx="35" cy="35" r="24" fill="#F472B6" stroke="rgba(0,0,0,0.2)" strokeWidth="2"/>
             {/* Donut hole */}
-            <circle cx="40" cy="40" r="10" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="1"/>
+            <circle cx="35" cy="35" r="8" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="1"/>
             {/* Shine */}
-            <circle cx="30" cy="30" r="6" fill="rgba(255,255,255,0.3)"/>
+            <circle cx="27" cy="27" r="5" fill="rgba(255,255,255,0.3)"/>
           </svg>
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-24">
+      <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Gamepad2 className="w-5 h-5 text-pink-400" />
@@ -408,10 +399,6 @@ export default function GamesPage() {
         .gear-spin { animation: gear-spin 8s linear infinite; }
         @keyframes flappy-donut-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         .flappy-donut-float { animation: flappy-donut-float 2s ease-in-out infinite; }
-        @keyframes wing-flap { 0%, 100% { transform: translateY(-50%) rotate(-15deg) scaleY(0.7); } 50% { transform: translateY(-50%) rotate(15deg) scaleY(1); } }
-        .wing-flap { animation: wing-flap 0.3s ease-in-out infinite; transform-origin: right center; }
-        @keyframes wing-flap-reverse { 0%, 100% { transform: translateY(-50%) rotate(15deg) scaleY(0.7); } 50% { transform: translateY(-50%) rotate(-15deg) scaleY(1); } }
-        .wing-flap-reverse { animation: wing-flap-reverse 0.3s ease-in-out infinite; transform-origin: left center; }
         @keyframes skins-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
         .skins-scroll { animation: skins-scroll 20s linear infinite; width: max-content; }
         @keyframes skin-pulse { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.05); filter: brightness(1.2); } }
