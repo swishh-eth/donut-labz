@@ -146,6 +146,7 @@ export default function FlappyDonutPage() {
   // Audio context and sounds
   const audioContextRef = useRef<AudioContext | null>(null);
   const lastScoreRef = useRef(0);
+  const audioInitializedRef = useRef(false);
   
   const [ownedSkins, setOwnedSkins] = useState<GameSkin[]>([GAME_SKINS[0]]);
   const [selectedSkin, setSelectedSkin] = useState<GameSkin>(GAME_SKINS[0]);
@@ -160,50 +161,64 @@ export default function FlappyDonutPage() {
   const paidCostRef = useRef(1);
   const graceFramesRef = useRef(0); // Grace period frames at start
   
-  // Initialize audio context on first interaction
-  const getAudioContext = useCallback(() => {
+  // Initialize audio context - call early to prevent lag on first flap
+  const initAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      try {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        // Resume if suspended (required for some browsers)
+        if (audioContextRef.current.state === 'suspended') {
+          audioContextRef.current.resume();
+        }
+        audioInitializedRef.current = true;
+      } catch {}
     }
     return audioContextRef.current;
   }, []);
   
-  // Play flap sound - short whoosh
+  // Play flap sound - non-blocking
   const playFlapSound = useCallback(() => {
-    if (isMuted) return;
-    try {
-      const ctx = getAudioContext();
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      oscillator.frequency.setValueAtTime(400, ctx.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.1);
-      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-      oscillator.start(ctx.currentTime);
-      oscillator.stop(ctx.currentTime + 0.1);
-    } catch {}
-  }, [isMuted, getAudioContext]);
+    if (isMuted || !audioInitializedRef.current) return;
+    // Use setTimeout to make it non-blocking
+    setTimeout(() => {
+      try {
+        const ctx = audioContextRef.current;
+        if (!ctx) return;
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        oscillator.frequency.setValueAtTime(400, ctx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.1);
+      } catch {}
+    }, 0);
+  }, [isMuted]);
   
-  // Play point sound - happy ding
+  // Play point sound - non-blocking
   const playPointSound = useCallback(() => {
-    if (isMuted) return;
-    try {
-      const ctx = getAudioContext();
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, ctx.currentTime);
-      oscillator.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
-      gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-      oscillator.start(ctx.currentTime);
-      oscillator.stop(ctx.currentTime + 0.2);
-    } catch {}
-  }, [isMuted, getAudioContext]);
+    if (isMuted || !audioInitializedRef.current) return;
+    setTimeout(() => {
+      try {
+        const ctx = audioContextRef.current;
+        if (!ctx) return;
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+        oscillator.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.2);
+      } catch {}
+    }, 0);
+  }, [isMuted]);
   
   // Haptic feedback - light for flap
   const triggerFlapHaptic = useCallback(() => {
@@ -458,8 +473,8 @@ export default function FlappyDonutPage() {
     for (let i = 0; i < CANVAS_WIDTH; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, CANVAS_HEIGHT); ctx.stroke(); }
     for (let i = 0; i < CANVAS_HEIGHT; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_WIDTH, i); ctx.stroke(); }
     
-    // Grace period: reduced gravity for first 60 frames (about 1 second)
-    const currentGravity = graceFramesRef.current < 60 ? GRAVITY * 0.3 : GRAVITY;
+    // Grace period: reduced gravity for first 90 frames (about 1.5 seconds) - helps desktop users
+    const currentGravity = graceFramesRef.current < 90 ? GRAVITY * 0.2 : GRAVITY;
     graceFramesRef.current++;
     
     donutRef.current.velocity += currentGravity;
@@ -556,6 +571,9 @@ export default function FlappyDonutPage() {
   }, [gameState, playFlapSound, triggerFlapHaptic]);
   
   const startGame = useCallback(() => {
+    // Pre-initialize audio during countdown to prevent lag on first flap
+    initAudioContext();
+    
     donutRef.current = { y: CANVAS_HEIGHT / 2, velocity: 0 };
     pipesRef.current = [];
     scoreRef.current = 0;
@@ -580,7 +598,7 @@ export default function FlappyDonutPage() {
         gameLoopRef.current = requestAnimationFrame(gameLoop);
       }
     }, 1000);
-  }, [gameLoop]);
+  }, [gameLoop, initAudioContext]);
 
   // Handle approval success - trigger payment
   useEffect(() => {
