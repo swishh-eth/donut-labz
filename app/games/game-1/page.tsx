@@ -6,7 +6,7 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { formatUnits, parseUnits } from "viem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Trophy, Play, Coins, Zap, Share2, Palette, Check, X, ExternalLink, HelpCircle, Volume2, VolumeX } from "lucide-react";
+import { Trophy, Play, Coins, Zap, Share2, Palette, Check, X, ExternalLink, HelpCircle, Volume2, VolumeX, ChevronRight } from "lucide-react";
 import { GAME_SKINS, getOwnedSkins, getSelectedSkin, saveSelectedSkin, getSkinById, type GameSkin } from "@/lib/game-skins";
 
 // Contract addresses
@@ -51,6 +51,30 @@ const initialsFrom = (label?: string) => {
   const stripped = label.replace(/[^a-zA-Z0-9]/g, "");
   return stripped ? stripped.slice(0, 2).toUpperCase() : label.slice(0, 2).toUpperCase();
 };
+
+// Falling Donut Animation Component
+function FallingDonuts() {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {[...Array(8)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute falling-donut"
+          style={{
+            left: `${10 + i * 12}%`,
+            animationDelay: `${i * 0.4}s`,
+            animationDuration: `${3 + (i % 3)}s`,
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 40 40" className="opacity-30">
+            <circle cx="20" cy="20" r="16" fill="#F59E0B" />
+            <circle cx="20" cy="20" r="6" fill="#1a1a1a" />
+          </svg>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function FlappyDonutPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -544,34 +568,62 @@ export default function FlappyDonutPage() {
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
+      <style>{`
+        @keyframes falling-donut {
+          0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
+          10% { opacity: 0.3; }
+          90% { opacity: 0.3; }
+          100% { transform: translateY(100px) rotate(360deg); opacity: 0; }
+        }
+        .falling-donut {
+          animation: falling-donut 3s ease-in-out infinite;
+        }
+      `}</style>
+      
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 70px)" }}>
         
-        {/* Header */}
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-xl font-bold tracking-wide">FLAPPY DONUT</h1>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowLeaderboard(true)} className="p-2 text-amber-400 hover:text-amber-300"><Trophy className="w-5 h-5" /></button>
-            {context?.user && (
-              <Avatar className="h-7 w-7 border border-zinc-800">
+        {/* Header - matching Games page style */}
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-2xl font-bold tracking-wide">FLAPPY DONUT</h1>
+          {context?.user && (
+            <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
+              <Avatar className="h-8 w-8 border border-zinc-800">
                 <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
                 <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(userDisplayName)}</AvatarFallback>
               </Avatar>
-            )}
-          </div>
+              <div className="leading-tight text-left">
+                <div className="text-sm font-bold">{userDisplayName}</div>
+                {context.user.username && <div className="text-xs text-gray-400">@{context.user.username}</div>}
+              </div>
+            </div>
+          )}
         </div>
         
-        {/* Prize Pool */}
-        <div className="mx-1 mb-2 px-3 py-1.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2"><Coins className="w-3 h-3 text-amber-400" /><span className="text-[10px] text-amber-200/60">Weekly Pool</span></div>
-            <span className="text-sm font-bold text-amber-400">{prizePool} 🍩</span>
+        {/* Prize Pool Tile - Clickable to open leaderboard */}
+        <button
+          onClick={() => setShowLeaderboard(true)}
+          className="relative mx-1 mb-3 px-4 py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl overflow-hidden transition-all active:scale-[0.98] hover:border-amber-500/50 group"
+        >
+          <FallingDonuts />
+          <div className="relative z-10 flex items-center justify-between">
+            <div className="flex flex-col items-start gap-0.5">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-amber-400" />
+                <span className="text-xs text-amber-200/80 font-medium">Weekly Prize Pool</span>
+              </div>
+              <span className="text-2xl font-bold text-amber-400">{prizePool} 🍩</span>
+            </div>
+            <div className="flex items-center gap-1 text-amber-400/60 group-hover:text-amber-400 transition-colors">
+              <span className="text-xs">View Leaderboard</span>
+              <ChevronRight className="w-4 h-4" />
+            </div>
           </div>
-        </div>
+        </button>
         
         {/* Game Area */}
         <div className="flex-1 flex flex-col items-center justify-center min-h-0">
           <div className="relative">
-            <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} onClick={handleFlap} onTouchStart={(e) => { e.preventDefault(); handleFlap(); }} className="rounded-2xl cursor-pointer border border-zinc-800" style={{ touchAction: "none", maxHeight: "calc(100vh - 280px)" }} />
+            <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} onClick={handleFlap} onTouchStart={(e) => { e.preventDefault(); handleFlap(); }} className="rounded-2xl cursor-pointer border border-zinc-800" style={{ touchAction: "none", maxHeight: "calc(100vh - 300px)" }} />
             
             {/* Menu/Gameover overlay buttons */}
             {(gameState === "menu" || gameState === "gameover") && (
