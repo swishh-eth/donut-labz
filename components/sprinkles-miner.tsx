@@ -460,12 +460,11 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         defaultMessageRef.current = getRandomDefaultMessage();
         pendingMineParamsRef.current = null;
         
-        // Capture the paid amount immediately before any async operations
-        const paidAmount = pendingPaidAmountRef.current;
+        // Capture values immediately before any async operations
         const imageUrl = pendingImageUrlRef.current;
         const txHashToRecord = receipt.transactionHash;
         
-        console.log('Mine success! Preparing to record glaze:', { paidAmount, imageUrl, txHashToRecord });
+        console.log('Mine success! Preparing to record glaze:', { imageUrl, txHashToRecord });
         
         const fetchWithRetry = async (url: string, body: object, attempt = 1, maxAttempts = 3): Promise<boolean> => {
           try {
@@ -503,7 +502,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           }
         };
 
-        // Call record-glaze immediately, not in setTimeout
+        // Call record-glaze immediately - API will extract actual amount from Transfer event
         (async () => {
           try {
             const result = await fetchWithRetry("/api/record-glaze", {
@@ -511,7 +510,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               txHash: txHashToRecord,
               mineType: "sprinkles",
               imageUrl: imageUrl,
-              amount: paidAmount,
+              // Don't pass amount - let API extract from Transfer event for accuracy
             });
             console.log('Record glaze final result:', result);
           } catch (err) {
@@ -685,14 +684,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     if (!slot0 || !price) return;
     await refetchPrice();
     resetMineResult();
-    
-    // Capture the paid amount NOW before any transaction changes the state
-    // The user pays the current price, which becomes initPrice/2 after the mine
-    // So we capture the current price as what they're paying
-    const freshPrice = (currentPrice as bigint) ?? price;
-    const paidAmountFormatted = freshPrice ? Math.floor(Number(formatUnits(freshPrice, DONUT_DECIMALS))).toString() : '0';
-    pendingPaidAmountRef.current = paidAmountFormatted;
-    console.log('Captured paid amount at mine time:', paidAmountFormatted);
     
     let uploadedImageUrl: string | null = null;
     if (selectedImage) {

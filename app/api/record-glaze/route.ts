@@ -189,46 +189,45 @@ export async function POST(request: Request) {
         console.error('Failed to decode SPRINKLES input:', decodeError);
       }
       
-      // If no amount provided, try to extract from Transfer event as fallback
-      if (!providedAmount || providedAmount === '' || providedAmount === '0') {
-        // Look for DONUT Transfer event to get actual amount paid
-        // Transfer(address indexed from, address indexed to, uint256 value)
-        const TRANSFER_EVENT_TOPIC = keccak256(toBytes('Transfer(address,address,uint256)'));
-        const DONUT_TOKEN_ADDRESS = '0xae4a37d554c6d6f3e398546d8566b25052e0169c'.toLowerCase();
-        
-        try {
-          const logs = receipt.logs || [];
-          for (const log of logs) {
-            // Look for Transfer event from DONUT token where recipient is the miner contract
-            if (log.address?.toLowerCase() === DONUT_TOKEN_ADDRESS && 
-                log.topics?.[0]?.toLowerCase() === TRANSFER_EVENT_TOPIC.toLowerCase()) {
-              // topics[1] = from (padded address)
-              // topics[2] = to (padded address)
-              const toAddr = '0x' + log.topics[2].slice(26).toLowerCase();
-              
-              // Check if this transfer is TO the sprinkles miner contract
-              if (toAddr === SPRINKLES_MINER_ADDRESS) {
-                // data = uint256 value in wei
-                const valueWei = BigInt(log.data);
-                // Convert from wei to whole tokens using BigInt division to avoid precision issues
-                const valueTokens = valueWei / BigInt(10 ** 18);
-                amount = valueTokens.toString();
-                console.log('Extracted actual DONUT amount from Transfer event:', amount, 'wei:', valueWei.toString());
-                break;
-              }
+      // Always extract actual amount from Transfer event for accuracy
+      // The Transfer event shows exactly what the contract charged
+      const TRANSFER_EVENT_TOPIC = keccak256(toBytes('Transfer(address,address,uint256)'));
+      const DONUT_TOKEN_ADDRESS = '0xae4a37d554c6d6f3e398546d8566b25052e0169c'.toLowerCase();
+      
+      try {
+        const logs = receipt.logs || [];
+        for (const log of logs) {
+          // Look for Transfer event from DONUT token where recipient is the miner contract
+          if (log.address?.toLowerCase() === DONUT_TOKEN_ADDRESS && 
+              log.topics?.[0]?.toLowerCase() === TRANSFER_EVENT_TOPIC.toLowerCase()) {
+            // topics[1] = from (padded address)
+            // topics[2] = to (padded address)
+            const toAddr = '0x' + log.topics[2].slice(26).toLowerCase();
+            
+            // Check if this transfer is TO the sprinkles miner contract
+            if (toAddr === SPRINKLES_MINER_ADDRESS) {
+              // data = uint256 value in wei
+              const valueWei = BigInt(log.data);
+              // Convert from wei to whole tokens using BigInt division to avoid precision issues
+              const valueTokens = valueWei / BigInt(10 ** 18);
+              amount = valueTokens.toString();
+              console.log('Extracted actual DONUT amount from Transfer event:', amount, 'wei:', valueWei.toString());
+              break;
             }
           }
-        } catch (eventError) {
-          console.error('Failed to process Transfer event logs:', eventError);
         }
-        
-        // If we still don't have an amount, log a warning
-        if (!amount || amount === '' || amount === '0') {
-          console.warn('Could not extract amount from Transfer event for tx:', txHash);
+      } catch (eventError) {
+        console.error('Failed to process Transfer event logs:', eventError);
+      }
+      
+      // If we couldn't extract amount, log a warning
+      if (!amount || amount === '' || amount === '0') {
+        console.warn('Could not extract amount from Transfer event for tx:', txHash);
+        // Fall back to provided amount if available
+        if (providedAmount && providedAmount !== '' && providedAmount !== '0') {
+          amount = providedAmount;
+          console.log('Using fallback provided amount:', providedAmount);
         }
-      } else {
-        amount = providedAmount;
-        console.log('Using provided amount:', providedAmount);
       }
     }
 
