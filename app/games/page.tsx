@@ -155,23 +155,32 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
       className="relative w-full rounded-2xl border-2 border-pink-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-500/80"
       style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(251,146,60,0.1) 100%)' }}
     >
-      {/* Simple floating donut */}
-      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <div className="flappy-donut-float">
-          <svg width="70" height="70" viewBox="0 0 70 70">
+      {/* Animated Flappy Donut with wings - positioned more to the left */}
+      <div className="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-none">
+        <div className="flappy-donut-float relative">
+          {/* Left Wing */}
+          <svg className="absolute -left-5 top-1/2 wing-flap" width="24" height="16" viewBox="0 0 24 16" style={{ transformOrigin: 'right center' }}>
+            <ellipse cx="10" cy="8" rx="10" ry="7" fill="rgba(255,255,255,0.9)" stroke="rgba(180,180,180,0.5)" strokeWidth="1"/>
+          </svg>
+          {/* Right Wing */}
+          <svg className="absolute -right-5 top-1/2 wing-flap-reverse" width="24" height="16" viewBox="0 0 24 16" style={{ transformOrigin: 'left center' }}>
+            <ellipse cx="14" cy="8" rx="10" ry="7" fill="rgba(255,255,255,0.9)" stroke="rgba(180,180,180,0.5)" strokeWidth="1"/>
+          </svg>
+          {/* Donut Body */}
+          <svg width="60" height="60" viewBox="0 0 60 60">
             {/* Shadow */}
-            <ellipse cx="38" cy="40" rx="22" ry="16" fill="rgba(0,0,0,0.15)" />
+            <ellipse cx="33" cy="35" rx="20" ry="14" fill="rgba(0,0,0,0.15)" />
             {/* Main donut */}
-            <circle cx="35" cy="35" r="24" fill="#F472B6" stroke="rgba(0,0,0,0.2)" strokeWidth="2"/>
+            <circle cx="30" cy="30" r="22" fill="#F472B6" stroke="rgba(0,0,0,0.2)" strokeWidth="2"/>
             {/* Donut hole */}
-            <circle cx="35" cy="35" r="8" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="1"/>
+            <circle cx="30" cy="30" r="7" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="1"/>
             {/* Shine */}
-            <circle cx="27" cy="27" r="5" fill="rgba(255,255,255,0.3)"/>
+            <circle cx="23" cy="23" r="4" fill="rgba(255,255,255,0.3)"/>
           </svg>
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-20">
+      <div className="relative z-10 p-4 pr-28">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Gamepad2 className="w-5 h-5 text-pink-400" />
@@ -397,8 +406,18 @@ export default function GamesPage() {
         .games-scroll::-webkit-scrollbar { display: none; }
         @keyframes gear-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .gear-spin { animation: gear-spin 8s linear infinite; }
-        @keyframes flappy-donut-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-        .flappy-donut-float { animation: flappy-donut-float 2s ease-in-out infinite; }
+        @keyframes flappy-donut-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        .flappy-donut-float { animation: flappy-donut-float 1.5s ease-in-out infinite; }
+        @keyframes wing-flap { 
+          0%, 100% { transform: translateY(-50%) rotate(-10deg) scaleY(0.8); } 
+          50% { transform: translateY(-50%) rotate(10deg) scaleY(1); } 
+        }
+        .wing-flap { animation: wing-flap 0.2s ease-in-out infinite; }
+        @keyframes wing-flap-reverse { 
+          0%, 100% { transform: translateY(-50%) rotate(10deg) scaleY(0.8); } 
+          50% { transform: translateY(-50%) rotate(-10deg) scaleY(1); } 
+        }
+        .wing-flap-reverse { animation: wing-flap-reverse 0.2s ease-in-out infinite; }
         @keyframes skins-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
         .skins-scroll { animation: skins-scroll 20s linear infinite; width: max-content; }
         @keyframes skin-pulse { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.05); filter: brightness(1.2); } }
