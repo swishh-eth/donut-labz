@@ -1323,7 +1323,20 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                           {miner.username ? `@${miner.username}` : formatAddress(miner.address)}
                         </span>
                         <span className="text-amber-400 text-xs font-bold flex-shrink-0">
-                          🍩{!miner.amount || miner.amount === '0' || miner.amount === '' ? '—' : miner.amount}
+                          🍩{(() => {
+                            if (!miner.amount || miner.amount === '0' || miner.amount === '') return '—';
+                            // Handle old records that stored wei values (more than 10 digits = wei)
+                            const amountStr = miner.amount.toString();
+                            if (amountStr.length > 10) {
+                              try {
+                                const wei = BigInt(amountStr);
+                                return Math.floor(Number(wei / BigInt(10 ** 18))).toLocaleString();
+                              } catch {
+                                return '—';
+                              }
+                            }
+                            return Number(amountStr).toLocaleString();
+                          })()}
                         </span>
                       </div>
                       {miner.message && (

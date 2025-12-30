@@ -206,11 +206,12 @@ export async function POST(request: Request) {
               
               // Check if this transfer is TO the sprinkles miner contract
               if (toAddr === SPRINKLES_MINER_ADDRESS) {
-                // data = uint256 value
-                const value = BigInt(log.data);
-                // Convert from wei to whole tokens for display
-                amount = Math.floor(Number(value) / 1e18).toString();
-                console.log('Extracted actual DONUT amount from Transfer event:', amount);
+                // data = uint256 value in wei
+                const valueWei = BigInt(log.data);
+                // Convert from wei to whole tokens using BigInt division to avoid precision issues
+                const valueTokens = valueWei / BigInt(10 ** 18);
+                amount = valueTokens.toString();
+                console.log('Extracted actual DONUT amount from Transfer event:', amount, 'wei:', valueWei.toString());
                 break;
               }
             }
