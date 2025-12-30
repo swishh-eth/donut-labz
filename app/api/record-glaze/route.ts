@@ -104,6 +104,7 @@ export async function POST(request: Request) {
 
     const toAddress = tx.to?.toLowerCase();
     const inputData = tx.input || '';
+    const txSender = tx.from?.toLowerCase();
     
     // Variables to store for mining_events
     // Use provided amount if available (captured at mine time for accuracy)
@@ -189,29 +190,28 @@ export async function POST(request: Request) {
         console.error('Failed to decode SPRINKLES input:', decodeError);
       }
       
-      // Always extract actual amount from Transfer event for accuracy
-      // The Transfer event shows exactly what the contract charged
+      // Extract amount from Transfer event TO the miner contract
+      // The miner contract receives 10% fee, so multiply by 10 to get actual amount paid
       const TRANSFER_EVENT_TOPIC = keccak256(toBytes('Transfer(address,address,uint256)'));
-      const DONUT_TOKEN_ADDRESS = '0xae4a37d554c6d6f3e398546d8566b25052e0169c'.toLowerCase();
+      const DECIMALS = BigInt("1000000000000000000"); // 10^18
       
       try {
         const logs = receipt.logs || [];
+        console.log('Processing', logs.length, 'logs for tx:', txHash);
+        
+        // Find Transfer TO the miner contract (this is the 10% fee)
         for (const log of logs) {
-          // Look for Transfer event from DONUT token where recipient is the miner contract
-          if (log.address?.toLowerCase() === DONUT_TOKEN_ADDRESS && 
-              log.topics?.[0]?.toLowerCase() === TRANSFER_EVENT_TOPIC.toLowerCase()) {
-            // topics[1] = from (padded address)
-            // topics[2] = to (padded address)
+          if (log.topics?.[0]?.toLowerCase() === TRANSFER_EVENT_TOPIC.toLowerCase()) {
             const toAddr = '0x' + log.topics[2].slice(26).toLowerCase();
             
             // Check if this transfer is TO the sprinkles miner contract
             if (toAddr === SPRINKLES_MINER_ADDRESS) {
-              // data = uint256 value in wei
-              const valueWei = BigInt(log.data);
-              // Convert from wei to whole tokens using BigInt division to avoid precision issues
-              const valueTokens = valueWei / BigInt(10 ** 18);
-              amount = valueTokens.toString();
-              console.log('Extracted actual DONUT amount from Transfer event:', amount, 'wei:', valueWei.toString());
+              const feeWei = BigInt(log.data);
+              // Miner receives 10% fee, so multiply by 10 BEFORE dividing to preserve precision
+              const totalPaidWei = feeWei * BigInt(10);
+              const totalPaid = totalPaidWei / DECIMALS;
+              amount = totalPaid.toString();
+              console.log('Miner received fee (wei):', feeWei.toString(), '-> Total paid:', amount);
               break;
             }
           }
@@ -223,16 +223,10 @@ export async function POST(request: Request) {
       // If we couldn't extract amount, log a warning
       if (!amount || amount === '' || amount === '0') {
         console.warn('Could not extract amount from Transfer event for tx:', txHash);
-        // Fall back to provided amount if available
-        if (providedAmount && providedAmount !== '' && providedAmount !== '0') {
-          amount = providedAmount;
-          console.log('Using fallback provided amount:', providedAmount);
-        }
       }
     }
 
     // Verify the sender matches the claimed address
-    const txSender = tx.from?.toLowerCase();
     if (txSender !== address.toLowerCase()) {
       return NextResponse.json(
         { success: false, error: 'Transaction sender does not match' },
