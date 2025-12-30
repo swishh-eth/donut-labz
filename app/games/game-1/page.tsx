@@ -714,20 +714,19 @@ export default function FlappyDonutPage() {
         }
       `}</style>
       
-      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 70px)" }}>
+      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-3 overflow-y-auto" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 70px)" }}>
         
         {/* Header - matching Games page style */}
-        <div className="flex items-center justify-between mb-3 px-1">
-          <h1 className="text-2xl font-bold tracking-wide">FLAPPY DONUT</h1>
+        <div className="flex items-center justify-between mb-2 px-1 flex-shrink-0">
+          <h1 className="text-xl font-bold tracking-wide">FLAPPY DONUT</h1>
           {context?.user && (
-            <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
-              <Avatar className="h-8 w-8 border border-zinc-800">
+            <div className="flex items-center gap-2 rounded-full bg-black px-2 py-0.5">
+              <Avatar className="h-6 w-6 border border-zinc-800">
                 <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
-                <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(userDisplayName)}</AvatarFallback>
+                <AvatarFallback className="bg-zinc-800 text-white text-[10px]">{initialsFrom(userDisplayName)}</AvatarFallback>
               </Avatar>
               <div className="leading-tight text-left">
-                <div className="text-sm font-bold">{userDisplayName}</div>
-                {context.user.username && <div className="text-xs text-gray-400">@{context.user.username}</div>}
+                <div className="text-xs font-bold">{userDisplayName}</div>
               </div>
             </div>
           )}
@@ -736,23 +735,23 @@ export default function FlappyDonutPage() {
         {/* Prize Pool Tile - Clickable to open leaderboard */}
         <button
           onClick={() => setShowLeaderboard(true)}
-          className="relative w-full mb-4 px-4 py-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl overflow-hidden transition-all active:scale-[0.98] hover:border-amber-500/50 group"
+          className="relative w-full mb-3 px-4 py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl overflow-hidden transition-all active:scale-[0.98] hover:border-amber-500/50 group flex-shrink-0"
         >
           <FallingDonuts />
           <div className="relative z-10 flex items-center justify-between">
-            <div className="flex flex-col items-start gap-1">
+            <div className="flex flex-col items-start">
               <div className="flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-amber-400" />
-                <span className="text-xs text-amber-200/80 font-medium">Weekly Prize Pool</span>
+                <span className="text-[10px] text-amber-200/80 font-medium">Weekly Prize Pool</span>
               </div>
-              <span className="text-3xl font-bold text-amber-400">{prizePool} 🍩</span>
+              <span className="text-2xl font-bold text-amber-400">{prizePool} 🍩</span>
             </div>
-            <div className="flex flex-col items-end gap-1">
+            <div className="flex flex-col items-end">
               <div className="flex items-center gap-1 text-amber-400/60 group-hover:text-amber-400 transition-colors">
-                <span className="text-xs">View Leaderboard</span>
-                <ChevronRight className="w-4 h-4" />
+                <span className="text-[10px]">View Leaderboard</span>
+                <ChevronRight className="w-3 h-3" />
               </div>
-              <div className="text-xs text-amber-200/60 flex items-center gap-1">
+              <div className="text-[10px] text-amber-200/60 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 <span>Resets in <span className="font-bold text-amber-300">{resetCountdown}</span></span>
               </div>
@@ -760,16 +759,16 @@ export default function FlappyDonutPage() {
           </div>
         </button>
         
-        {/* Game Area - with consistent spacing */}
-        <div className="flex flex-col items-center">
-          <div className="relative" style={{ width: '100%', maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
+        {/* Game Area - flexible sizing */}
+        <div className="flex flex-col items-center flex-1 min-h-0">
+          <div className="relative w-full flex-1" style={{ maxWidth: `${CANVAS_WIDTH}px`, maxHeight: `${CANVAS_HEIGHT}px` }}>
             <canvas 
               ref={canvasRef} 
               width={SCALED_WIDTH} 
               height={SCALED_HEIGHT} 
               onClick={handleFlap} 
               onTouchStart={(e) => { e.preventDefault(); handleFlap(); }} 
-              className="rounded-2xl cursor-pointer border border-zinc-800 w-full h-full" 
+              className="rounded-2xl cursor-pointer border border-zinc-800 w-full h-full object-contain" 
               style={{ touchAction: "none" }} 
             />
             
@@ -796,7 +795,7 @@ export default function FlappyDonutPage() {
           
         {/* Skins, Help, and Mute buttons - always visible below canvas */}
         {(gameState === "menu" || gameState === "gameover") && (
-          <div className="py-3 flex items-center justify-center gap-2">
+          <div className="py-3 flex items-center justify-center gap-2 flex-shrink-0">
             <button onClick={() => setShowSkins(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
               <Palette className="w-3 h-3 text-zinc-400" /><span className="text-xs">Skins</span>
             </button>
