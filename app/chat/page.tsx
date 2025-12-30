@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -343,11 +343,11 @@ export default function ChatPage() {
     staleTime: 5000,
   });
 
-  // Merge and sort messages with game announcements
-  const feedItems: FeedItem[] = [
+  // Merge and sort messages with game announcements - memoized to prevent scroll issues
+  const feedItems: FeedItem[] = useMemo(() => [
     ...(messages || []),
     ...(gameAnnouncements || []),
-  ].sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
+  ].sort((a, b) => Number(a.timestamp) - Number(b.timestamp)), [messages, gameAnnouncements]);
 
   const { data: statsData } = useQuery({
     queryKey: ["chat-stats"],
@@ -540,15 +540,28 @@ export default function ChatPage() {
     }
   };
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [feedItems]);
+  // Track previous feed item count for smart scrolling
+  const prevFeedCountRef = useRef(0);
+  const hasInitialScrolledRef = useRef(false);
 
+  // Initial scroll on first load
   useEffect(() => {
-    if (feedItems && feedItems.length > 0) {
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 100);
+    if (!hasInitialScrolledRef.current && feedItems.length > 0 && !messagesLoading) {
+      hasInitialScrolledRef.current = true;
+      prevFeedCountRef.current = feedItems.length;
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+      }, 100);
     }
-  }, []);
+  }, [feedItems.length, messagesLoading]);
+
+  // Scroll to bottom only when NEW messages arrive (not on every render)
+  useEffect(() => {
+    if (hasInitialScrolledRef.current && feedItems.length > prevFeedCountRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    prevFeedCountRef.current = feedItems.length;
+  }, [feedItems.length]);
 
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userHandle = context?.user?.username ? `@${context.user.username}` : context?.user?.fid ? `fid ${context.user.fid}` : "";
