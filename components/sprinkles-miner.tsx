@@ -407,6 +407,9 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     chainId: base.id,
   });
 
+  // Ref to store the paid amount at mine time (captured BEFORE the transaction)
+  const pendingPaidAmountRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!receipt) return;
     
@@ -450,6 +453,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         showMineResult("failure");
         pendingImageUrlRef.current = null;
         pendingMineParamsRef.current = null;
+        pendingPaidAmountRef.current = null;
       }
       
       if (receipt.status === "success" && txType === "mine" && address) {
@@ -487,13 +491,20 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         };
 
         setTimeout(async () => {
+          // Use the captured paid amount from when mine was initiated
+          const paidAmount = pendingPaidAmountRef.current;
+          
           await fetchWithRetry("/api/record-glaze", {
             address: address,
             txHash: receipt.transactionHash,
             mineType: "sprinkles",
             imageUrl: pendingImageUrlRef.current,
+            amount: paidAmount, // Pass the captured amount
           });
+          
+          // Clear refs after recording
           pendingImageUrlRef.current = null;
+          pendingPaidAmountRef.current = null;
           setSelectedImage(null);
           setImagePreviewUrl(null);
         }, 2000);
@@ -539,34 +550,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     prevMinerRef.current = minerAddress;
   }, [minerAddress]);
 
-  useEffect(() => {
-    if (
-      recentMiners.length > 0 &&
-      recentMiners[0].address.toLowerCase() === minerAddress.toLowerCase() &&
-      (recentMiners[0].amount === '0' || recentMiners[0].amount === '') &&
-      slot0?.initPrice
-    ) {
-      const calculatedAmount = (slot0.initPrice / 2n).toString();
-      
-      fetch('/api/miners/update-amount', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address: minerAddress,
-          mineType: 'sprinkles',
-          amount: calculatedAmount,
-        }),
-      }).then(async (res) => {
-        if (res.ok) {
-          const refreshRes = await fetch('/api/miners/recent?type=sprinkles&limit=10');
-          if (refreshRes.ok) {
-            const data = await refreshRes.json();
-            setRecentMiners(data.miners || []);
-          }
-        }
-      }).catch(() => {});
-    }
-  }, [recentMiners, minerAddress, slot0?.initPrice]);
+  // Removed the problematic backfill useEffect that was using current slot0.initPrice
+  // The amount is now captured at mine time and passed directly to record-glaze
 
   const { data: profileData } = useQuery<{
     profiles: Record<string, {
@@ -671,6 +656,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       pendingTxTypeRef.current = null;
       pendingImageUrlRef.current = null;
       pendingMineParamsRef.current = null;
+      pendingPaidAmountRef.current = null;
     }
   }, [writeContract, showMineResult, resetWrite]);
 
@@ -682,6 +668,13 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     if (!slot0 || !price) return;
     await refetchPrice();
     resetMineResult();
+    
+    // Capture the paid amount NOW before any transaction changes the state
+    // The user pays the current price, which becomes initPrice/2 after the mine
+    // So we capture the current price as what they're paying
+    const paidAmountWei = price;
+    const paidAmountFormatted = Math.floor(Number(formatUnits(paidAmountWei, DONUT_DECIMALS))).toString();
+    pendingPaidAmountRef.current = paidAmountFormatted;
     
     let uploadedImageUrl: string | null = null;
     if (selectedImage) {
@@ -704,12 +697,14 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           console.error("Failed to upload image");
           setIsUploadingImage(false);
           showMineResult("failure");
+          pendingPaidAmountRef.current = null;
           return;
         }
       } catch (err) {
         console.error("Failed to upload image:", err);
         setIsUploadingImage(false);
         showMineResult("failure");
+        pendingPaidAmountRef.current = null;
         return;
       }
       setIsUploadingImage(false);
@@ -769,6 +764,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       pendingTxTypeRef.current = null;
       pendingImageUrlRef.current = null;
       pendingMineParamsRef.current = null;
+      pendingPaidAmountRef.current = null;
     }
   }, [address, connectAsync, currentPrice, customMessage, slot0, price, primaryConnector, refetchPrice, resetMineResult, resetWrite, showMineResult, writeContract, selectedImage]);
 

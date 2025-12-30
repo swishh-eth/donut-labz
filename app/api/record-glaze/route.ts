@@ -29,7 +29,7 @@ const SPRINKLES_MINE_SELECTOR = keccak256(toBytes('mine(address,address,uint256,
 
 export async function POST(request: Request) {
   try {
-    const { address, txHash, mineType = 'donut', imageUrl } = await request.json();
+    const { address, txHash, mineType = 'donut', imageUrl, amount: providedAmount } = await request.json();
 
     if (!address || !txHash) {
       return NextResponse.json(
@@ -104,7 +104,8 @@ export async function POST(request: Request) {
     const inputData = tx.input || '';
     
     // Variables to store for mining_events
-    let amount = '0';
+    // Use provided amount if available (captured at mine time for accuracy)
+    let amount = providedAmount || '0';
     let message = '';
 
     // Verify based on mine type
@@ -144,8 +145,10 @@ export async function POST(request: Request) {
           );
         }
         
-        // Extract amount from tx.value (ETH sent) and message from uri
-        amount = tx.value || '0';
+        // Extract amount from tx.value (ETH sent) if not provided, and message from uri
+        if (!providedAmount) {
+          amount = tx.value || '0';
+        }
         message = params[4] as string || '';
       } catch (decodeError) {
         console.error('Failed to decode transaction input:', decodeError);
@@ -184,38 +187,44 @@ export async function POST(request: Request) {
         console.error('Failed to decode SPRINKLES input:', decodeError);
       }
       
-      // Look for DONUT Transfer event to get actual amount paid
-      // Transfer(address indexed from, address indexed to, uint256 value)
-      const TRANSFER_EVENT_TOPIC = keccak256(toBytes('Transfer(address,address,uint256)'));
-      const DONUT_TOKEN_ADDRESS = '0x3afe25a2739b5c2e08cfec439f9621d91ff7fbfb'.toLowerCase();
-      
-      try {
-        const logs = receipt.logs || [];
-        for (const log of logs) {
-          // Look for Transfer event from DONUT token where recipient is the miner contract
-          if (log.address?.toLowerCase() === DONUT_TOKEN_ADDRESS && 
-              log.topics?.[0]?.toLowerCase() === TRANSFER_EVENT_TOPIC.toLowerCase()) {
-            // topics[1] = from (padded address)
-            // topics[2] = to (padded address)
-            const toAddr = '0x' + log.topics[2].slice(26).toLowerCase();
-            
-            // Check if this transfer is TO the sprinkles miner contract
-            if (toAddr === SPRINKLES_MINER_ADDRESS) {
-              // data = uint256 value
-              const value = BigInt(log.data);
-              amount = value.toString();
-              console.log('Extracted actual DONUT amount from Transfer event:', amount);
-              break;
+      // Only try to extract from Transfer event if amount wasn't provided
+      if (!providedAmount) {
+        // Look for DONUT Transfer event to get actual amount paid
+        // Transfer(address indexed from, address indexed to, uint256 value)
+        const TRANSFER_EVENT_TOPIC = keccak256(toBytes('Transfer(address,address,uint256)'));
+        const DONUT_TOKEN_ADDRESS = '0xae4a37d554c6d6f3e398546d8566b25052e0169c'.toLowerCase();
+        
+        try {
+          const logs = receipt.logs || [];
+          for (const log of logs) {
+            // Look for Transfer event from DONUT token where recipient is the miner contract
+            if (log.address?.toLowerCase() === DONUT_TOKEN_ADDRESS && 
+                log.topics?.[0]?.toLowerCase() === TRANSFER_EVENT_TOPIC.toLowerCase()) {
+              // topics[1] = from (padded address)
+              // topics[2] = to (padded address)
+              const toAddr = '0x' + log.topics[2].slice(26).toLowerCase();
+              
+              // Check if this transfer is TO the sprinkles miner contract
+              if (toAddr === SPRINKLES_MINER_ADDRESS) {
+                // data = uint256 value
+                const value = BigInt(log.data);
+                // Convert from wei to whole tokens for display
+                amount = Math.floor(Number(value) / 1e18).toString();
+                console.log('Extracted actual DONUT amount from Transfer event:', amount);
+                break;
+              }
             }
           }
+        } catch (eventError) {
+          console.error('Failed to process Transfer event logs:', eventError);
         }
-      } catch (eventError) {
-        console.error('Failed to process Transfer event logs:', eventError);
-      }
-      
-      // If we still don't have an amount, log a warning
-      if (amount === '0') {
-        console.warn('Could not extract amount from Transfer event for tx:', txHash);
+        
+        // If we still don't have an amount, log a warning
+        if (amount === '0') {
+          console.warn('Could not extract amount from Transfer event for tx:', txHash);
+        }
+      } else {
+        console.log('Using provided amount:', providedAmount);
       }
     }
 
@@ -262,7 +271,7 @@ export async function POST(request: Request) {
       });
     }
 
-    console.log('Valid glaze recorded:', { address, txHash, mineType, pointsAdded: result.pointsAdded });
+    console.log('Valid glaze recorded:', { address, txHash, mineType, pointsAdded: result.pointsAdded, amount });
 
     return NextResponse.json({
       success: true,
