@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount } from "wagmi";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Settings, Gamepad2, Trophy, Coins, Palette, Sparkles, Clock, ChevronRight } from "lucide-react";
+import { Settings, Gamepad2, Trophy, Coins, Palette, Clock, ChevronRight } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -88,9 +88,32 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
       <div className="absolute inset-0 bg-gradient-to-r from-amber-500/0 via-white/5 to-amber-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
       
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <Sparkles className="absolute top-3 right-12 w-4 h-4 text-yellow-400/60 animate-pulse" />
-        <Sparkles className="absolute bottom-4 right-24 w-3 h-3 text-amber-400/60 animate-pulse" style={{ animationDelay: '0.5s' }} />
-        <Sparkles className="absolute top-6 right-32 w-3 h-3 text-orange-400/50 animate-pulse" style={{ animationDelay: '1s' }} />
+        {/* Infinite scrolling donut carousel */}
+        <div className="absolute inset-y-0 right-0 left-0 flex items-center">
+          <div className="donut-carousel flex gap-6 animate-scroll-donuts">
+            {[...Array(16)].map((_, i) => {
+              const colors = ['#F472B6', '#A78BFA', '#60A5FA', '#34D399', '#FBBF24', '#FB923C', '#F87171', '#E879F9', '#22D3EE', '#4ADE80'];
+              const color = colors[i % colors.length];
+              return (
+                <svg key={i} width="28" height="28" viewBox="0 0 40 40" className="opacity-20 flex-shrink-0">
+                  <circle cx="20" cy="20" r="16" fill={color} />
+                  <circle cx="20" cy="20" r="6" fill="#1a1a1a" />
+                </svg>
+              );
+            })}
+            {/* Duplicate for seamless loop */}
+            {[...Array(16)].map((_, i) => {
+              const colors = ['#F472B6', '#A78BFA', '#60A5FA', '#34D399', '#FBBF24', '#FB923C', '#F87171', '#E879F9', '#22D3EE', '#4ADE80'];
+              const color = colors[i % colors.length];
+              return (
+                <svg key={`dup-${i}`} width="28" height="28" viewBox="0 0 40 40" className="opacity-20 flex-shrink-0">
+                  <circle cx="20" cy="20" r="16" fill={color} />
+                  <circle cx="20" cy="20" r="6" fill="#1a1a1a" />
+                </svg>
+              );
+            })}
+          </div>
+        </div>
       </div>
       
       {skin && !isLoading && (
@@ -127,7 +150,7 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
               </div>
             </>
           ) : (
-            <div className="text-xs text-amber-200/70">Limited Artist Collaboration Skins</div>
+            <div className="text-xs text-amber-200/70">Limited Time Mints</div>
           )}
           
           <div className="flex items-center gap-1 mt-2 text-[10px] text-amber-300/50">
@@ -353,6 +376,8 @@ export default function GamesPage() {
         .wing-flap-reverse { animation: wing-flap-reverse 0.2s ease-in-out infinite; }
         @keyframes skin-glow { 0%, 100% { box-shadow: 0 0 20px currentColor; } 50% { box-shadow: 0 0 40px currentColor, 0 0 60px currentColor; } }
         .skin-animated-glow { animation: skin-glow 2s ease-in-out infinite; }
+        @keyframes scroll-donuts { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        .animate-scroll-donuts { animation: scroll-donuts 20s linear infinite; }
       `}</style>
 
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
