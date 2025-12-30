@@ -139,8 +139,6 @@ export default function FlappyDonutPage() {
   const [prizePool, setPrizePool] = useState<string>("0");
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
   const [pendingTxType, setPendingTxType] = useState<"approve" | "approved" | "pay" | null>(null);
-  const [gameSessionId, setGameSessionId] = useState<string | null>(null);
-  const gameSessionRef = useRef<string | null>(null);
   
   // Prize distribution percentages for top 10
   const PRIZE_DISTRIBUTION = [30, 20, 15, 10, 8, 6, 5, 3, 2, 1];
@@ -523,26 +521,30 @@ export default function FlappyDonutPage() {
       setHighScore(prev => Math.max(prev, scoreRef.current));
       
       if (address && scoreRef.current >= 0) {
-        // Submit score to leaderboard with session validation
-        const sessionId = gameSessionRef.current;
+        // Submit score to leaderboard
         fetch('/api/games/flappy/submit-score', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            sessionId,
             playerAddress: address, 
             username: context?.user?.username || `${address.slice(0, 6)}...${address.slice(-4)}`, 
             pfpUrl: context?.user?.pfpUrl, 
             score: scoreRef.current, 
             costPaid: paidCostRef.current 
           }),
-        }).then(() => {
-          // Clear session after submission
-          gameSessionRef.current = null;
-          setGameSessionId(null);
-          fetch(`/api/games/flappy/attempts?address=${address}`).then(r => r.json()).then(data => { setAttempts(data.attempts); setEntryCost(data.nextCost); });
-          fetch('/api/games/flappy/leaderboard').then(r => r.json()).then(data => setLeaderboard(data.leaderboard || []));
-        }).catch(console.error);
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (data.error) {
+              console.error('Score submission failed:', data.error);
+            }
+            // Refresh data
+            fetch(`/api/games/flappy/attempts?address=${address}`).then(r => r.json()).then(data => { setAttempts(data.attempts); setEntryCost(data.nextCost); });
+            fetch('/api/games/flappy/leaderboard').then(r => r.json()).then(data => setLeaderboard(data.leaderboard || []));
+          })
+          .catch(err => {
+            console.error('Score submission error:', err);
+          });
         
         // Send game announcement to chat (only if score > 0)
         if (scoreRef.current > 0) {
@@ -633,43 +635,19 @@ export default function FlappyDonutPage() {
     }
   }, [pendingTxType, allowance, entryCost, writeContract]);
 
-  // Handle payment success - create session then start game
+  // Handle payment success - start game
   useEffect(() => {
-    if (isTxSuccess && pendingTxType === "pay" && gameState === "menu" && txHash) {
-      const currentTxHash = txHash; // Capture txHash before reset
+    if (isTxSuccess && pendingTxType === "pay" && gameState === "menu") {
       setPendingTxType(null);
       setPaidCost(entryCost);
       paidCostRef.current = entryCost;
       setIsLoading(false);
       refetchAllowance();
       refetchBalance();
-      resetWrite(); // Reset early so we can make new transactions
-      
-      // Create a verified game session before starting
-      fetch('/api/games/flappy/start-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          playerAddress: address, 
-          txHash: currentTxHash,
-          costPaid: entryCost,
-        }),
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (data.sessionId) {
-            setGameSessionId(data.sessionId);
-            gameSessionRef.current = data.sessionId;
-          }
-          startGame();
-        })
-        .catch(err => {
-          console.error('Failed to create session:', err);
-          // Still start the game, but score won't be validated
-          startGame();
-        });
+      resetWrite();
+      startGame();
     }
-  }, [isTxSuccess, pendingTxType, gameState, entryCost, txHash, address, refetchAllowance, refetchBalance, startGame, resetWrite]);
+  }, [isTxSuccess, pendingTxType, gameState, entryCost, refetchAllowance, refetchBalance, startGame, resetWrite]);
 
   // Handle transaction errors
   useEffect(() => {

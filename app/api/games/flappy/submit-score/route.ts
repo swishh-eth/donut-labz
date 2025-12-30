@@ -9,77 +9,29 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    const { sessionId, playerAddress, username, pfpUrl, score } = await request.json();
+    const { playerAddress, username, pfpUrl, score, costPaid } = await request.json();
 
-    // Validate required fields
     if (!playerAddress) {
       return NextResponse.json({ error: 'Missing player address' }, { status: 400 });
     }
 
-    if (typeof score !== 'number' || score < 0) {
-      return NextResponse.json({ error: 'Invalid score' }, { status: 400 });
-    }
-
-    let costPaid = 1;
-    let sessionValid = false;
-
-    // If session provided, try to validate it (optional - table might not exist)
-    if (sessionId) {
-      try {
-        const { data: session, error: sessionError } = await supabase
-          .from('flappy_sessions')
-          .select('*')
-          .eq('id', sessionId)
-          .single();
-
-        if (!sessionError && session) {
-          // Check session hasn't been used
-          if (session.used) {
-            console.warn(`Session already used: ${sessionId}`);
-            return NextResponse.json({ error: 'Session already used' }, { status: 400 });
-          }
-
-          // Check player address matches
-          if (session.player_address.toLowerCase() !== playerAddress.toLowerCase()) {
-            console.warn(`Player mismatch: ${playerAddress} vs ${session.player_address}`);
-            return NextResponse.json({ error: 'Player mismatch' }, { status: 400 });
-          }
-
-          // Mark session as used
-          await supabase
-            .from('flappy_sessions')
-            .update({ 
-              used: true, 
-              score_submitted: score,
-              end_time: Date.now(),
-            })
-            .eq('id', sessionId);
-
-          costPaid = session.cost_paid || 1;
-          sessionValid = true;
-        }
-      } catch (sessionErr) {
-        // Session table might not exist - continue without session validation
-        console.log('Session validation skipped:', sessionErr);
-      }
-    }
-    
-    console.log(`Score submission: player=${playerAddress}, score=${score}, sessionValid=${sessionValid}`);
-
-    // Insert new game record (flappy_weekly_leaderboard view will aggregate best scores)
+    // Insert game into flappy_games
     const { error: insertError } = await supabase
       .from('flappy_games')
       .insert({
         player_address: playerAddress.toLowerCase(),
-        username: username || `${playerAddress.slice(0, 6)}...${playerAddress.slice(-4)}`,
+        username: username,
         pfp_url: pfpUrl,
-        score,
-        cost_paid: costPaid,
+        score: score,
+        cost_paid: costPaid || 1,
       });
-    
-    console.log(`Game insert: player=${playerAddress}, score=${score}, error=${insertError?.message || 'none'}`);
 
-    // Record attempt
+    if (insertError) {
+      console.error('Insert error:', insertError);
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+
+    // Update daily attempts
     const today = new Date().toISOString().split('T')[0];
     const { data: attemptData } = await supabase
       .from('flappy_daily_attempts')
@@ -103,10 +55,7 @@ export async function POST(request: NextRequest) {
         });
     }
 
-    return NextResponse.json({ 
-      success: true,
-      sessionValid,
-    });
+    return NextResponse.json({ success: true });
 
   } catch (error) {
     console.error('Submit score error:', error);
