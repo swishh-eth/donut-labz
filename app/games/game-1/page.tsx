@@ -138,6 +138,7 @@ export default function FlappyDonutPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [prizePool, setPrizePool] = useState<string>("0");
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
+  const [pendingTxType, setPendingTxType] = useState<"approve" | "approved" | "pay" | null>(null);
   
   // Prize distribution percentages for top 10
   const PRIZE_DISTRIBUTION = [30, 20, 15, 10, 8, 6, 5, 3, 2, 1];
@@ -218,8 +219,8 @@ export default function FlappyDonutPage() {
     } catch {}
   }, []);
   
-  const { writeContract, data: txHash, isPending: isWritePending, reset: resetWrite } = useWriteContract();
-  const { isLoading: isTxLoading, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  const { writeContract, data: txHash, isPending: isWritePending, reset: resetWrite, error: writeError } = useWriteContract();
+  const { isLoading: isTxLoading, isSuccess: isTxSuccess, isError: isTxError } = useWaitForTransactionReceipt({ hash: txHash });
   
   const { data: allowance, refetch: refetchAllowance } = useReadContract({ address: DONUT_ADDRESS, abi: ERC20_ABI, functionName: "allowance", args: address ? [address, FLAPPY_POOL_ADDRESS] : undefined });
   const { data: balance, refetch: refetchBalance } = useReadContract({ address: DONUT_ADDRESS, abi: ERC20_ABI, functionName: "balanceOf", args: address ? [address] : undefined });
@@ -268,19 +269,6 @@ export default function FlappyDonutPage() {
     const interval = setInterval(updateCountdown, 60000);
     return () => clearInterval(interval);
   }, []);
-  
-  useEffect(() => {
-    if (isTxSuccess && gameState === "menu") {
-      setPaidCost(entryCost);
-      paidCostRef.current = entryCost;
-      refetchAllowance();
-      refetchBalance();
-      startGame();
-      resetWrite();
-    }
-  }, [isTxSuccess, gameState]);
-  
-
   
   // Helper to convert hex to HSL for rainbow animation
   const hexToHsl = (hex: string): [number, number, number] => {
@@ -593,6 +581,59 @@ export default function FlappyDonutPage() {
       }
     }, 1000);
   }, [gameLoop]);
+
+  // Handle approval success - trigger payment
+  useEffect(() => {
+    if (isTxSuccess && pendingTxType === "approve") {
+      setPendingTxType("approved");
+      resetWrite();
+      refetchAllowance();
+    }
+  }, [isTxSuccess, pendingTxType, resetWrite, refetchAllowance]);
+
+  // After approval is confirmed and allowance refetched, send payment
+  useEffect(() => {
+    if (pendingTxType === "approved" && allowance) {
+      const costWei = parseUnits(entryCost.toString(), 18);
+      if (allowance >= costWei) {
+        setPendingTxType("pay");
+        writeContract({ address: FLAPPY_POOL_ADDRESS, abi: FLAPPY_POOL_ABI, functionName: "payEntry", args: [costWei] });
+      }
+    }
+  }, [pendingTxType, allowance, entryCost, writeContract]);
+
+  // Handle payment success - start game
+  useEffect(() => {
+    if (isTxSuccess && pendingTxType === "pay" && gameState === "menu") {
+      setPendingTxType(null);
+      setPaidCost(entryCost);
+      paidCostRef.current = entryCost;
+      setIsLoading(false);
+      refetchAllowance();
+      refetchBalance();
+      startGame();
+      resetWrite();
+    }
+  }, [isTxSuccess, pendingTxType, gameState, entryCost, refetchAllowance, refetchBalance, startGame, resetWrite]);
+
+  // Handle transaction errors
+  useEffect(() => {
+    if (writeError || isTxError) {
+      setIsLoading(false);
+      setPendingTxType(null);
+      if (writeError) {
+        const msg = (writeError as Error).message || "Transaction failed";
+        if (msg.includes("rejected") || msg.includes("denied")) {
+          setError("Transaction rejected");
+        } else {
+          setError("Transaction failed");
+        }
+      } else {
+        setError("Transaction failed");
+      }
+      resetWrite();
+    }
+  }, [writeError, isTxError, resetWrite]);
   
   const handlePlay = async () => {
     if (!address) { setError("Connect wallet to play"); return; }
@@ -600,7 +641,12 @@ export default function FlappyDonutPage() {
     setError(null);
     const costWei = parseUnits(entryCost.toString(), 18);
     if (balance && balance < costWei) { setError(`Insufficient DONUT. Need ${entryCost} 🍩`); setIsLoading(false); return; }
-    if (!allowance || allowance < costWei) { writeContract({ address: DONUT_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [FLAPPY_POOL_ADDRESS, parseUnits("100", 18)] }); return; }
+    if (!allowance || allowance < costWei) { 
+      setPendingTxType("approve");
+      writeContract({ address: DONUT_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [FLAPPY_POOL_ADDRESS, parseUnits("100", 18)] }); 
+      return; 
+    }
+    setPendingTxType("pay");
     writeContract({ address: FLAPPY_POOL_ADDRESS, abi: FLAPPY_POOL_ABI, functionName: "payEntry", args: [costWei] });
   };
   
@@ -763,15 +809,24 @@ export default function FlappyDonutPage() {
         
         {/* Game Area - fixed aspect ratio */}
         <div className="flex flex-col items-center">
-          <div className="relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
+          <div 
+            className="relative w-full" 
+            style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}
+          >
+            {/* Clickable overlay for game input - only during playing */}
+            {gameState === "playing" && (
+              <div 
+                className="absolute inset-0 z-10 cursor-pointer"
+                onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); handleFlap(); }}
+                style={{ touchAction: "none", WebkitTapHighlightColor: "transparent" }}
+              />
+            )}
             <canvas 
               ref={canvasRef} 
               width={SCALED_WIDTH} 
               height={SCALED_HEIGHT} 
-              onClick={handleFlap} 
-              onTouchStart={(e) => { e.preventDefault(); handleFlap(); }} 
-              className="rounded-2xl cursor-pointer border border-zinc-800 w-full h-full" 
-              style={{ touchAction: "none" }} 
+              className="rounded-2xl border border-zinc-800 w-full h-full select-none" 
+              style={{ touchAction: "none", WebkitTapHighlightColor: "transparent" }} 
             />
             
             {/* Menu/Gameover overlay buttons */}
