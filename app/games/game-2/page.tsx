@@ -1009,7 +1009,7 @@ export default function StackGamePage() {
     
     // Check balance
     if (balance && balance < costWei) { 
-      setError(`Insufficient DONUT. Need ${entryCost} 🍩`); 
+      setError(`Insufficient DONUT. Need ${entryCost.toFixed(1)} 🍩`); 
       setIsLoading(false); 
       gameStartPendingRef.current = false; 
       return; 
@@ -1328,7 +1328,7 @@ export default function StackGamePage() {
                   )}
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 rounded-full border border-zinc-700">
                     <Zap className="w-3 h-3 text-yellow-400" />
-                    <span className="text-xs">Entry: <span className="font-bold">{entryCost} 🍩</span></span>
+                    <span className="text-xs">Entry: <span className="font-bold">{entryCost.toFixed(1)} 🍩</span></span>
                   </div>
                   <button onClick={handlePlay} disabled={isPaying || isLoading} className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95 disabled:opacity-50">
                     {isPaying ? (
@@ -1430,11 +1430,11 @@ export default function StackGamePage() {
                 
                 <div>
                   <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-400" />Entry Cost</h3>
-                  <p className="text-xs text-zinc-400">Each game costs DONUT to play. The cost increases with each attempt:</p>
+                  <p className="text-xs text-zinc-400">Each game costs DONUT to play. The cost increases by 0.1 with each attempt:</p>
                   <ul className="text-xs text-zinc-400 mt-1 space-y-1 pl-4">
-                    <li>• 1st game: <span className="text-white">1 DONUT</span></li>
-                    <li>• 2nd game: <span className="text-white">2 DONUT</span></li>
-                    <li>• 3rd game: <span className="text-white">3 DONUT</span></li>
+                    <li>• 1st game: <span className="text-white">1.0 DONUT</span></li>
+                    <li>• 2nd game: <span className="text-white">1.1 DONUT</span></li>
+                    <li>• 3rd game: <span className="text-white">1.2 DONUT</span></li>
                     <li>• And so on...</li>
                   </ul>
                   <p className="text-xs text-zinc-500 mt-2">Cost resets daily at 6PM EST</p>

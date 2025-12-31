@@ -8,7 +8,7 @@ const supabase = createClient(
 );
 
 export const STACK_TOWER_CONTRACT = "0x3704C7C71cDd1b37669aa5f1d366Dc0121E1e6fF";
-export const DONUT_TOKEN = "0x6A89a13068C73C883044048D409C8214802a8258";
+export const DONUT_TOKEN = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C";
 
 // Get current "day" based on 6PM EST (11PM UTC) reset
 function getCurrentDay(): string {
@@ -63,14 +63,14 @@ export async function GET(request: NextRequest) {
       .single();
 
     const attemptCount = attempts?.attempt_count || 0;
-    const entryCost = attemptCount + 1; // 1 DONUT for first, 2 for second, etc.
+    const entryCost = 1 + (attemptCount * 0.1); // 1.0 DONUT for first, 1.1 for second, etc.
     const resetTime = getTimeUntilCostReset();
 
     return NextResponse.json({
       fid: parseInt(fid),
       attemptsToday: attemptCount,
       entryCost,
-      entryCostWei: parseUnits(entryCost.toString(), 18).toString(),
+      entryCostWei: parseUnits(entryCost.toFixed(1), 18).toString(),
       resetIn: `${resetTime.hours}h ${resetTime.minutes}m`,
       contractAddress: STACK_TOWER_CONTRACT,
       tokenAddress: DONUT_TOKEN,
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       success: true,
       fid,
       attemptsToday: newCount,
-      nextEntryCost: newCount + 1,
+      nextEntryCost: 1 + (newCount * 0.1),
       txHash,
     });
   } catch (error) {
