@@ -235,28 +235,62 @@ export async function POST(request: Request) {
     }
 
     // Store mining event for Recent Miners feature
+    // Use check-then-insert/update pattern to avoid upsert issues with auto-increment id
     try {
-      console.log('Upserting mining event:', { address: address.toLowerCase(), tx_hash: txHash.toLowerCase(), mine_type: mineType, amount, message, image_url: imageUrl || null });
+      const txHashLower = txHash.toLowerCase();
+      const addressLower = address.toLowerCase();
       
-      const { data: upsertData, error: upsertError } = await supabase
+      console.log('Storing mining event:', { address: addressLower, tx_hash: txHashLower, mine_type: mineType, amount, message, image_url: imageUrl || null });
+      
+      // First check if this tx_hash already exists
+      const { data: existing, error: selectError } = await supabase
         .from('mining_events')
-        .upsert(
-          {
-            address: address.toLowerCase(),
-            tx_hash: txHash.toLowerCase(),
+        .select('id')
+        .eq('tx_hash', txHashLower)
+        .maybeSingle();
+      
+      if (selectError) {
+        console.error('Supabase select error:', selectError);
+      } else if (existing) {
+        // Update existing record
+        const { error: updateError } = await supabase
+          .from('mining_events')
+          .update({
+            address: addressLower,
             mine_type: mineType,
             amount,
             message,
             image_url: imageUrl || null,
             created_at: new Date().toISOString(),
-          },
-          { onConflict: 'tx_hash' }
-        );
-      
-      if (upsertError) {
-        console.error('Supabase upsert error:', upsertError);
+          })
+          .eq('id', existing.id);
+        
+        if (updateError) {
+          console.error('Supabase update error:', updateError);
+        } else {
+          console.log('Supabase update success for id:', existing.id);
+        }
       } else {
-        console.log('Supabase upsert success:', upsertData);
+        // Insert new record (don't specify id, let it auto-generate)
+        const { data: insertData, error: insertError } = await supabase
+          .from('mining_events')
+          .insert({
+            address: addressLower,
+            tx_hash: txHashLower,
+            mine_type: mineType,
+            amount,
+            message,
+            image_url: imageUrl || null,
+            created_at: new Date().toISOString(),
+          })
+          .select('id')
+          .single();
+        
+        if (insertError) {
+          console.error('Supabase insert error:', insertError);
+        } else {
+          console.log('Supabase insert success, new id:', insertData?.id);
+        }
       }
     } catch (dbError) {
       console.error('Failed to store mining event:', dbError);
