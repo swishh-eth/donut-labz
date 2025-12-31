@@ -238,28 +238,17 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
   );
 }
 
-// Coming Soon Tile
-function ComingSoonTile() {
-  return (
-    <div className="relative w-full rounded-2xl border border-zinc-800 overflow-hidden opacity-60" style={{ minHeight: '90px', background: 'rgba(39,39,42,0.3)' }}>
-      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Settings className="w-20 h-20 text-zinc-800 gear-spin" />
-      </div>
-      <div className="relative z-10 p-4 pr-20">
-        <div className="text-left">
-          <div className="flex items-center gap-2 mb-1">
-            <Settings className="w-5 h-5 text-gray-500" />
-            <span className="font-bold text-base text-gray-500">NEW GAMES SOON</span>
-          </div>
-          <div className="text-[10px] text-gray-600">Something fun is in the works...</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Stack Tower Game Tile (Testing)
-function StackTowerTile() {
+// Stack Tower Game Tile
+function StackTowerTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
+  const [showPlayer, setShowPlayer] = useState(false);
+  
+  useEffect(() => {
+    if (recentPlayer && !isLoading) {
+      const timer = setTimeout(() => setShowPlayer(true), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [recentPlayer, isLoading]);
+  
   return (
     <button
       onClick={() => window.location.href = "/games/game-2"}
@@ -289,23 +278,56 @@ function StackTowerTile() {
           <div className="flex items-center gap-2 mb-1">
             <Layers className="w-5 h-5 text-zinc-300" />
             <span className="font-bold text-base text-zinc-300">Stack Tower</span>
-            <span className="text-[9px] bg-yellow-500/30 text-yellow-300 px-1.5 py-0.5 rounded-full font-bold">TESTING</span>
+            <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
           <div className="text-[10px] text-zinc-400 mb-2">Stack blocks perfectly, build the highest tower!</div>
           
           <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-1">
+              <Coins className="w-3 h-3 text-amber-400" />
+              <span className="text-[10px] text-amber-400">Pool: {prizePool} 🍩</span>
+            </div>
             <div className="flex items-center gap-1">
               <Trophy className="w-3 h-3 text-amber-400" />
               <span className="text-[10px] text-amber-400">Weekly prizes</span>
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] text-red-400 bg-red-500/20 px-2 py-0.5 rounded-full font-medium">⚠️ NOT REAL MONEY</span>
+          <div className="flex items-center gap-2 h-5">
+            <span className="text-[9px] text-zinc-400">Last play:</span>
+            <div className={`transition-opacity duration-300 ${showPlayer ? 'opacity-100' : 'opacity-0'}`}>
+              {recentPlayer && (
+                <span className="text-[9px] text-white bg-zinc-800/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />}
+                  @{recentPlayer.username} scored {recentPlayer.score}
+                </span>
+              )}
+            </div>
+            {isLoading && <div className="w-24 h-4 bg-zinc-800/50 rounded-full animate-pulse" />}
           </div>
         </div>
       </div>
     </button>
+  );
+}
+
+// Coming Soon Tile
+function ComingSoonTile() {
+  return (
+    <div className="relative w-full rounded-2xl border border-zinc-800 overflow-hidden opacity-60" style={{ minHeight: '90px', background: 'rgba(39,39,42,0.3)' }}>
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Settings className="w-20 h-20 text-zinc-800 gear-spin" />
+      </div>
+      <div className="relative z-10 p-4 pr-20">
+        <div className="text-left">
+          <div className="flex items-center gap-2 mb-1">
+            <Settings className="w-5 h-5 text-gray-500" />
+            <span className="font-bold text-base text-gray-500">NEW GAMES SOON</span>
+          </div>
+          <div className="text-[10px] text-gray-600">Something fun is in the works...</div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -315,9 +337,18 @@ export default function GamesPage() {
   const { address } = useAccount();
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
-  const [recentPlayer, setRecentPlayer] = useState<RecentPlayer | null>(null);
-  const [isLoadingRecent, setIsLoadingRecent] = useState(true);
-  const [prizePool, setPrizePool] = useState<string>("0");
+  
+  // Flappy Donut state
+  const [flappyRecentPlayer, setFlappyRecentPlayer] = useState<RecentPlayer | null>(null);
+  const [isLoadingFlappy, setIsLoadingFlappy] = useState(true);
+  const [flappyPrizePool, setFlappyPrizePool] = useState<string>("0");
+  
+  // Stack Tower state
+  const [stackRecentPlayer, setStackRecentPlayer] = useState<RecentPlayer | null>(null);
+  const [isLoadingStack, setIsLoadingStack] = useState(true);
+  const [stackPrizePool, setStackPrizePool] = useState<string>("0");
+  
+  // Skin market state
   const [weeklySkin, setWeeklySkin] = useState<WeeklySkin | null>(null);
   const [isLoadingSkin, setIsLoadingSkin] = useState(true);
 
@@ -344,27 +375,57 @@ export default function GamesPage() {
     return () => clearTimeout(timeout);
   }, []);
 
+  // Fetch Flappy Donut data
   useEffect(() => {
-    const fetchGameData = async () => {
-      setIsLoadingRecent(true);
+    const fetchFlappyData = async () => {
+      setIsLoadingFlappy(true);
       try {
         const res = await fetch('/api/games/flappy/recent');
         if (res.ok) {
           const data = await res.json();
-          setRecentPlayer(data.recentPlayer);
-          setPrizePool(data.prizePool || "0");
+          setFlappyRecentPlayer(data.recentPlayer);
+          setFlappyPrizePool(data.prizePool || "0");
         }
       } catch (e) {
-        console.error("Failed to fetch game data:", e);
+        console.error("Failed to fetch Flappy data:", e);
       } finally {
-        setIsLoadingRecent(false);
+        setIsLoadingFlappy(false);
       }
     };
-    fetchGameData();
-    const interval = setInterval(fetchGameData, 30000);
+    fetchFlappyData();
+    const interval = setInterval(fetchFlappyData, 30000);
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch Stack Tower data
+  useEffect(() => {
+    const fetchStackData = async () => {
+      setIsLoadingStack(true);
+      try {
+        const res = await fetch('/api/games/stack-tower/leaderboard');
+        if (res.ok) {
+          const data = await res.json();
+          setStackPrizePool(parseFloat(data.prizePool || "0").toFixed(2));
+          if (data.recentPlayer) {
+            setStackRecentPlayer({
+              username: data.recentPlayer.username,
+              score: data.recentPlayer.score,
+              pfpUrl: data.recentPlayer.pfpUrl,
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch Stack Tower data:", e);
+      } finally {
+        setIsLoadingStack(false);
+      }
+    };
+    fetchStackData();
+    const interval = setInterval(fetchStackData, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch skin data
   useEffect(() => {
     const fetchSkin = async () => {
       setIsLoadingSkin(true);
@@ -456,8 +517,8 @@ export default function GamesPage() {
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden games-scroll" style={{ WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` }}>
             <div className="space-y-3 pb-4">
               <WeeklySkinTile skin={weeklySkin} isLoading={isLoadingSkin} />
-              <FlappyDonutTile recentPlayer={recentPlayer} prizePool={prizePool} isLoading={isLoadingRecent} />
-              <StackTowerTile />
+              <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool} isLoading={isLoadingFlappy} />
+              <StackTowerTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} isLoading={isLoadingStack} />
               {[...Array(4)].map((_, i) => <ComingSoonTile key={i} />)}
             </div>
           </div>
