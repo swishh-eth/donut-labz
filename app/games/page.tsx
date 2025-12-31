@@ -40,18 +40,23 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
-// Donut color palette for randomization
+// Donut color palette for randomization - distinct, vibrant colors
 const DONUT_COLORS = [
-  '#F472B6', // pink
-  '#FB923C', // orange
-  '#A78BFA', // purple
-  '#34D399', // green
-  '#60A5FA', // blue
-  '#FBBF24', // yellow
-  '#F87171', // red
-  '#2DD4BF', // teal
-  '#E879F9', // fuchsia
-  '#4ADE80', // lime
+  '#FF6B9D', // hot pink
+  '#FF8C42', // bright orange
+  '#9D4EDD', // vivid purple
+  '#06D6A0', // mint green
+  '#118AB2', // ocean blue
+  '#FFD166', // golden yellow
+  '#EF476F', // coral red
+  '#073B4C', // deep teal
+  '#7209B7', // grape purple
+  '#3A86FF', // electric blue
+  '#8338EC', // violet
+  '#FB5607', // tangerine
+  '#FFBE0B', // sunflower
+  '#00F5D4', // cyan
+  '#FF006E', // magenta
 ];
 
 // Get random color from palette
@@ -92,6 +97,7 @@ function getTimeUntilReset(): string {
 // Weekly Skin Tile - amber hero tile
 function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoading: boolean }) {
   const [timeLeft, setTimeLeft] = useState(getTimeUntilReset());
+  const [donutColor] = useState(() => getRandomDonutColor());
   
   useEffect(() => {
     const interval = setInterval(() => setTimeLeft(getTimeUntilReset()), 60000);
@@ -108,8 +114,8 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
       <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="relative skin-float">
           <div 
-            className="w-20 h-20 rounded-full relative border-2 border-amber-400/30"
-            style={{ backgroundColor: '#F59E0B', boxShadow: '0 0 40px rgba(245, 158, 11, 0.3)' }}
+            className="w-20 h-20 rounded-full relative border-2 border-white/20"
+            style={{ backgroundColor: donutColor, boxShadow: `0 0 40px ${donutColor}40` }}
           >
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="w-7 h-7 rounded-full bg-zinc-900 border-2 border-zinc-700" />
@@ -159,20 +165,60 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Animated donut preview */}
+      {/* Animated donut preview with nice wings */}
       <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="flappy-donut-float relative">
-          <svg className="absolute -left-5 top-1/2 wing-flap" width="24" height="16" viewBox="0 0 24 16" style={{ transformOrigin: 'right center' }}>
-            <ellipse cx="10" cy="8" rx="10" ry="7" fill="rgba(255,255,255,0.9)" stroke="rgba(180,180,180,0.5)" strokeWidth="1"/>
-          </svg>
-          <svg className="absolute -right-5 top-1/2 wing-flap-reverse" width="24" height="16" viewBox="0 0 24 16" style={{ transformOrigin: 'left center' }}>
-            <ellipse cx="14" cy="8" rx="10" ry="7" fill="rgba(255,255,255,0.9)" stroke="rgba(180,180,180,0.5)" strokeWidth="1"/>
-          </svg>
-          <svg width="72" height="72" viewBox="0 0 60 60">
-            <ellipse cx="33" cy="35" rx="18" ry="12" fill="rgba(0,0,0,0.15)" />
-            <circle cx="30" cy="30" r="20" fill={donutColor} stroke="rgba(0,0,0,0.2)" strokeWidth="2"/>
-            <circle cx="30" cy="30" r="6" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="1"/>
-            <circle cx="24" cy="24" r="4" fill="rgba(255,255,255,0.3)"/>
+          <svg width="90" height="72" viewBox="0 0 90 72">
+            <defs>
+              <radialGradient id="wingGradLeft" cx="50%" cy="50%" r="80%">
+                <stop offset="0%" stopColor="rgba(255,255,255,0.95)" />
+                <stop offset="70%" stopColor="rgba(240,240,255,0.9)" />
+                <stop offset="100%" stopColor="rgba(200,200,220,0.8)" />
+              </radialGradient>
+              <radialGradient id="wingGradRight" cx="50%" cy="50%" r="80%">
+                <stop offset="0%" stopColor="rgba(255,255,255,0.95)" />
+                <stop offset="70%" stopColor="rgba(240,240,255,0.9)" />
+                <stop offset="100%" stopColor="rgba(200,200,220,0.8)" />
+              </radialGradient>
+            </defs>
+            
+            {/* Left wing - nice curved shape with feather details */}
+            <g className="wing-flap-left" style={{ transformOrigin: '30px 36px' }}>
+              <path 
+                d="M30 36 Q18 24 6 30 Q2 36 10 42 Q20 46 30 40 Z" 
+                fill="url(#wingGradLeft)" 
+                stroke="rgba(180,180,200,0.6)" 
+                strokeWidth="0.5"
+              />
+              {/* Feather details */}
+              <path d="M26 34 Q18 30 12 32" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
+              <path d="M24 38 Q16 36 10 38" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
+            </g>
+            
+            {/* Right wing - mirrored */}
+            <g className="wing-flap-right" style={{ transformOrigin: '60px 36px' }}>
+              <path 
+                d="M60 36 Q72 24 84 30 Q88 36 80 42 Q70 46 60 40 Z" 
+                fill="url(#wingGradRight)" 
+                stroke="rgba(180,180,200,0.6)" 
+                strokeWidth="0.5"
+              />
+              {/* Feather details */}
+              <path d="M64 34 Q72 30 78 32" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
+              <path d="M66 38 Q74 36 80 38" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
+            </g>
+            
+            {/* Shadow */}
+            <ellipse cx="48" cy="42" rx="14" ry="8" fill="rgba(0,0,0,0.15)" />
+            
+            {/* Donut body */}
+            <circle cx="45" cy="36" r="18" fill={donutColor} stroke="rgba(0,0,0,0.2)" strokeWidth="1.5"/>
+            
+            {/* Donut hole */}
+            <circle cx="45" cy="36" r="6" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="0.5"/>
+            
+            {/* Highlight */}
+            <circle cx="39" cy="30" r="4" fill="rgba(255,255,255,0.3)"/>
           </svg>
         </div>
       </div>
@@ -316,34 +362,79 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: R
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Donut with jetpack preview */}
+      {/* Donut with jetpack preview - improved design */}
       <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="donut-dash-float relative">
-          <svg width="75" height="75" viewBox="0 0 70 70">
-            {/* Jetpack */}
-            <rect x="10" y="26" width="12" height="22" rx="2" fill="#444" />
-            <rect x="12" y="28" width="8" height="18" rx="1" fill="#666" />
-            {/* Flame */}
-            <path d="M16 48 L10 62 L22 48 Z" fill="url(#flameGrad)" className="flame-flicker" />
+          <svg width="85" height="75" viewBox="0 0 85 75">
             <defs>
-              <linearGradient id="flameGrad" x1="16" y1="48" x2="16" y2="62" gradientUnits="userSpaceOnUse">
+              {/* Jetpack gradient */}
+              <linearGradient id="jetpackBody" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#4a4a4a" />
+                <stop offset="30%" stopColor="#6a6a6a" />
+                <stop offset="70%" stopColor="#5a5a5a" />
+                <stop offset="100%" stopColor="#3a3a3a" />
+              </linearGradient>
+              {/* Flame gradient */}
+              <linearGradient id="flameGradTile" x1="50%" y1="0%" x2="50%" y2="100%">
                 <stop offset="0%" stopColor="#FFD700" />
-                <stop offset="50%" stopColor="#FF6B00" />
-                <stop offset="100%" stopColor="#FF000000" />
+                <stop offset="40%" stopColor="#FF8C00" />
+                <stop offset="70%" stopColor="#FF4500" />
+                <stop offset="100%" stopColor="transparent" />
+              </linearGradient>
+              {/* Inner flame */}
+              <linearGradient id="flameInner" x1="50%" y1="0%" x2="50%" y2="100%">
+                <stop offset="0%" stopColor="#FFFFFF" />
+                <stop offset="30%" stopColor="#FFD700" />
+                <stop offset="100%" stopColor="transparent" />
               </linearGradient>
             </defs>
+            
+            {/* Jetpack body - left tank */}
+            <rect x="8" y="22" width="10" height="24" rx="3" fill="url(#jetpackBody)" />
+            <rect x="10" y="24" width="6" height="20" rx="2" fill="#555" />
+            {/* Tank detail lines */}
+            <line x1="10" y1="28" x2="16" y2="28" stroke="#777" strokeWidth="0.5" />
+            <line x1="10" y1="36" x2="16" y2="36" stroke="#777" strokeWidth="0.5" />
+            
+            {/* Jetpack connector to donut */}
+            <rect x="18" y="30" width="8" height="8" rx="1" fill="#4a4a4a" />
+            <circle cx="22" cy="34" r="2" fill="#333" />
+            
+            {/* Nozzle */}
+            <path d="M10 46 L8 50 L18 50 L16 46 Z" fill="#3a3a3a" />
+            
+            {/* Flames - outer */}
+            <ellipse cx="13" cy="58" rx="6" ry="12" fill="url(#flameGradTile)" className="flame-flicker" />
+            {/* Flames - inner bright core */}
+            <ellipse cx="13" cy="55" rx="3" ry="7" fill="url(#flameInner)" className="flame-flicker" />
+            
+            {/* Smoke/thrust particles */}
+            <circle cx="8" cy="62" r="2" fill="rgba(255,200,100,0.3)" className="thrust-particle-1" />
+            <circle cx="18" cy="64" r="1.5" fill="rgba(255,200,100,0.2)" className="thrust-particle-2" />
+            
+            {/* Shadow under donut */}
+            <ellipse cx="52" cy="50" rx="16" ry="8" fill="rgba(0,0,0,0.15)" />
+            
             {/* Donut body */}
-            <circle cx="40" cy="35" r="22" fill={donutColor} />
+            <circle cx="48" cy="38" r="22" fill={donutColor} stroke="rgba(0,0,0,0.2)" strokeWidth="1.5"/>
+            
             {/* Donut hole */}
-            <circle cx="40" cy="35" r="8" fill="#1a1a2e" />
+            <circle cx="48" cy="38" r="8" fill="#1a1a2e" stroke="rgba(0,0,0,0.3)" strokeWidth="0.5"/>
+            
             {/* Highlight */}
-            <circle cx="33" cy="28" r="5" fill="rgba(255,255,255,0.3)" />
+            <circle cx="40" cy="30" r="5" fill="rgba(255,255,255,0.3)"/>
+            
+            {/* Small sprinkles on donut */}
+            <rect x="38" y="22" width="3" height="1.5" rx="0.5" fill="rgba(255,255,255,0.4)" transform="rotate(-20 38 22)" />
+            <rect x="56" y="28" width="3" height="1.5" rx="0.5" fill="rgba(255,255,255,0.4)" transform="rotate(30 56 28)" />
+            <rect x="52" y="48" width="3" height="1.5" rx="0.5" fill="rgba(255,255,255,0.4)" transform="rotate(-10 52 48)" />
           </svg>
+          
           {/* Motion lines */}
-          <div className="absolute -left-2 top-1/2 -translate-y-1/2 flex flex-col gap-1.5">
-            <div className="w-4 h-0.5 bg-white/40 rounded motion-line-1" />
-            <div className="w-6 h-0.5 bg-white/30 rounded motion-line-2" />
-            <div className="w-3 h-0.5 bg-white/40 rounded motion-line-3" />
+          <div className="absolute -left-3 top-1/2 -translate-y-1/2 flex flex-col gap-2">
+            <div className="w-5 h-0.5 bg-white/50 rounded motion-line-1" />
+            <div className="w-7 h-0.5 bg-white/40 rounded motion-line-2" />
+            <div className="w-4 h-0.5 bg-white/50 rounded motion-line-3" />
           </div>
         </div>
       </div>
@@ -612,18 +703,39 @@ export default function GamesPage() {
         .stack-float { animation: stack-float 2s ease-in-out infinite; }
         @keyframes skin-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
         .skin-float { animation: skin-float 2.5s ease-in-out infinite; }
-        @keyframes wing-flap { 0%, 100% { transform: translateY(-50%) rotate(-10deg) scaleY(0.8); } 50% { transform: translateY(-50%) rotate(10deg) scaleY(1); } }
-        .wing-flap { animation: wing-flap 0.2s ease-in-out infinite; }
-        @keyframes wing-flap-reverse { 0%, 100% { transform: translateY(-50%) rotate(10deg) scaleY(0.8); } 50% { transform: translateY(-50%) rotate(-10deg) scaleY(1); } }
-        .wing-flap-reverse { animation: wing-flap-reverse 0.2s ease-in-out infinite; }
-        @keyframes donut-dash-float { 0%, 100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-8px) rotate(5deg); } }
-        .donut-dash-float { animation: donut-dash-float 1s ease-in-out infinite; }
-        @keyframes motion-line { 0% { opacity: 0.6; transform: translateX(0); } 100% { opacity: 0; transform: translateX(-10px); } }
-        .motion-line-1 { animation: motion-line 0.5s ease-out infinite; }
-        .motion-line-2 { animation: motion-line 0.5s ease-out infinite 0.1s; }
-        .motion-line-3 { animation: motion-line 0.5s ease-out infinite 0.2s; }
-        @keyframes flame-flicker { 0%, 100% { opacity: 1; transform: scaleY(1); } 50% { opacity: 0.8; transform: scaleY(0.8); } }
+        @keyframes wing-flap-left { 
+          0%, 100% { transform: rotate(-8deg) scaleY(0.9); } 
+          50% { transform: rotate(12deg) scaleY(1.1); } 
+        }
+        .wing-flap-left { animation: wing-flap-left 0.15s ease-in-out infinite; }
+        @keyframes wing-flap-right { 
+          0%, 100% { transform: rotate(8deg) scaleY(0.9); } 
+          50% { transform: rotate(-12deg) scaleY(1.1); } 
+        }
+        .wing-flap-right { animation: wing-flap-right 0.15s ease-in-out infinite; }
+        @keyframes donut-dash-float { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-6px) rotate(3deg); } }
+        .donut-dash-float { animation: donut-dash-float 0.8s ease-in-out infinite; }
+        @keyframes motion-line { 0% { opacity: 0.6; transform: translateX(0); } 100% { opacity: 0; transform: translateX(-12px); } }
+        .motion-line-1 { animation: motion-line 0.4s ease-out infinite; }
+        .motion-line-2 { animation: motion-line 0.4s ease-out infinite 0.1s; }
+        .motion-line-3 { animation: motion-line 0.4s ease-out infinite 0.2s; }
+        @keyframes flame-flicker { 
+          0%, 100% { opacity: 1; transform: scaleY(1) scaleX(1); } 
+          25% { opacity: 0.9; transform: scaleY(1.1) scaleX(0.9); }
+          50% { opacity: 0.85; transform: scaleY(0.9) scaleX(1.1); } 
+          75% { opacity: 0.95; transform: scaleY(1.05) scaleX(0.95); }
+        }
         .flame-flicker { animation: flame-flicker 0.1s ease-in-out infinite; transform-origin: top center; }
+        @keyframes thrust-particle-1 { 
+          0% { opacity: 0.4; transform: translate(0, 0) scale(1); } 
+          100% { opacity: 0; transform: translate(-8px, 10px) scale(0.5); } 
+        }
+        .thrust-particle-1 { animation: thrust-particle-1 0.5s ease-out infinite; }
+        @keyframes thrust-particle-2 { 
+          0% { opacity: 0.3; transform: translate(0, 0) scale(1); } 
+          100% { opacity: 0; transform: translate(6px, 12px) scale(0.3); } 
+        }
+        .thrust-particle-2 { animation: thrust-particle-2 0.6s ease-out infinite 0.2s; }
       `}</style>
 
       <div 
