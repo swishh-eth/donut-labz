@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { NavBar } from "@/components/nav-bar";
 import { Play, Share2, X, HelpCircle, Volume2, VolumeX, Trophy, Zap, ChevronRight, Clock } from "lucide-react";
 import { parseUnits } from "viem";
 
@@ -103,6 +104,7 @@ export default function DonutDashPage() {
   const [entryFeeFormatted, setEntryFeeFormatted] = useState("1.0");
   const [playCount, setPlayCount] = useState(0);
   const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
+  const currentEntryIdRef = useRef<string | null>(null); // Ref to avoid stale closure
   const [currentWeek, setCurrentWeek] = useState(1);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
@@ -201,18 +203,24 @@ export default function DonutDashPage() {
 
   // Submit score to API
   const submitScore = useCallback(async (finalScore: number) => {
-    if (!currentEntryId || !context?.user?.fid) return;
+    const entryId = currentEntryIdRef.current;
+    if (!entryId || !context?.user?.fid) {
+      console.error("Cannot submit score: missing entryId or fid", { entryId, fid: context?.user?.fid });
+      return;
+    }
+    console.log("Submitting score:", { entryId, score: finalScore, fid: context.user.fid });
     try {
       const res = await fetch("/api/games/donut-dash/submit-score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          entryId: currentEntryId,
+          entryId,
           score: finalScore,
           fid: context.user.fid,
         }),
       });
       const data = await res.json();
+      console.log("Score submission response:", data);
       if (data.success) {
         setUserRank(data.rank);
         if (data.isPersonalBest) setUserBestScore(finalScore);
@@ -220,7 +228,7 @@ export default function DonutDashPage() {
     } catch (error) {
       console.error("Failed to submit score:", error);
     }
-  }, [currentEntryId, context?.user?.fid]);
+  }, [context?.user?.fid]);
 
   // Record entry to API and start game
   const recordEntryAndStartGame = useCallback(async (hash: string) => {
@@ -243,6 +251,8 @@ export default function DonutDashPage() {
       const data = await res.json();
       if (data.success) {
         setCurrentEntryId(data.entryId);
+        currentEntryIdRef.current = data.entryId; // Update ref for game loop access
+        console.log("Entry recorded with ID:", data.entryId);
         setPaymentState('idle');
         resetWrite();
         refetchPrizePool();
@@ -870,13 +880,15 @@ export default function DonutDashPage() {
     
     checkCoins();
     if (checkCollisions() || checkGroundBlocks()) {
+      const finalScore = coinsCollectedRef.current; // Get final score from ref
       playCrashSound();
       stopThrustSound();
       gameActiveRef.current = false;
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
       setGameState("gameover");
-      setHighScore(prev => Math.max(prev, newScore));
-      submitScore(newScore);
+      setHighScore(prev => Math.max(prev, finalScore));
+      console.log("Game over! Final score:", finalScore);
+      submitScore(finalScore);
       fetchEntryFee();
       fetchLeaderboard();
       return;
@@ -1292,6 +1304,7 @@ export default function DonutDashPage() {
           </div>
         )}
       </div>
+      <NavBar />
     </main>
   );
 }
