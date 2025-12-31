@@ -122,6 +122,17 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
 
 // Flappy Donut Game Tile - matches about page style
 function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
+  const [showPlayer, setShowPlayer] = useState(false);
+  
+  useEffect(() => {
+    if (recentPlayer && !isLoading) {
+      const timer = setTimeout(() => setShowPlayer(true), 100);
+      return () => clearTimeout(timer);
+    } else {
+      setShowPlayer(false);
+    }
+  }, [recentPlayer, isLoading]);
+  
   return (
     <button
       onClick={() => window.location.href = "/games/game-1"}
@@ -153,14 +164,27 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
             <span className="font-bold text-base text-pink-400">Flappy Donut</span>
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
-          <div className="text-[10px] text-pink-200/60 mb-2">Tap to fly, dodge rolling pins!</div>
+          <div className="text-[10px] text-pink-200/60 mb-1">Tap to fly, dodge rolling pins!</div>
           
-          <div className="flex items-center gap-2 text-[9px]">
+          <div className="flex items-center gap-2 text-[9px] mb-1">
             <span className="text-amber-400">{prizePool} 🍩</span>
             <ArrowRight className="w-3 h-3 text-pink-500/30" />
             <span className="text-pink-400/80">Weekly Pool</span>
-            <ArrowRight className="w-3 h-3 text-pink-500/30" />
-            <span className="text-pink-400/80">Top 10 Win</span>
+          </div>
+          
+          {/* Recent player with fade transition */}
+          <div className="flex items-center gap-2 h-4 relative">
+            <div className={`absolute inset-0 flex items-center transition-opacity duration-300 ${isLoading && !showPlayer ? 'opacity-100' : 'opacity-0'}`}>
+              <div className="w-24 h-3 bg-zinc-800/50 rounded-full animate-pulse" />
+            </div>
+            <div className={`flex items-center gap-1 transition-opacity duration-300 ${showPlayer ? 'opacity-100' : 'opacity-0'}`}>
+              {recentPlayer && (
+                <span className="text-[9px] text-zinc-400 flex items-center gap-1">
+                  {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3 h-3 rounded-full" />}
+                  @{recentPlayer.username} scored {recentPlayer.score}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -170,6 +194,17 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
 
 // Glaze Stack Game Tile - matches about page style
 function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
+  const [showPlayer, setShowPlayer] = useState(false);
+  
+  useEffect(() => {
+    if (recentPlayer && !isLoading) {
+      const timer = setTimeout(() => setShowPlayer(true), 100);
+      return () => clearTimeout(timer);
+    } else {
+      setShowPlayer(false);
+    }
+  }, [recentPlayer, isLoading]);
+  
   return (
     <button
       onClick={() => window.location.href = "/games/game-2"}
@@ -226,14 +261,27 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
             <span className="font-bold text-base text-pink-400">Glaze Stack</span>
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
-          <div className="text-[10px] text-pink-200/60 mb-2">Stack boxes, don't let them fall!</div>
+          <div className="text-[10px] text-pink-200/60 mb-1">Stack boxes, don't let them fall!</div>
           
-          <div className="flex items-center gap-2 text-[9px]">
+          <div className="flex items-center gap-2 text-[9px] mb-1">
             <span className="text-amber-400">{prizePool} 🍩</span>
             <ArrowRight className="w-3 h-3 text-pink-500/30" />
             <span className="text-pink-400/80">Weekly Pool</span>
-            <ArrowRight className="w-3 h-3 text-pink-500/30" />
-            <span className="text-pink-400/80">Top 10 Win</span>
+          </div>
+          
+          {/* Recent player with fade transition */}
+          <div className="flex items-center gap-2 h-4 relative">
+            <div className={`absolute inset-0 flex items-center transition-opacity duration-300 ${isLoading && !showPlayer ? 'opacity-100' : 'opacity-0'}`}>
+              <div className="w-24 h-3 bg-zinc-800/50 rounded-full animate-pulse" />
+            </div>
+            <div className={`flex items-center gap-1 transition-opacity duration-300 ${showPlayer ? 'opacity-100' : 'opacity-0'}`}>
+              {recentPlayer && (
+                <span className="text-[9px] text-zinc-400 flex items-center gap-1">
+                  {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3 h-3 rounded-full" />}
+                  @{recentPlayer.username} scored {recentPlayer.score}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -243,6 +291,17 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
 
 // Donut Dash Game Tile - matches about page style
 function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
+  const [showPlayer, setShowPlayer] = useState(false);
+  
+  useEffect(() => {
+    if (recentPlayer && !isLoading) {
+      const timer = setTimeout(() => setShowPlayer(true), 100);
+      return () => clearTimeout(timer);
+    } else {
+      setShowPlayer(false);
+    }
+  }, [recentPlayer, isLoading]);
+  
   return (
     <button
       onClick={() => window.location.href = "/games/donut-dash"}
@@ -288,14 +347,27 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: R
             <span className="font-bold text-base text-orange-400">Donut Dash</span>
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
-          <div className="text-[10px] text-orange-200/60 mb-2">Jetpack through, collect sprinkles!</div>
+          <div className="text-[10px] text-orange-200/60 mb-1">Jetpack through, collect sprinkles!</div>
           
-          <div className="flex items-center gap-2 text-[9px]">
+          <div className="flex items-center gap-2 text-[9px] mb-1">
             <span className="text-amber-400">{prizePool} 🍩</span>
             <ArrowRight className="w-3 h-3 text-orange-500/30" />
             <span className="text-orange-400/80">Weekly Pool</span>
-            <ArrowRight className="w-3 h-3 text-orange-500/30" />
-            <span className="text-orange-400/80">Top 10 Win</span>
+          </div>
+          
+          {/* Recent player with fade transition */}
+          <div className="flex items-center gap-2 h-4 relative">
+            <div className={`absolute inset-0 flex items-center transition-opacity duration-300 ${isLoading && !showPlayer ? 'opacity-100' : 'opacity-0'}`}>
+              <div className="w-24 h-3 bg-zinc-800/50 rounded-full animate-pulse" />
+            </div>
+            <div className={`flex items-center gap-1 transition-opacity duration-300 ${showPlayer ? 'opacity-100' : 'opacity-0'}`}>
+              {recentPlayer && (
+                <span className="text-[9px] text-zinc-400 flex items-center gap-1">
+                  {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3 h-3 rounded-full" />}
+                  @{recentPlayer.username} scored {recentPlayer.score}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -389,8 +461,12 @@ export default function GamesPage() {
         const res = await fetch('/api/games/flappy/recent');
         if (res.ok) {
           const data = await res.json();
-          setFlappyRecentPlayer(data.recentPlayer);
+          if (data.recentPlayer) {
+            setFlappyRecentPlayer(data.recentPlayer);
+          }
           setFlappyPrizePool(data.prizePool || "0");
+        } else {
+          console.error("Flappy API returned:", res.status);
         }
       } catch (e) {
         console.error("Failed to fetch Flappy data:", e);
@@ -419,6 +495,8 @@ export default function GamesPage() {
               pfpUrl: data.recentPlayer.pfpUrl,
             });
           }
+        } else {
+          console.error("Stack API returned:", res.status);
         }
       } catch (e) {
         console.error("Failed to fetch Glaze Stack data:", e);
@@ -436,18 +514,29 @@ export default function GamesPage() {
     const fetchDashData = async () => {
       setIsLoadingDash(true);
       try {
-        // Fetch recent player and prize pool from dedicated endpoint
-        const res = await fetch('/api/games/donut-dash/recent');
+        // Fetch prize pool from distribute endpoint
+        const prizeRes = await fetch('/api/games/donut-dash/distribute');
+        if (prizeRes.ok) {
+          const prizeData = await prizeRes.json();
+          const poolValue = prizeData.prizePoolFormatted?.replace(' DONUT', '') || "0";
+          setDashPrizePool(poolValue);
+        }
+        
+        // Fetch most recent score from leaderboard
+        const res = await fetch('/api/games/donut-dash/leaderboard');
         if (res.ok) {
           const data = await res.json();
-          if (data.recentPlayer) {
+          // Find the most recent entry by looking at all entries
+          if (data.leaderboard && data.leaderboard.length > 0) {
+            // The leaderboard is sorted by score, but we want most recent
+            // For now just show the top scorer as "recent" since we don't have timestamp
+            const recent = data.leaderboard[0];
             setDashRecentPlayer({
-              username: data.recentPlayer.username,
-              score: data.recentPlayer.score,
-              pfpUrl: data.recentPlayer.pfpUrl,
+              username: recent.username || recent.displayName || `${recent.address?.slice(0,6)}...`,
+              score: recent.score,
+              pfpUrl: recent.pfpUrl,
             });
           }
-          setDashPrizePool(data.prizePool || "0");
         }
       } catch (e) {
         console.error("Failed to fetch Donut Dash data:", e);
