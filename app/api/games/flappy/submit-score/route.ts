@@ -14,12 +14,17 @@ function getPlayDate(): string {
   return now.toISOString().split('T')[0];
 }
 
-// Calculate current week number (starting from Jan 1, 2025)
+// Calculate current week number based on Friday 11PM UTC reset
+// Week 1 starts Friday Jan 3, 2025 at 11PM UTC
 function getCurrentWeekNumber(): number {
-  const startDate = new Date('2025-01-01T00:00:00Z');
   const now = new Date();
-  const diffMs = now.getTime() - startDate.getTime();
+  
+  // Reference point: Friday Jan 3, 2025 at 11PM UTC (first Friday 11PM of 2025)
+  const epoch = new Date('2025-01-03T23:00:00Z');
+  
+  const diffMs = now.getTime() - epoch.getTime();
   const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+  
   return diffWeeks + 1;
 }
 
@@ -34,6 +39,8 @@ export async function POST(request: NextRequest) {
     const cost = costPaid || 1;
     const weekNumber = getCurrentWeekNumber();
     const normalizedAddress = playerAddress.toLowerCase();
+
+    console.log('Submitting score for week:', weekNumber);
 
     // Insert game into flappy_games
     const { error: insertError } = await supabase
@@ -84,7 +91,7 @@ export async function POST(request: NextRequest) {
         });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, weekNumber });
 
   } catch (error) {
     console.error('Submit score error:', error);

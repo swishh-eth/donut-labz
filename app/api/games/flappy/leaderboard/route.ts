@@ -1,12 +1,18 @@
+// app/api/games/flappy/leaderboard/route.ts
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase-leaderboard';
 
-// Calculate current week number (starting from Jan 1, 2025)
+// Calculate current week number based on Friday 11PM UTC reset
+// Week 1 starts Friday Jan 3, 2025 at 11PM UTC
 function getCurrentWeekNumber(): number {
-  const startDate = new Date('2025-01-01T00:00:00Z');
   const now = new Date();
-  const diffMs = now.getTime() - startDate.getTime();
+  
+  // Reference point: Friday Jan 3, 2025 at 11PM UTC (first Friday 11PM of 2025)
+  const epoch = new Date('2025-01-03T23:00:00Z');
+  
+  const diffMs = now.getTime() - epoch.getTime();
   const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+  
   return diffWeeks + 1;
 }
 
@@ -48,13 +54,18 @@ export async function GET(request: Request) {
         .limit(10);
       
       console.log('Recent games in DB:', recentGames);
+      console.log('Looking for week:', weekNumber);
+      
+      // Show what weeks exist
+      const weekNumbers = [...new Set(recentGames?.map(g => g.week_number) || [])];
+      console.log('Weeks in DB:', weekNumbers);
       
       return NextResponse.json({
         leaderboard: [],
         playerRank: null,
         weekNumber,
         totalPlayers: 0,
-        debug: { calculatedWeek: weekNumber, recentGames }
+        debug: { calculatedWeek: weekNumber, weeksInDb: weekNumbers, recentGames }
       });
     }
     
