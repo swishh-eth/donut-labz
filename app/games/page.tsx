@@ -82,42 +82,32 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
   return (
     <button
       onClick={() => window.location.href = "/games/skin-market"}
-      className="relative w-full rounded-2xl border border-zinc-700/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-zinc-500/50 group"
+      className="relative w-full rounded-2xl border-2 border-white/30 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/50 group"
       style={{ minHeight: '120px', background: 'linear-gradient(135deg, rgba(24,24,27,0.95) 0%, rgba(39,39,42,0.9) 100%)' }}
     >
       {/* Subtle shine effect on hover */}
       <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
       
-      {/* Geometric pattern background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-10">
-        <div className="absolute inset-0" style={{ 
-          backgroundImage: `radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)`,
-          backgroundSize: '24px 24px'
-        }} />
-      </div>
-      
-      {/* Featured skin preview */}
-      {skin && !isLoading && (
-        <div className="absolute right-6 top-1/2 -translate-y-1/2">
-          <div className="relative">
-            {/* Glow ring */}
-            <div 
-              className="absolute inset-0 rounded-full blur-md opacity-40"
-              style={{ backgroundColor: skin.frostingColor, transform: 'scale(1.2)' }}
-            />
-            {/* Donut */}
-            <div 
-              className={`w-14 h-14 rounded-full relative border-2 border-white/20 shadow-2xl ${skin.animated ? 'animate-pulse' : ''}`}
-              style={{ backgroundColor: skin.frostingColor }}
-            >
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-4 h-4 rounded-full bg-zinc-900 border border-zinc-700" />
-              </div>
-              <div className="absolute top-1 left-2.5 w-2.5 h-2.5 rounded-full bg-white/30" />
+      {/* Placeholder donut preview */}
+      <div className="absolute right-8 top-1/2 -translate-y-1/2">
+        <div className="relative skin-float">
+          {/* Glow ring */}
+          <div 
+            className="absolute inset-0 rounded-full blur-md opacity-40"
+            style={{ backgroundColor: '#F472B6', transform: 'scale(1.2)' }}
+          />
+          {/* Donut */}
+          <div 
+            className="w-14 h-14 rounded-full relative border-2 border-white/20 shadow-2xl"
+            style={{ backgroundColor: '#F472B6' }}
+          >
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-4 h-4 rounded-full bg-zinc-900 border border-zinc-700" />
             </div>
+            <div className="absolute top-1 left-2.5 w-2.5 h-2.5 rounded-full bg-white/30" />
           </div>
         </div>
-      )}
+      </div>
       
       <div className="relative z-10 p-4 pr-24">
         <div className="text-left">
@@ -128,19 +118,7 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
             <span className="font-bold text-base text-white tracking-wide">Skin Market</span>
           </div>
           
-          {isLoading ? (
-            <div className="h-4 w-32 bg-zinc-800 rounded animate-pulse mb-2" />
-          ) : skin ? (
-            <>
-              <div className="text-xs text-zinc-300 mb-1">"{skin.name}" <span className="text-zinc-500">by @{skin.artistUsername}</span></div>
-              <div className="flex items-center gap-3 text-[10px] text-zinc-400">
-                <span className="flex items-center gap-1 bg-zinc-800/50 px-2 py-0.5 rounded-full">🍩 {skin.price}</span>
-                <span className="flex items-center gap-1">👥 {skin.mintCount} minted</span>
-              </div>
-            </>
-          ) : (
-            <div className="text-xs text-zinc-400">Limited Time Mints</div>
-          )}
+          <div className="text-xs text-zinc-400">Limited Time Mints</div>
           
           <div className="flex items-center gap-1.5 mt-2 text-[10px] text-zinc-500">
             <Clock className="w-3 h-3" />
@@ -501,6 +479,8 @@ export default function GamesPage() {
         .flappy-donut-float { animation: flappy-donut-float 1.5s ease-in-out infinite; }
         @keyframes stack-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
         .stack-float { animation: stack-float 2s ease-in-out infinite; }
+        @keyframes skin-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        .skin-float { animation: skin-float 2.5s ease-in-out infinite; }
         @keyframes wing-flap { 0%, 100% { transform: translateY(-50%) rotate(-10deg) scaleY(0.8); } 50% { transform: translateY(-50%) rotate(10deg) scaleY(1); } }
         .wing-flap { animation: wing-flap 0.2s ease-in-out infinite; }
         @keyframes wing-flap-reverse { 0%, 100% { transform: translateY(-50%) rotate(10deg) scaleY(0.8); } 50% { transform: translateY(-50%) rotate(-10deg) scaleY(1); } }
