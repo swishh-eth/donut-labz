@@ -305,39 +305,42 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
   );
 }
 
-// Sprinkle Run Game Tile (Testing)
-function SprinkleRunTile() {
+// Donut Dash Game Tile (Testing)
+function DonutDashTile() {
   return (
     <button
-      onClick={() => window.location.href = "/games/sprinkle-run"}
-      className="relative w-full rounded-2xl border-2 border-cyan-400/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-cyan-400/80"
-      style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(6,182,212,0.15) 0%, rgba(236,72,153,0.1) 100%)' }}
+      onClick={() => window.location.href = "/games/donut-dash"}
+      className="relative w-full rounded-2xl border-2 border-orange-400/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-orange-400/80"
+      style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(249,115,22,0.15) 0%, rgba(236,72,153,0.1) 100%)' }}
     >
-      {/* Running donut preview */}
+      {/* Donut with jetpack preview */}
       <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
-        <div className="sprinkle-run-float relative">
-          {/* Donut body */}
-          <svg width="65" height="65" viewBox="0 0 65 65">
-            {/* Shadow */}
-            <ellipse cx="35" cy="55" rx="22" ry="8" fill="rgba(0,0,0,0.2)" />
-            {/* Body */}
-            <circle cx="32" cy="32" r="24" fill="#FF69B4" stroke="rgba(0,0,0,0.2)" strokeWidth="2"/>
-            {/* Hole */}
-            <circle cx="32" cy="32" r="9" fill="#1a1a1a"/>
+        <div className="donut-dash-float relative">
+          <svg width="70" height="70" viewBox="0 0 70 70">
+            {/* Jetpack */}
+            <rect x="12" y="28" width="10" height="20" rx="2" fill="#444" />
+            <rect x="14" y="30" width="6" height="16" rx="1" fill="#666" />
+            {/* Flame */}
+            <path d="M17 48 L12 60 L22 48 Z" fill="url(#flameGrad)" className="flame-flicker" />
+            <defs>
+              <linearGradient id="flameGrad" x1="17" y1="48" x2="17" y2="60" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#FFD700" />
+                <stop offset="50%" stopColor="#FF6B00" />
+                <stop offset="100%" stopColor="#FF000000" />
+              </linearGradient>
+            </defs>
+            {/* Donut body */}
+            <circle cx="40" cy="35" r="22" fill="#FF69B4" />
+            {/* Donut hole */}
+            <circle cx="40" cy="35" r="8" fill="#1a1a2e" />
             {/* Highlight */}
-            <circle cx="24" cy="24" r="5" fill="rgba(255,255,255,0.3)"/>
-            {/* Sprinkles */}
-            <rect x="18" y="15" width="8" height="3" rx="1" fill="#FF0000" transform="rotate(-30 22 16)"/>
-            <rect x="38" y="18" width="8" height="3" rx="1" fill="#00FF00" transform="rotate(20 42 19)"/>
-            <rect x="42" y="35" width="8" height="3" rx="1" fill="#0000FF" transform="rotate(60 46 36)"/>
-            <rect x="15" y="38" width="8" height="3" rx="1" fill="#FFFF00" transform="rotate(-45 19 39)"/>
-            <rect x="28" y="48" width="8" height="3" rx="1" fill="#FF00FF" transform="rotate(10 32 49)"/>
+            <circle cx="33" cy="28" r="5" fill="rgba(255,255,255,0.3)" />
           </svg>
           {/* Motion lines */}
-          <div className="absolute -left-4 top-1/2 -translate-y-1/2 flex flex-col gap-1">
-            <div className="w-4 h-0.5 bg-cyan-400/60 rounded motion-line-1" />
+          <div className="absolute -left-2 top-1/2 -translate-y-1/2 flex flex-col gap-1">
+            <div className="w-4 h-0.5 bg-orange-400/60 rounded motion-line-1" />
             <div className="w-6 h-0.5 bg-pink-400/60 rounded motion-line-2" />
-            <div className="w-3 h-0.5 bg-cyan-400/60 rounded motion-line-3" />
+            <div className="w-3 h-0.5 bg-orange-400/60 rounded motion-line-3" />
           </div>
         </div>
       </div>
@@ -345,20 +348,20 @@ function SprinkleRunTile() {
       <div className="relative z-10 p-4 pr-24">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <svg className="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            <svg className="w-5 h-5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 19V5M5 12l7-7 7 7" />
             </svg>
-            <span className="font-bold text-base text-cyan-400">Sprinkle Run</span>
+            <span className="font-bold text-base text-orange-400">Donut Dash</span>
             <span className="text-[9px] bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded-full">TESTING</span>
           </div>
-          <div className="text-[10px] text-cyan-200/60 mb-2">Endless runner - dodge & collect!</div>
+          <div className="text-[10px] text-orange-200/60 mb-2">Jetpack through the facility!</div>
           
           <div className="flex items-center gap-2 mb-2 px-2 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded-lg w-fit">
             <span className="text-[9px] text-yellow-400 font-bold">⚠️ NOT REAL MONEY - FREE TO TEST</span>
           </div>
           
           <div className="flex items-center gap-2">
-            <span className="text-[9px] text-zinc-400">Swipe to move • Jump & slide to dodge</span>
+            <span className="text-[9px] text-zinc-400">Hold to fly • Dodge zappers</span>
           </div>
         </div>
       </div>
@@ -549,12 +552,14 @@ export default function GamesPage() {
         .skin-animated-glow { animation: skin-glow 2s ease-in-out infinite; }
         @keyframes scroll-donuts { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
         .animate-scroll-donuts { animation: scroll-donuts 20s linear infinite; }
-        @keyframes sprinkle-run-float { 0%, 100% { transform: translateY(0) translateX(0); } 25% { transform: translateY(-3px) translateX(2px); } 50% { transform: translateY(0) translateX(0); } 75% { transform: translateY(3px) translateX(-2px); } }
-        .sprinkle-run-float { animation: sprinkle-run-float 0.4s ease-in-out infinite; }
+        @keyframes donut-dash-float { 0%, 100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-8px) rotate(5deg); } }
+        .donut-dash-float { animation: donut-dash-float 1s ease-in-out infinite; }
         @keyframes motion-line { 0% { opacity: 0.6; transform: translateX(0); } 100% { opacity: 0; transform: translateX(-10px); } }
         .motion-line-1 { animation: motion-line 0.5s ease-out infinite; }
         .motion-line-2 { animation: motion-line 0.5s ease-out infinite 0.1s; }
         .motion-line-3 { animation: motion-line 0.5s ease-out infinite 0.2s; }
+        @keyframes flame-flicker { 0%, 100% { opacity: 1; transform: scaleY(1); } 50% { opacity: 0.8; transform: scaleY(0.8); } }
+        .flame-flicker { animation: flame-flicker 0.1s ease-in-out infinite; transform-origin: top center; }
       `}</style>
 
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
@@ -582,7 +587,7 @@ export default function GamesPage() {
               <WeeklySkinTile skin={weeklySkin} isLoading={isLoadingSkin} />
               <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool} isLoading={isLoadingFlappy} />
               <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} isLoading={isLoadingStack} />
-              <SprinkleRunTile />
+              <DonutDashTile />
               {[...Array(3)].map((_, i) => <ComingSoonTile key={i} />)}
             </div>
           </div>
