@@ -40,23 +40,14 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
-// Donut color palette for randomization - distinct, vibrant colors
+// Donut color palette - distinct primary colors that look very different
 const DONUT_COLORS = [
-  '#FF6B9D', // hot pink
-  '#FF8C42', // bright orange
-  '#9D4EDD', // vivid purple
-  '#06D6A0', // mint green
-  '#118AB2', // ocean blue
-  '#FFD166', // golden yellow
-  '#EF476F', // coral red
-  '#073B4C', // deep teal
-  '#7209B7', // grape purple
-  '#3A86FF', // electric blue
-  '#8338EC', // violet
-  '#FB5607', // tangerine
-  '#FFBE0B', // sunflower
-  '#00F5D4', // cyan
-  '#FF006E', // magenta
+  '#EF4444', // red
+  '#3B82F6', // blue
+  '#FACC15', // yellow
+  '#EC4899', // pink
+  '#FFFFFF', // white
+  '#22C55E', // green
 ];
 
 // Shuffle array and return first n unique items
@@ -110,17 +101,17 @@ function WeeklySkinTile({ skin, isLoading, donutColor }: { skin: WeeklySkin | nu
       className="relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
       style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
     >
-      {/* Large floating donut preview */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Large floating donut preview - fixed width container for alignment */}
+      <div className="absolute right-0 top-0 bottom-0 w-24 flex items-center justify-center pointer-events-none">
         <div className="relative skin-float">
           <div 
-            className="w-20 h-20 rounded-full relative border-2 border-white/20"
-            style={{ backgroundColor: donutColor, boxShadow: `0 0 40px ${donutColor}40` }}
+            className="w-16 h-16 rounded-full relative border-2 border-white/20"
+            style={{ backgroundColor: donutColor, boxShadow: `0 0 30px ${donutColor}40` }}
           >
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-7 h-7 rounded-full bg-zinc-900 border-2 border-zinc-700" />
+              <div className="w-5 h-5 rounded-full bg-zinc-900 border-2 border-zinc-700" />
             </div>
-            <div className="absolute top-2 left-3.5 w-3.5 h-3.5 rounded-full bg-white/25" />
+            <div className="absolute top-1.5 left-3 w-3 h-3 rounded-full bg-white/25" />
           </div>
         </div>
       </div>
@@ -164,10 +155,10 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading, donutColor }: { r
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Animated donut preview with nice wings - adjusted position for alignment */}
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Animated donut preview - fixed width container for alignment */}
+      <div className="absolute right-0 top-0 bottom-0 w-24 flex items-center justify-center pointer-events-none">
         <div className="flappy-donut-float relative">
-          <svg width="88" height="70" viewBox="0 0 88 70">
+          <svg width="72" height="58" viewBox="0 0 72 58">
             <defs>
               <radialGradient id="wingGradLeft" cx="50%" cy="50%" r="80%">
                 <stop offset="0%" stopColor="rgba(255,255,255,0.95)" />
@@ -181,43 +172,41 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading, donutColor }: { r
               </radialGradient>
             </defs>
             
-            {/* Left wing - nice curved shape with feather details */}
-            <g className="wing-flap-left" style={{ transformOrigin: '28px 35px' }}>
+            {/* Left wing */}
+            <g className="wing-flap-left" style={{ transformOrigin: '22px 29px' }}>
               <path 
-                d="M28 35 Q16 23 4 29 Q0 35 8 41 Q18 45 28 39 Z" 
+                d="M22 29 Q12 19 2 24 Q-1 29 6 34 Q14 37 22 32 Z" 
                 fill="url(#wingGradLeft)" 
                 stroke="rgba(180,180,200,0.6)" 
                 strokeWidth="0.5"
               />
-              {/* Feather details */}
-              <path d="M24 33 Q16 29 10 31" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
-              <path d="M22 37 Q14 35 8 37" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
+              <path d="M18 27 Q12 24 7 26" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
+              <path d="M17 31 Q10 29 5 31" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
             </g>
             
-            {/* Right wing - mirrored */}
-            <g className="wing-flap-right" style={{ transformOrigin: '60px 35px' }}>
+            {/* Right wing */}
+            <g className="wing-flap-right" style={{ transformOrigin: '50px 29px' }}>
               <path 
-                d="M60 35 Q72 23 84 29 Q88 35 80 41 Q70 45 60 39 Z" 
+                d="M50 29 Q60 19 70 24 Q73 29 66 34 Q58 37 50 32 Z" 
                 fill="url(#wingGradRight)" 
                 stroke="rgba(180,180,200,0.6)" 
                 strokeWidth="0.5"
               />
-              {/* Feather details */}
-              <path d="M64 33 Q72 29 78 31" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
-              <path d="M66 37 Q74 35 80 37" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
+              <path d="M54 27 Q60 24 65 26" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
+              <path d="M55 31 Q62 29 67 31" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
             </g>
             
             {/* Shadow */}
-            <ellipse cx="46" cy="42" rx="14" ry="8" fill="rgba(0,0,0,0.15)" />
+            <ellipse cx="38" cy="36" rx="12" ry="6" fill="rgba(0,0,0,0.15)" />
             
             {/* Donut body */}
-            <circle cx="44" cy="35" r="18" fill={donutColor} stroke="rgba(0,0,0,0.2)" strokeWidth="1.5"/>
+            <circle cx="36" cy="29" r="15" fill={donutColor} stroke="rgba(0,0,0,0.2)" strokeWidth="1.5"/>
             
             {/* Donut hole */}
-            <circle cx="44" cy="35" r="6" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="0.5"/>
+            <circle cx="36" cy="29" r="5" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="0.5"/>
             
             {/* Highlight */}
-            <circle cx="38" cy="29" r="4" fill="rgba(255,255,255,0.3)"/>
+            <circle cx="31" cy="24" r="3" fill="rgba(255,255,255,0.3)"/>
           </svg>
         </div>
       </div>
@@ -253,7 +242,8 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading, donutColor }: { r
 // Glaze Stack Game Tile - neutral white/zinc scheme with animated stacking preview
 function GlazeStackTile({ recentPlayer, prizePool, isLoading, donutColor }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean; donutColor: string }) {
   const [showPlayer, setShowPlayer] = useState(false);
-  const [stackPhase, setStackPhase] = useState(0); // 0-5 for stacking, 6 for fade out
+  const [stackPhase, setStackPhase] = useState(0);
+  const [isVisible, setIsVisible] = useState(true);
   
   useEffect(() => {
     if (recentPlayer && !isLoading) {
@@ -267,13 +257,23 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading, donutColor }: { re
   // Animate the stacking sequence
   useEffect(() => {
     const interval = setInterval(() => {
-      setStackPhase(prev => (prev + 1) % 8); // 0-4 stacking, 5 hold, 6-7 fade/reset
-    }, 400);
+      setStackPhase(prev => {
+        const next = prev + 1;
+        if (next === 6) {
+          // Start fade out
+          setIsVisible(false);
+        } else if (next === 8) {
+          // Reset and start fresh
+          setIsVisible(true);
+          return 0;
+        }
+        return next;
+      });
+    }, 450);
     return () => clearInterval(interval);
   }, []);
   
   const visibleBoxes = Math.min(stackPhase, 5);
-  const isFading = stackPhase >= 6;
   
   return (
     <button
@@ -281,18 +281,18 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading, donutColor }: { re
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Animated stacking glaze boxes preview */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Animated stacking glaze boxes preview - fixed width container for alignment */}
+      <div className="absolute right-0 top-0 bottom-0 w-24 flex items-center justify-center pointer-events-none">
         <div 
           className="relative flex flex-col-reverse items-center"
           style={{ 
-            opacity: isFading ? 0 : 1,
-            transition: 'opacity 0.3s ease-out',
+            opacity: isVisible ? 1 : 0,
+            transition: 'opacity 0.4s ease-out',
           }}
         >
           {[0, 1, 2, 3, 4].map((i) => {
-            const isVisible = i < visibleBoxes;
-            const isNew = i === visibleBoxes - 1 && !isFading;
+            const shouldShow = isVisible && i < visibleBoxes;
+            const isNew = i === visibleBoxes - 1 && isVisible && stackPhase <= 5;
             const boxColors = ['#FFE4EC', '#FFDEE8', '#FFD8E4', '#FFD2E0', '#FFCCDC'];
             
             return (
@@ -300,31 +300,31 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading, donutColor }: { re
                 key={i}
                 className="rounded-sm relative overflow-hidden"
                 style={{
-                  width: `${56 - i * 4}px`,
-                  height: '13px',
+                  width: `${52 - i * 4}px`,
+                  height: '12px',
                   marginBottom: i < 4 ? '2px' : '0',
                   backgroundColor: boxColors[i],
                   boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                  opacity: isVisible ? 1 : 0,
-                  transform: isNew ? 'translateY(-8px)' : 'translateY(0)',
+                  opacity: shouldShow ? 1 : 0,
+                  transform: isNew ? 'translateY(-6px)' : 'translateY(0)',
                   transition: 'opacity 0.15s ease-out, transform 0.15s ease-out',
                 }}
               >
                 <div 
-                  className="absolute inset-y-0.5 left-0.5 right-0.5 rounded-[2px] flex items-center justify-center gap-1"
+                  className="absolute inset-y-0.5 left-0.5 right-0.5 rounded-[2px] flex items-center justify-center gap-0.5"
                   style={{ backgroundColor: 'rgba(30, 20, 25, 0.8)' }}
                 >
                   {[...Array(Math.max(1, 3 - Math.floor(i / 2)))].map((_, j) => (
                     <div
                       key={j}
                       className="rounded-full relative"
-                      style={{ width: '8px', height: '8px', backgroundColor: donutColor }}
+                      style={{ width: '7px', height: '7px', backgroundColor: donutColor }}
                     >
                       <div 
                         className="absolute rounded-full"
                         style={{
-                          width: '2.5px',
-                          height: '2.5px',
+                          width: '2px',
+                          height: '2px',
                           backgroundColor: 'rgba(30, 20, 25, 0.9)',
                           top: '50%',
                           left: '50%',
@@ -340,7 +340,7 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading, donutColor }: { re
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-24">
+      <div className="relative z-10 p-4 pr-28">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Layers className="w-5 h-5 text-white" />
@@ -387,26 +387,23 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading, donutColor }: { rec
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Donut with jetpack preview - improved design */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Donut with jetpack preview - fixed width container for alignment */}
+      <div className="absolute right-0 top-0 bottom-0 w-24 flex items-center justify-center pointer-events-none">
         <div className="donut-dash-float relative">
-          <svg width="85" height="75" viewBox="0 0 85 75">
+          <svg width="70" height="65" viewBox="0 0 70 65">
             <defs>
-              {/* Jetpack gradient */}
               <linearGradient id="jetpackBody" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="#4a4a4a" />
                 <stop offset="30%" stopColor="#6a6a6a" />
                 <stop offset="70%" stopColor="#5a5a5a" />
                 <stop offset="100%" stopColor="#3a3a3a" />
               </linearGradient>
-              {/* Flame gradient */}
               <linearGradient id="flameGradTile" x1="50%" y1="0%" x2="50%" y2="100%">
                 <stop offset="0%" stopColor="#FFD700" />
                 <stop offset="40%" stopColor="#FF8C00" />
                 <stop offset="70%" stopColor="#FF4500" />
                 <stop offset="100%" stopColor="transparent" />
               </linearGradient>
-              {/* Inner flame */}
               <linearGradient id="flameInner" x1="50%" y1="0%" x2="50%" y2="100%">
                 <stop offset="0%" stopColor="#FFFFFF" />
                 <stop offset="30%" stopColor="#FFD700" />
@@ -414,52 +411,41 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading, donutColor }: { rec
               </linearGradient>
             </defs>
             
-            {/* Jetpack body - left tank */}
-            <rect x="8" y="22" width="10" height="24" rx="3" fill="url(#jetpackBody)" />
-            <rect x="10" y="24" width="6" height="20" rx="2" fill="#555" />
-            {/* Tank detail lines */}
-            <line x1="10" y1="28" x2="16" y2="28" stroke="#777" strokeWidth="0.5" />
-            <line x1="10" y1="36" x2="16" y2="36" stroke="#777" strokeWidth="0.5" />
+            {/* Jetpack body */}
+            <rect x="6" y="18" width="9" height="20" rx="2" fill="url(#jetpackBody)" />
+            <rect x="8" y="20" width="5" height="16" rx="1" fill="#555" />
+            <line x1="8" y1="24" x2="13" y2="24" stroke="#777" strokeWidth="0.5" />
+            <line x1="8" y1="30" x2="13" y2="30" stroke="#777" strokeWidth="0.5" />
             
-            {/* Jetpack connector to donut */}
-            <rect x="18" y="30" width="8" height="8" rx="1" fill="#4a4a4a" />
-            <circle cx="22" cy="34" r="2" fill="#333" />
+            {/* Jetpack connector */}
+            <rect x="15" y="24" width="6" height="6" rx="1" fill="#4a4a4a" />
+            <circle cx="18" cy="27" r="1.5" fill="#333" />
             
             {/* Nozzle */}
-            <path d="M10 46 L8 50 L18 50 L16 46 Z" fill="#3a3a3a" />
+            <path d="M8 38 L6 42 L15 42 L13 38 Z" fill="#3a3a3a" />
             
-            {/* Flames - outer */}
-            <ellipse cx="13" cy="58" rx="6" ry="12" fill="url(#flameGradTile)" className="flame-flicker" />
-            {/* Flames - inner bright core */}
-            <ellipse cx="13" cy="55" rx="3" ry="7" fill="url(#flameInner)" className="flame-flicker" />
+            {/* Flames */}
+            <ellipse cx="10.5" cy="50" rx="5" ry="10" fill="url(#flameGradTile)" className="flame-flicker" />
+            <ellipse cx="10.5" cy="47" rx="2.5" ry="6" fill="url(#flameInner)" className="flame-flicker" />
             
-            {/* Smoke/thrust particles */}
-            <circle cx="8" cy="62" r="2" fill="rgba(255,200,100,0.3)" className="thrust-particle-1" />
-            <circle cx="18" cy="64" r="1.5" fill="rgba(255,200,100,0.2)" className="thrust-particle-2" />
-            
-            {/* Shadow under donut */}
-            <ellipse cx="52" cy="50" rx="16" ry="8" fill="rgba(0,0,0,0.15)" />
+            {/* Shadow */}
+            <ellipse cx="42" cy="42" rx="14" ry="7" fill="rgba(0,0,0,0.15)" />
             
             {/* Donut body */}
-            <circle cx="48" cy="38" r="22" fill={donutColor} stroke="rgba(0,0,0,0.2)" strokeWidth="1.5"/>
+            <circle cx="40" cy="30" r="18" fill={donutColor} stroke="rgba(0,0,0,0.2)" strokeWidth="1.5"/>
             
             {/* Donut hole */}
-            <circle cx="48" cy="38" r="8" fill="#1a1a2e" stroke="rgba(0,0,0,0.3)" strokeWidth="0.5"/>
+            <circle cx="40" cy="30" r="6" fill="#1a1a2e" stroke="rgba(0,0,0,0.3)" strokeWidth="0.5"/>
             
             {/* Highlight */}
-            <circle cx="40" cy="30" r="5" fill="rgba(255,255,255,0.3)"/>
-            
-            {/* Small sprinkles on donut */}
-            <rect x="38" y="22" width="3" height="1.5" rx="0.5" fill="rgba(255,255,255,0.4)" transform="rotate(-20 38 22)" />
-            <rect x="56" y="28" width="3" height="1.5" rx="0.5" fill="rgba(255,255,255,0.4)" transform="rotate(30 56 28)" />
-            <rect x="52" y="48" width="3" height="1.5" rx="0.5" fill="rgba(255,255,255,0.4)" transform="rotate(-10 52 48)" />
+            <circle cx="34" cy="24" r="4" fill="rgba(255,255,255,0.3)"/>
           </svg>
           
           {/* Motion lines */}
-          <div className="absolute -left-3 top-1/2 -translate-y-1/2 flex flex-col gap-2">
-            <div className="w-5 h-0.5 bg-white/50 rounded motion-line-1" />
-            <div className="w-7 h-0.5 bg-white/40 rounded motion-line-2" />
-            <div className="w-4 h-0.5 bg-white/50 rounded motion-line-3" />
+          <div className="absolute -left-2 top-1/2 -translate-y-1/2 flex flex-col gap-1.5">
+            <div className="w-4 h-0.5 bg-white/50 rounded motion-line-1" />
+            <div className="w-6 h-0.5 bg-white/40 rounded motion-line-2" />
+            <div className="w-3 h-0.5 bg-white/50 rounded motion-line-3" />
           </div>
         </div>
       </div>
@@ -499,10 +485,11 @@ function ComingSoonTile() {
       className="relative w-full rounded-2xl border-2 border-white/10 overflow-hidden opacity-50"
       style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)' }}
     >
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Settings className="w-16 h-16 text-zinc-800 gear-spin" />
+      {/* Fixed width container for alignment */}
+      <div className="absolute right-0 top-0 bottom-0 w-24 flex items-center justify-center pointer-events-none">
+        <Settings className="w-14 h-14 text-zinc-800 gear-spin" />
       </div>
-      <div className="relative z-10 p-4 pr-24">
+      <div className="relative z-10 p-4 pr-28">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Settings className="w-5 h-5 text-zinc-600" />
