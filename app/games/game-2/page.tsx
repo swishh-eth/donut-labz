@@ -789,7 +789,8 @@ export default function StackGamePage() {
       previewColors.forEach((color, i) => {
         const width = 130 - i * 10;
         const x = (CANVAS_WIDTH - width) / 2;
-        const y = baseY - i * BLOCK_HEIGHT + floatOffset;
+        // Subtract 1 less per block to create 1px overlap and eliminate gaps
+        const y = baseY - i * (BLOCK_HEIGHT - 1) + floatOffset;
         
         ctx.fillStyle = shadeColor(color, -30);
         ctx.beginPath();
