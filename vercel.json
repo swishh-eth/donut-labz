@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/flappy-distribute",
       "schedule": "0 23 * * 5"
+    },
+    {
+      "path": "/api/cron/stack-tower-distribute",
+      "schedule": "5 23 * * 5"
     }
   ]
 }

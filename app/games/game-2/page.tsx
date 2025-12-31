@@ -2,10 +2,26 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { useAccount } from "wagmi";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { parseUnits, erc20Abi } from "viem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { Trophy, Play, Zap, Share2, X, HelpCircle, Volume2, VolumeX, ChevronRight, Clock, Layers } from "lucide-react";
+
+// Contract addresses
+const STACK_TOWER_CONTRACT = "0x3704C7C71cDd1b37669aa5f1d366Dc0121E1e6fF";
+const DONUT_TOKEN = "0x6A89a13068C73C883044048D409C8214802a8258";
+
+// Contract ABI for payEntry
+const PRIZE_POOL_ABI = [
+  {
+    name: "payEntry",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "amount", type: "uint256" }],
+    outputs: [],
+  },
+] as const;
 
 // Game constants
 const CANVAS_WIDTH = 360;
@@ -22,7 +38,7 @@ const MAX_SPEED = 7;
 const PERFECT_THRESHOLD = 5;
 
 type MiniAppContext = { user?: { fid: number; username?: string; displayName?: string; pfpUrl?: string } };
-type LeaderboardEntry = { rank: number; username: string; pfpUrl?: string; score: number };
+type LeaderboardEntry = { rank: number; username: string; pfpUrl?: string; score: number; walletAddress?: string };
 
 const getBlockColor = (index: number): string => {
   const colors = [
@@ -125,8 +141,17 @@ export default function StackGamePage() {
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
   const [costResetCountdown, setCostResetCountdown] = useState<string>(getTimeUntilCostReset());
   const [lastPlacement, setLastPlacement] = useState<"perfect" | "good" | "ok" | null>(null);
+  const [paymentState, setPaymentState] = useState<"idle" | "approving" | "paying" | "confirming">("idle");
+  const [pendingTxHash, setPendingTxHash] = useState<`0x${string}` | undefined>();
   
   const PRIZE_DISTRIBUTION = [30, 20, 15, 10, 8, 6, 5, 3, 2, 1];
+  
+  // Contract write hooks
+  const { writeContract: writeApprove, data: approveHash } = useWriteContract();
+  const { writeContract: writePayEntry, data: payEntryHash } = useWriteContract();
+  
+  const { isSuccess: approveSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
+  const { isSuccess: payEntrySuccess } = useWaitForTransactionReceipt({ hash: payEntryHash });
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioInitializedRef = useRef(false);
@@ -146,6 +171,71 @@ export default function StackGamePage() {
   const lastFrameTimeRef = useRef(performance.now());
   const screenShakeRef = useRef(0);
   const perfectPulseRef = useRef(0);
+  
+  // Fetch leaderboard and entry cost on load
+  const fetchGameData = useCallback(async () => {
+    try {
+      // Fetch leaderboard
+      const leaderboardRes = await fetch('/api/games/stack-tower/leaderboard');
+      if (leaderboardRes.ok) {
+        const data = await leaderboardRes.json();
+        setPrizePool(parseFloat(data.prizePool || "0").toFixed(2));
+        setLeaderboard(data.leaderboard || []);
+      }
+      
+      // Fetch entry cost if user is logged in
+      if (context?.user?.fid) {
+        const entryRes = await fetch(`/api/games/stack-tower/pay-entry?fid=${context.user.fid}`);
+        if (entryRes.ok) {
+          const entryData = await entryRes.json();
+          setAttempts(entryData.attemptsToday || 0);
+          setEntryCost(entryData.entryCost || 1);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch game data:", err);
+    }
+  }, [context?.user?.fid]);
+  
+  // Handle approve success -> pay entry
+  useEffect(() => {
+    if (approveSuccess && paymentState === "approving") {
+      setPaymentState("paying");
+      const amountWei = parseUnits(entryCost.toString(), 18);
+      writePayEntry({
+        address: STACK_TOWER_CONTRACT,
+        abi: PRIZE_POOL_ABI,
+        functionName: "payEntry",
+        args: [amountWei],
+      });
+    }
+  }, [approveSuccess, paymentState, entryCost, writePayEntry]);
+  
+  // Handle pay entry success -> start game
+  useEffect(() => {
+    if (payEntrySuccess && paymentState === "paying") {
+      setPaymentState("idle");
+      setPendingTxHash(payEntryHash);
+      
+      // Record the entry on backend
+      if (context?.user?.fid) {
+        fetch('/api/games/stack-tower/pay-entry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fid: context.user.fid,
+            txHash: payEntryHash,
+          }),
+        }).then(res => res.json()).then(data => {
+          setAttempts(data.attemptsToday || attempts + 1);
+          setEntryCost(data.nextEntryCost || entryCost + 1);
+        }).catch(console.error);
+      }
+      
+      setIsLoading(false);
+      startGame();
+    }
+  }, [payEntrySuccess, paymentState, payEntryHash, context?.user?.fid]);
   
   const initAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
@@ -272,18 +362,10 @@ export default function StackGamePage() {
     return () => { cancelled = true; };
   }, []);
   
+  // Fetch game data when context is ready
   useEffect(() => {
-    setAttempts(0);
-    setEntryCost(1);
-    setPrizePool("250.00");
-    setLeaderboard([
-      { rank: 1, username: "stackmaster", score: 47, pfpUrl: undefined },
-      { rank: 2, username: "towerpro", score: 42, pfpUrl: undefined },
-      { rank: 3, username: "blockbuilder", score: 38, pfpUrl: undefined },
-      { rank: 4, username: "skyreacher", score: 35, pfpUrl: undefined },
-      { rank: 5, username: "precisionking", score: 31, pfpUrl: undefined },
-    ]);
-  }, [address]);
+    fetchGameData();
+  }, [fetchGameData]);
   
   useEffect(() => {
     const updateCountdown = () => {
@@ -294,6 +376,31 @@ export default function StackGamePage() {
     const interval = setInterval(updateCountdown, 60000);
     return () => clearInterval(interval);
   }, []);
+  
+  // Submit score when game ends
+  const submitScore = useCallback(async (finalScore: number) => {
+    if (!context?.user?.fid || !address) return;
+    
+    try {
+      await fetch('/api/games/stack-tower/submit-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fid: context.user.fid,
+          walletAddress: address,
+          username: context.user.username || context.user.displayName,
+          pfpUrl: context.user.pfpUrl,
+          score: finalScore,
+          txHash: pendingTxHash,
+        }),
+      });
+      
+      // Refresh leaderboard
+      fetchGameData();
+    } catch (err) {
+      console.error("Failed to submit score:", err);
+    }
+  }, [context?.user, address, pendingTxHash, fetchGameData]);
   
   const drawBlock = useCallback((ctx: CanvasRenderingContext2D, block: Block, cameraY: number, time: number) => {
     const screenY = block.y - cameraY;
@@ -498,6 +605,19 @@ export default function StackGamePage() {
     gameLoopRef.current = requestAnimationFrame(gameLoop);
   }, [drawBlock, drawFallingPiece, drawParticles]);
   
+  const endGame = useCallback((finalScore: number) => {
+    gameActiveRef.current = false;
+    if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+    playGameOverSound();
+    triggerHaptic(true);
+    screenShakeRef.current = 1;
+    setGameState("gameover");
+    setHighScore(prev => Math.max(prev, finalScore));
+    
+    // Submit score to backend
+    submitScore(finalScore);
+  }, [playGameOverSound, triggerHaptic, submitScore]);
+  
   const placeBlock = useCallback(() => {
     if (!gameActiveRef.current || !currentBlockRef.current) return;
     
@@ -532,12 +652,6 @@ export default function StackGamePage() {
     const overlapWidth = overlapRight - overlapLeft;
     
     if (overlapWidth <= 0) {
-      gameActiveRef.current = false;
-      if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-      playGameOverSound();
-      triggerHaptic(true);
-      screenShakeRef.current = 1;
-      
       blocksRef.current.forEach((block, i) => {
         setTimeout(() => {
           fallingPiecesRef.current.push({
@@ -554,8 +668,7 @@ export default function StackGamePage() {
         }, i * 50);
       });
       
-      setGameState("gameover");
-      setHighScore(prev => Math.max(prev, scoreRef.current));
+      endGame(scoreRef.current);
       return;
     }
     
@@ -622,13 +735,7 @@ export default function StackGamePage() {
     setTimeout(() => setLastPlacement(null), 500);
     
     if (current.width < 12) {
-      gameActiveRef.current = false;
-      if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-      playGameOverSound();
-      triggerHaptic(true);
-      screenShakeRef.current = 1;
-      setGameState("gameover");
-      setHighScore(prev => Math.max(prev, scoreRef.current));
+      endGame(scoreRef.current);
       return;
     }
     
@@ -648,7 +755,7 @@ export default function StackGamePage() {
     speedRef.current = Math.min(BASE_SPEED + scoreRef.current * SPEED_INCREMENT, MAX_SPEED);
     
     spawnNewBlock();
-  }, [playPlaceSound, playGameOverSound, triggerHaptic, spawnPerfectParticles]);
+  }, [playPlaceSound, triggerHaptic, spawnPerfectParticles, endGame]);
   
   const spawnNewBlock = useCallback(() => {
     const blocks = blocksRef.current;
@@ -732,16 +839,37 @@ export default function StackGamePage() {
     }
   }, [gameState, placeBlock]);
   
-  const handlePlay = () => {
+  const handlePlay = async () => {
+    if (!address) {
+      setError("Please connect your wallet");
+      return;
+    }
+    
+    if (!context?.user?.fid) {
+      setError("Please sign in with Farcaster");
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
+    setPaymentState("approving");
     
-    setTimeout(() => {
-      setAttempts(prev => prev + 1);
-      setEntryCost(prev => prev + 1);
+    try {
+      const amountWei = parseUnits(entryCost.toString(), 18);
+      
+      // First approve the token spend
+      writeApprove({
+        address: DONUT_TOKEN,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [STACK_TOWER_CONTRACT, amountWei],
+      });
+    } catch (err: any) {
+      console.error("Payment error:", err);
+      setError(err.message || "Transaction failed");
       setIsLoading(false);
-      startGame();
-    }, 500);
+      setPaymentState("idle");
+    }
   };
   
   const handleShare = useCallback(async () => {
@@ -789,7 +917,6 @@ export default function StackGamePage() {
       previewColors.forEach((color, i) => {
         const width = 130 - i * 10;
         const x = (CANVAS_WIDTH - width) / 2;
-        // Subtract 1 less per block to create 1px overlap and eliminate gaps
         const y = baseY - i * (BLOCK_HEIGHT - 1) + floatOffset;
         
         ctx.fillStyle = shadeColor(color, -30);
@@ -886,6 +1013,14 @@ export default function StackGamePage() {
   
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Player";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
+
+  const getPaymentButtonText = () => {
+    if (paymentState === "approving") return "Approving...";
+    if (paymentState === "paying") return "Paying...";
+    if (paymentState === "confirming") return "Confirming...";
+    if (isLoading) return "Processing...";
+    return gameState === "gameover" ? "Play Again" : "Play";
+  };
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -988,9 +1123,9 @@ export default function StackGamePage() {
                     <Zap className="w-3 h-3 text-yellow-400" />
                     <span className="text-xs">Entry: <span className="font-bold">{entryCost} 🍩</span></span>
                   </div>
-                  <button onClick={handlePlay} disabled={isLoading} className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95 disabled:opacity-50">
-                    {isLoading ? (
-                      <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Processing...</span></>
+                  <button onClick={handlePlay} disabled={isLoading || paymentState !== "idle"} className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95 disabled:opacity-50">
+                    {(isLoading || paymentState !== "idle") ? (
+                      <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">{getPaymentButtonText()}</span></>
                     ) : (
                       <><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span></>
                     )}
