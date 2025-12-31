@@ -1058,16 +1058,28 @@ export default function DonutDashPage() {
       ctx.fillStyle = '#1a1a1a';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       
-      // Simple gradient overlay
+      // Simple gradient overlay with purple tint like in-game
       const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-      gradient.addColorStop(0, 'rgba(40, 40, 40, 0.5)');
-      gradient.addColorStop(0.5, 'rgba(30, 30, 30, 0)');
-      gradient.addColorStop(1, 'rgba(40, 40, 40, 0.5)');
+      gradient.addColorStop(0, 'rgba(40, 20, 60, 0.4)');
+      gradient.addColorStop(0.5, 'rgba(20, 20, 30, 0)');
+      gradient.addColorStop(1, 'rgba(40, 20, 60, 0.4)');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       
+      // Speed lines like in-game
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 12; i++) {
+        const y = (time * 100 + i * 40) % CANVAS_HEIGHT;
+        const lineLength = 40 + Math.sin(time + i) * 20;
+        ctx.beginPath();
+        ctx.moveTo(CANVAS_WIDTH, y);
+        ctx.lineTo(CANVAS_WIDTH - lineLength, y);
+        ctx.stroke();
+      }
+      
       // Simple static lab silhouettes (minimal shapes)
-      ctx.fillStyle = 'rgba(50, 50, 50, 0.8)';
+      ctx.fillStyle = 'rgba(35, 35, 40, 0.9)';
       // Beaker
       ctx.fillRect(45, CANVAS_HEIGHT - 100, 30, 70);
       // Flask base
@@ -1081,7 +1093,7 @@ export default function DonutDashPage() {
       ctx.fillRect(200, CANVAS_HEIGHT - 90, 40, 60);
       
       // Floor/ceiling
-      ctx.fillStyle = '#111';
+      ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(0, 0, CANVAS_WIDTH, 30);
       ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
       
@@ -1106,6 +1118,25 @@ export default function DonutDashPage() {
         ctx.fill();
       }
       
+      // Floating sprinkles in background
+      const sprinkleColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF69B4'];
+      for (let i = 0; i < 8; i++) {
+        const sx = ((time * 50 + i * 60) % (CANVAS_WIDTH + 40)) - 20;
+        const sy = 80 + Math.sin(time * 2 + i * 1.5) * 30 + (i % 3) * 100;
+        const color = sprinkleColors[i % sprinkleColors.length];
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(time * 0.5 + i);
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.roundRect(-6, -3, 12, 6, 3);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+      
       // Title
       ctx.fillStyle = '#FFFFFF';
       ctx.font = 'bold 36px monospace';
@@ -1116,56 +1147,92 @@ export default function DonutDashPage() {
       ctx.fillText('DASH', CANVAS_WIDTH / 2, 130);
       ctx.shadowBlur = 0;
       
-      // Animated donut with jetpack
+      // Animated donut with jetpack - matching in-game style
       const bounceY = Math.sin(time * 3) * 10;
-      const tiltAngle = Math.sin(time * 2) * 0.12;
+      const tiltAngle = Math.sin(time * 2) * 0.15;
+      const donutX = CANVAS_WIDTH / 2;
+      const donutY = 210 + bounceY;
+      
+      // Motion trail (always show on menu to look dynamic)
+      for (let i = 3; i > 0; i--) {
+        const trailAlpha = 0.12 * (4 - i);
+        const trailX = donutX - i * 10;
+        ctx.fillStyle = `rgba(255, 105, 180, ${trailAlpha})`;
+        ctx.beginPath();
+        ctx.arc(trailX, donutY, 28 - i * 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
       
       ctx.save();
-      ctx.translate(CANVAS_WIDTH / 2, 210 + bounceY);
+      ctx.translate(donutX, donutY);
       ctx.rotate(tiltAngle);
       
-      // Jetpack
-      ctx.fillStyle = '#444';
-      ctx.fillRect(-26, -6, 10, 20);
+      // Jetpack - matching in-game size and style
+      ctx.fillStyle = '#3a3a3a';
+      ctx.fillRect(-42, -12, 16, 32);
       ctx.fillStyle = '#555';
-      ctx.fillRect(-24, -4, 6, 16);
+      ctx.fillRect(-40, -10, 12, 28);
+      ctx.fillStyle = '#777';
+      ctx.fillRect(-40, -10, 4, 28);
       
-      // Flame
-      const flameSize = 12 + Math.sin(time * 12) * 4;
-      ctx.fillStyle = '#FF6B00';
+      // Flame - bigger and more impressive
+      const flameSize = 20 + Math.sin(time * 15) * 8;
+      
+      // Outer flame
+      const flameGradient = ctx.createLinearGradient(-34, 20, -34, 20 + flameSize);
+      flameGradient.addColorStop(0, '#FFD700');
+      flameGradient.addColorStop(0.4, '#FF6B00');
+      flameGradient.addColorStop(0.8, '#FF0000');
+      flameGradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+      ctx.fillStyle = flameGradient;
       ctx.beginPath();
-      ctx.moveTo(-20, 14);
-      ctx.lineTo(-26, 14 + flameSize);
-      ctx.lineTo(-32, 14);
+      ctx.moveTo(-26, 20);
+      ctx.lineTo(-34, 20 + flameSize);
+      ctx.lineTo(-42, 20);
       ctx.closePath();
       ctx.fill();
-      ctx.fillStyle = '#FFD700';
+      
+      // Inner bright core
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
       ctx.beginPath();
-      ctx.moveTo(-22, 14);
-      ctx.lineTo(-26, 14 + flameSize * 0.6);
-      ctx.lineTo(-30, 14);
+      ctx.moveTo(-30, 20);
+      ctx.lineTo(-34, 20 + flameSize * 0.5);
+      ctx.lineTo(-38, 20);
       ctx.closePath();
       ctx.fill();
       
-      // Donut
+      // Donut with gradient matching in-game
       ctx.shadowColor = '#FF69B4';
-      ctx.shadowBlur = 20;
-      ctx.fillStyle = '#FF69B4';
+      ctx.shadowBlur = 25;
+      
+      const donutGradient = ctx.createRadialGradient(-4, -4, 0, 0, 0, 30);
+      donutGradient.addColorStop(0, '#FFD1DC');
+      donutGradient.addColorStop(0.4, '#FF69B4');
+      donutGradient.addColorStop(0.8, '#FF1493');
+      donutGradient.addColorStop(1, '#C71585');
+      ctx.fillStyle = donutGradient;
       ctx.beginPath();
-      ctx.arc(0, 0, 32, 0, Math.PI * 2);
+      ctx.arc(0, 0, 30, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
       
-      // Donut hole
-      ctx.fillStyle = '#1a1a1a';
+      // Donut hole with depth
+      const holeGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 10);
+      holeGradient.addColorStop(0, '#0a0a0a');
+      holeGradient.addColorStop(1, '#1f1f1f');
+      ctx.fillStyle = holeGradient;
       ctx.beginPath();
-      ctx.arc(0, 0, 11, 0, Math.PI * 2);
+      ctx.arc(0, 0, 10, 0, Math.PI * 2);
       ctx.fill();
       
-      // Highlight
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      // Highlights
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
       ctx.beginPath();
-      ctx.arc(-7, -7, 6, 0, Math.PI * 2);
+      ctx.arc(-8, -8, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.beginPath();
+      ctx.arc(5, -10, 4, 0, Math.PI * 2);
       ctx.fill();
       
       ctx.restore();
