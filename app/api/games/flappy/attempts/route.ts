@@ -42,10 +42,12 @@ export async function GET(request: Request) {
     }
     
     const attempts = data?.attempts || 0;
+    // Start at 1.0 DONUT, increase by 0.1 each attempt
+    const nextCost = 1 + (attempts * 0.1);
     
     return NextResponse.json({
       attempts,
-      nextCost: attempts + 1,
+      nextCost,
       playDate,
     });
   } catch (error) {

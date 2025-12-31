@@ -902,7 +902,7 @@ export default function FlappyDonutPage() {
   // After approval is confirmed and allowance refetched, send payment
   useEffect(() => {
     if (pendingTxType === "approved" && allowance) {
-      const costWei = parseUnits(entryCost.toString(), 18);
+      const costWei = parseUnits(entryCost.toFixed(1), 18);
       if (allowance >= costWei) {
         setPendingTxType("pay");
         writeContract({ address: FLAPPY_POOL_ADDRESS, abi: FLAPPY_POOL_ABI, functionName: "payEntry", args: [costWei] });
@@ -949,8 +949,8 @@ export default function FlappyDonutPage() {
     setIsLoading(true);
     setError(null);
     gameStartPendingRef.current = true; // Mark that we want to start a game after tx
-    const costWei = parseUnits(entryCost.toString(), 18);
-    if (balance && balance < costWei) { setError(`Insufficient DONUT. Need ${entryCost} 🍩`); setIsLoading(false); gameStartPendingRef.current = false; return; }
+    const costWei = parseUnits(entryCost.toFixed(1), 18);
+    if (balance && balance < costWei) { setError(`Insufficient DONUT. Need ${entryCost.toFixed(1)} 🍩`); setIsLoading(false); gameStartPendingRef.current = false; return; }
     if (!allowance || allowance < costWei) { 
       setPendingTxType("approve");
       writeContract({ address: DONUT_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [FLAPPY_POOL_ADDRESS, parseUnits("100", 18)] }); 
@@ -1149,7 +1149,7 @@ export default function FlappyDonutPage() {
                   {gameState === "gameover" && score > 0 && (
                     <button onClick={handleShare} className="flex items-center gap-2 px-5 py-1.5 bg-purple-600 text-white text-sm font-bold rounded-full hover:bg-purple-500"><Share2 className="w-3 h-3" /><span>Share</span></button>
                   )}
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 rounded-full border border-zinc-700"><Zap className="w-3 h-3 text-yellow-400" /><span className="text-xs">Entry: <span className="font-bold">{entryCost} 🍩</span></span></div>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 rounded-full border border-zinc-700"><Zap className="w-3 h-3 text-yellow-400" /><span className="text-xs">Entry: <span className="font-bold">{entryCost.toFixed(1)} 🍩</span></span></div>
                   <button onClick={handlePlay} disabled={isPaying || isLoading} className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95 disabled:opacity-50">
                     {isPaying ? <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Processing...</span></> : <><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span></>}
                   </button>
@@ -1277,11 +1277,11 @@ export default function FlappyDonutPage() {
                 
                 <div>
                   <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-400" />Entry Cost</h3>
-                  <p className="text-xs text-zinc-400">Each game costs DONUT to play. The cost increases with each attempt:</p>
+                  <p className="text-xs text-zinc-400">Each game costs DONUT to play. The cost increases by 0.1 with each attempt:</p>
                   <ul className="text-xs text-zinc-400 mt-1 space-y-1 pl-4">
-                    <li>• 1st game: <span className="text-white">1 DONUT</span></li>
-                    <li>• 2nd game: <span className="text-white">2 DONUT</span></li>
-                    <li>• 3rd game: <span className="text-white">3 DONUT</span></li>
+                    <li>• 1st game: <span className="text-white">1.0 DONUT</span></li>
+                    <li>• 2nd game: <span className="text-white">1.1 DONUT</span></li>
+                    <li>• 3rd game: <span className="text-white">1.2 DONUT</span></li>
                     <li>• And so on...</li>
                   </ul>
                   <p className="text-xs text-zinc-500 mt-2">Cost resets daily at 6PM EST</p>
