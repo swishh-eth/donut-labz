@@ -1163,14 +1163,47 @@ export default function DonutDashPage() {
     return () => cancelAnimationFrame(animationId);
   }, [gameState, score]);
 
-  // Touch prevention
+  // Touch prevention - aggressive prevention of selection and context menus
   useEffect(() => {
-    const preventDefault = (e: Event) => { if (gameState === "playing") e.preventDefault(); };
-    document.addEventListener('contextmenu', preventDefault, { passive: false });
+    const canvas = canvasRef.current;
+    
+    const preventDefault = (e: Event) => { 
+      e.preventDefault(); 
+      e.stopPropagation();
+    };
+    
+    const preventDefaultOnPlaying = (e: Event) => { 
+      if (gameState === "playing") {
+        e.preventDefault(); 
+        e.stopPropagation();
+      }
+    };
+    
+    // Always prevent on canvas
+    if (canvas) {
+      canvas.addEventListener('touchstart', preventDefault, { passive: false });
+      canvas.addEventListener('touchmove', preventDefault, { passive: false });
+      canvas.addEventListener('touchend', preventDefault, { passive: false });
+    }
+    
+    // Prevent context menu and selection globally during gameplay
+    document.addEventListener('contextmenu', preventDefaultOnPlaying, { passive: false });
     document.addEventListener('selectstart', preventDefault, { passive: false });
+    
+    // Prevent long-press popup on iOS
+    document.body.style.webkitUserSelect = 'none';
+    (document.body.style as any).webkitTouchCallout = 'none';
+    
     return () => {
-      document.removeEventListener('contextmenu', preventDefault);
+      if (canvas) {
+        canvas.removeEventListener('touchstart', preventDefault);
+        canvas.removeEventListener('touchmove', preventDefault);
+        canvas.removeEventListener('touchend', preventDefault);
+      }
+      document.removeEventListener('contextmenu', preventDefaultOnPlaying);
       document.removeEventListener('selectstart', preventDefault);
+      document.body.style.webkitUserSelect = '';
+      (document.body.style as any).webkitTouchCallout = '';
     };
   }, [gameState]);
 
@@ -1189,11 +1222,29 @@ export default function DonutDashPage() {
   const isPaymentPending = paymentState === 'approving' || paymentState === 'paying' || paymentState === 'recording' || isPending || isConfirming;
 
   return (
-    <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
+    <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white select-none">
       <style>{`
         .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        * { -webkit-tap-highlight-color: transparent !important; }
+        * { 
+          -webkit-tap-highlight-color: transparent !important;
+          -webkit-touch-callout: none !important;
+        }
+        .game-container {
+          -webkit-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+          user-select: none !important;
+          -webkit-touch-callout: none !important;
+          touch-action: manipulation !important;
+        }
+        .game-container * {
+          -webkit-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+          user-select: none !important;
+          -webkit-touch-callout: none !important;
+        }
       `}</style>
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-3 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
@@ -1240,31 +1291,40 @@ export default function DonutDashPage() {
         </button>
         
         {/* Game Canvas */}
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center game-container">
           <div className="relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
             <canvas
               ref={canvasRef}
               width={SCALED_WIDTH}
               height={SCALED_HEIGHT}
               className="rounded-2xl border border-zinc-800 w-full h-full select-none"
-              style={{ touchAction: "none" }}
+              style={{ touchAction: "none", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}
               onPointerDown={(e) => { e.preventDefault(); if (gameState === "playing") handleThrustStart(); }}
               onPointerUp={(e) => { e.preventDefault(); handleThrustEnd(); }}
               onPointerLeave={handleThrustEnd}
               onPointerCancel={handleThrustEnd}
               onContextMenu={(e) => e.preventDefault()}
+              onTouchStart={(e) => { e.preventDefault(); if (gameState === "playing") handleThrustStart(); }}
+              onTouchEnd={(e) => { e.preventDefault(); handleThrustEnd(); }}
+              onTouchMove={(e) => { e.preventDefault(); }}
             />
             
             {gameState === "playing" && (
               <div 
-                className="absolute inset-0 z-10"
-                style={{ touchAction: "none" }}
-                onPointerDown={(e) => { e.preventDefault(); handleThrustStart(); }}
-                onPointerUp={(e) => { e.preventDefault(); handleThrustEnd(); }}
+                className="absolute inset-0 z-10 select-none"
+                style={{ 
+                  touchAction: "none", 
+                  WebkitUserSelect: "none", 
+                  userSelect: "none",
+                  WebkitTouchCallout: "none"
+                }}
+                onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); handleThrustStart(); }}
+                onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); handleThrustEnd(); }}
                 onPointerLeave={handleThrustEnd}
                 onPointerCancel={handleThrustEnd}
-                onTouchStart={(e) => { e.preventDefault(); handleThrustStart(); }}
-                onTouchEnd={(e) => { e.preventDefault(); handleThrustEnd(); }}
+                onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleThrustStart(); }}
+                onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleThrustEnd(); }}
+                onTouchMove={(e) => { e.preventDefault(); e.stopPropagation(); }}
                 onContextMenu={(e) => e.preventDefault()}
               />
             )}
