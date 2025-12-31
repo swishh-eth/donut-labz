@@ -649,6 +649,7 @@ export default function DonutDashPage() {
     const y = player.y;
     const tilt = Math.max(-0.4, Math.min(0.4, player.velocity * 0.04));
     
+    // Motion trail when thrusting
     if (player.isThrusting) {
       for (let i = 3; i > 0; i--) {
         ctx.fillStyle = `rgba(255, 105, 180, ${0.1 * (4 - i)})`;
@@ -662,29 +663,128 @@ export default function DonutDashPage() {
     ctx.translate(x, y);
     ctx.rotate(tilt);
     
-    ctx.fillStyle = '#3a3a3a';
-    ctx.fillRect(-PLAYER_SIZE / 2 - 14, -10, 14, 28);
-    ctx.fillStyle = '#555';
-    ctx.fillRect(-PLAYER_SIZE / 2 - 12, -8, 10, 24);
-    ctx.fillStyle = '#777';
-    ctx.fillRect(-PLAYER_SIZE / 2 - 12, -8, 3, 24);
+    // === IMPROVED JETPACK DESIGN ===
     
+    // Jetpack tank with metallic gradient
+    const tankX = -PLAYER_SIZE / 2 - 16;
+    const tankY = -12;
+    const tankWidth = 14;
+    const tankHeight = 28;
+    
+    // Tank body gradient (metallic look)
+    const tankGradient = ctx.createLinearGradient(tankX, 0, tankX + tankWidth, 0);
+    tankGradient.addColorStop(0, '#3a3a3a');
+    tankGradient.addColorStop(0.3, '#6a6a6a');
+    tankGradient.addColorStop(0.7, '#5a5a5a');
+    tankGradient.addColorStop(1, '#2a2a2a');
+    
+    // Draw tank with rounded corners
+    ctx.fillStyle = tankGradient;
+    ctx.beginPath();
+    ctx.roundRect(tankX, tankY, tankWidth, tankHeight, 3);
+    ctx.fill();
+    
+    // Inner tank detail
+    ctx.fillStyle = '#4a4a4a';
+    ctx.beginPath();
+    ctx.roundRect(tankX + 2, tankY + 2, tankWidth - 4, tankHeight - 4, 2);
+    ctx.fill();
+    
+    // Tank highlight (left edge)
+    ctx.fillStyle = '#888';
+    ctx.fillRect(tankX + 2, tankY + 2, 2, tankHeight - 4);
+    
+    // Tank detail lines (horizontal stripes)
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(tankX + 3, tankY + 8);
+    ctx.lineTo(tankX + tankWidth - 3, tankY + 8);
+    ctx.moveTo(tankX + 3, tankY + 14);
+    ctx.lineTo(tankX + tankWidth - 3, tankY + 14);
+    ctx.moveTo(tankX + 3, tankY + 20);
+    ctx.lineTo(tankX + tankWidth - 3, tankY + 20);
+    ctx.stroke();
+    
+    // Connector piece (between tank and donut)
+    const connectorX = tankX + tankWidth - 2;
+    ctx.fillStyle = '#4a4a4a';
+    ctx.fillRect(connectorX, -4, 8, 10);
+    
+    // Connector bolt/circle
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.arc(connectorX + 4, 1, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Nozzle (trapezoid shape at bottom)
+    ctx.fillStyle = '#2a2a2a';
+    ctx.beginPath();
+    ctx.moveTo(tankX + 2, tankY + tankHeight);
+    ctx.lineTo(tankX - 2, tankY + tankHeight + 6);
+    ctx.lineTo(tankX + tankWidth + 2, tankY + tankHeight + 6);
+    ctx.lineTo(tankX + tankWidth - 2, tankY + tankHeight);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Nozzle inner
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.moveTo(tankX + 3, tankY + tankHeight + 1);
+    ctx.lineTo(tankX, tankY + tankHeight + 5);
+    ctx.lineTo(tankX + tankWidth, tankY + tankHeight + 5);
+    ctx.lineTo(tankX + tankWidth - 3, tankY + tankHeight + 1);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Flames (only when thrusting)
     if (player.isThrusting) {
-      const flameSize = 15 + Math.sin(frameCountRef.current * 0.6) * 8;
-      const gradient = ctx.createLinearGradient(-PLAYER_SIZE / 2 - 12, 18, -PLAYER_SIZE / 2 - 12, 18 + flameSize);
-      gradient.addColorStop(0, '#FFD700');
-      gradient.addColorStop(0.4, '#FF6B00');
-      gradient.addColorStop(0.8, '#FF0000');
-      gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
-      ctx.fillStyle = gradient;
+      const flameBaseY = tankY + tankHeight + 6;
+      const flameSize = 18 + Math.sin(frameCountRef.current * 0.6) * 10;
+      const flameCenterX = tankX + tankWidth / 2;
+      
+      // Outer flame (gold -> orange -> red -> transparent)
+      const outerFlameGradient = ctx.createLinearGradient(flameCenterX, flameBaseY, flameCenterX, flameBaseY + flameSize);
+      outerFlameGradient.addColorStop(0, '#FFD700');
+      outerFlameGradient.addColorStop(0.3, '#FF8C00');
+      outerFlameGradient.addColorStop(0.6, '#FF4500');
+      outerFlameGradient.addColorStop(1, 'rgba(255, 69, 0, 0)');
+      
+      ctx.fillStyle = outerFlameGradient;
       ctx.beginPath();
-      ctx.moveTo(-PLAYER_SIZE / 2 - 4, 18);
-      ctx.lineTo(-PLAYER_SIZE / 2 - 12, 18 + flameSize);
-      ctx.lineTo(-PLAYER_SIZE / 2 - 20, 18);
+      ctx.moveTo(tankX - 1, flameBaseY);
+      ctx.quadraticCurveTo(flameCenterX - 8, flameBaseY + flameSize * 0.6, flameCenterX, flameBaseY + flameSize);
+      ctx.quadraticCurveTo(flameCenterX + 8, flameBaseY + flameSize * 0.6, tankX + tankWidth + 1, flameBaseY);
       ctx.closePath();
       ctx.fill();
+      
+      // Inner flame (white/yellow bright core)
+      const innerFlameSize = flameSize * 0.6;
+      const innerFlameGradient = ctx.createLinearGradient(flameCenterX, flameBaseY, flameCenterX, flameBaseY + innerFlameSize);
+      innerFlameGradient.addColorStop(0, '#FFFFFF');
+      innerFlameGradient.addColorStop(0.3, '#FFFACD');
+      innerFlameGradient.addColorStop(0.6, '#FFD700');
+      innerFlameGradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+      
+      ctx.fillStyle = innerFlameGradient;
+      ctx.beginPath();
+      ctx.moveTo(tankX + 3, flameBaseY);
+      ctx.quadraticCurveTo(flameCenterX - 4, flameBaseY + innerFlameSize * 0.5, flameCenterX, flameBaseY + innerFlameSize);
+      ctx.quadraticCurveTo(flameCenterX + 4, flameBaseY + innerFlameSize * 0.5, tankX + tankWidth - 3, flameBaseY);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Flame glow
+      ctx.shadowColor = '#FF6B00';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.arc(flameCenterX, flameBaseY + 5, 4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 200, 100, 0.5)';
+      ctx.fill();
+      ctx.shadowBlur = 0;
     }
     
+    // === DONUT ===
     ctx.shadowColor = '#FF69B4';
     ctx.shadowBlur = player.isThrusting ? 25 : 15;
     const donutGradient = ctx.createRadialGradient(-3, -3, 0, 0, 0, PLAYER_SIZE / 2);
@@ -698,6 +798,7 @@ export default function DonutDashPage() {
     ctx.fill();
     ctx.shadowBlur = 0;
     
+    // Donut hole
     const holeGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, PLAYER_SIZE / 5);
     holeGradient.addColorStop(0, '#0a0a0a');
     holeGradient.addColorStop(1, '#1f1f1f');
@@ -706,10 +807,26 @@ export default function DonutDashPage() {
     ctx.arc(0, 0, PLAYER_SIZE / 5, 0, Math.PI * 2);
     ctx.fill();
     
+    // Donut highlight
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.beginPath();
     ctx.arc(-6, -6, 5, 0, Math.PI * 2);
     ctx.fill();
+    
+    // Small sprinkles on donut
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.save();
+    ctx.rotate(-0.3);
+    ctx.beginPath();
+    ctx.roundRect(8, -2, 4, 2, 1);
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.rotate(0.5);
+    ctx.beginPath();
+    ctx.roundRect(-4, 10, 4, 2, 1);
+    ctx.fill();
+    ctx.restore();
     
     ctx.restore();
   }, []);
@@ -812,19 +929,76 @@ export default function DonutDashPage() {
     });
   }, []);
 
-  // Collision checks
+  // Helper function to calculate distance from point to line segment
+  const pointToLineDistance = useCallback((px: number, py: number, x1: number, y1: number, x2: number, y2: number): number => {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lengthSquared = dx * dx + dy * dy;
+    
+    if (lengthSquared === 0) {
+      return Math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1));
+    }
+    
+    let t = ((px - x1) * dx + (py - y1) * dy) / lengthSquared;
+    t = Math.max(0, Math.min(1, t));
+    
+    const closestX = x1 + t * dx;
+    const closestY = y1 + t * dy;
+    
+    return Math.sqrt((px - closestX) * (px - closestX) + (py - closestY) * (py - closestY));
+  }, []);
+
+  // Collision checks - FIXED: Use proper line-circle collision for all zappers
   const checkCollisions = useCallback((): boolean => {
     const player = playerRef.current;
-    const playerLeft = PLAYER_X - PLAYER_SIZE / 2 + 5;
-    const playerRight = PLAYER_X + PLAYER_SIZE / 2 - 5;
-    const playerTop = player.y - PLAYER_SIZE / 2 + 5;
-    const playerBottom = player.y + PLAYER_SIZE / 2 - 5;
-    if (playerTop < 30 || playerBottom > CANVAS_HEIGHT - 30) return true;
+    const playerRadius = PLAYER_SIZE / 2 - 5; // collision radius with padding
+    const playerCenterX = PLAYER_X;
+    const playerCenterY = player.y;
+    
+    // Check boundaries (ceiling and floor)
+    if (playerCenterY - playerRadius < 30 || playerCenterY + playerRadius > CANVAS_HEIGHT - 30) return true;
+    
     for (const obstacle of obstaclesRef.current) {
-      if (playerRight > obstacle.x && playerLeft < obstacle.x + obstacle.width && playerBottom > obstacle.y && playerTop < obstacle.y + obstacle.height) return true;
+      if (obstacle.type === 'zapper_diag' && obstacle.angle) {
+        // For diagonal zappers, check distance to the actual rotated line segment
+        const centerX = obstacle.x + obstacle.width / 2;
+        const centerY = obstacle.y + obstacle.height / 2;
+        const angleRad = (obstacle.angle * Math.PI) / 180;
+        const halfLength = obstacle.width / 2;
+        
+        // Calculate actual line segment endpoints after rotation
+        const cos = Math.cos(angleRad);
+        const sin = Math.sin(angleRad);
+        const x1 = centerX - halfLength * cos;
+        const y1 = centerY - halfLength * sin;
+        const x2 = centerX + halfLength * cos;
+        const y2 = centerY + halfLength * sin;
+        
+        // Check distance from player center to line segment
+        const dist = pointToLineDistance(playerCenterX, playerCenterY, x1, y1, x2, y2);
+        
+        // Collision if distance is less than player radius + zapper thickness
+        if (dist < playerRadius + 10) return true;
+      } else if (obstacle.type === 'zapper_h') {
+        // Horizontal zapper - check distance to horizontal line
+        const lineY = obstacle.y + obstacle.height / 2;
+        const x1 = obstacle.x;
+        const x2 = obstacle.x + obstacle.width;
+        
+        const dist = pointToLineDistance(playerCenterX, playerCenterY, x1, lineY, x2, lineY);
+        if (dist < playerRadius + 10) return true;
+      } else if (obstacle.type === 'zapper_v') {
+        // Vertical zapper - check distance to vertical line
+        const lineX = obstacle.x + obstacle.width / 2;
+        const y1 = obstacle.y;
+        const y2 = obstacle.y + obstacle.height;
+        
+        const dist = pointToLineDistance(playerCenterX, playerCenterY, lineX, y1, lineX, y2);
+        if (dist < playerRadius + 10) return true;
+      }
     }
     return false;
-  }, []);
+  }, [pointToLineDistance]);
 
   const checkCoins = useCallback(() => {
     const player = playerRef.current;
@@ -1123,19 +1297,110 @@ export default function DonutDashPage() {
       const tiltAngle = Math.sin(time * 2) * 0.15;
       const donutX = CANVAS_WIDTH / 2;
       const donutY = (gameState === "gameover" ? 180 : 210) + bounceY;
+      
+      // Motion trail
       for (let i = 3; i > 0; i--) {
         ctx.fillStyle = `rgba(255, 105, 180, ${0.12 * (4 - i)})`;
         ctx.beginPath(); ctx.arc(donutX - i * 10, donutY, 28 - i * 2, 0, Math.PI * 2); ctx.fill();
       }
+      
       ctx.save(); ctx.translate(donutX, donutY); ctx.rotate(tiltAngle);
-      ctx.fillStyle = '#3a3a3a'; ctx.fillRect(-42, -12, 16, 32);
-      ctx.fillStyle = '#555'; ctx.fillRect(-40, -10, 12, 28);
-      ctx.fillStyle = '#777'; ctx.fillRect(-40, -10, 4, 28);
-      const flameSize = 20 + Math.sin(time * 15) * 8;
-      const flameGradient = ctx.createLinearGradient(-34, 20, -34, 20 + flameSize);
-      flameGradient.addColorStop(0, '#FFD700'); flameGradient.addColorStop(0.4, '#FF6B00'); flameGradient.addColorStop(0.8, '#FF0000'); flameGradient.addColorStop(1, 'rgba(255,0,0,0)');
-      ctx.fillStyle = flameGradient;
-      ctx.beginPath(); ctx.moveTo(-26, 20); ctx.lineTo(-34, 20 + flameSize); ctx.lineTo(-42, 20); ctx.closePath(); ctx.fill();
+      
+      // === IMPROVED JETPACK (scaled for menu) ===
+      const tankX = -46;
+      const tankY = -14;
+      const tankWidth = 18;
+      const tankHeight = 34;
+      
+      // Tank body gradient
+      const menuTankGradient = ctx.createLinearGradient(tankX, 0, tankX + tankWidth, 0);
+      menuTankGradient.addColorStop(0, '#3a3a3a');
+      menuTankGradient.addColorStop(0.3, '#6a6a6a');
+      menuTankGradient.addColorStop(0.7, '#5a5a5a');
+      menuTankGradient.addColorStop(1, '#2a2a2a');
+      
+      ctx.fillStyle = menuTankGradient;
+      ctx.beginPath();
+      ctx.roundRect(tankX, tankY, tankWidth, tankHeight, 4);
+      ctx.fill();
+      
+      // Inner tank
+      ctx.fillStyle = '#4a4a4a';
+      ctx.beginPath();
+      ctx.roundRect(tankX + 2, tankY + 2, tankWidth - 4, tankHeight - 4, 3);
+      ctx.fill();
+      
+      // Tank highlight
+      ctx.fillStyle = '#888';
+      ctx.fillRect(tankX + 2, tankY + 2, 3, tankHeight - 4);
+      
+      // Tank stripes
+      ctx.strokeStyle = '#666';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(tankX + 4, tankY + 10);
+      ctx.lineTo(tankX + tankWidth - 4, tankY + 10);
+      ctx.moveTo(tankX + 4, tankY + 17);
+      ctx.lineTo(tankX + tankWidth - 4, tankY + 17);
+      ctx.moveTo(tankX + 4, tankY + 24);
+      ctx.lineTo(tankX + tankWidth - 4, tankY + 24);
+      ctx.stroke();
+      
+      // Connector
+      ctx.fillStyle = '#4a4a4a';
+      ctx.fillRect(tankX + tankWidth - 2, -5, 10, 12);
+      ctx.fillStyle = '#333';
+      ctx.beginPath();
+      ctx.arc(tankX + tankWidth + 3, 1, 3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Nozzle
+      ctx.fillStyle = '#2a2a2a';
+      ctx.beginPath();
+      ctx.moveTo(tankX + 2, tankY + tankHeight);
+      ctx.lineTo(tankX - 2, tankY + tankHeight + 8);
+      ctx.lineTo(tankX + tankWidth + 2, tankY + tankHeight + 8);
+      ctx.lineTo(tankX + tankWidth - 2, tankY + tankHeight);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Flames (always on for menu)
+      const flameBaseY = tankY + tankHeight + 8;
+      const flameSize = 24 + Math.sin(time * 15) * 10;
+      const flameCenterX = tankX + tankWidth / 2;
+      
+      // Outer flame
+      const menuOuterFlame = ctx.createLinearGradient(flameCenterX, flameBaseY, flameCenterX, flameBaseY + flameSize);
+      menuOuterFlame.addColorStop(0, '#FFD700');
+      menuOuterFlame.addColorStop(0.3, '#FF8C00');
+      menuOuterFlame.addColorStop(0.6, '#FF4500');
+      menuOuterFlame.addColorStop(1, 'rgba(255, 69, 0, 0)');
+      
+      ctx.fillStyle = menuOuterFlame;
+      ctx.beginPath();
+      ctx.moveTo(tankX - 1, flameBaseY);
+      ctx.quadraticCurveTo(flameCenterX - 10, flameBaseY + flameSize * 0.6, flameCenterX, flameBaseY + flameSize);
+      ctx.quadraticCurveTo(flameCenterX + 10, flameBaseY + flameSize * 0.6, tankX + tankWidth + 1, flameBaseY);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Inner flame
+      const innerFlameSize = flameSize * 0.6;
+      const menuInnerFlame = ctx.createLinearGradient(flameCenterX, flameBaseY, flameCenterX, flameBaseY + innerFlameSize);
+      menuInnerFlame.addColorStop(0, '#FFFFFF');
+      menuInnerFlame.addColorStop(0.3, '#FFFACD');
+      menuInnerFlame.addColorStop(0.6, '#FFD700');
+      menuInnerFlame.addColorStop(1, 'rgba(255, 215, 0, 0)');
+      
+      ctx.fillStyle = menuInnerFlame;
+      ctx.beginPath();
+      ctx.moveTo(tankX + 4, flameBaseY);
+      ctx.quadraticCurveTo(flameCenterX - 5, flameBaseY + innerFlameSize * 0.5, flameCenterX, flameBaseY + innerFlameSize);
+      ctx.quadraticCurveTo(flameCenterX + 5, flameBaseY + innerFlameSize * 0.5, tankX + tankWidth - 4, flameBaseY);
+      ctx.closePath();
+      ctx.fill();
+      
+      // === DONUT ===
       ctx.shadowColor = '#FF69B4'; ctx.shadowBlur = 25;
       const donutGradient = ctx.createRadialGradient(-4, -4, 0, 0, 0, 30);
       donutGradient.addColorStop(0, '#FFD1DC'); donutGradient.addColorStop(0.4, '#FF69B4'); donutGradient.addColorStop(0.8, '#FF1493'); donutGradient.addColorStop(1, '#C71585');
@@ -1145,6 +1410,16 @@ export default function DonutDashPage() {
       holeGradient.addColorStop(0, '#0a0a0a'); holeGradient.addColorStop(1, '#1f1f1f');
       ctx.fillStyle = holeGradient; ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.arc(-8, -8, 6, 0, Math.PI * 2); ctx.fill();
+      
+      // Sprinkles on menu donut
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.save(); ctx.rotate(-0.3);
+      ctx.beginPath(); ctx.roundRect(14, -3, 6, 3, 1); ctx.fill();
+      ctx.restore();
+      ctx.save(); ctx.rotate(0.5);
+      ctx.beginPath(); ctx.roundRect(-6, 16, 6, 3, 1); ctx.fill();
+      ctx.restore();
+      
       ctx.restore();
       if (gameState === "gameover") {
         ctx.fillStyle = '#FF6B6B'; ctx.font = 'bold 24px monospace';
