@@ -9,7 +9,7 @@ import { Trophy, Play, Share2, X, HelpCircle, Volume2, VolumeX, ChevronRight, Cl
 
 // Game constants
 const CANVAS_WIDTH = 360;
-const CANVAS_HEIGHT = 640;
+const CANVAS_HEIGHT = 480;
 const CANVAS_SCALE = 2;
 const SCALED_WIDTH = CANVAS_WIDTH * CANVAS_SCALE;
 const SCALED_HEIGHT = CANVAS_HEIGHT * CANVAS_SCALE;
@@ -18,7 +18,7 @@ const SCALED_HEIGHT = CANVAS_HEIGHT * CANVAS_SCALE;
 const LANE_WIDTH = 80;
 const LANE_POSITIONS = [-LANE_WIDTH, 0, LANE_WIDTH];
 const PLAYER_SIZE = 40;
-const GROUND_Y = CANVAS_HEIGHT - 120;
+const GROUND_Y = CANVAS_HEIGHT - 100;
 const JUMP_FORCE = -18;
 const GRAVITY = 0.8;
 const SLIDE_DURATION = 500;
@@ -275,14 +275,17 @@ export default function SprinkleRunPage() {
     
     const runCycle = Math.sin(Date.now() * 0.015) * 5;
     
+    // Shadow
     ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
     ctx.beginPath();
     ctx.ellipse(0, size / 2 + 5, size / 2, size / 6, 0, 0, Math.PI * 2);
     ctx.fill();
     
+    // Donut glow
     ctx.shadowColor = '#FF69B4';
     ctx.shadowBlur = 20;
     
+    // Donut body
     const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, size / 2);
     gradient.addColorStop(0, '#FFB6C1');
     gradient.addColorStop(0.7, '#FF69B4');
@@ -294,25 +297,13 @@ export default function SprinkleRunPage() {
     ctx.fill();
     ctx.shadowBlur = 0;
     
+    // Donut hole
     ctx.fillStyle = '#1a1a1a';
     ctx.beginPath();
     ctx.arc(0, player.isSliding ? size / 4 : 0, size / 5, 0, Math.PI * 2);
     ctx.fill();
     
-    const sprinkleColors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF'];
-    for (let i = 0; i < 6; i++) {
-      const angle = (i / 6) * Math.PI * 2 + Date.now() * 0.002;
-      const dist = size / 3;
-      const sx = Math.cos(angle) * dist;
-      const sy = (player.isSliding ? size / 4 : 0) + Math.sin(angle) * dist * 0.7;
-      ctx.fillStyle = sprinkleColors[i % sprinkleColors.length];
-      ctx.save();
-      ctx.translate(sx, sy);
-      ctx.rotate(angle);
-      ctx.fillRect(-4, -1.5, 8, 3);
-      ctx.restore();
-    }
-    
+    // Legs (if not sliding)
     if (!player.isSliding) {
       ctx.fillStyle = '#8B4513';
       ctx.save();
@@ -332,18 +323,6 @@ export default function SprinkleRunPage() {
       ctx.fillRect(-7, 18 - runCycle, 14, 8);
       ctx.restore();
     }
-    
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.arc(-8, player.isSliding ? size / 4 - 5 : -5, 6, 0, Math.PI * 2);
-    ctx.arc(8, player.isSliding ? size / 4 - 5 : -5, 6, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.fillStyle = '#000000';
-    ctx.beginPath();
-    ctx.arc(-8, player.isSliding ? size / 4 - 5 : -5, 3, 0, Math.PI * 2);
-    ctx.arc(8, player.isSliding ? size / 4 - 5 : -5, 3, 0, Math.PI * 2);
-    ctx.fill();
     
     ctx.restore();
   }, [project]);
@@ -761,33 +740,10 @@ export default function SprinkleRunPage() {
       ctx.fill();
       ctx.shadowBlur = 0;
       
+      // Donut hole
       ctx.fillStyle = '#1a1a1a';
       ctx.beginPath();
       ctx.arc(0, 0, 18, 0, Math.PI * 2);
-      ctx.fill();
-      
-      const colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF'];
-      for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2 + time;
-        const x = Math.cos(angle) * 32;
-        const y = Math.sin(angle) * 32;
-        ctx.fillStyle = colors[i % colors.length];
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(angle);
-        ctx.fillRect(-6, -2, 12, 4);
-        ctx.restore();
-      }
-      
-      ctx.fillStyle = '#FFFFFF';
-      ctx.beginPath();
-      ctx.arc(-12, -8, 8, 0, Math.PI * 2);
-      ctx.arc(12, -8, 8, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#000000';
-      ctx.beginPath();
-      ctx.arc(-12, -8, 4, 0, Math.PI * 2);
-      ctx.arc(12, -8, 4, 0, Math.PI * 2);
       ctx.fill();
       
       ctx.restore();
@@ -797,20 +753,20 @@ export default function SprinkleRunPage() {
         ctx.font = 'bold 100px monospace';
         ctx.shadowColor = '#FFFFFF';
         ctx.shadowBlur = 40;
-        ctx.fillText(countdownRef.current.toString(), CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 150);
+        ctx.fillText(countdownRef.current.toString(), CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
         ctx.shadowBlur = 0;
       }
       
       if (gameState === "gameover") {
         ctx.fillStyle = '#FF6B6B';
         ctx.font = 'bold 28px monospace';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 200);
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 150);
         ctx.fillStyle = '#FFFFFF';
         ctx.font = 'bold 48px monospace';
-        ctx.fillText(`${score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 150);
+        ctx.fillText(`${score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 100);
         ctx.fillStyle = '#888888';
         ctx.font = '14px monospace';
-        ctx.fillText(`Distance: ${Math.floor(distanceRef.current)}m`, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 120);
+        ctx.fillText(`Distance: ${Math.floor(distanceRef.current)}m`, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 70);
       }
     };
     
@@ -833,7 +789,7 @@ export default function SprinkleRunPage() {
         
         {/* Header */}
         <div className="flex items-center justify-between mb-2 px-1">
-          <h1 className="text-xl font-bold tracking-wide text-pink-400">SPRINKLE RUN</h1>
+          <h1 className="text-xl font-bold tracking-wide text-white">SPRINKLE RUN</h1>
           {context?.user && (
             <div className="flex items-center gap-2 rounded-full bg-black px-2 py-0.5">
               <Avatar className="h-6 w-6 border border-zinc-800">

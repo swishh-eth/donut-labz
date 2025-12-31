@@ -332,11 +332,6 @@ function SprinkleRunTile() {
             <rect x="42" y="35" width="8" height="3" rx="1" fill="#0000FF" transform="rotate(60 46 36)"/>
             <rect x="15" y="38" width="8" height="3" rx="1" fill="#FFFF00" transform="rotate(-45 19 39)"/>
             <rect x="28" y="48" width="8" height="3" rx="1" fill="#FF00FF" transform="rotate(10 32 49)"/>
-            {/* Eyes */}
-            <circle cx="26" cy="28" r="4" fill="white"/>
-            <circle cx="38" cy="28" r="4" fill="white"/>
-            <circle cx="26" cy="28" r="2" fill="black"/>
-            <circle cx="38" cy="28" r="2" fill="black"/>
           </svg>
           {/* Motion lines */}
           <div className="absolute -left-4 top-1/2 -translate-y-1/2 flex flex-col gap-1">
