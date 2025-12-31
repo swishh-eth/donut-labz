@@ -59,9 +59,10 @@ const DONUT_COLORS = [
   '#FF006E', // magenta
 ];
 
-// Get random color from palette
-const getRandomDonutColor = () => {
-  return DONUT_COLORS[Math.floor(Math.random() * DONUT_COLORS.length)];
+// Shuffle array and return first n unique items
+const getUniqueRandomColors = (count: number): string[] => {
+  const shuffled = [...DONUT_COLORS].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
 };
 
 // Calculate time until next Friday 11PM UTC
@@ -95,9 +96,8 @@ function getTimeUntilReset(): string {
 }
 
 // Weekly Skin Tile - amber hero tile
-function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoading: boolean }) {
+function WeeklySkinTile({ skin, isLoading, donutColor }: { skin: WeeklySkin | null; isLoading: boolean; donutColor: string }) {
   const [timeLeft, setTimeLeft] = useState(getTimeUntilReset());
-  const [donutColor] = useState(() => getRandomDonutColor());
   
   useEffect(() => {
     const interval = setInterval(() => setTimeLeft(getTimeUntilReset()), 60000);
@@ -146,9 +146,8 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
 }
 
 // Flappy Donut Game Tile - neutral white/zinc scheme with animated preview
-function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
+function FlappyDonutTile({ recentPlayer, prizePool, isLoading, donutColor }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean; donutColor: string }) {
   const [showPlayer, setShowPlayer] = useState(false);
-  const [donutColor] = useState(() => getRandomDonutColor());
   
   useEffect(() => {
     if (recentPlayer && !isLoading) {
@@ -165,10 +164,10 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Animated donut preview with nice wings */}
-      <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Animated donut preview with nice wings - adjusted position for alignment */}
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="flappy-donut-float relative">
-          <svg width="90" height="72" viewBox="0 0 90 72">
+          <svg width="88" height="70" viewBox="0 0 88 70">
             <defs>
               <radialGradient id="wingGradLeft" cx="50%" cy="50%" r="80%">
                 <stop offset="0%" stopColor="rgba(255,255,255,0.95)" />
@@ -183,42 +182,42 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
             </defs>
             
             {/* Left wing - nice curved shape with feather details */}
-            <g className="wing-flap-left" style={{ transformOrigin: '30px 36px' }}>
+            <g className="wing-flap-left" style={{ transformOrigin: '28px 35px' }}>
               <path 
-                d="M30 36 Q18 24 6 30 Q2 36 10 42 Q20 46 30 40 Z" 
+                d="M28 35 Q16 23 4 29 Q0 35 8 41 Q18 45 28 39 Z" 
                 fill="url(#wingGradLeft)" 
                 stroke="rgba(180,180,200,0.6)" 
                 strokeWidth="0.5"
               />
               {/* Feather details */}
-              <path d="M26 34 Q18 30 12 32" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
-              <path d="M24 38 Q16 36 10 38" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
+              <path d="M24 33 Q16 29 10 31" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
+              <path d="M22 37 Q14 35 8 37" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
             </g>
             
             {/* Right wing - mirrored */}
-            <g className="wing-flap-right" style={{ transformOrigin: '60px 36px' }}>
+            <g className="wing-flap-right" style={{ transformOrigin: '60px 35px' }}>
               <path 
-                d="M60 36 Q72 24 84 30 Q88 36 80 42 Q70 46 60 40 Z" 
+                d="M60 35 Q72 23 84 29 Q88 35 80 41 Q70 45 60 39 Z" 
                 fill="url(#wingGradRight)" 
                 stroke="rgba(180,180,200,0.6)" 
                 strokeWidth="0.5"
               />
               {/* Feather details */}
-              <path d="M64 34 Q72 30 78 32" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
-              <path d="M66 38 Q74 36 80 38" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
+              <path d="M64 33 Q72 29 78 31" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
+              <path d="M66 37 Q74 35 80 37" stroke="rgba(150,150,180,0.4)" strokeWidth="0.5" fill="none" />
             </g>
             
             {/* Shadow */}
-            <ellipse cx="48" cy="42" rx="14" ry="8" fill="rgba(0,0,0,0.15)" />
+            <ellipse cx="46" cy="42" rx="14" ry="8" fill="rgba(0,0,0,0.15)" />
             
             {/* Donut body */}
-            <circle cx="45" cy="36" r="18" fill={donutColor} stroke="rgba(0,0,0,0.2)" strokeWidth="1.5"/>
+            <circle cx="44" cy="35" r="18" fill={donutColor} stroke="rgba(0,0,0,0.2)" strokeWidth="1.5"/>
             
             {/* Donut hole */}
-            <circle cx="45" cy="36" r="6" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="0.5"/>
+            <circle cx="44" cy="35" r="6" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="0.5"/>
             
             {/* Highlight */}
-            <circle cx="39" cy="30" r="4" fill="rgba(255,255,255,0.3)"/>
+            <circle cx="38" cy="29" r="4" fill="rgba(255,255,255,0.3)"/>
           </svg>
         </div>
       </div>
@@ -251,10 +250,10 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
   );
 }
 
-// Glaze Stack Game Tile - neutral white/zinc scheme with animated preview
-function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
+// Glaze Stack Game Tile - neutral white/zinc scheme with animated stacking preview
+function GlazeStackTile({ recentPlayer, prizePool, isLoading, donutColor }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean; donutColor: string }) {
   const [showPlayer, setShowPlayer] = useState(false);
-  const [donutColor] = useState(() => getRandomDonutColor());
+  const [stackPhase, setStackPhase] = useState(0); // 0-5 for stacking, 6 for fade out
   
   useEffect(() => {
     if (recentPlayer && !isLoading) {
@@ -265,56 +264,83 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
     }
   }, [recentPlayer, isLoading]);
   
+  // Animate the stacking sequence
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStackPhase(prev => (prev + 1) % 8); // 0-4 stacking, 5 hold, 6-7 fade/reset
+    }, 400);
+    return () => clearInterval(interval);
+  }, []);
+  
+  const visibleBoxes = Math.min(stackPhase, 5);
+  const isFading = stackPhase >= 6;
+  
   return (
     <button
       onClick={() => window.location.href = "/games/game-2"}
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Floating glaze box stack preview */}
-      <div className="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-none">
-        <div className="stack-float relative flex flex-col-reverse items-center gap-0.5">
-          {['#FFE4EC', '#FFDEE8', '#FFD8E4', '#FFD2E0', '#FFCCDC'].map((color, i) => (
-            <div
-              key={i}
-              className="rounded-sm relative overflow-hidden"
-              style={{
-                width: `${56 - i * 6}px`,
-                height: '12px',
-                backgroundColor: color,
-                boxShadow: `0 2px 4px rgba(0,0,0,0.2)`,
-              }}
-            >
-              <div 
-                className="absolute inset-y-0.5 left-0.5 right-0.5 rounded-[2px] flex items-center justify-center gap-0.5"
-                style={{ backgroundColor: 'rgba(30, 20, 25, 0.8)' }}
+      {/* Animated stacking glaze boxes preview */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+        <div 
+          className="relative flex flex-col-reverse items-center"
+          style={{ 
+            opacity: isFading ? 0 : 1,
+            transition: 'opacity 0.3s ease-out',
+          }}
+        >
+          {[0, 1, 2, 3, 4].map((i) => {
+            const isVisible = i < visibleBoxes;
+            const isNew = i === visibleBoxes - 1 && !isFading;
+            const boxColors = ['#FFE4EC', '#FFDEE8', '#FFD8E4', '#FFD2E0', '#FFCCDC'];
+            
+            return (
+              <div
+                key={i}
+                className="rounded-sm relative overflow-hidden"
+                style={{
+                  width: `${56 - i * 4}px`,
+                  height: '13px',
+                  marginBottom: i < 4 ? '2px' : '0',
+                  backgroundColor: boxColors[i],
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                  opacity: isVisible ? 1 : 0,
+                  transform: isNew ? 'translateY(-8px)' : 'translateY(0)',
+                  transition: 'opacity 0.15s ease-out, transform 0.15s ease-out',
+                }}
               >
-                {[...Array(Math.max(1, 3 - Math.floor(i / 2)))].map((_, j) => (
-                  <div
-                    key={j}
-                    className="rounded-full relative"
-                    style={{ width: '8px', height: '8px', backgroundColor: donutColor }}
-                  >
-                    <div 
-                      className="absolute rounded-full"
-                      style={{
-                        width: '2.5px',
-                        height: '2.5px',
-                        backgroundColor: 'rgba(30, 20, 25, 0.9)',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                      }}
-                    />
-                  </div>
-                ))}
+                <div 
+                  className="absolute inset-y-0.5 left-0.5 right-0.5 rounded-[2px] flex items-center justify-center gap-1"
+                  style={{ backgroundColor: 'rgba(30, 20, 25, 0.8)' }}
+                >
+                  {[...Array(Math.max(1, 3 - Math.floor(i / 2)))].map((_, j) => (
+                    <div
+                      key={j}
+                      className="rounded-full relative"
+                      style={{ width: '8px', height: '8px', backgroundColor: donutColor }}
+                    >
+                      <div 
+                        className="absolute rounded-full"
+                        style={{
+                          width: '2.5px',
+                          height: '2.5px',
+                          backgroundColor: 'rgba(30, 20, 25, 0.9)',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-28">
+      <div className="relative z-10 p-4 pr-24">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Layers className="w-5 h-5 text-white" />
@@ -343,9 +369,8 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
 }
 
 // Donut Dash Game Tile - neutral white/zinc scheme with animated preview
-function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
+function DonutDashTile({ recentPlayer, prizePool, isLoading, donutColor }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean; donutColor: string }) {
   const [showPlayer, setShowPlayer] = useState(false);
-  const [donutColor] = useState(() => getRandomDonutColor());
   
   useEffect(() => {
     if (recentPlayer && !isLoading) {
@@ -502,6 +527,9 @@ export default function GamesPage() {
   const { address } = useAccount();
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
+  
+  // Generate 4 unique random colors for the tiles (one per game/skin tile)
+  const [tileColors] = useState(() => getUniqueRandomColors(4));
   
   // Flappy Donut state
   const [flappyRecentPlayer, setFlappyRecentPlayer] = useState<RecentPlayer | null>(null);
@@ -772,10 +800,10 @@ export default function GamesPage() {
             }}
           >
             <div className="space-y-3 pb-4">
-              <WeeklySkinTile skin={weeklySkin} isLoading={isLoadingSkin} />
-              <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool} isLoading={isLoadingFlappy} />
-              <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} isLoading={isLoadingStack} />
-              <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} isLoading={isLoadingDash} />
+              <WeeklySkinTile skin={weeklySkin} isLoading={isLoadingSkin} donutColor={tileColors[0]} />
+              <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool} isLoading={isLoadingFlappy} donutColor={tileColors[1]} />
+              <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} isLoading={isLoadingStack} donutColor={tileColors[2]} />
+              <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} isLoading={isLoadingDash} donutColor={tileColors[3]} />
               {[...Array(3)].map((_, i) => <ComingSoonTile key={i} />)}
             </div>
           </div>
