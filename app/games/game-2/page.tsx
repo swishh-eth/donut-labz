@@ -24,12 +24,12 @@ const PERFECT_THRESHOLD = 4; // pixels tolerance for "perfect" placement
 type MiniAppContext = { user?: { fid: number; username?: string; displayName?: string; pfpUrl?: string } };
 type LeaderboardEntry = { rank: number; username: string; pfpUrl?: string; score: number };
 
-// Color palette for blocks - amber/orange theme to match app
+// Color palette for blocks - white/grey theme
 const getBlockColor = (index: number): string => {
   const colors = [
-    '#F59E0B', '#D97706', '#B45309', '#92400E', '#FBBF24',
-    '#FCD34D', '#F59E0B', '#D97706', '#B45309', '#78350F',
-    '#FBBF24', '#FCD34D', '#F59E0B', '#D97706', '#B45309',
+    '#FFFFFF', '#E5E5E5', '#CCCCCC', '#B3B3B3', '#999999',
+    '#808080', '#666666', '#FFFFFF', '#E5E5E5', '#CCCCCC',
+    '#B3B3B3', '#999999', '#808080', '#666666', '#FFFFFF',
   ];
   return colors[index % colors.length];
 };
@@ -566,11 +566,15 @@ export default function StackGamePage() {
     scoreRef.current++;
     setScore(scoreRef.current);
     
-    // Move camera up - start earlier to keep blocks on screen
-    // Keep the current block roughly in the middle-upper area of the screen
-    const blocksOnScreen = 8; // How many blocks to show before scrolling
-    if (blocksRef.current.length > blocksOnScreen) {
-      targetCameraYRef.current = (blocksRef.current.length - blocksOnScreen) * BLOCK_HEIGHT;
+    // Move camera up to keep the action visible
+    // We want the current block placement area to be in the upper-middle of the screen
+    const desiredScreenY = 180; // Where we want the action to appear on screen
+    const topBlockY = current.y - BLOCK_HEIGHT; // Where next block will spawn
+    const newCameraTarget = topBlockY - desiredScreenY;
+    
+    // Only move camera up (negative direction), not down
+    if (newCameraTarget < targetCameraYRef.current) {
+      targetCameraYRef.current = newCameraTarget;
     }
     
     // Increase speed
@@ -721,8 +725,8 @@ export default function StackGamePage() {
       ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - 30);
       ctx.stroke();
       
-      // Draw preview stack with amber colors and 3D effect
-      const previewColors = ['#F59E0B', '#D97706', '#B45309', '#FBBF24', '#FCD34D'];
+      // Draw preview stack with white/grey colors and 3D effect
+      const previewColors = ['#FFFFFF', '#E5E5E5', '#CCCCCC', '#B3B3B3', '#999999'];
       const baseY = CANVAS_HEIGHT - 100;
       const floatOffset = Math.sin(Date.now() / 500) * 4;
       const depth = 12;
