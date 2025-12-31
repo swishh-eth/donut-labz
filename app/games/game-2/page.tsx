@@ -9,7 +9,7 @@ import { NavBar } from "@/components/nav-bar";
 import { Trophy, Play, Zap, Share2, X, HelpCircle, Volume2, VolumeX, ChevronRight, Clock, Layers } from "lucide-react";
 
 // Contract addresses
-const DONUT_ADDRESS = "0x6A89a13068C73C883044048D409C8214802a8258" as const;
+const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
 const STACK_TOWER_CONTRACT = "0x3704C7C71cDd1b37669aa5f1d366Dc0121E1e6fF" as const;
 
 const ERC20_ABI = [
@@ -246,14 +246,17 @@ export default function StackGamePage() {
       setPendingTxType(null);
       gameStartPendingRef.current = false;
       if (writeError) {
-        const msg = (writeError as Error).message || "Transaction failed";
-        if (msg.includes("rejected") || msg.includes("denied")) {
+        console.error("Write error:", writeError);
+        const msg = (writeError as any).shortMessage || (writeError as Error).message || "Transaction failed";
+        if (msg.includes("rejected") || msg.includes("denied") || msg.includes("User rejected")) {
           setError("Transaction rejected");
+        } else if (msg.includes("insufficient")) {
+          setError("Insufficient DONUT balance");
         } else {
-          setError("Transaction failed");
+          setError(msg.length > 100 ? msg.slice(0, 100) + "..." : msg);
         }
       } else {
-        setError("Transaction failed");
+        setError("Transaction failed on chain");
       }
       resetWrite();
     }
