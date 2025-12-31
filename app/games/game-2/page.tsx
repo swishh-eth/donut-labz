@@ -24,12 +24,12 @@ const PERFECT_THRESHOLD = 4; // pixels tolerance for "perfect" placement
 type MiniAppContext = { user?: { fid: number; username?: string; displayName?: string; pfpUrl?: string } };
 type LeaderboardEntry = { rank: number; username: string; pfpUrl?: string; score: number };
 
-// Color palette for blocks - gradient through the rainbow
+// Color palette for blocks - amber/orange theme to match app
 const getBlockColor = (index: number): string => {
   const colors = [
-    '#FF6B6B', '#FF8E72', '#FFB347', '#FFD93D', '#C9E265',
-    '#6BCB77', '#4D96FF', '#6B5BFF', '#A855F7', '#EC4899',
-    '#FF6B6B', '#FF8E72', '#FFB347', '#FFD93D', '#C9E265',
+    '#F59E0B', '#D97706', '#B45309', '#92400E', '#FBBF24',
+    '#FCD34D', '#F59E0B', '#D97706', '#B45309', '#78350F',
+    '#FBBF24', '#FCD34D', '#F59E0B', '#D97706', '#B45309',
   ];
   return colors[index % colors.length];
 };
@@ -268,35 +268,86 @@ export default function StackGamePage() {
   
   const drawBlock = useCallback((ctx: CanvasRenderingContext2D, block: Block, cameraY: number) => {
     const screenY = block.y - cameraY;
+    const depth = 12; // 3D depth effect
     
-    // Block body with gradient
+    // Skip if completely off screen
+    if (screenY > CANVAS_HEIGHT + 50 || screenY < -50) return;
+    
+    // Right side (3D depth) - darker shade
+    ctx.fillStyle = shadeColor(block.color, -40);
+    ctx.beginPath();
+    ctx.moveTo(block.x + block.width, screenY);
+    ctx.lineTo(block.x + block.width + depth, screenY - depth);
+    ctx.lineTo(block.x + block.width + depth, screenY + BLOCK_HEIGHT - depth);
+    ctx.lineTo(block.x + block.width, screenY + BLOCK_HEIGHT);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Top face (3D depth) - lighter shade
+    ctx.fillStyle = shadeColor(block.color, 20);
+    ctx.beginPath();
+    ctx.moveTo(block.x, screenY);
+    ctx.lineTo(block.x + depth, screenY - depth);
+    ctx.lineTo(block.x + block.width + depth, screenY - depth);
+    ctx.lineTo(block.x + block.width, screenY);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Front face - main color with gradient
     const gradient = ctx.createLinearGradient(block.x, screenY, block.x, screenY + BLOCK_HEIGHT);
-    gradient.addColorStop(0, block.color);
-    gradient.addColorStop(1, shadeColor(block.color, -20));
+    gradient.addColorStop(0, shadeColor(block.color, 10));
+    gradient.addColorStop(0.5, block.color);
+    gradient.addColorStop(1, shadeColor(block.color, -15));
     
     ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.roundRect(block.x, screenY, block.width, BLOCK_HEIGHT, 4);
-    ctx.fill();
+    ctx.fillRect(block.x, screenY, block.width, BLOCK_HEIGHT);
     
-    // Highlight on top
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    // Highlight line on top edge of front face
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.roundRect(block.x + 2, screenY + 2, block.width - 4, 6, 2);
-    ctx.fill();
+    ctx.moveTo(block.x, screenY + 1);
+    ctx.lineTo(block.x + block.width, screenY + 1);
+    ctx.stroke();
     
-    // Shadow on bottom
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-    ctx.fillRect(block.x + 4, screenY + BLOCK_HEIGHT - 4, block.width - 8, 4);
+    // Subtle shadow line on bottom
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.beginPath();
+    ctx.moveTo(block.x, screenY + BLOCK_HEIGHT);
+    ctx.lineTo(block.x + block.width, screenY + BLOCK_HEIGHT);
+    ctx.stroke();
   }, []);
   
   const drawFallingPiece = useCallback((ctx: CanvasRenderingContext2D, piece: FallingPiece, cameraY: number) => {
     const screenY = piece.y - cameraY;
+    const depth = 12;
+    
     ctx.globalAlpha = piece.opacity;
-    ctx.fillStyle = piece.color;
+    
+    // Right side (3D depth)
+    ctx.fillStyle = shadeColor(piece.color, -40);
     ctx.beginPath();
-    ctx.roundRect(piece.x, screenY, piece.width, BLOCK_HEIGHT, 4);
+    ctx.moveTo(piece.x + piece.width, screenY);
+    ctx.lineTo(piece.x + piece.width + depth, screenY - depth);
+    ctx.lineTo(piece.x + piece.width + depth, screenY + BLOCK_HEIGHT - depth);
+    ctx.lineTo(piece.x + piece.width, screenY + BLOCK_HEIGHT);
+    ctx.closePath();
     ctx.fill();
+    
+    // Top face
+    ctx.fillStyle = shadeColor(piece.color, 20);
+    ctx.beginPath();
+    ctx.moveTo(piece.x, screenY);
+    ctx.lineTo(piece.x + depth, screenY - depth);
+    ctx.lineTo(piece.x + piece.width + depth, screenY - depth);
+    ctx.lineTo(piece.x + piece.width, screenY);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Front face
+    ctx.fillStyle = piece.color;
+    ctx.fillRect(piece.x, screenY, piece.width, BLOCK_HEIGHT);
+    
     ctx.globalAlpha = 1;
   }, []);
   
@@ -312,22 +363,37 @@ export default function StackGamePage() {
     
     ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
     
-    // Background gradient
+    // Background gradient - matching Flappy Donut
     const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-    bgGradient.addColorStop(0, "#1a1a2e");
-    bgGradient.addColorStop(1, "#16213e");
+    bgGradient.addColorStop(0, "#1a1a1a");
+    bgGradient.addColorStop(1, "#0d0d0d");
     ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
-    // Grid lines
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+    // Grid lines - matching Flappy Donut style
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
     ctx.lineWidth = 1;
-    for (let i = 0; i < CANVAS_WIDTH; i += 30) {
+    for (let i = 0; i < CANVAS_WIDTH; i += 40) {
       ctx.beginPath();
       ctx.moveTo(i, 0);
       ctx.lineTo(i, CANVAS_HEIGHT);
       ctx.stroke();
     }
+    for (let i = 0; i < CANVAS_HEIGHT; i += 40) {
+      ctx.beginPath();
+      ctx.moveTo(0, i);
+      ctx.lineTo(CANVAS_WIDTH, i);
+      ctx.stroke();
+    }
+    
+    // Ground area
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.beginPath();
+    ctx.moveTo(0, CANVAS_HEIGHT - 30);
+    ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - 30);
+    ctx.stroke();
     
     // Smooth camera movement
     cameraYRef.current += (targetCameraYRef.current - cameraYRef.current) * 0.1;
@@ -500,9 +566,11 @@ export default function StackGamePage() {
     scoreRef.current++;
     setScore(scoreRef.current);
     
-    // Move camera up
-    if (blocksRef.current.length > 10) {
-      targetCameraYRef.current = (blocksRef.current.length - 10) * BLOCK_HEIGHT;
+    // Move camera up - start earlier to keep blocks on screen
+    // Keep the current block roughly in the middle-upper area of the screen
+    const blocksOnScreen = 8; // How many blocks to show before scrolling
+    if (blocksRef.current.length > blocksOnScreen) {
+      targetCameraYRef.current = (blocksRef.current.length - blocksOnScreen) * BLOCK_HEIGHT;
     }
     
     // Increase speed
@@ -514,7 +582,7 @@ export default function StackGamePage() {
   const spawnNewBlock = useCallback(() => {
     const blocks = blocksRef.current;
     const lastBlock = blocks[blocks.length - 1];
-    const newY = lastBlock ? lastBlock.y - BLOCK_HEIGHT : CANVAS_HEIGHT - BLOCK_HEIGHT - 50;
+    const newY = lastBlock ? lastBlock.y - BLOCK_HEIGHT : CANVAS_HEIGHT - BLOCK_HEIGHT - 60;
     const newWidth = lastBlock ? lastBlock.width : INITIAL_BLOCK_WIDTH;
     const newX = directionRef.current === 1 ? 0 : CANVAS_WIDTH - newWidth;
     
@@ -549,8 +617,8 @@ export default function StackGamePage() {
     setError(null);
     setLastPlacement(null);
     
-    // Create base block
-    const baseY = CANVAS_HEIGHT - BLOCK_HEIGHT - 50;
+    // Create base block - position above ground area
+    const baseY = CANVAS_HEIGHT - BLOCK_HEIGHT - 60;
     blocksRef.current.push({
       x: (CANVAS_WIDTH - INITIAL_BLOCK_WIDTH) / 2,
       y: baseY,
@@ -621,46 +689,83 @@ export default function StackGamePage() {
     const draw = () => {
       ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
       
-      // Background
+      // Background - matching Flappy Donut
       const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-      bgGradient.addColorStop(0, "#1a1a2e");
-      bgGradient.addColorStop(1, "#16213e");
+      bgGradient.addColorStop(0, "#1a1a1a");
+      bgGradient.addColorStop(1, "#0d0d0d");
       ctx.fillStyle = bgGradient;
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       
-      // Grid
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+      // Grid - matching Flappy Donut style
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
       ctx.lineWidth = 1;
-      for (let i = 0; i < CANVAS_WIDTH; i += 30) {
+      for (let i = 0; i < CANVAS_WIDTH; i += 40) {
         ctx.beginPath();
         ctx.moveTo(i, 0);
         ctx.lineTo(i, CANVAS_HEIGHT);
         ctx.stroke();
       }
+      for (let i = 0; i < CANVAS_HEIGHT; i += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(CANVAS_WIDTH, i);
+        ctx.stroke();
+      }
       
-      // Draw preview stack
-      const previewColors = ['#FF6B6B', '#FFB347', '#FFD93D', '#6BCB77', '#4D96FF'];
-      const baseY = CANVAS_HEIGHT - 80;
+      // Ground area
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.beginPath();
+      ctx.moveTo(0, CANVAS_HEIGHT - 30);
+      ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - 30);
+      ctx.stroke();
+      
+      // Draw preview stack with amber colors and 3D effect
+      const previewColors = ['#F59E0B', '#D97706', '#B45309', '#FBBF24', '#FCD34D'];
+      const baseY = CANVAS_HEIGHT - 100;
       const floatOffset = Math.sin(Date.now() / 500) * 4;
+      const depth = 12;
       
       previewColors.forEach((color, i) => {
-        const width = 120 - i * 8;
+        const width = 140 - i * 12;
         const x = (CANVAS_WIDTH - width) / 2;
-        const y = baseY - i * (BLOCK_HEIGHT + 2) + floatOffset;
+        const y = baseY - i * (BLOCK_HEIGHT + 4) + floatOffset;
         
+        // Right side (3D depth)
+        ctx.fillStyle = shadeColor(color, -40);
+        ctx.beginPath();
+        ctx.moveTo(x + width, y);
+        ctx.lineTo(x + width + depth, y - depth);
+        ctx.lineTo(x + width + depth, y + BLOCK_HEIGHT - depth);
+        ctx.lineTo(x + width, y + BLOCK_HEIGHT);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Top face
+        ctx.fillStyle = shadeColor(color, 20);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + depth, y - depth);
+        ctx.lineTo(x + width + depth, y - depth);
+        ctx.lineTo(x + width, y);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Front face with gradient
         const gradient = ctx.createLinearGradient(x, y, x, y + BLOCK_HEIGHT);
-        gradient.addColorStop(0, color);
-        gradient.addColorStop(1, shadeColor(color, -20));
-        
+        gradient.addColorStop(0, shadeColor(color, 10));
+        gradient.addColorStop(0.5, color);
+        gradient.addColorStop(1, shadeColor(color, -15));
         ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.roundRect(x, y, width, BLOCK_HEIGHT, 4);
-        ctx.fill();
+        ctx.fillRect(x, y, width, BLOCK_HEIGHT);
         
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        // Highlight
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.beginPath();
-        ctx.roundRect(x + 2, y + 2, width - 4, 6, 2);
-        ctx.fill();
+        ctx.moveTo(x, y + 1);
+        ctx.lineTo(x + width, y + 1);
+        ctx.stroke();
       });
       
       // Title

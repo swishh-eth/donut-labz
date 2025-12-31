@@ -263,13 +263,13 @@ function StackTowerTile() {
   return (
     <button
       onClick={() => window.location.href = "/games/game-2"}
-      className="relative w-full rounded-2xl border-2 border-cyan-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-cyan-500/80"
-      style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(34,211,238,0.15) 0%, rgba(99,102,241,0.1) 100%)' }}
+      className="relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
+      style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(180,83,9,0.1) 100%)' }}
     >
-      {/* Animated stack preview */}
+      {/* Animated stack preview - amber colors */}
       <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="stack-float relative flex flex-col items-center gap-0.5">
-          {['#FF6B6B', '#FFB347', '#FFD93D', '#6BCB77', '#4D96FF'].map((color, i) => (
+          {['#FBBF24', '#F59E0B', '#D97706', '#B45309', '#92400E'].map((color, i) => (
             <div
               key={i}
               className="rounded-sm"
@@ -277,7 +277,7 @@ function StackTowerTile() {
                 width: `${50 - i * 6}px`,
                 height: '10px',
                 backgroundColor: color,
-                boxShadow: `0 2px 4px rgba(0,0,0,0.2)`,
+                boxShadow: `0 2px 4px rgba(0,0,0,0.3), 2px -2px 0 ${color}66`,
               }}
             />
           ))}
@@ -287,11 +287,11 @@ function StackTowerTile() {
       <div className="relative z-10 p-4 pr-24">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Layers className="w-5 h-5 text-cyan-400" />
-            <span className="font-bold text-base text-cyan-400">Stack Tower</span>
+            <Layers className="w-5 h-5 text-amber-400" />
+            <span className="font-bold text-base text-amber-400">Stack Tower</span>
             <span className="text-[9px] bg-yellow-500/30 text-yellow-300 px-1.5 py-0.5 rounded-full font-bold">TESTING</span>
           </div>
-          <div className="text-[10px] text-cyan-200/60 mb-2">Stack blocks perfectly, build the highest tower!</div>
+          <div className="text-[10px] text-amber-200/60 mb-2">Stack blocks perfectly, build the highest tower!</div>
           
           <div className="flex items-center gap-3 mb-2">
             <div className="flex items-center gap-1">
