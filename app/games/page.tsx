@@ -183,53 +183,24 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
       className="relative w-full rounded-2xl border-2 border-pink-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-500/80"
       style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(251,146,60,0.1) 100%)' }}
     >
-      {/* Animated game preview */}
-      <div className="absolute right-0 top-0 bottom-0 w-32 pointer-events-none overflow-hidden">
-        {/* Scrolling pipes */}
-        <div className="absolute inset-0 pipe-scroll">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="absolute" style={{ left: `${i * 50 + 20}px` }}>
-              {/* Top pipe */}
-              <div 
-                className="absolute w-6 rounded-b-md"
-                style={{ 
-                  top: 0, 
-                  height: `${25 + (i % 2) * 20}px`,
-                  background: 'linear-gradient(90deg, #C4A77D 0%, #E8D5B7 30%, #F5E6D3 50%, #E8D5B7 70%, #C4A77D 100%)',
-                }}
-              />
-              {/* Bottom pipe */}
-              <div 
-                className="absolute w-6 rounded-t-md"
-                style={{ 
-                  bottom: 0, 
-                  height: `${45 - (i % 2) * 20}px`,
-                  background: 'linear-gradient(90deg, #C4A77D 0%, #E8D5B7 30%, #F5E6D3 50%, #E8D5B7 70%, #C4A77D 100%)',
-                }}
-              />
-            </div>
-          ))}
-        </div>
-        
-        {/* Flying donut */}
-        <div className="absolute left-6 top-1/2 -translate-y-1/2 donut-fly">
-          <div className="relative">
-            <svg className="absolute -left-3 top-1/2 wing-flap" width="16" height="10" viewBox="0 0 24 16" style={{ transformOrigin: 'right center' }}>
-              <ellipse cx="10" cy="8" rx="10" ry="7" fill="rgba(255,255,255,0.9)" stroke="rgba(180,180,180,0.5)" strokeWidth="1"/>
-            </svg>
-            <svg className="absolute -right-3 top-1/2 wing-flap-reverse" width="16" height="10" viewBox="0 0 24 16" style={{ transformOrigin: 'left center' }}>
-              <ellipse cx="14" cy="8" rx="10" ry="7" fill="rgba(255,255,255,0.9)" stroke="rgba(180,180,180,0.5)" strokeWidth="1"/>
-            </svg>
-            <svg width="36" height="36" viewBox="0 0 60 60">
-              <circle cx="30" cy="30" r="18" fill="#F472B6" stroke="rgba(0,0,0,0.2)" strokeWidth="2"/>
-              <circle cx="30" cy="30" r="6" fill="#1a1a1a"/>
-              <circle cx="24" cy="24" r="3" fill="rgba(255,255,255,0.3)"/>
-            </svg>
-          </div>
+      <div className="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-none">
+        <div className="flappy-donut-float relative">
+          <svg className="absolute -left-5 top-1/2 wing-flap" width="24" height="16" viewBox="0 0 24 16" style={{ transformOrigin: 'right center' }}>
+            <ellipse cx="10" cy="8" rx="10" ry="7" fill="rgba(255,255,255,0.9)" stroke="rgba(180,180,180,0.5)" strokeWidth="1"/>
+          </svg>
+          <svg className="absolute -right-5 top-1/2 wing-flap-reverse" width="24" height="16" viewBox="0 0 24 16" style={{ transformOrigin: 'left center' }}>
+            <ellipse cx="14" cy="8" rx="10" ry="7" fill="rgba(255,255,255,0.9)" stroke="rgba(180,180,180,0.5)" strokeWidth="1"/>
+          </svg>
+          <svg width="60" height="60" viewBox="0 0 60 60">
+            <ellipse cx="33" cy="35" rx="20" ry="14" fill="rgba(0,0,0,0.15)" />
+            <circle cx="30" cy="30" r="22" fill="#F472B6" stroke="rgba(0,0,0,0.2)" strokeWidth="2"/>
+            <circle cx="30" cy="30" r="7" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="1"/>
+            <circle cx="23" cy="23" r="4" fill="rgba(255,255,255,0.3)"/>
+          </svg>
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-36">
+      <div className="relative z-10 p-4 pr-28">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Gamepad2 className="w-5 h-5 text-pink-400" />
@@ -295,36 +266,21 @@ function StackTowerTile() {
       className="relative w-full rounded-2xl border-2 border-zinc-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-zinc-400/80"
       style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(100,100,100,0.05) 100%)' }}
     >
-      {/* Animated stacking blocks preview */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-        <div className="relative w-16 h-24">
-          {/* Base blocks - static */}
-          {['#FFFFFF', '#E5E5E5', '#CCCCCC', '#B3B3B3'].map((color, i) => (
+      {/* Simple floating stack preview */}
+      <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+        <div className="stack-float relative flex flex-col items-center gap-0.5">
+          {['#FFFFFF', '#E5E5E5', '#CCCCCC', '#B3B3B3', '#999999'].map((color, i) => (
             <div
               key={i}
-              className="absolute rounded-sm"
+              className="rounded-sm"
               style={{
-                bottom: `${i * 12}px`,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: `${48 - i * 4}px`,
+                width: `${50 - i * 6}px`,
                 height: '10px',
                 backgroundColor: color,
-                boxShadow: `2px -2px 0 ${color}66, inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.2)`,
+                boxShadow: `0 2px 4px rgba(0,0,0,0.3), 2px -2px 0 ${color}88`,
               }}
             />
           ))}
-          {/* Animated dropping block */}
-          <div
-            className="absolute rounded-sm stack-drop"
-            style={{
-              left: '50%',
-              width: '32px',
-              height: '10px',
-              backgroundColor: '#999999',
-              boxShadow: '2px -2px 0 rgba(153,153,153,0.4), inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.2)',
-            }}
-          />
         </div>
       </div>
       
@@ -475,25 +431,6 @@ export default function GamesPage() {
         .skin-animated-glow { animation: skin-glow 2s ease-in-out infinite; }
         @keyframes scroll-donuts { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
         .animate-scroll-donuts { animation: scroll-donuts 20s linear infinite; }
-        @keyframes pipe-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-150px); } }
-        .pipe-scroll { animation: pipe-scroll 3s linear infinite; }
-        @keyframes donut-fly { 
-          0%, 100% { transform: translateY(-50%) translateY(8px); } 
-          25% { transform: translateY(-50%) translateY(-8px); }
-          50% { transform: translateY(-50%) translateY(4px); }
-          75% { transform: translateY(-50%) translateY(-12px); }
-        }
-        .donut-fly { animation: donut-fly 3s ease-in-out infinite; }
-        @keyframes stack-drop { 
-          0% { transform: translateX(-50%) translateX(20px) translateY(-40px); opacity: 0; }
-          20% { opacity: 1; }
-          40% { transform: translateX(-50%) translateX(-15px) translateY(-40px); }
-          60% { transform: translateX(-50%) translateX(10px) translateY(-40px); }
-          80% { transform: translateX(-50%) translateX(-5px) translateY(-40px); }
-          90% { transform: translateX(-50%) translateX(0px) translateY(-40px); }
-          100% { transform: translateX(-50%) translateX(0px) translateY(48px); opacity: 0; }
-        }
-        .stack-drop { animation: stack-drop 2.5s ease-in-out infinite; }
       `}</style>
 
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
