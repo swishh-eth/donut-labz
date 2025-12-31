@@ -18,7 +18,11 @@
     },
     {
       "path": "/api/cron/stack-tower-distribute",
-      "schedule": "5 23 * * 5"
+      "schedule": "1 23 * * 5"
+    },
+    {
+      "path": "/api/games/donut-dash/distribute",
+      "schedule": "2 23 * * 5"
     }
   ]
 }

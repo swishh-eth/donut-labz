@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount } from "wagmi";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Settings, Gamepad2, Trophy, Coins, Palette, Clock, Layers } from "lucide-react";
+import { Settings, Gamepad2, Trophy, Coins, Palette, Clock, Layers, Rocket } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -305,8 +305,17 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
   );
 }
 
-// Donut Dash Game Tile (Testing)
-function DonutDashTile() {
+// Donut Dash Game Tile
+function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
+  const [showPlayer, setShowPlayer] = useState(false);
+  
+  useEffect(() => {
+    if (recentPlayer && !isLoading) {
+      const timer = setTimeout(() => setShowPlayer(true), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [recentPlayer, isLoading]);
+  
   return (
     <button
       onClick={() => window.location.href = "/games/donut-dash"}
@@ -348,20 +357,34 @@ function DonutDashTile() {
       <div className="relative z-10 p-4 pr-24">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <svg className="w-5 h-5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 19V5M5 12l7-7 7 7" />
-            </svg>
+            <Rocket className="w-5 h-5 text-orange-400" />
             <span className="font-bold text-base text-orange-400">Donut Dash</span>
-            <span className="text-[9px] bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded-full">TESTING</span>
+            <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
-          <div className="text-[10px] text-orange-200/60 mb-2">Jetpack through the facility!</div>
+          <div className="text-[10px] text-orange-200/60 mb-2">Jetpack through the facility, collect sprinkles!</div>
           
-          <div className="flex items-center gap-2 mb-2 px-2 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded-lg w-fit">
-            <span className="text-[9px] text-yellow-400 font-bold">⚠️ NOT REAL MONEY - FREE TO TEST</span>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-1">
+              <Coins className="w-3 h-3 text-amber-400" />
+              <span className="text-[10px] text-amber-400">Pool: {prizePool} 🍩</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Trophy className="w-3 h-3 text-amber-400" />
+              <span className="text-[10px] text-amber-400">Weekly prizes</span>
+            </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] text-zinc-400">Hold to fly • Dodge zappers</span>
+          <div className="flex items-center gap-2 h-5">
+            <span className="text-[9px] text-zinc-400">Last play:</span>
+            <div className={`transition-opacity duration-300 ${showPlayer ? 'opacity-100' : 'opacity-0'}`}>
+              {recentPlayer && (
+                <span className="text-[9px] text-white bg-zinc-800/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />}
+                  @{recentPlayer.username} scored {recentPlayer.score}
+                </span>
+              )}
+            </div>
+            {isLoading && <div className="w-24 h-4 bg-zinc-800/50 rounded-full animate-pulse" />}
           </div>
         </div>
       </div>
@@ -405,6 +428,11 @@ export default function GamesPage() {
   const [stackRecentPlayer, setStackRecentPlayer] = useState<RecentPlayer | null>(null);
   const [isLoadingStack, setIsLoadingStack] = useState(true);
   const [stackPrizePool, setStackPrizePool] = useState<string>("0");
+  
+  // Donut Dash state
+  const [dashRecentPlayer, setDashRecentPlayer] = useState<RecentPlayer | null>(null);
+  const [isLoadingDash, setIsLoadingDash] = useState(true);
+  const [dashPrizePool, setDashPrizePool] = useState<string>("0");
   
   // Skin market state
   const [weeklySkin, setWeeklySkin] = useState<WeeklySkin | null>(null);
@@ -451,7 +479,7 @@ export default function GamesPage() {
       }
     };
     fetchFlappyData();
-    const interval = setInterval(fetchFlappyData, 30000);
+    const interval = setInterval(fetchFlappyData, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -479,7 +507,43 @@ export default function GamesPage() {
       }
     };
     fetchStackData();
-    const interval = setInterval(fetchStackData, 30000);
+    const interval = setInterval(fetchStackData, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch Donut Dash data
+  useEffect(() => {
+    const fetchDashData = async () => {
+      setIsLoadingDash(true);
+      try {
+        // Fetch leaderboard for recent player
+        const res = await fetch('/api/games/donut-dash/leaderboard?limit=1');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.leaderboard && data.leaderboard.length > 0) {
+            const recent = data.leaderboard[0];
+            setDashRecentPlayer({
+              username: recent.username || recent.displayName || `fid:${recent.fid}`,
+              score: recent.score,
+              pfpUrl: recent.pfpUrl,
+            });
+          }
+        }
+        // Fetch prize pool from distribute endpoint
+        const prizeRes = await fetch('/api/games/donut-dash/distribute');
+        if (prizeRes.ok) {
+          const prizeData = await prizeRes.json();
+          const poolValue = prizeData.prizePoolFormatted?.replace(' DONUT', '') || "0";
+          setDashPrizePool(poolValue);
+        }
+      } catch (e) {
+        console.error("Failed to fetch Donut Dash data:", e);
+      } finally {
+        setIsLoadingDash(false);
+      }
+    };
+    fetchDashData();
+    const interval = setInterval(fetchDashData, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -587,7 +651,7 @@ export default function GamesPage() {
               <WeeklySkinTile skin={weeklySkin} isLoading={isLoadingSkin} />
               <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool} isLoading={isLoadingFlappy} />
               <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} isLoading={isLoadingStack} />
-              <DonutDashTile />
+              <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} isLoading={isLoadingDash} />
               {[...Array(3)].map((_, i) => <ComingSoonTile key={i} />)}
             </div>
           </div>
