@@ -366,7 +366,18 @@ export default function StackGamePage() {
   }, []);
   
   const spawnPerfectParticles = useCallback((x: number, y: number, width: number) => {
-    const colors = ['#FFD700', '#FFA500', '#FFFFFF', '#FFFF00'];
+    // Generate random vibrant colors for each particle burst
+    const getRandomColor = () => {
+      const colors = [
+        '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', 
+        '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+        '#F8B500', '#FF69B4', '#00CED1', '#FFD700', '#FF4500',
+        '#7B68EE', '#00FA9A', '#FF1493', '#1E90FF', '#32CD32',
+        '#FF6347', '#40E0D0', '#EE82EE', '#F0E68C', '#87CEEB',
+      ];
+      return colors[Math.floor(Math.random() * colors.length)];
+    };
+    
     for (let i = 0; i < 20; i++) {
       particlesRef.current.push({
         x: x + Math.random() * width,
@@ -375,7 +386,7 @@ export default function StackGamePage() {
         vy: -Math.random() * 6 - 2,
         life: 1,
         maxLife: 1,
-        color: colors[Math.floor(Math.random() * colors.length)],
+        color: getRandomColor(),
         size: 3 + Math.random() * 4,
       });
     }

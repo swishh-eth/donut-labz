@@ -257,7 +257,7 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
     >
       {/* Floating glaze box stack preview */}
       <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-        <div className="stack-float relative flex flex-col items-center gap-0.5">
+        <div className="stack-float relative flex flex-col-reverse items-center gap-0.5">
           {['#FFE4EC', '#FFDEE8', '#FFD8E4', '#FFD2E0', '#FFCCDC'].map((color, i) => (
             <div
               key={i}
