@@ -435,6 +435,24 @@ export default function StackGamePage() {
         }),
       });
       
+      // Send game announcement to chat (only if score > 0)
+      if (finalScore > 0) {
+        fetch('/api/chat/game-announce', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            playerAddress: address,
+            username: context.user.username || null,
+            pfpUrl: context.user.pfpUrl || null,
+            gameId: 'glaze-stack',
+            gameName: 'Glaze Stack',
+            score: finalScore,
+            skinId: 'classic',
+            skinColor: DONUT_COLOR,
+          }),
+        }).catch(console.error);
+      }
+      
       // Refresh leaderboard
       fetchGameData();
     } catch (err) {
