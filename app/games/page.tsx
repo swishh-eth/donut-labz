@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount } from "wagmi";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Settings, Gamepad2, Trophy, Coins, Palette, Clock, Layers, Rocket } from "lucide-react";
+import { Settings, Gamepad2, Trophy, Coins, Palette, Clock, Layers, Rocket, ArrowRight } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -70,7 +70,7 @@ function getTimeUntilReset(): string {
   }
 }
 
-// Weekly Skin Tile - links to skin market (amber theme)
+// Weekly Skin Tile - matches about page style
 function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoading: boolean }) {
   const [timeLeft, setTimeLeft] = useState(getTimeUntilReset());
   
@@ -82,47 +82,37 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
   return (
     <button
       onClick={() => window.location.href = "/games/skin-market"}
-      className="relative w-full rounded-2xl border-2 border-white/30 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/50 group"
-      style={{ minHeight: '120px', background: 'linear-gradient(135deg, rgba(24,24,27,0.95) 0%, rgba(39,39,42,0.9) 100%)' }}
+      className="relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
     >
-      {/* Subtle shine effect on hover */}
-      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-      
-      {/* Large clipping donut preview */}
-      <div className="absolute -right-8 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Large floating donut preview */}
+      <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="relative skin-float">
-          {/* Amber glow */}
           <div 
-            className="absolute inset-0 rounded-full blur-2xl opacity-50"
-            style={{ backgroundColor: '#F59E0B', transform: 'scale(1.3)' }}
-          />
-          {/* Large donut */}
-          <div 
-            className="w-32 h-32 rounded-full relative border-2 border-amber-400/30 shadow-2xl"
-            style={{ backgroundColor: '#F59E0B', boxShadow: '0 0 60px rgba(245, 158, 11, 0.4)' }}
+            className="w-28 h-28 rounded-full relative border-2 border-amber-400/30"
+            style={{ backgroundColor: '#F59E0B', boxShadow: '0 0 40px rgba(245, 158, 11, 0.3)' }}
           >
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-10 h-10 rounded-full bg-zinc-900 border-2 border-zinc-700" />
+              <div className="w-9 h-9 rounded-full bg-zinc-900 border-2 border-zinc-700" />
             </div>
-            <div className="absolute top-4 left-6 w-6 h-6 rounded-full bg-white/25" />
+            <div className="absolute top-3 left-5 w-5 h-5 rounded-full bg-white/25" />
           </div>
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-24">
+      <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="p-1.5 rounded-lg bg-white/10 border border-white/10">
-              <Palette className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-base text-white tracking-wide">Skin Market</span>
+          <div className="flex items-center gap-2 mb-1">
+            <Palette className="w-5 h-5 text-amber-400" />
+            <span className="font-bold text-base text-amber-400">Skin Market</span>
           </div>
+          <div className="text-[10px] text-amber-200/60 mb-2">Limited edition donut skins</div>
           
-          <div className="text-xs text-zinc-400">Limited Time Mints</div>
-          
-          <div className="flex items-center gap-1.5 mt-2 text-[10px] text-zinc-500">
-            <Clock className="w-3 h-3" />
-            <span>Ends in {timeLeft}</span>
+          <div className="flex items-center gap-2 text-[9px]">
+            <Clock className="w-3 h-3 text-amber-400/60" />
+            <span className="text-amber-400/80">Ends in {timeLeft}</span>
+            <ArrowRight className="w-3 h-3 text-amber-500/30" />
+            <span className="text-amber-400/80">View Skins</span>
           </div>
         </div>
       </div>
@@ -130,71 +120,47 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
   );
 }
 
-// Flappy Donut Game Tile
+// Flappy Donut Game Tile - matches about page style
 function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
-  const [showPlayer, setShowPlayer] = useState(false);
-  
-  useEffect(() => {
-    if (recentPlayer && !isLoading) {
-      const timer = setTimeout(() => setShowPlayer(true), 100);
-      return () => clearTimeout(timer);
-    }
-  }, [recentPlayer, isLoading]);
-  
   return (
     <button
       onClick={() => window.location.href = "/games/game-1"}
       className="relative w-full rounded-2xl border-2 border-pink-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-500/80"
-      style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(251,146,60,0.1) 100%)' }}
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(251,146,60,0.1) 100%)' }}
     >
-      <div className="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Animated donut preview */}
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="flappy-donut-float relative">
-          <svg className="absolute -left-5 top-1/2 wing-flap" width="24" height="16" viewBox="0 0 24 16" style={{ transformOrigin: 'right center' }}>
+          <svg className="absolute -left-4 top-1/2 wing-flap" width="20" height="14" viewBox="0 0 24 16" style={{ transformOrigin: 'right center' }}>
             <ellipse cx="10" cy="8" rx="10" ry="7" fill="rgba(255,255,255,0.9)" stroke="rgba(180,180,180,0.5)" strokeWidth="1"/>
           </svg>
-          <svg className="absolute -right-5 top-1/2 wing-flap-reverse" width="24" height="16" viewBox="0 0 24 16" style={{ transformOrigin: 'left center' }}>
+          <svg className="absolute -right-4 top-1/2 wing-flap-reverse" width="20" height="14" viewBox="0 0 24 16" style={{ transformOrigin: 'left center' }}>
             <ellipse cx="14" cy="8" rx="10" ry="7" fill="rgba(255,255,255,0.9)" stroke="rgba(180,180,180,0.5)" strokeWidth="1"/>
           </svg>
-          <svg width="60" height="60" viewBox="0 0 60 60">
-            <ellipse cx="33" cy="35" rx="20" ry="14" fill="rgba(0,0,0,0.15)" />
-            <circle cx="30" cy="30" r="22" fill="#F472B6" stroke="rgba(0,0,0,0.2)" strokeWidth="2"/>
-            <circle cx="30" cy="30" r="7" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="1"/>
-            <circle cx="23" cy="23" r="4" fill="rgba(255,255,255,0.3)"/>
+          <svg width="56" height="56" viewBox="0 0 60 60">
+            <ellipse cx="33" cy="35" rx="18" ry="12" fill="rgba(0,0,0,0.15)" />
+            <circle cx="30" cy="30" r="20" fill="#F472B6" stroke="rgba(0,0,0,0.2)" strokeWidth="2"/>
+            <circle cx="30" cy="30" r="6" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="1"/>
+            <circle cx="24" cy="24" r="4" fill="rgba(255,255,255,0.3)"/>
           </svg>
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-28">
+      <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Gamepad2 className="w-5 h-5 text-pink-400" />
             <span className="font-bold text-base text-pink-400">Flappy Donut</span>
-            <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
+            <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
-          <div className="text-[10px] text-pink-200/60 mb-2">Tap to fly, dodge the rolling pins!</div>
+          <div className="text-[10px] text-pink-200/60 mb-2">Tap to fly, dodge rolling pins!</div>
           
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex items-center gap-1">
-              <Coins className="w-3 h-3 text-amber-400" />
-              <span className="text-[10px] text-amber-400">Pool: {prizePool} 🍩</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Trophy className="w-3 h-3 text-amber-400" />
-              <span className="text-[10px] text-amber-400">Weekly prizes</span>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2 h-5">
-            <span className="text-[9px] text-zinc-400">Last play:</span>
-            <div className={`transition-opacity duration-300 ${showPlayer ? 'opacity-100' : 'opacity-0'}`}>
-              {recentPlayer && (
-                <span className="text-[9px] text-white bg-zinc-800/80 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />}
-                  @{recentPlayer.username} scored {recentPlayer.score}
-                </span>
-              )}
-            </div>
-            {isLoading && <div className="w-24 h-4 bg-zinc-800/50 rounded-full animate-pulse" />}
+          <div className="flex items-center gap-2 text-[9px]">
+            <span className="text-amber-400">{prizePool} 🍩</span>
+            <ArrowRight className="w-3 h-3 text-pink-500/30" />
+            <span className="text-pink-400/80">Weekly Pool</span>
+            <ArrowRight className="w-3 h-3 text-pink-500/30" />
+            <span className="text-pink-400/80">Top 10 Win</span>
           </div>
         </div>
       </div>
@@ -202,57 +168,43 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
   );
 }
 
-// Glaze Stack Game Tile
+// Glaze Stack Game Tile - matches about page style
 function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
-  const [showPlayer, setShowPlayer] = useState(false);
-  
-  useEffect(() => {
-    if (recentPlayer && !isLoading) {
-      const timer = setTimeout(() => setShowPlayer(true), 100);
-      return () => clearTimeout(timer);
-    }
-  }, [recentPlayer, isLoading]);
-  
   return (
     <button
       onClick={() => window.location.href = "/games/game-2"}
       className="relative w-full rounded-2xl border-2 border-pink-400/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-400/80"
-      style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(244,114,182,0.15) 0%, rgba(255,182,193,0.1) 100%)' }}
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(244,114,182,0.15) 0%, rgba(255,182,193,0.1) 100%)' }}
     >
       {/* Floating glaze box stack preview */}
-      <div className="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-none">
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="stack-float relative flex flex-col-reverse items-center gap-0.5">
           {['#FFE4EC', '#FFDEE8', '#FFD8E4', '#FFD2E0', '#FFCCDC'].map((color, i) => (
             <div
               key={i}
               className="rounded-sm relative overflow-hidden"
               style={{
-                width: `${52 - i * 6}px`,
-                height: '12px',
+                width: `${44 - i * 5}px`,
+                height: '10px',
                 backgroundColor: color,
-                boxShadow: `0 2px 4px rgba(0,0,0,0.2), 2px -2px 0 ${color}`,
+                boxShadow: `0 2px 4px rgba(0,0,0,0.2)`,
               }}
             >
-              {/* Window with donuts */}
               <div 
-                className="absolute inset-y-0.5 left-1 right-1 rounded-[2px] flex items-center justify-center gap-1"
+                className="absolute inset-y-0.5 left-0.5 right-0.5 rounded-[2px] flex items-center justify-center gap-0.5"
                 style={{ backgroundColor: 'rgba(30, 20, 25, 0.8)' }}
               >
                 {[...Array(Math.max(1, 3 - Math.floor(i / 2)))].map((_, j) => (
                   <div
                     key={j}
                     className="rounded-full relative"
-                    style={{ 
-                      width: '7px', 
-                      height: '7px', 
-                      backgroundColor: '#F472B6',
-                    }}
+                    style={{ width: '6px', height: '6px', backgroundColor: '#F472B6' }}
                   >
                     <div 
                       className="absolute rounded-full"
                       style={{
-                        width: '2.5px',
-                        height: '2.5px',
+                        width: '2px',
+                        height: '2px',
                         backgroundColor: 'rgba(30, 20, 25, 0.9)',
                         top: '50%',
                         left: '50%',
@@ -267,37 +219,21 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-24">
+      <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Layers className="w-5 h-5 text-pink-400" />
             <span className="font-bold text-base text-pink-400">Glaze Stack</span>
-            <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
+            <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
-          <div className="text-[10px] text-pink-200/60 mb-2">Stack glaze boxes, don't let them fall!</div>
+          <div className="text-[10px] text-pink-200/60 mb-2">Stack boxes, don't let them fall!</div>
           
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex items-center gap-1">
-              <Coins className="w-3 h-3 text-amber-400" />
-              <span className="text-[10px] text-amber-400">Pool: {prizePool} 🍩</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Trophy className="w-3 h-3 text-amber-400" />
-              <span className="text-[10px] text-amber-400">Weekly prizes</span>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2 h-5">
-            <span className="text-[9px] text-zinc-400">Last play:</span>
-            <div className={`transition-opacity duration-300 ${showPlayer ? 'opacity-100' : 'opacity-0'}`}>
-              {recentPlayer && (
-                <span className="text-[9px] text-white bg-zinc-800/80 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />}
-                  @{recentPlayer.username} scored {recentPlayer.score}
-                </span>
-              )}
-            </div>
-            {isLoading && <div className="w-24 h-4 bg-zinc-800/50 rounded-full animate-pulse" />}
+          <div className="flex items-center gap-2 text-[9px]">
+            <span className="text-amber-400">{prizePool} 🍩</span>
+            <ArrowRight className="w-3 h-3 text-pink-500/30" />
+            <span className="text-pink-400/80">Weekly Pool</span>
+            <ArrowRight className="w-3 h-3 text-pink-500/30" />
+            <span className="text-pink-400/80">Top 10 Win</span>
           </div>
         </div>
       </div>
@@ -305,86 +241,61 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
   );
 }
 
-// Donut Dash Game Tile
+// Donut Dash Game Tile - matches about page style
 function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
-  const [showPlayer, setShowPlayer] = useState(false);
-  
-  useEffect(() => {
-    if (recentPlayer && !isLoading) {
-      const timer = setTimeout(() => setShowPlayer(true), 100);
-      return () => clearTimeout(timer);
-    }
-  }, [recentPlayer, isLoading]);
-  
   return (
     <button
       onClick={() => window.location.href = "/games/donut-dash"}
       className="relative w-full rounded-2xl border-2 border-orange-400/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-orange-400/80"
-      style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(249,115,22,0.15) 0%, rgba(236,72,153,0.1) 100%)' }}
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(249,115,22,0.15) 0%, rgba(236,72,153,0.1) 100%)' }}
     >
       {/* Donut with jetpack preview */}
-      <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="donut-dash-float relative">
-          <svg width="70" height="70" viewBox="0 0 70 70">
+          <svg width="60" height="60" viewBox="0 0 70 70">
             {/* Jetpack */}
-            <rect x="12" y="28" width="10" height="20" rx="2" fill="#444" />
-            <rect x="14" y="30" width="6" height="16" rx="1" fill="#666" />
+            <rect x="12" y="28" width="10" height="18" rx="2" fill="#444" />
+            <rect x="14" y="30" width="6" height="14" rx="1" fill="#666" />
             {/* Flame */}
-            <path d="M17 48 L12 60 L22 48 Z" fill="url(#flameGrad)" className="flame-flicker" />
+            <path d="M17 46 L12 56 L22 46 Z" fill="url(#flameGrad)" className="flame-flicker" />
             <defs>
-              <linearGradient id="flameGrad" x1="17" y1="48" x2="17" y2="60" gradientUnits="userSpaceOnUse">
+              <linearGradient id="flameGrad" x1="17" y1="46" x2="17" y2="56" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="#FFD700" />
                 <stop offset="50%" stopColor="#FF6B00" />
                 <stop offset="100%" stopColor="#FF000000" />
               </linearGradient>
             </defs>
             {/* Donut body */}
-            <circle cx="40" cy="35" r="22" fill="#FF69B4" />
+            <circle cx="40" cy="35" r="20" fill="#FF69B4" />
             {/* Donut hole */}
-            <circle cx="40" cy="35" r="8" fill="#1a1a2e" />
+            <circle cx="40" cy="35" r="7" fill="#1a1a2e" />
             {/* Highlight */}
-            <circle cx="33" cy="28" r="5" fill="rgba(255,255,255,0.3)" />
+            <circle cx="34" cy="29" r="4" fill="rgba(255,255,255,0.3)" />
           </svg>
           {/* Motion lines */}
-          <div className="absolute -left-2 top-1/2 -translate-y-1/2 flex flex-col gap-1">
-            <div className="w-4 h-0.5 bg-orange-400/60 rounded motion-line-1" />
-            <div className="w-6 h-0.5 bg-pink-400/60 rounded motion-line-2" />
-            <div className="w-3 h-0.5 bg-orange-400/60 rounded motion-line-3" />
+          <div className="absolute -left-1 top-1/2 -translate-y-1/2 flex flex-col gap-1">
+            <div className="w-3 h-0.5 bg-orange-400/60 rounded motion-line-1" />
+            <div className="w-5 h-0.5 bg-pink-400/60 rounded motion-line-2" />
+            <div className="w-2 h-0.5 bg-orange-400/60 rounded motion-line-3" />
           </div>
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-24">
+      <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Rocket className="w-5 h-5 text-orange-400" />
             <span className="font-bold text-base text-orange-400">Donut Dash</span>
-            <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
+            <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
-          <div className="text-[10px] text-orange-200/60 mb-2">Jetpack through the facility, collect sprinkles!</div>
+          <div className="text-[10px] text-orange-200/60 mb-2">Jetpack through, collect sprinkles!</div>
           
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex items-center gap-1">
-              <Coins className="w-3 h-3 text-amber-400" />
-              <span className="text-[10px] text-amber-400">Pool: {prizePool} 🍩</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Trophy className="w-3 h-3 text-amber-400" />
-              <span className="text-[10px] text-amber-400">Weekly prizes</span>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2 h-5">
-            <span className="text-[9px] text-zinc-400">Last play:</span>
-            <div className={`transition-opacity duration-300 ${showPlayer ? 'opacity-100' : 'opacity-0'}`}>
-              {recentPlayer && (
-                <span className="text-[9px] text-white bg-zinc-800/80 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3.5 h-3.5 rounded-full" />}
-                  @{recentPlayer.username} scored {recentPlayer.score}
-                </span>
-              )}
-            </div>
-            {isLoading && <div className="w-24 h-4 bg-zinc-800/50 rounded-full animate-pulse" />}
+          <div className="flex items-center gap-2 text-[9px]">
+            <span className="text-amber-400">{prizePool} 🍩</span>
+            <ArrowRight className="w-3 h-3 text-orange-500/30" />
+            <span className="text-orange-400/80">Weekly Pool</span>
+            <ArrowRight className="w-3 h-3 text-orange-500/30" />
+            <span className="text-orange-400/80">Top 10 Win</span>
           </div>
         </div>
       </div>
@@ -392,20 +303,29 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: R
   );
 }
 
-// Coming Soon Tile
+// Coming Soon Tile - matches about page style
 function ComingSoonTile() {
   return (
-    <div className="relative w-full rounded-2xl border border-zinc-800 overflow-hidden opacity-60" style={{ minHeight: '90px', background: 'rgba(39,39,42,0.3)' }}>
+    <div 
+      className="relative w-full rounded-2xl border-2 border-white/10 overflow-hidden opacity-50"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)' }}
+    >
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Settings className="w-20 h-20 text-zinc-800 gear-spin" />
+        <Settings className="w-24 h-24 text-zinc-800 gear-spin" />
       </div>
       <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Settings className="w-5 h-5 text-gray-500" />
-            <span className="font-bold text-base text-gray-500">NEW GAMES SOON</span>
+            <Settings className="w-5 h-5 text-zinc-600" />
+            <span className="font-bold text-base text-zinc-600">Coming Soon</span>
           </div>
-          <div className="text-[10px] text-gray-600">Something fun is in the works...</div>
+          <div className="text-[10px] text-zinc-700 mb-2">New game in development</div>
+          
+          <div className="flex items-center gap-2 text-[9px]">
+            <span className="text-zinc-600">Stay tuned</span>
+            <ArrowRight className="w-3 h-3 text-zinc-700" />
+            <span className="text-zinc-600">More games coming</span>
+          </div>
         </div>
       </div>
     </div>
@@ -516,25 +436,18 @@ export default function GamesPage() {
     const fetchDashData = async () => {
       setIsLoadingDash(true);
       try {
-        // Fetch leaderboard for recent player
-        const res = await fetch('/api/games/donut-dash/leaderboard?limit=1');
+        // Fetch recent player and prize pool from dedicated endpoint
+        const res = await fetch('/api/games/donut-dash/recent');
         if (res.ok) {
           const data = await res.json();
-          if (data.leaderboard && data.leaderboard.length > 0) {
-            const recent = data.leaderboard[0];
+          if (data.recentPlayer) {
             setDashRecentPlayer({
-              username: recent.username || recent.displayName || `fid:${recent.fid}`,
-              score: recent.score,
-              pfpUrl: recent.pfpUrl,
+              username: data.recentPlayer.username,
+              score: data.recentPlayer.score,
+              pfpUrl: data.recentPlayer.pfpUrl,
             });
           }
-        }
-        // Fetch prize pool from distribute endpoint
-        const prizeRes = await fetch('/api/games/donut-dash/distribute');
-        if (prizeRes.ok) {
-          const prizeData = await prizeRes.json();
-          const poolValue = prizeData.prizePoolFormatted?.replace(' DONUT', '') || "0";
-          setDashPrizePool(poolValue);
+          setDashPrizePool(data.prizePool || "0");
         }
       } catch (e) {
         console.error("Failed to fetch Donut Dash data:", e);
@@ -593,6 +506,7 @@ export default function GamesPage() {
   }, []);
 
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
+  const userHandle = context?.user?.username ? `@${context.user.username}` : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
   return (
@@ -612,10 +526,6 @@ export default function GamesPage() {
         .wing-flap { animation: wing-flap 0.2s ease-in-out infinite; }
         @keyframes wing-flap-reverse { 0%, 100% { transform: translateY(-50%) rotate(10deg) scaleY(0.8); } 50% { transform: translateY(-50%) rotate(-10deg) scaleY(1); } }
         .wing-flap-reverse { animation: wing-flap-reverse 0.2s ease-in-out infinite; }
-        @keyframes skin-glow { 0%, 100% { box-shadow: 0 0 20px currentColor; } 50% { box-shadow: 0 0 40px currentColor, 0 0 60px currentColor; } }
-        .skin-animated-glow { animation: skin-glow 2s ease-in-out infinite; }
-        @keyframes scroll-donuts { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        .animate-scroll-donuts { animation: scroll-donuts 20s linear infinite; }
         @keyframes donut-dash-float { 0%, 100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-8px) rotate(5deg); } }
         .donut-dash-float { animation: donut-dash-float 1s ease-in-out infinite; }
         @keyframes motion-line { 0% { opacity: 0.6; transform: translateX(0); } 100% { opacity: 0; transform: translateX(-10px); } }
@@ -626,10 +536,14 @@ export default function GamesPage() {
         .flame-flicker { animation: flame-flicker 0.1s ease-in-out infinite; transform-origin: top center; }
       `}</style>
 
-      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}>
+      <div 
+        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4"
+        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}
+      >
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
+          {/* Fixed Header - matches about page */}
           <div className="flex-shrink-0">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl font-bold tracking-wide">GAMES</h1>
               {context?.user && (
                 <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
@@ -639,14 +553,22 @@ export default function GamesPage() {
                   </Avatar>
                   <div className="leading-tight text-left">
                     <div className="text-sm font-bold">{userDisplayName}</div>
-                    {context.user.username && <div className="text-xs text-gray-400">@{context.user.username}</div>}
+                    {userHandle && <div className="text-xs text-gray-400">{userHandle}</div>}
                   </div>
                 </div>
               )}
             </div>
           </div>
 
-          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden games-scroll" style={{ WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` }}>
+          {/* Scrollable Content */}
+          <div 
+            ref={scrollContainerRef} 
+            className="flex-1 overflow-y-auto overflow-x-hidden games-scroll"
+            style={{ 
+              WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
+              maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
+            }}
+          >
             <div className="space-y-3 pb-4">
               <WeeklySkinTile skin={weeklySkin} isLoading={isLoadingSkin} />
               <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool} isLoading={isLoadingFlappy} />
