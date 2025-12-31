@@ -82,86 +82,73 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
   return (
     <button
       onClick={() => window.location.href = "/games/skin-market"}
-      className="relative w-full rounded-2xl border border-amber-500/30 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/50 group bg-gradient-to-r from-amber-500/20 to-orange-500/20"
-      style={{ minHeight: '120px' }}
+      className="relative w-full rounded-2xl border border-zinc-700/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-zinc-500/50 group"
+      style={{ minHeight: '120px', background: 'linear-gradient(135deg, rgba(24,24,27,0.95) 0%, rgba(39,39,42,0.9) 100%)' }}
     >
-      <div className="absolute inset-0 bg-gradient-to-r from-amber-500/0 via-white/5 to-amber-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+      {/* Subtle shine effect on hover */}
+      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
       
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Infinite scrolling donut carousel */}
-        <div className="absolute inset-y-0 right-0 left-0 flex items-center">
-          <div className="donut-carousel flex gap-4 animate-scroll-donuts">
-            {[...Array(12)].map((_, i) => {
-              const colors = ['#F472B6', '#A78BFA', '#60A5FA', '#34D399', '#FBBF24', '#FB923C', '#F87171', '#E879F9', '#22D3EE', '#4ADE80'];
-              const color = colors[i % colors.length];
-              return (
-                <svg key={i} width="80" height="80" viewBox="0 0 40 40" className="opacity-15 flex-shrink-0">
-                  <circle cx="20" cy="20" r="18" fill={color} />
-                  <circle cx="20" cy="20" r="7" fill="#1a1a1a" />
-                </svg>
-              );
-            })}
-            {/* Duplicate for seamless loop */}
-            {[...Array(12)].map((_, i) => {
-              const colors = ['#F472B6', '#A78BFA', '#60A5FA', '#34D399', '#FBBF24', '#FB923C', '#F87171', '#E879F9', '#22D3EE', '#4ADE80'];
-              const color = colors[i % colors.length];
-              return (
-                <svg key={`dup-${i}`} width="80" height="80" viewBox="0 0 40 40" className="opacity-15 flex-shrink-0">
-                  <circle cx="20" cy="20" r="18" fill={color} />
-                  <circle cx="20" cy="20" r="7" fill="#1a1a1a" />
-                </svg>
-              );
-            })}
-          </div>
-        </div>
+      {/* Geometric pattern background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-10">
+        <div className="absolute inset-0" style={{ 
+          backgroundImage: `radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)`,
+          backgroundSize: '24px 24px'
+        }} />
       </div>
       
+      {/* Featured skin preview */}
       {skin && !isLoading && (
         <div className="absolute right-6 top-1/2 -translate-y-1/2">
-          <div 
-            className={`w-16 h-16 rounded-full relative shadow-xl ${skin.animated ? 'skin-animated-glow' : ''}`}
-            style={{ backgroundColor: skin.frostingColor, boxShadow: '0 0 30px ' + skin.frostingColor + '40' }}
-          >
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-5 h-5 rounded-full bg-zinc-900 border-2 border-zinc-700" />
+          <div className="relative">
+            {/* Glow ring */}
+            <div 
+              className="absolute inset-0 rounded-full blur-md opacity-40"
+              style={{ backgroundColor: skin.frostingColor, transform: 'scale(1.2)' }}
+            />
+            {/* Donut */}
+            <div 
+              className={`w-14 h-14 rounded-full relative border-2 border-white/20 shadow-2xl ${skin.animated ? 'animate-pulse' : ''}`}
+              style={{ backgroundColor: skin.frostingColor }}
+            >
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-4 h-4 rounded-full bg-zinc-900 border border-zinc-700" />
+              </div>
+              <div className="absolute top-1 left-2.5 w-2.5 h-2.5 rounded-full bg-white/30" />
             </div>
-            <div className="absolute top-1.5 left-3 w-3 h-3 rounded-full bg-white/30" />
           </div>
         </div>
       )}
       
       <div className="relative z-10 p-4 pr-24">
         <div className="text-left">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="p-1.5 rounded-lg bg-amber-500/20">
-              <Palette className="w-5 h-5 text-amber-400" />
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="p-1.5 rounded-lg bg-white/10 border border-white/10">
+              <Palette className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-lg text-white">Skin Market</span>
+            <span className="font-bold text-base text-white tracking-wide">Skin Market</span>
           </div>
           
           {isLoading ? (
             <div className="h-4 w-32 bg-zinc-800 rounded animate-pulse mb-2" />
           ) : skin ? (
             <>
-              <div className="text-sm text-amber-200/90 font-medium mb-1">"{skin.name}" by @{skin.artistUsername}</div>
-              <div className="flex items-center gap-3 text-xs text-amber-200/60">
-                <span className="flex items-center gap-1">🍩 {skin.price}</span>
+              <div className="text-xs text-zinc-300 mb-1">"{skin.name}" <span className="text-zinc-500">by @{skin.artistUsername}</span></div>
+              <div className="flex items-center gap-3 text-[10px] text-zinc-400">
+                <span className="flex items-center gap-1 bg-zinc-800/50 px-2 py-0.5 rounded-full">🍩 {skin.price}</span>
                 <span className="flex items-center gap-1">👥 {skin.mintCount} minted</span>
               </div>
             </>
           ) : (
-            <div className="text-xs text-amber-200/70">Limited Time Mints</div>
+            <div className="text-xs text-zinc-400">Limited Time Mints</div>
           )}
           
-          <div className="flex items-center gap-1 mt-2 text-[10px] text-amber-300/50">
+          <div className="flex items-center gap-1.5 mt-2 text-[10px] text-zinc-500">
             <Clock className="w-3 h-3" />
             <span>Ends in {timeLeft}</span>
-            <ChevronRight className="w-3 h-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+            <ChevronRight className="w-3 h-3 ml-auto text-zinc-600 group-hover:text-zinc-400 transition-colors" />
           </div>
         </div>
       </div>
-      
-      <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-gradient-to-br from-amber-500/20 to-orange-500/20 blur-xl" />
     </button>
   );
 }
@@ -256,7 +243,7 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
       style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(244,114,182,0.15) 0%, rgba(255,182,193,0.1) 100%)' }}
     >
       {/* Floating glaze box stack preview */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+      <div className="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="stack-float relative flex flex-col-reverse items-center gap-0.5">
           {['#FFE4EC', '#FFDEE8', '#FFD8E4', '#FFD2E0', '#FFCCDC'].map((color, i) => (
             <div
