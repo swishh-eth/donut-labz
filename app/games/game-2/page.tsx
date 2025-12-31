@@ -2,25 +2,25 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { parseUnits, erc20Abi } from "viem";
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { formatUnits, parseUnits } from "viem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { Trophy, Play, Zap, Share2, X, HelpCircle, Volume2, VolumeX, ChevronRight, Clock, Layers } from "lucide-react";
 
 // Contract addresses
-const STACK_TOWER_CONTRACT = "0x3704C7C71cDd1b37669aa5f1d366Dc0121E1e6fF";
-const DONUT_TOKEN = "0x6A89a13068C73C883044048D409C8214802a8258";
+const DONUT_ADDRESS = "0x6A89a13068C73C883044048D409C8214802a8258" as const;
+const STACK_TOWER_CONTRACT = "0x3704C7C71cDd1b37669aa5f1d366Dc0121E1e6fF" as const;
 
-// Contract ABI for payEntry
-const PRIZE_POOL_ABI = [
-  {
-    name: "payEntry",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "amount", type: "uint256" }],
-    outputs: [],
-  },
+const ERC20_ABI = [
+  { inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], name: "approve", outputs: [{ type: "bool" }], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }], name: "allowance", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [{ name: "account", type: "address" }], name: "balanceOf", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+] as const;
+
+const STACK_POOL_ABI = [
+  { inputs: [{ name: "amount", type: "uint256" }], name: "payEntry", outputs: [], stateMutability: "nonpayable", type: "function" },
+  { inputs: [], name: "getPrizePool", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
 ] as const;
 
 // Game constants
@@ -141,17 +141,35 @@ export default function StackGamePage() {
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
   const [costResetCountdown, setCostResetCountdown] = useState<string>(getTimeUntilCostReset());
   const [lastPlacement, setLastPlacement] = useState<"perfect" | "good" | "ok" | null>(null);
-  const [paymentState, setPaymentState] = useState<"idle" | "approving" | "paying" | "confirming">("idle");
-  const [pendingTxHash, setPendingTxHash] = useState<`0x${string}` | undefined>();
+  const [pendingTxType, setPendingTxType] = useState<"approve" | "approved" | "pay" | null>(null);
   
   const PRIZE_DISTRIBUTION = [30, 20, 15, 10, 8, 6, 5, 3, 2, 1];
   
-  // Contract write hooks
-  const { writeContract: writeApprove, data: approveHash } = useWriteContract();
-  const { writeContract: writePayEntry, data: payEntryHash } = useWriteContract();
+  // Single contract write hook (like Flappy Donut)
+  const { writeContract, data: txHash, isPending: isWritePending, reset: resetWrite, error: writeError } = useWriteContract();
+  const { isLoading: isTxLoading, isSuccess: isTxSuccess, isError: isTxError } = useWaitForTransactionReceipt({ hash: txHash });
   
-  const { isSuccess: approveSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
-  const { isSuccess: payEntrySuccess } = useWaitForTransactionReceipt({ hash: payEntryHash });
+  // Read contract hooks for allowance and balance
+  const { data: allowance, refetch: refetchAllowance } = useReadContract({ 
+    address: DONUT_ADDRESS, 
+    abi: ERC20_ABI, 
+    functionName: "allowance", 
+    args: address ? [address, STACK_TOWER_CONTRACT] : undefined 
+  });
+  const { data: balance, refetch: refetchBalance } = useReadContract({ 
+    address: DONUT_ADDRESS, 
+    abi: ERC20_ABI, 
+    functionName: "balanceOf", 
+    args: address ? [address] : undefined 
+  });
+  const { data: prizePoolData } = useReadContract({ 
+    address: STACK_TOWER_CONTRACT, 
+    abi: STACK_POOL_ABI, 
+    functionName: "getPrizePool" 
+  });
+  
+  const gameStartPendingRef = useRef(false);
+  const paidCostRef = useRef(1);
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioInitializedRef = useRef(false);
@@ -179,7 +197,6 @@ export default function StackGamePage() {
       const leaderboardRes = await fetch('/api/games/stack-tower/leaderboard');
       if (leaderboardRes.ok) {
         const data = await leaderboardRes.json();
-        setPrizePool(parseFloat(data.prizePool || "0").toFixed(2));
         setLeaderboard(data.leaderboard || []);
       }
       
@@ -197,45 +214,50 @@ export default function StackGamePage() {
     }
   }, [context?.user?.fid]);
   
-  // Handle approve success -> pay entry
-  useEffect(() => {
-    if (approveSuccess && paymentState === "approving") {
-      setPaymentState("paying");
-      const amountWei = parseUnits(entryCost.toString(), 18);
-      writePayEntry({
-        address: STACK_TOWER_CONTRACT,
-        abi: PRIZE_POOL_ABI,
-        functionName: "payEntry",
-        args: [amountWei],
-      });
-    }
-  }, [approveSuccess, paymentState, entryCost, writePayEntry]);
+  // Update prize pool from contract
+  useEffect(() => { 
+    if (prizePoolData) setPrizePool(Number(formatUnits(prizePoolData, 18)).toFixed(2)); 
+  }, [prizePoolData]);
   
-  // Handle pay entry success -> start game
+  // Handle approval success - trigger payment
   useEffect(() => {
-    if (payEntrySuccess && paymentState === "paying") {
-      setPaymentState("idle");
-      setPendingTxHash(payEntryHash);
-      
-      // Record the entry on backend
-      if (context?.user?.fid) {
-        fetch('/api/games/stack-tower/pay-entry', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fid: context.user.fid,
-            txHash: payEntryHash,
-          }),
-        }).then(res => res.json()).then(data => {
-          setAttempts(data.attemptsToday || attempts + 1);
-          setEntryCost(data.nextEntryCost || entryCost + 1);
-        }).catch(console.error);
-      }
-      
-      setIsLoading(false);
-      startGame();
+    if (isTxSuccess && pendingTxType === "approve") {
+      setPendingTxType("approved");
+      resetWrite();
+      refetchAllowance();
     }
-  }, [payEntrySuccess, paymentState, payEntryHash, context?.user?.fid]);
+  }, [isTxSuccess, pendingTxType, resetWrite, refetchAllowance]);
+
+  // After approval is confirmed and allowance refetched, send payment
+  useEffect(() => {
+    if (pendingTxType === "approved" && allowance) {
+      const costWei = parseUnits(entryCost.toString(), 18);
+      if (allowance >= costWei) {
+        setPendingTxType("pay");
+        writeContract({ address: STACK_TOWER_CONTRACT, abi: STACK_POOL_ABI, functionName: "payEntry", args: [costWei] });
+      }
+    }
+  }, [pendingTxType, allowance, entryCost, writeContract]);
+
+  // Handle transaction errors
+  useEffect(() => {
+    if (writeError || isTxError) {
+      setIsLoading(false);
+      setPendingTxType(null);
+      gameStartPendingRef.current = false;
+      if (writeError) {
+        const msg = (writeError as Error).message || "Transaction failed";
+        if (msg.includes("rejected") || msg.includes("denied")) {
+          setError("Transaction rejected");
+        } else {
+          setError("Transaction failed");
+        }
+      } else {
+        setError("Transaction failed");
+      }
+      resetWrite();
+    }
+  }, [writeError, isTxError, resetWrite]);
   
   const initAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
@@ -391,7 +413,7 @@ export default function StackGamePage() {
           username: context.user.username || context.user.displayName,
           pfpUrl: context.user.pfpUrl,
           score: finalScore,
-          txHash: pendingTxHash,
+          txHash: txHash,
         }),
       });
       
@@ -400,7 +422,7 @@ export default function StackGamePage() {
     } catch (err) {
       console.error("Failed to submit score:", err);
     }
-  }, [context?.user, address, pendingTxHash, fetchGameData]);
+  }, [context?.user, address, txHash, fetchGameData]);
   
   const drawBlock = useCallback((ctx: CanvasRenderingContext2D, block: Block, cameraY: number, time: number) => {
     const screenY = block.y - cameraY;
@@ -833,6 +855,35 @@ export default function StackGamePage() {
     }, 1000);
   }, [gameLoop, initAudioContext, playCountdownSound, spawnNewBlock]);
   
+  // Handle payment success - start game (must be after startGame is defined)
+  useEffect(() => {
+    if (isTxSuccess && pendingTxType === "pay" && gameStartPendingRef.current) {
+      setPendingTxType(null);
+      paidCostRef.current = entryCost;
+      setIsLoading(false);
+      refetchAllowance();
+      refetchBalance();
+      resetWrite();
+      
+      // Record the entry on backend
+      if (context?.user?.fid) {
+        fetch('/api/games/stack-tower/pay-entry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fid: context.user.fid,
+            txHash: txHash,
+          }),
+        }).then(res => res.json()).then(data => {
+          if (data.attemptsToday) setAttempts(data.attemptsToday);
+          if (data.nextEntryCost) setEntryCost(data.nextEntryCost);
+        }).catch(console.error);
+      }
+      
+      startGame();
+    }
+  }, [isTxSuccess, pendingTxType, entryCost, refetchAllowance, refetchBalance, resetWrite, context?.user?.fid, txHash, startGame]);
+  
   const handleTap = useCallback(() => {
     if (gameState === "playing" && gameActiveRef.current) {
       placeBlock();
@@ -840,11 +891,10 @@ export default function StackGamePage() {
   }, [gameState, placeBlock]);
   
   const handlePlay = async () => {
-    if (!address) {
-      setError("Please connect your wallet");
-      return;
+    if (!address) { 
+      setError("Connect wallet to play"); 
+      return; 
     }
-    
     if (!context?.user?.fid) {
       setError("Please sign in with Farcaster");
       return;
@@ -852,24 +902,38 @@ export default function StackGamePage() {
     
     setIsLoading(true);
     setError(null);
-    setPaymentState("approving");
+    gameStartPendingRef.current = true;
     
-    try {
-      const amountWei = parseUnits(entryCost.toString(), 18);
-      
-      // First approve the token spend
-      writeApprove({
-        address: DONUT_TOKEN,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [STACK_TOWER_CONTRACT, amountWei],
-      });
-    } catch (err: any) {
-      console.error("Payment error:", err);
-      setError(err.message || "Transaction failed");
-      setIsLoading(false);
-      setPaymentState("idle");
+    const costWei = parseUnits(entryCost.toString(), 18);
+    
+    // Check balance
+    if (balance && balance < costWei) { 
+      setError(`Insufficient DONUT. Need ${entryCost} 🍩`); 
+      setIsLoading(false); 
+      gameStartPendingRef.current = false; 
+      return; 
     }
+    
+    // Check allowance - if not enough, approve first
+    if (!allowance || allowance < costWei) { 
+      setPendingTxType("approve");
+      writeContract({ 
+        address: DONUT_ADDRESS, 
+        abi: ERC20_ABI, 
+        functionName: "approve", 
+        args: [STACK_TOWER_CONTRACT, parseUnits("100", 18)] 
+      }); 
+      return; 
+    }
+    
+    // Allowance is sufficient, pay directly
+    setPendingTxType("pay");
+    writeContract({ 
+      address: STACK_TOWER_CONTRACT, 
+      abi: STACK_POOL_ABI, 
+      functionName: "payEntry", 
+      args: [costWei] 
+    });
   };
   
   const handleShare = useCallback(async () => {
@@ -1014,13 +1078,7 @@ export default function StackGamePage() {
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Player";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
-  const getPaymentButtonText = () => {
-    if (paymentState === "approving") return "Approving...";
-    if (paymentState === "paying") return "Paying...";
-    if (paymentState === "confirming") return "Confirming...";
-    if (isLoading) return "Processing...";
-    return gameState === "gameover" ? "Play Again" : "Play";
-  };
+  const isPaying = isWritePending || isTxLoading;
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -1123,14 +1181,14 @@ export default function StackGamePage() {
                     <Zap className="w-3 h-3 text-yellow-400" />
                     <span className="text-xs">Entry: <span className="font-bold">{entryCost} 🍩</span></span>
                   </div>
-                  <button onClick={handlePlay} disabled={isLoading || paymentState !== "idle"} className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95 disabled:opacity-50">
-                    {(isLoading || paymentState !== "idle") ? (
-                      <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">{getPaymentButtonText()}</span></>
+                  <button onClick={handlePlay} disabled={isPaying || isLoading} className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95 disabled:opacity-50">
+                    {isPaying ? (
+                      <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Processing...</span></>
                     ) : (
                       <><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span></>
                     )}
                   </button>
-                  {error && <p className="text-red-400 text-xs">{error}</p>}
+                  {error && <p className="text-red-400 text-xs max-w-[280px] text-center">{error}</p>}
                   <p className="text-zinc-500 text-[10px]">Attempts today: {attempts} • Resets in {costResetCountdown}</p>
                 </div>
               </div>
