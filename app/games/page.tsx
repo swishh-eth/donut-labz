@@ -40,6 +40,25 @@ const initialsFrom = (label?: string) => {
   return stripped.slice(0, 2).toUpperCase();
 };
 
+// Donut color palette for randomization
+const DONUT_COLORS = [
+  '#F472B6', // pink
+  '#FB923C', // orange
+  '#A78BFA', // purple
+  '#34D399', // green
+  '#60A5FA', // blue
+  '#FBBF24', // yellow
+  '#F87171', // red
+  '#2DD4BF', // teal
+  '#E879F9', // fuchsia
+  '#4ADE80', // lime
+];
+
+// Get random color from palette
+const getRandomDonutColor = () => {
+  return DONUT_COLORS[Math.floor(Math.random() * DONUT_COLORS.length)];
+};
+
 // Calculate time until next Friday 11PM UTC
 function getTimeUntilReset(): string {
   const now = new Date();
@@ -123,6 +142,7 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
 // Flappy Donut Game Tile - neutral white/zinc scheme with animated preview
 function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
   const [showPlayer, setShowPlayer] = useState(false);
+  const [donutColor] = useState(() => getRandomDonutColor());
   
   useEffect(() => {
     if (recentPlayer && !isLoading) {
@@ -139,25 +159,25 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Animated donut preview */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Animated donut preview - bigger and moved left */}
+      <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="flappy-donut-float relative">
-          <svg className="absolute -left-4 top-1/2 wing-flap" width="20" height="14" viewBox="0 0 24 16" style={{ transformOrigin: 'right center' }}>
+          <svg className="absolute -left-6 top-1/2 wing-flap" width="28" height="20" viewBox="0 0 24 16" style={{ transformOrigin: 'right center' }}>
             <ellipse cx="10" cy="8" rx="10" ry="7" fill="rgba(255,255,255,0.9)" stroke="rgba(180,180,180,0.5)" strokeWidth="1"/>
           </svg>
-          <svg className="absolute -right-4 top-1/2 wing-flap-reverse" width="20" height="14" viewBox="0 0 24 16" style={{ transformOrigin: 'left center' }}>
+          <svg className="absolute -right-6 top-1/2 wing-flap-reverse" width="28" height="20" viewBox="0 0 24 16" style={{ transformOrigin: 'left center' }}>
             <ellipse cx="14" cy="8" rx="10" ry="7" fill="rgba(255,255,255,0.9)" stroke="rgba(180,180,180,0.5)" strokeWidth="1"/>
           </svg>
-          <svg width="56" height="56" viewBox="0 0 60 60">
+          <svg width="90" height="90" viewBox="0 0 60 60">
             <ellipse cx="33" cy="35" rx="18" ry="12" fill="rgba(0,0,0,0.15)" />
-            <circle cx="30" cy="30" r="20" fill="#F472B6" stroke="rgba(0,0,0,0.2)" strokeWidth="2"/>
+            <circle cx="30" cy="30" r="20" fill={donutColor} stroke="rgba(0,0,0,0.2)" strokeWidth="2"/>
             <circle cx="30" cy="30" r="6" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="1"/>
             <circle cx="24" cy="24" r="4" fill="rgba(255,255,255,0.3)"/>
           </svg>
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-24">
+      <div className="relative z-10 p-4 pr-28">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Gamepad2 className="w-5 h-5 text-white" />
@@ -195,6 +215,7 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
 // Glaze Stack Game Tile - neutral white/zinc scheme with animated preview
 function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
   const [showPlayer, setShowPlayer] = useState(false);
+  const [donutColor] = useState(() => getRandomDonutColor());
   
   useEffect(() => {
     if (recentPlayer && !isLoading) {
@@ -211,35 +232,35 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Floating glaze box stack preview */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-        <div className="stack-float relative flex flex-col-reverse items-center gap-0.5">
+      {/* Floating glaze box stack preview - bigger and moved left */}
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <div className="stack-float relative flex flex-col-reverse items-center gap-1">
           {['#FFE4EC', '#FFDEE8', '#FFD8E4', '#FFD2E0', '#FFCCDC'].map((color, i) => (
             <div
               key={i}
               className="rounded-sm relative overflow-hidden"
               style={{
-                width: `${44 - i * 5}px`,
-                height: '10px',
+                width: `${72 - i * 8}px`,
+                height: '16px',
                 backgroundColor: color,
                 boxShadow: `0 2px 4px rgba(0,0,0,0.2)`,
               }}
             >
               <div 
-                className="absolute inset-y-0.5 left-0.5 right-0.5 rounded-[2px] flex items-center justify-center gap-0.5"
+                className="absolute inset-y-1 left-1 right-1 rounded-[2px] flex items-center justify-center gap-1"
                 style={{ backgroundColor: 'rgba(30, 20, 25, 0.8)' }}
               >
-                {[...Array(Math.max(1, 3 - Math.floor(i / 2)))].map((_, j) => (
+                {[...Array(Math.max(1, 4 - Math.floor(i / 2)))].map((_, j) => (
                   <div
                     key={j}
                     className="rounded-full relative"
-                    style={{ width: '6px', height: '6px', backgroundColor: '#F472B6' }}
+                    style={{ width: '10px', height: '10px', backgroundColor: donutColor }}
                   >
                     <div 
                       className="absolute rounded-full"
                       style={{
-                        width: '2px',
-                        height: '2px',
+                        width: '3px',
+                        height: '3px',
                         backgroundColor: 'rgba(30, 20, 25, 0.9)',
                         top: '50%',
                         left: '50%',
@@ -254,7 +275,7 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-24">
+      <div className="relative z-10 p-4 pr-28">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Layers className="w-5 h-5 text-white" />
@@ -292,6 +313,7 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
 // Donut Dash Game Tile - neutral white/zinc scheme with animated preview
 function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
   const [showPlayer, setShowPlayer] = useState(false);
+  const [donutColor] = useState(() => getRandomDonutColor());
   
   useEffect(() => {
     if (recentPlayer && !isLoading) {
@@ -308,39 +330,39 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: R
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Donut with jetpack preview */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Donut with jetpack preview - bigger and moved left */}
+      <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="donut-dash-float relative">
-          <svg width="60" height="60" viewBox="0 0 70 70">
+          <svg width="95" height="95" viewBox="0 0 70 70">
             {/* Jetpack */}
-            <rect x="12" y="28" width="10" height="18" rx="2" fill="#444" />
-            <rect x="14" y="30" width="6" height="14" rx="1" fill="#666" />
+            <rect x="10" y="26" width="12" height="22" rx="2" fill="#444" />
+            <rect x="12" y="28" width="8" height="18" rx="1" fill="#666" />
             {/* Flame */}
-            <path d="M17 46 L12 56 L22 46 Z" fill="url(#flameGrad)" className="flame-flicker" />
+            <path d="M16 48 L10 62 L22 48 Z" fill="url(#flameGrad)" className="flame-flicker" />
             <defs>
-              <linearGradient id="flameGrad" x1="17" y1="46" x2="17" y2="56" gradientUnits="userSpaceOnUse">
+              <linearGradient id="flameGrad" x1="16" y1="48" x2="16" y2="62" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="#FFD700" />
                 <stop offset="50%" stopColor="#FF6B00" />
                 <stop offset="100%" stopColor="#FF000000" />
               </linearGradient>
             </defs>
             {/* Donut body */}
-            <circle cx="40" cy="35" r="20" fill="#FF69B4" />
+            <circle cx="40" cy="35" r="22" fill={donutColor} />
             {/* Donut hole */}
-            <circle cx="40" cy="35" r="7" fill="#1a1a2e" />
+            <circle cx="40" cy="35" r="8" fill="#1a1a2e" />
             {/* Highlight */}
-            <circle cx="34" cy="29" r="4" fill="rgba(255,255,255,0.3)" />
+            <circle cx="33" cy="28" r="5" fill="rgba(255,255,255,0.3)" />
           </svg>
           {/* Motion lines */}
-          <div className="absolute -left-1 top-1/2 -translate-y-1/2 flex flex-col gap-1">
-            <div className="w-3 h-0.5 bg-white/40 rounded motion-line-1" />
-            <div className="w-5 h-0.5 bg-white/30 rounded motion-line-2" />
-            <div className="w-2 h-0.5 bg-white/40 rounded motion-line-3" />
+          <div className="absolute -left-2 top-1/2 -translate-y-1/2 flex flex-col gap-1.5">
+            <div className="w-4 h-0.5 bg-white/40 rounded motion-line-1" />
+            <div className="w-6 h-0.5 bg-white/30 rounded motion-line-2" />
+            <div className="w-3 h-0.5 bg-white/40 rounded motion-line-3" />
           </div>
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-24">
+      <div className="relative z-10 p-4 pr-28">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Rocket className="w-5 h-5 text-white" />
