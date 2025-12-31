@@ -70,7 +70,7 @@ function getTimeUntilReset(): string {
   }
 }
 
-// Weekly Skin Tile - matches about page style
+// Weekly Skin Tile - amber hero tile
 function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoading: boolean }) {
   const [timeLeft, setTimeLeft] = useState(getTimeUntilReset());
   
@@ -85,7 +85,7 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
       className="relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
     >
-      {/* Large floating donut preview - moved more left */}
+      {/* Large floating donut preview */}
       <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="relative skin-float">
           <div 
@@ -120,7 +120,7 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
   );
 }
 
-// Flappy Donut Game Tile - matches about page style
+// Flappy Donut Game Tile - neutral white/zinc scheme with animated preview
 function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
   const [showPlayer, setShowPlayer] = useState(false);
   
@@ -136,10 +136,10 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
   return (
     <button
       onClick={() => window.location.href = "/games/game-1"}
-      className="relative w-full rounded-2xl border-2 border-pink-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-500/80"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(251,146,60,0.1) 100%)' }}
+      className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Animated donut preview - moved more left */}
+      {/* Animated donut preview */}
       <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="flappy-donut-float relative">
           <svg className="absolute -left-4 top-1/2 wing-flap" width="20" height="14" viewBox="0 0 24 16" style={{ transformOrigin: 'right center' }}>
@@ -160,11 +160,11 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
       <div className="relative z-10 p-4 pr-24">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Gamepad2 className="w-5 h-5 text-pink-400" />
-            <span className="font-bold text-base text-pink-400">Flappy Donut</span>
+            <Gamepad2 className="w-5 h-5 text-white" />
+            <span className="font-bold text-base text-white">Flappy Donut</span>
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
-          <div className="text-[10px] text-pink-200/60 mb-1">Tap to fly, dodge rolling pins!</div>
+          <div className="text-[10px] text-white/60 mb-1">Tap to fly, dodge rolling pins!</div>
           
           <div className="flex items-center gap-1.5 text-[9px] mb-1">
             <Trophy className="w-3 h-3 text-amber-400" />
@@ -192,7 +192,7 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
   );
 }
 
-// Glaze Stack Game Tile - matches about page style
+// Glaze Stack Game Tile - neutral white/zinc scheme with animated preview
 function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
   const [showPlayer, setShowPlayer] = useState(false);
   
@@ -208,10 +208,10 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
   return (
     <button
       onClick={() => window.location.href = "/games/game-2"}
-      className="relative w-full rounded-2xl border-2 border-pink-400/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-400/80"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(244,114,182,0.15) 0%, rgba(255,182,193,0.1) 100%)' }}
+      className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Floating glaze box stack preview - moved more left */}
+      {/* Floating glaze box stack preview */}
       <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="stack-float relative flex flex-col-reverse items-center gap-0.5">
           {['#FFE4EC', '#FFDEE8', '#FFD8E4', '#FFD2E0', '#FFCCDC'].map((color, i) => (
@@ -257,11 +257,11 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
       <div className="relative z-10 p-4 pr-24">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Layers className="w-5 h-5 text-pink-400" />
-            <span className="font-bold text-base text-pink-400">Glaze Stack</span>
+            <Layers className="w-5 h-5 text-white" />
+            <span className="font-bold text-base text-white">Glaze Stack</span>
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
-          <div className="text-[10px] text-pink-200/60 mb-1">Stack boxes, don't let them fall!</div>
+          <div className="text-[10px] text-white/60 mb-1">Stack boxes, don't let them fall!</div>
           
           <div className="flex items-center gap-1.5 text-[9px] mb-1">
             <Trophy className="w-3 h-3 text-amber-400" />
@@ -289,7 +289,7 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
   );
 }
 
-// Donut Dash Game Tile - matches about page style
+// Donut Dash Game Tile - neutral white/zinc scheme with animated preview
 function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
   const [showPlayer, setShowPlayer] = useState(false);
   
@@ -305,10 +305,10 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: R
   return (
     <button
       onClick={() => window.location.href = "/games/donut-dash"}
-      className="relative w-full rounded-2xl border-2 border-orange-400/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-orange-400/80"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(249,115,22,0.15) 0%, rgba(236,72,153,0.1) 100%)' }}
+      className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Donut with jetpack preview - moved more left */}
+      {/* Donut with jetpack preview */}
       <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="donut-dash-float relative">
           <svg width="60" height="60" viewBox="0 0 70 70">
@@ -333,9 +333,9 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: R
           </svg>
           {/* Motion lines */}
           <div className="absolute -left-1 top-1/2 -translate-y-1/2 flex flex-col gap-1">
-            <div className="w-3 h-0.5 bg-orange-400/60 rounded motion-line-1" />
-            <div className="w-5 h-0.5 bg-pink-400/60 rounded motion-line-2" />
-            <div className="w-2 h-0.5 bg-orange-400/60 rounded motion-line-3" />
+            <div className="w-3 h-0.5 bg-white/40 rounded motion-line-1" />
+            <div className="w-5 h-0.5 bg-white/30 rounded motion-line-2" />
+            <div className="w-2 h-0.5 bg-white/40 rounded motion-line-3" />
           </div>
         </div>
       </div>
@@ -343,11 +343,11 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: R
       <div className="relative z-10 p-4 pr-24">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Rocket className="w-5 h-5 text-orange-400" />
-            <span className="font-bold text-base text-orange-400">Donut Dash</span>
+            <Rocket className="w-5 h-5 text-white" />
+            <span className="font-bold text-base text-white">Donut Dash</span>
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
-          <div className="text-[10px] text-orange-200/60 mb-1">Jetpack through, collect sprinkles!</div>
+          <div className="text-[10px] text-white/60 mb-1">Jetpack through, collect sprinkles!</div>
           
           <div className="flex items-center gap-1.5 text-[9px] mb-1">
             <Trophy className="w-3 h-3 text-amber-400" />
@@ -630,7 +630,7 @@ export default function GamesPage() {
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)" }}
       >
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
-          {/* Fixed Header - matches about page */}
+          {/* Fixed Header */}
           <div className="flex-shrink-0">
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl font-bold tracking-wide">GAMES</h1>
