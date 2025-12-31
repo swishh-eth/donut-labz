@@ -80,6 +80,32 @@ function getTimeUntilReset(): string {
   return `${hours}h ${minutes}m`;
 }
 
+// Calculate time until daily cost reset (6PM EST / 11PM UTC)
+function getTimeUntilCostReset(): string {
+  const now = new Date();
+  const utcNow = new Date(now.toUTCString());
+  
+  // Find next 11PM UTC
+  const nextReset = new Date(utcNow);
+  nextReset.setUTCHours(23, 0, 0, 0);
+  
+  // If it's already past 11PM UTC today, go to tomorrow
+  if (utcNow.getUTCHours() >= 23) {
+    nextReset.setUTCDate(nextReset.getUTCDate() + 1);
+  }
+  
+  const diff = nextReset.getTime() - utcNow.getTime();
+  
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  } else {
+    return `${minutes}m`;
+  }
+}
+
 // Prize distribution percentages for top 10
 const PRIZE_DISTRIBUTION = [30, 20, 15, 10, 8, 6, 5, 3, 2, 1];
 
@@ -97,6 +123,7 @@ export default function DonutDashPage() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
+  const [costResetCountdown, setCostResetCountdown] = useState<string>(getTimeUntilCostReset());
   
   // Payment state
   const [paymentState, setPaymentState] = useState<PaymentState>('idle');
@@ -156,9 +183,12 @@ export default function DonutDashPage() {
   const { writeContract, data: txHash, isPending, reset: resetWrite, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
-  // Update reset countdown every minute
+  // Update reset countdowns every minute
   useEffect(() => {
-    const updateCountdown = () => setResetCountdown(getTimeUntilReset());
+    const updateCountdown = () => {
+      setResetCountdown(getTimeUntilReset());
+      setCostResetCountdown(getTimeUntilCostReset());
+    };
     updateCountdown();
     const interval = setInterval(updateCountdown, 60000);
     return () => clearInterval(interval);
@@ -1009,7 +1039,7 @@ export default function DonutDashPage() {
       const bounceY = Math.sin(time * 3) * 10;
       const tiltAngle = Math.sin(time * 2) * 0.15;
       const donutX = CANVAS_WIDTH / 2;
-      const donutY = 210 + bounceY;
+      const donutY = (gameState === "gameover" ? 180 : 210) + bounceY;
       for (let i = 3; i > 0; i--) {
         ctx.fillStyle = `rgba(255, 105, 180, ${0.12 * (4 - i)})`;
         ctx.beginPath(); ctx.arc(donutX - i * 10, donutY, 28 - i * 2, 0, Math.PI * 2); ctx.fill();
@@ -1035,14 +1065,14 @@ export default function DonutDashPage() {
       ctx.restore();
       if (gameState === "gameover") {
         ctx.fillStyle = '#FF6B6B'; ctx.font = 'bold 24px monospace';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 300);
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 260);
         ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 32px monospace';
-        ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 335);
+        ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 295);
         ctx.fillStyle = '#888'; ctx.font = '12px monospace';
-        ctx.fillText('sprinkles collected', CANVAS_WIDTH / 2, 358);
+        ctx.fillText('sprinkles collected', CANVAS_WIDTH / 2, 318);
       } else {
         ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '12px monospace';
-        ctx.fillText('Hold to fly • Release to fall', CANVAS_WIDTH / 2, 300);
+        ctx.fillText('Hold to fly • Release to fall', CANVAS_WIDTH / 2, 290);
       }
       animationId = requestAnimationFrame(draw);
     };
@@ -1190,7 +1220,7 @@ export default function DonutDashPage() {
                     )}
                   </button>
                   
-                  <p className="text-zinc-500 text-[10px]">Plays this week: {playCount}</p>
+                  <p className="text-zinc-500 text-[10px]">Attempts today: {playCount} • Resets in {costResetCountdown}</p>
                 </div>
               </div>
             )}
@@ -1236,6 +1266,7 @@ export default function DonutDashPage() {
                     <li>• 3rd game: <span className="text-white">1.2 DONUT</span></li>
                     <li>• And so on...</li>
                   </ul>
+                  <p className="text-xs text-zinc-500 mt-2">Cost resets daily at 6PM EST</p>
                 </div>
                 
                 <div>

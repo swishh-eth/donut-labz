@@ -29,11 +29,22 @@ export async function GET(req: NextRequest) {
 
     const currentWeek = config?.current_week || 1;
 
+    // Calculate today's reset time (11PM UTC / 6PM EST)
+    const now = new Date();
+    const todayReset = new Date(now);
+    todayReset.setUTCHours(23, 0, 0, 0);
+    
+    // If we're before today's 11PM UTC, use yesterday's 11PM as the start
+    if (now.getUTCHours() < 23) {
+      todayReset.setUTCDate(todayReset.getUTCDate() - 1);
+    }
+
+    // Count entries since the last daily reset
     const { count } = await supabase
       .from("donut_dash_scores")
       .select("*", { count: "exact", head: true })
       .eq("fid", fid)
-      .eq("week", currentWeek);
+      .gte("created_at", todayReset.toISOString());
 
     const playCount = count || 0;
     const entryFee = BASE_ENTRY_FEE + BigInt(playCount) * ENTRY_INCREMENT;
