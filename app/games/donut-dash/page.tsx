@@ -14,10 +14,10 @@ const CANVAS_SCALE = 2;
 const SCALED_WIDTH = CANVAS_WIDTH * CANVAS_SCALE;
 const SCALED_HEIGHT = CANVAS_HEIGHT * CANVAS_SCALE;
 
-// Physics
-const GRAVITY = 0.4;
-const THRUST = -0.8;
-const MAX_VELOCITY = 8;
+// Physics - tuned for smooth jetpack feel
+const GRAVITY = 0.25;
+const THRUST = -0.55;
+const MAX_VELOCITY = 5;
 const PLAYER_X = 80;
 const PLAYER_SIZE = 32;
 
@@ -98,7 +98,7 @@ export default function DonutDashPage() {
   const frameCountRef = useRef(0);
   
   // Background elements
-  const bgElementsRef = useRef<{ x: number; y: number; type: string; speed: number }[]>([]);
+  const bgElementsRef = useRef<{ x: number; y: number; type: string; speed: number; height?: number }[]>([]);
   
   // Audio
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -181,16 +181,18 @@ export default function DonutDashPage() {
     return () => { cancelled = true; };
   }, []);
   
-  // Initialize background elements
+  // Initialize background elements - lab equipment
   const initBackground = useCallback(() => {
     bgElementsRef.current = [];
-    // Clouds/background shapes
-    for (let i = 0; i < 8; i++) {
+    // Lab equipment silhouettes
+    const labTypes = ['beaker', 'flask', 'tube', 'machine', 'tank'];
+    for (let i = 0; i < 12; i++) {
       bgElementsRef.current.push({
         x: Math.random() * CANVAS_WIDTH,
-        y: Math.random() * CANVAS_HEIGHT,
-        type: Math.random() > 0.5 ? 'cloud' : 'star',
-        speed: 0.3 + Math.random() * 0.5,
+        y: CANVAS_HEIGHT - 30 - Math.random() * 150,
+        type: labTypes[Math.floor(Math.random() * labTypes.length)],
+        speed: 0.2 + Math.random() * 0.3,
+        height: 40 + Math.random() * 80,
       });
     }
   }, []);
@@ -297,78 +299,136 @@ export default function DonutDashPage() {
     }
   }, []);
   
-  // Draw background
+  // Draw background - laboratory style
   const drawBackground = useCallback((ctx: CanvasRenderingContext2D, speed: number) => {
-    // Sky gradient
+    // Dark gradient background
     const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-    gradient.addColorStop(0, '#1a1a2e');
-    gradient.addColorStop(0.5, '#16213e');
-    gradient.addColorStop(1, '#1a1a2e');
+    gradient.addColorStop(0, '#1a1a1a');
+    gradient.addColorStop(0.3, '#252525');
+    gradient.addColorStop(0.7, '#252525');
+    gradient.addColorStop(1, '#1a1a1a');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
-    // Grid lines (subtle)
+    // Subtle grid pattern
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
     ctx.lineWidth = 1;
-    const gridOffset = (frameCountRef.current * speed * 0.5) % 40;
-    for (let x = -gridOffset; x < CANVAS_WIDTH + 40; x += 40) {
+    const gridOffset = (frameCountRef.current * speed * 0.3) % 30;
+    for (let x = -gridOffset; x < CANVAS_WIDTH + 30; x += 30) {
       ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, CANVAS_HEIGHT);
-      ctx.stroke();
-    }
-    for (let y = 0; y < CANVAS_HEIGHT; y += 40) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(CANVAS_WIDTH, y);
+      ctx.moveTo(x, 30);
+      ctx.lineTo(x, CANVAS_HEIGHT - 30);
       ctx.stroke();
     }
     
-    // Background elements
+    // Lab equipment silhouettes (background layer)
     bgElementsRef.current.forEach(el => {
       el.x -= speed * el.speed;
-      if (el.x < -50) el.x = CANVAS_WIDTH + 50;
+      if (el.x < -80) {
+        el.x = CANVAS_WIDTH + 80;
+        el.height = 40 + Math.random() * 80;
+      }
       
-      if (el.type === 'cloud') {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      const h = el.height || 60;
+      ctx.fillStyle = 'rgba(60, 60, 60, 0.6)';
+      
+      if (el.type === 'beaker') {
+        // Beaker shape
         ctx.beginPath();
-        ctx.arc(el.x, el.y, 20, 0, Math.PI * 2);
-        ctx.arc(el.x + 15, el.y - 5, 15, 0, Math.PI * 2);
-        ctx.arc(el.x + 30, el.y, 18, 0, Math.PI * 2);
+        ctx.moveTo(el.x - 15, el.y);
+        ctx.lineTo(el.x - 10, el.y - h + 10);
+        ctx.lineTo(el.x - 15, el.y - h);
+        ctx.lineTo(el.x + 15, el.y - h);
+        ctx.lineTo(el.x + 10, el.y - h + 10);
+        ctx.lineTo(el.x + 15, el.y);
+        ctx.closePath();
         ctx.fill();
-      } else {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        // Liquid
+        ctx.fillStyle = 'rgba(0, 255, 100, 0.15)';
+        ctx.fillRect(el.x - 12, el.y - h * 0.4, 24, h * 0.35);
+      } else if (el.type === 'flask') {
+        // Round flask
         ctx.beginPath();
-        ctx.arc(el.x, el.y, 2, 0, Math.PI * 2);
+        ctx.arc(el.x, el.y - h * 0.35, h * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(el.x - 6, el.y - h, 12, h * 0.4);
+        // Liquid glow
+        ctx.fillStyle = 'rgba(255, 100, 255, 0.1)';
+        ctx.beginPath();
+        ctx.arc(el.x, el.y - h * 0.35, h * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (el.type === 'tube') {
+        // Test tube
+        ctx.fillRect(el.x - 5, el.y - h, 10, h - 8);
+        ctx.beginPath();
+        ctx.arc(el.x, el.y - 8, 5, 0, Math.PI);
+        ctx.fill();
+      } else if (el.type === 'machine') {
+        // Lab machine/computer
+        ctx.fillRect(el.x - 20, el.y - h, 40, h);
+        ctx.fillStyle = 'rgba(0, 200, 255, 0.1)';
+        ctx.fillRect(el.x - 15, el.y - h + 10, 30, 20);
+        // Blinking light
+        if (Math.sin(frameCountRef.current * 0.1 + el.x) > 0) {
+          ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+          ctx.beginPath();
+          ctx.arc(el.x + 12, el.y - h + 35, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (el.type === 'tank') {
+        // Storage tank
+        ctx.beginPath();
+        ctx.arc(el.x, el.y - h + 20, 20, Math.PI, 0);
+        ctx.lineTo(el.x + 20, el.y);
+        ctx.lineTo(el.x - 20, el.y);
+        ctx.closePath();
+        ctx.fill();
+        // Bubbles
+        ctx.fillStyle = 'rgba(100, 255, 200, 0.15)';
+        const bubbleY = ((frameCountRef.current * 2 + el.x) % 40);
+        ctx.beginPath();
+        ctx.arc(el.x - 5, el.y - bubbleY - 10, 4, 0, Math.PI * 2);
+        ctx.arc(el.x + 8, el.y - bubbleY - 20, 3, 0, Math.PI * 2);
         ctx.fill();
       }
     });
     
-    // Floor and ceiling
-    ctx.fillStyle = '#0f0f1a';
+    // Floor and ceiling - dark metal
+    ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(0, 0, CANVAS_WIDTH, 30);
     ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
     
-    // Hazard stripes on floor/ceiling
-    ctx.fillStyle = '#FFD700';
-    const stripeOffset = (frameCountRef.current * speed) % 40;
-    for (let x = -stripeOffset; x < CANVAS_WIDTH + 40; x += 40) {
+    // Hazard stripes - black and white
+    const stripeOffset = (frameCountRef.current * speed) % 30;
+    for (let x = -stripeOffset; x < CANVAS_WIDTH + 30; x += 30) {
+      // White stripes on black background
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
       ctx.beginPath();
       ctx.moveTo(x, 0);
-      ctx.lineTo(x + 20, 0);
-      ctx.lineTo(x + 10, 30);
+      ctx.lineTo(x + 15, 0);
+      ctx.lineTo(x + 5, 30);
       ctx.lineTo(x - 10, 30);
       ctx.closePath();
       ctx.fill();
       
       ctx.beginPath();
       ctx.moveTo(x, CANVAS_HEIGHT);
-      ctx.lineTo(x + 20, CANVAS_HEIGHT);
-      ctx.lineTo(x + 10, CANVAS_HEIGHT - 30);
+      ctx.lineTo(x + 15, CANVAS_HEIGHT);
+      ctx.lineTo(x + 5, CANVAS_HEIGHT - 30);
       ctx.lineTo(x - 10, CANVAS_HEIGHT - 30);
       ctx.closePath();
       ctx.fill();
     }
+    
+    // Thin highlight line on floor/ceiling edges
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, 30);
+    ctx.lineTo(CANVAS_WIDTH, 30);
+    ctx.moveTo(0, CANVAS_HEIGHT - 30);
+    ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - 30);
+    ctx.stroke();
   }, []);
   
   // Draw player (donut with jetpack)
@@ -432,7 +492,7 @@ export default function DonutDashPage() {
     ctx.shadowBlur = 0;
     
     // Donut hole
-    ctx.fillStyle = '#1a1a2e';
+    ctx.fillStyle = '#1a1a1a';
     ctx.beginPath();
     ctx.arc(0, 0, PLAYER_SIZE / 5, 0, Math.PI * 2);
     ctx.fill();
@@ -793,51 +853,76 @@ export default function DonutDashPage() {
       
       const time = Date.now() * 0.001;
       
-      // Background
+      // Lab background
       const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-      gradient.addColorStop(0, '#1a1a2e');
-      gradient.addColorStop(0.5, '#16213e');
-      gradient.addColorStop(1, '#1a1a2e');
+      gradient.addColorStop(0, '#1a1a1a');
+      gradient.addColorStop(0.3, '#252525');
+      gradient.addColorStop(0.7, '#252525');
+      gradient.addColorStop(1, '#1a1a1a');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       
-      // Grid
+      // Subtle grid
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
       ctx.lineWidth = 1;
-      for (let x = 0; x < CANVAS_WIDTH; x += 40) {
+      for (let x = 0; x < CANVAS_WIDTH; x += 30) {
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, CANVAS_HEIGHT);
-        ctx.stroke();
-      }
-      for (let y = 0; y < CANVAS_HEIGHT; y += 40) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(CANVAS_WIDTH, y);
+        ctx.moveTo(x, 30);
+        ctx.lineTo(x, CANVAS_HEIGHT - 30);
         ctx.stroke();
       }
       
-      // Floor/ceiling
-      ctx.fillStyle = '#0f0f1a';
+      // Lab equipment silhouettes
+      ctx.fillStyle = 'rgba(60, 60, 60, 0.5)';
+      // Beaker
+      ctx.beginPath();
+      ctx.moveTo(50, CANVAS_HEIGHT - 30);
+      ctx.lineTo(55, CANVAS_HEIGHT - 100);
+      ctx.lineTo(45, CANVAS_HEIGHT - 110);
+      ctx.lineTo(75, CANVAS_HEIGHT - 110);
+      ctx.lineTo(65, CANVAS_HEIGHT - 100);
+      ctx.lineTo(70, CANVAS_HEIGHT - 30);
+      ctx.closePath();
+      ctx.fill();
+      // Flask
+      ctx.beginPath();
+      ctx.arc(130, CANVAS_HEIGHT - 80, 30, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(124, CANVAS_HEIGHT - 130, 12, 30);
+      // Machine
+      ctx.fillRect(280, CANVAS_HEIGHT - 120, 50, 90);
+      ctx.fillStyle = 'rgba(0, 200, 255, 0.1)';
+      ctx.fillRect(285, CANVAS_HEIGHT - 110, 40, 25);
+      // Tank
+      ctx.fillStyle = 'rgba(60, 60, 60, 0.5)';
+      ctx.beginPath();
+      ctx.arc(220, CANVAS_HEIGHT - 70, 25, Math.PI, 0);
+      ctx.lineTo(245, CANVAS_HEIGHT - 30);
+      ctx.lineTo(195, CANVAS_HEIGHT - 30);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Floor/ceiling - dark
+      ctx.fillStyle = '#1a1a1a';
       ctx.fillRect(0, 0, CANVAS_WIDTH, 30);
       ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
       
-      // Animated hazard stripes
-      ctx.fillStyle = '#FFD700';
-      const stripeOffset = (time * 50) % 40;
-      for (let x = -stripeOffset; x < CANVAS_WIDTH + 40; x += 40) {
+      // Black and white stripes
+      const stripeOffset = (time * 50) % 30;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      for (let x = -stripeOffset; x < CANVAS_WIDTH + 30; x += 30) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
-        ctx.lineTo(x + 20, 0);
-        ctx.lineTo(x + 10, 30);
+        ctx.lineTo(x + 15, 0);
+        ctx.lineTo(x + 5, 30);
         ctx.lineTo(x - 10, 30);
         ctx.closePath();
         ctx.fill();
         
         ctx.beginPath();
         ctx.moveTo(x, CANVAS_HEIGHT);
-        ctx.lineTo(x + 20, CANVAS_HEIGHT);
-        ctx.lineTo(x + 10, CANVAS_HEIGHT - 30);
+        ctx.lineTo(x + 15, CANVAS_HEIGHT);
+        ctx.lineTo(x + 5, CANVAS_HEIGHT - 30);
         ctx.lineTo(x - 10, CANVAS_HEIGHT - 30);
         ctx.closePath();
         ctx.fill();
@@ -849,16 +934,16 @@ export default function DonutDashPage() {
       ctx.textAlign = 'center';
       ctx.shadowColor = '#FF69B4';
       ctx.shadowBlur = 20;
-      ctx.fillText('DONUT', CANVAS_WIDTH / 2, 100);
-      ctx.fillText('DASH', CANVAS_WIDTH / 2, 145);
+      ctx.fillText('DONUT', CANVAS_WIDTH / 2, 90);
+      ctx.fillText('DASH', CANVAS_WIDTH / 2, 130);
       ctx.shadowBlur = 0;
       
       // Animated donut with jetpack
-      const bounceY = Math.sin(time * 3) * 15;
-      const tiltAngle = Math.sin(time * 2) * 0.2;
+      const bounceY = Math.sin(time * 3) * 12;
+      const tiltAngle = Math.sin(time * 2) * 0.15;
       
       ctx.save();
-      ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 30 + bounceY);
+      ctx.translate(CANVAS_WIDTH / 2, 220 + bounceY);
       ctx.rotate(tiltAngle);
       
       // Jetpack
@@ -890,7 +975,7 @@ export default function DonutDashPage() {
       ctx.fill();
       ctx.shadowBlur = 0;
       
-      ctx.fillStyle = '#1a1a2e';
+      ctx.fillStyle = '#1a1a1a';
       ctx.beginPath();
       ctx.arc(0, 0, 12, 0, Math.PI * 2);
       ctx.fill();
@@ -903,21 +988,22 @@ export default function DonutDashPage() {
       
       ctx.restore();
       
-      // Instructions
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.font = '14px monospace';
-      ctx.fillText('Hold to fly up, release to fall', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 100);
-      
       if (gameState === "gameover") {
+        // Game over text - positioned below donut
         ctx.fillStyle = '#FF6B6B';
-        ctx.font = 'bold 28px monospace';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80);
+        ctx.font = 'bold 24px monospace';
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 310);
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 36px monospace';
-        ctx.fillText(`${score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 120);
+        ctx.font = 'bold 32px monospace';
+        ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 345);
         ctx.fillStyle = '#888888';
-        ctx.font = '14px monospace';
-        ctx.fillText(`Distance: ${distance}m • Donuts: ${coins}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 150);
+        ctx.font = '12px monospace';
+        ctx.fillText(`${distance}m • ${coins} donuts`, CANVAS_WIDTH / 2, 370);
+      } else {
+        // Instructions - only show on menu
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.font = '12px monospace';
+        ctx.fillText('Hold to fly • Release to fall', CANVAS_WIDTH / 2, 310);
       }
     };
     
