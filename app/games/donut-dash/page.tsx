@@ -681,7 +681,6 @@ export default function DonutDashPage() {
     const delta = Math.min((now - lastFrameTimeRef.current) / 16.667, 2);
     lastFrameTimeRef.current = now;
     frameCountRef.current++;
-    gameTimeRef.current += delta * 16.667 / 1000; // Track time in seconds
     
     ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
     
@@ -689,11 +688,12 @@ export default function DonutDashPage() {
     speedRef.current = Math.min(speedRef.current + SPEED_INCREMENT * delta, MAX_SPEED);
     const speed = speedRef.current;
     
-    // Update distance
+    // Update distance (internal only, not shown)
     distanceRef.current += speed * delta;
-    const newScore = Math.floor(distanceRef.current) + coinsCollectedRef.current * 10;
+    
+    // Score is just sprinkles collected
+    const newScore = coinsCollectedRef.current;
     setScore(newScore);
-    setDistance(Math.floor(distanceRef.current));
     
     // Update player physics
     const player = playerRef.current;
@@ -731,8 +731,8 @@ export default function DonutDashPage() {
       spawnCoins();
     }
     
-    // Ground blocks - spawn after 10 seconds to prevent floor camping
-    if (gameTimeRef.current > 10) {
+    // Ground blocks - spawn after collecting 1000 sprinkles to prevent floor camping
+    if (coinsCollectedRef.current >= 1000) {
       // Update existing ground blocks
       groundBlocksRef.current.forEach(block => {
         block.x -= speed * delta;
@@ -772,15 +772,11 @@ export default function DonutDashPage() {
       return;
     }
     
-    // UI - Score display
+    // UI - Score display (sprinkles only)
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 16px monospace';
+    ctx.font = 'bold 18px monospace';
     ctx.textAlign = 'left';
     ctx.fillText(`SCORE: ${newScore}`, 15, 58);
-    
-    ctx.font = '12px monospace';
-    ctx.fillStyle = '#888';
-    ctx.fillText(`${Math.floor(distanceRef.current)}m`, 15, 78);
     
     // TEST MODE label
     ctx.fillStyle = 'rgba(255, 100, 100, 0.8)';
@@ -838,10 +834,10 @@ export default function DonutDashPage() {
   // Handle share
   const handleShare = useCallback(async () => {
     const miniappUrl = "https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles";
-    const castText = `🍩🚀 I flew ${distance}m and scored ${score} in Donut Dash on the Sprinkles App by @swishh.eth!`;
+    const castText = `🍩🚀 I collected ${score} sprinkles in Donut Dash on the Sprinkles App by @swishh.eth!`;
     try { await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(miniappUrl)}`); } 
     catch { try { await navigator.clipboard.writeText(castText + "\n\n" + miniappUrl); alert("Copied!"); } catch {} }
-  }, [score, distance]);
+  }, [score]);
   
   // Draw menu
   useEffect(() => {
@@ -982,7 +978,7 @@ export default function DonutDashPage() {
         ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 335);
         ctx.fillStyle = '#888';
         ctx.font = '12px monospace';
-        ctx.fillText(`${distance}m • ${coins} donuts`, CANVAS_WIDTH / 2, 358);
+        ctx.fillText('points scored', CANVAS_WIDTH / 2, 358);
       } else {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.font = '12px monospace';
@@ -994,7 +990,7 @@ export default function DonutDashPage() {
     
     animationId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(animationId);
-  }, [gameState, score, distance, coins]);
+  }, [gameState, score]);
   
   // Keyboard controls
   useEffect(() => {
@@ -1069,11 +1065,11 @@ export default function DonutDashPage() {
               <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-2 pointer-events-none z-20">
                 <div className="pointer-events-auto flex flex-col items-center gap-2">
                   {gameState === "gameover" && score > 0 && (
-                    <button onClick={handleShare} className="flex items-center gap-2 px-5 py-1.5 bg-purple-600 text-white text-sm font-bold rounded-full hover:bg-purple-500">
+                    <button onClick={handleShare} className="flex items-center gap-2 px-5 py-1.5 bg-zinc-800 border border-zinc-600 text-white text-sm font-bold rounded-full hover:bg-zinc-700">
                       <Share2 className="w-3 h-3" /><span>Share</span>
                     </button>
                   )}
-                  <button onClick={startGame} className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-pink-500 to-orange-500 text-white font-bold rounded-full hover:opacity-90 active:scale-95">
+                  <button onClick={startGame} className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95">
                     <Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play (Free Test)"}</span>
                   </button>
                 </div>
