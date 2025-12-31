@@ -40,13 +40,17 @@ const PERFECT_THRESHOLD = 5;
 type MiniAppContext = { user?: { fid: number; username?: string; displayName?: string; pfpUrl?: string } };
 type LeaderboardEntry = { rank: number; username: string; pfpUrl?: string; score: number; walletAddress?: string };
 
+// Donut box colors - pink/white bakery boxes
 const getBlockColor = (index: number): string => {
   const colors = [
-    '#FFFFFF', '#F0F0F0', '#E0E0E0', '#D0D0D0', '#C0C0C0',
-    '#B0B0B0', '#A0A0A0', '#FFFFFF', '#F0F0F0', '#E0E0E0',
+    '#FFE4EC', '#FFDEE8', '#FFD8E4', '#FFD2E0', '#FFCCDC',
+    '#FFC6D8', '#FFC0D4', '#FFE4EC', '#FFDEE8', '#FFD8E4',
   ];
   return colors[index % colors.length];
 };
+
+// Default donut color (pink frosting) - will be replaced by skin system later
+const DONUT_COLOR = '#F472B6';
 
 const initialsFrom = (label?: string) => {
   if (!label) return "";
@@ -443,7 +447,8 @@ export default function StackGamePage() {
     
     const drawY = screenY - bounceOffset;
     
-    ctx.fillStyle = shadeColor(block.color, -30);
+    // Right side of box (darker pink)
+    ctx.fillStyle = shadeColor(block.color, -20);
     ctx.beginPath();
     ctx.moveTo(block.x + block.width, drawY);
     ctx.lineTo(block.x + block.width + depth, drawY - depth);
@@ -452,7 +457,8 @@ export default function StackGamePage() {
     ctx.closePath();
     ctx.fill();
     
-    ctx.fillStyle = shadeColor(block.color, 15);
+    // Top of box (lighter pink)
+    ctx.fillStyle = shadeColor(block.color, 10);
     ctx.beginPath();
     ctx.moveTo(block.x, drawY);
     ctx.lineTo(block.x + depth, drawY - depth);
@@ -461,26 +467,79 @@ export default function StackGamePage() {
     ctx.closePath();
     ctx.fill();
     
+    // Front face of box (main color with gradient)
     const gradient = ctx.createLinearGradient(block.x, drawY, block.x, drawY + BLOCK_HEIGHT);
     gradient.addColorStop(0, shadeColor(block.color, 5));
     gradient.addColorStop(0.5, block.color);
-    gradient.addColorStop(1, shadeColor(block.color, -10));
+    gradient.addColorStop(1, shadeColor(block.color, -8));
     
     ctx.fillStyle = gradient;
     ctx.fillRect(block.x, drawY, block.width, BLOCK_HEIGHT);
     
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    // Window on front of box (transparent area showing donuts)
+    const windowPadding = 4;
+    const windowHeight = BLOCK_HEIGHT - windowPadding * 2;
+    const windowWidth = block.width - windowPadding * 2;
+    const windowX = block.x + windowPadding;
+    const windowY = drawY + windowPadding;
+    
+    // Window background (dark interior)
+    ctx.fillStyle = 'rgba(30, 20, 25, 0.85)';
+    ctx.fillRect(windowX, windowY, windowWidth, windowHeight);
+    
+    // Draw donuts inside the window
+    const donutRadius = 6;
+    const donutSpacing = donutRadius * 2.8;
+    const numDonuts = Math.max(1, Math.floor(windowWidth / donutSpacing));
+    const startX = windowX + (windowWidth - (numDonuts - 1) * donutSpacing) / 2;
+    const donutY = windowY + windowHeight / 2;
+    
+    for (let i = 0; i < numDonuts; i++) {
+      const donutX = startX + i * donutSpacing;
+      
+      // Donut body (pink frosting)
+      ctx.beginPath();
+      ctx.arc(donutX, donutY, donutRadius, 0, Math.PI * 2);
+      ctx.fillStyle = DONUT_COLOR;
+      ctx.fill();
+      
+      // Donut hole
+      ctx.beginPath();
+      ctx.arc(donutX, donutY, donutRadius * 0.35, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(30, 20, 25, 0.9)';
+      ctx.fill();
+      
+      // Highlight on donut
+      ctx.beginPath();
+      ctx.arc(donutX - donutRadius * 0.3, donutY - donutRadius * 0.3, donutRadius * 0.25, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.fill();
+    }
+    
+    // Window frame/border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(windowX, windowY, windowWidth, windowHeight);
+    
+    // Box edge highlights
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(block.x, drawY + 1);
     ctx.lineTo(block.x + block.width, drawY + 1);
     ctx.stroke();
     
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+    // Box bottom shadow
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
     ctx.beginPath();
     ctx.moveTo(block.x, drawY + BLOCK_HEIGHT);
     ctx.lineTo(block.x + block.width, drawY + BLOCK_HEIGHT);
     ctx.stroke();
+    
+    // Ribbon/stripe on box (decorative)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.fillRect(block.x, drawY + BLOCK_HEIGHT * 0.1, block.width, 2);
+    ctx.fillRect(block.x, drawY + BLOCK_HEIGHT * 0.85, block.width, 2);
   }, []);
   
   const drawFallingPiece = useCallback((ctx: CanvasRenderingContext2D, piece: FallingPiece, cameraY: number) => {
@@ -491,8 +550,36 @@ export default function StackGamePage() {
     ctx.translate(piece.x + piece.width / 2, screenY + BLOCK_HEIGHT / 2);
     ctx.rotate(piece.rotation);
     
+    // Simplified glaze box for falling piece
     ctx.fillStyle = piece.color;
     ctx.fillRect(-piece.width / 2, -BLOCK_HEIGHT / 2, piece.width, BLOCK_HEIGHT);
+    
+    // Window with donuts
+    const windowPadding = 3;
+    const windowX = -piece.width / 2 + windowPadding;
+    const windowY = -BLOCK_HEIGHT / 2 + windowPadding;
+    const windowWidth = piece.width - windowPadding * 2;
+    const windowHeight = BLOCK_HEIGHT - windowPadding * 2;
+    
+    ctx.fillStyle = 'rgba(30, 20, 25, 0.85)';
+    ctx.fillRect(windowX, windowY, windowWidth, windowHeight);
+    
+    // Mini donuts
+    const donutRadius = 4;
+    const numDonuts = Math.max(1, Math.floor(windowWidth / (donutRadius * 2.5)));
+    const spacing = windowWidth / (numDonuts + 1);
+    
+    for (let i = 0; i < numDonuts; i++) {
+      const dx = windowX + spacing * (i + 1);
+      ctx.beginPath();
+      ctx.arc(dx, 0, donutRadius, 0, Math.PI * 2);
+      ctx.fillStyle = DONUT_COLOR;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(dx, 0, donutRadius * 0.35, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(30, 20, 25, 0.9)';
+      ctx.fill();
+    }
     
     ctx.restore();
   }, []);
@@ -941,7 +1028,7 @@ export default function StackGamePage() {
   
   const handleShare = useCallback(async () => {
     const miniappUrl = "https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles";
-    const castText = `🏗️ I just stacked ${score} blocks in Stack Tower on the Sprinkles App by @swishh.eth!\n\nThink you can build higher? Play now and compete for the ${prizePool} 🍩 weekly prize pool! 🏆`;
+    const castText = `🍩📦 I just stacked ${score} glaze boxes in Glaze Stack on the Sprinkles App by @swishh.eth!\n\nThink you can stack higher? Play now and compete for the ${prizePool} 🍩 weekly prize pool! 🏆`;
     try { await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(miniappUrl)}`); } 
     catch { try { await navigator.clipboard.writeText(castText + "\n\n" + miniappUrl); alert("Copied!"); } catch {} }
   }, [score, prizePool]);
@@ -976,7 +1063,7 @@ export default function StackGamePage() {
         ctx.stroke();
       }
       
-      const previewColors = ['#FFFFFF', '#F0F0F0', '#E0E0E0', '#D0D0D0', '#C0C0C0'];
+      const previewColors = ['#FFE4EC', '#FFDEE8', '#FFD8E4', '#FFD2E0', '#FFCCDC'];
       const baseY = CANVAS_HEIGHT - 70;
       const floatOffset = Math.sin(Date.now() / 500) * 4;
       const depth = 10;
@@ -986,7 +1073,8 @@ export default function StackGamePage() {
         const x = (CANVAS_WIDTH - width) / 2;
         const y = baseY - i * (BLOCK_HEIGHT - 1) + floatOffset;
         
-        ctx.fillStyle = shadeColor(color, -30);
+        // Right side of box
+        ctx.fillStyle = shadeColor(color, -20);
         ctx.beginPath();
         ctx.moveTo(x + width, y);
         ctx.lineTo(x + width + depth, y - depth);
@@ -995,7 +1083,8 @@ export default function StackGamePage() {
         ctx.closePath();
         ctx.fill();
         
-        ctx.fillStyle = shadeColor(color, 15);
+        // Top of box
+        ctx.fillStyle = shadeColor(color, 10);
         ctx.beginPath();
         ctx.moveTo(x, y);
         ctx.lineTo(x + depth, y - depth);
@@ -1004,24 +1093,70 @@ export default function StackGamePage() {
         ctx.closePath();
         ctx.fill();
         
+        // Front of box
         const gradient = ctx.createLinearGradient(x, y, x, y + BLOCK_HEIGHT);
         gradient.addColorStop(0, shadeColor(color, 5));
         gradient.addColorStop(0.5, color);
-        gradient.addColorStop(1, shadeColor(color, -10));
+        gradient.addColorStop(1, shadeColor(color, -8));
         ctx.fillStyle = gradient;
         ctx.fillRect(x, y, width, BLOCK_HEIGHT);
         
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        // Window
+        const windowPadding = 4;
+        const windowX = x + windowPadding;
+        const windowY = y + windowPadding;
+        const windowWidth = width - windowPadding * 2;
+        const windowHeight = BLOCK_HEIGHT - windowPadding * 2;
+        
+        ctx.fillStyle = 'rgba(30, 20, 25, 0.85)';
+        ctx.fillRect(windowX, windowY, windowWidth, windowHeight);
+        
+        // Donuts in window
+        const donutRadius = 6;
+        const donutSpacing = donutRadius * 2.8;
+        const numDonuts = Math.max(1, Math.floor(windowWidth / donutSpacing));
+        const startX = windowX + (windowWidth - (numDonuts - 1) * donutSpacing) / 2;
+        const donutY = windowY + windowHeight / 2;
+        
+        for (let j = 0; j < numDonuts; j++) {
+          const donutX = startX + j * donutSpacing;
+          ctx.beginPath();
+          ctx.arc(donutX, donutY, donutRadius, 0, Math.PI * 2);
+          ctx.fillStyle = DONUT_COLOR;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(donutX, donutY, donutRadius * 0.35, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(30, 20, 25, 0.9)';
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(donutX - donutRadius * 0.3, donutY - donutRadius * 0.3, donutRadius * 0.25, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+          ctx.fill();
+        }
+        
+        // Window frame
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(windowX, windowY, windowWidth, windowHeight);
+        
+        // Box edge highlight
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(x, y + 1);
         ctx.lineTo(x + width, y + 1);
         ctx.stroke();
+        
+        // Decorative stripes
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.fillRect(x, y + BLOCK_HEIGHT * 0.1, width, 2);
+        ctx.fillRect(x, y + BLOCK_HEIGHT * 0.85, width, 2);
       });
       
-      ctx.fillStyle = "#FFFFFF";
-      ctx.font = "bold 32px monospace";
+      ctx.fillStyle = "#F472B6";
+      ctx.font = "bold 28px monospace";
       ctx.textAlign = "center";
-      ctx.fillText("STACK TOWER", CANVAS_WIDTH / 2, 60);
+      ctx.fillText("GLAZE STACK", CANVAS_WIDTH / 2, 60);
       
       if (gameState === "countdown") {
         const scale = 1 + Math.sin(Date.now() / 100) * 0.08;
@@ -1101,7 +1236,7 @@ export default function StackGamePage() {
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-3 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
         
         <div className="flex items-center justify-between mb-2 px-1">
-          <h1 className="text-xl font-bold tracking-wide">STACK TOWER</h1>
+          <h1 className="text-xl font-bold tracking-wide text-pink-400">GLAZE STACK</h1>
           {context?.user && (
             <div className="flex items-center gap-2 rounded-full bg-black px-2 py-0.5">
               <Avatar className="h-6 w-6 border border-zinc-800">

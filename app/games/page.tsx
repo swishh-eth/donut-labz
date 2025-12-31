@@ -238,8 +238,8 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
   );
 }
 
-// Stack Tower Game Tile
-function StackTowerTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
+// Glaze Stack Game Tile
+function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean }) {
   const [showPlayer, setShowPlayer] = useState(false);
   
   useEffect(() => {
@@ -252,23 +252,53 @@ function StackTowerTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
   return (
     <button
       onClick={() => window.location.href = "/games/game-2"}
-      className="relative w-full rounded-2xl border-2 border-zinc-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-zinc-400/80"
-      style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(100,100,100,0.05) 100%)' }}
+      className="relative w-full rounded-2xl border-2 border-pink-400/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-400/80"
+      style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(244,114,182,0.15) 0%, rgba(255,182,193,0.1) 100%)' }}
     >
-      {/* Simple floating stack preview */}
-      <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Floating glaze box stack preview */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="stack-float relative flex flex-col items-center gap-0.5">
-          {['#FFFFFF', '#E5E5E5', '#CCCCCC', '#B3B3B3', '#999999'].map((color, i) => (
+          {['#FFE4EC', '#FFDEE8', '#FFD8E4', '#FFD2E0', '#FFCCDC'].map((color, i) => (
             <div
               key={i}
-              className="rounded-sm"
+              className="rounded-sm relative overflow-hidden"
               style={{
-                width: `${50 - i * 6}px`,
-                height: '10px',
+                width: `${52 - i * 6}px`,
+                height: '12px',
                 backgroundColor: color,
-                boxShadow: `0 2px 4px rgba(0,0,0,0.3), 2px -2px 0 ${color}88`,
+                boxShadow: `0 2px 4px rgba(0,0,0,0.2), 2px -2px 0 ${color}`,
               }}
-            />
+            >
+              {/* Window with donuts */}
+              <div 
+                className="absolute inset-y-0.5 left-1 right-1 rounded-[2px] flex items-center justify-center gap-1"
+                style={{ backgroundColor: 'rgba(30, 20, 25, 0.8)' }}
+              >
+                {[...Array(Math.max(1, 3 - Math.floor(i / 2)))].map((_, j) => (
+                  <div
+                    key={j}
+                    className="rounded-full relative"
+                    style={{ 
+                      width: '7px', 
+                      height: '7px', 
+                      backgroundColor: '#F472B6',
+                    }}
+                  >
+                    <div 
+                      className="absolute rounded-full"
+                      style={{
+                        width: '2.5px',
+                        height: '2.5px',
+                        backgroundColor: 'rgba(30, 20, 25, 0.9)',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -276,11 +306,11 @@ function StackTowerTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
       <div className="relative z-10 p-4 pr-24">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Layers className="w-5 h-5 text-zinc-300" />
-            <span className="font-bold text-base text-zinc-300">Stack Tower</span>
+            <Layers className="w-5 h-5 text-pink-400" />
+            <span className="font-bold text-base text-pink-400">Glaze Stack</span>
             <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
-          <div className="text-[10px] text-zinc-400 mb-2">Stack blocks perfectly, build the highest tower!</div>
+          <div className="text-[10px] text-pink-200/60 mb-2">Stack glaze boxes, don't let them fall!</div>
           
           <div className="flex items-center gap-3 mb-2">
             <div className="flex items-center gap-1">
@@ -343,7 +373,7 @@ export default function GamesPage() {
   const [isLoadingFlappy, setIsLoadingFlappy] = useState(true);
   const [flappyPrizePool, setFlappyPrizePool] = useState<string>("0");
   
-  // Stack Tower state
+  // Glaze Stack state
   const [stackRecentPlayer, setStackRecentPlayer] = useState<RecentPlayer | null>(null);
   const [isLoadingStack, setIsLoadingStack] = useState(true);
   const [stackPrizePool, setStackPrizePool] = useState<string>("0");
@@ -397,7 +427,7 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch Stack Tower data
+  // Fetch Glaze Stack data
   useEffect(() => {
     const fetchStackData = async () => {
       setIsLoadingStack(true);
@@ -415,7 +445,7 @@ export default function GamesPage() {
           }
         }
       } catch (e) {
-        console.error("Failed to fetch Stack Tower data:", e);
+        console.error("Failed to fetch Glaze Stack data:", e);
       } finally {
         setIsLoadingStack(false);
       }
@@ -518,7 +548,7 @@ export default function GamesPage() {
             <div className="space-y-3 pb-4">
               <WeeklySkinTile skin={weeklySkin} isLoading={isLoadingSkin} />
               <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool} isLoading={isLoadingFlappy} />
-              <StackTowerTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} isLoading={isLoadingStack} />
+              <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} isLoading={isLoadingStack} />
               {[...Array(4)].map((_, i) => <ComingSoonTile key={i} />)}
             </div>
           </div>
