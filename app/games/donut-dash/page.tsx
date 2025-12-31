@@ -52,6 +52,13 @@ interface GroundBlock {
   height: number;
 }
 
+interface AirWall {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 interface Particle {
   x: number;
   y: number;
@@ -95,6 +102,7 @@ export default function DonutDashPage() {
   const coinsRef = useRef<Coin[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const groundBlocksRef = useRef<GroundBlock[]>([]);
+  const airWallsRef = useRef<AirWall[]>([]);
   const speedRef = useRef(BASE_SPEED);
   const distanceRef = useRef(0);
   const coinsCollectedRef = useRef(0);
@@ -283,12 +291,22 @@ export default function DonutDashPage() {
     }
   }, []);
   
-  // Spawn ground blocks (after 10 seconds)
+  // Spawn ground blocks (after 100 points)
   const spawnGroundBlock = useCallback(() => {
     groundBlocksRef.current.push({
       x: CANVAS_WIDTH + 20,
       width: 30 + Math.random() * 40,
       height: 25 + Math.random() * 35,
+    });
+  }, []);
+  
+  // Spawn air walls (after 300 points)
+  const spawnAirWall = useCallback(() => {
+    airWallsRef.current.push({
+      x: CANVAS_WIDTH + 20,
+      y: 60 + Math.random() * (CANVAS_HEIGHT - 180), // Random height in playable area
+      width: 25 + Math.random() * 35,
+      height: 40 + Math.random() * 60,
     });
   }, []);
   
@@ -398,14 +416,30 @@ export default function DonutDashPage() {
       ctx.fill();
     }
     
-    // Draw ground blocks (after 10 seconds)
-    ctx.fillStyle = '#FF4444';
+    // Draw ground blocks (zinc colored)
     groundBlocksRef.current.forEach(block => {
+      // Main block
+      ctx.fillStyle = '#3f3f46'; // zinc-700
       ctx.fillRect(block.x, CANVAS_HEIGHT - 30 - block.height, block.width, block.height);
-      // Warning stripes on blocks
-      ctx.fillStyle = '#CC0000';
-      ctx.fillRect(block.x, CANVAS_HEIGHT - 30 - block.height, block.width, 5);
-      ctx.fillStyle = '#FF4444';
+      // Top highlight
+      ctx.fillStyle = '#71717a'; // zinc-500
+      ctx.fillRect(block.x, CANVAS_HEIGHT - 30 - block.height, block.width, 4);
+      // Side shadow
+      ctx.fillStyle = '#27272a'; // zinc-800
+      ctx.fillRect(block.x + block.width - 4, CANVAS_HEIGHT - 30 - block.height, 4, block.height);
+    });
+    
+    // Draw air walls (zinc colored)
+    airWallsRef.current.forEach(wall => {
+      // Main wall
+      ctx.fillStyle = '#52525b'; // zinc-600
+      ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+      // Top highlight
+      ctx.fillStyle = '#a1a1aa'; // zinc-400
+      ctx.fillRect(wall.x, wall.y, wall.width, 3);
+      // Side shadow
+      ctx.fillStyle = '#3f3f46'; // zinc-700
+      ctx.fillRect(wall.x + wall.width - 3, wall.y, 3, wall.height);
     });
   }, []);
   
@@ -671,6 +705,23 @@ export default function DonutDashPage() {
     return false;
   }, []);
   
+  // Check air wall collisions
+  const checkAirWalls = useCallback((): boolean => {
+    const player = playerRef.current;
+    const playerLeft = PLAYER_X - PLAYER_SIZE / 2 + 5;
+    const playerRight = PLAYER_X + PLAYER_SIZE / 2 - 5;
+    const playerTop = player.y - PLAYER_SIZE / 2 + 5;
+    const playerBottom = player.y + PLAYER_SIZE / 2 - 5;
+    
+    for (const wall of airWallsRef.current) {
+      if (playerRight > wall.x && playerLeft < wall.x + wall.width &&
+          playerBottom > wall.y && playerTop < wall.y + wall.height) {
+        return true;
+      }
+    }
+    return false;
+  }, []);
+  
   // Game loop
   const gameLoop = useCallback(() => {
     const canvas = canvasRef.current;
@@ -731,8 +782,8 @@ export default function DonutDashPage() {
       spawnCoins();
     }
     
-    // Ground blocks - spawn after collecting 1000 sprinkles to prevent floor camping
-    if (coinsCollectedRef.current >= 1000) {
+    // Ground blocks - spawn after 100 points to prevent floor camping
+    if (coinsCollectedRef.current >= 100) {
       // Update existing ground blocks
       groundBlocksRef.current.forEach(block => {
         block.x -= speed * delta;
@@ -744,6 +795,23 @@ export default function DonutDashPage() {
       if (!lastBlock || lastBlock.x < CANVAS_WIDTH - 150 - Math.random() * 100) {
         if (Math.random() < 0.3) { // 30% chance each opportunity
           spawnGroundBlock();
+        }
+      }
+    }
+    
+    // Air walls - spawn after 300 points for added difficulty
+    if (coinsCollectedRef.current >= 300) {
+      // Update existing air walls
+      airWallsRef.current.forEach(wall => {
+        wall.x -= speed * delta;
+      });
+      airWallsRef.current = airWallsRef.current.filter(w => w.x + w.width > -20);
+      
+      // Spawn new air walls
+      const lastWall = airWallsRef.current[airWallsRef.current.length - 1];
+      if (!lastWall || lastWall.x < CANVAS_WIDTH - 200 - Math.random() * 150) {
+        if (Math.random() < 0.25) { // 25% chance each opportunity
+          spawnAirWall();
         }
       }
     }
@@ -762,7 +830,7 @@ export default function DonutDashPage() {
     
     // Check collisions
     checkCoins();
-    if (checkCollisions() || checkGroundBlocks()) {
+    if (checkCollisions() || checkGroundBlocks() || checkAirWalls()) {
       playCrashSound();
       stopThrustSound();
       gameActiveRef.current = false;
@@ -785,7 +853,7 @@ export default function DonutDashPage() {
     ctx.fillText('TEST MODE', CANVAS_WIDTH - 10, 55);
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawBackground, drawPlayer, drawObstacles, drawCoins, drawParticles, checkCollisions, checkCoins, checkGroundBlocks, spawnObstacle, spawnCoins, spawnGroundBlock, addThrustParticles, playCrashSound, stopThrustSound]);
+  }, [drawBackground, drawPlayer, drawObstacles, drawCoins, drawParticles, checkCollisions, checkCoins, checkGroundBlocks, checkAirWalls, spawnObstacle, spawnCoins, spawnGroundBlock, spawnAirWall, addThrustParticles, playCrashSound, stopThrustSound]);
   
   // Input handlers
   const handleThrustStart = useCallback(() => {
@@ -814,6 +882,7 @@ export default function DonutDashPage() {
     coinsRef.current = [];
     particlesRef.current = [];
     groundBlocksRef.current = [];
+    airWallsRef.current = [];
     speedRef.current = BASE_SPEED;
     distanceRef.current = 0;
     coinsCollectedRef.current = 0;
