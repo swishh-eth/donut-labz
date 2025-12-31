@@ -15,9 +15,9 @@ const SCALED_WIDTH = CANVAS_WIDTH * CANVAS_SCALE;
 const SCALED_HEIGHT = CANVAS_HEIGHT * CANVAS_SCALE;
 
 // Physics - tuned for smooth jetpack feel
-const GRAVITY = 0.25;
-const THRUST = -0.55;
-const MAX_VELOCITY = 5;
+const GRAVITY = 0.38;
+const THRUST = -0.65;
+const MAX_VELOCITY = 6;
 const PLAYER_X = 80;
 const PLAYER_SIZE = 32;
 
