@@ -521,22 +521,6 @@ export default function DonutDashPage() {
       ctx.fillStyle = '#27272a';
       ctx.fillRect(block.x + block.width - 4, CANVAS_HEIGHT - 30 - block.height, 4, block.height);
     });
-    
-    // Draw air walls (zinc colored with glow)
-    airWallsRef.current.forEach(wall => {
-      ctx.shadowColor = 'rgba(255, 100, 100, 0.3)';
-      ctx.shadowBlur = 10;
-      // Main wall
-      ctx.fillStyle = '#52525b';
-      ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
-      ctx.shadowBlur = 0;
-      // Top highlight
-      ctx.fillStyle = '#a1a1aa';
-      ctx.fillRect(wall.x, wall.y, wall.width, 3);
-      // Side shadow
-      ctx.fillStyle = '#3f3f46';
-      ctx.fillRect(wall.x + wall.width - 3, wall.y, 3, wall.height);
-    });
   }, []);
   
   // Draw player (donut with jetpack) with motion trail
@@ -885,9 +869,14 @@ export default function DonutDashPage() {
     
     ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
     
-    // Update speed
+    // Update base speed
     speedRef.current = Math.min(speedRef.current + SPEED_INCREMENT * delta, MAX_SPEED);
-    const speed = speedRef.current;
+    
+    // Score-based speed boost: 300-400 points = 0-100% speed increase
+    const scoreBoost = coinsCollectedRef.current >= 300 
+      ? Math.min((coinsCollectedRef.current - 300) / 100, 1) 
+      : 0;
+    const speed = speedRef.current * (1 + scoreBoost);
     
     // Update distance (internal only, not shown)
     distanceRef.current += speed * delta;
@@ -949,23 +938,6 @@ export default function DonutDashPage() {
       }
     }
     
-    // Air walls - spawn after 300 points for added difficulty
-    if (coinsCollectedRef.current >= 300) {
-      // Update existing air walls
-      airWallsRef.current.forEach(wall => {
-        wall.x -= speed * delta;
-      });
-      airWallsRef.current = airWallsRef.current.filter(w => w.x + w.width > -20);
-      
-      // Spawn new air walls
-      const lastWall = airWallsRef.current[airWallsRef.current.length - 1];
-      if (!lastWall || lastWall.x < CANVAS_WIDTH - 200 - Math.random() * 150) {
-        if (Math.random() < 0.25) { // 25% chance each opportunity
-          spawnAirWall();
-        }
-      }
-    }
-    
     // Add thrust particles
     if (player.isThrusting && frameCountRef.current % 2 === 0) {
       addThrustParticles();
@@ -980,7 +952,7 @@ export default function DonutDashPage() {
     
     // Check collisions
     checkCoins();
-    if (checkCollisions() || checkGroundBlocks() || checkAirWalls()) {
+    if (checkCollisions() || checkGroundBlocks()) {
       playCrashSound();
       stopThrustSound();
       gameActiveRef.current = false;
@@ -996,6 +968,13 @@ export default function DonutDashPage() {
     ctx.textAlign = 'left';
     ctx.fillText(`SCORE: ${newScore}`, 15, 58);
     
+    // Show speed boost indicator after 300 points
+    if (scoreBoost > 0) {
+      ctx.fillStyle = `rgba(255, ${255 - scoreBoost * 155}, 100, 0.9)`;
+      ctx.font = 'bold 12px monospace';
+      ctx.fillText(`SPEED +${Math.round(scoreBoost * 100)}%`, 15, 78);
+    }
+    
     // TEST MODE label
     ctx.fillStyle = 'rgba(255, 100, 100, 0.8)';
     ctx.font = 'bold 10px monospace';
@@ -1003,7 +982,7 @@ export default function DonutDashPage() {
     ctx.fillText('TEST MODE', CANVAS_WIDTH - 10, 55);
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawBackground, drawPlayer, drawObstacles, drawCoins, drawParticles, checkCollisions, checkCoins, checkGroundBlocks, checkAirWalls, spawnObstacle, spawnCoins, spawnGroundBlock, spawnAirWall, addThrustParticles, playCrashSound, stopThrustSound]);
+  }, [drawBackground, drawPlayer, drawObstacles, drawCoins, drawParticles, checkCollisions, checkCoins, checkGroundBlocks, spawnObstacle, spawnCoins, spawnGroundBlock, addThrustParticles, playCrashSound, stopThrustSound]);
   
   // Input handlers
   const handleThrustStart = useCallback(() => {
@@ -1235,6 +1214,44 @@ export default function DonutDashPage() {
     };
   }, [handleThrustStart, handleThrustEnd]);
   
+  // Prevent all touch selection behaviors on mobile
+  useEffect(() => {
+    const preventDefault = (e: Event) => {
+      if (gameState === "playing") {
+        e.preventDefault();
+      }
+    };
+    
+    const preventSelection = (e: Event) => {
+      e.preventDefault();
+      return false;
+    };
+    
+    // Prevent context menu (long press menu)
+    document.addEventListener('contextmenu', preventDefault, { passive: false });
+    
+    // Prevent selection
+    document.addEventListener('selectstart', preventSelection, { passive: false });
+    
+    // Prevent touch move to stop scrolling during game
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.addEventListener('touchmove', preventDefault, { passive: false });
+      canvas.addEventListener('touchstart', preventDefault, { passive: false });
+      canvas.addEventListener('touchend', preventDefault, { passive: false });
+    }
+    
+    return () => {
+      document.removeEventListener('contextmenu', preventDefault);
+      document.removeEventListener('selectstart', preventSelection);
+      if (canvas) {
+        canvas.removeEventListener('touchmove', preventDefault);
+        canvas.removeEventListener('touchstart', preventDefault);
+        canvas.removeEventListener('touchend', preventDefault);
+      }
+    };
+  }, [gameState]);
+  
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Player";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
   
@@ -1243,7 +1260,35 @@ export default function DonutDashPage() {
       <style>{`
         .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        * { -webkit-tap-highlight-color: transparent; }
+        * { 
+          -webkit-tap-highlight-color: transparent !important;
+          -webkit-touch-callout: none !important;
+        }
+        body, html {
+          -webkit-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+          user-select: none !important;
+          -webkit-touch-callout: none !important;
+          touch-action: manipulation;
+        }
+        .game-canvas-container, .game-canvas-container * {
+          -webkit-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+          user-select: none !important;
+          -webkit-touch-callout: none !important;
+          touch-action: none !important;
+        }
+        canvas {
+          -webkit-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+          user-select: none !important;
+          -webkit-touch-callout: none !important;
+          touch-action: none !important;
+          outline: none !important;
+        }
       `}</style>
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-3 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
@@ -1269,20 +1314,72 @@ export default function DonutDashPage() {
         </div>
         
         {/* Game Canvas */}
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center game-canvas-container">
           <div className="relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
             <canvas
               ref={canvasRef}
               width={SCALED_WIDTH}
               height={SCALED_HEIGHT}
               className="rounded-2xl border border-zinc-800 w-full h-full select-none"
-              style={{ touchAction: "none", WebkitUserSelect: 'none', userSelect: 'none' }}
-              onPointerDown={gameState === "playing" ? handleThrustStart : undefined}
-              onPointerUp={handleThrustEnd}
+              style={{ 
+                touchAction: "none", 
+                WebkitUserSelect: 'none', 
+                userSelect: 'none',
+                WebkitTouchCallout: 'none',
+                msTouchAction: 'none',
+                pointerEvents: 'auto',
+              }}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (gameState === "playing") handleThrustStart();
+              }}
+              onPointerUp={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleThrustEnd();
+              }}
               onPointerLeave={handleThrustEnd}
               onPointerCancel={handleThrustEnd}
               onContextMenu={(e) => e.preventDefault()}
             />
+            
+            {/* Invisible touch capture overlay during gameplay */}
+            {gameState === "playing" && (
+              <div 
+                className="absolute inset-0 z-10"
+                style={{ 
+                  touchAction: "none",
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none',
+                  WebkitTouchCallout: 'none',
+                }}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleThrustStart();
+                }}
+                onPointerUp={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleThrustEnd();
+                }}
+                onPointerLeave={handleThrustEnd}
+                onPointerCancel={handleThrustEnd}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleThrustStart();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleThrustEnd();
+                }}
+                onTouchMove={(e) => e.preventDefault()}
+                onContextMenu={(e) => e.preventDefault()}
+              />
+            )}
             
             {/* Menu/Gameover overlay */}
             {(gameState === "menu" || gameState === "gameover") && (
