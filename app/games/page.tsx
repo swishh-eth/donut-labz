@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount } from "wagmi";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Settings, Gamepad2, Trophy, Coins, Palette, Clock, ChevronRight, Layers } from "lucide-react";
+import { Settings, Gamepad2, Trophy, Coins, Palette, Clock, Layers } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -88,23 +88,23 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
       {/* Subtle shine effect on hover */}
       <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
       
-      {/* Placeholder donut preview */}
-      <div className="absolute right-8 top-1/2 -translate-y-1/2">
+      {/* Large clipping donut preview */}
+      <div className="absolute -right-8 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="relative skin-float">
-          {/* Glow ring */}
+          {/* Amber glow */}
           <div 
-            className="absolute inset-0 rounded-full blur-md opacity-40"
-            style={{ backgroundColor: '#F472B6', transform: 'scale(1.2)' }}
+            className="absolute inset-0 rounded-full blur-2xl opacity-50"
+            style={{ backgroundColor: '#F59E0B', transform: 'scale(1.3)' }}
           />
-          {/* Donut */}
+          {/* Large donut */}
           <div 
-            className="w-14 h-14 rounded-full relative border-2 border-white/20 shadow-2xl"
-            style={{ backgroundColor: '#F472B6' }}
+            className="w-32 h-32 rounded-full relative border-2 border-amber-400/30 shadow-2xl"
+            style={{ backgroundColor: '#F59E0B', boxShadow: '0 0 60px rgba(245, 158, 11, 0.4)' }}
           >
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-4 h-4 rounded-full bg-zinc-900 border border-zinc-700" />
+              <div className="w-10 h-10 rounded-full bg-zinc-900 border-2 border-zinc-700" />
             </div>
-            <div className="absolute top-1 left-2.5 w-2.5 h-2.5 rounded-full bg-white/30" />
+            <div className="absolute top-4 left-6 w-6 h-6 rounded-full bg-white/25" />
           </div>
         </div>
       </div>
@@ -123,7 +123,6 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
           <div className="flex items-center gap-1.5 mt-2 text-[10px] text-zinc-500">
             <Clock className="w-3 h-3" />
             <span>Ends in {timeLeft}</span>
-            <ChevronRight className="w-3 h-3 ml-auto text-zinc-600 group-hover:text-zinc-400 transition-colors" />
           </div>
         </div>
       </div>
