@@ -872,11 +872,11 @@ export default function DonutDashPage() {
     // Update base speed
     speedRef.current = Math.min(speedRef.current + SPEED_INCREMENT * delta, MAX_SPEED);
     
-    // Score-based speed boost: 300-400 points = 0-100% speed increase
+    // Score-based speed boost: 300-400 points = 0-25% speed increase
     const scoreBoost = coinsCollectedRef.current >= 300 
       ? Math.min((coinsCollectedRef.current - 300) / 100, 1) 
       : 0;
-    const speed = speedRef.current * (1 + scoreBoost);
+    const speed = speedRef.current * (1 + scoreBoost * 0.25);
     
     // Update distance (internal only, not shown)
     distanceRef.current += speed * delta;
@@ -972,7 +972,7 @@ export default function DonutDashPage() {
     if (scoreBoost > 0) {
       ctx.fillStyle = `rgba(255, ${255 - scoreBoost * 155}, 100, 0.9)`;
       ctx.font = 'bold 12px monospace';
-      ctx.fillText(`SPEED +${Math.round(scoreBoost * 100)}%`, 15, 78);
+      ctx.fillText(`SPEED +${Math.round(scoreBoost * 25)}%`, 15, 78);
     }
     
     // TEST MODE label
