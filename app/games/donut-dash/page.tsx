@@ -152,7 +152,7 @@ export default function DonutDashPage() {
   const gameActiveRef = useRef(false);
   const frameCountRef = useRef(0);
   const bgElementsRef = useRef<{ x: number; y: number; type: string; speed: number; height?: number }[]>([]);
-  
+  const hasStartedFlyingRef = useRef(false); // Track if player has made first tap  
   // Audio refs
   const audioContextRef = useRef<AudioContext | null>(null);
   const thrustOscRef = useRef<OscillatorNode | null>(null);
@@ -868,60 +868,139 @@ export default function DonutDashPage() {
     
     ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
     
-    speedRef.current = Math.min(speedRef.current + SPEED_INCREMENT * delta, MAX_SPEED);
+    const hasStarted = hasStartedFlyingRef.current;
+    
+    // Only increase speed and update score after started
+    if (hasStarted) {
+      speedRef.current = Math.min(speedRef.current + SPEED_INCREMENT * delta, MAX_SPEED);
+    }
     const scoreBoost = coinsCollectedRef.current >= 300 ? Math.min((coinsCollectedRef.current - 300) / 100, 1) : 0;
-    const speed = speedRef.current * (1 + scoreBoost * 0.25);
+    const speed = hasStarted ? speedRef.current * (1 + scoreBoost * 0.25) : 0;
     
     const newScore = coinsCollectedRef.current;
     setScore(newScore);
     
     const player = playerRef.current;
-    if (player.isThrusting) player.velocity += THRUST * delta;
-    else player.velocity += GRAVITY * delta;
-    player.velocity = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, player.velocity));
-    player.y += player.velocity * delta;
-    player.y = Math.max(30 + PLAYER_SIZE / 2, Math.min(CANVAS_HEIGHT - 30 - PLAYER_SIZE / 2, player.y));
     
-    obstaclesRef.current.forEach(o => { o.x -= speed * delta; });
-    obstaclesRef.current = obstaclesRef.current.filter(o => o.x + o.width > -50);
-    const lastObs = obstaclesRef.current[obstaclesRef.current.length - 1];
-    if (!lastObs || lastObs.x < CANVAS_WIDTH - 200 - Math.random() * 150) spawnObstacle();
+    // Only apply physics after first tap
+    if (hasStarted) {
+      if (player.isThrusting) player.velocity += THRUST * delta;
+      else player.velocity += GRAVITY * delta;
+      player.velocity = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, player.velocity));
+      player.y += player.velocity * delta;
+      player.y = Math.max(30 + PLAYER_SIZE / 2, Math.min(CANVAS_HEIGHT - 30 - PLAYER_SIZE / 2, player.y));
+    }
     
-    coinsRef.current.forEach(c => { c.x -= speed * delta; });
-    coinsRef.current = coinsRef.current.filter(c => c.x > -50);
-    if (coinsRef.current.length < 25 && Math.random() < 0.04) spawnCoins();
-    
-    if (coinsCollectedRef.current >= 100) {
-      groundBlocksRef.current.forEach(b => { b.x -= speed * delta; });
-      groundBlocksRef.current = groundBlocksRef.current.filter(b => b.x + b.width > -20);
-      const lastBlock = groundBlocksRef.current[groundBlocksRef.current.length - 1];
-      if (!lastBlock || lastBlock.x < CANVAS_WIDTH - 150 - Math.random() * 100) {
-        if (Math.random() < 0.3) spawnGroundBlock();
+    // Only move and spawn obstacles/coins after started
+    if (hasStarted) {
+      obstaclesRef.current.forEach(o => { o.x -= speed * delta; });
+      obstaclesRef.current = obstaclesRef.current.filter(o => o.x + o.width > -50);
+      const lastObs = obstaclesRef.current[obstaclesRef.current.length - 1];
+      if (!lastObs || lastObs.x < CANVAS_WIDTH - 200 - Math.random() * 150) spawnObstacle();
+      
+      coinsRef.current.forEach(c => { c.x -= speed * delta; });
+      coinsRef.current = coinsRef.current.filter(c => c.x > -50);
+      if (coinsRef.current.length < 25 && Math.random() < 0.04) spawnCoins();
+      
+      if (coinsCollectedRef.current >= 100) {
+        groundBlocksRef.current.forEach(b => { b.x -= speed * delta; });
+        groundBlocksRef.current = groundBlocksRef.current.filter(b => b.x + b.width > -20);
+        const lastBlock = groundBlocksRef.current[groundBlocksRef.current.length - 1];
+        if (!lastBlock || lastBlock.x < CANVAS_WIDTH - 150 - Math.random() * 100) {
+          if (Math.random() < 0.3) spawnGroundBlock();
+        }
       }
     }
     
     if (player.isThrusting && frameCountRef.current % 2 === 0) addThrustParticles();
     
-    drawBackground(ctx, speed);
+    drawBackground(ctx, hasStarted ? speed : 0.5); // Slow background scroll before start
     drawParticles(ctx);
     drawCoins(ctx);
     drawObstacles(ctx);
     drawPlayer(ctx);
     
-    checkCoins();
-    if (checkCollisions() || checkGroundBlocks()) {
-      const finalScore = coinsCollectedRef.current; // Get final score from ref
-      playCrashSound();
-      stopThrustSound();
-      gameActiveRef.current = false;
-      if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-      setGameState("gameover");
-      setHighScore(prev => Math.max(prev, finalScore));
-      console.log("Game over! Final score:", finalScore);
-      submitScore(finalScore);
-      fetchEntryFee();
-      fetchLeaderboard();
-      return;
+    // Draw tap indicator before player has started
+    if (!hasStarted) {
+      const pulseScale = 1 + Math.sin(frameCountRef.current * 0.1) * 0.15;
+      const opacity = 0.6 + Math.sin(frameCountRef.current * 0.08) * 0.3;
+      const ringExpand = (frameCountRef.current % 60) / 60; // 0 to 1 cycle
+      
+      ctx.save();
+      ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 30);
+      ctx.globalAlpha = opacity;
+      
+      // Outer expanding rings
+      for (let i = 0; i < 2; i++) {
+        const ringPhase = (ringExpand + i * 0.5) % 1;
+        const ringRadius = 20 + ringPhase * 25;
+        const ringOpacity = (1 - ringPhase) * 0.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${ringOpacity})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      
+      // Center tap circle
+      ctx.scale(pulseScale, pulseScale);
+      ctx.beginPath();
+      ctx.arc(0, 0, 18, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fill();
+      
+      // Inner dot
+      ctx.beginPath();
+      ctx.arc(0, 0, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fill();
+      
+      ctx.scale(1/pulseScale, 1/pulseScale); // Reset scale for text
+      ctx.globalAlpha = 0.9;
+      ctx.font = 'bold 14px monospace';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'center';
+      ctx.fillText('TAP TO START', 0, 55);
+      
+      ctx.restore();
+    }
+    
+    // Only check collisions after started
+    if (hasStarted) {
+      checkCoins();
+      if (checkCollisions() || checkGroundBlocks()) {
+        const finalScore = coinsCollectedRef.current; // Get final score from ref
+        playCrashSound();
+        stopThrustSound();
+        gameActiveRef.current = false;
+        if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+        setGameState("gameover");
+        setHighScore(prev => Math.max(prev, finalScore));
+        console.log("Game over! Final score:", finalScore);
+        submitScore(finalScore);
+        fetchEntryFee();
+        fetchLeaderboard();
+        
+        // Send game announcement to chat (only if score > 0)
+        if (finalScore > 0 && address) {
+          fetch('/api/chat/game-announce', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              playerAddress: address,
+              username: context?.user?.username || null,
+              pfpUrl: context?.user?.pfpUrl || null,
+              gameId: 'donut-dash',
+              gameName: 'Donut Dash',
+              score: finalScore,
+              skinId: 'classic',
+              skinColor: '#FF69B4',
+            }),
+          }).catch(console.error);
+        }
+        
+        return;
+      }
     }
     
     ctx.fillStyle = '#FFFFFF';
@@ -936,11 +1015,12 @@ export default function DonutDashPage() {
     }
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawBackground, drawPlayer, drawObstacles, drawCoins, drawParticles, checkCollisions, checkCoins, checkGroundBlocks, spawnObstacle, spawnCoins, spawnGroundBlock, addThrustParticles, playCrashSound, stopThrustSound, submitScore, fetchEntryFee, fetchLeaderboard]);
+  }, [drawBackground, drawPlayer, drawObstacles, drawCoins, drawParticles, checkCollisions, checkCoins, checkGroundBlocks, spawnObstacle, spawnCoins, spawnGroundBlock, addThrustParticles, playCrashSound, stopThrustSound, submitScore, fetchEntryFee, fetchLeaderboard, address, context]);
 
   // Input handlers
   const handleThrustStart = useCallback(() => {
     if (!gameActiveRef.current) return;
+    hasStartedFlyingRef.current = true; // Mark that player has started
     playerRef.current.isThrusting = true;
     startThrustSound();
   }, [startThrustSound]);
@@ -954,7 +1034,9 @@ export default function DonutDashPage() {
   const startGame = useCallback(() => {
     initAudioContext();
     initBackground();
-    playerRef.current = { y: CANVAS_HEIGHT / 2, velocity: 0, isThrusting: false };
+    // Start player on the ground (just above the floor hazard zone)
+    const groundY = CANVAS_HEIGHT - 30 - PLAYER_SIZE / 2 - 10;
+    playerRef.current = { y: groundY, velocity: 0, isThrusting: false };
     obstaclesRef.current = [];
     coinsRef.current = [];
     particlesRef.current = [];
@@ -962,6 +1044,7 @@ export default function DonutDashPage() {
     speedRef.current = BASE_SPEED;
     coinsCollectedRef.current = 0;
     frameCountRef.current = 0;
+    hasStartedFlyingRef.current = false; // Reset - waiting for first tap
     setScore(0);
     setGameState("playing");
     lastFrameTimeRef.current = performance.now();
