@@ -85,22 +85,22 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
       className="relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
     >
-      {/* Large floating donut preview */}
-      <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Large floating donut preview - moved more left */}
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="relative skin-float">
           <div 
-            className="w-28 h-28 rounded-full relative border-2 border-amber-400/30"
+            className="w-24 h-24 rounded-full relative border-2 border-amber-400/30"
             style={{ backgroundColor: '#F59E0B', boxShadow: '0 0 40px rgba(245, 158, 11, 0.3)' }}
           >
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-9 h-9 rounded-full bg-zinc-900 border-2 border-zinc-700" />
+              <div className="w-8 h-8 rounded-full bg-zinc-900 border-2 border-zinc-700" />
             </div>
-            <div className="absolute top-3 left-5 w-5 h-5 rounded-full bg-white/25" />
+            <div className="absolute top-2.5 left-4 w-4 h-4 rounded-full bg-white/25" />
           </div>
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-20">
+      <div className="relative z-10 p-4 pr-28">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Palette className="w-5 h-5 text-amber-400" />
@@ -139,8 +139,8 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
       className="relative w-full rounded-2xl border-2 border-pink-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-500/80"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(251,146,60,0.1) 100%)' }}
     >
-      {/* Animated donut preview */}
-      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Animated donut preview - moved more left */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="flappy-donut-float relative">
           <svg className="absolute -left-4 top-1/2 wing-flap" width="20" height="14" viewBox="0 0 24 16" style={{ transformOrigin: 'right center' }}>
             <ellipse cx="10" cy="8" rx="10" ry="7" fill="rgba(255,255,255,0.9)" stroke="rgba(180,180,180,0.5)" strokeWidth="1"/>
@@ -157,7 +157,7 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-20">
+      <div className="relative z-10 p-4 pr-24">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Gamepad2 className="w-5 h-5 text-pink-400" />
@@ -166,10 +166,10 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
           </div>
           <div className="text-[10px] text-pink-200/60 mb-1">Tap to fly, dodge rolling pins!</div>
           
-          <div className="flex items-center gap-2 text-[9px] mb-1">
-            <span className="text-amber-400">{prizePool} 🍩</span>
-            <ArrowRight className="w-3 h-3 text-pink-500/30" />
-            <span className="text-pink-400/80">Weekly Pool</span>
+          <div className="flex items-center gap-1.5 text-[9px] mb-1">
+            <Trophy className="w-3 h-3 text-amber-400" />
+            <span className="text-amber-400 font-semibold">PRIZE POOL:</span>
+            <span className="text-amber-400 font-bold">{prizePool} 🍩</span>
           </div>
           
           {/* Recent player with fade transition */}
@@ -211,8 +211,8 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
       className="relative w-full rounded-2xl border-2 border-pink-400/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-400/80"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(244,114,182,0.15) 0%, rgba(255,182,193,0.1) 100%)' }}
     >
-      {/* Floating glaze box stack preview */}
-      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Floating glaze box stack preview - moved more left */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="stack-float relative flex flex-col-reverse items-center gap-0.5">
           {['#FFE4EC', '#FFDEE8', '#FFD8E4', '#FFD2E0', '#FFCCDC'].map((color, i) => (
             <div
@@ -254,7 +254,7 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-20">
+      <div className="relative z-10 p-4 pr-24">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Layers className="w-5 h-5 text-pink-400" />
@@ -263,10 +263,10 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
           </div>
           <div className="text-[10px] text-pink-200/60 mb-1">Stack boxes, don't let them fall!</div>
           
-          <div className="flex items-center gap-2 text-[9px] mb-1">
-            <span className="text-amber-400">{prizePool} 🍩</span>
-            <ArrowRight className="w-3 h-3 text-pink-500/30" />
-            <span className="text-pink-400/80">Weekly Pool</span>
+          <div className="flex items-center gap-1.5 text-[9px] mb-1">
+            <Trophy className="w-3 h-3 text-amber-400" />
+            <span className="text-amber-400 font-semibold">PRIZE POOL:</span>
+            <span className="text-amber-400 font-bold">{prizePool} 🍩</span>
           </div>
           
           {/* Recent player with fade transition */}
@@ -308,8 +308,8 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: R
       className="relative w-full rounded-2xl border-2 border-orange-400/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-orange-400/80"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(249,115,22,0.15) 0%, rgba(236,72,153,0.1) 100%)' }}
     >
-      {/* Donut with jetpack preview */}
-      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Donut with jetpack preview - moved more left */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="donut-dash-float relative">
           <svg width="60" height="60" viewBox="0 0 70 70">
             {/* Jetpack */}
@@ -340,7 +340,7 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: R
         </div>
       </div>
       
-      <div className="relative z-10 p-4 pr-20">
+      <div className="relative z-10 p-4 pr-24">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Rocket className="w-5 h-5 text-orange-400" />
@@ -349,10 +349,10 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: R
           </div>
           <div className="text-[10px] text-orange-200/60 mb-1">Jetpack through, collect sprinkles!</div>
           
-          <div className="flex items-center gap-2 text-[9px] mb-1">
-            <span className="text-amber-400">{prizePool} 🍩</span>
-            <ArrowRight className="w-3 h-3 text-orange-500/30" />
-            <span className="text-orange-400/80">Weekly Pool</span>
+          <div className="flex items-center gap-1.5 text-[9px] mb-1">
+            <Trophy className="w-3 h-3 text-amber-400" />
+            <span className="text-amber-400 font-semibold">PRIZE POOL:</span>
+            <span className="text-amber-400 font-bold">{prizePool} 🍩</span>
           </div>
           
           {/* Recent player with fade transition */}
