@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount } from "wagmi";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Settings, Gamepad2, Trophy, Coins, Palette, Clock, ChevronRight } from "lucide-react";
+import { Settings, Gamepad2, Trophy, Coins, Palette, Clock, ChevronRight, Layers } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -258,6 +258,57 @@ function ComingSoonTile() {
   );
 }
 
+// Stack Tower Game Tile (Testing)
+function StackTowerTile() {
+  return (
+    <button
+      onClick={() => window.location.href = "/games/game-2"}
+      className="relative w-full rounded-2xl border-2 border-cyan-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-cyan-500/80"
+      style={{ minHeight: '130px', background: 'linear-gradient(135deg, rgba(34,211,238,0.15) 0%, rgba(99,102,241,0.1) 100%)' }}
+    >
+      {/* Animated stack preview */}
+      <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+        <div className="stack-float relative flex flex-col items-center gap-0.5">
+          {['#FF6B6B', '#FFB347', '#FFD93D', '#6BCB77', '#4D96FF'].map((color, i) => (
+            <div
+              key={i}
+              className="rounded-sm"
+              style={{
+                width: `${50 - i * 6}px`,
+                height: '10px',
+                backgroundColor: color,
+                boxShadow: `0 2px 4px rgba(0,0,0,0.2)`,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+      
+      <div className="relative z-10 p-4 pr-24">
+        <div className="text-left">
+          <div className="flex items-center gap-2 mb-1">
+            <Layers className="w-5 h-5 text-cyan-400" />
+            <span className="font-bold text-base text-cyan-400">Stack Tower</span>
+            <span className="text-[9px] bg-yellow-500/30 text-yellow-300 px-1.5 py-0.5 rounded-full font-bold">TESTING</span>
+          </div>
+          <div className="text-[10px] text-cyan-200/60 mb-2">Stack blocks perfectly, build the highest tower!</div>
+          
+          <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-1">
+              <Trophy className="w-3 h-3 text-amber-400" />
+              <span className="text-[10px] text-amber-400">Weekly prizes</span>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] text-red-400 bg-red-500/20 px-2 py-0.5 rounded-full font-medium">⚠️ NOT REAL MONEY</span>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export default function GamesPage() {
   const readyRef = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -370,6 +421,8 @@ export default function GamesPage() {
         .gear-spin { animation: gear-spin 8s linear infinite; }
         @keyframes flappy-donut-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
         .flappy-donut-float { animation: flappy-donut-float 1.5s ease-in-out infinite; }
+        @keyframes stack-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+        .stack-float { animation: stack-float 2s ease-in-out infinite; }
         @keyframes wing-flap { 0%, 100% { transform: translateY(-50%) rotate(-10deg) scaleY(0.8); } 50% { transform: translateY(-50%) rotate(10deg) scaleY(1); } }
         .wing-flap { animation: wing-flap 0.2s ease-in-out infinite; }
         @keyframes wing-flap-reverse { 0%, 100% { transform: translateY(-50%) rotate(10deg) scaleY(0.8); } 50% { transform: translateY(-50%) rotate(-10deg) scaleY(1); } }
@@ -404,7 +457,8 @@ export default function GamesPage() {
             <div className="space-y-3 pb-4">
               <WeeklySkinTile skin={weeklySkin} isLoading={isLoadingSkin} />
               <FlappyDonutTile recentPlayer={recentPlayer} prizePool={prizePool} isLoading={isLoadingRecent} />
-              {[...Array(5)].map((_, i) => <ComingSoonTile key={i} />)}
+              <StackTowerTile />
+              {[...Array(4)].map((_, i) => <ComingSoonTile key={i} />)}
             </div>
           </div>
         </div>
