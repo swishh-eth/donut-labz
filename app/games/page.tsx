@@ -102,19 +102,19 @@ function WeeklySkinTile({ skin, isLoading }: { skin: WeeklySkin | null; isLoadin
     <button
       onClick={() => window.location.href = "/games/skin-market"}
       className="relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
+      style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
     >
       {/* Large floating donut preview */}
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="relative skin-float">
           <div 
-            className="w-24 h-24 rounded-full relative border-2 border-amber-400/30"
+            className="w-20 h-20 rounded-full relative border-2 border-amber-400/30"
             style={{ backgroundColor: '#F59E0B', boxShadow: '0 0 40px rgba(245, 158, 11, 0.3)' }}
           >
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-8 h-8 rounded-full bg-zinc-900 border-2 border-zinc-700" />
+              <div className="w-7 h-7 rounded-full bg-zinc-900 border-2 border-zinc-700" />
             </div>
-            <div className="absolute top-2.5 left-4 w-4 h-4 rounded-full bg-white/25" />
+            <div className="absolute top-2 left-3.5 w-3.5 h-3.5 rounded-full bg-white/25" />
           </div>
         </div>
       </div>
@@ -157,18 +157,18 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
     <button
       onClick={() => window.location.href = "/games/game-1"}
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+      style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Animated donut preview - bigger and moved left */}
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Animated donut preview */}
+      <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="flappy-donut-float relative">
-          <svg className="absolute -left-6 top-1/2 wing-flap" width="28" height="20" viewBox="0 0 24 16" style={{ transformOrigin: 'right center' }}>
+          <svg className="absolute -left-5 top-1/2 wing-flap" width="24" height="16" viewBox="0 0 24 16" style={{ transformOrigin: 'right center' }}>
             <ellipse cx="10" cy="8" rx="10" ry="7" fill="rgba(255,255,255,0.9)" stroke="rgba(180,180,180,0.5)" strokeWidth="1"/>
           </svg>
-          <svg className="absolute -right-6 top-1/2 wing-flap-reverse" width="28" height="20" viewBox="0 0 24 16" style={{ transformOrigin: 'left center' }}>
+          <svg className="absolute -right-5 top-1/2 wing-flap-reverse" width="24" height="16" viewBox="0 0 24 16" style={{ transformOrigin: 'left center' }}>
             <ellipse cx="14" cy="8" rx="10" ry="7" fill="rgba(255,255,255,0.9)" stroke="rgba(180,180,180,0.5)" strokeWidth="1"/>
           </svg>
-          <svg width="90" height="90" viewBox="0 0 60 60">
+          <svg width="72" height="72" viewBox="0 0 60 60">
             <ellipse cx="33" cy="35" rx="18" ry="12" fill="rgba(0,0,0,0.15)" />
             <circle cx="30" cy="30" r="20" fill={donutColor} stroke="rgba(0,0,0,0.2)" strokeWidth="2"/>
             <circle cx="30" cy="30" r="6" fill="#1a1a1a" stroke="rgba(0,0,0,0.3)" strokeWidth="1"/>
@@ -184,27 +184,20 @@ function FlappyDonutTile({ recentPlayer, prizePool, isLoading }: { recentPlayer:
             <span className="font-bold text-base text-white">Flappy Donut</span>
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
-          <div className="text-[10px] text-white/60 mb-1">Tap to fly, dodge rolling pins!</div>
+          <div className="text-[10px] text-white/60 mb-2">Tap to fly, dodge rolling pins!</div>
           
-          <div className="flex items-center gap-1.5 text-[9px] mb-1">
+          <div className="flex items-center gap-2 text-[9px]">
             <Trophy className="w-3 h-3 text-amber-400" />
-            <span className="text-amber-400 font-semibold">PRIZE POOL:</span>
-            <span className="text-amber-400 font-bold">{prizePool} 🍩</span>
-          </div>
-          
-          {/* Recent player with fade transition */}
-          <div className="flex items-center gap-2 h-4 relative">
-            <div className={`absolute inset-0 flex items-center transition-opacity duration-300 ${isLoading && !showPlayer ? 'opacity-100' : 'opacity-0'}`}>
-              <div className="w-24 h-3 bg-zinc-800/50 rounded-full animate-pulse" />
-            </div>
-            <div className={`flex items-center gap-1 transition-opacity duration-300 ${showPlayer ? 'opacity-100' : 'opacity-0'}`}>
-              {recentPlayer && (
-                <span className="text-[9px] text-zinc-400 flex items-center gap-1">
+            <span className="text-amber-400">{prizePool} 🍩</span>
+            {recentPlayer && (
+              <>
+                <span className="text-zinc-600">•</span>
+                <span className="text-zinc-400 flex items-center gap-1">
                   {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3 h-3 rounded-full" />}
                   @{recentPlayer.username} scored {recentPlayer.score}
                 </span>
-              )}
-            </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -230,37 +223,37 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
     <button
       onClick={() => window.location.href = "/games/game-2"}
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+      style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Floating glaze box stack preview - bigger and moved left */}
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <div className="stack-float relative flex flex-col-reverse items-center gap-1">
+      {/* Floating glaze box stack preview */}
+      <div className="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-none">
+        <div className="stack-float relative flex flex-col-reverse items-center gap-0.5">
           {['#FFE4EC', '#FFDEE8', '#FFD8E4', '#FFD2E0', '#FFCCDC'].map((color, i) => (
             <div
               key={i}
               className="rounded-sm relative overflow-hidden"
               style={{
-                width: `${72 - i * 8}px`,
-                height: '16px',
+                width: `${56 - i * 6}px`,
+                height: '12px',
                 backgroundColor: color,
                 boxShadow: `0 2px 4px rgba(0,0,0,0.2)`,
               }}
             >
               <div 
-                className="absolute inset-y-1 left-1 right-1 rounded-[2px] flex items-center justify-center gap-1"
+                className="absolute inset-y-0.5 left-0.5 right-0.5 rounded-[2px] flex items-center justify-center gap-0.5"
                 style={{ backgroundColor: 'rgba(30, 20, 25, 0.8)' }}
               >
-                {[...Array(Math.max(1, 4 - Math.floor(i / 2)))].map((_, j) => (
+                {[...Array(Math.max(1, 3 - Math.floor(i / 2)))].map((_, j) => (
                   <div
                     key={j}
                     className="rounded-full relative"
-                    style={{ width: '10px', height: '10px', backgroundColor: donutColor }}
+                    style={{ width: '8px', height: '8px', backgroundColor: donutColor }}
                   >
                     <div 
                       className="absolute rounded-full"
                       style={{
-                        width: '3px',
-                        height: '3px',
+                        width: '2.5px',
+                        height: '2.5px',
                         backgroundColor: 'rgba(30, 20, 25, 0.9)',
                         top: '50%',
                         left: '50%',
@@ -282,27 +275,20 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: 
             <span className="font-bold text-base text-white">Glaze Stack</span>
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
-          <div className="text-[10px] text-white/60 mb-1">Stack boxes, don't let them fall!</div>
+          <div className="text-[10px] text-white/60 mb-2">Stack boxes, don't let them fall!</div>
           
-          <div className="flex items-center gap-1.5 text-[9px] mb-1">
+          <div className="flex items-center gap-2 text-[9px]">
             <Trophy className="w-3 h-3 text-amber-400" />
-            <span className="text-amber-400 font-semibold">PRIZE POOL:</span>
-            <span className="text-amber-400 font-bold">{prizePool} 🍩</span>
-          </div>
-          
-          {/* Recent player with fade transition */}
-          <div className="flex items-center gap-2 h-4 relative">
-            <div className={`absolute inset-0 flex items-center transition-opacity duration-300 ${isLoading && !showPlayer ? 'opacity-100' : 'opacity-0'}`}>
-              <div className="w-24 h-3 bg-zinc-800/50 rounded-full animate-pulse" />
-            </div>
-            <div className={`flex items-center gap-1 transition-opacity duration-300 ${showPlayer ? 'opacity-100' : 'opacity-0'}`}>
-              {recentPlayer && (
-                <span className="text-[9px] text-zinc-400 flex items-center gap-1">
+            <span className="text-amber-400">{prizePool} 🍩</span>
+            {recentPlayer && (
+              <>
+                <span className="text-zinc-600">•</span>
+                <span className="text-zinc-400 flex items-center gap-1">
                   {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3 h-3 rounded-full" />}
                   @{recentPlayer.username} scored {recentPlayer.score}
                 </span>
-              )}
-            </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -328,12 +314,12 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: R
     <button
       onClick={() => window.location.href = "/games/donut-dash"}
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+      style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Donut with jetpack preview - bigger and moved left */}
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none">
+      {/* Donut with jetpack preview */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
         <div className="donut-dash-float relative">
-          <svg width="95" height="95" viewBox="0 0 70 70">
+          <svg width="75" height="75" viewBox="0 0 70 70">
             {/* Jetpack */}
             <rect x="10" y="26" width="12" height="22" rx="2" fill="#444" />
             <rect x="12" y="28" width="8" height="18" rx="1" fill="#666" />
@@ -369,27 +355,20 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading }: { recentPlayer: R
             <span className="font-bold text-base text-white">Donut Dash</span>
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
           </div>
-          <div className="text-[10px] text-white/60 mb-1">Jetpack through, collect sprinkles!</div>
+          <div className="text-[10px] text-white/60 mb-2">Jetpack through, collect sprinkles!</div>
           
-          <div className="flex items-center gap-1.5 text-[9px] mb-1">
+          <div className="flex items-center gap-2 text-[9px]">
             <Trophy className="w-3 h-3 text-amber-400" />
-            <span className="text-amber-400 font-semibold">PRIZE POOL:</span>
-            <span className="text-amber-400 font-bold">{prizePool} 🍩</span>
-          </div>
-          
-          {/* Recent player with fade transition */}
-          <div className="flex items-center gap-2 h-4 relative">
-            <div className={`absolute inset-0 flex items-center transition-opacity duration-300 ${isLoading && !showPlayer ? 'opacity-100' : 'opacity-0'}`}>
-              <div className="w-24 h-3 bg-zinc-800/50 rounded-full animate-pulse" />
-            </div>
-            <div className={`flex items-center gap-1 transition-opacity duration-300 ${showPlayer ? 'opacity-100' : 'opacity-0'}`}>
-              {recentPlayer && (
-                <span className="text-[9px] text-zinc-400 flex items-center gap-1">
+            <span className="text-amber-400">{prizePool} 🍩</span>
+            {recentPlayer && (
+              <>
+                <span className="text-zinc-600">•</span>
+                <span className="text-zinc-400 flex items-center gap-1">
                   {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3 h-3 rounded-full" />}
                   @{recentPlayer.username} scored {recentPlayer.score}
                 </span>
-              )}
-            </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -402,12 +381,12 @@ function ComingSoonTile() {
   return (
     <div 
       className="relative w-full rounded-2xl border-2 border-white/10 overflow-hidden opacity-50"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)' }}
+      style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)' }}
     >
-      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Settings className="w-24 h-24 text-zinc-800 gear-spin" />
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Settings className="w-16 h-16 text-zinc-800 gear-spin" />
       </div>
-      <div className="relative z-10 p-4 pr-20">
+      <div className="relative z-10 p-4 pr-24">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Settings className="w-5 h-5 text-zinc-600" />
