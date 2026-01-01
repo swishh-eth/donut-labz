@@ -144,7 +144,7 @@ function DonutPreview({ color, size = 32 }: { color: string; size?: number }) {
         width: size, 
         height: size, 
         backgroundColor: color,
-        boxShadow: `0 0 8px ${color}40`
+        boxShadow: `0 0 6px ${color}40`
       }}
     >
       <div 
@@ -894,7 +894,7 @@ export default function ChatPage() {
             ) : (
               <>
                 {feedItems.map((item, index) => {
-                  // Game Announcement
+                  // Game Announcement - compact like chat messages
                   if (item.type === 'game') {
                     const gameItem = item as GameAnnouncement;
                     const profile = profiles?.[gameItem.playerAddress.toLowerCase()];
@@ -905,29 +905,24 @@ export default function ChatPage() {
                       <button
                         key={`game-${gameItem.id}`}
                         onClick={() => navigateToGame(gameItem.gameId)}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 hover:border-amber-500/50 transition-all text-left"
+                        className="w-full flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-all text-left"
                       >
                         <div className="relative flex-shrink-0">
-                          <Avatar className="h-10 w-10 border-2 border-amber-500/50">
+                          <Avatar className="h-8 w-8 border border-amber-500/30">
                             <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
                             <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(displayName)}</AvatarFallback>
                           </Avatar>
-                          <div className="absolute -bottom-1 -right-1">
-                            <DonutPreview color={gameItem.skinColor} size={20} />
-                          </div>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <Gamepad2 className="w-3.5 h-3.5 text-amber-400" />
-                            <span className="text-xs text-amber-400 font-semibold">{gameItem.gameName}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-white font-semibold truncate">{displayName}</span>
+                            <span className="text-[10px] text-gray-500">in</span>
+                            <span className="text-[10px] text-amber-400 font-medium">{gameItem.gameName}</span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-white font-bold truncate">{displayName}</span>
-                            <span className="text-xs text-gray-400">scored</span>
-                            <span className="text-sm text-amber-400 font-bold flex items-center gap-1">
-                              <Trophy className="w-3.5 h-3.5" />
-                              {gameItem.score}
-                            </span>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Trophy className="w-3 h-3 text-amber-400" />
+                            <span className="text-xs text-amber-400 font-bold">{gameItem.score}</span>
+                            <DonutPreview color={gameItem.skinColor} size={12} />
                           </div>
                         </div>
                         <div className="text-[10px] text-gray-600 flex-shrink-0">{timeAgo(gameItem.timestamp)}</div>
