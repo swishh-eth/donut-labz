@@ -31,7 +31,7 @@ const ERC20_ABI = [
 type MiniAppContext = { user?: { fid: number; username?: string; displayName?: string; pfpUrl?: string } };
 
 // Premium price in DONUT (burned)
-const PREMIUM_PRICE = 5000;
+const PREMIUM_PRICE = 1000;
 
 // Achievement skin definitions
 type SkinTier = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic' | 'ultimate';
@@ -637,7 +637,8 @@ export default function SkinMarketPage() {
     const fetchUserData = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/games/skin-market/user-data?address=${address}`);
+        const fidParam = context?.user?.fid ? `&fid=${context.user.fid}` : '';
+        const res = await fetch(`/api/games/skin-market/user-data?address=${address}${fidParam}`);
         if (res.ok) {
           const data = await res.json();
           setIsPremium(data.isPremium || false);
@@ -655,7 +656,7 @@ export default function SkinMarketPage() {
     };
     
     fetchUserData();
-  }, [address]);
+  }, [address, context?.user?.fid]);
 
   // Handle premium purchase success
   useEffect(() => {
