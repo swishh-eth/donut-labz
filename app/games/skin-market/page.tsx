@@ -542,43 +542,45 @@ function AchievementCard({
         {skin.requirement.description}
       </p>
       
-      {/* Progress or status */}
-      {isUnlocked ? (
-        <button
-          onClick={() => onEquip(skin.id)}
-          className={`w-full py-1.5 rounded-lg text-xs font-bold transition-colors ${
-            isEquipped 
-              ? 'bg-white text-black' 
-              : 'bg-zinc-800 text-white hover:bg-zinc-700'
-          }`}
-        >
-          {isEquipped ? (
-            <span className="flex items-center justify-center gap-1">
-              <Check className="w-3 h-3" /> Equipped
-            </span>
-          ) : 'Equip'}
-        </button>
-      ) : isPremium ? (
-        <div className="space-y-1">
-          <ProgressBar current={current} target={target} color={skin.color} />
-          <p className="text-[10px] text-zinc-500 text-center">
-            {current} / {target}
-          </p>
-          {canUnlock && (
-            <button
-              onClick={() => onEquip(skin.id)}
-              className="w-full py-1.5 bg-green-500 text-black rounded-lg text-xs font-bold hover:bg-green-400"
-            >
-              Claim!
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-600 w-full">
-          <Crown className="w-3 h-3 shrink-0" />
-          <span>Premium</span>
-        </div>
-      )}
+      {/* Progress or status - fixed height for consistent alignment */}
+      <div className="min-h-[52px] flex flex-col justify-end">
+        {isUnlocked ? (
+          <button
+            onClick={() => onEquip(skin.id)}
+            className={`w-full py-1.5 rounded-lg text-xs font-bold transition-colors ${
+              isEquipped 
+                ? 'bg-white text-black' 
+                : 'bg-zinc-800 text-white hover:bg-zinc-700'
+            }`}
+          >
+            {isEquipped ? (
+              <span className="flex items-center justify-center gap-1">
+                <Check className="w-3 h-3" /> Equipped
+              </span>
+            ) : 'Equip'}
+          </button>
+        ) : isPremium ? (
+          <div className="space-y-1">
+            <ProgressBar current={current} target={target} color={skin.color} />
+            <p className="text-[10px] text-zinc-500 text-center">
+              {current} / {target}
+            </p>
+            {canUnlock && (
+              <button
+                onClick={() => onEquip(skin.id)}
+                className="w-full py-1.5 bg-green-500 text-black rounded-lg text-xs font-bold hover:bg-green-400"
+              >
+                Claim!
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-600 w-full">
+            <Crown className="w-3 h-3 shrink-0" />
+            <span>Premium</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

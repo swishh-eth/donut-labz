@@ -61,7 +61,7 @@ interface GameSkin {
 const DEFAULT_SKIN: GameSkin = {
   id: 'default',
   name: 'Classic',
-  frostingColor: '#F59E0B',
+  frostingColor: '#F472B6',
   tier: 'default',
 };
 
@@ -150,7 +150,7 @@ function FallingDonuts() {
           }}
         >
           <svg width="20" height="20" viewBox="0 0 40 40" className="opacity-30">
-            <circle cx="20" cy="20" r="16" fill="#F59E0B" />
+            <circle cx="20" cy="20" r="16" fill="#F472B6" />
             <circle cx="20" cy="20" r="6" fill="#1a1a1a" />
           </svg>
         </div>
@@ -395,7 +395,8 @@ export default function FlappyDonutPage() {
     
     const fetchSkinData = async () => {
       try {
-        const res = await fetch(`/api/games/skin-market/user-data?address=${address}`);
+        const fidParam = context?.user?.fid ? `&fid=${context.user.fid}` : '';
+        const res = await fetch(`/api/games/skin-market/user-data?address=${address}${fidParam}`);
         if (res.ok) {
           const data = await res.json();
           setIsPremium(data.isPremium || false);
@@ -913,7 +914,8 @@ export default function FlappyDonutPage() {
             fetch(`/api/games/flappy/attempts?address=${address}`).then(r => r.json()).then(data => { setAttempts(data.attempts); setEntryCost(data.nextCost); });
             fetch('/api/games/flappy/leaderboard').then(r => r.json()).then(data => setLeaderboard(data.leaderboard || []));
             // Refresh skin data (games played may have changed)
-            fetch(`/api/games/skin-market/user-data?address=${address}`).then(r => r.json()).then(data => {
+            const fidParam = context?.user?.fid ? `&fid=${context.user.fid}` : '';
+            fetch(`/api/games/skin-market/user-data?address=${address}${fidParam}`).then(r => r.json()).then(data => {
               if (data.stats && data.stats['flappy-donut']) {
                 setUserStats(data.stats['flappy-donut']);
               }
