@@ -1337,9 +1337,6 @@ export default function DonutDashPage() {
               </div>
             </div>
           </div>
-          <div className="absolute -top-2 -right-2 px-2 py-0.5 bg-green-500 text-black text-[10px] font-bold rounded-full">
-            FREE TO PLAY
-          </div>
         </button>
         
         <div className="flex flex-col items-center">
