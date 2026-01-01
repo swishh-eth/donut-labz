@@ -1047,6 +1047,27 @@ export default function ChatPage() {
                     </div>
                   )}
                   
+                  {/* Image preview - shown above input when image selected */}
+                  {imagePreview && (
+                    <div className="mb-2 relative inline-block">
+                      <img 
+                        src={imagePreview} 
+                        alt="Preview" 
+                        className="h-24 w-auto rounded-lg border border-zinc-700 object-cover"
+                      />
+                      <button
+                        onClick={clearSelectedImage}
+                        className="absolute -top-2 -right-2 w-5 h-5 bg-zinc-800 border border-zinc-600 rounded-full flex items-center justify-center hover:bg-zinc-700 transition-colors"
+                      >
+                        <X className="w-3 h-3 text-white" />
+                      </button>
+                      <div className="absolute bottom-1 left-1 bg-black/80 px-1.5 py-0.5 rounded text-[9px] text-white flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5" />
+                        10 burn
+                      </div>
+                    </div>
+                  )}
+                  
                   <div 
                     ref={buttonContainerRef}
                     className="relative w-full h-11"
@@ -1097,26 +1118,6 @@ export default function ChatPage() {
                             : "opacity-0 w-0"
                         }`}
                       >
-                        {/* Image preview */}
-                        {imagePreview && (
-                          <div className="mb-2 relative inline-block">
-                            <img 
-                              src={imagePreview} 
-                              alt="Preview" 
-                              className="h-20 w-auto rounded-lg border border-zinc-700 object-cover"
-                            />
-                            <button
-                              onClick={clearSelectedImage}
-                              className="absolute -top-2 -right-2 w-5 h-5 bg-zinc-800 border border-zinc-600 rounded-full flex items-center justify-center hover:bg-zinc-700 transition-colors"
-                            >
-                              <X className="w-3 h-3 text-white" />
-                            </button>
-                            <div className="absolute bottom-1 left-1 bg-black/70 px-1.5 py-0.5 rounded text-[9px] text-white flex items-center gap-1">
-                              <Sparkles className="w-2.5 h-2.5" />
-                              10 burn
-                            </div>
-                          </div>
-                        )}
                         <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2 h-11">
                           <input
                             ref={imageInputRef}
@@ -1128,7 +1129,9 @@ export default function ChatPage() {
                           <button
                             onClick={() => imageInputRef.current?.click()}
                             disabled={isPending || isConfirming || isVerifying || isBurnPending || isBurnConfirming || isUploadingImage}
-                            className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-white hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                            className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg transition-colors disabled:opacity-50 ${
+                              selectedImage ? "text-white bg-zinc-700" : "text-gray-400 hover:text-white hover:bg-zinc-800"
+                            }`}
                             title="Add image (10 SPRINKLES)"
                           >
                             <ImageIcon className="w-4 h-4" />
