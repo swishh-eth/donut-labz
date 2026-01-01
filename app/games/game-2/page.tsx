@@ -38,7 +38,7 @@ const MAX_SPEED = 7;
 const PERFECT_THRESHOLD = 5;
 
 // Skin type definition
-type SkinTier = 'common' | 'rare' | 'epic' | 'legendary' | 'default';
+type SkinTier = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic' | 'ultimate' | 'default';
 
 interface GameSkin {
   id: string;
@@ -46,7 +46,7 @@ interface GameSkin {
   frostingColor: string;
   tier: SkinTier;
   animated?: boolean;
-  animationType?: 'rainbow' | 'glow' | 'pulse' | 'sparkle';
+  animationType?: 'rainbow' | 'glow' | 'pulse' | 'sparkle' | 'electric' | 'fire';
   requirement?: {
     type: string;
     value: number;
@@ -96,6 +96,24 @@ const STACK_SKINS: GameSkin[] = [
     animated: true,
     animationType: 'rainbow',
     requirement: { type: 'high_score', value: 100, description: 'Score 100+ in one game' },
+  },
+  {
+    id: 'stack-mythic',
+    name: 'Tower Titan',
+    frostingColor: '#14B8A6',
+    tier: 'mythic',
+    animated: true,
+    animationType: 'electric',
+    requirement: { type: 'games_played', value: 250, description: 'Play 250 games' },
+  },
+  {
+    id: 'stack-ultimate',
+    name: 'Stack God',
+    frostingColor: '#F59E0B',
+    tier: 'ultimate',
+    animated: true,
+    animationType: 'fire',
+    requirement: { type: 'games_played', value: 500, description: 'Play 500 games' },
   },
 ];
 
@@ -1288,6 +1306,8 @@ export default function StackGamePage() {
   // Get tier badge color
   const getTierColor = (tier: SkinTier) => {
     switch (tier) {
+      case 'ultimate': return 'bg-gradient-to-br from-amber-400 to-orange-500';
+      case 'mythic': return 'bg-violet-500';
       case 'legendary': return 'bg-yellow-500';
       case 'epic': return 'bg-cyan-500';
       case 'rare': return 'bg-purple-500';
@@ -1737,7 +1757,9 @@ export default function StackGamePage() {
                       {/* Tier badge */}
                       {!isDefault && (
                         <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center ${getTierColor(skin.tier)}`}>
-                          {skin.tier === 'legendary' ? <Sparkles className="w-2.5 h-2.5 text-black" /> :
+                          {skin.tier === 'ultimate' ? <Crown className="w-2.5 h-2.5 text-black" /> :
+                           skin.tier === 'mythic' ? <Sparkles className="w-2.5 h-2.5 text-white" /> :
+                           skin.tier === 'legendary' ? <Sparkles className="w-2.5 h-2.5 text-black" /> :
                            skin.tier === 'epic' ? <Zap className="w-2.5 h-2.5 text-black" /> :
                            <span className="text-[8px] text-white font-bold">{skin.tier === 'rare' ? 'R' : 'C'}</span>}
                         </div>

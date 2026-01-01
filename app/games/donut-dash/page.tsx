@@ -45,7 +45,7 @@ const MAX_SPEED = 8;
 const SPEED_INCREMENT = 0.0005;
 
 // Skin type definitions
-type SkinTier = 'common' | 'rare' | 'epic' | 'legendary' | 'default';
+type SkinTier = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic' | 'ultimate' | 'default';
 
 interface GameSkin {
   id: string;
@@ -53,7 +53,7 @@ interface GameSkin {
   frostingColor: string;
   tier: SkinTier;
   animated?: boolean;
-  animationType?: 'rainbow' | 'glow' | 'pulse' | 'sparkle';
+  animationType?: 'rainbow' | 'glow' | 'pulse' | 'sparkle' | 'electric' | 'fire';
   requirement?: { type: string; value: number };
 }
 
@@ -72,6 +72,8 @@ const DASH_SKINS: GameSkin[] = [
   { id: 'dash-silver', name: 'Speed Demon', frostingColor: '#F97316', tier: 'rare', requirement: { type: 'games_played', value: 50 } },
   { id: 'dash-epic', name: 'Rocket Rider', frostingColor: '#EF4444', tier: 'epic', animated: true, animationType: 'pulse', requirement: { type: 'games_played', value: 100 } },
   { id: 'dash-gold', name: 'Cosmic Cruiser', frostingColor: '#EC4899', tier: 'legendary', animated: true, animationType: 'sparkle', requirement: { type: 'high_score', value: 1000 } },
+  { id: 'dash-mythic', name: 'Void Walker', frostingColor: '#6366F1', tier: 'mythic', animated: true, animationType: 'electric', requirement: { type: 'games_played', value: 250 } },
+  { id: 'dash-ultimate', name: 'Dash Deity', frostingColor: '#10B981', tier: 'ultimate', animated: true, animationType: 'fire', requirement: { type: 'games_played', value: 500 } },
 ];
 
 // Types
@@ -394,6 +396,8 @@ export default function DonutDashPage() {
 
   const getTierColor = (tier: SkinTier) => {
     switch (tier) {
+      case 'ultimate': return 'bg-gradient-to-br from-amber-400 to-orange-500';
+      case 'mythic': return 'bg-violet-500';
       case 'legendary': return 'bg-yellow-500';
       case 'epic': return 'bg-cyan-500';
       case 'rare': return 'bg-purple-500';
@@ -1825,7 +1829,9 @@ export default function DonutDashPage() {
                     >
                       {!isDefault && (
                         <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center ${getTierColor(skin.tier)}`}>
-                          {skin.tier === 'legendary' ? <Sparkles className="w-2.5 h-2.5 text-black" /> :
+                          {skin.tier === 'ultimate' ? <Crown className="w-2.5 h-2.5 text-black" /> :
+                           skin.tier === 'mythic' ? <Sparkles className="w-2.5 h-2.5 text-white" /> :
+                           skin.tier === 'legendary' ? <Sparkles className="w-2.5 h-2.5 text-black" /> :
                            skin.tier === 'epic' ? <Zap className="w-2.5 h-2.5 text-black" /> :
                            <span className="text-[8px] text-white font-bold">{skin.tier === 'rare' ? 'R' : 'C'}</span>}
                         </div>

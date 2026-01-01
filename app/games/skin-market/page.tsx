@@ -7,12 +7,21 @@ import { parseUnits, formatUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
 import { 
   ChevronLeft, Lock, Check, Crown, Gamepad2, Layers, Rocket,
-  Trophy, Star, Zap, Sparkles
+  Trophy, Star, Zap, Sparkles, HelpCircle, X
 } from "lucide-react";
+
+// Sprinkle icon component
+const SprinkleIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" className={className}>
+    <rect x="4" y="10" width="16" height="4" rx="2" fill="#FF6B6B" />
+    <rect x="7" y="4" width="10" height="4" rx="2" fill="#4ECDC4" transform="rotate(45 12 6)" />
+    <rect x="7" y="16" width="10" height="4" rx="2" fill="#FFE66D" transform="rotate(-45 12 18)" />
+  </svg>
+);
 
 // Contract addresses
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
-const TREASURY_ADDRESS = "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d" as const;
+const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD" as const;
 
 const ERC20_ABI = [
   { inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], name: "transfer", outputs: [{ type: "bool" }], stateMutability: "nonpayable", type: "function" },
@@ -21,11 +30,11 @@ const ERC20_ABI = [
 
 type MiniAppContext = { user?: { fid: number; username?: string; displayName?: string; pfpUrl?: string } };
 
-// Premium price in DONUT
-const PREMIUM_PRICE = 25;
+// Premium price in DONUT (burned)
+const PREMIUM_PRICE = 5000;
 
 // Achievement skin definitions
-type SkinTier = 'common' | 'rare' | 'epic' | 'legendary';
+type SkinTier = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic' | 'ultimate';
 type GameId = 'flappy-donut' | 'glaze-stack' | 'donut-dash';
 
 interface AchievementSkin {
@@ -42,11 +51,11 @@ interface AchievementSkin {
     description: string;
   };
   animated?: boolean;
-  animationType?: 'rainbow' | 'glow' | 'pulse' | 'sparkle';
+  animationType?: 'rainbow' | 'glow' | 'pulse' | 'sparkle' | 'fire' | 'electric';
 }
 
 const ACHIEVEMENT_SKINS: AchievementSkin[] = [
-  // Flappy Donut Skins
+  // Flappy Donut Skins (6 total)
   {
     id: 'flappy-bronze',
     name: 'Sky Rookie',
@@ -87,12 +96,36 @@ const ACHIEVEMENT_SKINS: AchievementSkin[] = [
     gameId: 'flappy-donut',
     gameName: 'Flappy Donut',
     gameIcon: Gamepad2,
-    requirement: { type: 'high_score', value: 300, description: 'Score 300+ in one game' },
+    requirement: { type: 'high_score', value: 300, description: 'Score 300+' },
     animated: true,
     animationType: 'glow',
   },
+  {
+    id: 'flappy-mythic',
+    name: 'Storm Chaser',
+    color: '#7C3AED',
+    tier: 'mythic',
+    gameId: 'flappy-donut',
+    gameName: 'Flappy Donut',
+    gameIcon: Gamepad2,
+    requirement: { type: 'games_played', value: 250, description: 'Play 250 games' },
+    animated: true,
+    animationType: 'electric',
+  },
+  {
+    id: 'flappy-ultimate',
+    name: 'Sky Legend',
+    color: '#F472B6',
+    tier: 'ultimate',
+    gameId: 'flappy-donut',
+    gameName: 'Flappy Donut',
+    gameIcon: Gamepad2,
+    requirement: { type: 'games_played', value: 500, description: 'Play 500 games' },
+    animated: true,
+    animationType: 'rainbow',
+  },
   
-  // Glaze Stack Skins
+  // Glaze Stack Skins (6 total)
   {
     id: 'stack-bronze',
     name: 'Stack Starter',
@@ -133,12 +166,36 @@ const ACHIEVEMENT_SKINS: AchievementSkin[] = [
     gameId: 'glaze-stack',
     gameName: 'Glaze Stack',
     gameIcon: Layers,
-    requirement: { type: 'high_score', value: 100, description: 'Score 100+ in one game' },
+    requirement: { type: 'high_score', value: 100, description: 'Score 100+' },
     animated: true,
     animationType: 'rainbow',
   },
+  {
+    id: 'stack-mythic',
+    name: 'Tower Titan',
+    color: '#14B8A6',
+    tier: 'mythic',
+    gameId: 'glaze-stack',
+    gameName: 'Glaze Stack',
+    gameIcon: Layers,
+    requirement: { type: 'games_played', value: 250, description: 'Play 250 games' },
+    animated: true,
+    animationType: 'electric',
+  },
+  {
+    id: 'stack-ultimate',
+    name: 'Stack God',
+    color: '#F59E0B',
+    tier: 'ultimate',
+    gameId: 'glaze-stack',
+    gameName: 'Glaze Stack',
+    gameIcon: Layers,
+    requirement: { type: 'games_played', value: 500, description: 'Play 500 games' },
+    animated: true,
+    animationType: 'fire',
+  },
   
-  // Donut Dash Skins
+  // Donut Dash Skins (6 total)
   {
     id: 'dash-bronze',
     name: 'Jetpack Novice',
@@ -179,9 +236,33 @@ const ACHIEVEMENT_SKINS: AchievementSkin[] = [
     gameId: 'donut-dash',
     gameName: 'Donut Dash',
     gameIcon: Rocket,
-    requirement: { type: 'high_score', value: 1000, description: 'Collect 1000+ sprinkles' },
+    requirement: { type: 'high_score', value: 1000, description: '1000+ sprinkles' },
     animated: true,
     animationType: 'sparkle',
+  },
+  {
+    id: 'dash-mythic',
+    name: 'Void Walker',
+    color: '#6366F1',
+    tier: 'mythic',
+    gameId: 'donut-dash',
+    gameName: 'Donut Dash',
+    gameIcon: Rocket,
+    requirement: { type: 'games_played', value: 250, description: 'Play 250 games' },
+    animated: true,
+    animationType: 'electric',
+  },
+  {
+    id: 'dash-ultimate',
+    name: 'Dash Deity',
+    color: '#10B981',
+    tier: 'ultimate',
+    gameId: 'donut-dash',
+    gameName: 'Donut Dash',
+    gameIcon: Rocket,
+    requirement: { type: 'games_played', value: 500, description: 'Play 500 games' },
+    animated: true,
+    animationType: 'fire',
   },
 ];
 
@@ -211,73 +292,85 @@ function DonutPreview({ skin, size = 80, locked = false, progress = 0 }: {
       const holeRadius = radius * 0.35;
       const time = Date.now();
       
-      // Calculate color
-      let color = locked ? '#3f3f46' : skin.color;
-      if (!locked && skin.animated && skin.animationType === 'rainbow') {
-        const hue = (time / 20) % 360;
-        color = `hsl(${hue}, 70%, 60%)`;
-      }
-      
-      // Glow effect for animated skins
-      if (!locked && skin.animated && (skin.animationType === 'glow' || skin.animationType === 'rainbow')) {
-        const glowIntensity = 15 + Math.sin(time / 200) * 8;
-        ctx.shadowColor = color;
-        ctx.shadowBlur = glowIntensity;
-      }
-      
-      // Shadow
-      ctx.beginPath();
-      ctx.ellipse(centerX + 2, centerY + 3, radius, radius * 0.7, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      
-      // Main donut body
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.strokeStyle = locked ? "rgba(255,255,255,0.1)" : "rgba(0, 0, 0, 0.3)";
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      
-      // Donut hole
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, holeRadius, 0, Math.PI * 2);
-      ctx.fillStyle = "#1a1a1a";
-      ctx.fill();
-      
-      // Shine
-      if (!locked) {
-        ctx.beginPath();
-        ctx.arc(centerX - radius * 0.3, centerY - radius * 0.3, radius * 0.12, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
-        ctx.fill();
-      }
-      
-      // Sparkle particles for sparkle animation
-      if (!locked && skin.animated && skin.animationType === 'sparkle') {
-        for (let i = 0; i < 5; i++) {
-          const angle = (time / 500 + i * Math.PI / 2.5) % (Math.PI * 2);
-          const dist = radius + 5 + Math.sin(time / 200 + i) * 3;
-          const sparkleX = centerX + Math.cos(angle) * dist;
-          const sparkleY = centerY + Math.sin(angle) * dist;
-          const sparkleSize = 1.5 + Math.sin(time / 150 + i * 2) * 0.8;
-          
-          ctx.beginPath();
-          ctx.arc(sparkleX, sparkleY, sparkleSize, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(255, 255, 255, ${0.5 + Math.sin(time / 100 + i) * 0.3})`;
-          ctx.fill();
+      // Get animated color
+      let color = skin.color;
+      if (skin.animated && !locked) {
+        if (skin.animationType === 'rainbow') {
+          const hue = (time / 20) % 360;
+          color = `hsl(${hue}, 70%, 50%)`;
+        } else if (skin.animationType === 'pulse') {
+          const pulse = Math.sin(time / 300) * 0.2 + 0.8;
+          const rgb = hexToRgb(skin.color);
+          if (rgb) {
+            const r = Math.round(rgb.r * pulse + 255 * (1 - pulse) * 0.3);
+            const g = Math.round(rgb.g * pulse + 255 * (1 - pulse) * 0.3);
+            const b = Math.round(rgb.b * pulse + 255 * (1 - pulse) * 0.3);
+            color = `rgb(${r}, ${g}, ${b})`;
+          }
+        } else if (skin.animationType === 'sparkle') {
+          const sparkle = Math.sin(time / 100) * 0.3 + 0.7;
+          const rgb = hexToRgb(skin.color);
+          if (rgb) {
+            const r = Math.min(255, Math.round(rgb.r + 100 * sparkle));
+            const g = Math.min(255, Math.round(rgb.g + 100 * sparkle));
+            const b = Math.min(255, Math.round(rgb.b + 100 * sparkle));
+            color = `rgb(${r}, ${g}, ${b})`;
+          }
+        } else if (skin.animationType === 'glow') {
+          ctx.shadowColor = skin.color;
+          ctx.shadowBlur = 10 + Math.sin(time / 200) * 8;
+        } else if (skin.animationType === 'fire') {
+          const hue = 20 + Math.sin(time / 150) * 20; // Orange to red
+          const lightness = 50 + Math.sin(time / 100) * 10;
+          color = `hsl(${hue}, 90%, ${lightness}%)`;
+          ctx.shadowColor = '#FF4500';
+          ctx.shadowBlur = 8 + Math.sin(time / 100) * 5;
+        } else if (skin.animationType === 'electric') {
+          const lightness = 50 + Math.sin(time / 50) * 20;
+          const hue = 250 + Math.sin(time / 200) * 30; // Blue to purple
+          color = `hsl(${hue}, 80%, ${lightness}%)`;
+          if (Math.random() > 0.9) {
+            ctx.shadowColor = '#00BFFF';
+            ctx.shadowBlur = 15;
+          }
         }
       }
       
-      // Pulse effect
-      if (!locked && skin.animated && skin.animationType === 'pulse') {
-        const pulseRadius = radius + 5 + Math.sin(time / 300) * 5;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, pulseRadius, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(${parseInt(color.slice(1,3),16)}, ${parseInt(color.slice(3,5),16)}, ${parseInt(color.slice(5,7),16)}, ${0.3 + Math.sin(time / 300) * 0.2})`;
+      // Draw donut
+      const gradient = ctx.createRadialGradient(
+        centerX - radius * 0.2, centerY - radius * 0.2, 0,
+        centerX, centerY, radius
+      );
+      gradient.addColorStop(0, lightenColor(color, 30));
+      gradient.addColorStop(0.5, color);
+      gradient.addColorStop(1, darkenColor(color, 30));
+      
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Reset shadow
+      ctx.shadowBlur = 0;
+      
+      // Draw hole
+      ctx.fillStyle = '#0a0a0a';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, holeRadius, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Highlight
+      ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+      ctx.beginPath();
+      ctx.arc(centerX - radius * 0.3, centerY - radius * 0.3, radius * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Progress ring (if locked)
+      if (locked && progress > 0) {
+        ctx.strokeStyle = skin.color;
         ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius + 4, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
         ctx.stroke();
       }
       
@@ -294,7 +387,7 @@ function DonutPreview({ skin, size = 80, locked = false, progress = 0 }: {
     
     draw();
     return () => cancelAnimationFrame(animationId);
-  }, [skin, size, locked]);
+  }, [skin, size, locked, progress]);
   
   return (
     <div className="relative">
@@ -312,6 +405,36 @@ function DonutPreview({ skin, size = 80, locked = false, progress = 0 }: {
   );
 }
 
+// Helper functions
+function hexToRgb(hex: string) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+}
+
+function lightenColor(color: string, percent: number): string {
+  if (color.startsWith('hsl') || color.startsWith('rgb')) return color;
+  const rgb = hexToRgb(color);
+  if (!rgb) return color;
+  const r = Math.min(255, rgb.r + (255 - rgb.r) * percent / 100);
+  const g = Math.min(255, rgb.g + (255 - rgb.g) * percent / 100);
+  const b = Math.min(255, rgb.b + (255 - rgb.b) * percent / 100);
+  return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+}
+
+function darkenColor(color: string, percent: number): string {
+  if (color.startsWith('hsl') || color.startsWith('rgb')) return color;
+  const rgb = hexToRgb(color);
+  if (!rgb) return color;
+  const r = rgb.r * (100 - percent) / 100;
+  const g = rgb.g * (100 - percent) / 100;
+  const b = rgb.b * (100 - percent) / 100;
+  return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+}
+
 // Progress bar component
 function ProgressBar({ current, target, color }: { current: number; target: number; color: string }) {
   const percent = Math.min((current / target) * 100, 100);
@@ -323,6 +446,30 @@ function ProgressBar({ current, target, color }: { current: number; target: numb
       />
     </div>
   );
+}
+
+// Get tier badge color
+function getTierBadgeColor(tier: SkinTier): string {
+  switch (tier) {
+    case 'ultimate': return 'bg-gradient-to-br from-amber-400 to-orange-500';
+    case 'mythic': return 'bg-gradient-to-br from-violet-500 to-purple-600';
+    case 'legendary': return 'bg-yellow-500';
+    case 'epic': return 'bg-cyan-500';
+    case 'rare': return 'bg-purple-500';
+    default: return 'bg-zinc-600';
+  }
+}
+
+// Get tier icon
+function getTierIcon(tier: SkinTier) {
+  switch (tier) {
+    case 'ultimate': return <Crown className="w-3 h-3 text-black" />;
+    case 'mythic': return <Sparkles className="w-3 h-3 text-white" />;
+    case 'legendary': return <Sparkles className="w-3 h-3 text-black" />;
+    case 'epic': return <Zap className="w-3 h-3 text-black" />;
+    case 'rare': return <Star className="w-3 h-3 text-white" />;
+    default: return <Trophy className="w-3 h-3 text-white" />;
+  }
 }
 
 // Achievement Card Component
@@ -371,15 +518,8 @@ function AchievementCard({
           : 'bg-zinc-900/50 border-zinc-800'
     }`}>
       {/* Tier badge */}
-      <div className={`absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center ${
-        skin.tier === 'legendary' ? 'bg-yellow-500' :
-        skin.tier === 'epic' ? 'bg-cyan-500' :
-        skin.tier === 'rare' ? 'bg-purple-500' : 'bg-zinc-600'
-      }`}>
-        {skin.tier === 'legendary' ? <Sparkles className="w-3 h-3 text-black" /> :
-         skin.tier === 'epic' ? <Zap className="w-3 h-3 text-black" /> :
-         skin.tier === 'rare' ? <Star className="w-3 h-3 text-white" /> :
-         <Trophy className="w-3 h-3 text-white" />}
+      <div className={`absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center ${getTierBadgeColor(skin.tier)}`}>
+        {getTierIcon(skin.tier)}
       </div>
       
       {/* Donut preview */}
@@ -434,9 +574,9 @@ function AchievementCard({
           )}
         </div>
       ) : (
-        <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-600">
-          <Crown className="w-3 h-3" />
-          Premium Required
+        <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-600 w-full">
+          <Crown className="w-3 h-3 shrink-0" />
+          <span>Premium</span>
         </div>
       )}
     </div>
@@ -453,6 +593,7 @@ export default function SkinMarketPage() {
   const [unlockedSkins, setUnlockedSkins] = useState<string[]>([]);
   const [equippedSkin, setEquippedSkin] = useState<string | null>(null);
   const [selectedGame, setSelectedGame] = useState<GameId | 'all'>('all');
+  const [showPremiumHelp, setShowPremiumHelp] = useState(false);
   
   // User stats per game
   const [userStats, setUserStats] = useState<Record<GameId, { gamesPlayed: number; highScore: number; totalScore: number }>>({
@@ -556,7 +697,7 @@ export default function SkinMarketPage() {
     
     const costWei = parseUnits(PREMIUM_PRICE.toString(), 18);
     if (balance && balance < costWei) {
-      setPurchaseError(`Need ${PREMIUM_PRICE} DONUT to unlock premium`);
+      setPurchaseError(`Need ${PREMIUM_PRICE.toLocaleString()} sprinkles to unlock premium`);
       return;
     }
     
@@ -567,7 +708,7 @@ export default function SkinMarketPage() {
       address: DONUT_ADDRESS,
       abi: ERC20_ABI,
       functionName: "transfer",
-      args: [TREASURY_ADDRESS, costWei],
+      args: [DEAD_ADDRESS, costWei],
     });
   };
 
@@ -657,37 +798,29 @@ export default function SkinMarketPage() {
         ) : (
           <div className="px-4 space-y-4">
             
-            {/* Premium Unlock Card (show if not premium) */}
+            {/* Compact Premium Unlock Card (show if not premium) */}
             {!isPremium && (
-              <div className="bg-gradient-to-br from-amber-500/20 to-orange-500/10 border border-amber-500/30 rounded-2xl p-5">
-                <div className="flex items-start gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-amber-500/20 flex items-center justify-center">
-                    <Crown className="w-8 h-8 text-amber-400" />
+              <div className="relative bg-gradient-to-r from-amber-500/20 to-orange-500/10 border border-amber-500/30 rounded-xl p-4">
+                {/* Help button */}
+                <button
+                  onClick={() => setShowPremiumHelp(true)}
+                  className="absolute top-3 right-3 p-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/30 transition-colors"
+                >
+                  <HelpCircle className="w-4 h-4 text-amber-400" />
+                </button>
+                
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                    <Crown className="w-6 h-6 text-amber-400" />
                   </div>
-                  <div className="flex-1">
-                    <h2 className="text-lg font-bold text-amber-400 mb-1">Unlock Premium</h2>
-                    <p className="text-sm text-zinc-400 mb-3">
-                      Get access to earn exclusive skins by playing games. One-time payment, forever access!
-                    </p>
-                    <ul className="text-xs text-zinc-500 space-y-1 mb-4">
-                      <li className="flex items-center gap-2">
-                        <Check className="w-3 h-3 text-green-400" />
-                        <span>Unlock 12 unique donut skins</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-3 h-3 text-green-400" />
-                        <span>6 animated epic & legendary skins</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-3 h-3 text-green-400" />
-                        <span>Track your achievements</span>
-                      </li>
-                    </ul>
+                  <div className="flex-1 min-w-0 pr-8">
+                    <h2 className="text-base font-bold text-amber-400">Unlock Premium</h2>
+                    <p className="text-xs text-zinc-400">Earn {totalSkins} unique skins by playing</p>
                   </div>
                 </div>
                 
                 {purchaseError && (
-                  <div className="mb-3 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
+                  <div className="mt-3 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
                     <p className="text-xs text-red-400">{purchaseError}</p>
                   </div>
                 )}
@@ -695,7 +828,7 @@ export default function SkinMarketPage() {
                 <button
                   onClick={handlePurchasePremium}
                   disabled={isPending || isTxLoading || !address}
-                  className="w-full py-3 bg-amber-500 text-black font-bold rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full mt-3 py-2.5 bg-amber-500 text-black font-bold rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
                 >
                   {isPending || isTxLoading ? (
                     <>
@@ -707,10 +840,60 @@ export default function SkinMarketPage() {
                   ) : (
                     <>
                       <Crown className="w-4 h-4" />
-                      Unlock for {PREMIUM_PRICE} 🍩
+                      Burn {PREMIUM_PRICE.toLocaleString()} <SprinkleIcon className="w-4 h-4 inline-block" />
                     </>
                   )}
                 </button>
+              </div>
+            )}
+            
+            {/* Premium Help Modal */}
+            {showPremiumHelp && (
+              <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
+                  <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+                    <div className="flex items-center gap-2">
+                      <Crown className="w-5 h-5 text-amber-400" />
+                      <span className="font-bold">Premium Benefits</span>
+                    </div>
+                    <button onClick={() => setShowPremiumHelp(false)} className="text-zinc-400 hover:text-white">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    <p className="text-sm text-zinc-400 flex items-center flex-wrap gap-1">
+                      <span>Burn {PREMIUM_PRICE.toLocaleString()}</span>
+                      <SprinkleIcon className="w-4 h-4 inline-block" />
+                      <span>to unlock forever access to earn skins by playing games.</span>
+                    </p>
+                    <ul className="space-y-2">
+                      <li className="flex items-start gap-2 text-sm">
+                        <Check className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                        <span>Unlock {totalSkins} unique donut skins</span>
+                      </li>
+                      <li className="flex items-start gap-2 text-sm">
+                        <Check className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                        <span>Animated epic, legendary, mythic & ultimate skins</span>
+                      </li>
+                      <li className="flex items-start gap-2 text-sm">
+                        <Check className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                        <span>Track your achievements across all games</span>
+                      </li>
+                      <li className="flex items-start gap-2 text-sm">
+                        <Check className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                        <span>Use skins in all Sprinkles games</span>
+                      </li>
+                    </ul>
+                    <div className="pt-2 border-t border-zinc-800">
+                      <p className="text-xs text-zinc-500">Sprinkles are burned forever. Skins are tied to your wallet.</p>
+                    </div>
+                  </div>
+                  <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
+                    <button onClick={() => setShowPremiumHelp(false)} className="w-full py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200">
+                      Got it!
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
             
@@ -773,45 +956,8 @@ export default function SkinMarketPage() {
               ))}
             </div>
             
-            {/* How it works */}
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4">
-              <h3 className="font-bold mb-3 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                How to Unlock Skins
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">
-                    <Crown className="w-4 h-4 text-amber-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Get Premium</p>
-                    <p className="text-xs text-zinc-500">One-time {PREMIUM_PRICE} DONUT payment unlocks all achievements</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">
-                    <Gamepad2 className="w-4 h-4 text-blue-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Play Games</p>
-                    <p className="text-xs text-zinc-500">Each game has 4 skins to unlock based on milestones</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">
-                    <Trophy className="w-4 h-4 text-yellow-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Earn Achievements</p>
-                    <p className="text-xs text-zinc-500">Common → Rare → Epic → Legendary</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
             {/* Tier Legend */}
-            <div className="flex items-center justify-center gap-3 text-xs text-zinc-500 pb-4 flex-wrap">
+            <div className="flex items-center justify-center gap-2 text-xs text-zinc-500 pb-4 flex-wrap">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded-full bg-zinc-600" />
                 <span>Common</span>
@@ -827,6 +973,14 @@ export default function SkinMarketPage() {
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded-full bg-yellow-500" />
                 <span>Legendary</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-violet-500" />
+                <span>Mythic</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-gradient-to-br from-amber-400 to-orange-500" />
+                <span>Ultimate</span>
               </div>
             </div>
           </div>
