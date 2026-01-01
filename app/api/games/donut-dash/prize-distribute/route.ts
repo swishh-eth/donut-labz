@@ -57,7 +57,7 @@ function getCurrentWeek(): number {
 
 // Get previous week (for distribution after week ends)
 function getPreviousWeek(): number {
-  return getCurrentWeek() - 1;
+  return Math.max(1, getCurrentWeek() - 1);
 }
 
 export async function POST(request: NextRequest) {
@@ -227,10 +227,11 @@ export async function GET(request: NextRequest) {
 
   // If no week specified, just return current prize info
   if (!week) {
+    const currentWeek = getCurrentWeek();
     return NextResponse.json({
       totalPrize: TOTAL_PRIZE_USD,
       prizeStructure: PRIZE_DISTRIBUTION,
-      currentWeek: getCurrentWeek(),
+      currentWeek,
     });
   }
 
