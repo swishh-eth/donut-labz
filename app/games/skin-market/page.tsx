@@ -819,23 +819,24 @@ export default function SkinMarketPage() {
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <h1 className="text-xl font-bold tracking-wide">SKIN COLLECTION</h1>
+            <h1 className="text-2xl font-bold tracking-wide">COLLECTION</h1>
           </div>
           {context?.user && (
-            <div className="flex items-center gap-2 rounded-full bg-black px-2 py-1">
+            <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
               <div className="relative">
-                <Avatar className="h-7 w-7 border border-zinc-800">
+                <Avatar className="h-8 w-8 border border-zinc-800">
                   <AvatarImage src={context.user.pfpUrl || undefined} alt={context.user.displayName || context.user.username} className="object-cover" />
-                  <AvatarFallback className="bg-zinc-800 text-white text-[10px]">{initialsFrom(context.user.displayName || context.user.username)}</AvatarFallback>
+                  <AvatarFallback className="bg-zinc-800 text-white">{initialsFrom(context.user.displayName || context.user.username)}</AvatarFallback>
                 </Avatar>
                 {isPremium && hasFetched && (
-                  <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center border border-black">
+                  <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center border border-black">
                     <Crown className="w-2.5 h-2.5 text-black" />
                   </div>
                 )}
               </div>
               <div className="leading-tight text-left">
-                <div className="text-xs font-bold">{context.user.displayName || context.user.username}</div>
+                <div className="text-sm font-bold">{context.user.displayName || context.user.username}</div>
+                {context.user.username && <div className="text-xs text-gray-400">@{context.user.username}</div>}
               </div>
             </div>
           )}
