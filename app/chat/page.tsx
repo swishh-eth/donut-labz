@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer, Heart, Plus, Settings, Check, Gamepad2, Trophy, Flame } from "lucide-react";
+import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer, Heart, Plus, Settings } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseUnits } from "viem";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
@@ -22,29 +22,12 @@ type MiniAppContext = {
 };
 
 type ChatMessage = {
-  type: 'message';
   sender: string;
   message: string;
   timestamp: bigint;
   transactionHash: string;
   blockNumber: bigint;
 };
-
-type GameAnnouncement = {
-  type: 'game';
-  id: number;
-  playerAddress: string;
-  username: string | null;
-  pfpUrl: string | null;
-  gameId: string;
-  gameName: string;
-  score: number;
-  skinId: string;
-  skinColor: string;
-  timestamp: bigint;
-};
-
-type FeedItem = ChatMessage | GameAnnouncement;
 
 type FarcasterProfile = {
   fid: number | null;
@@ -124,33 +107,6 @@ const DEFAULT_TIP_SETTINGS: TipSettings = {
 
 const PRESET_AMOUNTS = ["1", "10", "100"];
 
-// Game route mapping for click navigation
-const GAME_ROUTES: Record<string, string> = {
-  'flappy-donut': '/games/game-1',
-  'glaze-stack': '/games/game-2',
-  'donut-dash': '/games/donut-dash',
-};
-
-// Donut preview component for game announcements
-function DonutPreview({ color, size = 32 }: { color: string; size?: number }) {
-  return (
-    <div 
-      className="rounded-full flex items-center justify-center flex-shrink-0"
-      style={{ 
-        width: size, 
-        height: size, 
-        backgroundColor: color,
-        boxShadow: `0 0 6px ${color}40`
-      }}
-    >
-      <div 
-        className="rounded-full bg-zinc-900" 
-        style={{ width: size * 0.3, height: size * 0.3 }} 
-      />
-    </div>
-  );
-}
-
 export default function ChatPage() {
   const readyRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -171,7 +127,6 @@ export default function ChatPage() {
   const [currentMultiplier, setCurrentMultiplier] = useState(getCurrentMultiplier());
   const [timeUntilHalving, setTimeUntilHalving] = useState(getTimeUntilNextHalving());
   const [tippingMessageHash, setTippingMessageHash] = useState<string | null>(null);
-  const [flamingGameId, setFlamingGameId] = useState<number | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 1, bottom: 1 });
   const [isChatExpanded, setIsChatExpanded] = useState(true);
   const [buttonPosition, setButtonPosition] = useState<'left' | 'right'>(() => {
@@ -187,7 +142,6 @@ export default function ChatPage() {
   const buttonContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Tip settings state - now only amount (always SPRINKLES)
   const [tipSettings, setTipSettings] = useState<TipSettings>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('chat-tip-settings-v2');
@@ -204,11 +158,6 @@ export default function ChatPage() {
   const [tempTipSettings, setTempTipSettings] = useState<TipSettings>(tipSettings);
   const [customAmount, setCustomAmount] = useState("");
 
-  // Flame state (fetched from API)
-  const [gameFlames, setGameFlames] = useState<Record<number, number>>({});
-  const [userFlamedIds, setUserFlamedIds] = useState<Set<number>>(new Set());
-
-  // Persist settings
   useEffect(() => {
     localStorage.setItem('chat-button-position', buttonPosition);
   }, [buttonPosition]);
@@ -219,17 +168,12 @@ export default function ChatPage() {
 
   const COOLDOWN_SECONDS = 30;
   const { address, isConnected } = useAccount();
-  const { data: hash, writeContract, isPending, reset: resetWrite } = useWriteContract();
+  const { data: hash, writeContract, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   const { data: tipHash, writeContract: writeTip, isPending: isTipPending, reset: resetTip } = useWriteContract();
   const { isLoading: isTipConfirming, isSuccess: isTipSuccess } = useWaitForTransactionReceipt({ hash: tipHash });
 
-  // Separate contract call for flame tips
-  const { data: flameHash, writeContract: writeFlame, isPending: isFlamePending, reset: resetFlame } = useWriteContract();
-  const { isLoading: isFlameConfirming, isSuccess: isFlameSuccess } = useWaitForTransactionReceipt({ hash: flameHash });
-
-  // Handle scroll fade
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
@@ -252,7 +196,6 @@ export default function ChatPage() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Focus input when chat expands
   useEffect(() => {
     if (isChatExpanded) {
       const container = messagesContainerRef.current;
@@ -303,17 +246,15 @@ export default function ChatPage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Fetch chat messages
   const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
     queryKey: ["chat-messages"],
     queryFn: async () => {
-      const res = await fetch("/api/chat/messages?limit=20");
+      const res = await fetch("/api/chat/messages?limit=50");
       if (!res.ok) throw new Error("Failed to fetch messages");
       const data = await res.json();
       return data.messages
         .filter((m: any) => !m.is_system_message)
         .map((m: any) => ({
-          type: 'message' as const,
           sender: m.sender,
           message: m.message,
           timestamp: BigInt(m.timestamp),
@@ -324,61 +265,6 @@ export default function ChatPage() {
     refetchInterval: 10000,
     staleTime: 5000,
   });
-
-  // Fetch game announcements
-  const { data: gameAnnouncements, refetch: refetchAnnouncements } = useQuery({
-    queryKey: ["game-announcements"],
-    queryFn: async () => {
-      const res = await fetch("/api/chat/game-announce?limit=20");
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.announcements || []).map((a: any) => ({
-        type: 'game' as const,
-        id: a.id,
-        playerAddress: a.player_address,
-        username: a.username,
-        pfpUrl: a.pfp_url,
-        gameId: a.game_id,
-        gameName: a.game_name,
-        score: a.score,
-        skinId: a.skin_id,
-        skinColor: a.skin_color,
-        timestamp: BigInt(Math.floor(new Date(a.created_at).getTime() / 1000)),
-      })) as GameAnnouncement[];
-    },
-    refetchInterval: 10000,
-    staleTime: 5000,
-  });
-
-  // Merge and sort messages with game announcements - memoized to prevent scroll issues
-  const feedItems: FeedItem[] = useMemo(() => [
-    ...(messages || []),
-    ...(gameAnnouncements || []),
-  ].sort((a, b) => Number(a.timestamp) - Number(b.timestamp)), [messages, gameAnnouncements]);
-
-  // Fetch flames for game announcements
-  const gameAnnouncementIds = gameAnnouncements?.map(a => a.id) || [];
-  const { data: flamesData, refetch: refetchFlames } = useQuery({
-    queryKey: ["game-flames", gameAnnouncementIds.join(","), address],
-    queryFn: async () => {
-      if (gameAnnouncementIds.length === 0) return { flames: {}, userFlamed: [] };
-      const userParam = address ? `&userAddress=${address}` : '';
-      const res = await fetch(`/api/chat/flames?ids=${gameAnnouncementIds.join(",")}${userParam}`);
-      if (!res.ok) return { flames: {}, userFlamed: [] };
-      return res.json();
-    },
-    enabled: gameAnnouncementIds.length > 0,
-    staleTime: 10000,
-    refetchInterval: 15000,
-  });
-
-  // Update flame state when data changes
-  useEffect(() => {
-    if (flamesData) {
-      setGameFlames(flamesData.flames || {});
-      setUserFlamedIds(new Set(flamesData.userFlamed || []));
-    }
-  }, [flamesData]);
 
   const { data: statsData } = useQuery({
     queryKey: ["chat-stats"],
@@ -395,10 +281,7 @@ export default function ChatPage() {
       entry.address.toLowerCase() === address?.toLowerCase()
   )?.total_points || 0;
 
-  const senderAddresses = [...new Set([
-    ...(messages?.map((m) => m.sender.toLowerCase()) || []),
-    ...(gameAnnouncements?.map((a) => a.playerAddress.toLowerCase()) || []),
-  ])];
+  const senderAddresses = [...new Set(messages?.map((m) => m.sender.toLowerCase()) || [])];
 
   const { data: profilesData } = useQuery<{ profiles: Record<string, FarcasterProfile | null> }>({
     queryKey: ["chat-profiles-batch", senderAddresses.join(",")],
@@ -428,7 +311,6 @@ export default function ChatPage() {
   const tipCounts = tipCountsData?.tips || {};
   const profiles = profilesData?.profiles || {};
 
-  // Handle tip success for chat messages
   useEffect(() => {
     if (isTipSuccess && tippingMessageHash) {
       const recordTip = async () => {
@@ -458,33 +340,6 @@ export default function ChatPage() {
     }
   }, [isTipSuccess, tippingMessageHash, resetTip, refetchTipCounts, messages, address, tipSettings]);
 
-  // Handle flame tip success
-  useEffect(() => {
-    if (isFlameSuccess && flamingGameId !== null) {
-      const recordFlame = async () => {
-        try {
-          // Record the flame in the database
-          await fetch("/api/chat/flames", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              gameAnnouncementId: flamingGameId,
-              userAddress: address,
-              action: "add",
-              tipAmount: tipSettings.amount,
-            }),
-          });
-          refetchFlames();
-        } catch (e) {
-          console.error("Failed to record flame:", e);
-        }
-      };
-      recordFlame();
-      setFlamingGameId(null);
-      resetFlame();
-    }
-  }, [isFlameSuccess, flamingGameId, resetFlame, refetchFlames, address, tipSettings]);
-
   const recordPoints = useCallback(async () => {
     if (!address) return;
     try {
@@ -505,15 +360,11 @@ export default function ChatPage() {
       setMessage("");
       setIsChatExpanded(false);
       setCooldownRemaining(COOLDOWN_SECONDS);
-      // Mark as confirmed - this triggers the fade-in animation
       setPendingMessageConfirmed(true);
-      // Wait for sync and refetch, then fade out pending message
       setTimeout(async () => {
         await fetch("/api/chat/messages?sync=true");
         await refetchMessages();
-        // Trigger fade-out animation
         setPendingMessageFadingOut(true);
-        // Remove after animation completes
         setTimeout(() => {
           setPendingMessage("");
           setPendingMessageConfirmed(false);
@@ -601,66 +452,27 @@ export default function ChatPage() {
     }
   };
 
-  const navigateToGame = (gameId: string) => {
-    const route = GAME_ROUTES[gameId];
-    if (route) {
-      window.location.href = route;
-    }
-  };
-
-  const handleFlame = async (gameId: number, playerAddress: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent navigation when clicking flame
-    
-    if (!address || !isConnected) return; // Need wallet connected to flame
-    if (playerAddress.toLowerCase() === address.toLowerCase()) return; // Can't flame yourself
-    if (userFlamedIds.has(gameId)) return; // Already flamed
-    if (isFlamePending || isFlameConfirming) return; // Already processing a flame
-    
-    try {
-      await sdk.haptics.impactOccurred("light");
-    } catch {}
-    
-    // Optimistic update
-    setUserFlamedIds(prev => new Set(prev).add(gameId));
-    setGameFlames(prev => ({
-      ...prev,
-      [gameId]: (prev[gameId] || 0) + 1
-    }));
-    
-    // Send SPRINKLES tip to the player
-    const amount = parseUnits(tipSettings.amount, 18);
-    setFlamingGameId(gameId);
-    
-    writeFlame({
-      address: SPRINKLES_ADDRESS,
-      abi: ERC20_ABI,
-      functionName: "transfer",
-      args: [playerAddress as `0x${string}`, amount],
-    });
-  };
-
-  // Track previous feed item count for smart scrolling
-  const prevFeedCountRef = useRef(0);
+  const prevMessageCountRef = useRef(0);
   const hasInitialScrolledRef = useRef(false);
 
-  // Initial scroll on first load
   useEffect(() => {
-    if (!hasInitialScrolledRef.current && feedItems.length > 0 && !messagesLoading) {
+    if (!hasInitialScrolledRef.current && messages && messages.length > 0 && !messagesLoading) {
       hasInitialScrolledRef.current = true;
-      prevFeedCountRef.current = feedItems.length;
+      prevMessageCountRef.current = messages.length;
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
       }, 100);
     }
-  }, [feedItems.length, messagesLoading]);
+  }, [messages, messagesLoading]);
 
-  // Scroll to bottom only when NEW messages arrive (not on every render)
   useEffect(() => {
-    if (hasInitialScrolledRef.current && feedItems.length > prevFeedCountRef.current) {
+    if (hasInitialScrolledRef.current && messages && messages.length > prevMessageCountRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-    prevFeedCountRef.current = feedItems.length;
-  }, [feedItems.length]);
+    if (messages) {
+      prevMessageCountRef.current = messages.length;
+    }
+  }, [messages]);
 
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userHandle = context?.user?.username ? `@${context.user.username}` : context?.user?.fid ? `fid ${context.user.fid}` : "";
@@ -859,7 +671,7 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Tip Settings Dialog - Simplified for SPRINKLES only */}
+          {/* Tip Settings Dialog */}
           {showTipSettings && (
             <div className="fixed inset-0 z-50">
               <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowTipSettings(false)} />
@@ -870,15 +682,13 @@ export default function ChatPage() {
                   </button>
                   <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                    Tip & Flame Settings
+                    Tip Settings
                   </h2>
                   
-                  {/* Info text */}
                   <div className="mb-4 text-xs text-gray-400">
-                    Set how much SPRINKLES to send when tipping messages or flaming game scores.
+                    Set how much SPRINKLES to send when tipping messages.
                   </div>
 
-                  {/* Amount Selection */}
                   <div className="mb-4">
                     <label className="text-xs text-gray-400 uppercase tracking-wider mb-2 block">Amount</label>
                     <div className="grid grid-cols-3 gap-2 mb-2">
@@ -922,7 +732,6 @@ export default function ChatPage() {
                     </div>
                   </div>
 
-                  {/* Preview */}
                   <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4">
                     <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Preview</div>
                     <div className="flex items-center gap-2">
@@ -930,10 +739,6 @@ export default function ChatPage() {
                       <span className="text-base font-bold text-white flex items-center gap-1">
                         {customAmount || tempTipSettings.amount} <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" /> SPRINKLES
                       </span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Flame className="w-5 h-5 text-orange-400 fill-orange-400/50" />
-                      <span className="text-xs text-gray-400">Flames also send this amount!</span>
                     </div>
                   </div>
 
@@ -960,7 +765,7 @@ export default function ChatPage() {
           >
             {messagesLoading ? (
               <div className="flex items-center justify-center py-12"><div className="text-gray-400">Loading messages...</div></div>
-            ) : feedItems.length === 0 && !pendingMessage ? (
+            ) : (!messages || messages.length === 0) && !pendingMessage ? (
               <div className="flex flex-col items-center justify-center h-full py-12 px-4">
                 <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4"><MessageCircle className="w-8 h-8 text-gray-600" /></div>
                 <h3 className="text-lg font-semibold text-white mb-2">No messages yet</h3>
@@ -968,70 +773,7 @@ export default function ChatPage() {
               </div>
             ) : (
               <>
-                {feedItems.map((item, index) => {
-                  // Game Announcement - compact like chat messages
-                  if (item.type === 'game') {
-                    const gameItem = item as GameAnnouncement;
-                    const profile = profiles?.[gameItem.playerAddress.toLowerCase()];
-                    const displayName = gameItem.username || profile?.displayName || formatAddress(gameItem.playerAddress);
-                    const avatarUrl = gameItem.pfpUrl || profile?.pfpUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${gameItem.playerAddress.toLowerCase()}`;
-                    const flameCount = gameFlames[gameItem.id] || 0;
-                    const hasFlamed = userFlamedIds.has(gameItem.id);
-                    const isOwnGame = address?.toLowerCase() === gameItem.playerAddress.toLowerCase();
-                    const isFlaming = flamingGameId === gameItem.id;
-                    
-                    return (
-                      <div
-                        key={`game-${gameItem.id}`}
-                        className="w-full flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-all"
-                      >
-                        <button
-                          onClick={() => navigateToGame(gameItem.gameId)}
-                          className="flex items-center gap-2 flex-1 min-w-0 text-left"
-                        >
-                          <div className="relative flex-shrink-0">
-                            <Avatar className="h-8 w-8 border border-amber-500/30">
-                              <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
-                              <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(displayName)}</AvatarFallback>
-                            </Avatar>
-                            <div className="absolute -bottom-0.5 -right-0.5">
-                              <DonutPreview color={gameItem.skinColor} size={14} />
-                            </div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs text-white font-semibold truncate">{displayName}</div>
-                            <div className="text-[10px] text-amber-400/80">{gameItem.gameName}</div>
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <Trophy className="w-5 h-5 text-amber-400" />
-                            <span className="text-lg font-bold text-amber-400">{gameItem.score}</span>
-                          </div>
-                        </button>
-                        <div className="text-[10px] text-gray-600 flex-shrink-0">{timeAgo(gameItem.timestamp)}</div>
-                        <button
-                          onClick={(e) => handleFlame(gameItem.id, gameItem.playerAddress, e)}
-                          disabled={!isConnected || isOwnGame || hasFlamed || isFlamePending || isFlameConfirming}
-                          className={`flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px] rounded-lg transition-all ${
-                            isFlaming ? "bg-orange-500/30 animate-pulse" :
-                            hasFlamed ? "bg-orange-500/20" : 
-                            flameCount > 0 ? "bg-orange-500/10" : 
-                            (!isConnected || isOwnGame) ? "" : "hover:bg-orange-500/10"
-                          }`}
-                          title={!isConnected ? "Connect wallet to flame" : isOwnGame ? "Can't flame your own score" : hasFlamed ? "Already flamed!" : `Flame with ${tipSettings.amount} SPRINKLES`}
-                        >
-                          <Flame className={`w-4 h-4 transition-colors ${
-                            hasFlamed ? "text-orange-400 fill-orange-400" : 
-                            flameCount > 0 ? "text-orange-400 fill-orange-400/30" : 
-                            "text-gray-500"
-                          }`} />
-                          <span className={`text-[9px] font-bold text-orange-400 h-3 ${flameCount > 0 ? "opacity-100" : "opacity-0"}`}>{flameCount || 0}</span>
-                        </button>
-                      </div>
-                    );
-                  }
-                  
-                  // Regular Chat Message
-                  const msg = item as ChatMessage;
+                {messages?.map((msg, index) => {
                   const profile = profiles?.[msg.sender.toLowerCase()];
                   const displayName = profile?.displayName || formatAddress(msg.sender);
                   const username = profile?.username ? `@${profile.username}` : null;
@@ -1145,22 +887,6 @@ export default function ChatPage() {
                       <Heart className="w-4 h-4 text-green-400 fill-green-400" />
                       <span className="text-xs text-green-400 flex items-center gap-1">
                         Tip sent! <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.8)]" />
-                      </span>
-                    </div>
-                  )}
-                  {(isFlamePending || isFlameConfirming) && (
-                    <div className="mb-2 bg-orange-500/10 border border-orange-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
-                      <Flame className="w-4 h-4 text-orange-400 animate-pulse" />
-                      <span className="text-xs text-orange-400 flex items-center gap-1">
-                        {isFlamePending ? "Confirm flame in wallet..." : <>Sending {tipSettings.amount} <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.8)]" /> SPRINKLES...</>}
-                      </span>
-                    </div>
-                  )}
-                  {isFlameSuccess && (
-                    <div className="mb-2 bg-green-500/10 border border-green-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
-                      <Flame className="w-4 h-4 text-green-400 fill-green-400" />
-                      <span className="text-xs text-green-400 flex items-center gap-1">
-                        Flamed! <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.8)]" />
                       </span>
                     </div>
                   )}
