@@ -1316,7 +1316,7 @@ export default function DonutDashPage() {
         )}
         
         {showHelp && (
-          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+          <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
             <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
               <div className="flex items-center justify-between p-4 border-b border-zinc-800">
                 <div className="flex items-center gap-2"><HelpCircle className="w-5 h-5 text-zinc-400" /><span className="font-bold">How to Play</span></div>
@@ -1350,7 +1350,7 @@ export default function DonutDashPage() {
         )}
         
         {showLeaderboard && (
-          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+          <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
             <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
               <div className="flex items-center justify-between p-4 border-b border-zinc-800">
                 <div className="flex items-center gap-2"><Trophy className="w-5 h-5 text-green-400" /><span className="font-bold">Weekly Leaderboard</span></div>
@@ -1362,7 +1362,7 @@ export default function DonutDashPage() {
                   <span className="text-sm font-bold text-green-400">${prizeInfo.totalPrize} USDC</span>
                 </div>
               </div>
-              <div className="overflow-y-scroll" style={{ maxHeight: '400px' }}>
+              <div className="max-h-96 overflow-y-auto">
                 {leaderboard.length === 0 ? (
                   <div className="py-8 text-center">
                     <p className="text-zinc-500">No scores yet!</p>
