@@ -26,7 +26,7 @@ const ACHIEVEMENT_REQUIREMENTS: Record<string, { gameId: string; type: string; v
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { address, skinId } = body;
+    const { address, skinId, fid } = body;
 
     if (!address || !skinId) {
       return NextResponse.json({ error: "Address and skinId required" }, { status: 400 });
@@ -44,6 +44,9 @@ export async function POST(request: NextRequest) {
     if (!premiumData) {
       return NextResponse.json({ error: "Premium required to claim skins" }, { status: 403 });
     }
+
+    // Get fid from request or premium_users table
+    const userFid = fid ? parseInt(fid) : premiumData?.fid;
 
     // Check if skin already claimed
     const { data: existingSkin } = await supabase
@@ -70,7 +73,7 @@ export async function POST(request: NextRequest) {
       const { data: flappyGames } = await supabase
         .from("flappy_games")
         .select("score")
-        .eq("wallet_address", walletAddress);
+        .eq("player_address", walletAddress);
 
       if (flappyGames) {
         if (requirement.type === 'games_played') {
@@ -93,22 +96,19 @@ export async function POST(request: NextRequest) {
         }
       }
     } else if (requirement.gameId === 'donut-dash') {
-      // Check config table for total plays
-      const { data: dashConfig } = await supabase
-        .from("donut_dash_config")
-        .select("total_plays")
-        .eq("wallet_address", walletAddress)
-        .single();
+      // Donut Dash uses fid
+      if (userFid) {
+        const { data: dashScores } = await supabase
+          .from("donut_dash_scores")
+          .select("score")
+          .eq("fid", userFid)
+          .gt("score", 0);
 
-      const { data: dashScores } = await supabase
-        .from("donut_dash_scores")
-        .select("score")
-        .eq("wallet_address", walletAddress);
-
-      if (requirement.type === 'games_played') {
-        current = dashConfig?.total_plays || dashScores?.length || 0;
-      } else if (requirement.type === 'high_score' && dashScores) {
-        current = Math.max(...dashScores.map(g => g.score || 0), 0);
+        if (requirement.type === 'games_played') {
+          current = dashScores?.length || 0;
+        } else if (requirement.type === 'high_score' && dashScores) {
+          current = Math.max(...dashScores.map(g => g.score || 0), 0);
+        }
       }
     }
 

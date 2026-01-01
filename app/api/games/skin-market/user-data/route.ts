@@ -52,19 +52,11 @@ export async function GET(request: NextRequest) {
       "donut-dash": { gamesPlayed: 0, highScore: 0, totalScore: 0 },
     };
 
-    // Build OR filter for wallet_address and fid
-    const buildFilter = (walletCol: string = "wallet_address", fidCol: string = "fid") => {
-      if (userFid) {
-        return `${walletCol}.eq.${address},${fidCol}.eq.${userFid}`;
-      }
-      return `${walletCol}.eq.${address}`;
-    };
-
-    // Flappy Donut stats
+    // Flappy Donut stats - from flappy_games table (uses player_address)
     const { data: flappyGames, error: flappyErr } = await supabase
       .from("flappy_games")
       .select("score")
-      .or(buildFilter());
+      .eq("player_address", address);
 
     if (flappyErr) {
       console.error("Flappy query error:", flappyErr);
@@ -76,11 +68,11 @@ export async function GET(request: NextRequest) {
       stats["flappy-donut"].totalScore = flappyGames.reduce((sum, g) => sum + (g.score || 0), 0);
     }
 
-    // Glaze Stack stats
+    // Glaze Stack stats - uses wallet_address
     const { data: stackGames, error: stackErr } = await supabase
       .from("stack_tower_games")
       .select("score")
-      .or(buildFilter());
+      .eq("wallet_address", address);
 
     if (stackErr) {
       console.error("Stack query error:", stackErr);
@@ -92,14 +84,19 @@ export async function GET(request: NextRequest) {
       stats["glaze-stack"].totalScore = stackGames.reduce((sum, g) => sum + (g.score || 0), 0);
     }
 
-    // Donut Dash stats
-    const { data: dashScores, error: dashErr } = await supabase
-      .from("donut_dash_scores")
-      .select("score")
-      .or(buildFilter());
+    // Donut Dash stats (uses fid, not wallet_address)
+    let dashScores = null;
+    if (userFid) {
+      const { data, error: dashErr } = await supabase
+        .from("donut_dash_scores")
+        .select("score")
+        .eq("fid", userFid)
+        .gt("score", 0);
 
-    if (dashErr) {
-      console.error("Dash query error:", dashErr);
+      if (dashErr) {
+        console.error("Dash query error:", dashErr);
+      }
+      dashScores = data;
     }
 
     if (dashScores && dashScores.length > 0) {

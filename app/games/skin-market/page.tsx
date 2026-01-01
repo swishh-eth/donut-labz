@@ -747,7 +747,11 @@ export default function SkinMarketPage() {
         const res = await fetch('/api/games/skin-market/claim-skin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ address: address.toLowerCase(), skinId }),
+          body: JSON.stringify({ 
+            address: address.toLowerCase(), 
+            skinId,
+            fid: context?.user?.fid,
+          }),
         });
         if (res.ok) {
           setUnlockedSkins(prev => [...prev, skinId]);
