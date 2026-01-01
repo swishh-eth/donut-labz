@@ -6,6 +6,19 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Get current week number (weeks start on Friday 11PM UTC / 6PM EST)
+function getCurrentWeek(): number {
+  const now = new Date();
+  const utcNow = new Date(now.toUTCString());
+  
+  // Epoch: Friday Jan 3, 2025 23:00 UTC
+  const epoch = new Date(Date.UTC(2025, 0, 3, 23, 0, 0));
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  
+  const weeksSinceEpoch = Math.floor((utcNow.getTime() - epoch.getTime()) / msPerWeek);
+  return weeksSinceEpoch + 1;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -37,13 +50,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Score already submitted for this entry" }, { status: 400 });
     }
 
-    const { data: config } = await supabase
-      .from("donut_dash_config")
-      .select("current_week")
-      .eq("id", 1)
-      .single();
-
-    const currentWeek = config?.current_week || 1;
+    const currentWeek = getCurrentWeek();
 
     if (entry.week !== currentWeek) {
       return NextResponse.json({ error: "Entry is from a previous week" }, { status: 400 });
