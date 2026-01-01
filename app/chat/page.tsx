@@ -1008,32 +1008,24 @@ export default function ChatPage() {
                           </div>
                         </button>
                         <div className="text-[10px] text-gray-600 flex-shrink-0">{timeAgo(gameItem.timestamp)}</div>
-                        {!isOwnGame && isConnected && (
-                          <button
-                            onClick={(e) => handleFlame(gameItem.id, gameItem.playerAddress, e)}
-                            disabled={hasFlamed || isFlamePending || isFlameConfirming}
-                            className={`flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px] rounded-lg transition-all ${
-                              isFlaming ? "bg-orange-500/30 animate-pulse" :
-                              hasFlamed ? "bg-orange-500/20" : 
-                              flameCount > 0 ? "bg-orange-500/10" : 
-                              "hover:bg-orange-500/10"
-                            }`}
-                            title={hasFlamed ? "Already flamed!" : `Flame with ${tipSettings.amount} SPRINKLES`}
-                          >
-                            <Flame className={`w-4 h-4 transition-colors ${
-                              hasFlamed ? "text-orange-400 fill-orange-400" : 
-                              flameCount > 0 ? "text-orange-400 fill-orange-400/30" : 
-                              "text-gray-500 hover:text-orange-400"
-                            }`} />
-                            <span className={`text-[9px] font-bold text-orange-400 h-3 ${flameCount > 0 ? "opacity-100" : "opacity-0"}`}>{flameCount || 0}</span>
-                          </button>
-                        )}
-                        {isOwnGame && flameCount > 0 && (
-                          <div className="flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px]">
-                            <Flame className="w-4 h-4 text-orange-400 fill-orange-400" />
-                            <span className="text-[9px] font-bold text-orange-400 h-3">{flameCount}</span>
-                          </div>
-                        )}
+                        <button
+                          onClick={(e) => handleFlame(gameItem.id, gameItem.playerAddress, e)}
+                          disabled={!isConnected || isOwnGame || hasFlamed || isFlamePending || isFlameConfirming}
+                          className={`flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px] rounded-lg transition-all ${
+                            isFlaming ? "bg-orange-500/30 animate-pulse" :
+                            hasFlamed ? "bg-orange-500/20" : 
+                            flameCount > 0 ? "bg-orange-500/10" : 
+                            (!isConnected || isOwnGame) ? "" : "hover:bg-orange-500/10"
+                          }`}
+                          title={!isConnected ? "Connect wallet to flame" : isOwnGame ? "Can't flame your own score" : hasFlamed ? "Already flamed!" : `Flame with ${tipSettings.amount} SPRINKLES`}
+                        >
+                          <Flame className={`w-4 h-4 transition-colors ${
+                            hasFlamed ? "text-orange-400 fill-orange-400" : 
+                            flameCount > 0 ? "text-orange-400 fill-orange-400/30" : 
+                            "text-gray-500"
+                          }`} />
+                          <span className={`text-[9px] font-bold text-orange-400 h-3 ${flameCount > 0 ? "opacity-100" : "opacity-0"}`}>{flameCount || 0}</span>
+                        </button>
                       </div>
                     );
                   }
@@ -1064,18 +1056,10 @@ export default function ChatPage() {
                         </div>
                         <p className="text-xs text-gray-300 break-words">{msg.message}</p>
                       </div>
-                      {!isOwnMessage && isConnected && (
-                        <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={isTipPending || isTipConfirming} className={`flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px] rounded-lg transition-all ${isTipping ? "bg-amber-500/20" : tipCount > 0 ? "bg-amber-500/10" : "hover:bg-amber-500/10"}`} title={`Tip ${tipSettings.amount} SPRINKLES`}>
-                          <Heart className={`w-4 h-4 transition-colors ${isTipping ? "text-amber-400 animate-pulse fill-amber-400" : tipCount > 0 ? "text-amber-400 fill-amber-400/50" : "text-gray-500 hover:text-amber-400"}`} />
-                          <span className={`text-[9px] font-bold text-amber-400 h-3 ${tipCount > 0 ? "opacity-100" : "opacity-0"}`}>{tipCount || 0}</span>
-                        </button>
-                      )}
-                      {isOwnMessage && tipCount > 0 && (
-                        <div className="flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px]">
-                          <Heart className="w-4 h-4 text-amber-400 fill-amber-400/50" />
-                          <span className="text-[9px] font-bold text-amber-400 h-3">{tipCount}</span>
-                        </div>
-                      )}
+                      <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={!isConnected || isOwnMessage || isTipPending || isTipConfirming} className={`flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px] rounded-lg transition-all ${isTipping ? "bg-amber-500/20" : tipCount > 0 ? "bg-amber-500/10" : (!isConnected || isOwnMessage) ? "" : "hover:bg-amber-500/10"}`} title={!isConnected ? "Connect wallet to tip" : isOwnMessage ? "Can't tip yourself" : `Tip ${tipSettings.amount} SPRINKLES`}>
+                        <Heart className={`w-4 h-4 transition-colors ${isTipping ? "text-amber-400 animate-pulse fill-amber-400" : tipCount > 0 ? "text-amber-400 fill-amber-400/50" : "text-gray-500"}`} />
+                        <span className={`text-[9px] font-bold text-amber-400 h-3 ${tipCount > 0 ? "opacity-100" : "opacity-0"}`}>{tipCount || 0}</span>
+                      </button>
                     </div>
                   );
                 })}
@@ -1112,9 +1096,9 @@ export default function ChatPage() {
           </div>
 
           {/* Floating chat input */}
-          <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
-            <div className="pointer-events-auto">
-              <div className="pt-4 pb-2">
+          <div className="absolute bottom-0 left-0 right-0 pointer-events-none z-20">
+            <div className="pointer-events-auto bg-gradient-to-t from-black via-black to-transparent pt-6">
+              <div className="pb-2">
                 {!isConnected ? (
                 <div className="flex items-center justify-center bg-zinc-900 border border-zinc-800 rounded-xl p-3">
                   <p className="text-sm text-gray-400">Connect wallet to send messages</p>
