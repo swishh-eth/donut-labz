@@ -690,7 +690,7 @@ export default function ChatPage() {
                           className={cn(
                             "p-3 rounded-lg border text-sm font-semibold transition-all flex items-center justify-center gap-1",
                             tempTipSettings.amount === amt && !customAmount
-                              ? "border-amber-500 bg-amber-500/10 text-amber-400"
+                              ? "border-white bg-white/10 text-white"
                               : "border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600"
                           )}
                         >
@@ -705,7 +705,7 @@ export default function ChatPage() {
                         value={customAmount}
                         onChange={(e) => setCustomAmount(e.target.value)}
                         placeholder="Custom amount..."
-                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-amber-500 transition-colors"
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-white transition-colors"
                         min="0.01"
                         step="0.01"
                       />
@@ -723,7 +723,7 @@ export default function ChatPage() {
                   <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4">
                     <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Preview</div>
                     <div className="flex items-center gap-2">
-                      <Heart className="w-5 h-5 text-amber-400 fill-amber-400/50" />
+                      <Heart className="w-5 h-5 text-white fill-white/50" />
                       <span className="text-base font-bold text-white flex items-center gap-1">
                         {customAmount || tempTipSettings.amount} <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" /> SPRINKLES
                       </span>
@@ -732,7 +732,7 @@ export default function ChatPage() {
 
                   <button 
                     onClick={saveTipSettings} 
-                    className="w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-black hover:bg-amber-400 transition-colors"
+                    className="w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
                   >
                     Save Settings
                   </button>
@@ -788,7 +788,7 @@ export default function ChatPage() {
                     </div>
                   </div>
                 )}
-                {messages?.slice().reverse().map((msg, index) => {
+                {messages?.map((msg, index) => {
                   const profile = profiles?.[msg.sender.toLowerCase()];
                   const displayName = profile?.displayName || formatAddress(msg.sender);
                   const username = profile?.username ? `@${profile.username}` : null;
@@ -807,15 +807,15 @@ export default function ChatPage() {
                       </button>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <button onClick={() => openUserProfile(username)} disabled={!username} className={`font-semibold text-white text-xs truncate ${username ? "hover:text-amber-400" : ""}`}>{displayName}</button>
-                          {username && <button onClick={() => openUserProfile(username)} className="text-[10px] text-gray-500 truncate hover:text-amber-400">{username}</button>}
+                          <button onClick={() => openUserProfile(username)} disabled={!username} className={`font-semibold text-white text-xs truncate ${username ? "hover:text-gray-300" : ""}`}>{displayName}</button>
+                          {username && <button onClick={() => openUserProfile(username)} className="text-[10px] text-gray-500 truncate hover:text-gray-300">{username}</button>}
                           <span className="text-[10px] text-gray-600 ml-auto flex-shrink-0">{timeAgo(msg.timestamp)}</span>
                         </div>
                         <p className="text-xs text-gray-300 break-words">{msg.message}</p>
                       </div>
-                      <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={!isConnected || isOwnMessage || isTipPending || isTipConfirming} className={`flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px] rounded-lg transition-all ${isTipping ? "bg-amber-500/20" : tipCount > 0 ? "bg-amber-500/10" : (!isConnected || isOwnMessage) ? "" : "hover:bg-amber-500/10"}`} title={!isConnected ? "Connect wallet to tip" : isOwnMessage ? "Can't tip yourself" : `Tip ${tipSettings.amount} SPRINKLES`}>
-                        <Heart className={`w-4 h-4 transition-colors ${isTipping ? "text-amber-400 animate-pulse fill-amber-400" : tipCount > 0 ? "text-amber-400 fill-amber-400/50" : "text-gray-500"}`} />
-                        <span className={`text-[9px] font-bold text-amber-400 h-3 ${tipCount > 0 ? "opacity-100" : "opacity-0"}`}>{tipCount || 0}</span>
+                      <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={!isConnected || isOwnMessage || isTipPending || isTipConfirming} className={`flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px] rounded-lg transition-all ${isTipping ? "bg-white/20" : tipCount > 0 ? "bg-white/10" : (!isConnected || isOwnMessage) ? "" : "hover:bg-white/10"}`} title={!isConnected ? "Connect wallet to tip" : isOwnMessage ? "Can't tip yourself" : `Tip ${tipSettings.amount} SPRINKLES`}>
+                        <Heart className={`w-4 h-4 transition-colors ${isTipping ? "text-white animate-pulse fill-white" : tipCount > 0 ? "text-white fill-white/50" : "text-gray-500"}`} />
+                        <span className={`text-[9px] font-bold text-white h-3 ${tipCount > 0 ? "opacity-100" : "opacity-0"}`}>{tipCount || 0}</span>
                       </button>
                     </div>
                   );
@@ -863,17 +863,17 @@ export default function ChatPage() {
                     </div>
                   )}
                   {(isTipPending || isTipConfirming) && (
-                    <div className="mb-2 bg-amber-500/10 border border-amber-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
-                      <Heart className="w-4 h-4 text-amber-400 animate-pulse" />
-                      <span className="text-xs text-amber-400 flex items-center gap-1">
+                    <div className="mb-2 bg-white/10 border border-white/30 rounded-xl p-2 flex items-center justify-center gap-2">
+                      <Heart className="w-4 h-4 text-white animate-pulse" />
+                      <span className="text-xs text-white flex items-center gap-1">
                         {isTipPending ? "Confirm tip in wallet..." : <>Sending {tipSettings.amount} <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.8)]" /> SPRINKLES...</>}
                       </span>
                     </div>
                   )}
                   {isTipSuccess && (
-                    <div className="mb-2 bg-green-500/10 border border-green-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
-                      <Heart className="w-4 h-4 text-green-400 fill-green-400" />
-                      <span className="text-xs text-green-400 flex items-center gap-1">
+                    <div className="mb-2 bg-white/10 border border-white/30 rounded-xl p-2 flex items-center justify-center gap-2">
+                      <Heart className="w-4 h-4 text-white fill-white" />
+                      <span className="text-xs text-white flex items-center gap-1">
                         Tip sent! <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.8)]" />
                       </span>
                     </div>
