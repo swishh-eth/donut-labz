@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Play, Share2, X, HelpCircle, Volume2, VolumeX, Trophy, ChevronRight, Clock, Palette, Lock, Crown, Sparkles, Check } from "lucide-react";
+import { Play, Share2, X, HelpCircle, Volume2, VolumeX, Trophy, ChevronRight, Clock, Sparkles } from "lucide-react";
 
 // Free Arcade Contract
 const FREE_ARCADE_CONTRACT = "0x9726D22F49274b575b1cd899868Aa10523A3E895" as const;
@@ -62,38 +62,6 @@ const DEFAULT_PRIZE_INFO: PrizeInfo = {
   totalPrize: 5,
   prizeStructure: calculatePrizeStructure(5),
 };
-
-// Skin type definitions
-type SkinTier = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic' | 'ultimate' | 'default';
-
-interface GameSkin {
-  id: string;
-  name: string;
-  frostingColor: string;
-  tier: SkinTier;
-  animated?: boolean;
-  animationType?: 'rainbow' | 'glow' | 'pulse' | 'sparkle' | 'electric' | 'fire';
-  requirement?: { type: string; value: number };
-}
-
-// Default skin (always available)
-const DEFAULT_SKIN: GameSkin = {
-  id: 'default',
-  name: 'Classic Pink',
-  frostingColor: '#FF69B4',
-  tier: 'default',
-};
-
-// All Donut Dash achievement skins
-const DASH_SKINS: GameSkin[] = [
-  DEFAULT_SKIN,
-  { id: 'dash-bronze', name: 'Jetpack Novice', frostingColor: '#3B82F6', tier: 'common', requirement: { type: 'games_played', value: 25 } },
-  { id: 'dash-silver', name: 'Speed Demon', frostingColor: '#F97316', tier: 'rare', requirement: { type: 'games_played', value: 50 } },
-  { id: 'dash-epic', name: 'Rocket Rider', frostingColor: '#EF4444', tier: 'epic', animated: true, animationType: 'pulse', requirement: { type: 'games_played', value: 100 } },
-  { id: 'dash-gold', name: 'Cosmic Cruiser', frostingColor: '#EC4899', tier: 'legendary', animated: true, animationType: 'sparkle', requirement: { type: 'high_score', value: 1000 } },
-  { id: 'dash-mythic', name: 'Void Walker', frostingColor: '#6366F1', tier: 'mythic', animated: true, animationType: 'electric', requirement: { type: 'games_played', value: 250 } },
-  { id: 'dash-ultimate', name: 'Dash Deity', frostingColor: '#10B981', tier: 'ultimate', animated: true, animationType: 'fire', requirement: { type: 'games_played', value: 500 } },
-];
 
 // Types
 type ObstacleType = 'zapper_h' | 'zapper_v' | 'zapper_diag';
@@ -174,16 +142,8 @@ export default function DonutDashPage() {
   const [highScore, setHighScore] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [showSkins, setShowSkins] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
-  
-  // Skin state
-  const [isPremium, setIsPremium] = useState(false);
-  const [unlockedSkins, setUnlockedSkins] = useState<string[]>(['default']);
-  const [selectedSkin, setSelectedSkin] = useState<GameSkin>(DEFAULT_SKIN);
-  const [previewSkin, setPreviewSkin] = useState<GameSkin | null>(null);
-  const [userStats, setUserStats] = useState<{ gamesPlayed: number; highScore: number; totalScore: number }>({ gamesPlayed: 0, highScore: 0, totalScore: 0 });
   
   // Play state (simplified - no payment, just gas tx)
   const [playState, setPlayState] = useState<PlayState>('idle');
@@ -224,33 +184,10 @@ export default function DonutDashPage() {
   const { writeContract, data: txHash, isPending, reset: resetWrite, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
-  // Get donut color with animation support
+  // Donut is always white
   const getDonutColor = useCallback(() => {
-    const skin = selectedSkin;
-    let color = skin.frostingColor;
-    
-    if (skin.animated) {
-      const time = Date.now();
-      if (skin.animationType === 'pulse') {
-        const pulseAmount = Math.sin(time / 300) * 0.15;
-        const [h, s, l] = hexToHsl(skin.frostingColor);
-        color = hslToHex(h, s, Math.min(100, l + pulseAmount * 20));
-      } else if (skin.animationType === 'sparkle') {
-        const sparkleOffset = Math.sin(time / 100) * 0.3;
-        const [h, s, l] = hexToHsl(skin.frostingColor);
-        color = hslToHex(h, s, Math.min(100, l + sparkleOffset * 30));
-      } else if (skin.animationType === 'rainbow') {
-        const hueShift = (time / 20) % 360;
-        const [, s, l] = hexToHsl(skin.frostingColor);
-        color = hslToHex(hueShift, s, l);
-      } else if (skin.animationType === 'glow') {
-        const glowAmount = Math.sin(time / 200) * 0.2;
-        const [h, s, l] = hexToHsl(skin.frostingColor);
-        color = hslToHex(h, s, Math.min(100, l + glowAmount * 25));
-      }
-    }
-    return color;
-  }, [selectedSkin]);
+    return '#FFFFFF';
+  }, []);
 
   // Update reset countdown every minute
   useEffect(() => {
@@ -280,34 +217,6 @@ export default function DonutDashPage() {
     fetchPrizeInfo();
   }, []);
 
-  // Fetch skin data from API
-  useEffect(() => {
-    if (!address) return;
-    const fetchSkinData = async () => {
-      try {
-        const res = await fetch(`/api/games/skin-market/user-data?address=${address}`);
-        if (res.ok) {
-          const data = await res.json();
-          setIsPremium(data.isPremium || false);
-          const unlocked = ['default', ...(data.unlockedSkins || [])];
-          setUnlockedSkins(unlocked);
-          if (data.equippedSkin) {
-            const equippedSkinData = DASH_SKINS.find(s => s.id === data.equippedSkin);
-            if (equippedSkinData && unlocked.includes(data.equippedSkin)) {
-              setSelectedSkin(equippedSkinData);
-            }
-          }
-          if (data.stats && data.stats['donut-dash']) {
-            setUserStats(data.stats['donut-dash']);
-          }
-        }
-      } catch (e) {
-        console.error("Failed to fetch skin data:", e);
-      }
-    };
-    fetchSkinData();
-  }, [address]);
-
   // Fetch leaderboard
   const fetchLeaderboard = useCallback(async () => {
     try {
@@ -329,66 +238,6 @@ export default function DonutDashPage() {
     }
   }, [context?.user?.fid]);
 
-  // Skin handlers
-  const handleSelectSkin = async (skin: GameSkin) => {
-    if (!address || !unlockedSkins.includes(skin.id)) return;
-    setSelectedSkin(skin);
-    if (skin.id !== 'default') {
-      try {
-        await fetch('/api/games/skin-market/equip-skin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ address: address.toLowerCase(), skinId: skin.id }),
-        });
-      } catch (e) {
-        console.error("Failed to equip skin:", e);
-      }
-    }
-  };
-
-  const handleClaimSkin = async (skin: GameSkin) => {
-    if (!address || !isPremium) return;
-    try {
-      const res = await fetch('/api/games/skin-market/claim-skin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: address.toLowerCase(), skinId: skin.id }),
-      });
-      if (res.ok) {
-        setUnlockedSkins(prev => [...prev, skin.id]);
-        setSelectedSkin(skin);
-      }
-    } catch (e) {
-      console.error("Failed to claim skin:", e);
-    }
-  };
-
-  const canClaimSkin = (skin: GameSkin): boolean => {
-    if (!skin.requirement || !isPremium) return false;
-    if (skin.requirement.type === 'games_played') return userStats.gamesPlayed >= skin.requirement.value;
-    if (skin.requirement.type === 'high_score') return userStats.highScore >= skin.requirement.value;
-    return false;
-  };
-
-  const getSkinProgress = (skin: GameSkin): { current: number; target: number } => {
-    if (!skin.requirement) return { current: 0, target: 0 };
-    if (skin.requirement.type === 'games_played') return { current: userStats.gamesPlayed, target: skin.requirement.value };
-    if (skin.requirement.type === 'high_score') return { current: userStats.highScore, target: skin.requirement.value };
-    return { current: 0, target: 0 };
-  };
-
-  const getTierColor = (tier: SkinTier) => {
-    switch (tier) {
-      case 'ultimate': return 'bg-gradient-to-br from-amber-400 to-orange-500';
-      case 'mythic': return 'bg-violet-500';
-      case 'legendary': return 'bg-yellow-500';
-      case 'epic': return 'bg-cyan-500';
-      case 'rare': return 'bg-purple-500';
-      case 'common': return 'bg-zinc-600';
-      default: return 'bg-zinc-700';
-    }
-  };
-
   // Submit score to API
   const submitScore = useCallback(async (finalScore: number) => {
     const entryId = currentEntryIdRef.current;
@@ -407,16 +256,10 @@ export default function DonutDashPage() {
         setUserRank(data.rank);
         if (data.isPersonalBest) setUserBestScore(finalScore);
       }
-      // Refresh skin data after game
-      if (address) {
-        fetch(`/api/games/skin-market/user-data?address=${address}`).then(r => r.json()).then(data => {
-          if (data.stats && data.stats['donut-dash']) setUserStats(data.stats['donut-dash']);
-        }).catch(console.error);
-      }
     } catch (error) {
       console.error("Failed to submit score:", error);
     }
-  }, [context?.user?.fid, address]);
+  }, [context?.user?.fid]);
 
   // Record entry to API and start game (after free tx confirms)
   const recordEntryAndStartGame = useCallback(async (hash: string) => {
@@ -557,26 +400,87 @@ export default function DonutDashPage() {
     if (isMuted || !audioContextRef.current || thrustOscRef.current) return;
     try {
       const ctx = audioContextRef.current;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(80, ctx.currentTime);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      gain.gain.setValueAtTime(0.08, ctx.currentTime);
-      osc.start();
-      thrustOscRef.current = osc;
-      thrustGainRef.current = gain;
+      
+      // Create noise for the hiss/whoosh
+      const bufferSize = ctx.sampleRate * 0.5;
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      noise.loop = true;
+      
+      // Filter the noise to make it more like a jet whoosh
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.setValueAtTime(800, ctx.currentTime);
+      noiseFilter.Q.setValueAtTime(0.5, ctx.currentTime);
+      
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.06, ctx.currentTime);
+      
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      
+      // Low rumble oscillator
+      const rumble = ctx.createOscillator();
+      rumble.type = 'triangle';
+      rumble.frequency.setValueAtTime(55, ctx.currentTime);
+      
+      const rumbleGain = ctx.createGain();
+      rumbleGain.gain.setValueAtTime(0.04, ctx.currentTime);
+      
+      // Add slight frequency modulation for variation
+      const lfo = ctx.createOscillator();
+      lfo.frequency.setValueAtTime(6, ctx.currentTime);
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.setValueAtTime(8, ctx.currentTime);
+      lfo.connect(lfoGain);
+      lfoGain.connect(rumble.frequency);
+      
+      rumble.connect(rumbleGain);
+      rumbleGain.connect(ctx.destination);
+      
+      noise.start();
+      rumble.start();
+      lfo.start();
+      
+      // Store references for cleanup
+      thrustOscRef.current = rumble;
+      thrustGainRef.current = rumbleGain;
+      (thrustOscRef.current as any)._noise = noise;
+      (thrustOscRef.current as any)._noiseGain = noiseGain;
+      (thrustOscRef.current as any)._lfo = lfo;
     } catch {}
   }, [isMuted]);
 
   const stopThrustSound = useCallback(() => {
     try {
-      if (thrustGainRef.current && audioContextRef.current) {
-        thrustGainRef.current.gain.exponentialRampToValueAtTime(0.001, audioContextRef.current.currentTime + 0.1);
+      const ctx = audioContextRef.current;
+      const fadeTime = ctx?.currentTime ? ctx.currentTime + 0.15 : 0;
+      
+      if (thrustGainRef.current && ctx) {
+        thrustGainRef.current.gain.exponentialRampToValueAtTime(0.001, fadeTime);
       }
+      
+      // Fade out noise
+      if (thrustOscRef.current && (thrustOscRef.current as any)._noiseGain && ctx) {
+        (thrustOscRef.current as any)._noiseGain.gain.exponentialRampToValueAtTime(0.001, fadeTime);
+      }
+      
       if (thrustOscRef.current) {
-        thrustOscRef.current.stop(audioContextRef.current?.currentTime ? audioContextRef.current.currentTime + 0.1 : 0);
+        const osc = thrustOscRef.current as any;
+        setTimeout(() => {
+          try {
+            osc.stop?.();
+            osc._noise?.stop?.();
+            osc._lfo?.stop?.();
+          } catch {}
+        }, 150);
         thrustOscRef.current = null;
         thrustGainRef.current = null;
       }
@@ -1158,8 +1062,8 @@ export default function DonutDashPage() {
               gameId: 'donut-dash',
               gameName: 'Donut Dash',
               score: finalScore,
-              skinId: selectedSkin.id,
-              skinColor: selectedSkin.frostingColor,
+              skinId: 'default',
+              skinColor: '#FFFFFF',
             }),
           }).catch(console.error);
         }
@@ -1173,7 +1077,7 @@ export default function DonutDashPage() {
     ctx.fillText(`SCORE: ${coinsCollectedRef.current}`, 15, 58);
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawBackground, drawPlayer, drawObstacles, drawCoins, drawParticles, checkCollisions, checkCoins, checkGroundBlocks, spawnObstacle, spawnCoins, spawnGroundBlock, addThrustParticles, playCrashSound, stopThrustSound, submitScore, fetchLeaderboard, address, context, selectedSkin]);
+  }, [drawBackground, drawPlayer, drawObstacles, drawCoins, drawParticles, checkCollisions, checkCoins, checkGroundBlocks, spawnObstacle, spawnCoins, spawnGroundBlock, addThrustParticles, playCrashSound, stopThrustSound, submitScore, fetchLeaderboard, address, context]);
 
   const handleThrustStart = useCallback(() => {
     if (!gameActiveRef.current) return;
@@ -1401,9 +1305,6 @@ export default function DonutDashPage() {
         
         {(gameState === "menu" || gameState === "gameover") && (
           <div className="py-4 flex items-center justify-center gap-2">
-            <button onClick={() => setShowSkins(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
-              <Palette className="w-3 h-3 text-zinc-400" /><span className="text-xs">Skins</span>
-            </button>
             <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
               <HelpCircle className="w-3 h-3 text-zinc-400" /><span className="text-xs whitespace-nowrap">How to Play</span>
             </button>
@@ -1411,48 +1312,6 @@ export default function DonutDashPage() {
               {isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-400" />}
               <span className="text-xs">{isMuted ? 'Muted' : 'Sound'}</span>
             </button>
-          </div>
-        )}
-        
-        {showSkins && (
-          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-            <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
-              <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-                <div className="flex items-center gap-2"><Palette className="w-5 h-5 text-zinc-400" /><span className="font-bold">Donut Dash Skins</span></div>
-                <button onClick={() => { setShowSkins(false); setPreviewSkin(null); }} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
-              </div>
-              <div className="p-4 grid grid-cols-3 gap-3 max-h-72 overflow-y-auto">
-                {DASH_SKINS.map((skin) => {
-                  const isUnlocked = unlockedSkins.includes(skin.id);
-                  const isSelected = selectedSkin.id === skin.id;
-                  const canClaim = !isUnlocked && canClaimSkin(skin);
-                  const progress = getSkinProgress(skin);
-                  const isDefault = skin.id === 'default';
-                  return (
-                    <button key={skin.id} onClick={() => { if (isUnlocked) handleSelectSkin(skin); else if (canClaim) handleClaimSkin(skin); }} disabled={!isUnlocked && !canClaim} className={`relative p-3 rounded-xl border-2 transition-all ${isSelected ? "border-white bg-zinc-800" : isUnlocked ? "border-zinc-700 hover:border-zinc-500" : canClaim ? "border-green-500/50 hover:border-green-500 bg-green-500/10" : "border-zinc-800 opacity-60"}`}>
-                      <div className="w-12 h-12 mx-auto mb-2 rounded-full relative" style={{ backgroundColor: isUnlocked || canClaim ? skin.frostingColor : '#3f3f46' }}>
-                        <div className="absolute inset-0 flex items-center justify-center"><div className="w-3 h-3 rounded-full bg-zinc-900 border border-zinc-700" /></div>
-                        {!isUnlocked && !canClaim && <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full"><Lock className="w-4 h-4 text-zinc-500" /></div>}
-                      </div>
-                      <p className="text-[10px] font-bold truncate text-center">{skin.name}</p>
-                      {isSelected && <div className="flex items-center justify-center gap-1 mt-1"><Check className="w-3 h-3 text-green-400" /></div>}
-                      {!isUnlocked && !isDefault && isPremium && (
-                        <div className="mt-1">
-                          {canClaim ? <span className="text-[8px] text-green-400 font-bold">CLAIM!</span> : (
-                            <><div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: `${Math.min((progress.current / progress.target) * 100, 100)}%`, backgroundColor: skin.frostingColor }} /></div><p className="text-[8px] text-zinc-500 text-center mt-0.5">{progress.current}/{progress.target}</p></>
-                          )}
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
-                <button onClick={() => { setShowSkins(false); window.location.href = "/games/skin-market"; }} className="w-full flex items-center justify-center gap-2 py-2 text-amber-400 hover:text-amber-300">
-                  <Crown className="w-4 h-4" /><span className="text-sm font-bold">{isPremium ? 'View All Skins' : 'Get Premium'}</span>
-                </button>
-              </div>
-            </div>
           </div>
         )}
         
