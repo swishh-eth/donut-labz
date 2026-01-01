@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer, Heart, Plus, Settings, Check, Gamepad2, Trophy } from "lucide-react";
+import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer, Heart, Plus, Settings, Check, Gamepad2, Trophy, Flame } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseUnits } from "viem";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
@@ -132,7 +132,8 @@ const PRESET_AMOUNTS = ["1", "5", "10", "25", "50", "100"];
 // Game route mapping for click navigation
 const GAME_ROUTES: Record<string, string> = {
   'flappy-donut': '/games/game-1',
-  // Add more games here as they're created
+  'glaze-stack': '/games/game-2',
+  'donut-dash': '/games/donut-dash',
 };
 
 // Donut preview component for game announcements
@@ -204,6 +205,10 @@ export default function ChatPage() {
   });
   const [tempTipSettings, setTempTipSettings] = useState<TipSettings>(tipSettings);
   const [customAmount, setCustomAmount] = useState("");
+
+  // Flame state (fetched from API)
+  const [gameFlames, setGameFlames] = useState<Record<number, number>>({});
+  const [userFlamedIds, setUserFlamedIds] = useState<Set<number>>(new Set());
 
   // Persist settings
   useEffect(() => {
@@ -348,6 +353,30 @@ export default function ChatPage() {
     ...(messages || []),
     ...(gameAnnouncements || []),
   ].sort((a, b) => Number(a.timestamp) - Number(b.timestamp)), [messages, gameAnnouncements]);
+
+  // Fetch flames for game announcements
+  const gameAnnouncementIds = gameAnnouncements?.map(a => a.id) || [];
+  const { data: flamesData, refetch: refetchFlames } = useQuery({
+    queryKey: ["game-flames", gameAnnouncementIds.join(","), address],
+    queryFn: async () => {
+      if (gameAnnouncementIds.length === 0) return { flames: {}, userFlamed: [] };
+      const userParam = address ? `&userAddress=${address}` : '';
+      const res = await fetch(`/api/chat/flames?ids=${gameAnnouncementIds.join(",")}${userParam}`);
+      if (!res.ok) return { flames: {}, userFlamed: [] };
+      return res.json();
+    },
+    enabled: gameAnnouncementIds.length > 0,
+    staleTime: 10000,
+    refetchInterval: 15000,
+  });
+
+  // Update flame state when data changes
+  useEffect(() => {
+    if (flamesData) {
+      setGameFlames(flamesData.flames || {});
+      setUserFlamedIds(new Set(flamesData.userFlamed || []));
+    }
+  }, [flamesData]);
 
   const { data: statsData } = useQuery({
     queryKey: ["chat-stats"],
@@ -537,6 +566,57 @@ export default function ChatPage() {
     const route = GAME_ROUTES[gameId];
     if (route) {
       window.location.href = route;
+    }
+  };
+
+  const handleFlame = async (gameId: number, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigation when clicking flame
+    
+    if (!address) return; // Need wallet connected to flame
+    
+    try {
+      await sdk.haptics.impactOccurred("light");
+    } catch {}
+    
+    const hasFlamed = userFlamedIds.has(gameId);
+    const action = hasFlamed ? "remove" : "add";
+    
+    // Optimistic update
+    if (hasFlamed) {
+      setUserFlamedIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(gameId);
+        return newSet;
+      });
+      setGameFlames(prev => ({
+        ...prev,
+        [gameId]: Math.max(0, (prev[gameId] || 1) - 1)
+      }));
+    } else {
+      setUserFlamedIds(prev => new Set(prev).add(gameId));
+      setGameFlames(prev => ({
+        ...prev,
+        [gameId]: (prev[gameId] || 0) + 1
+      }));
+    }
+    
+    // Call API
+    try {
+      await fetch("/api/chat/flames", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gameAnnouncementId: gameId,
+          userAddress: address,
+          action,
+        }),
+      });
+      // Refetch to sync with server
+      refetchFlames();
+    } catch (error) {
+      console.error("Failed to update flame:", error);
+      // Revert optimistic update on error
+      refetchFlames();
     }
   };
 
@@ -900,33 +980,55 @@ export default function ChatPage() {
                     const profile = profiles?.[gameItem.playerAddress.toLowerCase()];
                     const displayName = gameItem.username || profile?.displayName || formatAddress(gameItem.playerAddress);
                     const avatarUrl = gameItem.pfpUrl || profile?.pfpUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${gameItem.playerAddress.toLowerCase()}`;
+                    const flameCount = gameFlames[gameItem.id] || 0;
+                    const hasFlamed = userFlamedIds.has(gameItem.id);
                     
                     return (
-                      <button
+                      <div
                         key={`game-${gameItem.id}`}
-                        onClick={() => navigateToGame(gameItem.gameId)}
-                        className="w-full flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-all text-left"
+                        className="w-full flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-all"
                       >
-                        <div className="relative flex-shrink-0">
-                          <Avatar className="h-8 w-8 border border-amber-500/30">
-                            <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
-                            <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(displayName)}</AvatarFallback>
-                          </Avatar>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-white font-semibold truncate">{displayName}</span>
-                            <span className="text-[10px] text-gray-500">in</span>
-                            <span className="text-[10px] text-amber-400 font-medium">{gameItem.gameName}</span>
+                        <button
+                          onClick={() => navigateToGame(gameItem.gameId)}
+                          className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                        >
+                          <div className="relative flex-shrink-0">
+                            <Avatar className="h-8 w-8 border border-amber-500/30">
+                              <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+                              <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(displayName)}</AvatarFallback>
+                            </Avatar>
+                            <div className="absolute -bottom-0.5 -right-0.5">
+                              <DonutPreview color={gameItem.skinColor} size={14} />
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <Trophy className="w-3 h-3 text-amber-400" />
-                            <span className="text-xs text-amber-400 font-bold">{gameItem.score}</span>
-                            <DonutPreview color={gameItem.skinColor} size={12} />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs text-white font-semibold truncate">{displayName}</div>
+                            <div className="text-[10px] text-amber-400/80">{gameItem.gameName}</div>
                           </div>
-                        </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <Trophy className="w-5 h-5 text-amber-400" />
+                            <span className="text-lg font-bold text-amber-400">{gameItem.score}</span>
+                          </div>
+                        </button>
                         <div className="text-[10px] text-gray-600 flex-shrink-0">{timeAgo(gameItem.timestamp)}</div>
-                      </button>
+                        <button
+                          onClick={(e) => handleFlame(gameItem.id, e)}
+                          disabled={!isConnected}
+                          className={`flex-shrink-0 flex flex-col items-center justify-center min-w-[32px] p-1 rounded-lg transition-all ${
+                            hasFlamed ? "bg-orange-500/20" : 
+                            flameCount > 0 ? "bg-orange-500/10" : 
+                            !isConnected ? "opacity-50" : "hover:bg-orange-500/10"
+                          }`}
+                          title={isConnected ? "Give flames!" : "Connect wallet to flame"}
+                        >
+                          <Flame className={`w-4 h-4 transition-colors ${
+                            hasFlamed ? "text-orange-400 fill-orange-400" : 
+                            flameCount > 0 ? "text-orange-400 fill-orange-400/30" : 
+                            !isConnected ? "text-gray-600" : "text-gray-500 hover:text-orange-400"
+                          }`} />
+                          {flameCount > 0 && <span className="text-[9px] font-bold text-orange-400 mt-0.5">{flameCount}</span>}
+                        </button>
+                      </div>
                     );
                   }
                   
