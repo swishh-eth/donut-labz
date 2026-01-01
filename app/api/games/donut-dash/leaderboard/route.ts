@@ -68,37 +68,42 @@ export async function GET(req: NextRequest) {
     if (fidParam) {
       const fid = parseInt(fidParam);
       
-      const { data: userBest } = await supabase
+      // Get user's best score - use maybeSingle() instead of single() to avoid errors
+      const { data: userScores } = await supabase
         .from("donut_dash_scores")
         .select("score")
         .eq("fid", fid)
         .eq("week", week)
         .gt("score", 0)
         .order("score", { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
 
-      const { count: playCount } = await supabase
+      const userBestScore = userScores?.[0]?.score || 0;
+
+      // Get play count
+      const { count: gamesPlayed } = await supabase
         .from("donut_dash_scores")
         .select("*", { count: "exact", head: true })
         .eq("fid", fid)
         .eq("week", week);
 
+      // Find rank from leaderboard array (more accurate than count query)
       let rank = null;
-      if (userBest?.score) {
-        const { count: betterScores } = await supabase
-          .from("donut_dash_scores")
-          .select("*", { count: "exact", head: true })
-          .eq("week", week)
-          .gt("score", userBest.score);
-        rank = (betterScores || 0) + 1;
+      if (userBestScore > 0) {
+        const userInLeaderboard = leaderboard.find(e => e.fid === fid);
+        if (userInLeaderboard) {
+          rank = userInLeaderboard.rank;
+        } else {
+          // User not in top results, count how many unique users have better scores
+          rank = leaderboard.filter(e => e.score > userBestScore).length + 1;
+        }
       }
 
       userStats = {
         fid,
-        bestScore: userBest?.score || 0,
+        bestScore: userBestScore,
         rank,
-        playCount: playCount || 0,
+        gamesPlayed: gamesPlayed || 0,
       };
     }
 
