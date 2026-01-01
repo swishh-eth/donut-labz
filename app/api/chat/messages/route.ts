@@ -31,6 +31,13 @@ async function syncRecentMessages() {
     for (const log of logs) {
       const txHash = log.transactionHash;
       
+      // Check if message already exists with an image_url
+      const { data: existingMessage } = await supabase
+        .from("chat_messages")
+        .select("image_url")
+        .eq("transaction_hash", txHash)
+        .single();
+      
       // Check if there's a pending image for this transaction
       const { data: pendingImage } = await supabase
         .from("chat_pending_images")
@@ -38,6 +45,9 @@ async function syncRecentMessages() {
         .eq("transaction_hash", txHash)
         .eq("processed", false)
         .single();
+
+      // Determine the image_url to use (preserve existing, or use pending)
+      const imageUrl = existingMessage?.image_url || pendingImage?.image_url || null;
 
       await supabase
         .from("chat_messages")
@@ -47,7 +57,7 @@ async function syncRecentMessages() {
           timestamp: Number(log.args.timestamp),
           transaction_hash: txHash,
           block_number: Number(log.blockNumber),
-          image_url: pendingImage?.image_url || null,
+          image_url: imageUrl,
         }, { onConflict: "transaction_hash" });
 
       // Mark pending image as processed

@@ -24,42 +24,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid image URL" }, { status: 400 });
     }
 
-    // Update the message with the image URL
-    // The message might not exist yet since blockchain confirmation can be faster than sync
-    // So we'll try a few times with a delay, or insert a pending record
+    // Always store in pending table first (as backup)
+    await supabase
+      .from("chat_pending_images")
+      .upsert({
+        transaction_hash: transactionHash,
+        image_url: imageUrl,
+        created_at: new Date().toISOString(),
+        processed: false,
+      }, { onConflict: "transaction_hash" });
 
-    // First try to update existing message
-    const { data: existingMessage, error: selectError } = await supabase
+    // Also try to update existing message if it exists
+    const { error: updateError } = await supabase
       .from("chat_messages")
-      .select("id")
-      .eq("transaction_hash", transactionHash)
-      .single();
+      .update({ image_url: imageUrl })
+      .eq("transaction_hash", transactionHash);
 
-    if (existingMessage) {
-      // Update existing message
-      const { error: updateError } = await supabase
-        .from("chat_messages")
-        .update({ image_url: imageUrl })
-        .eq("transaction_hash", transactionHash);
-
-      if (updateError) {
-        console.error("Error updating message with image:", updateError);
-        return NextResponse.json({ error: "Failed to save image" }, { status: 500 });
-      }
-    } else {
-      // Message doesn't exist yet, store in pending table
-      const { error: pendingError } = await supabase
+    // If update succeeded (message existed), mark pending as processed
+    if (!updateError) {
+      await supabase
         .from("chat_pending_images")
-        .upsert({
-          transaction_hash: transactionHash,
-          image_url: imageUrl,
-          created_at: new Date().toISOString(),
-        });
-
-      if (pendingError) {
-        console.error("Error saving pending image:", pendingError);
-        // Don't fail - the sync process will pick it up
-      }
+        .update({ processed: true })
+        .eq("transaction_hash", transactionHash);
     }
 
     return NextResponse.json({ success: true });
