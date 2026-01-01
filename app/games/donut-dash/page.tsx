@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Play, Share2, X, HelpCircle, Volume2, VolumeX, Trophy, ChevronRight, Clock, Palette, Lock, Crown, Sparkles, Check, Zap, DollarSign } from "lucide-react";
+import { Play, Share2, X, HelpCircle, Volume2, VolumeX, Trophy, ChevronRight, Clock, Palette, Lock, Crown, Sparkles, Check } from "lucide-react";
 
 // Free Arcade Contract
 const FREE_ARCADE_CONTRACT = "0x9726D22F49274b575b1cd899868Aa10523A3E895" as const;
@@ -676,37 +676,33 @@ export default function DonutDashPage() {
 
   // Draw functions
   const drawBackground = useCallback((ctx: CanvasRenderingContext2D, speed: number) => {
-    ctx.fillStyle = '#0f0f0f';
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    const intensity = Math.min((speed - BASE_SPEED) / (MAX_SPEED - BASE_SPEED), 1);
-    const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-    gradient.addColorStop(0, `rgba(40, 20, 60, ${0.3 + intensity * 0.2})`);
-    gradient.addColorStop(0.5, 'rgba(15, 15, 20, 0)');
-    gradient.addColorStop(1, `rgba(40, 20, 60, ${0.3 + intensity * 0.2})`);
-    ctx.fillStyle = gradient;
+    ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
-    const lineCount = Math.floor(5 + intensity * 15);
-    ctx.strokeStyle = `rgba(255, 255, 255, ${0.03 + intensity * 0.05})`;
-    ctx.lineWidth = 1;
+    const intensity = Math.min((speed - BASE_SPEED) / (MAX_SPEED - BASE_SPEED), 1);
+    
+    // Subtle vignette
+    const vignette = ctx.createRadialGradient(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, CANVAS_HEIGHT * 0.3, CANVAS_WIDTH/2, CANVAS_HEIGHT/2, CANVAS_HEIGHT * 0.8);
+    vignette.addColorStop(0, 'transparent');
+    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    
+    // Speed lines (motion blur effect)
+    const lineCount = Math.floor(3 + intensity * 12);
     for (let i = 0; i < lineCount; i++) {
       const y = (frameCountRef.current * 2 + i * 47) % CANVAS_HEIGHT;
-      const lineLength = 30 + intensity * 50 + Math.random() * 30;
+      const lineLength = 20 + intensity * 60 + Math.random() * 30;
+      const alpha = 0.02 + intensity * 0.06;
+      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+      ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(CANVAS_WIDTH, y);
       ctx.lineTo(CANVAS_WIDTH - lineLength, y);
       ctx.stroke();
     }
     
-    const floorY = CANVAS_HEIGHT - 30;
-    bgElementsRef.current.forEach(el => {
-      el.x -= speed * el.speed;
-      if (el.x < -60) { el.x = CANVAS_WIDTH + 60; el.height = 50 + Math.random() * 60; }
-      const h = el.height || 60;
-      ctx.fillStyle = 'rgba(35, 35, 40, 0.9)';
-      ctx.fillRect(el.x - 15, floorY - h, 30, h);
-    });
-    
+    // Hazard stripes - top and bottom
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, CANVAS_WIDTH, 30);
     ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
@@ -722,6 +718,7 @@ export default function DonutDashPage() {
       ctx.closePath(); ctx.fill();
     }
     
+    // Ground blocks (obstacles)
     groundBlocksRef.current.forEach(block => {
       ctx.fillStyle = '#3f3f46';
       ctx.fillRect(block.x, CANVAS_HEIGHT - 30 - block.height, block.width, block.height);
@@ -739,25 +736,86 @@ export default function DonutDashPage() {
     ctx.translate(x, y);
     ctx.rotate(tilt);
     
-    // Jetpack
-    const tankX = -PLAYER_SIZE / 2 - 16;
-    const tankY = -12;
-    ctx.fillStyle = '#4a4a4a';
+    // Jetpack - improved metallic design
+    const tankX = -PLAYER_SIZE / 2 - 18;
+    const tankY = -14;
+    
+    // Main tank body with metallic gradient
+    const tankGradient = ctx.createLinearGradient(tankX, tankY, tankX + 16, tankY);
+    tankGradient.addColorStop(0, '#3a3a3a');
+    tankGradient.addColorStop(0.3, '#6a6a6a');
+    tankGradient.addColorStop(0.5, '#888888');
+    tankGradient.addColorStop(0.7, '#6a6a6a');
+    tankGradient.addColorStop(1, '#4a4a4a');
+    ctx.fillStyle = tankGradient;
     ctx.beginPath();
-    ctx.roundRect(tankX, tankY, 14, 28, 3);
+    ctx.roundRect(tankX, tankY, 16, 32, 4);
+    ctx.fill();
+    
+    // Tank highlight
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.beginPath();
+    ctx.roundRect(tankX + 2, tankY + 2, 4, 28, 2);
+    ctx.fill();
+    
+    // Tank bands
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(tankX + 1, tankY + 8, 14, 3);
+    ctx.fillRect(tankX + 1, tankY + 20, 14, 3);
+    
+    // Connector to donut
+    ctx.fillStyle = '#555';
+    ctx.fillRect(tankX + 14, tankY + 10, 8, 6);
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.arc(tankX + 20, tankY + 13, 3, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Nozzle
+    const nozzleGradient = ctx.createLinearGradient(tankX + 2, tankY + 32, tankX + 14, tankY + 32);
+    nozzleGradient.addColorStop(0, '#2a2a2a');
+    nozzleGradient.addColorStop(0.5, '#4a4a4a');
+    nozzleGradient.addColorStop(1, '#2a2a2a');
+    ctx.fillStyle = nozzleGradient;
+    ctx.beginPath();
+    ctx.moveTo(tankX + 3, tankY + 32);
+    ctx.lineTo(tankX + 0, tankY + 40);
+    ctx.lineTo(tankX + 16, tankY + 40);
+    ctx.lineTo(tankX + 13, tankY + 32);
+    ctx.closePath();
     ctx.fill();
     
     // Flames
     if (player.isThrusting) {
-      const flameSize = 18 + Math.sin(frameCountRef.current * 0.6) * 10;
-      const flameGradient = ctx.createLinearGradient(tankX + 7, tankY + 34, tankX + 7, tankY + 34 + flameSize);
-      flameGradient.addColorStop(0, '#FFD700');
-      flameGradient.addColorStop(0.5, '#FF4500');
-      flameGradient.addColorStop(1, 'rgba(255, 69, 0, 0)');
-      ctx.fillStyle = flameGradient;
+      const time = frameCountRef.current * 0.15;
+      const flameSize = 22 + Math.sin(time * 4) * 8;
+      const flameWidth = 12 + Math.sin(time * 5) * 3;
+      
+      // Outer flame
+      const outerFlame = ctx.createLinearGradient(tankX + 8, tankY + 40, tankX + 8, tankY + 40 + flameSize);
+      outerFlame.addColorStop(0, '#FF6B00');
+      outerFlame.addColorStop(0.3, '#FF4500');
+      outerFlame.addColorStop(0.6, '#FF2200');
+      outerFlame.addColorStop(1, 'transparent');
+      ctx.fillStyle = outerFlame;
       ctx.beginPath();
-      ctx.moveTo(tankX, tankY + 34);
-      ctx.quadraticCurveTo(tankX + 7, tankY + 34 + flameSize, tankX + 14, tankY + 34);
+      ctx.moveTo(tankX + 8 - flameWidth/2, tankY + 40);
+      ctx.quadraticCurveTo(tankX + 8 - flameWidth/3, tankY + 40 + flameSize * 0.6, tankX + 8, tankY + 40 + flameSize);
+      ctx.quadraticCurveTo(tankX + 8 + flameWidth/3, tankY + 40 + flameSize * 0.6, tankX + 8 + flameWidth/2, tankY + 40);
+      ctx.fill();
+      
+      // Inner flame (white/yellow core)
+      const innerSize = flameSize * 0.6;
+      const innerFlame = ctx.createLinearGradient(tankX + 8, tankY + 40, tankX + 8, tankY + 40 + innerSize);
+      innerFlame.addColorStop(0, '#FFFFFF');
+      innerFlame.addColorStop(0.3, '#FFFF00');
+      innerFlame.addColorStop(0.6, '#FFA500');
+      innerFlame.addColorStop(1, 'transparent');
+      ctx.fillStyle = innerFlame;
+      ctx.beginPath();
+      ctx.moveTo(tankX + 8 - flameWidth/4, tankY + 40);
+      ctx.quadraticCurveTo(tankX + 8 - flameWidth/6, tankY + 40 + innerSize * 0.5, tankX + 8, tankY + 40 + innerSize);
+      ctx.quadraticCurveTo(tankX + 8 + flameWidth/6, tankY + 40 + innerSize * 0.5, tankX + 8 + flameWidth/4, tankY + 40);
       ctx.fill();
     }
     
@@ -785,33 +843,124 @@ export default function DonutDashPage() {
   }, [getDonutColor]);
 
   const drawObstacles = useCallback((ctx: CanvasRenderingContext2D) => {
+    const time = frameCountRef.current * 0.1;
+    
     obstaclesRef.current.forEach(obstacle => {
       ctx.save();
-      ctx.shadowColor = 'rgba(255, 100, 0, 0.5)';
+      
+      let x1: number, y1: number, x2: number, y2: number;
+      
+      if (obstacle.type === 'zapper_h') {
+        x1 = obstacle.x;
+        y1 = obstacle.y + obstacle.height / 2;
+        x2 = obstacle.x + obstacle.width;
+        y2 = obstacle.y + obstacle.height / 2;
+      } else if (obstacle.type === 'zapper_v') {
+        x1 = obstacle.x + obstacle.width / 2;
+        y1 = obstacle.y;
+        x2 = obstacle.x + obstacle.width / 2;
+        y2 = obstacle.y + obstacle.height;
+      } else if (obstacle.type === 'zapper_diag' && obstacle.angle) {
+        const centerX = obstacle.x + obstacle.width / 2;
+        const centerY = obstacle.y + obstacle.height / 2;
+        const angleRad = (obstacle.angle * Math.PI) / 180;
+        const halfLength = obstacle.width / 2;
+        x1 = centerX - halfLength * Math.cos(angleRad);
+        y1 = centerY - halfLength * Math.sin(angleRad);
+        x2 = centerX + halfLength * Math.cos(angleRad);
+        y2 = centerY + halfLength * Math.sin(angleRad);
+      } else {
+        ctx.restore();
+        return;
+      }
+      
+      // Electrode nodes at ends
+      const nodeRadius = 6;
+      ctx.fillStyle = '#2a2a2a';
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x1, y1, nodeRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x2, y2, nodeRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      
+      // Inner node glow
+      ctx.fillStyle = '#FF4400';
+      ctx.beginPath();
+      ctx.arc(x1, y1, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x2, y2, 3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Outer glow
+      ctx.shadowColor = '#FF3300';
+      ctx.shadowBlur = 20;
+      ctx.strokeStyle = 'rgba(255, 100, 0, 0.3)';
+      ctx.lineWidth = 12;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      
+      // Mid glow
       ctx.shadowBlur = 15;
-      ctx.strokeStyle = '#FF6B00';
+      ctx.strokeStyle = 'rgba(255, 150, 0, 0.5)';
       ctx.lineWidth = 6;
       ctx.beginPath();
-      if (obstacle.type === 'zapper_h') {
-        ctx.moveTo(obstacle.x, obstacle.y + obstacle.height / 2);
-        ctx.lineTo(obstacle.x + obstacle.width, obstacle.y + obstacle.height / 2);
-      } else if (obstacle.type === 'zapper_v') {
-        ctx.moveTo(obstacle.x + obstacle.width / 2, obstacle.y);
-        ctx.lineTo(obstacle.x + obstacle.width / 2, obstacle.y + obstacle.height);
-      } else if (obstacle.type === 'zapper_diag' && obstacle.angle) {
-        ctx.translate(obstacle.x + obstacle.width / 2, obstacle.y + obstacle.height / 2);
-        ctx.rotate((obstacle.angle * Math.PI) / 180);
-        ctx.moveTo(-obstacle.width / 2, 0);
-        ctx.lineTo(obstacle.width / 2, 0);
-      }
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
       ctx.stroke();
+      
+      // Electric beam with flickering jagged effect
+      ctx.shadowColor = '#FFAA00';
+      ctx.shadowBlur = 10;
+      const flicker = 0.7 + Math.sin(time * 8 + obstacle.x) * 0.3;
+      ctx.strokeStyle = `rgba(255, 200, 0, ${flicker})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      
+      // Create jagged electric effect
+      const segments = 8;
+      const dx = (x2 - x1) / segments;
+      const dy = (y2 - y1) / segments;
+      const perpX = -dy / Math.sqrt(dx*dx + dy*dy) * 4;
+      const perpY = dx / Math.sqrt(dx*dx + dy*dy) * 4;
+      
+      for (let i = 1; i < segments; i++) {
+        const jitter = Math.sin(time * 15 + i * 2 + obstacle.x * 0.1) * (i % 2 === 0 ? 1 : -1);
+        ctx.lineTo(
+          x1 + dx * i + perpX * jitter,
+          y1 + dy * i + perpY * jitter
+        );
+      }
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      
+      // Core white line
+      ctx.shadowBlur = 5;
+      ctx.strokeStyle = `rgba(255, 255, 255, ${flicker * 0.8})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      
       ctx.shadowBlur = 0;
       ctx.restore();
     });
   }, []);
 
-  const drawCoins = useCallback((ctx: CanvasRenderingContext2D) => {
-    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF69B4', '#00CED1'];
+  const drawCoins = useCallback((ctx: CanvasRenderingContext2D, currentScore: number) => {
+    const colors = currentScore >= 100 
+      ? ['#FFFFFF', '#F0F0F0', '#E8E8E8', '#FFFFFF', '#F5F5F5', '#FFFFFF', '#EEEEEE']
+      : ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF69B4', '#00CED1'];
+    
     coinsRef.current.forEach(coin => {
       if (coin.collected) return;
       ctx.save();
@@ -819,8 +968,8 @@ export default function DonutDashPage() {
       const float = Math.sin(frameCountRef.current * 0.12 + coin.x * 0.05) * 4;
       ctx.translate(0, float);
       const color = colors[Math.floor(coin.x / 40) % colors.length];
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 15;
+      ctx.shadowColor = currentScore >= 100 ? '#FFFFFF' : color;
+      ctx.shadowBlur = currentScore >= 100 ? 12 : 15;
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.roundRect(-9, -4, 18, 8, 4);
@@ -959,7 +1108,7 @@ export default function DonutDashPage() {
     
     drawBackground(ctx, hasStarted ? speed : 0.5);
     drawParticles(ctx);
-    drawCoins(ctx);
+    drawCoins(ctx, coinsCollectedRef.current);
     drawObstacles(ctx);
     drawPlayer(ctx);
     
@@ -1166,25 +1315,25 @@ export default function DonutDashPage() {
         
         <button
           onClick={() => { fetchLeaderboard(); setShowLeaderboard(true); }}
-          className="relative w-full mb-3 px-4 py-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-xl transition-all active:scale-[0.98] hover:border-green-500/50 group"
+          className="relative w-full mb-3 px-4 py-3 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/50 rounded-xl transition-all active:scale-[0.98] hover:border-zinc-600 group"
           style={{ minHeight: '70px' }}
         >
           <div className="flex items-center justify-between">
             <div className="flex flex-col items-start">
               <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-green-400" />
-                <span className="text-[10px] text-green-200/80 font-medium">Weekly Prize Pool</span>
+                <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-4 h-4 rounded-full" />
+                <span className="text-[10px] text-zinc-400 font-medium">Weekly Prize Pool</span>
               </div>
               <span className="text-2xl font-bold text-green-400">${prizeInfo.totalPrize} USDC</span>
             </div>
             <div className="flex flex-col items-end">
-              <div className="flex items-center gap-1 text-green-400/60 group-hover:text-green-400 transition-colors">
+              <div className="flex items-center gap-1 text-zinc-500 group-hover:text-zinc-300 transition-colors">
                 <span className="text-[10px]">View Leaderboard</span>
                 <ChevronRight className="w-3 h-3" />
               </div>
-              <div className="text-[10px] text-green-200/60 flex items-center gap-1">
+              <div className="text-[10px] text-zinc-500 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                <span>Resets in <span className="font-bold text-green-300">{resetCountdown}</span></span>
+                <span>Resets in <span className="font-bold text-zinc-300">{resetCountdown}</span></span>
               </div>
             </div>
           </div>
@@ -1230,8 +1379,7 @@ export default function DonutDashPage() {
                   {errorMessage && <p className="text-red-400 text-xs">{errorMessage}</p>}
                   
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 rounded-full border border-zinc-700">
-                    <Zap className="w-3 h-3 text-green-400" />
-                    <span className="text-xs">Free • Gas only (~$0.001)</span>
+                    <span className="text-xs text-zinc-400">Gas only (~$0.001)</span>
                   </div>
                   
                   <button 
@@ -1242,7 +1390,7 @@ export default function DonutDashPage() {
                     {isPlayPending ? (
                       <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Confirming...</span></>
                     ) : (
-                      <><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play Free"}</span></>
+                      <><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span></>
                     )}
                   </button>
                   <p className="text-zinc-500 text-[10px]">Games this week: {gamesPlayedThisWeek}</p>
@@ -1324,7 +1472,7 @@ export default function DonutDashPage() {
                   <p className="text-xs text-zinc-400">Donut Dash is completely free! You only pay gas (~$0.001 on Base) to register your game onchain.</p>
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-400" />Gameplay</h3>
+                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4 text-yellow-400" />Gameplay</h3>
                   <p className="text-xs text-zinc-400">Hold the screen to fly up with your jetpack. Release to fall. Navigate through the facility avoiding zappers and collecting sprinkles!</p>
                 </div>
                 <div>
