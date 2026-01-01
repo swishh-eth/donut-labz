@@ -7,7 +7,7 @@ import { parseUnits, formatUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
-  ChevronLeft, Lock, Check, Crown, Gamepad2, Layers, Rocket,
+  Lock, Check, Crown, Gamepad2, Layers, Rocket,
   Trophy, Star, Zap, Sparkles, HelpCircle, X, Users
 } from "lucide-react";
 
@@ -810,17 +810,9 @@ export default function SkinMarketPage() {
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 100px)" }}>
         
-        {/* Header - matches Games page style */}
+        {/* Header - matches other pages style */}
         <div className="flex items-center justify-between px-4 mb-4">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => window.location.href = "/games"}
-              className="p-1.5 rounded-full bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <h1 className="text-2xl font-bold tracking-wide">COLLECTION</h1>
-          </div>
+          <h1 className="text-2xl font-bold tracking-wide">COLLECTION</h1>
           {context?.user && (
             <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
               <div className="relative">
