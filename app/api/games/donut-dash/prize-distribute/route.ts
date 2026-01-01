@@ -13,21 +13,29 @@ const supabase = createClient(
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const USDC_DECIMALS = 6;
 
-// Prize distribution: $10 total split among top 10
-// Amounts in USD (will be converted to USDC)
-const TOTAL_PRIZE_USD = 5;
-const PRIZE_DISTRIBUTION = [
-  { rank: 1, amount: "4.00" },  // $4.00
-  { rank: 2, amount: "2.00" },  // $2.00
-  { rank: 3, amount: "1.50" },  // $1.50
-  { rank: 4, amount: "0.80" },  // $0.80
-  { rank: 5, amount: "0.50" },  // $0.50
-  { rank: 6, amount: "0.40" },  // $0.40
-  { rank: 7, amount: "0.30" },  // $0.30
-  { rank: 8, amount: "0.20" },  // $0.20
-  { rank: 9, amount: "0.20" },  // $0.20
-  { rank: 10, amount: "0.10" }, // $0.10
-]; // Total: $10.00
+// Prize distribution: percentages for top 10
+const TOTAL_PRIZE_USD = 5; // Change this to adjust total prize pool
+const PRIZE_PERCENTAGES = [
+  { rank: 1, percent: 40 },   // 40%
+  { rank: 2, percent: 20 },   // 20%
+  { rank: 3, percent: 15 },   // 15%
+  { rank: 4, percent: 8 },    // 8%
+  { rank: 5, percent: 5 },    // 5%
+  { rank: 6, percent: 4 },    // 4%
+  { rank: 7, percent: 3 },    // 3%
+  { rank: 8, percent: 2 },    // 2%
+  { rank: 9, percent: 2 },    // 2%
+  { rank: 10, percent: 1 },   // 1%
+]; // Total: 100%
+
+// Calculate actual amounts from percentages
+function getPrizeDistribution() {
+  return PRIZE_PERCENTAGES.map(p => ({
+    rank: p.rank,
+    percent: p.percent,
+    amount: ((TOTAL_PRIZE_USD * p.percent) / 100).toFixed(2),
+  }));
+}
 
 const ERC20_TRANSFER_ABI = [
   {
@@ -119,9 +127,11 @@ export async function POST(request: NextRequest) {
       txHash?: string;
     }[] = [];
 
-    for (let i = 0; i < Math.min(topScores.length, PRIZE_DISTRIBUTION.length); i++) {
+    const prizeDistribution = getPrizeDistribution();
+
+    for (let i = 0; i < Math.min(topScores.length, prizeDistribution.length); i++) {
       const winner = topScores[i];
-      const prize = PRIZE_DISTRIBUTION[i];
+      const prize = prizeDistribution[i];
 
       if (!winner.wallet_address) {
         console.warn(`No wallet address for rank ${i + 1}, fid: ${winner.fid}`);
@@ -230,7 +240,7 @@ export async function GET(request: NextRequest) {
     const currentWeek = getCurrentWeek();
     return NextResponse.json({
       totalPrize: TOTAL_PRIZE_USD,
-      prizeStructure: PRIZE_DISTRIBUTION,
+      prizeStructure: getPrizeDistribution(),
       currentWeek,
     });
   }
@@ -250,6 +260,6 @@ export async function GET(request: NextRequest) {
     distributed: !!data,
     distribution: data || null,
     totalPrize: TOTAL_PRIZE_USD,
-    prizeStructure: PRIZE_DISTRIBUTION,
+    prizeStructure: getPrizeDistribution(),
   });
 }

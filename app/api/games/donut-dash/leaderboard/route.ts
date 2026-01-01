@@ -102,19 +102,14 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // Prize distribution in USDC
-    const prizeDistribution = [
-      { rank: 1, amount: "4.00" },
-      { rank: 2, amount: "2.00" },
-      { rank: 3, amount: "1.50" },
-      { rank: 4, amount: "0.80" },
-      { rank: 5, amount: "0.50" },
-      { rank: 6, amount: "0.40" },
-      { rank: 7, amount: "0.30" },
-      { rank: 8, amount: "0.20" },
-      { rank: 9, amount: "0.20" },
-      { rank: 10, amount: "0.10" },
-    ];
+    // Prize distribution - percentages (amounts calculated from totalPrize)
+    const totalPrize = 5; // Keep in sync with prize-distribute route
+    const prizePercentages = [40, 20, 15, 8, 5, 4, 3, 2, 2, 1];
+    const prizeDistribution = prizePercentages.map((percent, i) => ({
+      rank: i + 1,
+      percent,
+      amount: ((totalPrize * percent) / 100).toFixed(2),
+    }));
 
     return NextResponse.json({
       success: true,
@@ -124,7 +119,7 @@ export async function GET(req: NextRequest) {
       leaderboard,
       userStats,
       prizeDistribution,
-      totalPrize: 10,
+      totalPrize,
     });
   } catch (error) {
     console.error("Error fetching leaderboard:", error);

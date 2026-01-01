@@ -42,24 +42,25 @@ const SPEED_INCREMENT = 0.0005;
 // Weekly USDC prize pool (fetched from API)
 interface PrizeInfo {
   totalPrize: number;
-  prizeStructure: { rank: number; amount: string }[];
+  prizeStructure: { rank: number; percent: number; amount: string }[];
+}
+
+// Prize percentages (amounts calculated from totalPrize)
+const PRIZE_PERCENTAGES = [40, 20, 15, 8, 5, 4, 3, 2, 2, 1];
+
+// Calculate prize structure from total
+function calculatePrizeStructure(totalPrize: number) {
+  return PRIZE_PERCENTAGES.map((percent, i) => ({
+    rank: i + 1,
+    percent,
+    amount: ((totalPrize * percent) / 100).toFixed(2),
+  }));
 }
 
 // Default values until API loads
 const DEFAULT_PRIZE_INFO: PrizeInfo = {
-  totalPrize: 10,
-  prizeStructure: [
-    { rank: 1, amount: "4.00" },
-    { rank: 2, amount: "2.00" },
-    { rank: 3, amount: "1.50" },
-    { rank: 4, amount: "0.80" },
-    { rank: 5, amount: "0.50" },
-    { rank: 6, amount: "0.40" },
-    { rank: 7, amount: "0.30" },
-    { rank: 8, amount: "0.20" },
-    { rank: 9, amount: "0.20" },
-    { rank: 10, amount: "0.10" },
-  ],
+  totalPrize: 5,
+  prizeStructure: calculatePrizeStructure(5),
 };
 
 // Skin type definitions
@@ -266,9 +267,10 @@ export default function DonutDashPage() {
         const res = await fetch('/api/games/donut-dash/prize-distribute');
         if (res.ok) {
           const data = await res.json();
+          // Use API prizeStructure if available, otherwise calculate locally
           setPrizeInfo({
             totalPrize: data.totalPrize,
-            prizeStructure: data.prizeStructure,
+            prizeStructure: data.prizeStructure || calculatePrizeStructure(data.totalPrize),
           });
         }
       } catch (e) {
