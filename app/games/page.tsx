@@ -351,7 +351,7 @@ function GlazeStackTile({ recentPlayer, prizePool, isLoading, donutColor }: { re
 }
 
 // Donut Dash Game Tile - neutral white/zinc scheme with animated preview
-function DonutDashTile({ recentPlayer, prizePool, isLoading, donutColor }: { recentPlayer: RecentPlayer | null; prizePool: string; isLoading: boolean; donutColor: string }) {
+function DonutDashTile({ recentPlayer, prizePool, isLoading, donutColor }: { recentPlayer: RecentPlayer | null; prizePool: number; isLoading: boolean; donutColor: string }) {
   const [showPlayer, setShowPlayer] = useState(false);
   
   useEffect(() => {
@@ -437,13 +437,18 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading, donutColor }: { rec
           <div className="flex items-center gap-2 mb-1">
             <Rocket className="w-5 h-5 text-white" />
             <span className="font-bold text-base text-white">Donut Dash</span>
-            <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
+            <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Jetpack through, collect sprinkles!</div>
           
           <div className="flex items-center gap-2 text-[9px]">
-            <Trophy className="w-3 h-3 text-amber-400" />
-            <span className="text-amber-400">{prizePool} 🍩</span>
+            <Trophy className="w-3 h-3 text-green-400" />
+            <img 
+              src="https://dd.dexscreener.com/ds-data/tokens/base/0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.png" 
+              alt="USDC" 
+              className="w-3 h-3 rounded-full"
+            />
+            <span className="text-green-400 font-medium">${prizePool} USDC</span>
             {recentPlayer && (
               <>
                 <span className="text-zinc-600">•</span>
@@ -516,7 +521,7 @@ export default function GamesPage() {
   // Donut Dash state
   const [dashRecentPlayer, setDashRecentPlayer] = useState<RecentPlayer | null>(null);
   const [isLoadingDash, setIsLoadingDash] = useState(true);
-  const [dashPrizePool, setDashPrizePool] = useState<string>("0");
+  const [dashPrizePool, setDashPrizePool] = useState<number>(10); // USDC amount
 
   useEffect(() => {
     let cancelled = false;
@@ -612,21 +617,19 @@ export default function GamesPage() {
     const fetchDashData = async () => {
       setIsLoadingDash(true);
       try {
-        // Try to fetch from recent endpoint first (like Flappy Donut)
-        const res = await fetch('/api/games/donut-dash/recent');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.recentPlayer) {
-            setDashRecentPlayer(data.recentPlayer);
-          }
-          setDashPrizePool(data.prizePool || "0");
-        } else {
-          // Fallback to distribute endpoint for prize pool
-          const prizeRes = await fetch('/api/games/donut-dash/distribute');
-          if (prizeRes.ok) {
-            const prizeData = await prizeRes.json();
-            const poolValue = prizeData.prizePoolFormatted?.replace(' DONUT', '') || "0";
-            setDashPrizePool(poolValue);
+        // Fetch prize info from prize-distribute API
+        const prizeRes = await fetch('/api/games/donut-dash/prize-distribute');
+        if (prizeRes.ok) {
+          const prizeData = await prizeRes.json();
+          setDashPrizePool(prizeData.totalPrize || 10);
+        }
+        
+        // Fetch recent player from recent endpoint
+        const recentRes = await fetch('/api/games/donut-dash/recent');
+        if (recentRes.ok) {
+          const recentData = await recentRes.json();
+          if (recentData.recentPlayer) {
+            setDashRecentPlayer(recentData.recentPlayer);
           }
         }
       } catch (e) {
