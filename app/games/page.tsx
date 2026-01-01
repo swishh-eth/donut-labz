@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount } from "wagmi";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Settings, Gamepad2, Trophy, Layers, Rocket, ArrowRight, Users, Award } from "lucide-react";
+import { Settings, Gamepad2, Trophy, Layers, Rocket, ArrowRight, Award } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -71,30 +71,50 @@ function GlowingDonut({ color, size = 56 }: { color: string; size?: number }) {
   );
 }
 
-// Achievements Tile
-function AchievementsTile({ premiumCount }: { premiumCount: number }) {
+// Total Prizes Tile - aggregates all game prize pools
+function TotalPrizesTile({ prizes }: { prizes: { donutDash: number; flappy: number; stack: number } }) {
+  const totalUSDC = prizes.donutDash; // USDC prizes
+  const totalDONUT = prizes.flappy + prizes.stack; // DONUT prizes
+  
   return (
     <button
-      onClick={() => window.location.href = "/games/skin-market"}
-      className="relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
+      onClick={() => window.location.href = "/games/prizes"}
+      className="relative w-full rounded-2xl border-2 border-green-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-green-500/80"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(22,163,74,0.1) 100%)' }}
     >
-      <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Users className="w-28 h-28 text-amber-900/80" />
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
+        <Trophy className="w-24 h-24 text-green-400" />
       </div>
       
       <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
-          <div className="flex items-center gap-2 mb-1">
-            <Award className="w-5 h-5 text-amber-400" />
-            <span className="font-bold text-base text-amber-400">Sprinkles Premium Arcade</span>
+          <div className="flex items-center gap-2 mb-2">
+            <Award className="w-5 h-5 text-green-400" />
+            <span className="font-bold text-base text-green-400">Weekly Prize Pools</span>
           </div>
-          <div className="text-[10px] text-amber-200/60 mb-2">Complete Tasks To Unlock Skins For Each Game</div>
+          
+          <div className="flex items-center gap-4 mb-2">
+            {totalUSDC > 0 && (
+              <div className="flex items-center gap-1.5">
+                <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-5 h-5 rounded-full" />
+                <span className="text-xl font-bold text-white">${totalUSDC}</span>
+                <span className="text-xs text-green-400/60">USDC</span>
+              </div>
+            )}
+            {totalDONUT > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-lg">🍩</span>
+                <span className="text-xl font-bold text-white">{totalDONUT.toLocaleString()}</span>
+                <span className="text-xs text-amber-400/60">DONUT</span>
+              </div>
+            )}
+          </div>
           
           <div className="flex items-center gap-2 text-[9px]">
-            <span className="text-amber-400">Burn Sprinkles</span>
-            <ArrowRight className="w-3 h-3 text-amber-500/50" />
-            <span className="text-amber-400">Customize Your Donut!</span>
+            <span className="text-green-400/80">Free to play</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-green-400/80">Resets Friday 6PM EST</span>
+            <ArrowRight className="w-3 h-3 text-green-500/50" />
           </div>
         </div>
       </div>
@@ -258,13 +278,12 @@ export default function GamesPage() {
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   
   const [tileColors] = useState(() => getUniqueRandomColors(3));
-  const [premiumCount, setPremiumCount] = useState(0);
   
   const [flappyRecentPlayer, setFlappyRecentPlayer] = useState<RecentPlayer | null>(null);
-  const [flappyPrizePool, setFlappyPrizePool] = useState<string>("0");
+  const [flappyPrizePool, setFlappyPrizePool] = useState<number>(0);
   
   const [stackRecentPlayer, setStackRecentPlayer] = useState<RecentPlayer | null>(null);
-  const [stackPrizePool, setStackPrizePool] = useState<string>("0");
+  const [stackPrizePool, setStackPrizePool] = useState<number>(0);
   
   const [dashRecentPlayer, setDashRecentPlayer] = useState<RecentPlayer | null>(null);
   const [dashPrizePool, setDashPrizePool] = useState<number>(5);
@@ -293,22 +312,13 @@ export default function GamesPage() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/burn-stats')
-      .then(r => r.json())
-      .then(data => {
-        if (data.premiumUsers !== undefined) setPremiumCount(data.premiumUsers);
-      })
-      .catch(console.error);
-  }, []);
-
-  useEffect(() => {
     const fetchData = async () => {
       try {
         const res = await fetch('/api/games/flappy/recent');
         if (res.ok) {
           const data = await res.json();
           if (data.recentPlayer) setFlappyRecentPlayer(data.recentPlayer);
-          setFlappyPrizePool(data.prizePool || "0");
+          setFlappyPrizePool(parseFloat(data.prizePool) || 0);
         }
       } catch (e) {
         console.error("Failed to fetch Flappy data:", e);
@@ -325,7 +335,7 @@ export default function GamesPage() {
         const res = await fetch('/api/games/stack-tower/leaderboard');
         if (res.ok) {
           const data = await res.json();
-          setStackPrizePool(parseFloat(data.prizePool || "0").toFixed(2));
+          setStackPrizePool(parseFloat(data.prizePool) || 0);
           if (data.recentPlayer) {
             setStackRecentPlayer({
               username: data.recentPlayer.username,
@@ -431,9 +441,9 @@ export default function GamesPage() {
             }}
           >
             <div className="space-y-3 pb-4">
-              <AchievementsTile premiumCount={premiumCount} />
-              <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool} donutColor={tileColors[0]} />
-              <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} donutColor={tileColors[1]} />
+              <TotalPrizesTile prizes={{ donutDash: dashPrizePool, flappy: flappyPrizePool, stack: stackPrizePool }} />
+              <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool.toLocaleString()} donutColor={tileColors[0]} />
+              <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool.toLocaleString()} donutColor={tileColors[1]} />
               <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} donutColor={tileColors[2]} />
               {[...Array(3)].map((_, i) => <ComingSoonTile key={i} />)}
             </div>
