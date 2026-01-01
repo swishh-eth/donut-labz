@@ -1492,18 +1492,18 @@ export default function DonutDashPage() {
         
         {showLeaderboard && (
           <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-            <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
-              <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+            <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 flex flex-col max-h-[80vh]">
+              <div className="flex items-center justify-between p-4 border-b border-zinc-800 flex-shrink-0">
                 <div className="flex items-center gap-2"><Trophy className="w-5 h-5 text-green-400" /><span className="font-bold">Weekly Leaderboard</span></div>
                 <button onClick={() => setShowLeaderboard(false)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
               </div>
-              <div className="px-4 py-2 bg-zinc-800/50 border-b border-zinc-800">
+              <div className="px-4 py-2 bg-zinc-800/50 border-b border-zinc-800 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-zinc-400">Prize Pool</span>
                   <span className="text-sm font-bold text-green-400">${prizeInfo.totalPrize} USDC</span>
                 </div>
               </div>
-              <div className="max-h-80 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto min-h-0">
                 {leaderboard.length === 0 ? (
                   <div className="py-8 text-center">
                     <p className="text-zinc-500">No scores yet!</p>
@@ -1524,7 +1524,7 @@ export default function DonutDashPage() {
                   );
                 })}
               </div>
-              <div className="px-4 py-2 bg-zinc-800/50 border-t border-zinc-800">
+              <div className="px-4 py-2 bg-zinc-800/50 border-t border-zinc-800 flex-shrink-0">
                 <p className="text-[10px] text-zinc-500 text-center">Prizes distributed every Friday in USDC</p>
               </div>
             </div>
