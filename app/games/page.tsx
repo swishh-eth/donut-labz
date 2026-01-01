@@ -440,20 +440,19 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading, donutColor }: { rec
           </div>
           <div className="text-[10px] text-white/60 mb-2">Jetpack through, collect sprinkles!</div>
           
-          <div className="flex items-center gap-2 text-[9px]">
-            <Trophy className="w-3 h-3 text-green-400" />
+          <div className="flex items-center gap-1.5 text-[9px]">
             <img 
               src="/coins/USDC_LOGO.png" 
               alt="USDC" 
-              className="w-3 h-3 rounded-full"
+              className="w-3 h-3 rounded-full flex-shrink-0"
             />
-            <span className="text-green-400 font-medium">${prizePool} USDC PRIZE POOL</span>
+            <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC PRIZE POOL</span>
             {recentPlayer && (
               <>
                 <span className="text-zinc-600">•</span>
-                <span className="text-zinc-400 flex items-center gap-1">
-                  {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3 h-3 rounded-full" />}
-                  @{recentPlayer.username} scored {recentPlayer.score}
+                <span className="text-zinc-400 flex items-center gap-1 truncate">
+                  {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3 h-3 rounded-full flex-shrink-0" />}
+                  <span className="truncate">@{recentPlayer.username} {recentPlayer.score}pts</span>
                 </span>
               </>
             )}
