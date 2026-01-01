@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer, Heart, Plus, Settings, Image as ImageIcon } from "lucide-react";
+import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer, Heart, Settings, Image as ImageIcon } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseUnits } from "viem";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
@@ -136,18 +136,6 @@ export default function ChatPage() {
   const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const [isChatExpanded, setIsChatExpanded] = useState(true);
-  const [buttonPosition, setButtonPosition] = useState<'left' | 'right'>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('chat-button-position');
-      return (saved === 'right' ? 'right' : 'left');
-    }
-    return 'left';
-  });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragX, setDragX] = useState(0);
-  const [dragStartX, setDragStartX] = useState(0);
-  const buttonContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [tipSettings, setTipSettings] = useState<TipSettings>(() => {
@@ -165,10 +153,6 @@ export default function ChatPage() {
   });
   const [tempTipSettings, setTempTipSettings] = useState<TipSettings>(tipSettings);
   const [customAmount, setCustomAmount] = useState("");
-
-  useEffect(() => {
-    localStorage.setItem('chat-button-position', buttonPosition);
-  }, [buttonPosition]);
 
   useEffect(() => {
     localStorage.setItem('chat-tip-settings-v2', JSON.stringify(tipSettings));
@@ -207,16 +191,6 @@ export default function ChatPage() {
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
-
-  useEffect(() => {
-    if (isChatExpanded) {
-      const container = messagesContainerRef.current;
-      if (container) {
-        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-      }
-      setTimeout(() => inputRef.current?.focus(), 300);
-    }
-  }, [isChatExpanded]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -390,7 +364,6 @@ export default function ChatPage() {
         setMessage("");
         clearSelectedImage();
         setPendingImageUrl(null);
-        setIsChatExpanded(false);
         setCooldownRemaining(COOLDOWN_SECONDS);
         setPendingMessageConfirmed(true);
         
@@ -619,49 +592,6 @@ export default function ChatPage() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const toggleChatInput = () => setIsChatExpanded(!isChatExpanded);
-
-  const handleDragStart = (clientX: number) => {
-    if (isChatExpanded) return;
-    setDragStartX(clientX);
-  };
-
-  const handleDragMove = (clientX: number) => {
-    if (isChatExpanded || dragStartX === 0) return;
-    const delta = Math.abs(clientX - dragStartX);
-    if (!isDragging && delta > 10) setIsDragging(true);
-    if (!isDragging) return;
-    const container = buttonContainerRef.current;
-    if (!container) return;
-    const containerWidth = container.offsetWidth - 44;
-    const moveDelta = clientX - dragStartX;
-    let newX: number;
-    if (buttonPosition === 'left') {
-      newX = Math.max(0, Math.min(containerWidth, moveDelta));
-    } else {
-      newX = Math.max(0, Math.min(containerWidth, -moveDelta));
-    }
-    setDragX(newX);
-  };
-
-  const handleDragEnd = () => {
-    if (!isDragging && dragStartX !== 0) {
-      setDragStartX(0);
-      return;
-    }
-    if (!isDragging) return;
-    setIsDragging(false);
-    setDragStartX(0);
-    const container = buttonContainerRef.current;
-    if (!container) return;
-    const containerWidth = container.offsetWidth - 44;
-    const threshold = containerWidth / 2;
-    if (dragX > threshold) {
-      setButtonPosition(buttonPosition === 'left' ? 'right' : 'left');
-    }
-    setDragX(0);
   };
 
   const openTipSettings = () => {
@@ -1068,96 +998,43 @@ export default function ChatPage() {
                     </div>
                   )}
                   
-                  <div 
-                    ref={buttonContainerRef}
-                    className="relative w-full h-11"
-                    onTouchMove={(e) => handleDragMove(e.touches[0].clientX)}
-                    onTouchEnd={handleDragEnd}
-                    onMouseMove={(e) => isDragging && handleDragMove(e.clientX)}
-                    onMouseUp={handleDragEnd}
-                    onMouseLeave={handleDragEnd}
-                  >
-                    <div 
-                      className={`absolute top-0 h-11 flex items-center transition-all duration-300 ease-out ${
-                        buttonPosition === 'left' ? 'left-0 flex-row' : 'right-0 flex-row-reverse'
+                  <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2 h-11">
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={isPending || isConfirming || isVerifying || isBurnPending || isBurnConfirming || isUploadingImage}
+                      className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg transition-colors disabled:opacity-50 ${
+                        selectedImage ? "text-white bg-zinc-700" : "text-gray-400 hover:text-white hover:bg-zinc-800"
                       }`}
-                      style={{ width: isChatExpanded ? '100%' : '44px' }}
+                      title="Add image (10 SPRINKLES)"
                     >
-                      <button 
-                        onClick={() => !isDragging && toggleChatInput()}
-                        onTouchStart={(e) => handleDragStart(e.touches[0].clientX)}
-                        onMouseDown={(e) => handleDragStart(e.clientX)}
-                        disabled={(cooldownRemaining > 0 || rateLimitBanRemaining > 0) && !isDragging}
-                        className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-colors duration-300 overflow-visible touch-none select-none z-10 ${
-                          isChatExpanded 
-                            ? "bg-zinc-700 text-white" 
-                            : cooldownRemaining > 0
-                              ? "bg-white text-black"
-                              : rateLimitBanRemaining > 0
-                                ? "bg-red-500 text-white"
-                                : "bg-white text-black hover:bg-gray-200"
-                        }`}
-                        style={{
-                          transform: isDragging ? `translateX(${buttonPosition === 'left' ? dragX : -dragX}px)` : undefined,
-                          transition: isDragging ? 'none' : 'transform 0.5s cubic-bezier(0.34,1.56,0.64,1)',
-                        }}
-                      >
-                        {cooldownRemaining > 0 ? (
-                          <span className="text-xs font-bold text-black">{cooldownRemaining}</span>
-                        ) : rateLimitBanRemaining > 0 ? (
-                          <Timer className="w-5 h-5 text-white" />
-                        ) : (
-                          <Plus className={`w-5 h-5 transition-transform duration-300 ${isChatExpanded ? "rotate-45" : ""}`} />
-                        )}
-                      </button>
-                      
-                      <div 
-                        className={`flex-1 overflow-hidden transition-all duration-300 ease-out ${
-                          isChatExpanded 
-                            ? `opacity-100 ${buttonPosition === 'left' ? 'pl-2' : 'pr-2'}` 
-                            : "opacity-0 w-0"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2 h-11">
-                          <input
-                            ref={imageInputRef}
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageSelect}
-                            className="hidden"
-                          />
-                          <button
-                            onClick={() => imageInputRef.current?.click()}
-                            disabled={isPending || isConfirming || isVerifying || isBurnPending || isBurnConfirming || isUploadingImage}
-                            className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg transition-colors disabled:opacity-50 ${
-                              selectedImage ? "text-white bg-zinc-700" : "text-gray-400 hover:text-white hover:bg-zinc-800"
-                            }`}
-                            title="Add image (10 SPRINKLES)"
-                          >
-                            <ImageIcon className="w-4 h-4" />
-                          </button>
-                          <input
-                            ref={inputRef}
-                            type="text"
-                            value={message}
-                            onChange={(e) => { setMessage(e.target.value.slice(0, 280)); if (eligibilityError) setEligibilityError(null); }}
-                            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                            placeholder={selectedImage ? "Add caption (optional)..." : "Type a message..."}
-                            disabled={isPending || isConfirming || isVerifying || isBurnPending || isBurnConfirming || isUploadingImage}
-                            className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-1 py-1 outline-none disabled:opacity-50 min-w-0"
-                            style={{ fontSize: '16px' }}
-                          />
-                          <span className="text-[10px] text-gray-500 flex-shrink-0">{message.length}/280</span>
-                          <button 
-                            onClick={handleSendMessage} 
-                            disabled={(!message.trim() && !selectedImage) || isPending || isConfirming || isVerifying || isBurnPending || isBurnConfirming || isUploadingImage} 
-                            className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                          >
-                            {isVerifying || isUploadingImage ? <span className="text-xs font-bold">...</span> : <Send className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={message}
+                      onChange={(e) => { setMessage(e.target.value.slice(0, 280)); if (eligibilityError) setEligibilityError(null); }}
+                      onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
+                      placeholder={selectedImage ? "Add caption (optional)..." : "Type a message..."}
+                      disabled={isPending || isConfirming || isVerifying || isBurnPending || isBurnConfirming || isUploadingImage}
+                      className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-1 py-1 outline-none disabled:opacity-50 min-w-0"
+                      style={{ fontSize: '16px' }}
+                    />
+                    <span className="text-[10px] text-gray-500 flex-shrink-0">{message.length}/280</span>
+                    <button 
+                      onClick={handleSendMessage} 
+                      disabled={(!message.trim() && !selectedImage) || isPending || isConfirming || isVerifying || isBurnPending || isBurnConfirming || isUploadingImage} 
+                      className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                    >
+                      {isVerifying || isUploadingImage ? <span className="text-xs font-bold">...</span> : <Send className="w-4 h-4" />}
+                    </button>
                   </div>
                   
                   {(isPending || isConfirming) && <p className="text-[10px] text-gray-400 text-center mt-1">{isPending ? "Confirm in wallet..." : "Confirming transaction..."}</p>}
