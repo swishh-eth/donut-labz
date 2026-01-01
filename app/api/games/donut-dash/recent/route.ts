@@ -1,16 +1,11 @@
 // app/api/games/donut-dash/recent/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { formatUnits } from "viem";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-// Donut Dash contract address for prize pool
-const DONUT_DASH_CONTRACT = "0xE0a8c447D18166478aBeadb06ae5458Cd3E68B40";
-const DONUT_TOKEN = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C";
 
 // Profile cache helper
 async function getProfile(address: string): Promise<{
@@ -41,10 +36,11 @@ async function getProfile(address: string): Promise<{
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the most recent score entry (ordered by updated_at, not created_at or score)
+    // Get the most recent score entry with score > 0 (filter out unfinished games)
     const { data: recentScores, error } = await supabase
       .from("donut_dash_scores")
       .select("*")
+      .gt("score", 0)  // Only show completed games with actual scores
       .order("updated_at", { ascending: false })
       .limit(1);
 
@@ -57,55 +53,24 @@ export async function GET(request: NextRequest) {
     
     if (recentScores && recentScores.length > 0) {
       const recent = recentScores[0];
-      const profile = await getProfile(recent.wallet_address);
+      const profile = recent.wallet_address ? await getProfile(recent.wallet_address) : null;
       
       recentPlayer = {
-        username: profile?.username || recent.username || `${recent.wallet_address.slice(0, 6)}...${recent.wallet_address.slice(-4)}`,
+        username: profile?.username || recent.username || (recent.wallet_address ? `${recent.wallet_address.slice(0, 6)}...${recent.wallet_address.slice(-4)}` : 'Unknown'),
         score: recent.score,
         pfpUrl: profile?.pfpUrl || recent.pfp_url || null,
         address: recent.wallet_address,
       };
     }
 
-    // Fetch prize pool from contract
-    let prizePool = "0";
-    try {
-      const rpcUrl = process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org";
-      
-      // Get DONUT balance of the contract
-      const balanceResponse = await fetch(rpcUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          method: "eth_call",
-          params: [
-            {
-              to: DONUT_TOKEN,
-              data: `0x70a08231000000000000000000000000${DONUT_DASH_CONTRACT.slice(2)}`,
-            },
-            "latest",
-          ],
-          id: 1,
-        }),
-      });
-      
-      const balanceData = await balanceResponse.json();
-      if (balanceData.result && balanceData.result !== "0x") {
-        const balanceWei = BigInt(balanceData.result);
-        const balanceFormatted = parseFloat(formatUnits(balanceWei, 18));
-        prizePool = balanceFormatted.toFixed(2);
-      }
-    } catch (prizeError) {
-      console.error("Error fetching prize pool:", prizeError);
-    }
-
+    // Prize pool is now USDC from bot wallet, not from contract
+    // The games page fetches prize info from prize-distribute endpoint
+    // This endpoint just returns recent player info
     return NextResponse.json({
       recentPlayer,
-      prizePool,
     });
   } catch (error) {
     console.error("Error in Donut Dash recent API:", error);
-    return NextResponse.json({ recentPlayer: null, prizePool: "0" });
+    return NextResponse.json({ recentPlayer: null });
   }
 }

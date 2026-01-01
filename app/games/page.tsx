@@ -437,18 +437,17 @@ function DonutDashTile({ recentPlayer, prizePool, isLoading, donutColor }: { rec
           <div className="flex items-center gap-2 mb-1">
             <Rocket className="w-5 h-5 text-white" />
             <span className="font-bold text-base text-white">Donut Dash</span>
-            <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Jetpack through, collect sprinkles!</div>
           
           <div className="flex items-center gap-2 text-[9px]">
             <Trophy className="w-3 h-3 text-green-400" />
             <img 
-              src="https://dd.dexscreener.com/ds-data/tokens/base/0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.png" 
+              src="/coins/USDC_LOGO.png" 
               alt="USDC" 
               className="w-3 h-3 rounded-full"
             />
-            <span className="text-green-400 font-medium">${prizePool} USDC</span>
+            <span className="text-green-400 font-medium">${prizePool} USDC PRIZE POOL</span>
             {recentPlayer && (
               <>
                 <span className="text-zinc-600">•</span>
