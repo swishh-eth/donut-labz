@@ -41,11 +41,11 @@ async function getProfile(address: string): Promise<{
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the most recent score entry (ordered by created_at, not by score)
+    // Get the most recent score entry (ordered by updated_at, not created_at or score)
     const { data: recentScores, error } = await supabase
       .from("donut_dash_scores")
       .select("*")
-      .order("created_at", { ascending: false })
+      .order("updated_at", { ascending: false })
       .limit(1);
 
     if (error) {
@@ -57,13 +57,13 @@ export async function GET(request: NextRequest) {
     
     if (recentScores && recentScores.length > 0) {
       const recent = recentScores[0];
-      const profile = await getProfile(recent.address);
+      const profile = await getProfile(recent.wallet_address);
       
       recentPlayer = {
-        username: profile?.username || recent.username || `${recent.address.slice(0, 6)}...${recent.address.slice(-4)}`,
+        username: profile?.username || recent.username || `${recent.wallet_address.slice(0, 6)}...${recent.wallet_address.slice(-4)}`,
         score: recent.score,
         pfpUrl: profile?.pfpUrl || recent.pfp_url || null,
-        address: recent.address,
+        address: recent.wallet_address,
       };
     }
 
