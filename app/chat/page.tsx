@@ -54,14 +54,10 @@ type FarcasterProfile = {
   neynarScore: number | null;
 };
 
-type TipToken = "donut" | "sprinkles";
-
 type TipSettings = {
-  token: TipToken;
   amount: string;
 };
 
-const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as `0x${string}`;
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as `0x${string}`;
 
 const ERC20_ABI = [
@@ -123,11 +119,10 @@ const timeAgo = (timestamp: bigint) => {
 };
 
 const DEFAULT_TIP_SETTINGS: TipSettings = {
-  token: "donut",
   amount: "1",
 };
 
-const PRESET_AMOUNTS = ["1", "5", "10", "25", "50", "100"];
+const PRESET_AMOUNTS = ["1", "10", "100"];
 
 // Game route mapping for click navigation
 const GAME_ROUTES: Record<string, string> = {
@@ -174,6 +169,7 @@ export default function ChatPage() {
   const [currentMultiplier, setCurrentMultiplier] = useState(getCurrentMultiplier());
   const [timeUntilHalving, setTimeUntilHalving] = useState(getTimeUntilNextHalving());
   const [tippingMessageHash, setTippingMessageHash] = useState<string | null>(null);
+  const [flamingGameId, setFlamingGameId] = useState<number | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 1, bottom: 1 });
   const [isChatExpanded, setIsChatExpanded] = useState(true);
   const [buttonPosition, setButtonPosition] = useState<'left' | 'right'>(() => {
@@ -189,10 +185,10 @@ export default function ChatPage() {
   const buttonContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Tip settings state
+  // Tip settings state - now only amount (always SPRINKLES)
   const [tipSettings, setTipSettings] = useState<TipSettings>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('chat-tip-settings');
+      const saved = localStorage.getItem('chat-tip-settings-v2');
       if (saved) {
         try {
           return JSON.parse(saved);
@@ -216,7 +212,7 @@ export default function ChatPage() {
   }, [buttonPosition]);
 
   useEffect(() => {
-    localStorage.setItem('chat-tip-settings', JSON.stringify(tipSettings));
+    localStorage.setItem('chat-tip-settings-v2', JSON.stringify(tipSettings));
   }, [tipSettings]);
 
   const COOLDOWN_SECONDS = 30;
@@ -226,6 +222,10 @@ export default function ChatPage() {
 
   const { data: tipHash, writeContract: writeTip, isPending: isTipPending, reset: resetTip } = useWriteContract();
   const { isLoading: isTipConfirming, isSuccess: isTipSuccess } = useWaitForTransactionReceipt({ hash: tipHash });
+
+  // Separate contract call for flame tips
+  const { data: flameHash, writeContract: writeFlame, isPending: isFlamePending, reset: resetFlame } = useWriteContract();
+  const { isLoading: isFlameConfirming, isSuccess: isFlameSuccess } = useWaitForTransactionReceipt({ hash: flameHash });
 
   // Handle scroll fade
   useEffect(() => {
@@ -426,6 +426,7 @@ export default function ChatPage() {
   const tipCounts = tipCountsData?.tips || {};
   const profiles = profilesData?.profiles || {};
 
+  // Handle tip success for chat messages
   useEffect(() => {
     if (isTipSuccess && tippingMessageHash) {
       const recordTip = async () => {
@@ -440,7 +441,7 @@ export default function ChatPage() {
                 fromAddress: address,
                 toAddress: msg.sender,
                 amount: tipSettings.amount,
-                token: tipSettings.token,
+                token: "sprinkles",
               }),
             });
             refetchTipCounts();
@@ -454,6 +455,33 @@ export default function ChatPage() {
       resetTip();
     }
   }, [isTipSuccess, tippingMessageHash, resetTip, refetchTipCounts, messages, address, tipSettings]);
+
+  // Handle flame tip success
+  useEffect(() => {
+    if (isFlameSuccess && flamingGameId !== null) {
+      const recordFlame = async () => {
+        try {
+          // Record the flame in the database
+          await fetch("/api/chat/flames", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              gameAnnouncementId: flamingGameId,
+              userAddress: address,
+              action: "add",
+              tipAmount: tipSettings.amount,
+            }),
+          });
+          refetchFlames();
+        } catch (e) {
+          console.error("Failed to record flame:", e);
+        }
+      };
+      recordFlame();
+      setFlamingGameId(null);
+      resetFlame();
+    }
+  }, [isFlameSuccess, flamingGameId, resetFlame, refetchFlames, address, tipSettings]);
 
   const recordPoints = useCallback(async () => {
     if (!address) return;
@@ -540,12 +568,11 @@ export default function ChatPage() {
       await sdk.haptics.impactOccurred("light");
     } catch {}
     
-    const tokenAddress = tipSettings.token === "donut" ? DONUT_ADDRESS : SPRINKLES_ADDRESS;
     const amount = parseUnits(tipSettings.amount, 18);
     
     setTippingMessageHash(messageHash);
     writeTip({
-      address: tokenAddress,
+      address: SPRINKLES_ADDRESS,
       abi: ERC20_ABI,
       functionName: "transfer",
       args: [recipientAddress as `0x${string}`, amount],
@@ -569,55 +596,35 @@ export default function ChatPage() {
     }
   };
 
-  const handleFlame = async (gameId: number, e: React.MouseEvent) => {
+  const handleFlame = async (gameId: number, playerAddress: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent navigation when clicking flame
     
-    if (!address) return; // Need wallet connected to flame
+    if (!address || !isConnected) return; // Need wallet connected to flame
+    if (playerAddress.toLowerCase() === address.toLowerCase()) return; // Can't flame yourself
+    if (userFlamedIds.has(gameId)) return; // Already flamed
+    if (isFlamePending || isFlameConfirming) return; // Already processing a flame
     
     try {
       await sdk.haptics.impactOccurred("light");
     } catch {}
     
-    const hasFlamed = userFlamedIds.has(gameId);
-    const action = hasFlamed ? "remove" : "add";
-    
     // Optimistic update
-    if (hasFlamed) {
-      setUserFlamedIds(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(gameId);
-        return newSet;
-      });
-      setGameFlames(prev => ({
-        ...prev,
-        [gameId]: Math.max(0, (prev[gameId] || 1) - 1)
-      }));
-    } else {
-      setUserFlamedIds(prev => new Set(prev).add(gameId));
-      setGameFlames(prev => ({
-        ...prev,
-        [gameId]: (prev[gameId] || 0) + 1
-      }));
-    }
+    setUserFlamedIds(prev => new Set(prev).add(gameId));
+    setGameFlames(prev => ({
+      ...prev,
+      [gameId]: (prev[gameId] || 0) + 1
+    }));
     
-    // Call API
-    try {
-      await fetch("/api/chat/flames", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          gameAnnouncementId: gameId,
-          userAddress: address,
-          action,
-        }),
-      });
-      // Refetch to sync with server
-      refetchFlames();
-    } catch (error) {
-      console.error("Failed to update flame:", error);
-      // Revert optimistic update on error
-      refetchFlames();
-    }
+    // Send SPRINKLES tip to the player
+    const amount = parseUnits(tipSettings.amount, 18);
+    setFlamingGameId(gameId);
+    
+    writeFlame({
+      address: SPRINKLES_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "transfer",
+      args: [playerAddress as `0x${string}`, amount],
+    });
   };
 
   // Track previous feed item count for smart scrolling
@@ -708,12 +715,11 @@ export default function ChatPage() {
     if (isNaN(parsed) || parsed <= 0) {
       return;
     }
-    setTipSettings({ ...tempTipSettings, amount: finalAmount });
+    setTipSettings({ amount: finalAmount });
     setShowTipSettings(false);
   };
 
   const rewardsEnded = currentMultiplier === 0;
-  const tipTokenName = tipSettings.token === "donut" ? "DONUT" : "SPRINKLES";
 
   return (
     <main className="flex h-[100dvh] w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -778,7 +784,7 @@ export default function ChatPage() {
                 <Settings className="w-4 h-4 text-white" />
                 <span className="text-xs font-semibold text-white">Tip Settings</span>
                 <span className="text-[9px] text-gray-400 flex items-center gap-0.5">
-                  {tipSettings.token === "donut" ? "🍩" : <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />}
+                  <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
                   {tipSettings.amount}
                 </span>
               </div>
@@ -841,7 +847,7 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Tip Settings Dialog */}
+          {/* Tip Settings Dialog - Simplified for SPRINKLES only */}
           {showTipSettings && (
             <div className="fixed inset-0 z-50">
               <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowTipSettings(false)} />
@@ -851,41 +857,13 @@ export default function ChatPage() {
                     <X className="h-4 w-4" />
                   </button>
                   <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-                    <Heart className="w-4 h-4 text-amber-400" />
-                    Tip Settings
+                    <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                    Tip & Flame Settings
                   </h2>
                   
-                  {/* Token Selection */}
-                  <div className="mb-4">
-                    <label className="text-xs text-gray-400 uppercase tracking-wider mb-2 block">Token</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => setTempTipSettings({ ...tempTipSettings, token: "donut" })}
-                        className={cn(
-                          "flex items-center justify-center gap-2 p-3 rounded-xl border transition-all",
-                          tempTipSettings.token === "donut"
-                            ? "border-amber-500 bg-amber-500/10 text-amber-400"
-                            : "border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600"
-                        )}
-                      >
-                        <span className="text-lg">🍩</span>
-                        <span className="text-sm font-semibold">DONUT</span>
-                        {tempTipSettings.token === "donut" && <Check className="w-4 h-4" />}
-                      </button>
-                      <button
-                        onClick={() => setTempTipSettings({ ...tempTipSettings, token: "sprinkles" })}
-                        className={cn(
-                          "flex items-center justify-center gap-2 p-3 rounded-xl border transition-all",
-                          tempTipSettings.token === "sprinkles"
-                            ? "border-amber-500 bg-amber-500/10 text-amber-400"
-                            : "border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600"
-                        )}
-                      >
-                        <Sparkles className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                        <span className="text-sm font-semibold">SPRINKLES</span>
-                        {tempTipSettings.token === "sprinkles" && <Check className="w-4 h-4" />}
-                      </button>
-                    </div>
+                  {/* Info text */}
+                  <div className="mb-4 text-xs text-gray-400">
+                    Set how much SPRINKLES to send when tipping messages or flaming game scores.
                   </div>
 
                   {/* Amount Selection */}
@@ -896,16 +874,17 @@ export default function ChatPage() {
                         <button
                           key={amt}
                           onClick={() => {
-                            setTempTipSettings({ ...tempTipSettings, amount: amt });
+                            setTempTipSettings({ amount: amt });
                             setCustomAmount("");
                           }}
                           className={cn(
-                            "p-2 rounded-lg border text-sm font-semibold transition-all",
+                            "p-3 rounded-lg border text-sm font-semibold transition-all flex items-center justify-center gap-1",
                             tempTipSettings.amount === amt && !customAmount
                               ? "border-amber-500 bg-amber-500/10 text-amber-400"
                               : "border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600"
                           )}
                         >
+                          <Sparkles className="w-3 h-3" />
                           {amt}
                         </button>
                       ))}
@@ -937,8 +916,12 @@ export default function ChatPage() {
                     <div className="flex items-center gap-2">
                       <Heart className="w-5 h-5 text-amber-400 fill-amber-400/50" />
                       <span className="text-base font-bold text-white flex items-center gap-1">
-                        {customAmount || tempTipSettings.amount} {tempTipSettings.token === "donut" ? "🍩 DONUT" : <><Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" /> SPRINKLES</>}
+                        {customAmount || tempTipSettings.amount} <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" /> SPRINKLES
                       </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Flame className="w-5 h-5 text-orange-400 fill-orange-400/50" />
+                      <span className="text-xs text-gray-400">Flames also send this amount!</span>
                     </div>
                   </div>
 
@@ -982,6 +965,8 @@ export default function ChatPage() {
                     const avatarUrl = gameItem.pfpUrl || profile?.pfpUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${gameItem.playerAddress.toLowerCase()}`;
                     const flameCount = gameFlames[gameItem.id] || 0;
                     const hasFlamed = userFlamedIds.has(gameItem.id);
+                    const isOwnGame = address?.toLowerCase() === gameItem.playerAddress.toLowerCase();
+                    const isFlaming = flamingGameId === gameItem.id;
                     
                     return (
                       <div
@@ -1011,23 +996,32 @@ export default function ChatPage() {
                           </div>
                         </button>
                         <div className="text-[10px] text-gray-600 flex-shrink-0">{timeAgo(gameItem.timestamp)}</div>
-                        <button
-                          onClick={(e) => handleFlame(gameItem.id, e)}
-                          disabled={!isConnected}
-                          className={`flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px] rounded-lg transition-all ${
-                            hasFlamed ? "bg-orange-500/20" : 
-                            flameCount > 0 ? "bg-orange-500/10" : 
-                            !isConnected ? "opacity-50" : "hover:bg-orange-500/10"
-                          }`}
-                          title={isConnected ? "Give flames!" : "Connect wallet to flame"}
-                        >
-                          <Flame className={`w-4 h-4 transition-colors ${
-                            hasFlamed ? "text-orange-400 fill-orange-400" : 
-                            flameCount > 0 ? "text-orange-400 fill-orange-400/30" : 
-                            !isConnected ? "text-gray-600" : "text-gray-500 hover:text-orange-400"
-                          }`} />
-                          <span className={`text-[9px] font-bold text-orange-400 h-3 ${flameCount > 0 ? "opacity-100" : "opacity-0"}`}>{flameCount || 0}</span>
-                        </button>
+                        {!isOwnGame && isConnected && (
+                          <button
+                            onClick={(e) => handleFlame(gameItem.id, gameItem.playerAddress, e)}
+                            disabled={hasFlamed || isFlamePending || isFlameConfirming}
+                            className={`flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px] rounded-lg transition-all ${
+                              isFlaming ? "bg-orange-500/30 animate-pulse" :
+                              hasFlamed ? "bg-orange-500/20" : 
+                              flameCount > 0 ? "bg-orange-500/10" : 
+                              "hover:bg-orange-500/10"
+                            }`}
+                            title={hasFlamed ? "Already flamed!" : `Flame with ${tipSettings.amount} SPRINKLES`}
+                          >
+                            <Flame className={`w-4 h-4 transition-colors ${
+                              hasFlamed ? "text-orange-400 fill-orange-400" : 
+                              flameCount > 0 ? "text-orange-400 fill-orange-400/30" : 
+                              "text-gray-500 hover:text-orange-400"
+                            }`} />
+                            <span className={`text-[9px] font-bold text-orange-400 h-3 ${flameCount > 0 ? "opacity-100" : "opacity-0"}`}>{flameCount || 0}</span>
+                          </button>
+                        )}
+                        {isOwnGame && flameCount > 0 && (
+                          <div className="flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px]">
+                            <Flame className="w-4 h-4 text-orange-400 fill-orange-400" />
+                            <span className="text-[9px] font-bold text-orange-400 h-3">{flameCount}</span>
+                          </div>
+                        )}
                       </div>
                     );
                   }
@@ -1059,7 +1053,7 @@ export default function ChatPage() {
                         <p className="text-xs text-gray-300 break-words">{msg.message}</p>
                       </div>
                       {!isOwnMessage && isConnected && (
-                        <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={isTipPending || isTipConfirming} className={`flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px] rounded-lg transition-all ${isTipping ? "bg-amber-500/20" : tipCount > 0 ? "bg-amber-500/10" : "hover:bg-amber-500/10"}`} title={`Tip ${tipSettings.amount} ${tipTokenName}`}>
+                        <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={isTipPending || isTipConfirming} className={`flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px] rounded-lg transition-all ${isTipping ? "bg-amber-500/20" : tipCount > 0 ? "bg-amber-500/10" : "hover:bg-amber-500/10"}`} title={`Tip ${tipSettings.amount} SPRINKLES`}>
                           <Heart className={`w-4 h-4 transition-colors ${isTipping ? "text-amber-400 animate-pulse fill-amber-400" : tipCount > 0 ? "text-amber-400 fill-amber-400/50" : "text-gray-500 hover:text-amber-400"}`} />
                           <span className={`text-[9px] font-bold text-amber-400 h-3 ${tipCount > 0 ? "opacity-100" : "opacity-0"}`}>{tipCount || 0}</span>
                         </button>
@@ -1134,7 +1128,7 @@ export default function ChatPage() {
                     <div className="mb-2 bg-amber-500/10 border border-amber-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
                       <Heart className="w-4 h-4 text-amber-400 animate-pulse" />
                       <span className="text-xs text-amber-400 flex items-center gap-1">
-                        {isTipPending ? "Confirm tip in wallet..." : <>Sending {tipSettings.amount} {tipSettings.token === "donut" ? "🍩 DONUT" : <><Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.8)]" /> SPRINKLES</>}...</>}
+                        {isTipPending ? "Confirm tip in wallet..." : <>Sending {tipSettings.amount} <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.8)]" /> SPRINKLES...</>}
                       </span>
                     </div>
                   )}
@@ -1142,7 +1136,23 @@ export default function ChatPage() {
                     <div className="mb-2 bg-green-500/10 border border-green-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
                       <Heart className="w-4 h-4 text-green-400 fill-green-400" />
                       <span className="text-xs text-green-400 flex items-center gap-1">
-                        Tip sent! {tipSettings.token === "donut" ? "🍩" : <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.8)]" />}
+                        Tip sent! <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.8)]" />
+                      </span>
+                    </div>
+                  )}
+                  {(isFlamePending || isFlameConfirming) && (
+                    <div className="mb-2 bg-orange-500/10 border border-orange-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
+                      <Flame className="w-4 h-4 text-orange-400 animate-pulse" />
+                      <span className="text-xs text-orange-400 flex items-center gap-1">
+                        {isFlamePending ? "Confirm flame in wallet..." : <>Sending {tipSettings.amount} <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.8)]" /> SPRINKLES...</>}
+                      </span>
+                    </div>
+                  )}
+                  {isFlameSuccess && (
+                    <div className="mb-2 bg-green-500/10 border border-green-500/30 rounded-xl p-2 flex items-center justify-center gap-2">
+                      <Flame className="w-4 h-4 text-green-400 fill-green-400" />
+                      <span className="text-xs text-green-400 flex items-center gap-1">
+                        Flamed! <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.8)]" />
                       </span>
                     </div>
                   )}
