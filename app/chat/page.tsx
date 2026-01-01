@@ -1014,7 +1014,7 @@ export default function ChatPage() {
                         <button
                           onClick={(e) => handleFlame(gameItem.id, e)}
                           disabled={!isConnected}
-                          className={`flex-shrink-0 flex flex-col items-center justify-center min-w-[32px] p-1 rounded-lg transition-all ${
+                          className={`flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px] rounded-lg transition-all ${
                             hasFlamed ? "bg-orange-500/20" : 
                             flameCount > 0 ? "bg-orange-500/10" : 
                             !isConnected ? "opacity-50" : "hover:bg-orange-500/10"
@@ -1026,7 +1026,7 @@ export default function ChatPage() {
                             flameCount > 0 ? "text-orange-400 fill-orange-400/30" : 
                             !isConnected ? "text-gray-600" : "text-gray-500 hover:text-orange-400"
                           }`} />
-                          {flameCount > 0 && <span className="text-[9px] font-bold text-orange-400 mt-0.5">{flameCount}</span>}
+                          <span className={`text-[9px] font-bold text-orange-400 h-3 ${flameCount > 0 ? "opacity-100" : "opacity-0"}`}>{flameCount || 0}</span>
                         </button>
                       </div>
                     );
@@ -1059,15 +1059,15 @@ export default function ChatPage() {
                         <p className="text-xs text-gray-300 break-words">{msg.message}</p>
                       </div>
                       {!isOwnMessage && isConnected && (
-                        <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={isTipPending || isTipConfirming} className={`flex-shrink-0 flex flex-col items-center justify-center min-w-[32px] p-1 rounded-lg transition-all ${isTipping ? "bg-amber-500/20" : tipCount > 0 ? "bg-amber-500/10" : "hover:bg-amber-500/10"}`} title={`Tip ${tipSettings.amount} ${tipTokenName}`}>
+                        <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={isTipPending || isTipConfirming} className={`flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px] rounded-lg transition-all ${isTipping ? "bg-amber-500/20" : tipCount > 0 ? "bg-amber-500/10" : "hover:bg-amber-500/10"}`} title={`Tip ${tipSettings.amount} ${tipTokenName}`}>
                           <Heart className={`w-4 h-4 transition-colors ${isTipping ? "text-amber-400 animate-pulse fill-amber-400" : tipCount > 0 ? "text-amber-400 fill-amber-400/50" : "text-gray-500 hover:text-amber-400"}`} />
-                          {tipCount > 0 && <span className="text-[9px] font-bold text-amber-400 mt-0.5">{tipCount}</span>}
+                          <span className={`text-[9px] font-bold text-amber-400 h-3 ${tipCount > 0 ? "opacity-100" : "opacity-0"}`}>{tipCount || 0}</span>
                         </button>
                       )}
                       {isOwnMessage && tipCount > 0 && (
-                        <div className="flex-shrink-0 flex flex-col items-center justify-center min-w-[32px] p-1">
+                        <div className="flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px]">
                           <Heart className="w-4 h-4 text-amber-400 fill-amber-400/50" />
-                          <span className="text-[9px] font-bold text-amber-400 mt-0.5">{tipCount}</span>
+                          <span className="text-[9px] font-bold text-amber-400 h-3">{tipCount}</span>
                         </div>
                       )}
                     </div>
