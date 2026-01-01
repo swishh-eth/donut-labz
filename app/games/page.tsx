@@ -621,28 +621,21 @@ export default function GamesPage() {
     const fetchDashData = async () => {
       setIsLoadingDash(true);
       try {
-        // Fetch prize pool from distribute endpoint
-        const prizeRes = await fetch('/api/games/donut-dash/distribute');
-        if (prizeRes.ok) {
-          const prizeData = await prizeRes.json();
-          const poolValue = prizeData.prizePoolFormatted?.replace(' DONUT', '') || "0";
-          setDashPrizePool(poolValue);
-        }
-        
-        // Fetch most recent score from leaderboard
-        const res = await fetch('/api/games/donut-dash/leaderboard');
+        // Try to fetch from recent endpoint first (like Flappy Donut)
+        const res = await fetch('/api/games/donut-dash/recent');
         if (res.ok) {
           const data = await res.json();
-          // Find the most recent entry by looking at all entries
-          if (data.leaderboard && data.leaderboard.length > 0) {
-            // The leaderboard is sorted by score, but we want most recent
-            // For now just show the top scorer as "recent" since we don't have timestamp
-            const recent = data.leaderboard[0];
-            setDashRecentPlayer({
-              username: recent.username || recent.displayName || `${recent.address?.slice(0,6)}...`,
-              score: recent.score,
-              pfpUrl: recent.pfpUrl,
-            });
+          if (data.recentPlayer) {
+            setDashRecentPlayer(data.recentPlayer);
+          }
+          setDashPrizePool(data.prizePool || "0");
+        } else {
+          // Fallback to distribute endpoint for prize pool
+          const prizeRes = await fetch('/api/games/donut-dash/distribute');
+          if (prizeRes.ok) {
+            const prizeData = await prizeRes.json();
+            const poolValue = prizeData.prizePoolFormatted?.replace(' DONUT', '') || "0";
+            setDashPrizePool(poolValue);
           }
         }
       } catch (e) {

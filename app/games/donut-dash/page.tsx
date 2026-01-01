@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Play, Share2, X, HelpCircle, Volume2, VolumeX, Trophy, Zap, ChevronRight, Clock } from "lucide-react";
+import { Play, Share2, X, HelpCircle, Volume2, VolumeX, Trophy, Zap, ChevronRight, Clock, Palette, Lock, Crown, Sparkles, Check } from "lucide-react";
 import { parseUnits } from "viem";
 
 // Contract addresses
@@ -44,6 +44,36 @@ const BASE_SPEED = 4;
 const MAX_SPEED = 8;
 const SPEED_INCREMENT = 0.0005;
 
+// Skin type definitions
+type SkinTier = 'common' | 'rare' | 'epic' | 'legendary' | 'default';
+
+interface GameSkin {
+  id: string;
+  name: string;
+  frostingColor: string;
+  tier: SkinTier;
+  animated?: boolean;
+  animationType?: 'rainbow' | 'glow' | 'pulse' | 'sparkle';
+  requirement?: { type: string; value: number };
+}
+
+// Default skin (always available)
+const DEFAULT_SKIN: GameSkin = {
+  id: 'default',
+  name: 'Classic Pink',
+  frostingColor: '#FF69B4',
+  tier: 'default',
+};
+
+// All Donut Dash achievement skins
+const DASH_SKINS: GameSkin[] = [
+  DEFAULT_SKIN,
+  { id: 'dash-bronze', name: 'Jetpack Novice', frostingColor: '#3B82F6', tier: 'common', requirement: { type: 'games_played', value: 25 } },
+  { id: 'dash-silver', name: 'Speed Demon', frostingColor: '#F97316', tier: 'rare', requirement: { type: 'games_played', value: 50 } },
+  { id: 'dash-epic', name: 'Rocket Rider', frostingColor: '#EF4444', tier: 'epic', animated: true, animationType: 'pulse', requirement: { type: 'games_played', value: 100 } },
+  { id: 'dash-gold', name: 'Cosmic Cruiser', frostingColor: '#EC4899', tier: 'legendary', animated: true, animationType: 'sparkle', requirement: { type: 'high_score', value: 1000 } },
+];
+
 // Types
 type ObstacleType = 'zapper_h' | 'zapper_v' | 'zapper_diag';
 type PaymentState = 'idle' | 'fetching' | 'approving' | 'paying' | 'recording' | 'error';
@@ -59,6 +89,37 @@ const initialsFrom = (label?: string) => {
   if (!label) return "";
   const stripped = label.replace(/[^a-zA-Z0-9]/g, "");
   return stripped ? stripped.slice(0, 2).toUpperCase() : label.slice(0, 2).toUpperCase();
+};
+
+// Color conversion helpers for animations
+const hexToHsl = (hex: string): [number, number, number] => {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return [h * 360, s * 100, l * 100];
+};
+
+const hslToHex = (h: number, s: number, l: number): string => {
+  s /= 100; l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
 };
 
 // Calculate time until next Friday 11PM UTC
@@ -84,26 +145,13 @@ function getTimeUntilReset(): string {
 function getTimeUntilCostReset(): string {
   const now = new Date();
   const utcNow = new Date(now.toUTCString());
-  
-  // Find next 11PM UTC
   const nextReset = new Date(utcNow);
   nextReset.setUTCHours(23, 0, 0, 0);
-  
-  // If it's already past 11PM UTC today, go to tomorrow
-  if (utcNow.getUTCHours() >= 23) {
-    nextReset.setUTCDate(nextReset.getUTCDate() + 1);
-  }
-  
+  if (utcNow.getUTCHours() >= 23) nextReset.setUTCDate(nextReset.getUTCDate() + 1);
   const diff = nextReset.getTime() - utcNow.getTime();
-  
   const hours = Math.floor(diff / (1000 * 60 * 60));
   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  } else {
-    return `${minutes}m`;
-  }
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
 // Prize distribution percentages for top 10
@@ -121,9 +169,17 @@ export default function DonutDashPage() {
   const [highScore, setHighScore] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showSkins, setShowSkins] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
   const [costResetCountdown, setCostResetCountdown] = useState<string>(getTimeUntilCostReset());
+  
+  // Skin state
+  const [isPremium, setIsPremium] = useState(false);
+  const [unlockedSkins, setUnlockedSkins] = useState<string[]>(['default']);
+  const [selectedSkin, setSelectedSkin] = useState<GameSkin>(DEFAULT_SKIN);
+  const [previewSkin, setPreviewSkin] = useState<GameSkin | null>(null);
+  const [userStats, setUserStats] = useState<{ gamesPlayed: number; highScore: number; totalScore: number }>({ gamesPlayed: 0, highScore: 0, totalScore: 0 });
   
   // Payment state
   const [paymentState, setPaymentState] = useState<PaymentState>('idle');
@@ -131,7 +187,7 @@ export default function DonutDashPage() {
   const [entryFeeFormatted, setEntryFeeFormatted] = useState("1.0");
   const [playCount, setPlayCount] = useState(0);
   const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
-  const currentEntryIdRef = useRef<string | null>(null); // Ref to avoid stale closure
+  const currentEntryIdRef = useRef<string | null>(null);
   const [currentWeek, setCurrentWeek] = useState(1);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
@@ -152,11 +208,40 @@ export default function DonutDashPage() {
   const gameActiveRef = useRef(false);
   const frameCountRef = useRef(0);
   const bgElementsRef = useRef<{ x: number; y: number; type: string; speed: number; height?: number }[]>([]);
-  const hasStartedFlyingRef = useRef(false); // Track if player has made first tap  
+  const hasStartedFlyingRef = useRef(false);
+  
   // Audio refs
   const audioContextRef = useRef<AudioContext | null>(null);
   const thrustOscRef = useRef<OscillatorNode | null>(null);
   const thrustGainRef = useRef<GainNode | null>(null);
+
+  // Get donut color with animation support
+  const getDonutColor = useCallback(() => {
+    const skin = selectedSkin;
+    let color = skin.frostingColor;
+    
+    if (skin.animated) {
+      const time = Date.now();
+      if (skin.animationType === 'pulse') {
+        const pulseAmount = Math.sin(time / 300) * 0.15;
+        const [h, s, l] = hexToHsl(skin.frostingColor);
+        color = hslToHex(h, s, Math.min(100, l + pulseAmount * 20));
+      } else if (skin.animationType === 'sparkle') {
+        const sparkleOffset = Math.sin(time / 100) * 0.3;
+        const [h, s, l] = hexToHsl(skin.frostingColor);
+        color = hslToHex(h, s, Math.min(100, l + sparkleOffset * 30));
+      } else if (skin.animationType === 'rainbow') {
+        const hueShift = (time / 20) % 360;
+        const [, s, l] = hexToHsl(skin.frostingColor);
+        color = hslToHex(hueShift, s, l);
+      } else if (skin.animationType === 'glow') {
+        const glowAmount = Math.sin(time / 200) * 0.2;
+        const [h, s, l] = hexToHsl(skin.frostingColor);
+        color = hslToHex(h, s, Math.min(100, l + glowAmount * 25));
+      }
+    }
+    return color;
+  }, [selectedSkin]);
 
   // Contract reads
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
@@ -193,6 +278,34 @@ export default function DonutDashPage() {
     const interval = setInterval(updateCountdown, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch skin data from API
+  useEffect(() => {
+    if (!address) return;
+    const fetchSkinData = async () => {
+      try {
+        const res = await fetch(`/api/games/skin-market/user-data?address=${address}`);
+        if (res.ok) {
+          const data = await res.json();
+          setIsPremium(data.isPremium || false);
+          const unlocked = ['default', ...(data.unlockedSkins || [])];
+          setUnlockedSkins(unlocked);
+          if (data.equippedSkin) {
+            const equippedSkinData = DASH_SKINS.find(s => s.id === data.equippedSkin);
+            if (equippedSkinData && unlocked.includes(data.equippedSkin)) {
+              setSelectedSkin(equippedSkinData);
+            }
+          }
+          if (data.stats && data.stats['donut-dash']) {
+            setUserStats(data.stats['donut-dash']);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch skin data:", e);
+      }
+    };
+    fetchSkinData();
+  }, [address]);
 
   // Fetch entry fee from API
   const fetchEntryFee = useCallback(async () => {
@@ -231,6 +344,64 @@ export default function DonutDashPage() {
     }
   }, [context?.user?.fid]);
 
+  // Skin handlers
+  const handleSelectSkin = async (skin: GameSkin) => {
+    if (!address || !unlockedSkins.includes(skin.id)) return;
+    setSelectedSkin(skin);
+    if (skin.id !== 'default') {
+      try {
+        await fetch('/api/games/skin-market/equip-skin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: address.toLowerCase(), skinId: skin.id }),
+        });
+      } catch (e) {
+        console.error("Failed to equip skin:", e);
+      }
+    }
+  };
+
+  const handleClaimSkin = async (skin: GameSkin) => {
+    if (!address || !isPremium) return;
+    try {
+      const res = await fetch('/api/games/skin-market/claim-skin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: address.toLowerCase(), skinId: skin.id }),
+      });
+      if (res.ok) {
+        setUnlockedSkins(prev => [...prev, skin.id]);
+        setSelectedSkin(skin);
+      }
+    } catch (e) {
+      console.error("Failed to claim skin:", e);
+    }
+  };
+
+  const canClaimSkin = (skin: GameSkin): boolean => {
+    if (!skin.requirement || !isPremium) return false;
+    if (skin.requirement.type === 'games_played') return userStats.gamesPlayed >= skin.requirement.value;
+    if (skin.requirement.type === 'high_score') return userStats.highScore >= skin.requirement.value;
+    return false;
+  };
+
+  const getSkinProgress = (skin: GameSkin): { current: number; target: number } => {
+    if (!skin.requirement) return { current: 0, target: 0 };
+    if (skin.requirement.type === 'games_played') return { current: userStats.gamesPlayed, target: skin.requirement.value };
+    if (skin.requirement.type === 'high_score') return { current: userStats.highScore, target: skin.requirement.value };
+    return { current: 0, target: 0 };
+  };
+
+  const getTierColor = (tier: SkinTier) => {
+    switch (tier) {
+      case 'legendary': return 'bg-yellow-500';
+      case 'epic': return 'bg-cyan-500';
+      case 'rare': return 'bg-purple-500';
+      case 'common': return 'bg-zinc-600';
+      default: return 'bg-zinc-700';
+    }
+  };
+
   // Submit score to API
   const submitScore = useCallback(async (finalScore: number) => {
     const entryId = currentEntryIdRef.current;
@@ -238,27 +409,27 @@ export default function DonutDashPage() {
       console.error("Cannot submit score: missing entryId or fid", { entryId, fid: context?.user?.fid });
       return;
     }
-    console.log("Submitting score:", { entryId, score: finalScore, fid: context.user.fid });
     try {
       const res = await fetch("/api/games/donut-dash/submit-score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          entryId,
-          score: finalScore,
-          fid: context.user.fid,
-        }),
+        body: JSON.stringify({ entryId, score: finalScore, fid: context.user.fid }),
       });
       const data = await res.json();
-      console.log("Score submission response:", data);
       if (data.success) {
         setUserRank(data.rank);
         if (data.isPersonalBest) setUserBestScore(finalScore);
       }
+      // Refresh skin data after game
+      if (address) {
+        fetch(`/api/games/skin-market/user-data?address=${address}`).then(r => r.json()).then(data => {
+          if (data.stats && data.stats['donut-dash']) setUserStats(data.stats['donut-dash']);
+        }).catch(console.error);
+      }
     } catch (error) {
       console.error("Failed to submit score:", error);
     }
-  }, [context?.user?.fid]);
+  }, [context?.user?.fid, address]);
 
   // Record entry to API and start game
   const recordEntryAndStartGame = useCallback(async (hash: string) => {
@@ -281,8 +452,7 @@ export default function DonutDashPage() {
       const data = await res.json();
       if (data.success) {
         setCurrentEntryId(data.entryId);
-        currentEntryIdRef.current = data.entryId; // Update ref for game loop access
-        console.log("Entry recorded with ID:", data.entryId);
+        currentEntryIdRef.current = data.entryId;
         setPaymentState('idle');
         resetWrite();
         refetchPrizePool();
@@ -304,19 +474,14 @@ export default function DonutDashPage() {
       setErrorMessage("Please connect your wallet");
       return;
     }
-
-    // Check balance
     if (!balance || balance < entryFee) {
       setErrorMessage("Insufficient DONUT balance");
       setPaymentState('error');
       return;
     }
-
     setErrorMessage(null);
     setPaymentState('fetching');
     await fetchEntryFee();
-
-    // Check if approval needed
     const currentAllowance = allowance || 0n;
     if (currentAllowance < entryFee) {
       setPaymentState('approving');
@@ -327,7 +492,6 @@ export default function DonutDashPage() {
         args: [PRIZE_POOL_CONTRACT, entryFee * 100n],
       });
     } else {
-      // Already approved, proceed to pay
       setPaymentState('paying');
       writeContract({
         address: PRIZE_POOL_CONTRACT,
@@ -648,11 +812,14 @@ export default function DonutDashPage() {
     const x = PLAYER_X;
     const y = player.y;
     const tilt = Math.max(-0.4, Math.min(0.4, player.velocity * 0.04));
+    const donutColor = getDonutColor();
+    const skin = selectedSkin;
     
     // Motion trail when thrusting
     if (player.isThrusting) {
       for (let i = 3; i > 0; i--) {
-        ctx.fillStyle = `rgba(255, 105, 180, ${0.1 * (4 - i)})`;
+        const [h, s, l] = hexToHsl(donutColor);
+        ctx.fillStyle = `hsla(${h}, ${s}%, ${l}%, ${0.1 * (4 - i)})`;
         ctx.beginPath();
         ctx.arc(x - i * 8, y, PLAYER_SIZE / 2 - i * 2, 0, Math.PI * 2);
         ctx.fill();
@@ -663,38 +830,31 @@ export default function DonutDashPage() {
     ctx.translate(x, y);
     ctx.rotate(tilt);
     
-    // === IMPROVED JETPACK DESIGN ===
-    
-    // Jetpack tank with metallic gradient
+    // Jetpack
     const tankX = -PLAYER_SIZE / 2 - 16;
     const tankY = -12;
     const tankWidth = 14;
     const tankHeight = 28;
     
-    // Tank body gradient (metallic look)
     const tankGradient = ctx.createLinearGradient(tankX, 0, tankX + tankWidth, 0);
     tankGradient.addColorStop(0, '#3a3a3a');
     tankGradient.addColorStop(0.3, '#6a6a6a');
     tankGradient.addColorStop(0.7, '#5a5a5a');
     tankGradient.addColorStop(1, '#2a2a2a');
     
-    // Draw tank with rounded corners
     ctx.fillStyle = tankGradient;
     ctx.beginPath();
     ctx.roundRect(tankX, tankY, tankWidth, tankHeight, 3);
     ctx.fill();
     
-    // Inner tank detail
     ctx.fillStyle = '#4a4a4a';
     ctx.beginPath();
     ctx.roundRect(tankX + 2, tankY + 2, tankWidth - 4, tankHeight - 4, 2);
     ctx.fill();
     
-    // Tank highlight (left edge)
     ctx.fillStyle = '#888';
     ctx.fillRect(tankX + 2, tankY + 2, 2, tankHeight - 4);
     
-    // Tank detail lines (horizontal stripes)
     ctx.strokeStyle = '#666';
     ctx.lineWidth = 0.5;
     ctx.beginPath();
@@ -706,18 +866,14 @@ export default function DonutDashPage() {
     ctx.lineTo(tankX + tankWidth - 3, tankY + 20);
     ctx.stroke();
     
-    // Connector piece (between tank and donut)
     const connectorX = tankX + tankWidth - 2;
     ctx.fillStyle = '#4a4a4a';
     ctx.fillRect(connectorX, -4, 8, 10);
-    
-    // Connector bolt/circle
     ctx.fillStyle = '#333';
     ctx.beginPath();
     ctx.arc(connectorX + 4, 1, 2.5, 0, Math.PI * 2);
     ctx.fill();
     
-    // Nozzle (trapezoid shape at bottom)
     ctx.fillStyle = '#2a2a2a';
     ctx.beginPath();
     ctx.moveTo(tankX + 2, tankY + tankHeight);
@@ -727,7 +883,6 @@ export default function DonutDashPage() {
     ctx.closePath();
     ctx.fill();
     
-    // Nozzle inner
     ctx.fillStyle = '#1a1a1a';
     ctx.beginPath();
     ctx.moveTo(tankX + 3, tankY + tankHeight + 1);
@@ -737,13 +892,12 @@ export default function DonutDashPage() {
     ctx.closePath();
     ctx.fill();
     
-    // Flames (only when thrusting)
+    // Flames
     if (player.isThrusting) {
       const flameBaseY = tankY + tankHeight + 6;
       const flameSize = 18 + Math.sin(frameCountRef.current * 0.6) * 10;
       const flameCenterX = tankX + tankWidth / 2;
       
-      // Outer flame (gold -> orange -> red -> transparent)
       const outerFlameGradient = ctx.createLinearGradient(flameCenterX, flameBaseY, flameCenterX, flameBaseY + flameSize);
       outerFlameGradient.addColorStop(0, '#FFD700');
       outerFlameGradient.addColorStop(0.3, '#FF8C00');
@@ -758,7 +912,6 @@ export default function DonutDashPage() {
       ctx.closePath();
       ctx.fill();
       
-      // Inner flame (white/yellow bright core)
       const innerFlameSize = flameSize * 0.6;
       const innerFlameGradient = ctx.createLinearGradient(flameCenterX, flameBaseY, flameCenterX, flameBaseY + innerFlameSize);
       innerFlameGradient.addColorStop(0, '#FFFFFF');
@@ -774,7 +927,6 @@ export default function DonutDashPage() {
       ctx.closePath();
       ctx.fill();
       
-      // Flame glow
       ctx.shadowColor = '#FF6B00';
       ctx.shadowBlur = 15;
       ctx.beginPath();
@@ -784,19 +936,46 @@ export default function DonutDashPage() {
       ctx.shadowBlur = 0;
     }
     
-    // === DONUT ===
-    ctx.shadowColor = '#FF69B4';
-    ctx.shadowBlur = player.isThrusting ? 25 : 15;
+    // Donut with skin color
+    let glowIntensity = player.isThrusting ? 25 : 15;
+    if (skin.animated && (skin.animationType === 'glow' || skin.animationType === 'pulse')) {
+      glowIntensity = 20 + Math.sin(Date.now() / 200) * 10;
+    }
+    
+    ctx.shadowColor = donutColor;
+    ctx.shadowBlur = glowIntensity;
+    
+    const [h, s, l] = hexToHsl(donutColor);
+    const lightColor = hslToHex(h, s, Math.min(100, l + 20));
+    const darkColor = hslToHex(h, s, Math.max(0, l - 20));
+    const darkerColor = hslToHex(h, s, Math.max(0, l - 35));
+    
     const donutGradient = ctx.createRadialGradient(-3, -3, 0, 0, 0, PLAYER_SIZE / 2);
-    donutGradient.addColorStop(0, '#FFD1DC');
-    donutGradient.addColorStop(0.4, '#FF69B4');
-    donutGradient.addColorStop(0.8, '#FF1493');
-    donutGradient.addColorStop(1, '#C71585');
+    donutGradient.addColorStop(0, lightColor);
+    donutGradient.addColorStop(0.4, donutColor);
+    donutGradient.addColorStop(0.8, darkColor);
+    donutGradient.addColorStop(1, darkerColor);
     ctx.fillStyle = donutGradient;
     ctx.beginPath();
     ctx.arc(0, 0, PLAYER_SIZE / 2, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
+    
+    // Sparkle particles for sparkle animation
+    if (skin.animated && skin.animationType === 'sparkle') {
+      const time = Date.now();
+      for (let i = 0; i < 4; i++) {
+        const angle = (time / 500 + i * Math.PI / 2) % (Math.PI * 2);
+        const dist = PLAYER_SIZE / 2 + 5 + Math.sin(time / 200 + i) * 3;
+        const sparkleX = Math.cos(angle) * dist;
+        const sparkleY = Math.sin(angle) * dist;
+        const sparkleSize = 2 + Math.sin(time / 150 + i * 2) * 1;
+        ctx.beginPath();
+        ctx.arc(sparkleX, sparkleY, sparkleSize, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.5 + Math.sin(time / 100 + i) * 0.3})`;
+        ctx.fill();
+      }
+    }
     
     // Donut hole
     const holeGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, PLAYER_SIZE / 5);
@@ -807,13 +986,13 @@ export default function DonutDashPage() {
     ctx.arc(0, 0, PLAYER_SIZE / 5, 0, Math.PI * 2);
     ctx.fill();
     
-    // Donut highlight
+    // Highlight
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.beginPath();
     ctx.arc(-6, -6, 5, 0, Math.PI * 2);
     ctx.fill();
     
-    // Small sprinkles on donut
+    // Sprinkles
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.save();
     ctx.rotate(-0.3);
@@ -829,7 +1008,7 @@ export default function DonutDashPage() {
     ctx.restore();
     
     ctx.restore();
-  }, []);
+  }, [getDonutColor, selectedSkin]);
 
   const drawObstacles = useCallback((ctx: CanvasRenderingContext2D) => {
     obstaclesRef.current.forEach(obstacle => {
@@ -929,71 +1108,48 @@ export default function DonutDashPage() {
     });
   }, []);
 
-  // Helper function to calculate distance from point to line segment
+  // Collision helpers
   const pointToLineDistance = useCallback((px: number, py: number, x1: number, y1: number, x2: number, y2: number): number => {
     const dx = x2 - x1;
     const dy = y2 - y1;
     const lengthSquared = dx * dx + dy * dy;
-    
-    if (lengthSquared === 0) {
-      return Math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1));
-    }
-    
+    if (lengthSquared === 0) return Math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1));
     let t = ((px - x1) * dx + (py - y1) * dy) / lengthSquared;
     t = Math.max(0, Math.min(1, t));
-    
     const closestX = x1 + t * dx;
     const closestY = y1 + t * dy;
-    
     return Math.sqrt((px - closestX) * (px - closestX) + (py - closestY) * (py - closestY));
   }, []);
 
-  // Collision checks - FIXED: Use proper line-circle collision for all zappers
   const checkCollisions = useCallback((): boolean => {
     const player = playerRef.current;
-    const playerRadius = PLAYER_SIZE / 2 - 5; // collision radius with padding
+    const playerRadius = PLAYER_SIZE / 2 - 5;
     const playerCenterX = PLAYER_X;
     const playerCenterY = player.y;
     
-    // Check boundaries (ceiling and floor)
     if (playerCenterY - playerRadius < 30 || playerCenterY + playerRadius > CANVAS_HEIGHT - 30) return true;
     
     for (const obstacle of obstaclesRef.current) {
       if (obstacle.type === 'zapper_diag' && obstacle.angle) {
-        // For diagonal zappers, check distance to the actual rotated line segment
         const centerX = obstacle.x + obstacle.width / 2;
         const centerY = obstacle.y + obstacle.height / 2;
         const angleRad = (obstacle.angle * Math.PI) / 180;
         const halfLength = obstacle.width / 2;
-        
-        // Calculate actual line segment endpoints after rotation
         const cos = Math.cos(angleRad);
         const sin = Math.sin(angleRad);
         const x1 = centerX - halfLength * cos;
         const y1 = centerY - halfLength * sin;
         const x2 = centerX + halfLength * cos;
         const y2 = centerY + halfLength * sin;
-        
-        // Check distance from player center to line segment
         const dist = pointToLineDistance(playerCenterX, playerCenterY, x1, y1, x2, y2);
-        
-        // Collision if distance is less than player radius + zapper thickness
         if (dist < playerRadius + 10) return true;
       } else if (obstacle.type === 'zapper_h') {
-        // Horizontal zapper - check distance to horizontal line
         const lineY = obstacle.y + obstacle.height / 2;
-        const x1 = obstacle.x;
-        const x2 = obstacle.x + obstacle.width;
-        
-        const dist = pointToLineDistance(playerCenterX, playerCenterY, x1, lineY, x2, lineY);
+        const dist = pointToLineDistance(playerCenterX, playerCenterY, obstacle.x, lineY, obstacle.x + obstacle.width, lineY);
         if (dist < playerRadius + 10) return true;
       } else if (obstacle.type === 'zapper_v') {
-        // Vertical zapper - check distance to vertical line
         const lineX = obstacle.x + obstacle.width / 2;
-        const y1 = obstacle.y;
-        const y2 = obstacle.y + obstacle.height;
-        
-        const dist = pointToLineDistance(playerCenterX, playerCenterY, lineX, y1, lineX, y2);
+        const dist = pointToLineDistance(playerCenterX, playerCenterY, lineX, obstacle.y, lineX, obstacle.y + obstacle.height);
         if (dist < playerRadius + 10) return true;
       }
     }
@@ -1044,7 +1200,6 @@ export default function DonutDashPage() {
     
     const hasStarted = hasStartedFlyingRef.current;
     
-    // Only increase speed and update score after started
     if (hasStarted) {
       speedRef.current = Math.min(speedRef.current + SPEED_INCREMENT * delta, MAX_SPEED);
     }
@@ -1056,7 +1211,6 @@ export default function DonutDashPage() {
     
     const player = playerRef.current;
     
-    // Only apply physics after first tap
     if (hasStarted) {
       if (player.isThrusting) player.velocity += THRUST * delta;
       else player.velocity += GRAVITY * delta;
@@ -1065,7 +1219,6 @@ export default function DonutDashPage() {
       player.y = Math.max(30 + PLAYER_SIZE / 2, Math.min(CANVAS_HEIGHT - 30 - PLAYER_SIZE / 2, player.y));
     }
     
-    // Only move and spawn obstacles/coins after started
     if (hasStarted) {
       obstaclesRef.current.forEach(o => { o.x -= speed * delta; });
       obstaclesRef.current = obstaclesRef.current.filter(o => o.x + o.width > -50);
@@ -1088,23 +1241,21 @@ export default function DonutDashPage() {
     
     if (player.isThrusting && frameCountRef.current % 2 === 0) addThrustParticles();
     
-    drawBackground(ctx, hasStarted ? speed : 0.5); // Slow background scroll before start
+    drawBackground(ctx, hasStarted ? speed : 0.5);
     drawParticles(ctx);
     drawCoins(ctx);
     drawObstacles(ctx);
     drawPlayer(ctx);
     
-    // Draw tap indicator before player has started
     if (!hasStarted) {
       const pulseScale = 1 + Math.sin(frameCountRef.current * 0.1) * 0.15;
       const opacity = 0.6 + Math.sin(frameCountRef.current * 0.08) * 0.3;
-      const ringExpand = (frameCountRef.current % 60) / 60; // 0 to 1 cycle
+      const ringExpand = (frameCountRef.current % 60) / 60;
       
       ctx.save();
       ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 30);
       ctx.globalAlpha = opacity;
       
-      // Outer expanding rings
       for (let i = 0; i < 2; i++) {
         const ringPhase = (ringExpand + i * 0.5) % 1;
         const ringRadius = 20 + ringPhase * 25;
@@ -1116,20 +1267,18 @@ export default function DonutDashPage() {
         ctx.stroke();
       }
       
-      // Center tap circle
       ctx.scale(pulseScale, pulseScale);
       ctx.beginPath();
       ctx.arc(0, 0, 18, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
       ctx.fill();
       
-      // Inner dot
       ctx.beginPath();
       ctx.arc(0, 0, 6, 0, Math.PI * 2);
       ctx.fillStyle = '#1a1a1a';
       ctx.fill();
       
-      ctx.scale(1/pulseScale, 1/pulseScale); // Reset scale for text
+      ctx.scale(1/pulseScale, 1/pulseScale);
       ctx.globalAlpha = 0.9;
       ctx.font = 'bold 14px monospace';
       ctx.fillStyle = '#FFFFFF';
@@ -1139,23 +1288,20 @@ export default function DonutDashPage() {
       ctx.restore();
     }
     
-    // Only check collisions after started
     if (hasStarted) {
       checkCoins();
       if (checkCollisions() || checkGroundBlocks()) {
-        const finalScore = coinsCollectedRef.current; // Get final score from ref
+        const finalScore = coinsCollectedRef.current;
         playCrashSound();
         stopThrustSound();
         gameActiveRef.current = false;
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
         setGameState("gameover");
         setHighScore(prev => Math.max(prev, finalScore));
-        console.log("Game over! Final score:", finalScore);
         submitScore(finalScore);
         fetchEntryFee();
         fetchLeaderboard();
         
-        // Send game announcement to chat (only if score > 0)
         if (finalScore > 0 && address) {
           fetch('/api/chat/game-announce', {
             method: 'POST',
@@ -1167,12 +1313,11 @@ export default function DonutDashPage() {
               gameId: 'donut-dash',
               gameName: 'Donut Dash',
               score: finalScore,
-              skinId: 'classic',
-              skinColor: '#FF69B4',
+              skinId: selectedSkin.id,
+              skinColor: selectedSkin.frostingColor,
             }),
           }).catch(console.error);
         }
-        
         return;
       }
     }
@@ -1189,12 +1334,11 @@ export default function DonutDashPage() {
     }
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawBackground, drawPlayer, drawObstacles, drawCoins, drawParticles, checkCollisions, checkCoins, checkGroundBlocks, spawnObstacle, spawnCoins, spawnGroundBlock, addThrustParticles, playCrashSound, stopThrustSound, submitScore, fetchEntryFee, fetchLeaderboard, address, context]);
+  }, [drawBackground, drawPlayer, drawObstacles, drawCoins, drawParticles, checkCollisions, checkCoins, checkGroundBlocks, spawnObstacle, spawnCoins, spawnGroundBlock, addThrustParticles, playCrashSound, stopThrustSound, submitScore, fetchEntryFee, fetchLeaderboard, address, context, selectedSkin]);
 
-  // Input handlers
   const handleThrustStart = useCallback(() => {
     if (!gameActiveRef.current) return;
-    hasStartedFlyingRef.current = true; // Mark that player has started
+    hasStartedFlyingRef.current = true;
     playerRef.current.isThrusting = true;
     startThrustSound();
   }, [startThrustSound]);
@@ -1204,11 +1348,9 @@ export default function DonutDashPage() {
     stopThrustSound();
   }, [stopThrustSound]);
 
-  // Start game
   const startGame = useCallback(() => {
     initAudioContext();
     initBackground();
-    // Start player on the ground (just above the floor hazard zone)
     const groundY = CANVAS_HEIGHT - 30 - PLAYER_SIZE / 2 - 10;
     playerRef.current = { y: groundY, velocity: 0, isThrusting: false };
     obstaclesRef.current = [];
@@ -1218,7 +1360,7 @@ export default function DonutDashPage() {
     speedRef.current = BASE_SPEED;
     coinsCollectedRef.current = 0;
     frameCountRef.current = 0;
-    hasStartedFlyingRef.current = false; // Reset - waiting for first tap
+    hasStartedFlyingRef.current = false;
     setScore(0);
     setGameState("playing");
     lastFrameTimeRef.current = performance.now();
@@ -1227,7 +1369,6 @@ export default function DonutDashPage() {
     gameLoopRef.current = requestAnimationFrame(gameLoop);
   }, [gameLoop, initAudioContext, initBackground]);
 
-  // Handle share
   const handleShare = useCallback(async () => {
     const miniappUrl = "https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles";
     const castText = `🍩🚀 I collected ${score} sprinkles in Donut Dash!`;
@@ -1297,22 +1438,24 @@ export default function DonutDashPage() {
       const tiltAngle = Math.sin(time * 2) * 0.15;
       const donutX = CANVAS_WIDTH / 2;
       const donutY = (gameState === "gameover" ? 180 : 210) + bounceY;
+      const donutColor = getDonutColor();
+      const skin = selectedSkin;
       
       // Motion trail
       for (let i = 3; i > 0; i--) {
-        ctx.fillStyle = `rgba(255, 105, 180, ${0.12 * (4 - i)})`;
+        const [h, s, l] = hexToHsl(donutColor);
+        ctx.fillStyle = `hsla(${h}, ${s}%, ${l}%, ${0.12 * (4 - i)})`;
         ctx.beginPath(); ctx.arc(donutX - i * 10, donutY, 28 - i * 2, 0, Math.PI * 2); ctx.fill();
       }
       
       ctx.save(); ctx.translate(donutX, donutY); ctx.rotate(tiltAngle);
       
-      // === IMPROVED JETPACK (scaled for menu) ===
+      // Jetpack (menu)
       const tankX = -46;
       const tankY = -14;
       const tankWidth = 18;
       const tankHeight = 34;
       
-      // Tank body gradient
       const menuTankGradient = ctx.createLinearGradient(tankX, 0, tankX + tankWidth, 0);
       menuTankGradient.addColorStop(0, '#3a3a3a');
       menuTankGradient.addColorStop(0.3, '#6a6a6a');
@@ -1324,17 +1467,14 @@ export default function DonutDashPage() {
       ctx.roundRect(tankX, tankY, tankWidth, tankHeight, 4);
       ctx.fill();
       
-      // Inner tank
       ctx.fillStyle = '#4a4a4a';
       ctx.beginPath();
       ctx.roundRect(tankX + 2, tankY + 2, tankWidth - 4, tankHeight - 4, 3);
       ctx.fill();
       
-      // Tank highlight
       ctx.fillStyle = '#888';
       ctx.fillRect(tankX + 2, tankY + 2, 3, tankHeight - 4);
       
-      // Tank stripes
       ctx.strokeStyle = '#666';
       ctx.lineWidth = 0.5;
       ctx.beginPath();
@@ -1346,7 +1486,6 @@ export default function DonutDashPage() {
       ctx.lineTo(tankX + tankWidth - 4, tankY + 24);
       ctx.stroke();
       
-      // Connector
       ctx.fillStyle = '#4a4a4a';
       ctx.fillRect(tankX + tankWidth - 2, -5, 10, 12);
       ctx.fillStyle = '#333';
@@ -1354,7 +1493,6 @@ export default function DonutDashPage() {
       ctx.arc(tankX + tankWidth + 3, 1, 3, 0, Math.PI * 2);
       ctx.fill();
       
-      // Nozzle
       ctx.fillStyle = '#2a2a2a';
       ctx.beginPath();
       ctx.moveTo(tankX + 2, tankY + tankHeight);
@@ -1364,12 +1502,10 @@ export default function DonutDashPage() {
       ctx.closePath();
       ctx.fill();
       
-      // Flames (always on for menu)
       const flameBaseY = tankY + tankHeight + 8;
       const flameSize = 24 + Math.sin(time * 15) * 10;
       const flameCenterX = tankX + tankWidth / 2;
       
-      // Outer flame
       const menuOuterFlame = ctx.createLinearGradient(flameCenterX, flameBaseY, flameCenterX, flameBaseY + flameSize);
       menuOuterFlame.addColorStop(0, '#FFD700');
       menuOuterFlame.addColorStop(0.3, '#FF8C00');
@@ -1384,7 +1520,6 @@ export default function DonutDashPage() {
       ctx.closePath();
       ctx.fill();
       
-      // Inner flame
       const innerFlameSize = flameSize * 0.6;
       const menuInnerFlame = ctx.createLinearGradient(flameCenterX, flameBaseY, flameCenterX, flameBaseY + innerFlameSize);
       menuInnerFlame.addColorStop(0, '#FFFFFF');
@@ -1400,18 +1535,47 @@ export default function DonutDashPage() {
       ctx.closePath();
       ctx.fill();
       
-      // === DONUT ===
-      ctx.shadowColor = '#FF69B4'; ctx.shadowBlur = 25;
+      // Donut with skin color (menu)
+      let glowIntensity = 25;
+      if (skin.animated && (skin.animationType === 'glow' || skin.animationType === 'pulse')) {
+        glowIntensity = 20 + Math.sin(time * 5) * 10;
+      }
+      
+      ctx.shadowColor = donutColor; ctx.shadowBlur = glowIntensity;
+      
+      const [h, s, l] = hexToHsl(donutColor);
+      const lightColor = hslToHex(h, s, Math.min(100, l + 20));
+      const darkColor = hslToHex(h, s, Math.max(0, l - 20));
+      const darkerColor = hslToHex(h, s, Math.max(0, l - 35));
+      
       const donutGradient = ctx.createRadialGradient(-4, -4, 0, 0, 0, 30);
-      donutGradient.addColorStop(0, '#FFD1DC'); donutGradient.addColorStop(0.4, '#FF69B4'); donutGradient.addColorStop(0.8, '#FF1493'); donutGradient.addColorStop(1, '#C71585');
+      donutGradient.addColorStop(0, lightColor);
+      donutGradient.addColorStop(0.4, donutColor);
+      donutGradient.addColorStop(0.8, darkColor);
+      donutGradient.addColorStop(1, darkerColor);
       ctx.fillStyle = donutGradient; ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
+      
+      // Sparkle particles (menu)
+      if (skin.animated && skin.animationType === 'sparkle') {
+        for (let i = 0; i < 4; i++) {
+          const angle = (time * 2 + i * Math.PI / 2) % (Math.PI * 2);
+          const dist = 35 + Math.sin(time * 3 + i) * 3;
+          const sparkleX = Math.cos(angle) * dist;
+          const sparkleY = Math.sin(angle) * dist;
+          const sparkleSize = 2 + Math.sin(time * 4 + i * 2) * 1;
+          ctx.beginPath();
+          ctx.arc(sparkleX, sparkleY, sparkleSize, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 255, 255, ${0.5 + Math.sin(time * 5 + i) * 0.3})`;
+          ctx.fill();
+        }
+      }
+      
       const holeGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 10);
       holeGradient.addColorStop(0, '#0a0a0a'); holeGradient.addColorStop(1, '#1f1f1f');
       ctx.fillStyle = holeGradient; ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.arc(-8, -8, 6, 0, Math.PI * 2); ctx.fill();
       
-      // Sprinkles on menu donut
       ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
       ctx.save(); ctx.rotate(-0.3);
       ctx.beginPath(); ctx.roundRect(14, -3, 6, 3, 1); ctx.fill();
@@ -1436,39 +1600,22 @@ export default function DonutDashPage() {
     };
     animationId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(animationId);
-  }, [gameState, score]);
+  }, [gameState, score, getDonutColor, selectedSkin]);
 
-  // Touch prevention - aggressive prevention of selection and context menus
+  // Touch prevention
   useEffect(() => {
     const canvas = canvasRef.current;
-    
-    const preventDefault = (e: Event) => { 
-      e.preventDefault(); 
-      e.stopPropagation();
-    };
-    
-    const preventDefaultOnPlaying = (e: Event) => { 
-      if (gameState === "playing") {
-        e.preventDefault(); 
-        e.stopPropagation();
-      }
-    };
-    
-    // Always prevent on canvas
+    const preventDefault = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
+    const preventDefaultOnPlaying = (e: Event) => { if (gameState === "playing") { e.preventDefault(); e.stopPropagation(); } };
     if (canvas) {
       canvas.addEventListener('touchstart', preventDefault, { passive: false });
       canvas.addEventListener('touchmove', preventDefault, { passive: false });
       canvas.addEventListener('touchend', preventDefault, { passive: false });
     }
-    
-    // Prevent context menu and selection globally during gameplay
     document.addEventListener('contextmenu', preventDefaultOnPlaying, { passive: false });
     document.addEventListener('selectstart', preventDefault, { passive: false });
-    
-    // Prevent long-press popup on iOS
     document.body.style.webkitUserSelect = 'none';
     (document.body.style as any).webkitTouchCallout = 'none';
-    
     return () => {
       if (canvas) {
         canvas.removeEventListener('touchstart', preventDefault);
@@ -1501,30 +1648,14 @@ export default function DonutDashPage() {
       <style>{`
         .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        * { 
-          -webkit-tap-highlight-color: transparent !important;
-          -webkit-touch-callout: none !important;
-        }
-        .game-container {
-          -webkit-user-select: none !important;
-          -moz-user-select: none !important;
-          -ms-user-select: none !important;
-          user-select: none !important;
-          -webkit-touch-callout: none !important;
-          touch-action: manipulation !important;
-        }
-        .game-container * {
-          -webkit-user-select: none !important;
-          -moz-user-select: none !important;
-          -ms-user-select: none !important;
-          user-select: none !important;
-          -webkit-touch-callout: none !important;
-        }
+        * { -webkit-tap-highlight-color: transparent !important; -webkit-touch-callout: none !important; }
+        .game-container { -webkit-user-select: none !important; -moz-user-select: none !important; -ms-user-select: none !important; user-select: none !important; -webkit-touch-callout: none !important; touch-action: manipulation !important; }
+        .game-container * { -webkit-user-select: none !important; -moz-user-select: none !important; -ms-user-select: none !important; user-select: none !important; -webkit-touch-callout: none !important; }
       `}</style>
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-3 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
         
-        {/* Header - matching Flappy Donut */}
+        {/* Header */}
         <div className="flex items-center justify-between mb-2 px-1">
           <h1 className="text-xl font-bold tracking-wide">DONUT DASH</h1>
           {context?.user && (
@@ -1538,7 +1669,7 @@ export default function DonutDashPage() {
           )}
         </div>
         
-        {/* Prize Pool Tile - Clickable to open leaderboard (matching Flappy Donut exactly) */}
+        {/* Prize Pool Tile */}
         <button
           onClick={() => { fetchLeaderboard(); setShowLeaderboard(true); }}
           className="relative w-full mb-3 px-4 py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl transition-all active:scale-[0.98] hover:border-amber-500/50 group"
@@ -1587,12 +1718,7 @@ export default function DonutDashPage() {
             {gameState === "playing" && (
               <div 
                 className="absolute inset-0 z-10 select-none"
-                style={{ 
-                  touchAction: "none", 
-                  WebkitUserSelect: "none", 
-                  userSelect: "none",
-                  WebkitTouchCallout: "none"
-                }}
+                style={{ touchAction: "none", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" }}
                 onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); handleThrustStart(); }}
                 onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); handleThrustEnd(); }}
                 onPointerLeave={handleThrustEnd}
@@ -1612,32 +1738,22 @@ export default function DonutDashPage() {
                       <Share2 className="w-3 h-3" /><span>Share</span>
                     </button>
                   )}
-                  
                   {errorMessage && <p className="text-red-400 text-xs">{errorMessage}</p>}
-                  
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 rounded-full border border-zinc-700">
                     <Zap className="w-3 h-3 text-yellow-400" />
                     <span className="text-xs">Entry: <span className="font-bold">{entryFeeFormatted} 🍩</span></span>
                   </div>
-                  
                   <button 
                     onClick={handlePayment} 
                     disabled={isPaymentPending}
                     className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isPaymentPending ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                        <span className="text-sm">Processing...</span>
-                      </>
+                      <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Processing...</span></>
                     ) : (
-                      <>
-                        <Play className="w-4 h-4" />
-                        <span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span>
-                      </>
+                      <><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span></>
                     )}
                   </button>
-                  
                   <p className="text-zinc-500 text-[10px]">Attempts today: {playCount} • Resets in {costResetCountdown}</p>
                 </div>
               </div>
@@ -1647,9 +1763,12 @@ export default function DonutDashPage() {
           </div>
         </div>
         
-        {/* Action Buttons - matching Flappy Donut exactly */}
+        {/* Action Buttons */}
         {(gameState === "menu" || gameState === "gameover") && (
           <div className="py-4 flex items-center justify-center gap-2">
+            <button onClick={() => setShowSkins(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
+              <Palette className="w-3 h-3 text-zinc-400" /><span className="text-xs">Skins</span>
+            </button>
             <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
               <HelpCircle className="w-3 h-3 text-zinc-400" /><span className="text-xs whitespace-nowrap">How to Play</span>
             </button>
@@ -1660,7 +1779,102 @@ export default function DonutDashPage() {
           </div>
         )}
         
-        {/* Help Modal - matching Flappy Donut */}
+        {/* Skins Modal */}
+        {showSkins && (
+          <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+            <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+                <div className="flex items-center gap-2"><Palette className="w-5 h-5 text-zinc-400" /><span className="font-bold">Donut Dash Skins</span></div>
+                <button onClick={() => { setShowSkins(false); setPreviewSkin(null); }} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
+              </div>
+              
+              {!isPremium && (
+                <div className="px-4 py-3 bg-amber-500/10 border-b border-amber-500/20">
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs text-amber-200">Unlock Premium to earn skins by playing!</span>
+                  </div>
+                </div>
+              )}
+              
+              {isPremium && (
+                <div className="px-4 py-2 bg-zinc-800/50 border-b border-zinc-800">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-400">Games Played: <span className="text-white font-bold">{userStats.gamesPlayed}</span></span>
+                    <span className="text-zinc-400">High Score: <span className="text-white font-bold">{userStats.highScore}</span></span>
+                  </div>
+                </div>
+              )}
+              
+              <div className="p-4 grid grid-cols-3 gap-3 max-h-72 overflow-y-auto">
+                {DASH_SKINS.map((skin) => {
+                  const isUnlocked = unlockedSkins.includes(skin.id);
+                  const isSelected = selectedSkin.id === skin.id;
+                  const canClaim = !isUnlocked && canClaimSkin(skin);
+                  const progress = getSkinProgress(skin);
+                  const isDefault = skin.id === 'default';
+                  
+                  return (
+                    <button
+                      key={skin.id}
+                      onClick={() => { if (isUnlocked) handleSelectSkin(skin); else if (canClaim) handleClaimSkin(skin); }}
+                      onMouseEnter={() => setPreviewSkin(skin)}
+                      onMouseLeave={() => setPreviewSkin(null)}
+                      disabled={!isUnlocked && !canClaim}
+                      className={`relative p-3 rounded-xl border-2 transition-all ${isSelected ? "border-white bg-zinc-800" : isUnlocked ? "border-zinc-700 hover:border-zinc-500" : canClaim ? "border-green-500/50 hover:border-green-500 bg-green-500/10" : "border-zinc-800 opacity-60"}`}
+                    >
+                      {!isDefault && (
+                        <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center ${getTierColor(skin.tier)}`}>
+                          {skin.tier === 'legendary' ? <Sparkles className="w-2.5 h-2.5 text-black" /> :
+                           skin.tier === 'epic' ? <Zap className="w-2.5 h-2.5 text-black" /> :
+                           <span className="text-[8px] text-white font-bold">{skin.tier === 'rare' ? 'R' : 'C'}</span>}
+                        </div>
+                      )}
+                      <div className="w-12 h-12 mx-auto mb-2 rounded-full relative" style={{ backgroundColor: isUnlocked || canClaim ? skin.frostingColor : '#3f3f46' }}>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-3 h-3 rounded-full bg-zinc-900 border border-zinc-700" />
+                        </div>
+                        {!isUnlocked && !canClaim && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+                            <Lock className="w-4 h-4 text-zinc-500" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[10px] font-bold truncate text-center">{skin.name}</p>
+                      {isSelected && <div className="flex items-center justify-center gap-1 mt-1"><Check className="w-3 h-3 text-green-400" /></div>}
+                      {!isUnlocked && !isDefault && isPremium && (
+                        <div className="mt-1">
+                          {canClaim ? (
+                            <span className="text-[8px] text-green-400 font-bold">CLAIM!</span>
+                          ) : (
+                            <>
+                              <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min((progress.current / progress.target) * 100, 100)}%`, backgroundColor: skin.frostingColor }} />
+                              </div>
+                              <p className="text-[8px] text-zinc-500 text-center mt-0.5">{progress.current}/{progress.target}</p>
+                            </>
+                          )}
+                        </div>
+                      )}
+                      {!isUnlocked && !isDefault && !isPremium && (
+                        <p className="text-[8px] text-zinc-600 text-center mt-1 flex items-center justify-center gap-0.5"><Crown className="w-2 h-2" /> Premium</p>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
+                <button onClick={() => { setShowSkins(false); window.location.href = "/games/skin-market"; }} className="w-full flex items-center justify-center gap-2 py-2 text-amber-400 hover:text-amber-300">
+                  <Crown className="w-4 h-4" />
+                  <span className="text-sm font-bold">{isPremium ? 'View All Skins' : 'Get Premium'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Help Modal */}
         {showHelp && (
           <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
             <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
@@ -1668,13 +1882,11 @@ export default function DonutDashPage() {
                 <div className="flex items-center gap-2"><HelpCircle className="w-5 h-5 text-zinc-400" /><span className="font-bold">How to Play</span></div>
                 <button onClick={() => setShowHelp(false)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
               </div>
-              
               <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
                 <div>
                   <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Play className="w-4 h-4 text-amber-400" />Gameplay</h3>
                   <p className="text-xs text-zinc-400">Hold the screen to fly up with your jetpack. Release to fall. Navigate through the facility avoiding zappers and collecting sprinkles!</p>
                 </div>
-                
                 <div>
                   <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-400" />Entry Cost</h3>
                   <p className="text-xs text-zinc-400">Each game costs DONUT to play. The cost increases by 0.1 with each attempt:</p>
@@ -1682,25 +1894,14 @@ export default function DonutDashPage() {
                     <li>• 1st game: <span className="text-white">1.0 DONUT</span></li>
                     <li>• 2nd game: <span className="text-white">1.1 DONUT</span></li>
                     <li>• 3rd game: <span className="text-white">1.2 DONUT</span></li>
-                    <li>• And so on...</li>
                   </ul>
                   <p className="text-xs text-zinc-500 mt-2">Cost resets daily at 6PM EST</p>
                 </div>
-                
                 <div>
                   <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-amber-400" />Weekly Rewards</h3>
-                  <p className="text-xs text-zinc-400">Every week, the prize pool is distributed to the top 10 players:</p>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs">
-                    <div className="flex justify-between"><span className="text-amber-400">🥇 1st</span><span className="text-white">30%</span></div>
-                    <div className="flex justify-between"><span className="text-zinc-300">🥈 2nd</span><span className="text-white">20%</span></div>
-                    <div className="flex justify-between"><span className="text-orange-400">🥉 3rd</span><span className="text-white">15%</span></div>
-                    <div className="flex justify-between"><span className="text-zinc-400">4th</span><span className="text-white">10%</span></div>
-                    <div className="flex justify-between"><span className="text-zinc-400">5th</span><span className="text-white">8%</span></div>
-                    <div className="flex justify-between"><span className="text-zinc-400">6th-10th</span><span className="text-white">6-1%</span></div>
-                  </div>
+                  <p className="text-xs text-zinc-400">Top 10 split the prize pool: 30%, 20%, 15%, 10%, 8%, 6%, 5%, 3%, 2%, 1%</p>
                 </div>
               </div>
-              
               <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
                 <button onClick={() => setShowHelp(false)} className="w-full py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200">Got it!</button>
               </div>
@@ -1708,7 +1909,7 @@ export default function DonutDashPage() {
           </div>
         )}
         
-        {/* Leaderboard Modal - matching Flappy Donut */}
+        {/* Leaderboard Modal */}
         {showLeaderboard && (
           <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
             <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
@@ -1728,7 +1929,7 @@ export default function DonutDashPage() {
                     <p className="text-zinc-500">No scores yet!</p>
                     <p className="text-zinc-600 text-xs mt-1">Be the first to play this week</p>
                   </div>
-                ) : leaderboard.map((entry, i) => {
+                ) : leaderboard.map((entry) => {
                   const prizePercent = PRIZE_DISTRIBUTION[entry.rank - 1] || 0;
                   const prizeAmount = ((parseFloat(prizePoolFormatted) * prizePercent) / 100).toFixed(2);
                   return (

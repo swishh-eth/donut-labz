@@ -6,8 +6,7 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { formatUnits, parseUnits } from "viem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Trophy, Play, Coins, Zap, Share2, Palette, Check, X, ExternalLink, HelpCircle, Volume2, VolumeX, ChevronRight, Clock } from "lucide-react";
-import { GAME_SKINS, getOwnedSkins, getSelectedSkin, saveSelectedSkin, getSkinById, type GameSkin } from "@/lib/game-skins";
+import { Trophy, Play, Coins, Zap, Share2, Palette, Check, X, ExternalLink, HelpCircle, Volume2, VolumeX, ChevronRight, Clock, Lock, Crown, Sparkles } from "lucide-react";
 
 // Contract addresses
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
@@ -40,6 +39,68 @@ const PIPE_SPEED_MAX = 4.0;
 const PIPE_SPAWN_DISTANCE = 240;
 const DONUT_SIZE = 36;
 const DONUT_X = 80;
+
+// Skin type definition
+type SkinTier = 'common' | 'rare' | 'epic' | 'legendary' | 'default';
+
+interface GameSkin {
+  id: string;
+  name: string;
+  frostingColor: string;
+  tier: SkinTier;
+  animated?: boolean;
+  animationType?: 'rainbow' | 'glow' | 'pulse' | 'sparkle';
+  requirement?: {
+    type: string;
+    value: number;
+    description: string;
+  };
+}
+
+// Default skin (always available)
+const DEFAULT_SKIN: GameSkin = {
+  id: 'default',
+  name: 'Classic',
+  frostingColor: '#F59E0B',
+  tier: 'default',
+};
+
+// All Flappy Donut achievement skins
+const FLAPPY_SKINS: GameSkin[] = [
+  DEFAULT_SKIN,
+  {
+    id: 'flappy-bronze',
+    name: 'Sky Rookie',
+    frostingColor: '#CD7F32',
+    tier: 'common',
+    requirement: { type: 'games_played', value: 25, description: 'Play 25 games' },
+  },
+  {
+    id: 'flappy-silver',
+    name: 'Wing Master',
+    frostingColor: '#C0C0C0',
+    tier: 'rare',
+    requirement: { type: 'games_played', value: 50, description: 'Play 50 games' },
+  },
+  {
+    id: 'flappy-epic',
+    name: 'Cloud Surfer',
+    frostingColor: '#06B6D4',
+    tier: 'epic',
+    animated: true,
+    animationType: 'pulse',
+    requirement: { type: 'games_played', value: 100, description: 'Play 100 games' },
+  },
+  {
+    id: 'flappy-gold',
+    name: 'Golden Aviator',
+    frostingColor: '#FFD700',
+    tier: 'legendary',
+    animated: true,
+    animationType: 'glow',
+    requirement: { type: 'high_score', value: 300, description: 'Score 300+ in one game' },
+  },
+];
 
 type MiniAppContext = { user?: { fid: number; username?: string; displayName?: string; pfpUrl?: string } };
 type LeaderboardEntry = { rank: number; username: string; pfpUrl?: string; score: number };
@@ -175,9 +236,12 @@ export default function FlappyDonutPage() {
   const lastScoreRef = useRef(0);
   const audioInitializedRef = useRef(false);
   
-  const [ownedSkins, setOwnedSkins] = useState<GameSkin[]>([GAME_SKINS[0]]);
-  const [selectedSkin, setSelectedSkin] = useState<GameSkin>(GAME_SKINS[0]);
+  // Skin system state
+  const [isPremium, setIsPremium] = useState(false);
+  const [unlockedSkins, setUnlockedSkins] = useState<string[]>(['default']);
+  const [selectedSkin, setSelectedSkin] = useState<GameSkin>(DEFAULT_SKIN);
   const [previewSkin, setPreviewSkin] = useState<GameSkin | null>(null);
+  const [userStats, setUserStats] = useState<{ gamesPlayed: number; highScore: number; totalScore: number }>({ gamesPlayed: 0, highScore: 0, totalScore: 0 });
   
   const donutRef = useRef({ y: CANVAS_HEIGHT / 2, velocity: 0 });
   const pipesRef = useRef<{ x: number; topHeight: number; baseTopHeight: number; gap: number; passed: boolean; phase: number; oscillates: boolean; oscSpeed: number; oscAmount: number }[]>([]);
@@ -307,16 +371,40 @@ export default function FlappyDonutPage() {
     return () => { cancelled = true; };
   }, []);
   
-  // Load owned skins
+  // Fetch skin data from new premium system
   useEffect(() => {
-    if (address) {
-      const ownedIds = getOwnedSkins(address);
-      const owned = GAME_SKINS.filter(s => ownedIds.includes(s.id));
-      setOwnedSkins(owned.length > 0 ? owned : [GAME_SKINS[0]]);
-      const selectedId = getSelectedSkin(address);
-      const selected = getSkinById(selectedId);
-      if (ownedIds.includes(selected.id)) setSelectedSkin(selected);
-    }
+    if (!address) return;
+    
+    const fetchSkinData = async () => {
+      try {
+        const res = await fetch(`/api/games/skin-market/user-data?address=${address}`);
+        if (res.ok) {
+          const data = await res.json();
+          setIsPremium(data.isPremium || false);
+          
+          // Set unlocked skins (always include default)
+          const unlocked = ['default', ...(data.unlockedSkins || [])];
+          setUnlockedSkins(unlocked);
+          
+          // Set equipped skin if it's a flappy skin
+          if (data.equippedSkin) {
+            const equippedSkinData = FLAPPY_SKINS.find(s => s.id === data.equippedSkin);
+            if (equippedSkinData && unlocked.includes(data.equippedSkin)) {
+              setSelectedSkin(equippedSkinData);
+            }
+          }
+          
+          // Set user stats for flappy donut
+          if (data.stats && data.stats['flappy-donut']) {
+            setUserStats(data.stats['flappy-donut']);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch skin data:", e);
+      }
+    };
+    
+    fetchSkinData();
   }, [address]);
   
   // Fetch attempts and leaderboard
@@ -401,6 +489,12 @@ export default function FlappyDonutPage() {
       } else if (skin.animationType === 'glow') {
         // Pulsing glow effect
         glowIntensity = 15 + Math.sin(time / 200) * 10;
+      } else if (skin.animationType === 'pulse') {
+        // Pulsing size/brightness effect
+        const pulseAmount = Math.sin(time / 300) * 0.15;
+        const [h, s, l] = hexToHsl(skin.frostingColor);
+        frostingColor = hslToHex(h, s, Math.min(100, l + pulseAmount * 20));
+        glowIntensity = 10 + Math.sin(time / 300) * 8;
       } else if (skin.animationType === 'sparkle') {
         // Brightness variation
         sparkleOffset = Math.sin(time / 100) * 0.3;
@@ -416,7 +510,7 @@ export default function FlappyDonutPage() {
     ctx.fill();
     
     // Glow effect for animated skins
-    if (skin.animated && (skin.animationType === 'glow' || skin.animationType === 'rainbow')) {
+    if (skin.animated && (skin.animationType === 'glow' || skin.animationType === 'rainbow' || skin.animationType === 'pulse')) {
       ctx.shadowColor = frostingColor;
       ctx.shadowBlur = glowIntensity || 20;
     }
@@ -800,6 +894,12 @@ export default function FlappyDonutPage() {
             // Refresh data
             fetch(`/api/games/flappy/attempts?address=${address}`).then(r => r.json()).then(data => { setAttempts(data.attempts); setEntryCost(data.nextCost); });
             fetch('/api/games/flappy/leaderboard').then(r => r.json()).then(data => setLeaderboard(data.leaderboard || []));
+            // Refresh skin data (games played may have changed)
+            fetch(`/api/games/skin-market/user-data?address=${address}`).then(r => r.json()).then(data => {
+              if (data.stats && data.stats['flappy-donut']) {
+                setUserStats(data.stats['flappy-donut']);
+              }
+            });
           })
           .catch(err => {
             console.error('Score submission error:', err);
@@ -960,9 +1060,67 @@ export default function FlappyDonutPage() {
     writeContract({ address: FLAPPY_POOL_ADDRESS, abi: FLAPPY_POOL_ABI, functionName: "payEntry", args: [costWei] });
   };
   
-  const handleSelectSkin = (skin: GameSkin) => {
+  // Handle selecting/equipping a skin
+  const handleSelectSkin = async (skin: GameSkin) => {
+    if (!address) return;
+    if (!unlockedSkins.includes(skin.id)) return; // Can't select locked skins
+    
     setSelectedSkin(skin);
-    if (address) saveSelectedSkin(address, skin.id);
+    
+    // Only save to backend for non-default skins
+    if (skin.id !== 'default') {
+      try {
+        await fetch('/api/games/skin-market/equip-skin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: address.toLowerCase(), skinId: skin.id }),
+        });
+      } catch (e) {
+        console.error("Failed to equip skin:", e);
+      }
+    }
+  };
+  
+  // Handle claiming an unlocked skin
+  const handleClaimSkin = async (skin: GameSkin) => {
+    if (!address || !isPremium) return;
+    
+    try {
+      const res = await fetch('/api/games/skin-market/claim-skin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: address.toLowerCase(), skinId: skin.id }),
+      });
+      
+      if (res.ok) {
+        setUnlockedSkins(prev => [...prev, skin.id]);
+        setSelectedSkin(skin);
+      }
+    } catch (e) {
+      console.error("Failed to claim skin:", e);
+    }
+  };
+  
+  // Check if skin requirements are met
+  const canClaimSkin = (skin: GameSkin): boolean => {
+    if (!skin.requirement || !isPremium) return false;
+    if (skin.requirement.type === 'games_played') {
+      return userStats.gamesPlayed >= skin.requirement.value;
+    } else if (skin.requirement.type === 'high_score') {
+      return userStats.highScore >= skin.requirement.value;
+    }
+    return false;
+  };
+  
+  // Get progress towards skin requirement
+  const getSkinProgress = (skin: GameSkin): { current: number; target: number } => {
+    if (!skin.requirement) return { current: 0, target: 0 };
+    if (skin.requirement.type === 'games_played') {
+      return { current: userStats.gamesPlayed, target: skin.requirement.value };
+    } else if (skin.requirement.type === 'high_score') {
+      return { current: userStats.highScore, target: skin.requirement.value };
+    }
+    return { current: 0, target: 0 };
   };
   
   const handleShare = useCallback(async () => {
@@ -1060,6 +1218,17 @@ export default function FlappyDonutPage() {
   const isPaying = isWritePending || isTxLoading;
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Player";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
+
+  // Get tier badge color
+  const getTierColor = (tier: SkinTier) => {
+    switch (tier) {
+      case 'legendary': return 'bg-yellow-500';
+      case 'epic': return 'bg-cyan-500';
+      case 'rare': return 'bg-purple-500';
+      case 'common': return 'bg-zinc-600';
+      default: return 'bg-zinc-700';
+    }
+  };
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -1224,36 +1393,140 @@ export default function FlappyDonutPage() {
           </div>
         )}
         
-        {/* Skins Modal */}
+        {/* Skins Modal - Updated for Premium System */}
         {showSkins && (
           <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
             <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
               <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-                <div className="flex items-center gap-2"><Palette className="w-5 h-5 text-zinc-400" /><span className="font-bold">My Skins</span></div>
-                <button onClick={() => { setShowSkins(false); setPreviewSkin(null); }} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
+                <div className="flex items-center gap-2">
+                  <Palette className="w-5 h-5 text-zinc-400" />
+                  <span className="font-bold">Flappy Donut Skins</span>
+                </div>
+                <button onClick={() => { setShowSkins(false); setPreviewSkin(null); }} className="text-zinc-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
               
-              <div className="p-4 grid grid-cols-3 gap-3 max-h-60 overflow-y-auto">
-                {ownedSkins.map((skin) => (
-                  <button
-                    key={skin.id}
-                    onClick={() => handleSelectSkin(skin)}
-                    onMouseEnter={() => setPreviewSkin(skin)}
-                    onMouseLeave={() => setPreviewSkin(null)}
-                    className={`relative p-3 rounded-xl border-2 transition-all ${selectedSkin.id === skin.id ? "border-white bg-zinc-800" : "border-zinc-700 hover:border-zinc-500"}`}
-                  >
-                    <div className="w-12 h-12 mx-auto mb-2 rounded-full relative" style={{ backgroundColor: skin.frostingColor }}>
-                      <div className="absolute inset-0 flex items-center justify-center"><div className="w-3 h-3 rounded-full bg-zinc-900 border border-zinc-700" /></div>
-                    </div>
-                    <p className="text-[10px] font-bold truncate text-center">{skin.name}</p>
-                    {selectedSkin.id === skin.id && <div className="flex items-center justify-center gap-1 mt-1"><Check className="w-3 h-3 text-green-400" /></div>}
-                  </button>
-                ))}
+              {/* Premium Status Banner */}
+              {!isPremium && (
+                <div className="px-4 py-3 bg-amber-500/10 border-b border-amber-500/20">
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs text-amber-200">Unlock Premium to earn skins by playing!</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Stats Display */}
+              {isPremium && (
+                <div className="px-4 py-2 bg-zinc-800/50 border-b border-zinc-800">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-400">Games Played: <span className="text-white font-bold">{userStats.gamesPlayed}</span></span>
+                    <span className="text-zinc-400">High Score: <span className="text-white font-bold">{userStats.highScore}</span></span>
+                  </div>
+                </div>
+              )}
+              
+              <div className="p-4 grid grid-cols-3 gap-3 max-h-72 overflow-y-auto">
+                {FLAPPY_SKINS.map((skin) => {
+                  const isUnlocked = unlockedSkins.includes(skin.id);
+                  const isSelected = selectedSkin.id === skin.id;
+                  const canClaim = !isUnlocked && canClaimSkin(skin);
+                  const progress = getSkinProgress(skin);
+                  const isDefault = skin.id === 'default';
+                  
+                  return (
+                    <button
+                      key={skin.id}
+                      onClick={() => {
+                        if (isUnlocked) {
+                          handleSelectSkin(skin);
+                        } else if (canClaim) {
+                          handleClaimSkin(skin);
+                        }
+                      }}
+                      onMouseEnter={() => setPreviewSkin(skin)}
+                      onMouseLeave={() => setPreviewSkin(null)}
+                      disabled={!isUnlocked && !canClaim}
+                      className={`relative p-3 rounded-xl border-2 transition-all ${
+                        isSelected ? "border-white bg-zinc-800" : 
+                        isUnlocked ? "border-zinc-700 hover:border-zinc-500" :
+                        canClaim ? "border-green-500/50 hover:border-green-500 bg-green-500/10" :
+                        "border-zinc-800 opacity-60"
+                      }`}
+                    >
+                      {/* Tier badge */}
+                      {!isDefault && (
+                        <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center ${getTierColor(skin.tier)}`}>
+                          {skin.tier === 'legendary' ? <Sparkles className="w-2.5 h-2.5 text-black" /> :
+                           skin.tier === 'epic' ? <Zap className="w-2.5 h-2.5 text-black" /> :
+                           <span className="text-[8px] text-white font-bold">{skin.tier === 'rare' ? 'R' : 'C'}</span>}
+                        </div>
+                      )}
+                      
+                      {/* Donut preview */}
+                      <div className="w-12 h-12 mx-auto mb-2 rounded-full relative" style={{ backgroundColor: isUnlocked || canClaim ? skin.frostingColor : '#3f3f46' }}>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-3 h-3 rounded-full bg-zinc-900 border border-zinc-700" />
+                        </div>
+                        {!isUnlocked && !canClaim && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+                            <Lock className="w-4 h-4 text-zinc-500" />
+                          </div>
+                        )}
+                      </div>
+                      
+                      <p className="text-[10px] font-bold truncate text-center">{skin.name}</p>
+                      
+                      {/* Status indicator */}
+                      {isSelected && (
+                        <div className="flex items-center justify-center gap-1 mt-1">
+                          <Check className="w-3 h-3 text-green-400" />
+                        </div>
+                      )}
+                      
+                      {/* Progress bar for locked skins */}
+                      {!isUnlocked && !isDefault && isPremium && (
+                        <div className="mt-1">
+                          {canClaim ? (
+                            <span className="text-[8px] text-green-400 font-bold">CLAIM!</span>
+                          ) : (
+                            <>
+                              <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full rounded-full transition-all"
+                                  style={{ 
+                                    width: `${Math.min((progress.current / progress.target) * 100, 100)}%`,
+                                    backgroundColor: skin.frostingColor 
+                                  }}
+                                />
+                              </div>
+                              <p className="text-[8px] text-zinc-500 text-center mt-0.5">
+                                {progress.current}/{progress.target}
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Requirement text for non-premium */}
+                      {!isUnlocked && !isDefault && !isPremium && (
+                        <p className="text-[8px] text-zinc-600 text-center mt-1 flex items-center justify-center gap-0.5">
+                          <Crown className="w-2 h-2" /> Premium
+                        </p>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
               
               <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
-                <button onClick={() => { setShowSkins(false); window.location.href = "/games"; }} className="w-full flex items-center justify-center gap-2 py-2 text-zinc-400 hover:text-white">
-                  <ExternalLink className="w-4 h-4" /><span className="text-sm">Get More Skins</span>
+                <button 
+                  onClick={() => { setShowSkins(false); window.location.href = "/games/skin-market"; }} 
+                  className="w-full flex items-center justify-center gap-2 py-2 text-amber-400 hover:text-amber-300"
+                >
+                  <Crown className="w-4 h-4" />
+                  <span className="text-sm font-bold">{isPremium ? 'View All Skins' : 'Get Premium'}</span>
                 </button>
               </div>
             </div>
@@ -1311,7 +1584,13 @@ export default function FlappyDonutPage() {
                 
                 <div>
                   <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Palette className="w-4 h-4 text-zinc-400" />Skins</h3>
-                  <p className="text-xs text-zinc-400">Customize your donut with skins! Buy them from the Skin Shop on the Games page. Skins work across all Donut Labs games.</p>
+                  <p className="text-xs text-zinc-400">Unlock Premium to earn skins by playing! Each game has 4 unique skins to unlock based on milestones:</p>
+                  <ul className="text-xs text-zinc-400 mt-1 space-y-1 pl-4">
+                    <li>• <span className="text-zinc-300">Common:</span> Play 25 games</li>
+                    <li>• <span className="text-purple-400">Rare:</span> Play 50 games</li>
+                    <li>• <span className="text-cyan-400">Epic:</span> Play 100 games</li>
+                    <li>• <span className="text-yellow-400">Legendary:</span> Score 300+</li>
+                  </ul>
                 </div>
               </div>
               
