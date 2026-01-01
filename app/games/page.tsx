@@ -86,35 +86,31 @@ function getTimeUntilReset(): string {
   }
 }
 
-// Achievements Tile - amber hero tile with premium user count
+// Achievements Tile - matches info page tile design
 function AchievementsTile({ premiumCount }: { premiumCount: number }) {
   return (
     <button
       onClick={() => window.location.href = "/games/skin-market"}
       className="relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
-      style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
     >
-      {/* Premium users count display */}
-      <div className="absolute right-0 top-0 bottom-0 w-24 flex items-center justify-center pointer-events-none">
-        <div className="flex flex-col items-center gap-1">
-          <Users className="w-8 h-8 text-amber-400" />
-          <span className="text-xl font-bold text-amber-400">{premiumCount}</span>
-        </div>
+      {/* Large background users symbol - matching info page style */}
+      <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Users className="w-28 h-28 text-amber-900/80" />
       </div>
       
-      <div className="relative z-10 p-4 pr-28">
+      <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Award className="w-5 h-5 text-amber-400" />
-            <span className="font-bold text-base text-amber-400">Achievements</span>
+            <span className="font-bold text-base text-amber-400">Sprinkles Premium Arcade</span>
           </div>
-          <div className="text-[10px] text-amber-200/60 mb-2">Unlock 18 skins by playing games</div>
+          <div className="text-[10px] text-amber-200/60 mb-2">Complete Tasks To Unlock Skins For Each Game</div>
           
           <div className="flex items-center gap-2 text-[9px]">
-            <Trophy className="w-3 h-3 text-amber-400/60" />
-            <span className="text-amber-400/80">Earn rewards</span>
-            <ArrowRight className="w-3 h-3 text-amber-500/30" />
-            <span className="text-amber-400/80">View Collection</span>
+            <span className="text-amber-400">Burn Sprinkles</span>
+            <ArrowRight className="w-3 h-3 text-amber-500/50" />
+            <span className="text-amber-400">Customize Your Donut!</span>
           </div>
         </div>
       </div>

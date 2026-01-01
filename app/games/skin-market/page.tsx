@@ -5,10 +5,18 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   ChevronLeft, Lock, Check, Crown, Gamepad2, Layers, Rocket,
   Trophy, Star, Zap, Sparkles, HelpCircle, X, Users
 } from "lucide-react";
+
+// Helper to get initials
+const initialsFrom = (label?: string) => {
+  if (!label) return "";
+  const stripped = label.replace(/[^a-zA-Z0-9]/g, "");
+  return stripped ? stripped.slice(0, 2).toUpperCase() : label.slice(0, 2).toUpperCase();
+};
 
 // Sprinkle icon component
 const SprinkleIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
@@ -802,22 +810,33 @@ export default function SkinMarketPage() {
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 100px)" }}>
         
-        {/* Header */}
-        <div className="flex items-center gap-3 px-4 mb-4">
-          <button 
-            onClick={() => window.location.href = "/games"}
-            className="p-2 rounded-full bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">Skin Collection</h1>
-            <p className="text-xs text-zinc-400">Unlock skins by playing games</p>
+        {/* Header - matches Games page style */}
+        <div className="flex items-center justify-between px-4 mb-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => window.location.href = "/games"}
+              className="p-1.5 rounded-full bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <h1 className="text-xl font-bold tracking-wide">SKIN COLLECTION</h1>
           </div>
-          {isPremium && hasFetched && (
-            <div className="flex items-center gap-1 px-2 py-1 bg-amber-500/20 border border-amber-500/30 rounded-full">
-              <Crown className="w-3 h-3 text-amber-400" />
-              <span className="text-xs text-amber-400 font-bold">Premium</span>
+          {context?.user && (
+            <div className="flex items-center gap-2 rounded-full bg-black px-2 py-1">
+              <div className="relative">
+                <Avatar className="h-7 w-7 border border-zinc-800">
+                  <AvatarImage src={context.user.pfpUrl || undefined} alt={context.user.displayName || context.user.username} className="object-cover" />
+                  <AvatarFallback className="bg-zinc-800 text-white text-[10px]">{initialsFrom(context.user.displayName || context.user.username)}</AvatarFallback>
+                </Avatar>
+                {isPremium && hasFetched && (
+                  <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center border border-black">
+                    <Crown className="w-2.5 h-2.5 text-black" />
+                  </div>
+                )}
+              </div>
+              <div className="leading-tight text-left">
+                <div className="text-xs font-bold">{context.user.displayName || context.user.username}</div>
+              </div>
             </div>
           )}
         </div>
