@@ -127,7 +127,7 @@ export default function ChatPage() {
   const [currentMultiplier, setCurrentMultiplier] = useState(getCurrentMultiplier());
   const [timeUntilHalving, setTimeUntilHalving] = useState(getTimeUntilNextHalving());
   const [tippingMessageHash, setTippingMessageHash] = useState<string | null>(null);
-  const [scrollFade, setScrollFade] = useState({ top: 1, bottom: 1 });
+  const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [isChatExpanded, setIsChatExpanded] = useState(true);
   const [buttonPosition, setButtonPosition] = useState<'left' | 'right'>(() => {
     if (typeof window !== 'undefined') {
@@ -452,7 +452,15 @@ export default function ChatPage() {
     }
   };
 
-  // Messages are displayed newest first (top), no scroll needed
+  // Messages are displayed newest first (top), scroll to top on load
+  useEffect(() => {
+    if (messages && messages.length > 0 && !messagesLoading) {
+      const container = messagesContainerRef.current;
+      if (container) {
+        container.scrollTo({ top: 0, behavior: 'auto' });
+      }
+    }
+  }, [messagesLoading]);
 
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userHandle = context?.user?.username ? `@${context.user.username}` : context?.user?.fid ? `fid ${context.user.fid}` : "";
