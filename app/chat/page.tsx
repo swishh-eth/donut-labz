@@ -200,7 +200,7 @@ export default function ChatPage() {
     if (isChatExpanded) {
       const container = messagesContainerRef.current;
       if (container) {
-        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        container.scrollTo({ top: 0, behavior: 'smooth' });
       }
       setTimeout(() => inputRef.current?.focus(), 300);
     }
@@ -452,27 +452,7 @@ export default function ChatPage() {
     }
   };
 
-  const prevMessageCountRef = useRef(0);
-  const hasInitialScrolledRef = useRef(false);
-
-  useEffect(() => {
-    if (!hasInitialScrolledRef.current && messages && messages.length > 0 && !messagesLoading) {
-      hasInitialScrolledRef.current = true;
-      prevMessageCountRef.current = messages.length;
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
-      }, 100);
-    }
-  }, [messages, messagesLoading]);
-
-  useEffect(() => {
-    if (hasInitialScrolledRef.current && messages && messages.length > prevMessageCountRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-    if (messages) {
-      prevMessageCountRef.current = messages.length;
-    }
-  }, [messages]);
+  // Messages are displayed newest first (top), no scroll needed
 
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userHandle = context?.user?.username ? `@${context.user.username}` : context?.user?.fid ? `fid ${context.user.fid}` : "";
@@ -773,7 +753,34 @@ export default function ChatPage() {
               </div>
             ) : (
               <>
-                {messages?.map((msg, index) => {
+                {pendingMessage && (
+                  <div className={`flex gap-2 p-2 rounded-lg bg-zinc-800 border border-zinc-700 transition-all duration-500 ease-out ${
+                    pendingMessageFadingOut 
+                      ? "opacity-0 scale-95" 
+                      : pendingMessageConfirmed 
+                        ? "opacity-100" 
+                        : "opacity-60"
+                  }`}>
+                    <Avatar className="h-8 w-8 border border-zinc-700 flex-shrink-0">
+                      <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
+                      <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(userDisplayName)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-semibold text-white text-xs truncate">{userDisplayName}</span>
+                        <span className={`text-[10px] ml-auto flex-shrink-0 transition-colors duration-500 ${
+                          pendingMessageConfirmed ? "text-green-400" : "text-gray-400"
+                        }`}>
+                          {pendingMessageConfirmed ? "Sent ✓" : "Sending..."}
+                        </span>
+                      </div>
+                      <p className={`text-xs break-words transition-colors duration-500 ${
+                        pendingMessageConfirmed ? "text-gray-300" : "text-gray-400"
+                      }`}>{pendingMessage}</p>
+                    </div>
+                  </div>
+                )}
+                {messages?.slice().reverse().map((msg, index) => {
                   const profile = profiles?.[msg.sender.toLowerCase()];
                   const displayName = profile?.displayName || formatAddress(msg.sender);
                   const username = profile?.username ? `@${profile.username}` : null;
@@ -805,33 +812,6 @@ export default function ChatPage() {
                     </div>
                   );
                 })}
-                {pendingMessage && (
-                  <div className={`flex gap-2 p-2 rounded-lg bg-zinc-800 border border-zinc-700 transition-all duration-500 ease-out ${
-                    pendingMessageFadingOut 
-                      ? "opacity-0 scale-95" 
-                      : pendingMessageConfirmed 
-                        ? "opacity-100" 
-                        : "opacity-60"
-                  }`}>
-                    <Avatar className="h-8 w-8 border border-zinc-700 flex-shrink-0">
-                      <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
-                      <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(userDisplayName)}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-semibold text-white text-xs truncate">{userDisplayName}</span>
-                        <span className={`text-[10px] ml-auto flex-shrink-0 transition-colors duration-500 ${
-                          pendingMessageConfirmed ? "text-green-400" : "text-gray-400"
-                        }`}>
-                          {pendingMessageConfirmed ? "Sent ✓" : "Sending..."}
-                        </span>
-                      </div>
-                      <p className={`text-xs break-words transition-colors duration-500 ${
-                        pendingMessageConfirmed ? "text-gray-300" : "text-gray-400"
-                      }`}>{pendingMessage}</p>
-                    </div>
-                  </div>
-                )}
                 <div ref={messagesEndRef} />
               </>
             )}
