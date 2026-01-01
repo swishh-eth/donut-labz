@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount } from "wagmi";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Settings, Gamepad2, Trophy, Coins, Palette, Clock, Layers, Rocket, ArrowRight } from "lucide-react";
+import { Settings, Gamepad2, Trophy, Coins, Palette, Clock, Layers, Rocket, ArrowRight, Users, Award } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -86,49 +86,35 @@ function getTimeUntilReset(): string {
   }
 }
 
-// Weekly Skin Tile - amber hero tile
-function WeeklySkinTile({ skin, isLoading, donutColor }: { skin: WeeklySkin | null; isLoading: boolean; donutColor: string }) {
-  const [timeLeft, setTimeLeft] = useState(getTimeUntilReset());
-  
-  useEffect(() => {
-    const interval = setInterval(() => setTimeLeft(getTimeUntilReset()), 60000);
-    return () => clearInterval(interval);
-  }, []);
-  
+// Achievements Tile - amber hero tile with premium user count
+function AchievementsTile({ premiumCount }: { premiumCount: number }) {
   return (
     <button
       onClick={() => window.location.href = "/games/skin-market"}
       className="relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
       style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
     >
-      {/* Large floating donut preview - fixed width container for alignment */}
+      {/* Premium users count display */}
       <div className="absolute right-0 top-0 bottom-0 w-24 flex items-center justify-center pointer-events-none">
-        <div className="relative skin-float">
-          <div 
-            className="w-16 h-16 rounded-full relative border-2 border-white/20"
-            style={{ backgroundColor: donutColor, boxShadow: `0 0 30px ${donutColor}40` }}
-          >
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-5 h-5 rounded-full bg-zinc-900 border-2 border-zinc-700" />
-            </div>
-            <div className="absolute top-1.5 left-3 w-3 h-3 rounded-full bg-white/25" />
-          </div>
+        <div className="flex flex-col items-center gap-1">
+          <Users className="w-8 h-8 text-amber-400" />
+          <span className="text-xl font-bold text-amber-400">{premiumCount}</span>
         </div>
       </div>
       
       <div className="relative z-10 p-4 pr-28">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Palette className="w-5 h-5 text-amber-400" />
-            <span className="font-bold text-base text-amber-400">Skin Market</span>
+            <Award className="w-5 h-5 text-amber-400" />
+            <span className="font-bold text-base text-amber-400">Achievements</span>
           </div>
-          <div className="text-[10px] text-amber-200/60 mb-2">Limited edition donut skins</div>
+          <div className="text-[10px] text-amber-200/60 mb-2">Unlock 18 skins by playing games</div>
           
           <div className="flex items-center gap-2 text-[9px]">
-            <Clock className="w-3 h-3 text-amber-400/60" />
-            <span className="text-amber-400/80">Ends in {timeLeft}</span>
+            <Trophy className="w-3 h-3 text-amber-400/60" />
+            <span className="text-amber-400/80">Earn rewards</span>
             <ArrowRight className="w-3 h-3 text-amber-500/30" />
-            <span className="text-amber-400/80">View Skins</span>
+            <span className="text-amber-400/80">View Collection</span>
           </div>
         </div>
       </div>
@@ -515,8 +501,11 @@ export default function GamesPage() {
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   
-  // Generate 4 unique random colors for the tiles (one per game/skin tile)
-  const [tileColors] = useState(() => getUniqueRandomColors(4));
+  // Generate 3 unique random colors for the game tiles
+  const [tileColors] = useState(() => getUniqueRandomColors(3));
+  
+  // Premium user count
+  const [premiumCount, setPremiumCount] = useState(0);
   
   // Flappy Donut state
   const [flappyRecentPlayer, setFlappyRecentPlayer] = useState<RecentPlayer | null>(null);
@@ -532,10 +521,6 @@ export default function GamesPage() {
   const [dashRecentPlayer, setDashRecentPlayer] = useState<RecentPlayer | null>(null);
   const [isLoadingDash, setIsLoadingDash] = useState(true);
   const [dashPrizePool, setDashPrizePool] = useState<string>("0");
-  
-  // Skin market state
-  const [weeklySkin, setWeeklySkin] = useState<WeeklySkin | null>(null);
-  const [isLoadingSkin, setIsLoadingSkin] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -558,6 +543,16 @@ export default function GamesPage() {
       }
     }, 1200);
     return () => clearTimeout(timeout);
+  }, []);
+
+  // Fetch premium user count
+  useEffect(() => {
+    fetch('/api/burn-stats')
+      .then(r => r.json())
+      .then(data => {
+        if (data.premiumUsers !== undefined) setPremiumCount(data.premiumUsers);
+      })
+      .catch(console.error);
   }, []);
 
   // Fetch Flappy Donut data
@@ -647,36 +642,6 @@ export default function GamesPage() {
     fetchDashData();
     const interval = setInterval(fetchDashData, 60000);
     return () => clearInterval(interval);
-  }, []);
-
-  // Fetch skin data
-  useEffect(() => {
-    const fetchSkin = async () => {
-      setIsLoadingSkin(true);
-      try {
-        const res = await fetch('/api/games/skin-market/current');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.skin && data.skin.price > 0) {
-            setWeeklySkin({
-              id: data.skin.id,
-              name: data.skin.name,
-              frostingColor: data.skin.frostingColor,
-              price: data.skin.price,
-              artistUsername: data.skin.artist.username,
-              mintCount: data.skin.mintCount,
-              animated: data.skin.animated,
-              animationType: data.skin.animationType,
-            });
-          }
-        }
-      } catch (e) {
-        console.error("Failed to fetch skin:", e);
-      } finally {
-        setIsLoadingSkin(false);
-      }
-    };
-    fetchSkin();
   }, []);
 
   useEffect(() => {
@@ -780,10 +745,10 @@ export default function GamesPage() {
             }}
           >
             <div className="space-y-3 pb-4">
-              <WeeklySkinTile skin={weeklySkin} isLoading={isLoadingSkin} donutColor={tileColors[0]} />
-              <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool} isLoading={isLoadingFlappy} donutColor={tileColors[1]} />
-              <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} isLoading={isLoadingStack} donutColor={tileColors[2]} />
-              <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} isLoading={isLoadingDash} donutColor={tileColors[3]} />
+              <AchievementsTile premiumCount={premiumCount} />
+              <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool} isLoading={isLoadingFlappy} donutColor={tileColors[0]} />
+              <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} isLoading={isLoadingStack} donutColor={tileColors[1]} />
+              <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} isLoading={isLoadingDash} donutColor={tileColors[2]} />
               {[...Array(3)].map((_, i) => <ComingSoonTile key={i} />)}
             </div>
           </div>

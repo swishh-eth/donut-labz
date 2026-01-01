@@ -7,7 +7,7 @@ import { parseUnits, formatUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
 import { 
   ChevronLeft, Lock, Check, Crown, Gamepad2, Layers, Rocket,
-  Trophy, Star, Zap, Sparkles, HelpCircle, X
+  Trophy, Star, Zap, Sparkles, HelpCircle, X, Users
 } from "lucide-react";
 
 // Sprinkle icon component
@@ -584,16 +584,18 @@ function AchievementCard({
 }
 
 export default function SkinMarketPage() {
-  const { address } = useAccount();
+  const { address, isConnecting, isReconnecting } = useAccount();
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [isPremium, setIsPremium] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasFetched, setHasFetched] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [unlockedSkins, setUnlockedSkins] = useState<string[]>([]);
   const [equippedSkin, setEquippedSkin] = useState<string | null>(null);
   const [selectedGame, setSelectedGame] = useState<GameId | 'all'>('all');
   const [showPremiumHelp, setShowPremiumHelp] = useState(false);
+  const [premiumCount, setPremiumCount] = useState(0);
   
   // User stats per game
   const [userStats, setUserStats] = useState<Record<GameId, { gamesPlayed: number; highScore: number; totalScore: number }>>({
@@ -612,6 +614,16 @@ export default function SkinMarketPage() {
     args: address ? [address] : undefined,
   });
 
+  // Fetch premium count (burn stats)
+  useEffect(() => {
+    fetch('/api/burn-stats')
+      .then(r => r.json())
+      .then(data => {
+        if (data.premiumUsers) setPremiumCount(data.premiumUsers);
+      })
+      .catch(console.error);
+  }, []);
+
   // Initialize Farcaster SDK
   useEffect(() => {
     let cancelled = false;
@@ -629,8 +641,12 @@ export default function SkinMarketPage() {
 
   // Fetch premium status and user data
   useEffect(() => {
+    // Wait for wallet connection to be determined
+    if (isConnecting || isReconnecting) return;
+    
     if (!address) {
       setIsLoading(false);
+      setHasFetched(true);
       return;
     }
     
@@ -652,11 +668,12 @@ export default function SkinMarketPage() {
         console.error("Failed to fetch user data:", e);
       } finally {
         setIsLoading(false);
+        setHasFetched(true);
       }
     };
     
     fetchUserData();
-  }, [address, context?.user?.fid]);
+  }, [address, isConnecting, isReconnecting, context?.user?.fid]);
 
   // Handle premium purchase success
   useEffect(() => {
@@ -784,7 +801,7 @@ export default function SkinMarketPage() {
             <h1 className="text-xl font-bold">Skin Collection</h1>
             <p className="text-xs text-zinc-400">Unlock skins by playing games</p>
           </div>
-          {isPremium && (
+          {isPremium && hasFetched && (
             <div className="flex items-center gap-1 px-2 py-1 bg-amber-500/20 border border-amber-500/30 rounded-full">
               <Crown className="w-3 h-3 text-amber-400" />
               <span className="text-xs text-amber-400 font-bold">Premium</span>
@@ -792,7 +809,7 @@ export default function SkinMarketPage() {
           )}
         </div>
         
-        {isLoading ? (
+        {(isLoading || isConnecting || isReconnecting || !hasFetched) ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
           </div>
@@ -819,6 +836,13 @@ export default function SkinMarketPage() {
                     <p className="text-xs text-zinc-400">Earn {totalSkins} unique skins by playing</p>
                   </div>
                 </div>
+                
+                {premiumCount > 0 && (
+                  <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-zinc-400">
+                    <Users className="w-3.5 h-3.5" />
+                    <span><span className="text-amber-400 font-semibold">{premiumCount}</span> {premiumCount === 1 ? 'player has' : 'players have'} unlocked premium</span>
+                  </div>
+                )}
                 
                 {purchaseError && (
                   <div className="mt-3 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
