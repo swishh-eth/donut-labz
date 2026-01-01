@@ -162,6 +162,8 @@ export default function ChatPage() {
   const [showTipSettings, setShowTipSettings] = useState(false);
   const [message, setMessage] = useState("");
   const [pendingMessage, setPendingMessage] = useState("");
+  const [pendingMessageConfirmed, setPendingMessageConfirmed] = useState(false);
+  const [pendingMessageFadingOut, setPendingMessageFadingOut] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [rateLimitBanRemaining, setRateLimitBanRemaining] = useState(0);
   const [eligibilityError, setEligibilityError] = useState<string[] | null>(null);
@@ -500,13 +502,23 @@ export default function ChatPage() {
   useEffect(() => {
     if (isSuccess && hash) {
       recordPoints();
-      setPendingMessage("");
       setMessage("");
       setIsChatExpanded(false);
       setCooldownRemaining(COOLDOWN_SECONDS);
+      // Mark as confirmed - this triggers the fade-in animation
+      setPendingMessageConfirmed(true);
+      // Wait for sync and refetch, then fade out pending message
       setTimeout(async () => {
         await fetch("/api/chat/messages?sync=true");
-        refetchMessages();
+        await refetchMessages();
+        // Trigger fade-out animation
+        setPendingMessageFadingOut(true);
+        // Remove after animation completes
+        setTimeout(() => {
+          setPendingMessage("");
+          setPendingMessageConfirmed(false);
+          setPendingMessageFadingOut(false);
+        }, 400);
       }, 3000);
     }
   }, [isSuccess, hash, recordPoints, refetchMessages]);
@@ -1068,7 +1080,13 @@ export default function ChatPage() {
                   );
                 })}
                 {pendingMessage && (
-                  <div className="flex gap-2 p-2 rounded-lg bg-zinc-800/50 border border-zinc-700/50 opacity-60">
+                  <div className={`flex gap-2 p-2 rounded-lg bg-zinc-800 border border-zinc-700 transition-all duration-500 ease-out ${
+                    pendingMessageFadingOut 
+                      ? "opacity-0 scale-95" 
+                      : pendingMessageConfirmed 
+                        ? "opacity-100" 
+                        : "opacity-60"
+                  }`}>
                     <Avatar className="h-8 w-8 border border-zinc-700 flex-shrink-0">
                       <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
                       <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(userDisplayName)}</AvatarFallback>
@@ -1076,9 +1094,15 @@ export default function ChatPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="font-semibold text-white text-xs truncate">{userDisplayName}</span>
-                        <span className="text-[10px] text-gray-400 ml-auto flex-shrink-0">Sending...</span>
+                        <span className={`text-[10px] ml-auto flex-shrink-0 transition-colors duration-500 ${
+                          pendingMessageConfirmed ? "text-green-400" : "text-gray-400"
+                        }`}>
+                          {pendingMessageConfirmed ? "Sent ✓" : "Sending..."}
+                        </span>
                       </div>
-                      <p className="text-xs text-gray-300 break-words">{pendingMessage}</p>
+                      <p className={`text-xs break-words transition-colors duration-500 ${
+                        pendingMessageConfirmed ? "text-gray-300" : "text-gray-400"
+                      }`}>{pendingMessage}</p>
                     </div>
                   </div>
                 )}
