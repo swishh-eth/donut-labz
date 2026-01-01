@@ -823,7 +823,7 @@ export default function ChatPage() {
           {/* Messages container */}
           <div 
             ref={messagesContainerRef} 
-            className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll pb-16"
+            className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll pb-14"
             style={{
               WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
               maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
@@ -925,7 +925,7 @@ export default function ChatPage() {
 
           {/* Floating chat input */}
           <div className="absolute bottom-0 left-0 right-0 pointer-events-none z-20">
-            <div className="pointer-events-auto bg-gradient-to-t from-black via-black to-transparent pt-6">
+            <div className="pointer-events-auto bg-gradient-to-t from-black via-black to-transparent pt-3">
               <div className="pb-2">
                 {!isConnected ? (
                 <div className="flex items-center justify-center bg-zinc-900 border border-zinc-800 rounded-xl p-3">
@@ -1031,9 +1031,9 @@ export default function ChatPage() {
                     <button 
                       onClick={handleSendMessage} 
                       disabled={(!message.trim() && !selectedImage) || isPending || isConfirming || isVerifying || isBurnPending || isBurnConfirming || isUploadingImage} 
-                      className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                      className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
                     >
-                      {isVerifying || isUploadingImage ? <span className="text-xs font-bold">...</span> : <Send className="w-4 h-4" />}
+                      {isVerifying || isUploadingImage ? <span className="text-xs font-bold">...</span> : <Send className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                   
