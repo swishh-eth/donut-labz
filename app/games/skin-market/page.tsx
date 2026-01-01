@@ -589,6 +589,7 @@ export default function SkinMarketPage() {
   const [isPremium, setIsPremium] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [unlockedSkins, setUnlockedSkins] = useState<string[]>([]);
@@ -606,6 +607,12 @@ export default function SkinMarketPage() {
   
   const { writeContract, data: txHash, isPending, reset: resetWrite, error: writeError } = useWriteContract();
   const { isLoading: isTxLoading, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  
+  // Give wagmi time to initialize before showing content
+  useEffect(() => {
+    const timer = setTimeout(() => setIsMounted(true), 150);
+    return () => clearTimeout(timer);
+  }, []);
   
   const { data: balance, refetch: refetchBalance } = useReadContract({
     address: DONUT_ADDRESS,
@@ -641,8 +648,8 @@ export default function SkinMarketPage() {
 
   // Fetch premium status and user data
   useEffect(() => {
-    // Wait for wallet connection to be determined
-    if (isConnecting || isReconnecting) return;
+    // Wait for mount and wallet connection to be determined
+    if (!isMounted || isConnecting || isReconnecting) return;
     
     if (!address) {
       setIsLoading(false);
@@ -673,7 +680,7 @@ export default function SkinMarketPage() {
     };
     
     fetchUserData();
-  }, [address, isConnecting, isReconnecting, context?.user?.fid]);
+  }, [address, isConnecting, isReconnecting, isMounted, context?.user?.fid]);
 
   // Handle premium purchase success
   useEffect(() => {
@@ -809,7 +816,7 @@ export default function SkinMarketPage() {
           )}
         </div>
         
-        {(isLoading || isConnecting || isReconnecting || !hasFetched) ? (
+        {(!isMounted || isLoading || isConnecting || isReconnecting || !hasFetched) ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
           </div>
