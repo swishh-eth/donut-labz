@@ -15,7 +15,7 @@ const USDC_DECIMALS = 6;
 
 // Prize distribution: $10 total split among top 10
 // Amounts in USD (will be converted to USDC)
-const TOTAL_PRIZE_USD = 10;
+const TOTAL_PRIZE_USD = 5;
 const PRIZE_DISTRIBUTION = [
   { rank: 1, amount: "4.00" },  // $4.00
   { rank: 2, amount: "2.00" },  // $2.00
