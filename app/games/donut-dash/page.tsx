@@ -1314,82 +1314,86 @@ export default function DonutDashPage() {
             </button>
           </div>
         )}
-        
-        {showHelp && (
-          <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-            <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
-              <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-                <div className="flex items-center gap-2"><HelpCircle className="w-5 h-5 text-zinc-400" /><span className="font-bold">How to Play</span></div>
-                <button onClick={() => setShowHelp(false)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
-              </div>
-              <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
-                <div>
-                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Play className="w-4 h-4 text-green-400" />Free to Play!</h3>
-                  <p className="text-xs text-zinc-400">Donut Dash is completely free! You only pay gas (~$0.001 on Base) to register your game onchain.</p>
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4 text-yellow-400" />Gameplay</h3>
-                  <p className="text-xs text-zinc-400">Hold the screen to fly up with your jetpack. Release to fall. Navigate through the facility avoiding zappers and collecting sprinkles!</p>
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-green-400" />Weekly USDC Prizes</h3>
-                  <p className="text-xs text-zinc-400">Top 10 players split ${prizeInfo.totalPrize} USDC every Friday!</p>
-                  <ul className="text-xs text-zinc-400 mt-2 space-y-1 pl-4">
-                    {prizeInfo.prizeStructure.slice(0, 5).map(p => (
-                      <li key={p.rank}>• {p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : `${p.rank}th`}: <span className="text-green-400">${p.amount}</span></li>
-                    ))}
-                    <li>• 6th-10th: $0.40 - $0.10</li>
-                  </ul>
-                </div>
-              </div>
-              <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
-                <button onClick={() => setShowHelp(false)} className="w-full py-2 bg-green-500 text-black font-bold rounded-full hover:bg-green-400">Got it!</button>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {showLeaderboard && (
-          <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-            <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
-              <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-                <div className="flex items-center gap-2"><Trophy className="w-5 h-5 text-green-400" /><span className="font-bold">Weekly Leaderboard</span></div>
-                <button onClick={() => setShowLeaderboard(false)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
-              </div>
-              <div className="px-4 py-2 bg-zinc-800/50 border-b border-zinc-800">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-400">Prize Pool</span>
-                  <span className="text-sm font-bold text-green-400">${prizeInfo.totalPrize} USDC</span>
-                </div>
-              </div>
-              <div className="max-h-96 overflow-y-auto">
-                {leaderboard.length === 0 ? (
-                  <div className="py-8 text-center">
-                    <p className="text-zinc-500">No scores yet!</p>
-                    <p className="text-zinc-600 text-xs mt-1">Be the first to play this week</p>
-                  </div>
-                ) : leaderboard.map((entry) => {
-                  const prize = prizeInfo.prizeStructure.find(p => p.rank === entry.rank);
-                  return (
-                    <div key={entry.fid} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${entry.rank <= 3 ? "bg-green-500/10" : ""}`}>
-                      <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-green-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>{entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}</span>
-                      {entry.pfpUrl ? <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center">🍩</div>}
-                      <div className="flex-1 min-w-0">
-                        <span className="block truncate text-sm">{entry.displayName || entry.username || `fid:${entry.fid}`}</span>
-                        {prize && <span className="text-xs text-green-400">+${prize.amount}</span>}
-                      </div>
-                      <span className="font-bold text-sm">{entry.score}</span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="px-4 py-2 bg-zinc-800/50 border-t border-zinc-800">
-                <p className="text-[10px] text-zinc-500 text-center">Prizes distributed every Friday in USDC</p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
+      
+      {/* Modals - outside scrollable container */}
+      {showHelp && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4">
+          <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+              <div className="flex items-center gap-2"><HelpCircle className="w-5 h-5 text-zinc-400" /><span className="font-bold">How to Play</span></div>
+              <button onClick={() => setShowHelp(false)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+              <div>
+                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4 text-yellow-400" />Gameplay</h3>
+                <p className="text-xs text-zinc-400">Hold the screen to fly up with your jetpack. Release to fall. Navigate through the facility avoiding zappers and collecting sprinkles!</p>
+              </div>
+              <div>
+                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-green-400" />Weekly Prizes</h3>
+                <p className="text-xs text-zinc-400">This game is FREE TO PLAY! Top 10 players each week win USDC prizes distributed automatically every Friday at 6PM EST.</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs">
+                  <div className="flex justify-between"><span className="text-green-400">🥇 1st</span><span className="text-white">40%</span></div>
+                  <div className="flex justify-between"><span className="text-zinc-300">🥈 2nd</span><span className="text-white">20%</span></div>
+                  <div className="flex justify-between"><span className="text-orange-400">🥉 3rd</span><span className="text-white">15%</span></div>
+                  <div className="flex justify-between"><span className="text-zinc-400">4th</span><span className="text-white">8%</span></div>
+                  <div className="flex justify-between"><span className="text-zinc-400">5th</span><span className="text-white">5%</span></div>
+                  <div className="flex justify-between"><span className="text-zinc-400">6th-10th</span><span className="text-white">12% split</span></div>
+                </div>
+              </div>
+              <div>
+                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Clock className="w-4 h-4 text-zinc-400" />Weekly Reset</h3>
+                <p className="text-xs text-zinc-400">Leaderboards reset every Friday at 6PM EST. Your best score of the week counts!</p>
+              </div>
+            </div>
+            <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
+              <button onClick={() => setShowHelp(false)} className="w-full py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200">Got it!</button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {showLeaderboard && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4">
+          <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+              <div className="flex items-center gap-2"><Trophy className="w-5 h-5 text-green-400" /><span className="font-bold">Weekly Leaderboard</span></div>
+              <button onClick={() => setShowLeaderboard(false)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="px-4 py-2 bg-zinc-800/50 border-b border-zinc-800">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-zinc-400">Prize Pool</span>
+                <span className="text-sm font-bold text-green-400">${prizeInfo.totalPrize} USDC</span>
+              </div>
+            </div>
+            <div className="max-h-[50vh] overflow-y-auto">
+              {leaderboard.length === 0 ? (
+                <div className="py-8 text-center">
+                  <p className="text-zinc-500">No scores yet!</p>
+                  <p className="text-zinc-600 text-xs mt-1">Be the first to play this week</p>
+                </div>
+              ) : leaderboard.map((entry) => {
+                const prize = prizeInfo.prizeStructure.find(p => p.rank === entry.rank);
+                return (
+                  <div key={entry.fid} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${entry.rank <= 3 ? "bg-green-500/10" : ""}`}>
+                    <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-green-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>{entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}</span>
+                    {entry.pfpUrl ? <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center">🍩</div>}
+                    <div className="flex-1 min-w-0">
+                      <span className="block truncate text-sm">{entry.displayName || entry.username || `fid:${entry.fid}`}</span>
+                      {prize && <span className="text-xs text-green-400">+${prize.amount}</span>}
+                    </div>
+                    <span className="font-bold text-sm">{entry.score}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="px-4 py-2 bg-zinc-800/50 border-t border-zinc-800">
+              <p className="text-[10px] text-zinc-500 text-center">Prizes distributed every Friday in USDC</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <NavBar />
     </main>
   );
