@@ -29,15 +29,34 @@ async function syncRecentMessages() {
     });
 
     for (const log of logs) {
+      const txHash = log.transactionHash;
+      
+      // Check if there's a pending image for this transaction
+      const { data: pendingImage } = await supabase
+        .from("chat_pending_images")
+        .select("image_url")
+        .eq("transaction_hash", txHash)
+        .eq("processed", false)
+        .single();
+
       await supabase
         .from("chat_messages")
         .upsert({
           sender: (log.args.sender as string).toLowerCase(),
           message: log.args.message as string,
           timestamp: Number(log.args.timestamp),
-          transaction_hash: log.transactionHash,
+          transaction_hash: txHash,
           block_number: Number(log.blockNumber),
+          image_url: pendingImage?.image_url || null,
         }, { onConflict: "transaction_hash" });
+
+      // Mark pending image as processed
+      if (pendingImage) {
+        await supabase
+          .from("chat_pending_images")
+          .update({ processed: true })
+          .eq("transaction_hash", txHash);
+      }
     }
 
     return logs.length;
@@ -57,16 +76,19 @@ export async function GET(request: Request) {
       await syncRecentMessages();
     }
 
-    // Fetch last N messages, ordered by timestamp descending
+    // Fetch last N messages, ordered by timestamp ascending (oldest first, newest at bottom)
     const { data: messages, error } = await supabase
       .from("chat_messages")
-      .select("*")
+      .select("sender, message, timestamp, transaction_hash, block_number, is_system_message, image_url")
       .order("timestamp", { ascending: false })
       .limit(Math.min(limit, 100)); // Cap at 100 max
 
     if (error) throw error;
 
-    return NextResponse.json({ messages: messages || [] });
+    // Reverse to get oldest first (so newest appears at bottom when rendered)
+    const sortedMessages = (messages || []).reverse();
+
+    return NextResponse.json({ messages: sortedMessages });
   } catch (e) {
     console.error("Error fetching messages:", e);
     return NextResponse.json({ messages: [] });

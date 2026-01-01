@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
-import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer, Heart, Plus, Settings } from "lucide-react";
+import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer, Heart, Plus, Settings, Image as ImageIcon } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseUnits } from "viem";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
@@ -27,6 +27,7 @@ type ChatMessage = {
   timestamp: bigint;
   transactionHash: string;
   blockNumber: bigint;
+  imageUrl?: string;
 };
 
 type FarcasterProfile = {
@@ -42,6 +43,8 @@ type TipSettings = {
 };
 
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as `0x${string}`;
+const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD" as `0x${string}`;
+const IMAGE_UPLOAD_COST = 10n * 10n ** 18n; // 10 SPRINKLES
 
 const ERC20_ABI = [
   {
@@ -127,7 +130,12 @@ export default function ChatPage() {
   const [currentMultiplier, setCurrentMultiplier] = useState(getCurrentMultiplier());
   const [timeUntilHalving, setTimeUntilHalving] = useState(getTimeUntilNextHalving());
   const [tippingMessageHash, setTippingMessageHash] = useState<string | null>(null);
-  const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
+  const [scrollFade, setScrollFade] = useState({ top: 1, bottom: 0 });
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [isChatExpanded, setIsChatExpanded] = useState(true);
   const [buttonPosition, setButtonPosition] = useState<'left' | 'right'>(() => {
     if (typeof window !== 'undefined') {
@@ -174,6 +182,10 @@ export default function ChatPage() {
   const { data: tipHash, writeContract: writeTip, isPending: isTipPending, reset: resetTip } = useWriteContract();
   const { isLoading: isTipConfirming, isSuccess: isTipSuccess } = useWaitForTransactionReceipt({ hash: tipHash });
 
+  // For burning SPRINKLES when uploading images
+  const { data: burnHash, writeContract: writeBurn, isPending: isBurnPending, reset: resetBurn } = useWriteContract();
+  const { isLoading: isBurnConfirming, isSuccess: isBurnSuccess } = useWaitForTransactionReceipt({ hash: burnHash });
+
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
@@ -200,7 +212,7 @@ export default function ChatPage() {
     if (isChatExpanded) {
       const container = messagesContainerRef.current;
       if (container) {
-        container.scrollTo({ top: 0, behavior: 'smooth' });
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
       }
       setTimeout(() => inputRef.current?.focus(), 300);
     }
@@ -260,6 +272,7 @@ export default function ChatPage() {
           timestamp: BigInt(m.timestamp),
           transactionHash: m.transaction_hash,
           blockNumber: BigInt(m.block_number),
+          imageUrl: m.image_url || null,
         })) as ChatMessage[];
     },
     refetchInterval: 10000,
@@ -356,23 +369,45 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (isSuccess && hash) {
-      recordPoints();
-      setMessage("");
-      setIsChatExpanded(false);
-      setCooldownRemaining(COOLDOWN_SECONDS);
-      setPendingMessageConfirmed(true);
-      setTimeout(async () => {
-        await fetch("/api/chat/messages?sync=true");
-        await refetchMessages();
-        setPendingMessageFadingOut(true);
-        setTimeout(() => {
-          setPendingMessage("");
-          setPendingMessageConfirmed(false);
-          setPendingMessageFadingOut(false);
-        }, 400);
-      }, 3000);
+      const completeMessage = async () => {
+        // If we uploaded an image, save the image URL to the message
+        if (pendingImageUrl && pendingImageUrl.startsWith("http")) {
+          try {
+            await fetch("/api/chat/save-image", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                transactionHash: hash,
+                imageUrl: pendingImageUrl,
+              }),
+            });
+          } catch (e) {
+            console.error("Failed to save image URL:", e);
+          }
+        }
+        
+        recordPoints();
+        setMessage("");
+        clearSelectedImage();
+        setPendingImageUrl(null);
+        setIsChatExpanded(false);
+        setCooldownRemaining(COOLDOWN_SECONDS);
+        setPendingMessageConfirmed(true);
+        
+        setTimeout(async () => {
+          await fetch("/api/chat/messages?sync=true");
+          await refetchMessages();
+          setPendingMessageFadingOut(true);
+          setTimeout(() => {
+            setPendingMessage("");
+            setPendingMessageConfirmed(false);
+            setPendingMessageFadingOut(false);
+          }, 400);
+        }, 3000);
+      };
+      completeMessage();
     }
-  }, [isSuccess, hash, recordPoints, refetchMessages]);
+  }, [isSuccess, hash, recordPoints, refetchMessages, pendingImageUrl]);
 
   useEffect(() => {
     if (cooldownRemaining <= 0) return;
@@ -383,7 +418,7 @@ export default function ChatPage() {
   }, [cooldownRemaining]);
 
   const handleSendMessage = async () => {
-    if (!message.trim() || !isConnected || isPending || isConfirming || cooldownRemaining > 0 || rateLimitBanRemaining > 0 || isVerifying) return;
+    if ((!message.trim() && !selectedImage) || !isConnected || isPending || isConfirming || cooldownRemaining > 0 || rateLimitBanRemaining > 0 || isVerifying || isBurnPending || isBurnConfirming || isUploadingImage) return;
     
     if (currentMultiplier === 0) {
       setEligibilityError(["Chat rewards have ended. You can still send messages but won't earn sprinkles."]);
@@ -396,7 +431,7 @@ export default function ChatPage() {
       const verifyRes = await fetch("/api/chat/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ senderAddress: address, message: message.trim(), fid: context?.user?.fid }),
+        body: JSON.stringify({ senderAddress: address, message: message.trim() || (selectedImage ? "📷" : ""), fid: context?.user?.fid }),
       });
       const verifyData = await verifyRes.json();
       if (!verifyData.eligible) {
@@ -407,18 +442,33 @@ export default function ChatPage() {
         setIsVerifying(false);
         return;
       }
-      setPendingMessage(message.trim());
+      
+      setPendingMessage(message.trim() || (selectedImage ? "📷" : ""));
       setIsVerifying(false);
-      writeContract({
-        address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
-        abi: GLAZERY_CHAT_ABI,
-        functionName: "sendMessage",
-        args: [message.trim()],
-      });
+      
+      // If there's an image, burn SPRINKLES first
+      if (selectedImage) {
+        setPendingImageUrl(imagePreview); // Show preview while uploading
+        writeBurn({
+          address: SPRINKLES_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: "transfer",
+          args: [BURN_ADDRESS, IMAGE_UPLOAD_COST],
+        });
+      } else {
+        // No image, send message directly
+        writeContract({
+          address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
+          abi: GLAZERY_CHAT_ABI,
+          functionName: "sendMessage",
+          args: [message.trim()],
+        });
+      }
     } catch (e) {
       console.error("Failed to send message:", e);
       setEligibilityError(["Something went wrong, try again"]);
       setPendingMessage("");
+      setPendingImageUrl(null);
       setIsVerifying(false);
     }
   };
@@ -452,15 +502,114 @@ export default function ChatPage() {
     }
   };
 
-  // Messages are displayed newest first (top), scroll to top on load
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setEligibilityError(["Please select an image file"]);
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setEligibilityError(["Image must be less than 5MB"]);
+      return;
+    }
+    
+    setSelectedImage(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const clearSelectedImage = () => {
+    setSelectedImage(null);
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+      setImagePreview(null);
+    }
+    if (imageInputRef.current) {
+      imageInputRef.current.value = "";
+    }
+  };
+
+  const uploadImageToSupabase = async (file: File): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("senderAddress", address || "");
+      
+      const res = await fetch("/api/chat/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to upload image");
+      }
+      
+      const data = await res.json();
+      return data.url;
+    } catch (e) {
+      console.error("Failed to upload image:", e);
+      return null;
+    }
+  };
+
+  // Handle burn success - upload image and send message
   useEffect(() => {
-    if (messages && messages.length > 0 && !messagesLoading) {
+    if (isBurnSuccess && selectedImage && pendingMessage !== undefined) {
+      const completeImageUpload = async () => {
+        setIsUploadingImage(true);
+        try {
+          const imageUrl = await uploadImageToSupabase(selectedImage);
+          if (imageUrl) {
+            setPendingImageUrl(imageUrl);
+            // Now send the actual chat message
+            writeContract({
+              address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
+              abi: GLAZERY_CHAT_ABI,
+              functionName: "sendMessage",
+              args: [message.trim() || "📷"],
+            });
+          } else {
+            setEligibilityError(["Failed to upload image. SPRINKLES were burned but image upload failed."]);
+            clearSelectedImage();
+          }
+        } catch (e) {
+          console.error("Image upload error:", e);
+          setEligibilityError(["Failed to upload image"]);
+        }
+        setIsUploadingImage(false);
+        resetBurn();
+      };
+      completeImageUpload();
+    }
+  }, [isBurnSuccess, selectedImage]);
+
+  // Messages are displayed oldest first, scroll to bottom on load
+  const hasInitialScrolledRef = useRef(false);
+  
+  useEffect(() => {
+    if (!hasInitialScrolledRef.current && messages && messages.length > 0 && !messagesLoading) {
+      hasInitialScrolledRef.current = true;
       const container = messagesContainerRef.current;
       if (container) {
-        container.scrollTo({ top: 0, behavior: 'auto' });
+        container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
       }
     }
-  }, [messagesLoading]);
+  }, [messages, messagesLoading]);
+  
+  // Scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (hasInitialScrolledRef.current && messages) {
+      const container = messagesContainerRef.current;
+      if (container) {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      }
+    }
+  }, [messages?.length]);
 
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userHandle = context?.user?.username ? `@${context.user.username}` : context?.user?.fid ? `fid ${context.user.fid}` : "";
@@ -761,33 +910,6 @@ export default function ChatPage() {
               </div>
             ) : (
               <>
-                {pendingMessage && (
-                  <div className={`flex gap-2 p-2 rounded-lg bg-zinc-800 border border-zinc-700 transition-all duration-500 ease-out ${
-                    pendingMessageFadingOut 
-                      ? "opacity-0 scale-95" 
-                      : pendingMessageConfirmed 
-                        ? "opacity-100" 
-                        : "opacity-60"
-                  }`}>
-                    <Avatar className="h-8 w-8 border border-zinc-700 flex-shrink-0">
-                      <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
-                      <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(userDisplayName)}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-semibold text-white text-xs truncate">{userDisplayName}</span>
-                        <span className={`text-[10px] ml-auto flex-shrink-0 transition-colors duration-500 ${
-                          pendingMessageConfirmed ? "text-green-400" : "text-gray-400"
-                        }`}>
-                          {pendingMessageConfirmed ? "Sent ✓" : "Sending..."}
-                        </span>
-                      </div>
-                      <p className={`text-xs break-words transition-colors duration-500 ${
-                        pendingMessageConfirmed ? "text-gray-300" : "text-gray-400"
-                      }`}>{pendingMessage}</p>
-                    </div>
-                  </div>
-                )}
                 {messages?.map((msg, index) => {
                   const profile = profiles?.[msg.sender.toLowerCase()];
                   const displayName = profile?.displayName || formatAddress(msg.sender);
@@ -811,7 +933,17 @@ export default function ChatPage() {
                           {username && <button onClick={() => openUserProfile(username)} className="text-[10px] text-gray-500 truncate hover:text-gray-300">{username}</button>}
                           <span className="text-[10px] text-gray-600 ml-auto flex-shrink-0">{timeAgo(msg.timestamp)}</span>
                         </div>
-                        <p className="text-xs text-gray-300 break-words">{msg.message}</p>
+                        {msg.imageUrl && (
+                          <img 
+                            src={msg.imageUrl} 
+                            alt="Chat image" 
+                            className="max-w-[200px] max-h-[200px] rounded-lg border border-zinc-700 mb-1 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => window.open(msg.imageUrl, "_blank")}
+                          />
+                        )}
+                        {msg.message && msg.message !== "📷" && (
+                          <p className="text-xs text-gray-300 break-words">{msg.message}</p>
+                        )}
                       </div>
                       <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={!isConnected || isOwnMessage || isTipPending || isTipConfirming} className={`flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px] rounded-lg transition-all ${isTipping ? "bg-white/20" : tipCount > 0 ? "bg-white/10" : (!isConnected || isOwnMessage) ? "" : "hover:bg-white/10"}`} title={!isConnected ? "Connect wallet to tip" : isOwnMessage ? "Can't tip yourself" : `Tip ${tipSettings.amount} SPRINKLES`}>
                         <Heart className={`w-4 h-4 transition-colors ${isTipping ? "text-white animate-pulse fill-white" : tipCount > 0 ? "text-white fill-white/50" : "text-gray-500"}`} />
@@ -820,6 +952,42 @@ export default function ChatPage() {
                     </div>
                   );
                 })}
+                {pendingMessage && (
+                  <div className={`flex gap-2 p-2 rounded-lg bg-zinc-800 border border-zinc-700 transition-all duration-500 ease-out ${
+                    pendingMessageFadingOut 
+                      ? "opacity-0 scale-95" 
+                      : pendingMessageConfirmed 
+                        ? "opacity-100" 
+                        : "opacity-60"
+                  }`}>
+                    <Avatar className="h-8 w-8 border border-zinc-700 flex-shrink-0">
+                      <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
+                      <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(userDisplayName)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-semibold text-white text-xs truncate">{userDisplayName}</span>
+                        <span className={`text-[10px] ml-auto flex-shrink-0 transition-colors duration-500 ${
+                          pendingMessageConfirmed ? "text-green-400" : "text-gray-400"
+                        }`}>
+                          {pendingMessageConfirmed ? "Sent ✓" : isUploadingImage ? "Uploading..." : isBurnPending || isBurnConfirming ? "Burning..." : "Sending..."}
+                        </span>
+                      </div>
+                      {pendingImageUrl && (
+                        <img 
+                          src={pendingImageUrl} 
+                          alt="Uploading" 
+                          className="max-w-[200px] max-h-[200px] rounded-lg border border-zinc-700 mb-1 object-cover opacity-70"
+                        />
+                      )}
+                      {pendingMessage && pendingMessage !== "📷" && (
+                        <p className={`text-xs break-words transition-colors duration-500 ${
+                          pendingMessageConfirmed ? "text-gray-300" : "text-gray-400"
+                        }`}>{pendingMessage}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div ref={messagesEndRef} />
               </>
             )}
@@ -929,25 +1097,60 @@ export default function ChatPage() {
                             : "opacity-0 w-0"
                         }`}
                       >
+                        {/* Image preview */}
+                        {imagePreview && (
+                          <div className="mb-2 relative inline-block">
+                            <img 
+                              src={imagePreview} 
+                              alt="Preview" 
+                              className="h-20 w-auto rounded-lg border border-zinc-700 object-cover"
+                            />
+                            <button
+                              onClick={clearSelectedImage}
+                              className="absolute -top-2 -right-2 w-5 h-5 bg-zinc-800 border border-zinc-600 rounded-full flex items-center justify-center hover:bg-zinc-700 transition-colors"
+                            >
+                              <X className="w-3 h-3 text-white" />
+                            </button>
+                            <div className="absolute bottom-1 left-1 bg-black/70 px-1.5 py-0.5 rounded text-[9px] text-white flex items-center gap-1">
+                              <Sparkles className="w-2.5 h-2.5" />
+                              10 burn
+                            </div>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2 h-11">
+                          <input
+                            ref={imageInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageSelect}
+                            className="hidden"
+                          />
+                          <button
+                            onClick={() => imageInputRef.current?.click()}
+                            disabled={isPending || isConfirming || isVerifying || isBurnPending || isBurnConfirming || isUploadingImage}
+                            className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-white hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                            title="Add image (10 SPRINKLES)"
+                          >
+                            <ImageIcon className="w-4 h-4" />
+                          </button>
                           <input
                             ref={inputRef}
                             type="text"
                             value={message}
                             onChange={(e) => { setMessage(e.target.value.slice(0, 280)); if (eligibilityError) setEligibilityError(null); }}
                             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                            placeholder="Type a message..."
-                            disabled={isPending || isConfirming || isVerifying}
-                            className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-2 py-1 outline-none disabled:opacity-50 min-w-0"
+                            placeholder={selectedImage ? "Add caption (optional)..." : "Type a message..."}
+                            disabled={isPending || isConfirming || isVerifying || isBurnPending || isBurnConfirming || isUploadingImage}
+                            className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-1 py-1 outline-none disabled:opacity-50 min-w-0"
                             style={{ fontSize: '16px' }}
                           />
                           <span className="text-[10px] text-gray-500 flex-shrink-0">{message.length}/280</span>
                           <button 
                             onClick={handleSendMessage} 
-                            disabled={!message.trim() || isPending || isConfirming || isVerifying} 
+                            disabled={(!message.trim() && !selectedImage) || isPending || isConfirming || isVerifying || isBurnPending || isBurnConfirming || isUploadingImage} 
                             className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
                           >
-                            {isVerifying ? <span className="text-xs font-bold">...</span> : <Send className="w-4 h-4" />}
+                            {isVerifying || isUploadingImage ? <span className="text-xs font-bold">...</span> : <Send className="w-4 h-4" />}
                           </button>
                         </div>
                       </div>
@@ -955,6 +1158,8 @@ export default function ChatPage() {
                   </div>
                   
                   {(isPending || isConfirming) && <p className="text-[10px] text-gray-400 text-center mt-1">{isPending ? "Confirm in wallet..." : "Confirming transaction..."}</p>}
+                  {(isBurnPending || isBurnConfirming) && <p className="text-[10px] text-gray-400 text-center mt-1">{isBurnPending ? "Confirm 10 SPRINKLES burn..." : "Burning SPRINKLES..."}</p>}
+                  {isUploadingImage && <p className="text-[10px] text-gray-400 text-center mt-1">Uploading image...</p>}
                 </>
               )}
               </div>
