@@ -36,12 +36,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid score" }, { status: 400 });
     }
 
-    // Fetch entry without .single()
+    const currentWeek = getCurrentWeek();
+
+    // Fetch the player's entry for this week
     const { data: entries, error: fetchError } = await supabase
       .from("donut_dash_scores")
       .select("*")
       .eq("id", entryId)
       .eq("fid", fid)
+      .eq("week", currentWeek)
       .limit(1);
 
     console.log("Entry fetch result:", { entries, fetchError });
@@ -56,56 +59,47 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Entry not found or unauthorized" }, { status: 404 });
     }
 
-    if (entry.score > 0) {
-      return NextResponse.json({ success: false, error: "Score already submitted for this entry" }, { status: 400 });
+    // Only update if new score is higher than existing score
+    const currentBestScore = entry.score || 0;
+    const isNewBest = score > currentBestScore;
+
+    if (isNewBest) {
+      const { error: updateError } = await supabase
+        .from("donut_dash_scores")
+        .update({ 
+          score, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq("id", entryId);
+
+      if (updateError) {
+        console.error("Error updating score:", updateError);
+        return NextResponse.json({ success: false, error: "Failed to submit score" }, { status: 500 });
+      }
+
+      console.log("Score updated from", currentBestScore, "to", score);
+    } else {
+      console.log("Score", score, "not higher than current best", currentBestScore, "- not updating");
     }
 
-    const currentWeek = getCurrentWeek();
-
-    if (entry.week !== currentWeek) {
-      return NextResponse.json({ success: false, error: "Entry is from a previous week" }, { status: 400 });
-    }
-
-    // Update score
-    const { error: updateError } = await supabase
-      .from("donut_dash_scores")
-      .update({ score, updated_at: new Date().toISOString() })
-      .eq("id", entryId);
-
-    if (updateError) {
-      console.error("Error updating score:", updateError);
-      return NextResponse.json({ success: false, error: "Failed to submit score" }, { status: 500 });
-    }
-
-    console.log("Score updated successfully");
-
-    // Get rank (count of better scores + 1)
+    // Get rank (count of players with higher scores + 1)
+    const bestScore = isNewBest ? score : currentBestScore;
+    
     const { count: betterScores } = await supabase
       .from("donut_dash_scores")
       .select("*", { count: "exact", head: true })
       .eq("week", currentWeek)
-      .gt("score", score);
+      .gt("score", bestScore);
 
     const rank = (betterScores || 0) + 1;
-
-    // Get user's best score without .single()
-    const { data: bestScores } = await supabase
-      .from("donut_dash_scores")
-      .select("score")
-      .eq("fid", fid)
-      .eq("week", currentWeek)
-      .order("score", { ascending: false })
-      .limit(1);
-
-    const bestScore = bestScores?.[0]?.score || score;
 
     return NextResponse.json({
       success: true,
       score,
+      bestScore,
+      isPersonalBest: isNewBest,
       rank,
       week: currentWeek,
-      isPersonalBest: score >= bestScore,
-      bestScore,
     });
   } catch (error: any) {
     console.error("Submit score error:", error);

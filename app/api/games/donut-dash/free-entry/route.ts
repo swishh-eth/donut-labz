@@ -34,7 +34,27 @@ export async function POST(request: NextRequest) {
 
     const currentWeek = getCurrentWeek();
 
-    // Create game entry - use .select() without .single()
+    // Check if player already has a row for this week
+    const { data: existing } = await supabase
+      .from("donut_dash_scores")
+      .select("id, score")
+      .eq("fid", fid)
+      .eq("week", currentWeek)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      // Player already has a row this week - return existing entry
+      console.log("Existing entry found:", existing[0].id);
+      return NextResponse.json({
+        success: true,
+        entryId: existing[0].id,
+        week: currentWeek,
+        currentBestScore: existing[0].score,
+        isExisting: true,
+      });
+    }
+
+    // Create new entry for this week
     const { data: entries, error: entryError } = await supabase
       .from("donut_dash_scores")
       .insert({
@@ -70,20 +90,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get games played count for this week
-    const { count: gamesThisWeek } = await supabase
-      .from("donut_dash_scores")
-      .select("*", { count: "exact", head: true })
-      .eq("fid", fid)
-      .eq("week", currentWeek);
-
-    console.log("Entry created with id:", entry.id);
+    console.log("New entry created with id:", entry.id);
 
     return NextResponse.json({
       success: true,
       entryId: entry.id,
       week: currentWeek,
-      gamesThisWeek: gamesThisWeek || 1,
+      currentBestScore: 0,
+      isExisting: false,
     });
   } catch (error: any) {
     console.error("Free entry error:", error);
@@ -115,17 +129,19 @@ export async function GET(request: NextRequest) {
 
     const currentWeek = getCurrentWeek();
 
-    // Get games played count for this week
-    const { count: gamesThisWeek } = await supabase
+    // Get player's current best score for this week
+    const { data: existing } = await supabase
       .from("donut_dash_scores")
-      .select("*", { count: "exact", head: true })
+      .select("id, score")
       .eq("fid", parseInt(fid))
-      .eq("week", currentWeek);
+      .eq("week", currentWeek)
+      .limit(1);
 
     return NextResponse.json({
       success: true,
       week: currentWeek,
-      gamesThisWeek: gamesThisWeek || 0,
+      currentBestScore: existing?.[0]?.score || 0,
+      hasEntry: existing && existing.length > 0,
       isFreePlay: true,
     });
   } catch (error: any) {

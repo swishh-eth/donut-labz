@@ -29,14 +29,15 @@ export async function GET(req: NextRequest) {
 
     console.log("Fetching scores for week:", currentWeek);
 
-    // Simple query - get top scores
+    // Fetch more scores to ensure we get enough unique players after deduplication
+    // If top players have many scores, we need to fetch more to find other players
     const { data: scores, error } = await supabase
       .from("donut_dash_scores")
       .select("fid, wallet_address, username, display_name, pfp_url, score, created_at")
       .eq("week", currentWeek)
       .gt("score", 0)
       .order("score", { ascending: false })
-      .limit(limit * 2);
+      .limit(500);  // Fetch many more to ensure we find all unique players
 
     if (error) {
       console.error("Supabase error:", error);
