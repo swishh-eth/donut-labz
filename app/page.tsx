@@ -101,6 +101,15 @@ const formatEth = (value: bigint, maximumFractionDigits = 2) => {
   });
 };
 
+// Coin image components
+const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <img src="/coins/donut_logo.png" alt="DONUT" className={`${className} rounded-full object-cover`} />
+);
+
+const EthCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <img src="/coins/eth_logo.png" alt="ETH" className={`${className} rounded-full object-cover`} />
+);
+
 const formatTokenAmount = (
   value: bigint,
   decimals: number = 18,
@@ -474,7 +483,7 @@ function BurnModal({
             <div className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
               <div className="text-[9px] text-gray-400 uppercase">Get</div>
               <div className="text-base font-bold text-white flex items-center gap-1">
-                <img src="/coins/donut_logo.png" alt="DONUT" className="w-4 h-4 rounded-full" />
+                <DonutCoin className="w-4 h-4" />
                 {sprinklesRewardsDisplay}
               </div>
               <div className="text-[9px] text-gray-500 h-3">
@@ -1148,25 +1157,28 @@ export default function HomePage() {
                   <div className="text-3xl font-bold text-pink-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(244,114,182,0.9)' }}>
                     MINE DONUT
                   </div>
-                  <div className="text-lg text-white/90 mb-2">
-                    Price: <span className="font-bold text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
-                      Ξ{donutPrice ? formatEth(donutPrice, 2) : "—"}
+                  <div className="text-lg text-white/90 mb-2 flex items-center justify-center gap-1">
+                    Price: <span className="font-bold text-white flex items-center gap-1" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
+                      <EthCoin className="w-5 h-5" />{donutPrice ? formatEth(donutPrice, 2) : "—"}
                     </span>
                   </div>
-                  {recentDonutMiner && (
-                    <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5 border border-zinc-700/50">
-                      {recentDonutMiner.pfpUrl && (
-                        <img 
-                          src={recentDonutMiner.pfpUrl} 
-                          alt="" 
-                          className="w-4 h-4 rounded-full border border-zinc-600"
-                        />
-                      )}
-                      <span className="text-[9px] text-white/70 font-medium">
-                        {recentDonutMiner.username?.startsWith('@') ? recentDonutMiner.username : `@${recentDonutMiner.username}`} has control
-                      </span>
-                    </div>
-                  )}
+                  {/* Always reserve space for current miner info */}
+                  <div className="h-6 flex items-center justify-center">
+                    {recentDonutMiner && (
+                      <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5 border border-zinc-700/50">
+                        {recentDonutMiner.pfpUrl && (
+                          <img 
+                            src={recentDonutMiner.pfpUrl} 
+                            alt="" 
+                            className="w-4 h-4 rounded-full border border-zinc-600"
+                          />
+                        )}
+                        <span className="text-[9px] text-white/70 font-medium">
+                          {recentDonutMiner.username?.startsWith('@') ? recentDonutMiner.username : `@${recentDonutMiner.username}`} has control
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </VideoTile>
               </div>
 
@@ -1181,25 +1193,28 @@ export default function HomePage() {
                   <div className="text-3xl font-bold text-green-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(74,222,128,0.9)' }}>
                     MINE SPRINKLES
                   </div>
-                  <div className="text-lg text-white/90 mb-2">
-                    Price: <span className="font-bold text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
-                      🍩{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18, 2) : "—"}
+                  <div className="text-lg text-white/90 mb-2 flex items-center justify-center gap-1">
+                    Price: <span className="font-bold text-white flex items-center gap-1" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
+                      <DonutCoin className="w-5 h-5" />{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18, 2) : "—"}
                     </span>
                   </div>
-                  {recentSprinklesMiner && (
-                    <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5 border border-zinc-700/50">
-                      {recentSprinklesMiner.pfpUrl && (
-                        <img 
-                          src={recentSprinklesMiner.pfpUrl} 
-                          alt="" 
-                          className="w-4 h-4 rounded-full border border-zinc-600"
-                        />
-                      )}
-                      <span className="text-[9px] text-white/70 font-medium">
-                        {recentSprinklesMiner.username?.startsWith('@') ? recentSprinklesMiner.username : `@${recentSprinklesMiner.username}`} has control
-                      </span>
-                    </div>
-                  )}
+                  {/* Always reserve space for current miner info */}
+                  <div className="h-6 flex items-center justify-center">
+                    {recentSprinklesMiner && (
+                      <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5 border border-zinc-700/50">
+                        {recentSprinklesMiner.pfpUrl && (
+                          <img 
+                            src={recentSprinklesMiner.pfpUrl} 
+                            alt="" 
+                            className="w-4 h-4 rounded-full border border-zinc-600"
+                          />
+                        )}
+                        <span className="text-[9px] text-white/70 font-medium">
+                          {recentSprinklesMiner.username?.startsWith('@') ? recentSprinklesMiner.username : `@${recentSprinklesMiner.username}`} has control
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </VideoTile>
               </div>
 
