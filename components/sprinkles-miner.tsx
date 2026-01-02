@@ -463,8 +463,9 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         // Capture values immediately before any async operations
         const imageUrl = pendingImageUrlRef.current;
         const txHashToRecord = receipt.transactionHash;
+        const paidAmount = pendingPaidAmountRef.current;
         
-        console.log('Mine success! Preparing to record glaze:', { imageUrl, txHashToRecord });
+        console.log('Mine success! Preparing to record glaze:', { imageUrl, txHashToRecord, paidAmount });
         
         const fetchWithRetry = async (url: string, body: object, attempt = 1, maxAttempts = 3): Promise<boolean> => {
           try {
@@ -502,7 +503,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           }
         };
 
-        // Call record-glaze immediately - API will extract actual amount from Transfer event
+        // Call record-glaze with the captured paid amount as fallback
         (async () => {
           try {
             const result = await fetchWithRetry("/api/record-glaze", {
@@ -510,7 +511,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               txHash: txHashToRecord,
               mineType: "sprinkles",
               imageUrl: imageUrl,
-              // Don't pass amount - let API extract from Transfer event for accuracy
+              amount: paidAmount, // Pass the captured amount as fallback
             });
             console.log('Record glaze final result:', result);
           } catch (err) {
@@ -565,9 +566,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     }
     prevMinerRef.current = minerAddress;
   }, [minerAddress]);
-
-  // Removed the problematic backfill useEffect that was using current slot0.initPrice
-  // The amount is now captured at mine time and passed directly to record-glaze
 
   const { data: profileData } = useQuery<{
     profiles: Record<string, {
@@ -684,6 +682,12 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     if (!slot0 || !price) return;
     await refetchPrice();
     resetMineResult();
+    
+    // Capture the price BEFORE the transaction - this is what the user will pay
+    const priceToPay = (currentPrice as bigint) ?? price;
+    const paidAmount = Math.floor(Number(formatUnits(priceToPay, DONUT_DECIMALS))).toString();
+    pendingPaidAmountRef.current = paidAmount;
+    console.log('Captured paid amount before mine:', paidAmount);
     
     let uploadedImageUrl: string | null = null;
     if (selectedImage) {
