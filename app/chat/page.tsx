@@ -136,6 +136,7 @@ export default function ChatPage() {
   const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
   const pendingImageUrlRef = useRef<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -599,6 +600,8 @@ export default function ChatPage() {
             hasInitialScrolledRef.current = true;
             prevMessagesLengthRef.current = messages.length;
           }
+          // Mark animation as complete after all messages have animated
+          setTimeout(() => setHasAnimatedIn(true), messages.length * 30 + 300);
         });
       });
     }
@@ -650,6 +653,16 @@ export default function ChatPage() {
       <style jsx global>{`
         .chat-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .chat-scroll::-webkit-scrollbar { display: none; }
+        @keyframes messagePopIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
       `}</style>
 
       <div 
@@ -864,7 +877,24 @@ export default function ChatPage() {
             }}
           >
             {messagesLoading ? (
-              <div className="flex items-center justify-center py-12"><div className="text-gray-400">Loading messages...</div></div>
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div 
+                    key={i} 
+                    className="flex gap-2 p-2 rounded-lg bg-zinc-900 border border-zinc-800 animate-pulse"
+                    style={{ animationDelay: `${i * 100}ms` }}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-zinc-800 flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-3 w-20 bg-zinc-800 rounded" />
+                        <div className="h-2 w-12 bg-zinc-800 rounded" />
+                      </div>
+                      <div className="h-3 w-3/4 bg-zinc-800 rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (!messages || messages.length === 0) && !pendingMessage ? (
               <div className="flex flex-col items-center justify-center h-full py-12 px-4">
                 <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4"><MessageCircle className="w-8 h-8 text-gray-600" /></div>
@@ -883,7 +913,16 @@ export default function ChatPage() {
                   const tipCount = tipCounts[msg.transactionHash] || 0;
 
                   return (
-                    <div key={`${msg.transactionHash}-${index}`} className={`flex gap-2 p-2 rounded-lg ${isOwnMessage ? "bg-zinc-800 border border-zinc-700" : "bg-zinc-900 border border-zinc-800"}`}>
+                    <div 
+                      key={`${msg.transactionHash}-${index}`} 
+                      className={`flex gap-2 p-2 rounded-lg ${isOwnMessage ? "bg-zinc-800 border border-zinc-700" : "bg-zinc-900 border border-zinc-800"}`}
+                      style={!hasAnimatedIn ? {
+                        opacity: 0,
+                        transform: 'translateY(10px) scale(0.98)',
+                        animation: 'messagePopIn 0.3s ease-out forwards',
+                        animationDelay: `${index * 30}ms`,
+                      } : undefined}
+                    >
                       <button onClick={() => openUserProfile(username)} disabled={!username} className={`flex-shrink-0 ${username ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}>
                         <Avatar className="h-8 w-8 border border-zinc-700">
                           <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
