@@ -88,6 +88,7 @@ export default function LeaderboardPage() {
   const [showPastWinnersDialog, setShowPastWinnersDialog] = useState(false);
   const [showUsdPrize, setShowUsdPrize] = useState(true);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
+  const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -229,6 +230,16 @@ export default function LeaderboardPage() {
     }
   }, []);
 
+  // Mark animation as complete after items have animated in
+  useEffect(() => {
+    if (!isLoading && leaderboardData && !hasAnimatedIn) {
+      const timeout = setTimeout(() => {
+        setHasAnimatedIn(true);
+      }, 500); // 10 items * 40ms delay + 300ms animation
+      return () => clearTimeout(timeout);
+    }
+  }, [isLoading, leaderboardData, hasAnimatedIn]);
+
   // Handle scroll for fade effect only
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -346,6 +357,20 @@ export default function LeaderboardPage() {
             opacity: 1;
             transform: translateY(0);
           }
+        }
+        
+        @keyframes leaderboardPopIn {
+          0% {
+            opacity: 0;
+            transform: translateY(8px) scale(0.97);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        .animate-leaderboardPopIn {
+          animation: leaderboardPopIn 0.3s ease-out forwards;
         }
         
         @keyframes pulseGlow {
@@ -779,8 +804,15 @@ export default function LeaderboardPage() {
                     return (
                       <div
                         key={`empty-${rank}`}
-                        className="flex items-center justify-between rounded-xl p-3 border bg-zinc-900 border-zinc-800"
-                        style={{ minHeight: '80px' }}
+                        className={`flex items-center justify-between rounded-xl p-3 border bg-zinc-900 border-zinc-800 ${!hasAnimatedIn ? 'animate-leaderboardPopIn' : ''}`}
+                        style={{ 
+                          minHeight: '80px',
+                          ...(!hasAnimatedIn ? {
+                            opacity: 0,
+                            animationDelay: `${index * 40}ms`,
+                            animationFillMode: 'forwards',
+                          } : {})
+                        }}
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           <span
@@ -849,8 +881,15 @@ export default function LeaderboardPage() {
                   return (
                     <div
                       key={entry.address}
-                      className="flex items-center justify-between rounded-xl p-3 border bg-zinc-900 border-zinc-800"
-                      style={{ minHeight: '80px' }}
+                      className={`flex items-center justify-between rounded-xl p-3 border bg-zinc-900 border-zinc-800 ${!hasAnimatedIn ? 'animate-leaderboardPopIn' : ''}`}
+                      style={{ 
+                        minHeight: '80px',
+                        ...(!hasAnimatedIn ? {
+                          opacity: 0,
+                          animationDelay: `${index * 40}ms`,
+                          animationFillMode: 'forwards',
+                        } : {})
+                      }}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <span
