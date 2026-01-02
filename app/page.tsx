@@ -147,14 +147,18 @@ const calculateSprinklesPrice = (initPrice: bigint, startTime: number | bigint):
   return currentPrice > SPRINKLES_MIN_PRICE ? currentPrice : SPRINKLES_MIN_PRICE;
 };
 
+
+
 // Video tile component with lazy loading
 function VideoTile({ 
   videoSrc, 
   onClick,
+  onVideoLoaded,
   children
 }: { 
   videoSrc: string;
   onClick: () => void;
+  onVideoLoaded?: () => void;
   children: React.ReactNode;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -164,7 +168,10 @@ function VideoTile({
     const video = videoRef.current;
     if (!video) return;
 
-    const handleCanPlay = () => setIsLoaded(true);
+    const handleCanPlay = () => {
+      setIsLoaded(true);
+      onVideoLoaded?.();
+    };
     video.addEventListener('canplay', handleCanPlay);
     
     const timeout = setTimeout(() => {
@@ -175,7 +182,7 @@ function VideoTile({
       video.removeEventListener('canplay', handleCanPlay);
       clearTimeout(timeout);
     };
-  }, []);
+  }, [onVideoLoaded]);
 
   return (
     <button
@@ -441,19 +448,19 @@ function BurnModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div 
-        className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden"
+        className="w-full max-w-sm bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-zinc-800">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-amber-400" />
-            <span className="font-bold">SPRINKLES LP Burn</span>
+            <Flame className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+            <span className="font-bold text-white">LP Burn Auction</span>
           </div>
-          <button onClick={onClose} className="text-zinc-400 hover:text-white p-1">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="text-gray-500 hover:text-white p-1.5 rounded-full hover:bg-zinc-800 transition-colors">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -461,17 +468,20 @@ function BurnModal({
         <div className="p-4">
           {/* Pay / Get Row */}
           <div className="flex items-center gap-2 mb-3">
-            <div className="flex-1 rounded-lg border border-amber-500/30 bg-black/50 px-3 py-2">
+            <div className="flex-1 rounded-xl border border-pink-500/30 bg-zinc-900 px-3 py-2">
               <div className="text-[9px] text-gray-400 uppercase">Pay</div>
-              <div className="text-base font-bold text-amber-400">{sprinklesPriceDisplay} LP</div>
+              <div className="text-base font-bold text-pink-400">{sprinklesPriceDisplay} LP</div>
               <div className="text-[9px] text-gray-500 h-3">
                 {lpPayUsd ? `$${lpPayUsd}` : sprinklesLpPrice === 0 ? "loading..." : ""}
               </div>
             </div>
             <div className="text-gray-600">→</div>
-            <div className="flex-1 rounded-lg border border-zinc-700 bg-black/50 px-3 py-2">
+            <div className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
               <div className="text-[9px] text-gray-400 uppercase">Get</div>
-              <div className="text-base font-bold text-white">🍩 {sprinklesRewardsDisplay}</div>
+              <div className="text-base font-bold text-white flex items-center gap-1">
+                <img src="/coins/donut_logo.png" alt="DONUT" className="w-4 h-4 rounded-full" />
+                {sprinklesRewardsDisplay}
+              </div>
               <div className="text-[9px] text-gray-500 h-3">
                 {donutGetUsd ? `$${donutGetUsd}` : donutUsdPrice === 0 ? "loading..." : ""}
               </div>
@@ -481,8 +491,8 @@ function BurnModal({
           {/* Profit/Loss */}
           {sprinklesProfitLoss && (
             <div className={cn(
-              "text-center text-[10px] font-semibold px-2 py-1 rounded mb-3",
-              sprinklesProfitLoss.isProfitable ? "text-green-400 bg-green-500/10" : "text-red-400 bg-red-500/10"
+              "text-center text-[10px] font-semibold px-2 py-1 rounded-lg mb-3",
+              sprinklesProfitLoss.isProfitable ? "text-green-400 bg-green-500/10 border border-green-500/20" : "text-red-400 bg-red-500/10 border border-red-500/20"
             )}>
               {sprinklesProfitLoss.isProfitable ? "💰 +" : "⚠️ "}${Math.abs(sprinklesProfitLoss.profitLoss).toFixed(2)}
             </div>
@@ -496,7 +506,7 @@ function BurnModal({
           )}
           
           {hasInsufficientSprinklesLP && !sprinklesPriceIsZero && (
-            <div className="text-center text-[9px] text-amber-400 mb-3 py-1 bg-amber-500/10 rounded">
+            <div className="text-center text-[9px] text-green-400 mb-3 py-1 bg-green-500/10 rounded-lg border border-green-500/20">
               Insufficient LP balance
             </div>
           )}
@@ -512,14 +522,14 @@ function BurnModal({
             onClick={handleSprinklesBurn}
             disabled={isSprinklesBurnDisabled}
             className={cn(
-              "w-full rounded-lg py-2.5 text-sm font-bold transition-all",
+              "w-full rounded-xl py-2.5 text-sm font-bold transition-all",
               sprinklesBurnResult === "success"
                 ? "bg-green-500 text-white"
                 : sprinklesBurnResult === "failure"
                   ? "bg-red-500 text-white"
                   : isSprinklesBurnDisabled
                     ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
-                    : "bg-amber-500 text-black hover:bg-amber-400 active:scale-[0.98]"
+                    : "bg-white text-black hover:bg-gray-200 active:scale-[0.98]"
             )}
           >
             {sprinklesButtonLabel}
@@ -532,7 +542,7 @@ function BurnModal({
             </span>
             <button
               onClick={() => handleExternalLink("https://aerodrome.finance/deposit?token0=0xa890060BE1788a676dBC3894160f5dc5DeD2C98D&token1=0xAE4a37d554C6D6F3E398546d8566B25052e0169C&type=-1")}
-              className="text-amber-400 hover:text-amber-300 font-semibold transition-colors"
+              className="text-green-400 hover:text-green-300 font-semibold transition-colors"
             >
               Get LP on Aerodrome →
             </button>
@@ -685,6 +695,10 @@ export default function HomePage() {
   const [showBurnModal, setShowBurnModal] = useState(false);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
+  
+  // Data readiness tracking
+  const [videosLoaded, setVideosLoaded] = useState({ donut: false, sprinkles: false });
+  const [dataReady, setDataReady] = useState(false);
   
   // Recent miners
   const [recentDonutMiner, setRecentDonutMiner] = useState<{ username: string; pfpUrl?: string } | null>(null);
@@ -954,15 +968,25 @@ export default function HomePage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Mark animation as complete
+  // Check if all data is ready for animation
   useEffect(() => {
-    if (!hasAnimatedIn) {
+    const pricesReady = donutPrice !== undefined && sprinklesPriceValue !== undefined;
+    const videosReady = videosLoaded.donut && videosLoaded.sprinkles;
+    
+    if (pricesReady && videosReady && !dataReady) {
+      setDataReady(true);
+    }
+  }, [donutPrice, sprinklesPriceValue, videosLoaded, dataReady]);
+
+  // Mark animation as complete after data is ready
+  useEffect(() => {
+    if (dataReady && !hasAnimatedIn) {
       const timeout = setTimeout(() => {
         setHasAnimatedIn(true);
-      }, 500);
+      }, 600);
       return () => clearTimeout(timeout);
     }
-  }, [hasAnimatedIn]);
+  }, [dataReady, hasAnimatedIn]);
 
   // Handle scroll fade
   useEffect(() => {
@@ -1115,17 +1139,18 @@ export default function HomePage() {
             }}
           >
             <div className="space-y-3 pb-4">
-              {/* Video Tiles */}
+              {/* Video Tiles - Hidden until data ready, then animate */}
               <div 
-                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '0ms', animationFillMode: 'forwards' } : {}}
+                className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '0ms', animationFillMode: 'forwards' } : {})}
               >
                 <VideoTile
                   videoSrc="/media/donut-loop.mp4"
                   onClick={() => setSelectedMiner("donut")}
+                  onVideoLoaded={() => setVideosLoaded(prev => ({ ...prev, donut: true }))}
                 >
-                  <div className="text-3xl font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(251,191,36,0.9)' }}>
-                    Mine DONUT
+                  <div className="text-3xl font-bold text-pink-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(244,114,182,0.9)' }}>
+                    MINE DONUT
                   </div>
                   <div className="text-lg text-white/90 mb-2">
                     Price: <span className="font-bold text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
@@ -1150,15 +1175,16 @@ export default function HomePage() {
               </div>
 
               <div 
-                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}
+                className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {})}
               >
                 <VideoTile
                   videoSrc="/media/sprinkles-loop.mp4"
                   onClick={() => setSelectedMiner("sprinkles")}
+                  onVideoLoaded={() => setVideosLoaded(prev => ({ ...prev, sprinkles: true }))}
                 >
-                  <div className="text-3xl font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(251,191,36,0.9)' }}>
-                    Mine SPRINKLES
+                  <div className="text-3xl font-bold text-green-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(74,222,128,0.9)' }}>
+                    MINE SPRINKLES
                   </div>
                   <div className="text-lg text-white/90 mb-2">
                     Price: <span className="font-bold text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
@@ -1184,8 +1210,8 @@ export default function HomePage() {
 
               {/* Burn Tile */}
               <div 
-                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
+                className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {})}
               >
                 <button
                   onClick={() => setShowBurnModal(true)}
@@ -1237,8 +1263,8 @@ export default function HomePage() {
 
               {/* Pool To Own Tile */}
               <div 
-                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
+                className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {})}
               >
                 <div
                   className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden cursor-not-allowed opacity-60"
