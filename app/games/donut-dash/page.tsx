@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
+import { Header } from "@/components/header";
 import { Play, Share2, X, HelpCircle, Volume2, VolumeX, Trophy, ChevronRight, Clock, Sparkles } from "lucide-react";
 
 // Free Arcade Contract
@@ -72,12 +72,6 @@ interface Coin { x: number; y: number; collected: boolean; }
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; color: string; size: number; }
 interface LeaderboardEntry { rank: number; fid: number; username?: string; displayName?: string; pfpUrl?: string; score: number; }
 type MiniAppContext = { user?: { fid: number; username?: string; displayName?: string; pfpUrl?: string } };
-
-const initialsFrom = (label?: string) => {
-  if (!label) return "";
-  const stripped = label.replace(/[^a-zA-Z0-9]/g, "");
-  return stripped ? stripped.slice(0, 2).toUpperCase() : label.slice(0, 2).toUpperCase();
-};
 
 // Color conversion helpers for animations
 const hexToHsl = (hex: string): [number, number, number] => {
@@ -1313,9 +1307,6 @@ export default function DonutDashPage() {
     return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
   }, [handleThrustStart, handleThrustEnd]);
 
-  const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Player";
-  const userHandle = context?.user?.username ? `@${context.user.username}` : "";
-  const userAvatarUrl = context?.user?.pfpUrl ?? null;
   const isPlayPending = playState === 'confirming' || playState === 'recording' || isPending || isConfirming;
 
   return (
@@ -1343,30 +1334,11 @@ export default function DonutDashPage() {
           -ms-user-select: none !important;
           user-select: none !important;
         }
-        @keyframes fadeInTitle {
-          0% { opacity: 0; transform: translateY(-8px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        .fade-in-title { animation: fadeInTitle 0.5s ease-out forwards; }
       `}</style>
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
         
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold tracking-wide fade-in-title">DONUT DASH</h1>
-          {context?.user && (
-            <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
-              <Avatar className="h-8 w-8 border border-zinc-800">
-                <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
-                <AvatarFallback className="bg-zinc-800 text-white">{initialsFrom(userDisplayName)}</AvatarFallback>
-              </Avatar>
-              <div className="leading-tight text-left">
-                <div className="text-sm font-bold">{userDisplayName}</div>
-                {userHandle && <div className="text-xs text-gray-400">{userHandle}</div>}
-              </div>
-            </div>
-          )}
-        </div>
+        <Header title="DONUT DASH" user={context?.user} />
         
         <button
           onClick={() => { fetchLeaderboard(); setShowLeaderboard(true); }}

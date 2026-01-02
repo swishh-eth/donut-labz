@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount } from "wagmi";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
+import { Header } from "@/components/header";
 import { Settings, Gamepad2, Trophy, Layers, Rocket, ArrowRight, Award } from "lucide-react";
 
 type MiniAppContext = {
@@ -20,13 +20,6 @@ type RecentPlayer = {
   username: string;
   score: number;
   pfpUrl?: string;
-};
-
-const initialsFrom = (label?: string) => {
-  if (!label) return "";
-  const stripped = label.replace(/[^a-zA-Z0-9]/g, "");
-  if (!stripped) return label.slice(0, 2).toUpperCase();
-  return stripped.slice(0, 2).toUpperCase();
 };
 
 // Donut color palette
@@ -381,10 +374,6 @@ export default function GamesPage() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
-  const userHandle = context?.user?.username ? `@${context.user.username}` : "";
-  const userAvatarUrl = context?.user?.pfpUrl ?? null;
-
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style>{`
@@ -405,21 +394,7 @@ export default function GamesPage() {
       >
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
           <div className="flex-shrink-0">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-2xl font-bold tracking-wide">GAMES</h1>
-              {context?.user && (
-                <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
-                  <Avatar className="h-8 w-8 border border-zinc-800">
-                    <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
-                    <AvatarFallback className="bg-zinc-800 text-white">{initialsFrom(userDisplayName)}</AvatarFallback>
-                  </Avatar>
-                  <div className="leading-tight text-left">
-                    <div className="text-sm font-bold">{userDisplayName}</div>
-                    {userHandle && <div className="text-xs text-gray-400">{userHandle}</div>}
-                  </div>
-                </div>
-              )}
-            </div>
+            <Header title="GAMES" user={context?.user} />
           </div>
 
           <div 
