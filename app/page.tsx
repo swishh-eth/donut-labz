@@ -151,13 +151,11 @@ const calculateSprinklesPrice = (initPrice: bigint, startTime: number | bigint):
 function VideoTile({ 
   videoSrc, 
   onClick,
-  children,
-  recentMiner
+  children
 }: { 
   videoSrc: string;
   onClick: () => void;
   children: React.ReactNode;
-  recentMiner?: { username: string; pfpUrl?: string } | null;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -198,22 +196,6 @@ function VideoTile({
         preload="none"
         src={videoSrc}
       />
-      
-      {/* Recent miner badge */}
-      {recentMiner && (
-        <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 bg-black/70 backdrop-blur-sm rounded-full px-2 py-1 border border-zinc-700">
-          {recentMiner.pfpUrl && (
-            <img 
-              src={recentMiner.pfpUrl} 
-              alt="" 
-              className="w-5 h-5 rounded-full border border-zinc-600"
-            />
-          )}
-          <span className="text-[10px] text-white/80 font-medium">
-            {recentMiner.username?.startsWith('@') ? recentMiner.username : `@${recentMiner.username}`}
-          </span>
-        </div>
-      )}
       
       <div className="relative z-10 flex flex-col items-center justify-center h-full p-4">
         {children}
@@ -1113,19 +1095,29 @@ export default function HomePage() {
                 <VideoTile
                   videoSrc="/media/donut-loop.mp4"
                   onClick={() => setSelectedMiner("donut")}
-                  recentMiner={recentDonutMiner}
                 >
-                  <div className="text-xl font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 12px rgba(255,255,255,0.9)' }}>
-                    Pay ETH
-                  </div>
                   <div className="text-3xl font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(251,191,36,0.9)' }}>
                     Mine DONUT
                   </div>
-                  <div className="text-lg text-white/90">
+                  <div className="text-lg text-white/90 mb-2">
                     Price: <span className="font-bold text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
                       Ξ{donutPrice ? formatEth(donutPrice, 2) : "—"}
                     </span>
                   </div>
+                  {recentDonutMiner && (
+                    <div className="flex items-center gap-1.5 bg-black/70 backdrop-blur-sm rounded-full px-2.5 py-1 border border-zinc-700">
+                      {recentDonutMiner.pfpUrl && (
+                        <img 
+                          src={recentDonutMiner.pfpUrl} 
+                          alt="" 
+                          className="w-5 h-5 rounded-full border border-zinc-600"
+                        />
+                      )}
+                      <span className="text-[10px] text-white/80 font-medium">
+                        {recentDonutMiner.username?.startsWith('@') ? recentDonutMiner.username : `@${recentDonutMiner.username}`} is currently mining
+                      </span>
+                    </div>
+                  )}
                 </VideoTile>
               </div>
 
@@ -1136,19 +1128,29 @@ export default function HomePage() {
                 <VideoTile
                   videoSrc="/media/sprinkles-loop.mp4"
                   onClick={() => setSelectedMiner("sprinkles")}
-                  recentMiner={recentSprinklesMiner}
                 >
-                  <div className="text-xl font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 12px rgba(255,255,255,0.9)' }}>
-                    Pay DONUT
-                  </div>
                   <div className="text-3xl font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(251,191,36,0.9)' }}>
                     Mine SPRINKLES
                   </div>
-                  <div className="text-lg text-white/90">
+                  <div className="text-lg text-white/90 mb-2">
                     Price: <span className="font-bold text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
                       🍩{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18, 2) : "—"}
                     </span>
                   </div>
+                  {recentSprinklesMiner && (
+                    <div className="flex items-center gap-1.5 bg-black/70 backdrop-blur-sm rounded-full px-2.5 py-1 border border-zinc-700">
+                      {recentSprinklesMiner.pfpUrl && (
+                        <img 
+                          src={recentSprinklesMiner.pfpUrl} 
+                          alt="" 
+                          className="w-5 h-5 rounded-full border border-zinc-600"
+                        />
+                      )}
+                      <span className="text-[10px] text-white/80 font-medium">
+                        {recentSprinklesMiner.username?.startsWith('@') ? recentSprinklesMiner.username : `@${recentSprinklesMiner.username}`} is currently mining
+                      </span>
+                    </div>
+                  )}
                 </VideoTile>
               </div>
 
