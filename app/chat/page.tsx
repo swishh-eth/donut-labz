@@ -137,6 +137,7 @@ export default function ChatPage() {
   const pendingImageUrlRef = useRef<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
+  const [readyToAnimate, setReadyToAnimate] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -591,8 +592,9 @@ export default function ChatPage() {
   
   useEffect(() => {
     if (!hasInitialScrolledRef.current && messages && messages.length > 0 && !messagesLoading) {
-      // Use requestAnimationFrame to ensure DOM has rendered
+      // Small delay to ensure messages render with opacity: 0 first
       requestAnimationFrame(() => {
+        setReadyToAnimate(true);
         requestAnimationFrame(() => {
           const container = messagesContainerRef.current;
           if (container) {
@@ -662,6 +664,9 @@ export default function ChatPage() {
             opacity: 1;
             transform: translateY(0) scale(1);
           }
+        }
+        .animate-messagePopIn {
+          animation: messagePopIn 0.3s ease-out forwards;
         }
       `}</style>
 
@@ -876,7 +881,7 @@ export default function ChatPage() {
               transition: 'mask-image 0.3s ease-out, -webkit-mask-image 0.3s ease-out',
             }}
           >
-            {messagesLoading ? (
+            {messagesLoading || (!readyToAnimate && messages && messages.length > 0) ? (
               <div />
             ) : (!messages || messages.length === 0) && !pendingMessage ? (
               <div className="flex flex-col items-center justify-center h-full py-12 px-4">
@@ -898,12 +903,11 @@ export default function ChatPage() {
                   return (
                     <div 
                       key={`${msg.transactionHash}-${index}`} 
-                      className={`flex gap-2 p-2 rounded-lg ${isOwnMessage ? "bg-zinc-800 border border-zinc-700" : "bg-zinc-900 border border-zinc-800"}`}
+                      className={`flex gap-2 p-2 rounded-lg ${isOwnMessage ? "bg-zinc-800 border border-zinc-700" : "bg-zinc-900 border border-zinc-800"} ${!hasAnimatedIn ? 'animate-messagePopIn' : ''}`}
                       style={!hasAnimatedIn ? {
                         opacity: 0,
-                        transform: 'translateY(10px) scale(0.98)',
-                        animation: 'messagePopIn 0.3s ease-out forwards',
                         animationDelay: `${index * 30}ms`,
+                        animationFillMode: 'forwards',
                       } : undefined}
                     >
                       <button onClick={() => openUserProfile(username)} disabled={!username} className={`flex-shrink-0 ${username ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}>
