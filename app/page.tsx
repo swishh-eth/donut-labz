@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useConnect, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
@@ -534,6 +534,62 @@ function BurnModal({
   );
 }
 
+// Memoized user section to prevent re-renders
+const MinerUserSection = memo(function MinerUserSection({ 
+  user,
+  address,
+  isConnected,
+  isConnecting,
+  onConnect,
+}: { 
+  user?: MiniAppContext["user"];
+  address?: Address;
+  isConnected: boolean;
+  isConnecting: boolean;
+  onConnect: () => void;
+}) {
+  if (user) {
+    return (
+      <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
+        <img 
+          src={user.pfpUrl || undefined} 
+          alt={user.displayName || user.username || "User"} 
+          className="h-8 w-8 rounded-full border border-zinc-800 object-cover"
+        />
+        <div className="leading-tight text-left">
+          <div className="text-sm font-bold">{user.displayName || user.username || "Player"}</div>
+          {user.username && <div className="text-xs text-gray-400">@{user.username}</div>}
+        </div>
+      </div>
+    );
+  }
+  
+  if (!isConnected) {
+    return (
+      <button
+        onClick={onConnect}
+        disabled={isConnecting}
+        className="px-4 py-2 rounded-lg bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 transition-colors disabled:opacity-50"
+      >
+        {isConnecting ? "Connecting…" : "Connect"}
+      </button>
+    );
+  }
+  
+  if (address) {
+    return (
+      <div className="flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1.5">
+        <div className="w-2 h-2 rounded-full bg-green-500" />
+        <span className="text-xs font-mono text-white">
+          {address.slice(0, 6)}…{address.slice(-4)}
+        </span>
+      </div>
+    );
+  }
+  
+  return null;
+});
+
 // Header for miner subpages
 function MinerHeader({ 
   title, 
@@ -550,47 +606,62 @@ function MinerHeader({
   isConnecting: boolean;
   onConnect: () => void;
 }) {
+  const [displayedTitle, setDisplayedTitle] = useState(title);
+  const [animationState, setAnimationState] = useState<"idle" | "fading-out" | "fading-in">("fading-in");
+  const isFirstRender = useRef(true);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      setAnimationState("fading-in");
+      return;
+    }
+
+    if (title !== displayedTitle) {
+      setAnimationState("fading-out");
+      
+      const timeout = setTimeout(() => {
+        setDisplayedTitle(title);
+        setAnimationState("fading-in");
+      }, 250);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [title, displayedTitle]);
+
   return (
     <>
       <style>{`
         @keyframes headerFadeIn {
-          0% { opacity: 0; transform: translateY(-6px); }
+          0% { opacity: 0; transform: translateY(-8px); }
           100% { opacity: 1; transform: translateY(0); }
         }
+        @keyframes headerFadeOut {
+          0% { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(8px); }
+        }
         .header-fade-in {
-          animation: headerFadeIn 0.5s ease-out forwards;
+          animation: headerFadeIn 0.4s ease-out forwards;
+        }
+        .header-fade-out {
+          animation: headerFadeOut 0.25s ease-in forwards;
         }
       `}</style>
       <div className="flex items-center justify-between mb-4 h-12">
-        <h1 className="text-2xl font-bold tracking-wide header-fade-in">{title}</h1>
-        {user ? (
-          <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
-            <img 
-              src={user.pfpUrl || undefined} 
-              alt={user.displayName || user.username || "User"} 
-              className="h-8 w-8 rounded-full border border-zinc-800 object-cover"
-            />
-            <div className="leading-tight text-left">
-              <div className="text-sm font-bold">{user.displayName || user.username || "Player"}</div>
-              {user.username && <div className="text-xs text-gray-400">@{user.username}</div>}
-            </div>
-          </div>
-        ) : !isConnected ? (
-          <button
-            onClick={onConnect}
-            disabled={isConnecting}
-            className="px-4 py-2 rounded-lg bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 transition-colors disabled:opacity-50"
-          >
-            {isConnecting ? "Connecting…" : "Connect"}
-          </button>
-        ) : address ? (
-          <div className="flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1.5">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-xs font-mono text-white">
-              {address.slice(0, 6)}…{address.slice(-4)}
-            </span>
-          </div>
-        ) : null}
+        <h1 
+          className={`text-2xl font-bold tracking-wide ${
+            animationState === "fading-out" ? "header-fade-out" : "header-fade-in"
+          }`}
+        >
+          {displayedTitle}
+        </h1>
+        <MinerUserSection
+          user={user}
+          address={address}
+          isConnected={isConnected}
+          isConnecting={isConnecting}
+          onConnect={onConnect}
+        />
       </div>
     </>
   );
