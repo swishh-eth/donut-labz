@@ -52,9 +52,9 @@ export async function GET(request: Request) {
   }
 
   try {
-    const privateKey = process.env.AUTOMATION_WALLET_PRIVATE_KEY;
+    const privateKey = process.env.BOT_PRIVATE_KEY;
     if (!privateKey) {
-      throw new Error('Automation wallet not configured');
+      throw new Error('Bot wallet not configured');
     }
 
     const account = privateKeyToAccount(privateKey as `0x${string}`);
@@ -65,12 +65,12 @@ export async function GET(request: Request) {
       transport: http(process.env.NEXT_PUBLIC_BASE_RPC_URL),
     }).extend(publicActions);
 
-    // Check automation wallet has gas
+    // Check bot wallet has gas
     const gasBalance = await client.getBalance({ address: account.address });
     if (gasBalance < 100000000000000n) { // 0.0001 ETH minimum
       return NextResponse.json({ 
         success: false, 
-        message: 'Automation wallet needs gas' 
+        message: 'Bot wallet needs gas' 
       });
     }
 
