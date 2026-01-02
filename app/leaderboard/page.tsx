@@ -763,7 +763,7 @@ export default function LeaderboardPage() {
               transition: 'mask-image 0.3s ease-out, -webkit-mask-image 0.3s ease-out',
             }}
           >
-            <div className="space-y-2 pb-4">
+            <div className="space-y-3 pb-4">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="text-gray-400">Loading leaderboard...</div>
@@ -800,13 +800,28 @@ export default function LeaderboardPage() {
                   
                   const spinClass = `spin-avatar-${(rank % 5) + 1}`;
 
+                  // Tile styling based on rank
+                  const tileStyle = isWinner
+                    ? {
+                        minHeight: '90px',
+                        background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)',
+                      }
+                    : {
+                        minHeight: '90px',
+                        background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
+                      };
+
+                  const tileBorderClass = isWinner
+                    ? "border-2 border-amber-500/50 hover:border-amber-500/80"
+                    : "border-2 border-white/20 hover:border-white/40";
+
                   if (!entry) {
                     return (
                       <div
                         key={`empty-${rank}`}
-                        className={`flex items-center justify-between rounded-xl p-3 border bg-zinc-900 border-zinc-800 ${!hasAnimatedIn ? 'animate-leaderboardPopIn' : ''}`}
+                        className={`relative flex items-center justify-between rounded-2xl p-4 overflow-hidden transition-all duration-300 ${tileBorderClass} ${!hasAnimatedIn ? 'animate-leaderboardPopIn' : ''}`}
                         style={{ 
-                          minHeight: '80px',
+                          ...tileStyle,
                           ...(!hasAnimatedIn ? {
                             opacity: 0,
                             animationDelay: `${index * 40}ms`,
@@ -814,15 +829,22 @@ export default function LeaderboardPage() {
                           } : {})
                         }}
                       >
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                        {/* Large background rank number */}
+                        <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                          <span className={`text-8xl font-black ${isWinner ? 'text-amber-900/30' : 'text-zinc-800/50'}`}>
+                            {rank}
+                          </span>
+                        </div>
+
+                        <div className="relative z-10 flex items-center gap-3 min-w-0 flex-1">
                           <span
-                            className={`text-xl font-bold w-7 flex-shrink-0 text-center ${
+                            className={`text-2xl font-black w-8 flex-shrink-0 text-center ${
                               rank === 1
-                                ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]"
+                                ? "text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.9)]"
                                 : rank === 2
-                                  ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]"
+                                  ? "text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)]"
                                   : rank === 3
-                                    ? "text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]"
+                                    ? "text-amber-400 drop-shadow-[0_0_3px_rgba(251,191,36,0.4)]"
                                     : "text-gray-500"
                             }`}
                           >
@@ -830,7 +852,7 @@ export default function LeaderboardPage() {
                           </span>
 
                           <div className={spinClass}>
-                            <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
+                            <Avatar className="h-11 w-11 border-2 border-zinc-700 flex-shrink-0">
                               <AvatarImage
                                 src={ANON_PFPS[rank % ANON_PFPS.length]}
                                 alt="Empty spot"
@@ -843,20 +865,20 @@ export default function LeaderboardPage() {
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-semibold text-white truncate text-sm">No one yet</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`font-bold truncate ${isWinner ? 'text-amber-200' : 'text-white'}`}>No one yet</span>
                               {isWinner && prizeUsd > 0 && (
-                                <span className="text-amber-400 text-xs font-bold">+${prizeUsd}</span>
+                                <span className="text-amber-400 text-xs font-bold bg-amber-500/20 px-1.5 py-0.5 rounded">+${prizeUsd}</span>
                               )}
                             </div>
-                            <div className="text-[10px] text-gray-400 truncate">
+                            <div className={`text-[11px] ${isWinner ? 'text-amber-200/60' : 'text-gray-400'}`}>
                               {isWinner ? "Claim this spot!" : "Keep grinding"}
                             </div>
                           </div>
                         </div>
 
-                        <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                          <div className="text-xs font-bold text-white">
+                        <div className="relative z-10 flex flex-col items-end gap-0.5 flex-shrink-0">
+                          <div className={`text-sm font-bold ${isWinner ? 'text-amber-400' : 'text-white'}`}>
                             0 <span className="text-[10px] font-normal text-gray-400">pts</span>
                           </div>
                           {isWinner && (
@@ -881,9 +903,9 @@ export default function LeaderboardPage() {
                   return (
                     <div
                       key={entry.address}
-                      className={`flex items-center justify-between rounded-xl p-3 border bg-zinc-900 border-zinc-800 ${!hasAnimatedIn ? 'animate-leaderboardPopIn' : ''}`}
+                      className={`relative flex items-center justify-between rounded-2xl p-4 overflow-hidden transition-all duration-300 ${tileBorderClass} ${!hasAnimatedIn ? 'animate-leaderboardPopIn' : ''}`}
                       style={{ 
-                        minHeight: '80px',
+                        ...tileStyle,
                         ...(!hasAnimatedIn ? {
                           opacity: 0,
                           animationDelay: `${index * 40}ms`,
@@ -891,15 +913,22 @@ export default function LeaderboardPage() {
                         } : {})
                       }}
                     >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {/* Large background rank number */}
+                      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <span className={`text-8xl font-black ${isWinner ? 'text-amber-900/30' : 'text-zinc-800/50'}`}>
+                          {rank}
+                        </span>
+                      </div>
+
+                      <div className="relative z-10 flex items-center gap-3 min-w-0 flex-1">
                         <span
-                          className={`text-xl font-bold w-7 flex-shrink-0 text-center ${
+                          className={`text-2xl font-black w-8 flex-shrink-0 text-center ${
                             rank === 1
-                              ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]"
+                              ? "text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.9)]"
                               : rank === 2
-                                ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]"
+                                ? "text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)]"
                                 : rank === 3
-                                  ? "text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]"
+                                  ? "text-amber-400 drop-shadow-[0_0_3px_rgba(251,191,36,0.4)]"
                                   : "text-gray-500"
                           }`}
                         >
@@ -910,7 +939,7 @@ export default function LeaderboardPage() {
                           className={`${spinClass} ${profile?.fid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                           onClick={() => handleViewProfile(profile)}
                         >
-                          <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
+                          <Avatar className="h-11 w-11 border-2 border-zinc-700 flex-shrink-0">
                             <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
                             <AvatarFallback className="bg-zinc-800 text-white text-xs">
                               {displayName.slice(0, 2).toUpperCase()}
@@ -919,20 +948,20 @@ export default function LeaderboardPage() {
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-semibold text-white truncate text-sm">{displayName}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`font-bold truncate ${isWinner ? 'text-amber-200' : 'text-white'}`}>{displayName}</span>
                             {isWinner && prizeUsd > 0 && (
-                              <span className="text-amber-400 text-xs font-bold">+${prizeUsd}</span>
+                              <span className="text-amber-400 text-xs font-bold bg-amber-500/20 px-1.5 py-0.5 rounded">+${prizeUsd}</span>
                             )}
                           </div>
                           {username && (
-                            <div className="text-[10px] text-gray-400 truncate">{username}</div>
+                            <div className={`text-[11px] ${isWinner ? 'text-amber-200/60' : 'text-gray-400'}`}>{username}</div>
                           )}
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                        <div className="text-xs font-bold text-white">
+                      <div className="relative z-10 flex flex-col items-end gap-0.5 flex-shrink-0">
+                        <div className={`text-sm font-bold ${isWinner ? 'text-amber-400' : 'text-white'}`}>
                           {entry.total_points} <span className="text-[10px] font-normal text-gray-400">pts</span>
                         </div>
                         {isWinner && (
