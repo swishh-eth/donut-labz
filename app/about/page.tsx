@@ -186,9 +186,9 @@ function DuneDashboardTile({ onClick }: { onClick: () => void }) {
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <BarChart3 className="w-4 h-4 text-white" />
-            <span className="font-bold text-base text-white">Donut Dashboard</span>
+            <span className="font-bold text-base text-white">Dune Dashboard</span>
           </div>
-          <div className="text-[10px] text-white/60 mb-2">View Dune analytics & on-chain data</div>
+          <div className="text-[10px] text-white/60 mb-2">View analytics & on-chain data</div>
           
           <div className="flex items-center gap-3 text-[9px]">
             <span className="text-white/80">TVL</span>
@@ -208,6 +208,7 @@ export default function AboutPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
+  const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -239,6 +240,16 @@ export default function AboutPage() {
     return () => clearTimeout(timeout);
   }, []);
 
+  // Mark animation as complete
+  useEffect(() => {
+    if (!hasAnimatedIn) {
+      const timeout = setTimeout(() => {
+        setHasAnimatedIn(true);
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [hasAnimatedIn]);
+
   // Handle scroll fade
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -269,6 +280,19 @@ export default function AboutPage() {
         }
         .about-scroll::-webkit-scrollbar {
           display: none;
+        }
+        @keyframes tilePopIn {
+          0% {
+            opacity: 0;
+            transform: translateY(8px) scale(0.97);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        .animate-tilePopIn {
+          animation: tilePopIn 0.3s ease-out forwards;
         }
       `}</style>
 
@@ -355,25 +379,50 @@ export default function AboutPage() {
           >
             <div className="space-y-3 pb-4">
               {/* What is $DONUT Tile */}
-              <DonutInfoTile onClick={() => window.location.href = "/about/donut"} />
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '0ms', animationFillMode: 'forwards' } : {}}
+              >
+                <DonutInfoTile onClick={() => window.location.href = "/about/donut"} />
+              </div>
 
               {/* What is $SPRINKLES Tile */}
-              <SprinklesInfoTile onClick={() => window.location.href = "/about/sprinkles"} />
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}
+              >
+                <SprinklesInfoTile onClick={() => window.location.href = "/about/sprinkles"} />
+              </div>
 
               {/* Revenue Flow Tile */}
-              <RevenueFlowTile onClick={() => window.location.href = "/about/revenue"} />
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
+              >
+                <RevenueFlowTile onClick={() => window.location.href = "/about/revenue"} />
+              </div>
 
               {/* Links & Contracts Tile */}
-              <LinksContractsTile onClick={() => window.location.href = "/about/links-contracts"} />
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
+              >
+                <LinksContractsTile onClick={() => window.location.href = "/about/links-contracts"} />
+              </div>
 
               {/* Dune Dashboard Tile */}
-              <DuneDashboardTile onClick={async () => {
-                try {
-                  await sdk.actions.openUrl({ url: "https://dune.com/xyk/donut-company" });
-                } catch {
-                  window.open("https://dune.com/xyk/donut-company", "_blank");
-                }
-              }} />
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}
+              >
+                <DuneDashboardTile onClick={async () => {
+                  try {
+                    await sdk.actions.openUrl({ url: "https://dune.com/chromium_donut_tech/donut-labs" });
+                  } catch {
+                    window.open("https://dune.com/chromium_donut_tech/donut-labs", "_blank");
+                  }
+                }} />
+              </div>
             </div>
           </div>
         </div>
