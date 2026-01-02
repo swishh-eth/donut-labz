@@ -6,13 +6,13 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useConnect, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { base } from "wagmi/chains";
 import { formatEther, formatUnits, zeroAddress, type Address } from "viem";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
+import { Header } from "@/components/header";
 import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
 import { ShareRewardButton } from "@/components/share-reward-button";
-import { ArrowLeft, Flame, Droplets, Sparkles, X } from "lucide-react";
+import { Flame, Droplets, Sparkles, X } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
 import { cn } from "@/lib/utils";
@@ -90,13 +90,6 @@ const DONUT_MIN_PRICE = 100000000000000n; // 0.0001 ETH
 // Dutch auction constants for SPRINKLES miner
 const SPRINKLES_AUCTION_DURATION = 3600; // 1 hour
 const SPRINKLES_MIN_PRICE = 1000000000000000000n; // 1 DONUT
-
-const initialsFrom = (label?: string) => {
-  if (!label) return "";
-  const stripped = label.replace(/[^a-zA-Z0-9]/g, "");
-  if (!stripped) return label.slice(0, 2).toUpperCase();
-  return stripped.slice(0, 2).toUpperCase();
-};
 
 const formatEth = (value: bigint, maximumFractionDigits = 2) => {
   if (value === 0n) return "0";
@@ -541,6 +534,68 @@ function BurnModal({
   );
 }
 
+// Header for miner subpages
+function MinerHeader({ 
+  title, 
+  user,
+  address,
+  isConnected,
+  isConnecting,
+  onConnect,
+}: { 
+  title: string;
+  user?: MiniAppContext["user"];
+  address?: Address;
+  isConnected: boolean;
+  isConnecting: boolean;
+  onConnect: () => void;
+}) {
+  return (
+    <>
+      <style>{`
+        @keyframes headerFadeIn {
+          0% { opacity: 0; transform: translateY(-6px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .header-fade-in {
+          animation: headerFadeIn 0.5s ease-out forwards;
+        }
+      `}</style>
+      <div className="flex items-center justify-between mb-4 h-12">
+        <h1 className="text-2xl font-bold tracking-wide header-fade-in">{title}</h1>
+        {user ? (
+          <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
+            <img 
+              src={user.pfpUrl || undefined} 
+              alt={user.displayName || user.username || "User"} 
+              className="h-8 w-8 rounded-full border border-zinc-800 object-cover"
+            />
+            <div className="leading-tight text-left">
+              <div className="text-sm font-bold">{user.displayName || user.username || "Player"}</div>
+              {user.username && <div className="text-xs text-gray-400">@{user.username}</div>}
+            </div>
+          </div>
+        ) : !isConnected ? (
+          <button
+            onClick={onConnect}
+            disabled={isConnecting}
+            className="px-4 py-2 rounded-lg bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 transition-colors disabled:opacity-50"
+          >
+            {isConnecting ? "Connecting…" : "Connect"}
+          </button>
+        ) : address ? (
+          <div className="flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1.5">
+            <div className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="text-xs font-mono text-white">
+              {address.slice(0, 6)}…{address.slice(-4)}
+            </span>
+          </div>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
 export default function HomePage() {
   const router = useRouter();
   const readyRef = useRef(false);
@@ -754,14 +809,6 @@ export default function HomePage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
-  const userHandle = context?.user?.username
-    ? `@${context.user.username}`
-    : context?.user?.fid
-      ? `fid ${context.user.fid}`
-      : "";
-  const userAvatarUrl = context?.user?.pfpUrl ?? null;
-
   const resetMiner = () => setSelectedMiner(null);
 
   if (selectedMiner === "donut") {
@@ -776,46 +823,14 @@ export default function HomePage() {
           }}
         >
           <div className="flex flex-1 flex-col overflow-hidden">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setSelectedMiner(null)}
-                  className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
-                >
-                  <ArrowLeft className="w-5 h-5 text-white" />
-                </button>
-                <h1 className="text-2xl font-bold tracking-wide">DONUT</h1>
-              </div>
-              {context?.user && (
-                <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
-                  <Avatar className="h-8 w-8 border border-zinc-800">
-                    <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
-                    <AvatarFallback className="bg-zinc-800 text-white">{initialsFrom(userDisplayName)}</AvatarFallback>
-                  </Avatar>
-                  <div className="leading-tight text-left">
-                    <div className="text-sm font-bold">{userDisplayName}</div>
-                    {userHandle && <div className="text-xs text-gray-400">{userHandle}</div>}
-                  </div>
-                </div>
-              )}
-              {!isConnected && !context?.user && (
-                <button
-                  onClick={handleConnect}
-                  disabled={isConnecting}
-                  className="px-4 py-2 rounded-lg bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 transition-colors disabled:opacity-50"
-                >
-                  {isConnecting ? "Connecting…" : "Connect"}
-                </button>
-              )}
-              {isConnected && address && !context?.user && (
-                <div className="flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1.5">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span className="text-xs font-mono text-white">
-                    {address.slice(0, 6)}…{address.slice(-4)}
-                  </span>
-                </div>
-              )}
-            </div>
+            <MinerHeader
+              title="DONUT"
+              user={context?.user}
+              address={address}
+              isConnected={isConnected}
+              isConnecting={isConnecting}
+              onConnect={handleConnect}
+            />
             <DonutMiner context={context} />
           </div>
         </div>
@@ -836,46 +851,14 @@ export default function HomePage() {
           }}
         >
           <div className="flex flex-1 flex-col overflow-hidden">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setSelectedMiner(null)}
-                  className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
-                >
-                  <ArrowLeft className="w-5 h-5 text-white" />
-                </button>
-                <h1 className="text-2xl font-bold tracking-wide">SPRINKLES</h1>
-              </div>
-              {context?.user && (
-                <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
-                  <Avatar className="h-8 w-8 border border-zinc-800">
-                    <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
-                    <AvatarFallback className="bg-zinc-800 text-white">{initialsFrom(userDisplayName)}</AvatarFallback>
-                  </Avatar>
-                  <div className="leading-tight text-left">
-                    <div className="text-sm font-bold">{userDisplayName}</div>
-                    {userHandle && <div className="text-xs text-gray-400">{userHandle}</div>}
-                  </div>
-                </div>
-              )}
-              {!isConnected && !context?.user && (
-                <button
-                  onClick={handleConnect}
-                  disabled={isConnecting}
-                  className="px-4 py-2 rounded-lg bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 transition-colors disabled:opacity-50"
-                >
-                  {isConnecting ? "Connecting…" : "Connect"}
-                </button>
-              )}
-              {isConnected && address && !context?.user && (
-                <div className="flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1.5">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span className="text-xs font-mono text-white">
-                    {address.slice(0, 6)}…{address.slice(-4)}
-                  </span>
-                </div>
-              )}
-            </div>
+            <MinerHeader
+              title="SPRINKLES"
+              user={context?.user}
+              address={address}
+              isConnected={isConnected}
+              isConnecting={isConnecting}
+              onConnect={handleConnect}
+            />
             <SprinklesMiner context={context} />
           </div>
         </div>
@@ -907,38 +890,7 @@ export default function HomePage() {
         }}
       >
         <div className="flex flex-1 flex-col">
-          <div className="flex items-center justify-between mb-3">
-            <h1 className="text-2xl font-bold tracking-wide">MINE</h1>
-            {context?.user && (
-              <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
-                <Avatar className="h-8 w-8 border border-zinc-800">
-                  <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
-                  <AvatarFallback className="bg-zinc-800 text-white">{initialsFrom(userDisplayName)}</AvatarFallback>
-                </Avatar>
-                <div className="leading-tight text-left">
-                  <div className="text-sm font-bold">{userDisplayName}</div>
-                  {userHandle && <div className="text-xs text-gray-400">{userHandle}</div>}
-                </div>
-              </div>
-            )}
-            {!isConnected && !context?.user && (
-              <button
-                onClick={handleConnect}
-                disabled={isConnecting}
-                className="px-4 py-2 rounded-lg bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 transition-colors disabled:opacity-50"
-              >
-                {isConnecting ? "Connecting…" : "Connect"}
-              </button>
-            )}
-            {isConnected && address && !context?.user && (
-              <div className="flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1.5">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-xs font-mono text-white">
-                  {address.slice(0, 6)}…{address.slice(-4)}
-                </span>
-              </div>
-            )}
-          </div>
+          <Header title="MINE" user={context?.user} />
 
           <div className="grid grid-cols-3 gap-2 px-2 mb-3">
             <div

@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
+import { Header } from "@/components/header";
 import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer, Heart, Settings, Image as ImageIcon } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseUnits } from "viem";
@@ -623,7 +624,6 @@ export default function ChatPage() {
   }, [messages?.length]);
 
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
-  const userHandle = context?.user?.username ? `@${context.user.username}` : context?.user?.fid ? `fid ${context.user.fid}` : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
   const formatBanTime = (seconds: number) => {
@@ -678,20 +678,8 @@ export default function ChatPage() {
         }}
       >
         <div className="flex flex-1 flex-col overflow-hidden relative">
-          <div className="flex items-center justify-between mb-3 flex-shrink-0">
-            <h1 className="text-2xl font-bold tracking-wide">CHAT</h1>
-            {context?.user && (
-              <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
-                <Avatar className="h-8 w-8 border border-zinc-800">
-                  <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
-                  <AvatarFallback className="bg-zinc-800 text-white">{initialsFrom(userDisplayName)}</AvatarFallback>
-                </Avatar>
-                <div className="leading-tight text-left">
-                  <div className="text-sm font-bold">{userDisplayName}</div>
-                  {userHandle && <div className="text-xs text-gray-400">{userHandle}</div>}
-                </div>
-              </div>
-            )}
+          <div className="flex-shrink-0">
+            <Header title="CHAT" user={context?.user} />
           </div>
 
           <div className="grid grid-cols-2 gap-2 mb-3 flex-shrink-0">
