@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createWalletClient, http, parseUnits, encodeFunctionData } from "viem";
+import { createWalletClient, createPublicClient, http, parseUnits } from "viem";
 import { base } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 
@@ -8,6 +8,11 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+// Use Alchemy RPC for reliability (public RPC has strict rate limits)
+const ALCHEMY_RPC_URL = process.env.ALCHEMY_API_KEY 
+  ? `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
+  : process.env.BASE_RPC_URL || "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g";
 
 // USDC on Base
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
@@ -68,6 +73,25 @@ function getPreviousWeek(): number {
   return Math.max(1, getCurrentWeek() - 1);
 }
 
+// Retry wrapper for RPC calls
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries = 3,
+  delay = 1000
+): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      const isRateLimit = error?.message?.includes("429") || error?.message?.includes("rate limit");
+      if (i === retries - 1) throw error;
+      console.log(`[Retry ${i + 1}/${retries}] ${isRateLimit ? "Rate limited" : "Error"}, waiting ${delay}ms...`);
+      await new Promise((r) => setTimeout(r, delay * (i + 1))); // Exponential backoff
+    }
+  }
+  throw new Error("Max retries exceeded");
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Verify cron secret
@@ -79,6 +103,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const week = body.week || getPreviousWeek(); // Default to previous week
     const dryRun = body.dryRun === true; // For testing without sending
+
+    console.log(`[Donut Dash Distribution] Starting for week ${week}, dryRun: ${dryRun}`);
+    console.log(`[Donut Dash Distribution] Using RPC: ${ALCHEMY_RPC_URL.replace(/\/v2\/.*/, '/v2/***')}`);
 
     // Check if already distributed for this week
     const { data: existingDistribution } = await supabase
@@ -155,6 +182,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    console.log(`[Donut Dash Distribution] Found ${distributions.length} winners`);
+
     // If dry run, just return what would be distributed
     if (dryRun) {
       return NextResponse.json({
@@ -173,31 +202,38 @@ export async function POST(request: NextRequest) {
     }
 
     const account = privateKeyToAccount(botPrivateKey as `0x${string}`);
+    
+    const publicClient = createPublicClient({
+      chain: base,
+      transport: http(ALCHEMY_RPC_URL),
+    });
+
     const walletClient = createWalletClient({
       account,
       chain: base,
-      transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org"),
+      transport: http(ALCHEMY_RPC_URL),
     });
 
-    // Send prizes
+    // Send prizes - wait for each tx to confirm before sending next
     const results: { rank: number; txHash: string; error?: string }[] = [];
 
     for (const dist of distributions) {
       try {
         const amountInUnits = parseUnits(dist.amount, USDC_DECIMALS);
 
-        const hash = await walletClient.writeContract({
+        const hash = await withRetry(() => walletClient.writeContract({
           address: USDC_ADDRESS,
           abi: ERC20_TRANSFER_ABI,
           functionName: "transfer",
           args: [dist.address as `0x${string}`, amountInUnits],
-        });
+        }));
 
         dist.txHash = hash;
         results.push({ rank: dist.rank, txHash: hash });
+        console.log(`[Donut Dash Distribution] Sent $${dist.amount} USDC to rank ${dist.rank}: ${hash}`);
 
-        // Small delay between transactions
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Wait for confirmation before next tx
+        await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
       } catch (err: any) {
         console.error(`Failed to send prize to rank ${dist.rank}:`, err);
         results.push({ rank: dist.rank, txHash: "", error: err.message });

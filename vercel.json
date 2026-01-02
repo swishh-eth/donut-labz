@@ -1,4 +1,18 @@
 {
+  "functions": {
+    "app/api/cron/flappy-distribute/route.ts": {
+      "maxDuration": 120
+    },
+    "app/api/cron/stack-tower-distribute/route.ts": {
+      "maxDuration": 120
+    },
+    "app/api/games/donut-dash/prize-distribute/route.ts": {
+      "maxDuration": 120
+    },
+    "app/api/cron/miners-distribute/route.ts": {
+      "maxDuration": 120
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/flappy-distribute",
