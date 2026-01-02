@@ -15,6 +15,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Use Alchemy RPC for reliability (public RPC has strict rate limits)
+const ALCHEMY_RPC_URL = process.env.ALCHEMY_API_KEY 
+  ? `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
+  : process.env.BASE_RPC_URL || "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g";
+
 // Token addresses on Base
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
@@ -97,6 +102,25 @@ function getPrizeForRank(rank: number, totalAmount: number): number {
   return (totalAmount * prizeInfo.percent) / 100;
 }
 
+// Retry wrapper for RPC calls
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries = 3,
+  delay = 1000
+): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      const isRateLimit = error?.message?.includes("429") || error?.message?.includes("rate limit");
+      if (i === retries - 1) throw error;
+      console.log(`[Retry ${i + 1}/${retries}] ${isRateLimit ? "Rate limited" : "Error"}, waiting ${delay}ms...`);
+      await new Promise((r) => setTimeout(r, delay * (i + 1))); // Exponential backoff
+    }
+  }
+  throw new Error("Max retries exceeded");
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Verify cron secret
@@ -110,6 +134,7 @@ export async function POST(request: NextRequest) {
     const dryRun = body.dryRun === true;
 
     console.log(`[Miners Distribution] Starting for week ${weekNumber}, dryRun: ${dryRun}`);
+    console.log(`[Miners Distribution] Using RPC: ${ALCHEMY_RPC_URL.replace(/\/v2\/.*/, '/v2/***')}`);
 
     // Check if already distributed for this week
     const { data: existingDistribution } = await supabase
@@ -174,30 +199,32 @@ export async function POST(request: NextRequest) {
     // Setup public client to check balances
     const publicClient = createPublicClient({
       chain: base,
-      transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org"),
+      transport: http(ALCHEMY_RPC_URL),
     });
 
-    // Check bot wallet has enough funds for the configured distribution
-    const [usdcBalance, donutBalance, sprinklesBalance] = await Promise.all([
-      publicClient.readContract({
-        address: USDC_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "balanceOf",
-        args: [BOT_WALLET],
-      }),
-      publicClient.readContract({
-        address: DONUT_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "balanceOf",
-        args: [BOT_WALLET],
-      }),
-      publicClient.readContract({
-        address: SPRINKLES_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "balanceOf",
-        args: [BOT_WALLET],
-      }),
-    ]);
+    // Check bot wallet has enough funds for the configured distribution (with retry)
+    const [usdcBalance, donutBalance, sprinklesBalance] = await withRetry(() => 
+      Promise.all([
+        publicClient.readContract({
+          address: USDC_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: "balanceOf",
+          args: [BOT_WALLET],
+        }),
+        publicClient.readContract({
+          address: DONUT_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: "balanceOf",
+          args: [BOT_WALLET],
+        }),
+        publicClient.readContract({
+          address: SPRINKLES_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: "balanceOf",
+          args: [BOT_WALLET],
+        }),
+      ])
+    );
 
     const walletUsdcBalance = parseFloat(formatUnits(usdcBalance, USDC_DECIMALS));
     const walletDonutBalance = parseFloat(formatUnits(donutBalance, DONUT_DECIMALS));
@@ -299,7 +326,7 @@ export async function POST(request: NextRequest) {
     const walletClient = createWalletClient({
       account,
       chain: base,
-      transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org"),
+      transport: http(ALCHEMY_RPC_URL),
     });
 
     // Send prizes
@@ -309,7 +336,7 @@ export async function POST(request: NextRequest) {
       // Send USDC
       if (parseFloat(dist.usdcAmount) > 0) {
         try {
-          const hash = await walletClient.writeContract({
+          const hash = await withRetry(() => walletClient.writeContract({
             address: USDC_ADDRESS,
             abi: ERC20_ABI,
             functionName: "transfer",
@@ -317,7 +344,7 @@ export async function POST(request: NextRequest) {
               dist.address as `0x${string}`,
               parseUnits(dist.usdcAmount, USDC_DECIMALS),
             ],
-          });
+          }));
           dist.txHashes.push(hash);
           console.log(`[Miners Distribution] Sent ${dist.usdcAmount} USDC to rank ${dist.rank}: ${hash}`);
           await new Promise((r) => setTimeout(r, 500));
@@ -330,7 +357,7 @@ export async function POST(request: NextRequest) {
       // Send DONUT
       if (parseFloat(dist.donutAmount) > 0) {
         try {
-          const hash = await walletClient.writeContract({
+          const hash = await withRetry(() => walletClient.writeContract({
             address: DONUT_ADDRESS,
             abi: ERC20_ABI,
             functionName: "transfer",
@@ -338,7 +365,7 @@ export async function POST(request: NextRequest) {
               dist.address as `0x${string}`,
               parseUnits(dist.donutAmount, DONUT_DECIMALS),
             ],
-          });
+          }));
           dist.txHashes.push(hash);
           console.log(`[Miners Distribution] Sent ${dist.donutAmount} DONUT to rank ${dist.rank}: ${hash}`);
           await new Promise((r) => setTimeout(r, 500));
@@ -351,7 +378,7 @@ export async function POST(request: NextRequest) {
       // Send SPRINKLES
       if (parseFloat(dist.sprinklesAmount) > 0) {
         try {
-          const hash = await walletClient.writeContract({
+          const hash = await withRetry(() => walletClient.writeContract({
             address: SPRINKLES_ADDRESS,
             abi: ERC20_ABI,
             functionName: "transfer",
@@ -359,7 +386,7 @@ export async function POST(request: NextRequest) {
               dist.address as `0x${string}`,
               parseUnits(dist.sprinklesAmount, SPRINKLES_DECIMALS),
             ],
-          });
+          }));
           dist.txHashes.push(hash);
           console.log(`[Miners Distribution] Sent ${dist.sprinklesAmount} SPRINKLES to rank ${dist.rank}: ${hash}`);
           await new Promise((r) => setTimeout(r, 500));
@@ -431,30 +458,32 @@ export async function GET(request: NextRequest) {
   // Setup public client
   const publicClient = createPublicClient({
     chain: base,
-    transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org"),
+    transport: http(ALCHEMY_RPC_URL),
   });
 
-  // Get wallet balances
-  const [usdcBalance, donutBalance, sprinklesBalance] = await Promise.all([
-    publicClient.readContract({
-      address: USDC_ADDRESS,
-      abi: ERC20_ABI,
-      functionName: "balanceOf",
-      args: [BOT_WALLET],
-    }),
-    publicClient.readContract({
-      address: DONUT_ADDRESS,
-      abi: ERC20_ABI,
-      functionName: "balanceOf",
-      args: [BOT_WALLET],
-    }),
-    publicClient.readContract({
-      address: SPRINKLES_ADDRESS,
-      abi: ERC20_ABI,
-      functionName: "balanceOf",
-      args: [BOT_WALLET],
-    }),
-  ]);
+  // Get wallet balances (with retry)
+  const [usdcBalance, donutBalance, sprinklesBalance] = await withRetry(() =>
+    Promise.all([
+      publicClient.readContract({
+        address: USDC_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [BOT_WALLET],
+      }),
+      publicClient.readContract({
+        address: DONUT_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [BOT_WALLET],
+      }),
+      publicClient.readContract({
+        address: SPRINKLES_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [BOT_WALLET],
+      }),
+    ])
+  );
 
   const walletBalances = {
     usdc: formatUnits(usdcBalance, USDC_DECIMALS),
