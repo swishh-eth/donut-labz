@@ -5,9 +5,9 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Get current week number (resets Friday 12pm UTC)
+// Get current week number (resets Friday 6pm EST / 11pm UTC)
 function getCurrentWeek(): number {
-  const epochStart = new Date('2025-12-05T12:00:00Z'); // Week 1 started Dec 5
+  const epochStart = new Date('2025-12-05T23:00:00Z'); // Week 1 started Dec 5 at 6pm EST
   const now = new Date();
   const secondsElapsed = Math.floor((now.getTime() - epochStart.getTime()) / 1000);
   
