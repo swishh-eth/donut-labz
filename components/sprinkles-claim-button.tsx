@@ -422,18 +422,6 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
 
   // COMPACT VIEW (for chat page stats row)
   if (compact) {
-    // Still loading
-    if (hasClaimed === null || isCheckingClaim) {
-      return (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
-          <div className="flex items-center gap-1">
-            <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin" />
-            <span className="text-[10px] text-gray-400 uppercase tracking-wide">Loading...</span>
-          </div>
-        </div>
-      );
-    }
-
     // Claim window is CLOSED - show countdown to Friday
     if (!isClaimOpen) {
       return (
