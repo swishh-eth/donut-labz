@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CircleUserRound, HelpCircle, X, MessageCircle, Sparkles, Trophy, ImagePlus } from "lucide-react";
+import { CircleUserRound, HelpCircle, X, MessageCircle, Sparkles } from "lucide-react";
 import {
   useAccount,
   useConnect,
@@ -11,7 +11,7 @@ import {
   useWriteContract,
 } from "wagmi";
 import { base } from "wagmi/chains";
-import { formatEther, formatUnits, parseUnits, zeroAddress, type Address } from "viem";
+import { formatUnits, parseUnits, zeroAddress, type Address } from "viem";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI, DONUT_ADDRESS, DONUT_ABI } from "@/lib/contracts/sprinkles";
@@ -54,22 +54,6 @@ const AUCTION_DURATION = 3600;
 const MIN_PRICE = 1n * 10n ** 18n;
 
 const SPRINKLES_DONUT_PAIR = "0x47E8b03017d8b8d058bA5926838cA4dD4531e668";
-const TREASURY_ADDRESS = "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d" as const;
-const DONUT_TOKEN_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
-const IMAGE_FEE = 1n * 10n ** 18n;
-
-const ERC20_TRANSFER_ABI = [
-  {
-    name: "transfer",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "to", type: "address" },
-      { name: "amount", type: "uint256" },
-    ],
-    outputs: [{ type: "bool" }],
-  },
-] as const;
 
 const DEFAULT_MESSAGES = [
   "Every donut needs sprinkles - Donut Labs",
@@ -171,10 +155,6 @@ interface SprinklesMinerProps {
 export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const autoConnectAttempted = useRef(false);
   const [customMessage, setCustomMessage] = useState("");
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const [ethUsdPrice, setEthUsdPrice] = useState<number>(3500);
   const [sprinklesPerDonut, setSprinklesPerDonut] = useState<number>(0);
   const [mineResult, setMineResult] = useState<"success" | "failure" | null>(null);
@@ -182,8 +162,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const [isPulsing, setIsPulsing] = useState(false);
   const [approvalAmount, setApprovalAmount] = useState("");
   const [isApprovalMode, setIsApprovalMode] = useState(false);
-  const [pendingTxType, setPendingTxType] = useState<"mine" | "approve" | "imageFee" | null>(null);
-  const pendingTxTypeRef = useRef<"mine" | "approve" | "imageFee" | null>(null);
+  const [pendingTxType, setPendingTxType] = useState<"mine" | "approve" | null>(null);
+  const pendingTxTypeRef = useRef<"mine" | "approve" | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -417,7 +397,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     chainId: base.id,
   });
 
-  // Ref to store the paid amount at mine time (captured BEFORE the transaction)
   const pendingPaidAmountRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -446,36 +425,13 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         }, 1000);
       }
       
-      if (receipt.status === "success" && txType === "imageFee") {
-        const mineParams = pendingMineParamsRef.current;
-        if (mineParams) {
-          setTimeout(() => {
-            resetWrite();
-            if (executeMineRef.current) {
-              executeMineRef.current(mineParams);
-            }
-          }, 500);
-          return;
-        }
-      }
-      
-      if (receipt.status !== "success" && txType === "imageFee") {
-        showMineResult("failure");
-        pendingImageUrlRef.current = null;
-        pendingMineParamsRef.current = null;
-        pendingPaidAmountRef.current = null;
-      }
-      
       if (receipt.status === "success" && txType === "mine" && address) {
         defaultMessageRef.current = getRandomDefaultMessage();
-        pendingMineParamsRef.current = null;
         
-        // Capture values immediately before any async operations
-        const imageUrl = pendingImageUrlRef.current;
         const txHashToRecord = receipt.transactionHash;
         const paidAmount = pendingPaidAmountRef.current;
         
-        console.log('Mine success! Preparing to record glaze:', { imageUrl, txHashToRecord, paidAmount });
+        console.log('Mine success! Preparing to record glaze:', { txHashToRecord, paidAmount });
         
         const fetchWithRetry = async (url: string, body: object, attempt = 1, maxAttempts = 3): Promise<boolean> => {
           try {
@@ -513,29 +469,22 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           }
         };
 
-        // Call record-glaze with the captured paid amount as fallback
         (async () => {
           try {
             const result = await fetchWithRetry("/api/record-glaze", {
               address: address,
               txHash: txHashToRecord,
               mineType: "sprinkles",
-              imageUrl: imageUrl,
-              amount: paidAmount, // Pass the captured amount as fallback
+              amount: paidAmount,
             });
             console.log('Record glaze final result:', result);
           } catch (err) {
             console.error('Record glaze failed:', err);
           } finally {
-            // Clear refs after recording attempt
-            pendingImageUrlRef.current = null;
             pendingPaidAmountRef.current = null;
-            setSelectedImage(null);
-            setImagePreviewUrl(null);
           }
         })();
         
-        // Refresh recent miners after a delay
         setTimeout(async () => {
           try {
             const res = await fetch('/api/miners/recent?type=sprinkles&limit=10');
@@ -636,102 +585,15 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     }
   }, [address, parsedApprovalAmount, writeContract, showMineResult, resetWrite]);
 
-  const pendingImageUrlRef = useRef<string | null>(null);
-  const pendingMineParamsRef = useRef<{
-    targetAddress: string;
-    epochId: bigint;
-    deadline: bigint;
-    maxPrice: bigint;
-    message: string;
-  } | null>(null);
-
-  const executeMineRef = useRef<((params: {
-    targetAddress: string;
-    epochId: bigint;
-    deadline: bigint;
-    maxPrice: bigint;
-    message: string;
-  }) => Promise<void>) | null>(null);
-
-  const executeMine = useCallback(async (params: {
-    targetAddress: string;
-    epochId: bigint;
-    deadline: bigint;
-    maxPrice: bigint;
-    message: string;
-  }) => {
-    setPendingTxType("mine");
-    pendingTxTypeRef.current = "mine";
-    
-    try {
-      await writeContract({
-        account: params.targetAddress as Address,
-        address: SPRINKLES_MINER_ADDRESS,
-        abi: SPRINKLES_MINER_ABI,
-        functionName: "mine",
-        args: [params.targetAddress as Address, zeroAddress, BigInt(params.epochId), params.deadline, params.maxPrice, params.message],
-        chainId: base.id,
-      });
-    } catch (error) {
-      console.error("Failed to mine:", error);
-      showMineResult("failure");
-      resetWrite();
-      setPendingTxType(null);
-      pendingTxTypeRef.current = null;
-      pendingImageUrlRef.current = null;
-      pendingMineParamsRef.current = null;
-      pendingPaidAmountRef.current = null;
-    }
-  }, [writeContract, showMineResult, resetWrite]);
-
-  useEffect(() => {
-    executeMineRef.current = executeMine;
-  }, [executeMine]);
-
   const handleMine = useCallback(async () => {
     if (!slot0 || !price) return;
     await refetchPrice();
     resetMineResult();
     
-    // Capture the price BEFORE the transaction - this is what the user will pay
     const priceToPay = (currentPrice as bigint) ?? price;
     const paidAmount = Math.floor(Number(formatUnits(priceToPay, DONUT_DECIMALS))).toString();
     pendingPaidAmountRef.current = paidAmount;
     console.log('Captured paid amount before mine:', paidAmount);
-    
-    let uploadedImageUrl: string | null = null;
-    if (selectedImage) {
-      setIsUploadingImage(true);
-      try {
-        const formData = new FormData();
-        formData.append("file", selectedImage);
-        formData.append("address", address || "anonymous");
-        
-        const uploadRes = await fetch("/api/miners/upload-image", {
-          method: "POST",
-          body: formData,
-        });
-        
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          uploadedImageUrl = uploadData.url;
-          pendingImageUrlRef.current = uploadedImageUrl;
-        } else {
-          console.error("Failed to upload image");
-          setIsUploadingImage(false);
-          showMineResult("failure");
-          pendingPaidAmountRef.current = null;
-          return;
-        }
-      } catch (err) {
-        console.error("Failed to upload image:", err);
-        setIsUploadingImage(false);
-        showMineResult("failure");
-        pendingPaidAmountRef.current = null;
-        return;
-      }
-      setIsUploadingImage(false);
-    }
     
     try {
       let targetAddress = address;
@@ -748,72 +610,26 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       const maxPrice = freshPrice === 0n ? 0n : (freshPrice * 105n) / 100n;
       const messageToSend = customMessage.trim() || defaultMessageRef.current;
 
-      if (uploadedImageUrl) {
-        pendingMineParamsRef.current = {
-          targetAddress,
-          epochId: BigInt(epochId),
-          deadline,
-          maxPrice,
-          message: messageToSend,
-        };
-        
-        setPendingTxType("imageFee");
-        pendingTxTypeRef.current = "imageFee";
-        
-        await writeContract({
-          account: targetAddress as Address,
-          address: DONUT_TOKEN_ADDRESS,
-          abi: ERC20_TRANSFER_ABI,
-          functionName: "transfer",
-          args: [TREASURY_ADDRESS, IMAGE_FEE],
-          chainId: base.id,
-        });
-      } else {
-        if (executeMineRef.current) {
-          await executeMineRef.current({
-            targetAddress,
-            epochId: BigInt(epochId),
-            deadline,
-            maxPrice,
-            message: messageToSend,
-          });
-        }
-      }
+      setPendingTxType("mine");
+      pendingTxTypeRef.current = "mine";
+      
+      await writeContract({
+        account: targetAddress as Address,
+        address: SPRINKLES_MINER_ADDRESS,
+        abi: SPRINKLES_MINER_ABI,
+        functionName: "mine",
+        args: [targetAddress as Address, zeroAddress, BigInt(epochId), deadline, maxPrice, messageToSend],
+        chainId: base.id,
+      });
     } catch (error) {
       console.error("Failed to mine:", error);
       showMineResult("failure");
       resetWrite();
       setPendingTxType(null);
       pendingTxTypeRef.current = null;
-      pendingImageUrlRef.current = null;
-      pendingMineParamsRef.current = null;
       pendingPaidAmountRef.current = null;
     }
-  }, [address, connectAsync, currentPrice, customMessage, slot0, price, primaryConnector, refetchPrice, resetMineResult, resetWrite, showMineResult, writeContract, selectedImage]);
-
-  const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert("Image too large. Max 2MB.");
-        return;
-      }
-      setSelectedImage(file);
-      const previewUrl = URL.createObjectURL(file);
-      setImagePreviewUrl(previewUrl);
-    }
-  }, []);
-
-  const handleRemoveImage = useCallback(() => {
-    setSelectedImage(null);
-    if (imagePreviewUrl) {
-      URL.revokeObjectURL(imagePreviewUrl);
-    }
-    setImagePreviewUrl(null);
-    if (imageInputRef.current) {
-      imageInputRef.current.value = "";
-    }
-  }, [imagePreviewUrl]);
+  }, [address, connectAsync, currentPrice, customMessage, slot0, price, primaryConnector, refetchPrice, resetMineResult, resetWrite, showMineResult, writeContract]);
 
   const [mineElapsedSeconds, setMineElapsedSeconds] = useState<number>(0);
 
@@ -858,8 +674,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   }, [address, context?.user, slot0, neynarUser?.user]);
 
   const mineRateDisplay = dps ? formatTokenAmount(dps, SPRINKLES_DECIMALS, 2) : "—";
-  const totalPrice = price ? (selectedImage ? price + IMAGE_FEE : price) : 0n;
-  const minePriceDisplay = totalPrice ? Math.floor(Number(formatUnits(totalPrice, DONUT_DECIMALS))).toLocaleString() : "—";
+  const minePriceDisplay = price ? Math.floor(Number(formatUnits(price, DONUT_DECIMALS))).toLocaleString() : "—";
   const earnedDisplay = formatTokenAmount(earnedSprinkles, SPRINKLES_DECIMALS, 0);
 
   const donutPerSecondDisplay = useMemo(() => {
@@ -869,12 +684,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     if (donutEquivalent < 0.0001) return null;
     return donutEquivalent.toFixed(4);
   }, [dps, sprinklesPerDonut]);
-
-  const earnedInDonut = useMemo(() => {
-    if (sprinklesPerDonut === 0) return "0.00";
-    const sprinklesNum = Number(formatUnits(earnedSprinkles, SPRINKLES_DECIMALS));
-    return (sprinklesNum / sprinklesPerDonut).toFixed(2);
-  }, [earnedSprinkles, sprinklesPerDonut]);
 
   const paidAmountDisplay = slot0 ? formatUnits(slot0.initPrice / 2n, DONUT_DECIMALS).split('.')[0] : '—';
 
@@ -935,17 +744,15 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     if (!slot0 || price === undefined) return "Loading…";
     if (mineResult === "success") return "SUCCESS";
     if (mineResult === "failure") return "FAILED";
-    if (isUploadingImage) return "UPLOADING…";
     if (isWriting || isConfirming) {
       if (pendingTxType === "approve") return "APPROVING…";
-      if (pendingTxType === "imageFee") return "PAYING FEE…";
       return "MINING…";
     }
     if (needsApproval && !isApprovalMode) return "APPROVE";
     return "MINE";
-  }, [mineResult, isConfirming, isWriting, slot0, price, needsApproval, isApprovalMode, pendingTxType, isUploadingImage]);
+  }, [mineResult, isConfirming, isWriting, slot0, price, needsApproval, isApprovalMode, pendingTxType]);
 
-  const isMineDisabled = !slot0 || price === undefined || isWriting || isConfirming || mineResult !== null || isUploadingImage;
+  const isMineDisabled = !slot0 || price === undefined || isWriting || isConfirming || mineResult !== null;
   const isApproveButtonDisabled = isMineDisabled || parsedApprovalAmount === 0n || !approvalAmount;
 
   const handleViewMinerProfile = useCallback(async () => {
@@ -994,7 +801,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     }
   }, [minePriceDisplay]);
 
-  // Calculate average mine price from recent miners
   const averageMinePrice = useMemo(() => {
     const validAmounts = recentMiners
       .map(m => parseFloat(m.amount))
@@ -1180,9 +986,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             <div>
               <div className="text-xs text-gray-500">Mine price</div>
               <div className="text-3xl font-bold text-white">🍩{minePriceDisplay}</div>
-              {selectedImage && (
-                <div className="text-xs text-amber-400">Includes +1 🍩 image upload fee</div>
-              )}
             </div>
             
             <div className="flex flex-col gap-1">
@@ -1245,59 +1048,17 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             </div>
           </div>
 
-          <div className="mt-2 space-y-2">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
-                placeholder="Add a message..."
-                maxLength={100}
-                className="flex-1 rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-zinc-600"
-                style={{ fontSize: '16px' }}
-                disabled={isMineDisabled}
-              />
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                onChange={handleImageSelect}
-                className="hidden"
-              />
-              <button
-                onClick={() => imageInputRef.current?.click()}
-                disabled={isMineDisabled}
-                className={cn(
-                  "px-3 py-2 rounded-lg border transition-all",
-                  selectedImage
-                    ? "border-amber-500 bg-amber-500/20 text-amber-400"
-                    : "border-zinc-800 bg-black text-gray-500 hover:text-white hover:border-zinc-600",
-                  isMineDisabled && "opacity-50 cursor-not-allowed"
-                )}
-                title="Add image (+1 🍩 fee)"
-              >
-                <ImagePlus className="w-5 h-5" />
-              </button>
-            </div>
-            
-            {imagePreviewUrl && (
-              <div className="relative w-full">
-                <img
-                  src={imagePreviewUrl}
-                  alt="Preview"
-                  className="w-full h-32 rounded-lg border border-zinc-800 object-cover"
-                />
-                <button
-                  onClick={handleRemoveImage}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-                <div className="absolute bottom-1 left-1 bg-black/80 text-amber-400 text-[10px] px-1.5 py-0.5 rounded">
-                  +1 🍩 image upload fee
-                </div>
-              </div>
-            )}
+          <div className="mt-2">
+            <input
+              type="text"
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              placeholder="Add a message..."
+              maxLength={100}
+              className="w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-zinc-600"
+              style={{ fontSize: '16px' }}
+              disabled={isMineDisabled}
+            />
           </div>
 
           <div 
@@ -1317,13 +1078,10 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                 <div className="text-xs text-gray-500 font-semibold">Price Paid</div>
               </div>
               <div className="space-y-2">
-                {recentMiners.map((miner, index) => (
+                {recentMiners.map((miner) => (
                   <div 
                     key={`${miner.address}-${miner.timestamp}`}
-                    className={cn(
-                      "flex gap-3 p-2 rounded-lg bg-zinc-900 border border-zinc-800 cursor-pointer hover:bg-zinc-800 transition-colors w-full",
-                      miner.imageUrl ? "items-start" : "items-center"
-                    )}
+                    className="flex gap-3 p-2 rounded-lg bg-zinc-900 border border-zinc-800 cursor-pointer hover:bg-zinc-800 transition-colors w-full items-center"
                     onClick={async () => {
                       if (miner.fid) {
                         const { sdk } = await import("@farcaster/miniapp-sdk");
@@ -1354,21 +1112,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                           🍩{!miner.amount || miner.amount === '0' || miner.amount === '' ? '—' : miner.amount}
                         </span>
                       </div>
-                      {miner.imageUrl && (
-                        <div className="mt-1.5 w-full">
-                          <img
-                            src={miner.imageUrl}
-                            alt="Miner attachment"
-                            className="w-full h-32 rounded-lg border border-zinc-700 object-cover"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              import("@farcaster/miniapp-sdk").then(({ sdk }) => {
-                                sdk.actions.openUrl({ url: miner.imageUrl! }).catch(() => {});
-                              });
-                            }}
-                          />
-                        </div>
-                      )}
                     </div>
                   </div>
                 ))}
