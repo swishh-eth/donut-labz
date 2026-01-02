@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
+import { Header } from "@/components/header";
 import { Trophy, Clock, Coins, HelpCircle, X, Sparkles, History, ExternalLink } from "lucide-react";
 import { formatEther } from "viem";
 
@@ -70,13 +71,6 @@ const getAnonPfp = (address: string): string => {
   return ANON_PFPS[index];
 };
 
-const initialsFrom = (label?: string) => {
-  if (!label) return "";
-  const stripped = label.replace(/[^a-zA-Z0-9]/g, "");
-  if (!stripped) return label.slice(0, 2).toUpperCase();
-  return stripped.slice(0, 2).toUpperCase();
-};
-
 const formatAddress = (addr: string) => {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 };
@@ -93,8 +87,7 @@ export default function LeaderboardPage() {
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showPastWinnersDialog, setShowPastWinnersDialog] = useState(false);
   const [showUsdPrize, setShowUsdPrize] = useState(true);
-  const [focusedIndex, setFocusedIndex] = useState(0);
-  const lastFocusedRef = useRef(0);
+  const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
 
   useEffect(() => {
     let cancelled = false;
@@ -140,13 +133,11 @@ export default function LeaderboardPage() {
         }
       } catch {
         console.error('Failed to fetch prices from API');
-        // Still mark as loaded - we have defaults
         setPricesLoaded(true);
       }
     };
 
     fetchPrices();
-    // Refresh client-side every 5 min to pick up server cache updates
     const interval = setInterval(fetchPrices, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
@@ -238,18 +229,7 @@ export default function LeaderboardPage() {
     }
   }, []);
 
-  const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
-
-  // Haptic feedback helper
-  const triggerHaptic = useCallback(async () => {
-    try {
-      await sdk.haptics.impactOccurred("light");
-    } catch {
-      // Silent fail if haptics not supported
-    }
-  }, []);
-
-  // Handle scroll to detect focused item based on scroll percentage
+  // Handle scroll for fade effect only
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -258,33 +238,17 @@ export default function LeaderboardPage() {
       const scrollTop = container.scrollTop;
       const scrollHeight = container.scrollHeight - container.clientHeight;
       
-      // Calculate fade amounts based on scroll position (smoother with larger threshold)
       if (scrollHeight > 0) {
-        const scrollPercentage = scrollTop / scrollHeight;
-        // Top fade: 0 at top, 1 when scrolled down (smooth over 100px)
         const topFade = Math.min(1, scrollTop / 100);
-        // Bottom fade: 1 at top, 0 at bottom (smooth over 100px)
         const bottomFade = Math.min(1, (scrollHeight - scrollTop) / 100);
         setScrollFade({ top: topFade, bottom: bottomFade });
-        
-        // Calculate which item should be focused
-        const newIndex = Math.round(scrollPercentage * 9);
-        const clampedIndex = Math.max(0, Math.min(9, newIndex));
-        
-        if (clampedIndex !== lastFocusedRef.current) {
-          lastFocusedRef.current = clampedIndex;
-          setFocusedIndex(clampedIndex);
-          triggerHaptic();
-        }
       }
     };
 
-    // Initial call to set fade state
     handleScroll();
-
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [triggerHaptic]);
+  }, []);
 
   useEffect(() => {
     const updateCountdown = () => {
@@ -309,7 +273,6 @@ export default function LeaderboardPage() {
       const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
-      // Show days and hours if more than 1 day, otherwise show hours and minutes
       if (days >= 1) {
         setTimeUntilDistribution(`${days}d ${hours}h`);
       } else {
@@ -337,7 +300,6 @@ export default function LeaderboardPage() {
     ? parseFloat(formatEther(BigInt(prizePoolData.sprinklesBalance)))
     : 0;
 
-  // Total prize USD now includes SPRINKLES value
   const totalPrizeUsd = (ethBalance * ethUsdPrice) + (donutBalance * donutPrice) + (sprinklesBalance * sprinklesPrice);
 
   const firstPlaceEth = (ethBalance * 0.5).toFixed(4);
@@ -352,19 +314,9 @@ export default function LeaderboardPage() {
   const secondPlaceSprinkles = (sprinklesBalance * 0.3).toFixed(0);
   const thirdPlaceSprinkles = (sprinklesBalance * 0.2).toFixed(0);
 
-  // USD values now include SPRINKLES
   const firstPlaceUsd = Math.floor(totalPrizeUsd * 0.5);
   const secondPlaceUsd = Math.floor(totalPrizeUsd * 0.3);
   const thirdPlaceUsd = Math.floor(totalPrizeUsd * 0.2);
-
-  const userDisplayName =
-    context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
-  const userHandle = context?.user?.username
-    ? `@${context.user.username}`
-    : context?.user?.fid
-      ? `fid ${context.user.fid}`
-      : "";
-  const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -380,16 +332,9 @@ export default function LeaderboardPage() {
         .leaderboard-scroll {
           scrollbar-width: none;
           -ms-overflow-style: none;
-          scroll-snap-type: y mandatory;
-          scroll-behavior: smooth;
-          scroll-snap-stop: always;
         }
         .leaderboard-scroll::-webkit-scrollbar {
           display: none;
-        }
-        .leaderboard-item {
-          scroll-snap-align: start;
-          scroll-snap-stop: always;
         }
         
         @keyframes fadeInUp {
@@ -435,29 +380,7 @@ export default function LeaderboardPage() {
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
           {/* Fixed Header Section */}
           <div className="flex-shrink-0">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-2xl font-bold tracking-wide">LEADERBOARD</h1>
-              {context?.user && (
-                <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
-                  <Avatar className="h-8 w-8 border border-zinc-800">
-                    <AvatarImage
-                      src={userAvatarUrl || undefined}
-                      alt={userDisplayName}
-                      className="object-cover"
-                    />
-                    <AvatarFallback className="bg-zinc-800 text-white">
-                      {initialsFrom(userDisplayName)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="leading-tight text-left">
-                    <div className="text-sm font-bold">{userDisplayName}</div>
-                    {userHandle && (
-                      <div className="text-xs text-gray-400">{userHandle}</div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            <Header title="LEADERBOARD" user={context?.user} />
 
             <div className="grid grid-cols-3 gap-2 mb-3">
               {/* Week Tile */}
@@ -825,7 +748,6 @@ export default function LeaderboardPage() {
                   const rank = index + 1;
                   const entry = leaderboard[index];
                   const isWinner = rank <= 3;
-                  const isFocused = focusedIndex === index;
                   
                   let prizeEth: string | null = null;
                   let prizeDonut: string | null = null;
@@ -857,15 +779,8 @@ export default function LeaderboardPage() {
                     return (
                       <div
                         key={`empty-${rank}`}
-                        className={`leaderboard-item flex items-center justify-between rounded-xl p-3 border transition-all duration-200 ${
-                          isFocused 
-                            ? "border-amber-400" 
-                            : "bg-zinc-900 border-zinc-800"
-                        }`}
-                        style={{ 
-                          minHeight: '80px',
-                          backgroundColor: isFocused ? 'rgba(245, 158, 11, 0.1)' : undefined
-                        }}
+                        className="flex items-center justify-between rounded-xl p-3 border bg-zinc-900 border-zinc-800"
+                        style={{ minHeight: '80px' }}
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           <span
@@ -934,15 +849,8 @@ export default function LeaderboardPage() {
                   return (
                     <div
                       key={entry.address}
-                      className={`leaderboard-item flex items-center justify-between rounded-xl p-3 border transition-all duration-200 ${
-                        isFocused 
-                          ? "border-amber-400" 
-                          : "bg-zinc-900 border-zinc-800"
-                      }`}
-                      style={{ 
-                        minHeight: '80px',
-                        backgroundColor: isFocused ? 'rgba(245, 158, 11, 0.1)' : undefined
-                      }}
+                      className="flex items-center justify-between rounded-xl p-3 border bg-zinc-900 border-zinc-800"
+                      style={{ minHeight: '80px' }}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <span
