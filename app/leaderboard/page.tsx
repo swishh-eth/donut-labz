@@ -349,7 +349,7 @@ export default function LeaderboardPage() {
   // Calculate prizes for each position based on configured amounts
   const getUsdcPrize = (rank: number) => {
     const percent = prizeSplits[rank] || 0;
-    return Math.floor(distributionConfig.USDC * percent);
+    return (distributionConfig.USDC * percent).toFixed(2);
   };
   
   const getDonutPrize = (rank: number) => {
