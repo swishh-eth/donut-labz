@@ -861,7 +861,7 @@ export default function LeaderboardPage() {
                                 {parseFloat(prizeSprinkles || '0') > 0 && (
                                   <span className="text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                     <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full object-cover" />
-                                    +{Math.floor(parseFloat(prizeSprinkles || '0'))}
+                                    +{(parseFloat(prizeSprinkles || '0') / 1000).toFixed(parseFloat(prizeSprinkles || '0') % 1000 === 0 ? 0 : 1)}K
                                   </span>
                                 )}
                               </div>
@@ -936,7 +936,7 @@ export default function LeaderboardPage() {
                               {parseFloat(prizeSprinkles || '0') > 0 && (
                                 <span className="text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                   <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full object-cover" />
-                                  +{Math.floor(parseFloat(prizeSprinkles || '0'))}
+                                  +{(parseFloat(prizeSprinkles || '0') / 1000).toFixed(parseFloat(prizeSprinkles || '0') % 1000 === 0 ? 0 : 1)}K
                                 </span>
                               )}
                             </div>
