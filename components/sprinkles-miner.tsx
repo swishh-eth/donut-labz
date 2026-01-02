@@ -3,6 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CircleUserRound, HelpCircle, X, MessageCircle, Sparkles } from "lucide-react";
+
+// Coin image components
+const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <img src="/coins/donut_logo.png" alt="DONUT" className={`${className} rounded-full object-cover`} />
+);
+
+const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <img src="/media/icon.png" alt="SPRINKLES" className={`${className} rounded-full object-cover`} />
+);
 import {
   useAccount,
   useConnect,
@@ -697,7 +706,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
   const pnlData = useMemo(() => {
     if (!slot0 || !slot0.initPrice || !price || sprinklesPerDonut === 0) {
-      return { donut: "+🍩0", isPositive: true };
+      return { value: "0", isPositive: true };
     }
     const paid = slot0.initPrice / 2n;
     const paidNumber = Number(formatUnits(paid, DONUT_DECIMALS));
@@ -707,7 +716,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     const sprinklesValueInDonut = sprinklesEarnedNumber / sprinklesPerDonut;
     const pnl = sprinklesValueInDonut + refundNumber - paidNumber;
     const isPositive = pnl >= 0;
-    return { donut: `${isPositive ? "+" : ""}🍩${Math.floor(Math.abs(pnl)).toLocaleString()}`, isPositive };
+    return { value: `${isPositive ? "+" : ""}${Math.floor(Math.abs(pnl)).toLocaleString()}`, isPositive };
   }, [slot0, price, earnedSprinkles, sprinklesPerDonut]);
 
   const totalPnlUsd = useMemo(() => {
@@ -926,12 +935,12 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           <div className="grid grid-cols-3 gap-x-6 gap-y-2">
             <div>
               <div className="text-xs text-gray-500">Paid</div>
-              <div className="text-xl font-bold text-white">🍩{paidAmountDisplay}</div>
+              <div className="text-xl font-bold text-white flex items-center gap-1"><DonutCoin className="w-5 h-5" />{paidAmountDisplay}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500">Mined</div>
               <div className="text-xl font-bold text-white flex items-center gap-1 whitespace-nowrap">
-                <Sparkles className="w-5 h-5 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <SprinklesCoin className="w-5 h-5" />
                 <span>
                   {(() => {
                     const formatted = formatCompactNumber(earnedDisplay);
@@ -971,17 +980,17 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             <div>
               <div className="text-xs text-gray-500">Mine rate</div>
               <div className="text-xl font-bold text-white flex items-center gap-1">
-                <Sparkles className="w-5 h-5 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <SprinklesCoin className="w-5 h-5" />
                 <span>{mineRateDisplay}/s</span>
               </div>
               {donutPerSecondDisplay && (
-                <div className="text-xs text-green-400">≈ 🍩{donutPerSecondDisplay}/s</div>
+                <div className="text-xs text-green-400 flex items-center gap-1">≈ <DonutCoin className="w-3 h-3" />{donutPerSecondDisplay}/s</div>
               )}
             </div>
             <div>
               <div className="text-xs text-gray-500">PnL</div>
-              <div className={cn("text-xl font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
-                {pnlData.donut}
+              <div className={cn("text-xl font-bold flex items-center gap-1", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
+                {pnlData.value.startsWith('+') ? '+' : ''}<DonutCoin className="w-5 h-5" />{pnlData.value.replace(/^\+/, '')}
               </div>
             </div>
             <div>
@@ -993,18 +1002,19 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           </div>
 
           <div className="grid grid-cols-2 gap-x-6 items-end mt-1">
-            <div>
+            <div 
+              className="cursor-pointer"
+              onClick={() => setShowHelpDialog(true)}
+            >
               <div className="text-xs text-gray-500 flex items-center gap-1">
                 Mine price
-                <button onClick={() => setShowHelpDialog(true)} className="text-gray-400 hover:text-white">
-                  <HelpCircle className="w-3.5 h-3.5" />
-                </button>
+                <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
               </div>
-              <div className="text-3xl font-bold text-white">🍩{minePriceDisplay}</div>
+              <div className="text-3xl font-bold text-white flex items-center gap-1"><DonutCoin className="w-7 h-7" />{minePriceDisplay}</div>
             </div>
             
             <div className="flex flex-col gap-1">
-              <div className="text-xs text-gray-500">Balance: 🍩{donutBalanceDisplay}</div>
+              <div className="text-xs text-gray-500 flex items-center gap-1">Balance: <DonutCoin className="w-3 h-3" />{donutBalanceDisplay}</div>
               
               {needsApproval && isApprovalMode ? (
                 <div className="flex w-full rounded-xl overflow-hidden">
@@ -1088,7 +1098,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               <div className="flex items-center justify-between mb-2">
                 <div className="text-xs text-gray-500 font-semibold">Recent Miners</div>
                 {averageMinePrice && (
-                  <div className="text-xs text-gray-400">Avg: 🍩{averageMinePrice}</div>
+                  <div className="text-xs text-gray-400 flex items-center gap-1">Avg: <DonutCoin className="w-3 h-3" />{averageMinePrice}</div>
                 )}
                 <div className="text-xs text-gray-500 font-semibold">Price Paid</div>
               </div>
@@ -1123,8 +1133,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                             {formatTimeAgo(miner.timestamp)}
                           </span>
                         </div>
-                        <span className="text-white text-lg font-bold flex-shrink-0">
-                          🍩{!miner.amount || miner.amount === '0' || miner.amount === '' ? '—' : miner.amount}
+                        <span className="text-white text-lg font-bold flex-shrink-0 flex items-center gap-1">
+                          <DonutCoin className="w-4 h-4" />{!miner.amount || miner.amount === '0' || miner.amount === '' ? '—' : miner.amount}
                         </span>
                       </div>
                     </div>
@@ -1145,14 +1155,14 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                 <X className="h-4 w-4" />
               </button>
               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <SprinklesCoin className="w-5 h-5" />
                 How Mining Works
               </h2>
               <div className="space-y-4">
                 <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-black">1</div>
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-xs font-bold text-black">1</div>
                   <div>
-                    <div className="font-semibold text-white text-sm">Pay 🍩DONUT to Mine</div>
+                    <div className="font-semibold text-white text-sm flex items-center gap-1">Pay <DonutCoin className="w-4 h-4" />DONUT to Mine</div>
                     <div className="text-xs text-gray-400 mt-0.5">Pay the current price in DONUT.</div>
                   </div>
                 </div>
@@ -1160,7 +1170,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                   <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">2</div>
                   <div>
                     <div className="font-semibold text-white text-sm flex items-center gap-1">
-                      Earn <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES
+                      Earn <SprinklesCoin className="w-4 h-4" />SPRINKLES
                     </div>
                     <div className="text-xs text-gray-400 mt-0.5">Earn SPRINKLES every second.</div>
                   </div>
@@ -1169,19 +1179,19 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                   <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">3</div>
                   <div>
                     <div className="font-semibold text-white text-sm">Dutch Auction</div>
-                    <div className="text-xs text-gray-400 mt-0.5">Price drops to 🍩1 over 1 hour.</div>
+                    <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">Price drops to <DonutCoin className="w-3 h-3" />1 over 1 hour.</div>
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-black">4</div>
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-xs font-bold text-black">4</div>
                   <div>
-                    <div className="font-semibold text-amber-400 text-sm">Get Paid Back</div>
+                    <div className="font-semibold text-green-400 text-sm">Get Paid Back</div>
                     <div className="text-xs text-gray-400 mt-0.5">When outbid, get 80% of their DONUT.</div>
                   </div>
                 </div>
               </div>
               <p className="text-[10px] text-gray-500 text-center mt-4 flex items-center justify-center gap-1">
-                10% of all 🍩DONUT buys and burns <Sparkles className="w-3 h-3 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />SPRINKLES!
+                10% of all <DonutCoin className="w-3 h-3" />DONUT buys and burns <SprinklesCoin className="w-3 h-3" />SPRINKLES!
               </p>
               <button onClick={() => setShowHelpDialog(false)} className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors">
                 Got it
