@@ -33,7 +33,7 @@ const SPRINKLES_DECIMALS = 18;
 // ============================================
 const WEEKLY_DISTRIBUTION = {
   USDC: 10,          // Total USDC to distribute this week
-  DONUT: 250,       // Total DONUT to distribute this week
+  DONUT: 200,       // Total DONUT to distribute this week
   SPRINKLES: 100000, // Total SPRINKLES to distribute this week
 };
 

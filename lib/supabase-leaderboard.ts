@@ -20,11 +20,11 @@ export function getCurrentWeek(): number {
 }
 
 // Record a glaze/mine transaction
-// mineType: 'donut' = 2 points, 'sprinkles' = 1 point
+// mineType: 'donut' = 3 points, 'sprinkles' = 1 point
 export async function recordGlaze(address: string, txHash?: string, mineType: 'donut' | 'sprinkles' = 'donut') {
   const weekNumber = getCurrentWeek();
   const normalizedAddress = address.toLowerCase();
-  const points = mineType === 'donut' ? 2 : 1;
+  const points = mineType === 'donut' ? 3 : 1;
   
   if (!txHash) {
     return { alreadyRecorded: false, pointsAdded: 0 };

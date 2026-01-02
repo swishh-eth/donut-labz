@@ -562,10 +562,10 @@ export default function LeaderboardPage() {
 
                   <div className="space-y-2.5">
                     <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">1</div>
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-[10px] font-bold text-black">1</div>
                       <div>
-                        <div className="font-semibold text-amber-400 text-xs">Mine DONUT = 2 Points</div>
-                        <div className="text-[11px] text-gray-400">Glaze the factory and earn 2 leaderboard points per mine.</div>
+                        <div className="font-semibold text-green-400 text-xs">Mine DONUT = 3 Points</div>
+                        <div className="text-[11px] text-gray-400">Glaze the factory and earn 3 leaderboard points per mine.</div>
                       </div>
                     </div>
 
@@ -586,18 +586,23 @@ export default function LeaderboardPage() {
                     </div>
 
                     <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
                       <div>
-                        <div className="font-semibold text-amber-400 text-xs">Win Prizes</div>
-                        <div className="text-[11px] text-gray-400">Top 10 miners win USDC, DONUT, and SPRINKLES!</div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">5</div>
-                      <div>
-                        <div className="font-semibold text-white text-xs">Where Rewards Come From</div>
-                        <div className="text-[11px] text-gray-400">USDC & DONUT from glazing fees. SPRINKLES from weekly Treasury Buybacks.</div>
+                        <div className="font-semibold text-green-400 text-xs mb-1">Win Prizes</div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 bg-green-500/20 px-1.5 py-0.5 rounded">
+                            <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
+                            <span className="text-green-400 text-[10px] font-bold">USDC</span>
+                          </div>
+                          <div className="flex items-center gap-1 bg-pink-500/20 px-1.5 py-0.5 rounded">
+                            <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full" />
+                            <span className="text-pink-400 text-[10px] font-bold">DONUT</span>
+                          </div>
+                          <div className="flex items-center gap-1 bg-white/20 px-1.5 py-0.5 rounded">
+                            <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full" />
+                            <span className="text-white text-[10px] font-bold">SPRNKL</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -610,7 +615,7 @@ export default function LeaderboardPage() {
                           <div className={`text-sm font-bold ${p.rank <= 3 ? 'text-white' : 'text-gray-400'} ${p.rank === 1 ? 'drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]' : p.rank === 2 ? 'drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]' : p.rank === 3 ? 'drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]' : ''}`}>
                             {p.rank === 1 ? '1st' : p.rank === 2 ? '2nd' : p.rank === 3 ? '3rd' : `${p.rank}th`}
                           </div>
-                          <div className={`font-bold text-[10px] ${p.rank <= 3 ? 'text-amber-400' : 'text-gray-400'}`}>{p.percent}%</div>
+                          <div className={`font-bold text-[10px] ${p.rank <= 3 ? 'text-green-400' : 'text-gray-400'}`}>{p.percent}%</div>
                         </div>
                       ))}
                     </div>
