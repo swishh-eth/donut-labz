@@ -36,13 +36,14 @@ export async function GET() {
     const weekStart = getWeekStart();
     
     // Count games from all game tables since week start
+    // Using correct table names: flappy_games, stack_tower_games, donut_dash_scores
     const [flappyResult, stackResult, dashResult] = await Promise.all([
       supabase
-        .from("flappy_scores")
+        .from("flappy_games")
         .select("id", { count: "exact", head: true })
         .gte("created_at", weekStart.toISOString()),
       supabase
-        .from("stack_tower_scores")
+        .from("stack_tower_games")
         .select("id", { count: "exact", head: true })
         .gte("created_at", weekStart.toISOString()),
       supabase
