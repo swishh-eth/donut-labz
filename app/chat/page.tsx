@@ -236,7 +236,8 @@ export default function ChatPage() {
   const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
     queryKey: ["chat-messages"],
     queryFn: async () => {
-      const res = await fetch("/api/chat/messages?limit=50");
+      // Always sync to ensure images are linked to messages
+      const res = await fetch("/api/chat/messages?sync=true&limit=50");
       if (!res.ok) throw new Error("Failed to fetch messages");
       const data = await res.json();
       return data.messages
@@ -251,7 +252,7 @@ export default function ChatPage() {
         })) as ChatMessage[];
     },
     refetchInterval: 10000,
-    staleTime: 5000,
+    staleTime: 0, // Always fetch fresh data
   });
 
   const { data: statsData } = useQuery({
@@ -348,43 +349,71 @@ export default function ChatPage() {
         // If we uploaded an image, save the image URL to the message
         // Use ref for reliable access (state might not be updated yet due to React batching)
         const imageUrlToSave = pendingImageUrlRef.current;
+        const normalizedHash = hash.toLowerCase(); // Ensure consistent case
+        console.log("Message confirmed, hash:", normalizedHash);
+        console.log("pendingImageUrlRef.current:", imageUrlToSave);
+        
         if (imageUrlToSave && imageUrlToSave.startsWith("http")) {
+          console.log("Saving image URL to message...");
           try {
-            await fetch("/api/chat/save-image", {
+            const saveRes = await fetch("/api/chat/save-image", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ 
-                transactionHash: hash,
+                transactionHash: normalizedHash,
                 imageUrl: imageUrlToSave,
               }),
             });
+            console.log("save-image response status:", saveRes.status);
+            if (!saveRes.ok) {
+              console.error("Failed to save image URL:", await saveRes.text());
+            } else {
+              console.log("Image URL saved successfully");
+            }
           } catch (e) {
             console.error("Failed to save image URL:", e);
           }
+        } else {
+          console.log("No image URL to save or invalid URL");
         }
         
         recordPoints();
         setMessage("");
         clearSelectedImage();
-        setPendingImageUrl(null);
-        pendingImageUrlRef.current = null;
         setCooldownRemaining(COOLDOWN_SECONDS);
         setPendingMessageConfirmed(true);
         
+        // Clear image state AFTER save-image call completes
+        setPendingImageUrl(null);
+        pendingImageUrlRef.current = null;
+        
+        // Wait longer for blockchain to propagate, then sync and invalidate cache
         setTimeout(async () => {
+          console.log("Running first sync...");
           await fetch("/api/chat/messages?sync=true");
+          // Invalidate cache to force fresh fetch
+          queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
           await refetchMessages();
+          
+          // Second sync attempt after another delay to catch any stragglers
+          setTimeout(async () => {
+            console.log("Running second sync...");
+            await fetch("/api/chat/messages?sync=true");
+            queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
+            await refetchMessages();
+          }, 2000);
+          
           setPendingMessageFadingOut(true);
           setTimeout(() => {
             setPendingMessage("");
             setPendingMessageConfirmed(false);
             setPendingMessageFadingOut(false);
           }, 400);
-        }, 3000);
+        }, 4000);
       };
       completeMessage();
     }
-  }, [isSuccess, hash, recordPoints, refetchMessages]);
+  }, [isSuccess, hash, recordPoints, refetchMessages, queryClient]);
 
   useEffect(() => {
     if (cooldownRemaining <= 0) return;
@@ -540,10 +569,13 @@ export default function ChatPage() {
       const completeImageUpload = async () => {
         setIsUploadingImage(true);
         try {
+          console.log("Burn successful, uploading image...");
           const imageUrl = await uploadImageToSupabase(selectedImage);
+          console.log("Image uploaded:", imageUrl);
           if (imageUrl) {
             setPendingImageUrl(imageUrl);
             pendingImageUrlRef.current = imageUrl; // Store in ref for reliable access
+            console.log("pendingImageUrlRef set to:", pendingImageUrlRef.current);
             // Now send the actual chat message
             writeContract({
               address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
@@ -568,23 +600,33 @@ export default function ChatPage() {
 
   // Messages are displayed oldest first, scroll to bottom on load
   const hasInitialScrolledRef = useRef(false);
+  const prevMessagesLengthRef = useRef(0);
   
   useEffect(() => {
     if (!hasInitialScrolledRef.current && messages && messages.length > 0 && !messagesLoading) {
-      hasInitialScrolledRef.current = true;
-      const container = messagesContainerRef.current;
-      if (container) {
-        container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
-      }
+      // Use requestAnimationFrame to ensure DOM has rendered
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const container = messagesContainerRef.current;
+          if (container) {
+            container.scrollTop = container.scrollHeight;
+            hasInitialScrolledRef.current = true;
+            prevMessagesLengthRef.current = messages.length;
+          }
+        });
+      });
     }
   }, [messages, messagesLoading]);
   
-  // Scroll to bottom when new messages arrive
+  // Scroll to bottom when new messages arrive (but not on initial load)
   useEffect(() => {
-    if (hasInitialScrolledRef.current && messages) {
+    if (hasInitialScrolledRef.current && messages && messages.length > prevMessagesLengthRef.current) {
+      prevMessagesLengthRef.current = messages.length;
       const container = messagesContainerRef.current;
       if (container) {
-        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        requestAnimationFrame(() => {
+          container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        });
       }
     }
   }, [messages?.length]);
