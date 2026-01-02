@@ -439,7 +439,7 @@ export default function LeaderboardPage() {
                   <Clock className="w-3.5 h-3.5 text-white" />
                   <span className="text-[10px] text-gray-400 uppercase tracking-wide">Ends In</span>
                 </div>
-                <div className="text-2xl font-bold text-white fade-in-up stagger-2 opacity-0">{timeUntilDistribution}</div>
+                <div className="text-xl font-bold text-white fade-in-up stagger-2 opacity-0 whitespace-nowrap">{timeUntilDistribution}</div>
               </div>
 
               {/* Prize Tile */}
