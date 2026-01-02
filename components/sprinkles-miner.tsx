@@ -139,12 +139,20 @@ const calculatePrice = (initPrice: bigint, startTime: number): bigint => {
 };
 
 const formatTimeAgo = (timestamp: number): string => {
+  // Handle both seconds and milliseconds timestamps
+  const timestampInSeconds = timestamp > 10000000000 ? Math.floor(timestamp / 1000) : timestamp;
   const now = Math.floor(Date.now() / 1000);
-  const diff = now - timestamp;
+  const diff = now - timestampInSeconds;
   
+  if (diff < 0) return "just now";
   if (diff < 60) return `${diff}s ago`;
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 86400) {
+    const hours = Math.floor(diff / 3600);
+    const mins = Math.floor((diff % 3600) / 60);
+    if (mins === 0) return `${hours}hr ago`;
+    return `${hours}hr ${mins}m ago`;
+  }
   return `${Math.floor(diff / 86400)}d ago`;
 };
 
@@ -803,7 +811,12 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
   const averageMinePrice = useMemo(() => {
     const validAmounts = recentMiners
-      .map(m => parseFloat(m.amount))
+      .map(m => {
+        if (!m.amount) return NaN;
+        // Remove commas if present
+        const cleanAmount = m.amount.toString().replace(/,/g, '');
+        return parseFloat(cleanAmount);
+      })
       .filter(a => !isNaN(a) && a > 0);
     if (validAmounts.length === 0) return null;
     const avg = validAmounts.reduce((sum, a) => sum + a, 0) / validAmounts.length;
@@ -877,9 +890,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               </div>
               <div className="flex items-center gap-1 mt-1">
                 <span className="text-[10px] font-bold text-green-400 drop-shadow-lg uppercase tracking-wider">Current Miner</span>
-                <button onClick={() => setShowHelpDialog(true)} className="text-green-400/70 hover:text-green-300 pointer-events-auto">
-                  <HelpCircle className="w-3 h-3" />
-                </button>
               </div>
             </div>
           </div>
@@ -984,7 +994,12 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
           <div className="grid grid-cols-2 gap-x-6 items-end mt-1">
             <div>
-              <div className="text-xs text-gray-500">Mine price</div>
+              <div className="text-xs text-gray-500 flex items-center gap-1">
+                Mine price
+                <button onClick={() => setShowHelpDialog(true)} className="text-gray-400 hover:text-white">
+                  <HelpCircle className="w-3.5 h-3.5" />
+                </button>
+              </div>
               <div className="text-3xl font-bold text-white">🍩{minePriceDisplay}</div>
             </div>
             
