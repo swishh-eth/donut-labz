@@ -69,7 +69,6 @@ type PlayState = 'idle' | 'confirming' | 'recording' | 'error';
 
 interface Obstacle { x: number; y: number; type: ObstacleType; width: number; height: number; angle?: number; }
 interface Coin { x: number; y: number; collected: boolean; }
-interface GroundBlock { x: number; width: number; height: number; }
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; color: string; size: number; }
 interface LeaderboardEntry { rank: number; fid: number; username?: string; displayName?: string; pfpUrl?: string; score: number; }
 type MiniAppContext = { user?: { fid: number; username?: string; displayName?: string; pfpUrl?: string } };
@@ -166,7 +165,6 @@ export default function DonutDashPage() {
   const obstaclesRef = useRef<Obstacle[]>([]);
   const coinsRef = useRef<Coin[]>([]);
   const particlesRef = useRef<Particle[]>([]);
-  const groundBlocksRef = useRef<GroundBlock[]>([]);
   const speedRef = useRef(BASE_SPEED);
   const coinsCollectedRef = useRef(0);
   const lastFrameTimeRef = useRef(performance.now());
@@ -540,33 +538,56 @@ export default function DonutDashPage() {
   }, []);
 
   const spawnCoins = useCallback(() => {
-    const patterns = ['line', 'arc', 'wave', 'diagonal', 'zigzag', 'cluster'];
+    // Check if there are already coins too close to spawn area
+    const spawnZoneStart = CANVAS_WIDTH - 50;
+    const hasCoinsInSpawnZone = coinsRef.current.some(c => !c.collected && c.x > spawnZoneStart);
+    if (hasCoinsInSpawnZone) return; // Don't spawn if coins are still in the spawn zone
+    
+    const patterns = ['line', 'arc', 'wave', 'diagonal', 'zigzag'];
     const pattern = patterns[Math.floor(Math.random() * patterns.length)];
     const startX = CANVAS_WIDTH + 50;
-    const centerY = 80 + Math.random() * (CANVAS_HEIGHT - 200);
+    
+    // Keep centerY well within bounds (accounting for pattern height variations)
+    const minY = 80;
+    const maxY = CANVAS_HEIGHT - 120;
+    const centerY = minY + Math.random() * (maxY - minY);
+    
+    const newCoins: Coin[] = [];
+    
     if (pattern === 'line') {
-      const count = 5 + Math.floor(Math.random() * 4);
-      for (let i = 0; i < count; i++) coinsRef.current.push({ x: startX + i * 28, y: centerY, collected: false });
+      const count = 5 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < count; i++) {
+        newCoins.push({ x: startX + i * 28, y: centerY, collected: false });
+      }
     } else if (pattern === 'arc') {
-      for (let i = 0; i < 8; i++) coinsRef.current.push({ x: startX + i * 24, y: centerY + Math.sin((i / 7) * Math.PI) * 50, collected: false });
+      for (let i = 0; i < 7; i++) {
+        const arcY = centerY + Math.sin((i / 6) * Math.PI) * 40;
+        // Clamp Y to stay in bounds
+        const clampedY = Math.max(50, Math.min(CANVAS_HEIGHT - 50, arcY));
+        newCoins.push({ x: startX + i * 24, y: clampedY, collected: false });
+      }
     } else if (pattern === 'wave') {
-      for (let i = 0; i < 8; i++) coinsRef.current.push({ x: startX + i * 24, y: centerY + Math.sin(i * 0.9) * 35, collected: false });
+      for (let i = 0; i < 7; i++) {
+        const waveY = centerY + Math.sin(i * 0.9) * 30;
+        const clampedY = Math.max(50, Math.min(CANVAS_HEIGHT - 50, waveY));
+        newCoins.push({ x: startX + i * 24, y: clampedY, collected: false });
+      }
     } else if (pattern === 'diagonal') {
       const goingUp = Math.random() > 0.5;
-      for (let i = 0; i < 6; i++) coinsRef.current.push({ x: startX + i * 30, y: centerY + (goingUp ? -i * 20 : i * 20), collected: false });
+      for (let i = 0; i < 5; i++) {
+        const diagY = centerY + (goingUp ? -i * 18 : i * 18);
+        const clampedY = Math.max(50, Math.min(CANVAS_HEIGHT - 50, diagY));
+        newCoins.push({ x: startX + i * 30, y: clampedY, collected: false });
+      }
     } else if (pattern === 'zigzag') {
-      for (let i = 0; i < 8; i++) coinsRef.current.push({ x: startX + i * 25, y: centerY + (i % 2 === 0 ? -30 : 30), collected: false });
-    } else {
-      for (let i = 0; i < 12; i++) {
-        const angle = (i / 12) * Math.PI * 2;
-        const radius = 20 + (i % 3) * 15;
-        coinsRef.current.push({ x: startX + Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius, collected: false });
+      for (let i = 0; i < 6; i++) {
+        const zigY = centerY + (i % 2 === 0 ? -25 : 25);
+        const clampedY = Math.max(50, Math.min(CANVAS_HEIGHT - 50, zigY));
+        newCoins.push({ x: startX + i * 25, y: clampedY, collected: false });
       }
     }
-  }, []);
-
-  const spawnGroundBlock = useCallback(() => {
-    groundBlocksRef.current.push({ x: CANVAS_WIDTH + 20, width: 30 + Math.random() * 40, height: 25 + Math.random() * 35 });
+    
+    coinsRef.current.push(...newCoins);
   }, []);
 
   const addThrustParticles = useCallback(() => {
@@ -642,12 +663,6 @@ export default function DonutDashPage() {
       ctx.moveTo(x, CANVAS_HEIGHT); ctx.lineTo(x + 15, CANVAS_HEIGHT); ctx.lineTo(x + 5, CANVAS_HEIGHT - 30); ctx.lineTo(x - 10, CANVAS_HEIGHT - 30);
       ctx.closePath(); ctx.fill();
     }
-    
-    // Ground blocks (obstacles)
-    groundBlocksRef.current.forEach(block => {
-      ctx.fillStyle = '#3f3f46';
-      ctx.fillRect(block.x, CANVAS_HEIGHT - 30 - block.height, block.width, block.height);
-    });
   }, []);
 
   const drawPlayer = useCallback((ctx: CanvasRenderingContext2D) => {
@@ -769,13 +784,23 @@ export default function DonutDashPage() {
       ctx.restore();
       
       // Add glowing border
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 2;
-      ctx.shadowColor = player.isThrusting ? '#FF6B00' : '#FFFFFF';
-      ctx.shadowBlur = player.isThrusting ? 25 : 12;
+      ctx.lineWidth = player.isThrusting ? 3 : 2;
+      ctx.strokeStyle = player.isThrusting ? '#FF6B00' : '#FFFFFF';
+      ctx.shadowColor = player.isThrusting ? '#FF4500' : '#FFFFFF';
+      ctx.shadowBlur = player.isThrusting ? 30 : 12;
       ctx.beginPath();
       ctx.arc(0, 0, radius, 0, Math.PI * 2);
       ctx.stroke();
+      
+      // Add extra inner glow when thrusting
+      if (player.isThrusting) {
+        ctx.strokeStyle = 'rgba(255, 100, 0, 0.5)';
+        ctx.lineWidth = 6;
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius + 2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.shadowBlur = 0;
     } else {
       // Fallback: Draw donut
@@ -916,10 +941,8 @@ export default function DonutDashPage() {
     });
   }, []);
 
-  const drawCoins = useCallback((ctx: CanvasRenderingContext2D, currentScore: number) => {
-    const colors = currentScore >= 100 
-      ? ['#FFFFFF', '#F0F0F0', '#E8E8E8', '#FFFFFF', '#F5F5F5', '#FFFFFF', '#EEEEEE']
-      : ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF69B4', '#00CED1'];
+  const drawCoins = useCallback((ctx: CanvasRenderingContext2D) => {
+    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF69B4', '#00CED1'];
     
     coinsRef.current.forEach(coin => {
       if (coin.collected) return;
@@ -928,8 +951,8 @@ export default function DonutDashPage() {
       const float = Math.sin(frameCountRef.current * 0.12 + coin.x * 0.05) * 4;
       ctx.translate(0, float);
       const color = colors[Math.floor(coin.x / 40) % colors.length];
-      ctx.shadowColor = currentScore >= 100 ? '#FFFFFF' : color;
-      ctx.shadowBlur = currentScore >= 100 ? 12 : 15;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 15;
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.roundRect(-9, -4, 18, 8, 4);
@@ -1008,14 +1031,6 @@ export default function DonutDashPage() {
     });
   }, [playCollectSound, addCollectParticles]);
 
-  const checkGroundBlocks = useCallback((): boolean => {
-    const player = playerRef.current;
-    for (const block of groundBlocksRef.current) {
-      if (PLAYER_X + PLAYER_SIZE / 2 - 5 > block.x && PLAYER_X - PLAYER_SIZE / 2 + 5 < block.x + block.width && player.y + PLAYER_SIZE / 2 - 5 > CANVAS_HEIGHT - 30 - block.height) return true;
-    }
-    return false;
-  }, []);
-
   // Game loop
   const gameLoop = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1048,27 +1063,21 @@ export default function DonutDashPage() {
       obstaclesRef.current.forEach(o => { o.x -= speed * delta; });
       obstaclesRef.current = obstaclesRef.current.filter(o => o.x + o.width > -50);
       const lastObs = obstaclesRef.current[obstaclesRef.current.length - 1];
-      if (!lastObs || lastObs.x < CANVAS_WIDTH - 200 - Math.random() * 150) spawnObstacle();
+      // Increase spawn rate by 25% after 150 points (spawn gap reduced to 75%)
+      const baseSpawnGap = 200 + Math.random() * 150;
+      const spawnGap = coinsCollectedRef.current >= 150 ? baseSpawnGap * 0.75 : baseSpawnGap;
+      if (!lastObs || lastObs.x < CANVAS_WIDTH - spawnGap) spawnObstacle();
       
       coinsRef.current.forEach(c => { c.x -= speed * delta; });
       coinsRef.current = coinsRef.current.filter(c => c.x > -50);
-      if (coinsRef.current.length < 25 && Math.random() < 0.04) spawnCoins();
-      
-      if (coinsCollectedRef.current >= 100) {
-        groundBlocksRef.current.forEach(b => { b.x -= speed * delta; });
-        groundBlocksRef.current = groundBlocksRef.current.filter(b => b.x + b.width > -20);
-        const lastBlock = groundBlocksRef.current[groundBlocksRef.current.length - 1];
-        if (!lastBlock || lastBlock.x < CANVAS_WIDTH - 150 - Math.random() * 100) {
-          if (Math.random() < 0.3) spawnGroundBlock();
-        }
-      }
+      if (coinsRef.current.length < 20 && Math.random() < 0.03) spawnCoins();
     }
     
     if (player.isThrusting && frameCountRef.current % 2 === 0) addThrustParticles();
     
     drawBackground(ctx, hasStarted ? speed : 0.5);
     drawParticles(ctx);
-    drawCoins(ctx, coinsCollectedRef.current);
+    drawCoins(ctx);
     drawObstacles(ctx);
     drawPlayer(ctx);
     
@@ -1096,7 +1105,7 @@ export default function DonutDashPage() {
     
     if (hasStarted) {
       checkCoins();
-      if (checkCollisions() || checkGroundBlocks()) {
+      if (checkCollisions()) {
         const finalScore = coinsCollectedRef.current;
         playCrashSound();
         stopThrustSound();
@@ -1133,7 +1142,7 @@ export default function DonutDashPage() {
     ctx.fillText(`SCORE: ${coinsCollectedRef.current}`, 15, 58);
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawBackground, drawPlayer, drawObstacles, drawCoins, drawParticles, checkCollisions, checkCoins, checkGroundBlocks, spawnObstacle, spawnCoins, spawnGroundBlock, addThrustParticles, playCrashSound, stopThrustSound, submitScore, fetchLeaderboard, address, context]);
+  }, [drawBackground, drawPlayer, drawObstacles, drawCoins, drawParticles, checkCollisions, checkCoins, spawnObstacle, spawnCoins, addThrustParticles, playCrashSound, stopThrustSound, submitScore, fetchLeaderboard, address, context]);
 
   const handleThrustStart = useCallback(() => {
     if (!gameActiveRef.current) return;
@@ -1155,7 +1164,6 @@ export default function DonutDashPage() {
     obstaclesRef.current = [];
     coinsRef.current = [];
     particlesRef.current = [];
-    groundBlocksRef.current = [];
     speedRef.current = BASE_SPEED;
     coinsCollectedRef.current = 0;
     frameCountRef.current = 0;
@@ -1271,6 +1279,7 @@ export default function DonutDashPage() {
   }, [handleThrustStart, handleThrustEnd]);
 
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Player";
+  const userHandle = context?.user?.username ? `@${context.user.username}` : "";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
   const isPlayPending = playState === 'confirming' || playState === 'recording' || isPending || isConfirming;
 
@@ -1279,20 +1288,37 @@ export default function DonutDashPage() {
       <style>{`
         .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        * { -webkit-tap-highlight-color: transparent !important; }
+        * { 
+          -webkit-tap-highlight-color: transparent !important;
+          -webkit-touch-callout: none !important;
+        }
+        main, main * {
+          -webkit-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+          user-select: none !important;
+        }
+        @keyframes fadeInTitle {
+          0% { opacity: 0; transform: translateY(-8px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in-title { animation: fadeInTitle 0.5s ease-out forwards; }
       `}</style>
       
-      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-3 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
+      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
         
-        <div className="flex items-center justify-between mb-2 px-1">
-          <h1 className="text-xl font-bold tracking-wide">DONUT DASH</h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold tracking-wide fade-in-title">DONUT DASH</h1>
           {context?.user && (
-            <div className="flex items-center gap-2 rounded-full bg-black px-2 py-0.5">
-              <Avatar className="h-6 w-6 border border-zinc-800">
+            <div className="flex items-center gap-2 rounded-full bg-black px-3 py-1">
+              <Avatar className="h-8 w-8 border border-zinc-800">
                 <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
-                <AvatarFallback className="bg-zinc-800 text-white text-[10px]">{initialsFrom(userDisplayName)}</AvatarFallback>
+                <AvatarFallback className="bg-zinc-800 text-white">{initialsFrom(userDisplayName)}</AvatarFallback>
               </Avatar>
-              <div className="text-xs font-bold">{userDisplayName}</div>
+              <div className="leading-tight text-left">
+                <div className="text-sm font-bold">{userDisplayName}</div>
+                {userHandle && <div className="text-xs text-gray-400">{userHandle}</div>}
+              </div>
             </div>
           )}
         </div>
