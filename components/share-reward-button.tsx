@@ -469,7 +469,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     if (compact) {
       return (
         <div 
-          className="rounded-xl h-full flex items-center justify-center"
+          className="rounded-xl h-full w-full flex items-center justify-center"
           style={{ ...amberGradientStyle, borderColor: 'rgba(34,197,94,0.3)' }}
         >
           <div className="flex items-center gap-1.5 text-green-400">
@@ -510,7 +510,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     if (compact) {
       return (
         <div 
-          className="rounded-xl h-full flex items-center justify-center"
+          className="rounded-xl h-full w-full flex items-center justify-center"
           style={{ ...amberGradientStyle, borderColor: 'rgba(34,197,94,0.3)' }}
         >
           <div className="flex items-center gap-1.5 text-green-400">
@@ -535,7 +535,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     if (compact) {
       return (
         <div 
-          className="rounded-xl h-full flex items-center justify-center opacity-60"
+          className="rounded-xl h-full w-full flex items-center justify-center opacity-60"
           style={amberGradientStyle}
         >
           <div className="flex items-center gap-1.5 text-gray-400">
@@ -566,7 +566,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
           onClick={handleClaim}
           disabled={isWriting || isConfirming}
           className={cn(
-            "rounded-xl h-full flex items-center justify-center gap-1.5 transition-all",
+            "rounded-xl h-full w-full flex items-center justify-center gap-1.5 transition-all",
             (isWriting || isConfirming) && "opacity-50 cursor-not-allowed"
           )}
           style={{ 
@@ -669,7 +669,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     // Show error state if there's an error
     if (verifyError) {
       return (
-        <div className="flex rounded-xl overflow-hidden h-full" style={{ border: '1px solid rgba(239,68,68,0.5)' }}>
+        <div className="flex rounded-xl overflow-hidden h-full w-full" style={{ border: '1px solid rgba(239,68,68,0.5)' }}>
           <div 
             className="flex-1 flex items-center justify-center p-2"
             style={{ background: 'linear-gradient(135deg, rgba(127,29,29,0.3) 0%, rgba(153,27,27,0.2) 100%)' }}
@@ -714,7 +714,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
           onClick={handleShareToQualify}
           disabled={!userFid}
           className={cn(
-            "rounded-xl h-full flex items-center justify-center gap-2 transition-all",
+            "rounded-xl h-full w-full flex items-center justify-center gap-2 transition-all",
             !userFid && "opacity-50 cursor-not-allowed"
           )}
           style={amberGradientActiveStyle}
@@ -736,7 +736,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     // State 2: Needs to follow @swishh.eth
     if (needsFollow) {
       return (
-        <div className="flex gap-1.5 h-full">
+        <div className="flex gap-1.5 h-full w-full">
           <button
             onClick={handleFollow}
             className="flex-1 rounded-xl flex items-center justify-center gap-1 transition-all"
@@ -776,7 +776,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
         onClick={handleVerifyAndClaim}
         disabled={isVerifying || !userFid}
         className={cn(
-          "rounded-xl h-full flex items-center justify-center gap-1.5 transition-all",
+          "rounded-xl h-full w-full flex items-center justify-center gap-1.5 transition-all",
           (isVerifying || !userFid) && "opacity-50 cursor-not-allowed"
         )}
         style={amberGradientActiveStyle}
