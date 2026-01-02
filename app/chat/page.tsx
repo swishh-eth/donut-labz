@@ -668,6 +668,21 @@ export default function ChatPage() {
         .animate-messagePopIn {
           animation: messagePopIn 0.3s ease-out forwards;
         }
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .fade-in-up {
+          animation: fadeInUp 0.5s ease-out forwards;
+        }
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.2s; }
       `}</style>
 
       <div 
@@ -683,22 +698,15 @@ export default function ChatPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-2 mb-3 flex-shrink-0">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
-              <div className="flex items-center gap-1 mb-0.5">
-                <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
-                <span className="text-[9px] text-gray-400 uppercase">Your Sprinkles</span>
+            {/* Your Sprinkles Tile */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
+              <div className="flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
+                <span className="text-[10px] text-gray-400 uppercase tracking-wide">Your Sprinkles</span>
               </div>
-              <div className="text-lg font-bold text-white">{typeof userPoints === 'number' ? userPoints.toFixed(2) : '0.00'}</div>
-              <div className="flex items-center gap-1 mt-1">
-                <Timer className="w-2.5 h-2.5 text-amber-400" />
-                {rewardsEnded ? (
-                  <span className="text-[9px] text-red-400">Rewards ended</span>
-                ) : (
-                  <span className="text-[9px] text-amber-400">{currentMultiplier.toFixed(1)}x • {timeUntilHalving ? `Halving in ${timeUntilHalving}` : 'Final period'}</span>
-                )}
-              </div>
+              <div className="text-2xl font-bold text-white fade-in-up stagger-1 opacity-0">{typeof userPoints === 'number' ? userPoints.toFixed(2) : '0.00'}</div>
             </div>
-            <SprinklesClaimButton userFid={context?.user?.fid} compact />
+            <SprinklesClaimButton userFid={context?.user?.fid} compact hideClaimAmount />
           </div>
 
           <div className="grid grid-cols-2 gap-2 mb-3 flex-shrink-0">
@@ -754,6 +762,19 @@ export default function ChatPage() {
                       <div>
                         <div className="font-semibold text-amber-400 text-xs">Halving Schedule</div>
                         <div className="text-[11px] text-gray-400 mt-0.5">Rewards halve every 30 days: 2x → 1x → 0.5x → 0.25x → 0 (ends).</div>
+                        {!rewardsEnded && (
+                          <div className="mt-1.5 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-2 py-1.5">
+                            <Timer className="w-3 h-3 text-amber-400" />
+                            <span className="text-[11px] text-amber-400 font-medium">
+                              Current: {currentMultiplier.toFixed(1)}x • {timeUntilHalving ? `Halving in ${timeUntilHalving}` : 'Final period'}
+                            </span>
+                          </div>
+                        )}
+                        {rewardsEnded && (
+                          <div className="mt-1.5 flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-2 py-1.5">
+                            <span className="text-[11px] text-red-400 font-medium">Rewards have ended</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-2.5">

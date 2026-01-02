@@ -98,6 +98,7 @@ const getTimeRemainingInClaimWindow = (): number => {
 type SprinklesClaimButtonProps = {
   userFid?: number;
   compact?: boolean;
+  hideClaimAmount?: boolean;
 };
 
 const formatCountdown = (seconds: number) => {
@@ -114,7 +115,7 @@ const formatCountdown = (seconds: number) => {
   }
 };
 
-export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClaimButtonProps) {
+export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount = false }: SprinklesClaimButtonProps) {
   const { address } = useAccount();
   const [userPoints, setUserPoints] = useState<number | null>(null);
   const [isLoadingPoints, setIsLoadingPoints] = useState(false);
@@ -424,10 +425,10 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     // Still loading
     if (hasClaimed === null || isCheckingClaim) {
       return (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
-          <div className="flex items-center gap-1 mb-0.5">
-            <Loader2 className="w-3 h-3 text-gray-400 animate-spin" />
-            <span className="text-[9px] text-gray-400 uppercase">Loading...</span>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
+          <div className="flex items-center gap-1">
+            <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin" />
+            <span className="text-[10px] text-gray-400 uppercase tracking-wide">Loading...</span>
           </div>
         </div>
       );
@@ -436,20 +437,15 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     // Claim window is CLOSED - show countdown to Friday
     if (!isClaimOpen) {
       return (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
-          <div className="flex items-center gap-1 mb-0.5">
-            <Sparkles className="w-3 h-3 text-amber-400 drop-shadow-[0_0_3px_rgba(251,191,36,0.8)]" />
-            <span className="text-[9px] text-gray-400 uppercase">Friday Drop</span>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
+          <div className="flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400 drop-shadow-[0_0_3px_rgba(251,191,36,0.8)]" />
+            <span className="text-[10px] text-gray-400 uppercase tracking-wide">Friday Drop</span>
           </div>
-          <div className="text-sm font-bold text-white flex items-center gap-1">
-            <Clock className="w-3 h-3 text-amber-400" />
-            <span className="text-amber-400">{formatCountdown(countdown)}</span>
+          <div className="text-2xl font-bold text-amber-400 fade-in-up stagger-2 opacity-0 flex items-center gap-1">
+            <Clock className="w-4 h-4" />
+            {formatCountdown(countdown)}
           </div>
-          {hasClaimableAmount && (
-            <div className="text-[9px] text-gray-500 mt-0.5">
-              {userPoints?.toFixed(2)} to claim
-            </div>
-          )}
         </div>
       );
     }
@@ -457,15 +453,12 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
     // Claim window is OPEN (Friday!) - check if already claimed this epoch
     if (hasClaimed) {
       return (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center">
-          <div className="flex items-center gap-1 mb-0.5">
-            <CheckCircle className="w-3 h-3 text-green-500" />
-            <span className="text-[9px] text-gray-400 uppercase">Week {currentEpoch}</span>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
+          <div className="flex items-center gap-1">
+            <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+            <span className="text-[10px] text-gray-400 uppercase tracking-wide">Week {currentEpoch}</span>
           </div>
-          <div className="text-sm font-bold text-green-400">Claimed!</div>
-          <div className="text-[9px] text-gray-500 mt-0.5">
-            {formatCountdown(countdown)} left today
-          </div>
+          <div className="text-2xl font-bold text-green-400 fade-in-up stagger-2 opacity-0">Claimed!</div>
         </div>
       );
     }
@@ -476,9 +469,9 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
       // Show error state
       if (verifyError || claimError) {
         return (
-          <div className="flex flex-col">
-            <div className="flex rounded-lg overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-              <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-lg p-2">
+          <div className="flex flex-col h-[80px]">
+            <div className="flex rounded-lg overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)] h-full">
+              <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-lg p-2 flex items-center">
                 <div className="flex items-start gap-1.5">
                   <XCircle className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />
                   <span className="text-[9px] text-red-300/90 leading-relaxed break-words">
@@ -514,17 +507,14 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
         return (
           <button
             onClick={handleShare}
-            className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border border-amber-400/50 rounded-lg p-2 transition-all shadow-[0_0_15px_rgba(251,191,36,0.3)] flex flex-col items-center justify-center text-center"
+            className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border border-amber-400/50 rounded-lg p-3 transition-all shadow-[0_0_15px_rgba(251,191,36,0.3)] flex flex-col items-center justify-center text-center h-[80px]"
           >
-            <div className="flex items-center gap-1 mb-0.5">
-              <Share2 className="w-3 h-3 text-white" />
-              <span className="text-[9px] text-white/80 uppercase font-semibold">It's Friday!</span>
+            <div className="flex items-center gap-1">
+              <Share2 className="w-3.5 h-3.5 text-white" />
+              <span className="text-[10px] text-white/80 uppercase font-semibold tracking-wide">It's Friday!</span>
             </div>
-            <div className="text-sm font-bold text-white">
+            <div className="text-lg font-bold text-white">
               Share to Claim ✨
-            </div>
-            <div className="text-[9px] text-white/60 mt-0.5">
-              {userPoints?.toFixed(2)} SPRINKLES
             </div>
           </button>
         );
@@ -537,23 +527,20 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
             onClick={handleVerify}
             disabled={isVerifying}
             className={cn(
-              "bg-amber-500 hover:bg-amber-400 border border-amber-400 rounded-lg p-2 transition-all flex flex-col items-center justify-center text-center",
+              "bg-amber-500 hover:bg-amber-400 border border-amber-400 rounded-lg p-3 transition-all flex flex-col items-center justify-center text-center h-[80px]",
               isVerifying && "opacity-50 cursor-not-allowed"
             )}
           >
-            <div className="flex items-center gap-1 mb-0.5">
+            <div className="flex items-center gap-1">
               {isVerifying ? (
-                <Loader2 className="w-3 h-3 text-black animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 text-black animate-spin" />
               ) : (
-                <CheckCircle className="w-3 h-3 text-black" />
+                <CheckCircle className="w-3.5 h-3.5 text-black" />
               )}
-              <span className="text-[9px] text-black/80 uppercase font-semibold">Shared!</span>
+              <span className="text-[10px] text-black/80 uppercase font-semibold tracking-wide">Shared!</span>
             </div>
-            <div className="text-sm font-bold text-black">
+            <div className="text-lg font-bold text-black">
               {isVerifying ? "Verifying..." : "Verify Share"}
-            </div>
-            <div className="text-[9px] text-black/60 mt-0.5">
-              Tap to continue
             </div>
           </button>
         );
@@ -566,23 +553,20 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
             onClick={handleClaim}
             disabled={isClaimingInProgress}
             className={cn(
-              "bg-green-500 hover:bg-green-400 border border-green-400 rounded-lg p-2 transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] flex flex-col items-center justify-center text-center",
+              "bg-green-500 hover:bg-green-400 border border-green-400 rounded-lg p-3 transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] flex flex-col items-center justify-center text-center h-[80px]",
               isClaimingInProgress && "opacity-50 cursor-not-allowed"
             )}
           >
-            <div className="flex items-center gap-1 mb-0.5">
+            <div className="flex items-center gap-1">
               {isClaimingInProgress ? (
-                <Loader2 className="w-3 h-3 text-black animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 text-black animate-spin" />
               ) : (
-                <Gift className="w-3 h-3 text-black" />
+                <Gift className="w-3.5 h-3.5 text-black" />
               )}
-              <span className="text-[9px] text-black/80 uppercase font-semibold">Verified!</span>
+              <span className="text-[10px] text-black/80 uppercase font-semibold tracking-wide">Verified!</span>
             </div>
-            <div className="text-sm font-bold text-black">
+            <div className="text-lg font-bold text-black">
               {isGettingSignature ? "Signing..." : isWriting ? "Confirm..." : isConfirming ? "Claiming..." : `Claim ${userPoints?.toFixed(2)} ✨`}
-            </div>
-            <div className="text-[9px] text-black/60 mt-0.5">
-              {formatCountdown(countdown)} left today
             </div>
           </button>
         );
@@ -591,15 +575,12 @@ export function SprinklesClaimButton({ userFid, compact = false }: SprinklesClai
 
     // Claim window open (Friday) but no points
     return (
-      <div className="bg-zinc-900 border border-amber-500/30 rounded-lg p-2 flex flex-col items-center justify-center text-center">
-        <div className="flex items-center gap-1 mb-0.5">
-          <Calendar className="w-3 h-3 text-amber-400" />
-          <span className="text-[9px] text-gray-400 uppercase">It's Friday!</span>
+      <div className="bg-zinc-900 border border-amber-500/30 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
+        <div className="flex items-center gap-1">
+          <Calendar className="w-3.5 h-3.5 text-amber-400" />
+          <span className="text-[10px] text-gray-400 uppercase tracking-wide">It's Friday!</span>
         </div>
-        <div className="text-sm font-bold text-gray-500">0 points</div>
-        <div className="text-[9px] text-gray-600 mt-0.5">
-          Chat this week to earn!
-        </div>
+        <div className="text-2xl font-bold text-gray-500 fade-in-up stagger-2 opacity-0">0 pts</div>
       </div>
     );
   }
