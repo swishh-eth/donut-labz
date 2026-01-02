@@ -5,7 +5,8 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount } from "wagmi";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Settings, Gamepad2, Trophy, Layers, Rocket, ArrowRight, Clock, Coins, HelpCircle, User, X, Sparkles, MessageCircle } from "lucide-react";
+import { ShareRewardButton } from "@/components/share-reward-button";
+import { Settings, Gamepad2, Trophy, Layers, Rocket, ArrowRight, Clock, Coins, HelpCircle, X } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -20,14 +21,6 @@ type RecentPlayer = {
   username: string;
   score: number;
   pfpUrl?: string;
-};
-
-type UserStats = {
-  totalGamesPlayed: number;
-  totalWinnings: number;
-  favoriteGame: string;
-  tipsReceived: number;
-  chatSprinklesEarned: number;
 };
 
 // Flappy Donut Tile
@@ -200,9 +193,6 @@ export default function GamesPage() {
   const [showUsdPrize, setShowUsdPrize] = useState(true);
   
   const [showHelpDialog, setShowHelpDialog] = useState(false);
-  const [showProfileDialog, setShowProfileDialog] = useState(false);
-  const [userStats, setUserStats] = useState<UserStats | null>(null);
-  const [loadingStats, setLoadingStats] = useState(false);
 
   // Calculate time until Friday 6PM EST
   useEffect(() => {
@@ -358,22 +348,6 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch user stats when profile dialog opens
-  useEffect(() => {
-    if (showProfileDialog && context?.user?.fid && !userStats) {
-      setLoadingStats(true);
-      fetch(`/api/user/stats?fid=${context.user.fid}`)
-        .then(res => res.json())
-        .then(data => {
-          setUserStats(data);
-          setLoadingStats(false);
-        })
-        .catch(() => {
-          setLoadingStats(false);
-        });
-    }
-  }, [showProfileDialog, context?.user?.fid, userStats]);
-
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -491,15 +465,7 @@ export default function GamesPage() {
                 </div>
               </button>
 
-              <button
-                onClick={() => setShowProfileDialog(true)}
-                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 hover:bg-zinc-800 transition-colors"
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <User className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                  <span className="text-xs font-semibold text-white">My Profile</span>
-                </div>
-              </button>
+              <ShareRewardButton userFid={context?.user?.fid} compact />
             </div>
           </div>
 
@@ -617,114 +583,6 @@ export default function GamesPage() {
                 className="mt-4 w-full rounded-xl bg-white py-2 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
               >
                 Got it!
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* My Profile Dialog */}
-      {showProfileDialog && (
-        <div className="fixed inset-0 z-50">
-          <div
-            className="absolute inset-0 bg-black/90 backdrop-blur-md"
-            onClick={() => setShowProfileDialog(false)}
-          />
-          <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 max-w-md mx-auto">
-            <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-4 shadow-2xl max-h-[80vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <User className="w-5 h-5 text-amber-400" />
-                  My Profile
-                </h2>
-                <button
-                  onClick={() => setShowProfileDialog(false)}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* User Info Header */}
-              {context?.user && (
-                <div className="flex items-center gap-3 mb-4 pb-4 border-b border-zinc-800">
-                  {context.user.pfpUrl && (
-                    <img src={context.user.pfpUrl} alt="" className="w-12 h-12 rounded-full border-2 border-zinc-700" />
-                  )}
-                  <div>
-                    <div className="font-bold text-white">{context.user.displayName || context.user.username}</div>
-                    <div className="text-xs text-gray-400">@{context.user.username}</div>
-                  </div>
-                </div>
-              )}
-
-              {loadingStats ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-gray-400">Loading stats...</div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-zinc-800/50 rounded-xl p-3 text-center">
-                      <div className="flex items-center justify-center gap-1 mb-1">
-                        <Gamepad2 className="w-3.5 h-3.5 text-white" />
-                        <span className="text-[10px] text-gray-400 uppercase">Games Played</span>
-                      </div>
-                      <div className="text-xl font-bold text-white">{userStats?.totalGamesPlayed?.toLocaleString() || 0}</div>
-                    </div>
-
-                    <div className="bg-zinc-800/50 rounded-xl p-3 text-center">
-                      <div className="flex items-center justify-center gap-1 mb-1">
-                        <Trophy className="w-3.5 h-3.5 text-green-400" />
-                        <span className="text-[10px] text-gray-400 uppercase">Total Won</span>
-                      </div>
-                      <div className="text-xl font-bold text-green-400">${userStats?.totalWinnings?.toFixed(2) || '0.00'}</div>
-                    </div>
-                  </div>
-
-                  {/* Chat Sprinkles Earned */}
-                  <div className="bg-zinc-800/50 rounded-xl p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
-                        <span className="text-sm text-white">Chat Sprinkles Earned</span>
-                      </div>
-                      <span className="font-bold text-white">{userStats?.chatSprinklesEarned?.toLocaleString() || 0}</span>
-                    </div>
-                  </div>
-
-                  {/* Tips Received */}
-                  <div className="bg-zinc-800/50 rounded-xl p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <MessageCircle className="w-4 h-4 text-white" />
-                        <span className="text-sm text-white">Tips Received</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Sparkles className="w-3.5 h-3.5 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
-                        <span className="font-bold text-white">{userStats?.tipsReceived?.toLocaleString() || 0}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Favorite Game */}
-                  {userStats?.favoriteGame && (
-                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-amber-400">⭐ Favorite Game</span>
-                        <span className="font-bold text-white">{userStats.favoriteGame}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <button
-                onClick={() => setShowProfileDialog(false)}
-                className="mt-4 w-full rounded-xl bg-white py-2 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
-              >
-                Close
               </button>
             </div>
           </div>
