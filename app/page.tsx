@@ -197,6 +197,14 @@ function VideoTile({
         src={videoSrc}
       />
       
+      {/* Center darkening gradient for text readability */}
+      <div 
+        className="absolute inset-0 pointer-events-none"
+        style={{ 
+          background: 'radial-gradient(ellipse 80% 60% at 50% 50%, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 70%)'
+        }}
+      />
+      
       <div className="relative z-10 flex flex-col items-center justify-center h-full p-4">
         {children}
       </div>
@@ -744,12 +752,16 @@ export default function HomePage() {
 
   const donutInitPrice = rawMinerState ? (rawMinerState as any).initPrice as bigint : undefined;
   const donutStartTime = rawMinerState ? (rawMinerState as any).startTime as bigint : undefined;
+  const donutMinerAddress = rawMinerState ? (rawMinerState as any).miner as string : undefined;
   
   const sprinklesInitPrice = sprinklesSlot0 
     ? BigInt((sprinklesSlot0 as any).initPrice ?? (sprinklesSlot0 as any)[2] ?? 0)
     : undefined;
   const sprinklesStartTime = sprinklesSlot0 
     ? Number((sprinklesSlot0 as any).startTime ?? (sprinklesSlot0 as any)[3] ?? 0)
+    : undefined;
+  const sprinklesMinerAddress = sprinklesSlot0
+    ? ((sprinklesSlot0 as any).miner ?? (sprinklesSlot0 as any)[0]) as string
     : undefined;
 
   useEffect(() => {
@@ -847,43 +859,59 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch recent miners (uses same API as miner components)
+  // Fetch current miner profiles from contract state
   useEffect(() => {
-    const fetchRecentMiners = async () => {
+    const fetchMinerProfiles = async () => {
+      const addressesToFetch: string[] = [];
+      
+      if (donutMinerAddress && donutMinerAddress !== zeroAddress) {
+        addressesToFetch.push(donutMinerAddress);
+      }
+      if (sprinklesMinerAddress && sprinklesMinerAddress !== zeroAddress) {
+        addressesToFetch.push(sprinklesMinerAddress);
+      }
+      
+      if (addressesToFetch.length === 0) {
+        setRecentDonutMiner(null);
+        setRecentSprinklesMiner(null);
+        return;
+      }
+      
       try {
-        // Fetch most recent donut miner
-        const donutRes = await fetch('/api/miners/recent?type=donut&limit=1');
-        if (donutRes.ok) {
-          const data = await donutRes.json();
-          if (data.miners && data.miners.length > 0) {
-            const miner = data.miners[0];
+        const res = await fetch(`/api/profiles?addresses=${encodeURIComponent(addressesToFetch.join(','))}`);
+        if (res.ok) {
+          const data = await res.json();
+          const profiles = data.profiles || {};
+          
+          // Set donut miner
+          if (donutMinerAddress && donutMinerAddress !== zeroAddress) {
+            const profile = profiles[donutMinerAddress.toLowerCase()];
             setRecentDonutMiner({
-              username: miner.username || miner.address?.slice(0, 6) + '...' + miner.address?.slice(-4),
-              pfpUrl: miner.pfpUrl || undefined,
+              username: profile?.username || donutMinerAddress.slice(0, 6) + '...' + donutMinerAddress.slice(-4),
+              pfpUrl: profile?.pfpUrl || undefined,
             });
+          } else {
+            setRecentDonutMiner(null);
           }
-        }
-        
-        // Fetch most recent sprinkles miner
-        const sprinklesRes = await fetch('/api/miners/recent?type=sprinkles&limit=1');
-        if (sprinklesRes.ok) {
-          const data = await sprinklesRes.json();
-          if (data.miners && data.miners.length > 0) {
-            const miner = data.miners[0];
+          
+          // Set sprinkles miner
+          if (sprinklesMinerAddress && sprinklesMinerAddress !== zeroAddress) {
+            const profile = profiles[sprinklesMinerAddress.toLowerCase()];
             setRecentSprinklesMiner({
-              username: miner.username || miner.address?.slice(0, 6) + '...' + miner.address?.slice(-4),
-              pfpUrl: miner.pfpUrl || undefined,
+              username: profile?.username || sprinklesMinerAddress.slice(0, 6) + '...' + sprinklesMinerAddress.slice(-4),
+              pfpUrl: profile?.pfpUrl || undefined,
             });
+          } else {
+            setRecentSprinklesMiner(null);
           }
         }
       } catch (error) {
-        console.error("Failed to fetch recent miners:", error);
+        console.error("Failed to fetch miner profiles:", error);
       }
     };
-    fetchRecentMiners();
-    const interval = setInterval(fetchRecentMiners, 30_000);
-    return () => clearInterval(interval);
-  }, []);
+    
+    fetchMinerProfiles();
+  }, [donutMinerAddress, sprinklesMinerAddress]);
 
   // Calculate burn tile display values
   const auctionRewardsValue = sprinklesAuctionRewards 
@@ -1105,16 +1133,16 @@ export default function HomePage() {
                     </span>
                   </div>
                   {recentDonutMiner && (
-                    <div className="flex items-center gap-1.5 bg-black/70 backdrop-blur-sm rounded-full px-2.5 py-1 border border-zinc-700">
+                    <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5 border border-zinc-700/50">
                       {recentDonutMiner.pfpUrl && (
                         <img 
                           src={recentDonutMiner.pfpUrl} 
                           alt="" 
-                          className="w-5 h-5 rounded-full border border-zinc-600"
+                          className="w-4 h-4 rounded-full border border-zinc-600"
                         />
                       )}
-                      <span className="text-[10px] text-white/80 font-medium">
-                        {recentDonutMiner.username?.startsWith('@') ? recentDonutMiner.username : `@${recentDonutMiner.username}`} is currently mining
+                      <span className="text-[9px] text-white/70 font-medium">
+                        {recentDonutMiner.username?.startsWith('@') ? recentDonutMiner.username : `@${recentDonutMiner.username}`} has control
                       </span>
                     </div>
                   )}
@@ -1138,16 +1166,16 @@ export default function HomePage() {
                     </span>
                   </div>
                   {recentSprinklesMiner && (
-                    <div className="flex items-center gap-1.5 bg-black/70 backdrop-blur-sm rounded-full px-2.5 py-1 border border-zinc-700">
+                    <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5 border border-zinc-700/50">
                       {recentSprinklesMiner.pfpUrl && (
                         <img 
                           src={recentSprinklesMiner.pfpUrl} 
                           alt="" 
-                          className="w-5 h-5 rounded-full border border-zinc-600"
+                          className="w-4 h-4 rounded-full border border-zinc-600"
                         />
                       )}
-                      <span className="text-[10px] text-white/80 font-medium">
-                        {recentSprinklesMiner.username?.startsWith('@') ? recentSprinklesMiner.username : `@${recentSprinklesMiner.username}`} is currently mining
+                      <span className="text-[9px] text-white/70 font-medium">
+                        {recentSprinklesMiner.username?.startsWith('@') ? recentSprinklesMiner.username : `@${recentSprinklesMiner.username}`} has control
                       </span>
                     </div>
                   )}
