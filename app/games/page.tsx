@@ -22,48 +22,6 @@ type RecentPlayer = {
   pfpUrl?: string;
 };
 
-// Donut color palette
-const DONUT_COLORS = [
-  '#EF4444', // red
-  '#3B82F6', // blue
-  '#FACC15', // yellow
-  '#EC4899', // pink
-  '#FFFFFF', // white
-  '#22C55E', // green
-];
-
-const getUniqueRandomColors = (count: number): string[] => {
-  const shuffled = [...DONUT_COLORS].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
-};
-
-// Clean glowing donut component
-function GlowingDonut({ color, size = 56 }: { color: string; size?: number }) {
-  const isWhite = color === '#FFFFFF' || color === '#ffffff';
-  return (
-    <div 
-      className="donut-pulse relative rounded-full"
-      style={{ 
-        width: size,
-        height: size,
-        backgroundColor: color,
-        boxShadow: isWhite 
-          ? `0 0 20px rgba(255,255,255,0.4), 0 0 40px rgba(255,255,255,0.2)`
-          : `0 0 20px ${color}50, 0 0 40px ${color}30`
-      }}
-    >
-      <div 
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black" 
-        style={{ width: size * 0.35, height: size * 0.35 }}
-      />
-      <div 
-        className="absolute rounded-full bg-white/30" 
-        style={{ width: size * 0.18, height: size * 0.18, top: size * 0.15, left: size * 0.15 }}
-      />
-    </div>
-  );
-}
-
 // Total Prizes Tile - shows USDC prize pools
 function TotalPrizesTile({ prizes }: { prizes: { donutDash: number } }) {
   const totalUSDC = prizes.donutDash;
@@ -106,18 +64,18 @@ function TotalPrizesTile({ prizes }: { prizes: { donutDash: number } }) {
 }
 
 // Flappy Donut Tile
-function FlappyDonutTile({ recentPlayer, prizePool, donutColor }: { recentPlayer: RecentPlayer | null; prizePool: string; donutColor: string }) {
+function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer | null; prizePool: string }) {
   return (
     <button
       onClick={() => window.location.href = "/games/game-1"}
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
-      style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-        <GlowingDonut color={donutColor} />
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Gamepad2 className="w-24 h-24 text-zinc-800" />
       </div>
       
-      <div className="relative z-10 p-4 pr-24">
+      <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Gamepad2 className="w-5 h-5 text-white" />
@@ -146,18 +104,18 @@ function FlappyDonutTile({ recentPlayer, prizePool, donutColor }: { recentPlayer
 }
 
 // Glaze Stack Tile
-function GlazeStackTile({ recentPlayer, prizePool, donutColor }: { recentPlayer: RecentPlayer | null; prizePool: string; donutColor: string }) {
+function GlazeStackTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer | null; prizePool: string }) {
   return (
     <button
       onClick={() => window.location.href = "/games/game-2"}
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
-      style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-        <GlowingDonut color={donutColor} />
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Layers className="w-24 h-24 text-zinc-800" />
       </div>
       
-      <div className="relative z-10 p-4 pr-24">
+      <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Layers className="w-5 h-5 text-white" />
@@ -186,18 +144,18 @@ function GlazeStackTile({ recentPlayer, prizePool, donutColor }: { recentPlayer:
 }
 
 // Donut Dash Tile
-function DonutDashTile({ recentPlayer, prizePool, donutColor }: { recentPlayer: RecentPlayer | null; prizePool: number; donutColor: string }) {
+function DonutDashTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer | null; prizePool: number }) {
   return (
     <button
       onClick={() => window.location.href = "/games/donut-dash"}
       className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
-      style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-        <GlowingDonut color={donutColor} />
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Rocket className="w-24 h-24 text-zinc-800" />
       </div>
       
-      <div className="relative z-10 p-4 pr-24">
+      <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Rocket className="w-5 h-5 text-white" />
@@ -229,12 +187,12 @@ function ComingSoonTile() {
   return (
     <div 
       className="relative w-full rounded-2xl border-2 border-white/10 overflow-hidden opacity-50"
-      style={{ minHeight: '88px', background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)' }}
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)' }}
     >
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Settings className="w-12 h-12 text-zinc-800 gear-spin" />
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Settings className="w-24 h-24 text-zinc-800 gear-spin" />
       </div>
-      <div className="relative z-10 p-4 pr-24">
+      <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <Settings className="w-5 h-5 text-zinc-600" />
@@ -259,8 +217,7 @@ export default function GamesPage() {
   const { address } = useAccount();
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
-  
-  const [tileColors] = useState(() => getUniqueRandomColors(3));
+  const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
   
   const [flappyRecentPlayer, setFlappyRecentPlayer] = useState<RecentPlayer | null>(null);
   const [flappyPrizePool, setFlappyPrizePool] = useState<number>(0);
@@ -293,6 +250,16 @@ export default function GamesPage() {
     }, 1200);
     return () => clearTimeout(timeout);
   }, []);
+
+  // Mark animation as complete
+  useEffect(() => {
+    if (!hasAnimatedIn) {
+      const timeout = setTimeout(() => {
+        setHasAnimatedIn(true);
+      }, 600);
+      return () => clearTimeout(timeout);
+    }
+  }, [hasAnimatedIn]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -381,11 +348,19 @@ export default function GamesPage() {
         .games-scroll::-webkit-scrollbar { display: none; }
         @keyframes gear-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .gear-spin { animation: gear-spin 8s linear infinite; }
-        @keyframes donut-pulse { 
-          0%, 100% { transform: scale(1); box-shadow: 0 0 20px currentColor, 0 0 40px currentColor; } 
-          50% { transform: scale(1.03); box-shadow: 0 0 25px currentColor, 0 0 50px currentColor; } 
+        @keyframes tilePopIn {
+          0% {
+            opacity: 0;
+            transform: translateY(8px) scale(0.97);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
         }
-        .donut-pulse { animation: donut-pulse 2.5s ease-in-out infinite; }
+        .animate-tilePopIn {
+          animation: tilePopIn 0.3s ease-out forwards;
+        }
       `}</style>
 
       <div 
@@ -406,11 +381,43 @@ export default function GamesPage() {
             }}
           >
             <div className="space-y-3 pb-4">
-              <TotalPrizesTile prizes={{ donutDash: dashPrizePool }} />
-              <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool.toLocaleString()} donutColor={tileColors[0]} />
-              <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool.toLocaleString()} donutColor={tileColors[1]} />
-              <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} donutColor={tileColors[2]} />
-              {[...Array(3)].map((_, i) => <ComingSoonTile key={i} />)}
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '0ms', animationFillMode: 'forwards' } : {}}
+              >
+                <TotalPrizesTile prizes={{ donutDash: dashPrizePool }} />
+              </div>
+              
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}
+              >
+                <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool.toLocaleString()} />
+              </div>
+              
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
+              >
+                <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool.toLocaleString()} />
+              </div>
+              
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
+              >
+                <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} />
+              </div>
+              
+              {[...Array(3)].map((_, i) => (
+                <div 
+                  key={i}
+                  className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                  style={!hasAnimatedIn ? { opacity: 0, animationDelay: `${200 + i * 50}ms`, animationFillMode: 'forwards' } : {}}
+                >
+                  <ComingSoonTile />
+                </div>
+              ))}
             </div>
           </div>
         </div>
