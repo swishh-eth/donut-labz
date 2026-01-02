@@ -151,11 +151,13 @@ const calculateSprinklesPrice = (initPrice: bigint, startTime: number | bigint):
 function VideoTile({ 
   videoSrc, 
   onClick,
-  children 
+  children,
+  recentMiner
 }: { 
   videoSrc: string;
   onClick: () => void;
   children: React.ReactNode;
+  recentMiner?: { username: string; pfpUrl?: string } | null;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -181,13 +183,14 @@ function VideoTile({
     <button
       onClick={onClick}
       className="relative w-full rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
-      style={{ height: '220px' }}
+      style={{ height: '280px' }}
     >
       <div className="absolute inset-0 bg-black" />
       
       <video
         ref={videoRef}
         className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+        style={{ transform: 'scale(1.2)' }}
         autoPlay
         muted
         playsInline
@@ -195,6 +198,22 @@ function VideoTile({
         preload="none"
         src={videoSrc}
       />
+      
+      {/* Recent miner badge */}
+      {recentMiner && (
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 bg-black/70 backdrop-blur-sm rounded-full px-2 py-1 border border-zinc-700">
+          {recentMiner.pfpUrl && (
+            <img 
+              src={recentMiner.pfpUrl} 
+              alt="" 
+              className="w-5 h-5 rounded-full border border-zinc-600"
+            />
+          )}
+          <span className="text-[10px] text-white/80 font-medium">
+            {recentMiner.username?.startsWith('@') ? recentMiner.username : `@${recentMiner.username}`}
+          </span>
+        </div>
+      )}
       
       <div className="relative z-10 flex flex-col items-center justify-center h-full p-4">
         {children}
@@ -677,6 +696,10 @@ export default function HomePage() {
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
   
+  // Recent miners
+  const [recentDonutMiner, setRecentDonutMiner] = useState<{ username: string; pfpUrl?: string } | null>(null);
+  const [recentSprinklesMiner, setRecentSprinklesMiner] = useState<{ username: string; pfpUrl?: string } | null>(null);
+  
   // Client-side interpolated prices
   const [interpolatedDonutPrice, setInterpolatedDonutPrice] = useState<bigint | null>(null);
   const [interpolatedSprinklesPrice, setInterpolatedSprinklesPrice] = useState<bigint | null>(null);
@@ -839,6 +862,44 @@ export default function HomePage() {
     };
     fetchPrices();
     const interval = setInterval(fetchPrices, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch recent miners (uses same API as miner components)
+  useEffect(() => {
+    const fetchRecentMiners = async () => {
+      try {
+        // Fetch most recent donut miner
+        const donutRes = await fetch('/api/miners/recent?type=donut&limit=1');
+        if (donutRes.ok) {
+          const data = await donutRes.json();
+          if (data.miners && data.miners.length > 0) {
+            const miner = data.miners[0];
+            setRecentDonutMiner({
+              username: miner.username || miner.address?.slice(0, 6) + '...' + miner.address?.slice(-4),
+              pfpUrl: miner.pfpUrl || undefined,
+            });
+          }
+        }
+        
+        // Fetch most recent sprinkles miner
+        const sprinklesRes = await fetch('/api/miners/recent?type=sprinkles&limit=1');
+        if (sprinklesRes.ok) {
+          const data = await sprinklesRes.json();
+          if (data.miners && data.miners.length > 0) {
+            const miner = data.miners[0];
+            setRecentSprinklesMiner({
+              username: miner.username || miner.address?.slice(0, 6) + '...' + miner.address?.slice(-4),
+              pfpUrl: miner.pfpUrl || undefined,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch recent miners:", error);
+      }
+    };
+    fetchRecentMiners();
+    const interval = setInterval(fetchRecentMiners, 30_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -1041,6 +1102,7 @@ export default function HomePage() {
                 <VideoTile
                   videoSrc="/media/donut-loop.mp4"
                   onClick={() => setSelectedMiner("donut")}
+                  recentMiner={recentDonutMiner}
                 >
                   <div className="text-xl font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 12px rgba(255,255,255,0.9)' }}>
                     Pay ETH
@@ -1063,6 +1125,7 @@ export default function HomePage() {
                 <VideoTile
                   videoSrc="/media/sprinkles-loop.mp4"
                   onClick={() => setSelectedMiner("sprinkles")}
+                  recentMiner={recentSprinklesMiner}
                 >
                   <div className="text-xl font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 12px rgba(255,255,255,0.9)' }}>
                     Pay DONUT
@@ -1078,37 +1141,10 @@ export default function HomePage() {
                 </VideoTile>
               </div>
 
-              {/* Pool To Own Tile */}
-              <div 
-                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
-              >
-                <div
-                  className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden cursor-not-allowed opacity-60"
-                  style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
-                >
-                  {/* Large background icon */}
-                  <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <Droplets className="w-24 h-24 text-zinc-800" />
-                  </div>
-                  
-                  <div className="relative z-10 p-4 pr-20">
-                    <div className="text-left">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Droplets className="w-5 h-5 text-gray-500" />
-                        <span className="font-bold text-base text-gray-500">Pool To Own</span>
-                      </div>
-                      <div className="text-[10px] text-gray-600 mb-2">Contribute liquidity to earn ownership</div>
-                      <div className="text-[9px] text-gray-600">Coming soon...</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               {/* Burn Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
               >
                 <button
                   onClick={() => setShowBurnModal(true)}
@@ -1156,6 +1192,33 @@ export default function HomePage() {
                     </div>
                   </div>
                 </button>
+              </div>
+
+              {/* Pool To Own Tile */}
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
+              >
+                <div
+                  className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden cursor-not-allowed opacity-60"
+                  style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+                >
+                  {/* Large background icon */}
+                  <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <Droplets className="w-24 h-24 text-zinc-800" />
+                  </div>
+                  
+                  <div className="relative z-10 p-4 pr-20">
+                    <div className="text-left">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Droplets className="w-5 h-5 text-gray-500" />
+                        <span className="font-bold text-base text-gray-500">Pool To Own</span>
+                      </div>
+                      <div className="text-[10px] text-gray-600 mb-2">Contribute liquidity to earn ownership</div>
+                      <div className="text-[9px] text-gray-600">Coming soon...</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
