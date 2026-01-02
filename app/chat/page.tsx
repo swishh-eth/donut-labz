@@ -699,7 +699,7 @@ export default function ChatPage() {
 
           <div className="grid grid-cols-2 gap-2 mb-3 flex-shrink-0">
             {/* Your Sprinkles Tile */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
               <div className="flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
                 <span className="text-[10px] text-gray-400 uppercase tracking-wide">Your Sprinkles</span>
@@ -710,14 +710,14 @@ export default function ChatPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-2 mb-3 flex-shrink-0">
-            <button onClick={() => setShowHelpDialog(true)} className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors">
+            <button onClick={() => setShowHelpDialog(true)} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 hover:bg-zinc-800 transition-colors">
               <div className="flex items-center justify-center gap-2">
                 <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                 <span className="text-xs font-semibold text-white">Earn Sprinkles</span>
                 <HelpCircle className="w-3 h-3 text-gray-400" />
               </div>
             </button>
-            <button onClick={openTipSettings} className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors">
+            <button onClick={openTipSettings} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 hover:bg-zinc-800 transition-colors">
               <div className="flex items-center justify-center gap-2">
                 <Settings className="w-4 h-4 text-white" />
                 <span className="text-xs font-semibold text-white">Tip Settings</span>

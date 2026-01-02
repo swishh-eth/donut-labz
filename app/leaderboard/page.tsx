@@ -409,7 +409,7 @@ export default function LeaderboardPage() {
 
             <div className="grid grid-cols-3 gap-2 mb-3">
               {/* Week Tile */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
                 <div className="flex items-center gap-1">
                   <Trophy className="w-3.5 h-3.5 text-white/90" />
                   <span className="text-[10px] text-gray-400 uppercase tracking-wide">Week</span>
@@ -418,7 +418,7 @@ export default function LeaderboardPage() {
               </div>
 
               {/* Ends In Tile */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
                 <div className="flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-amber-400" />
                   <span className="text-[10px] text-gray-400 uppercase tracking-wide">Ends In</span>
@@ -429,7 +429,7 @@ export default function LeaderboardPage() {
               {/* Prize Tile */}
               <button
                 onClick={() => setShowUsdPrize(!showUsdPrize)}
-                className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center transition-all h-[80px] relative overflow-hidden"
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center transition-all h-[80px] relative overflow-hidden"
               >
                 {showUsdPrize ? (
                   <>
@@ -467,7 +467,7 @@ export default function LeaderboardPage() {
             <div className="grid grid-cols-2 gap-2 mb-3">
               <button
                 onClick={() => setShowHelpDialog(true)}
-                className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors"
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 hover:bg-zinc-800 transition-colors"
               >
                 <div className="flex items-center justify-center gap-2">
                   <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
@@ -478,7 +478,7 @@ export default function LeaderboardPage() {
 
               <button
                 onClick={() => setShowPastWinnersDialog(true)}
-                className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:bg-zinc-800 transition-colors"
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 hover:bg-zinc-800 transition-colors"
               >
                 <div className="flex items-center justify-center gap-2">
                   <History className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
