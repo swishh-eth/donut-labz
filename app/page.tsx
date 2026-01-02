@@ -153,12 +153,10 @@ const calculateSprinklesPrice = (initPrice: bigint, startTime: number | bigint):
 function VideoTile({ 
   videoSrc, 
   onClick,
-  onVideoLoaded,
   children
 }: { 
   videoSrc: string;
   onClick: () => void;
-  onVideoLoaded?: () => void;
   children: React.ReactNode;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -170,19 +168,16 @@ function VideoTile({
 
     const handleCanPlay = () => {
       setIsLoaded(true);
-      onVideoLoaded?.();
     };
     video.addEventListener('canplay', handleCanPlay);
     
-    const timeout = setTimeout(() => {
-      video.load();
-    }, 100);
+    // Start loading the video
+    video.load();
 
     return () => {
       video.removeEventListener('canplay', handleCanPlay);
-      clearTimeout(timeout);
     };
-  }, [onVideoLoaded]);
+  }, []);
 
   return (
     <button
@@ -200,7 +195,7 @@ function VideoTile({
         muted
         playsInline
         loop
-        preload="none"
+        preload="auto"
         src={videoSrc}
       />
       
@@ -697,7 +692,6 @@ export default function HomePage() {
   const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
   
   // Data readiness tracking
-  const [videosLoaded, setVideosLoaded] = useState({ donut: false, sprinkles: false });
   const [dataReady, setDataReady] = useState(false);
   
   // Recent miners
@@ -971,12 +965,15 @@ export default function HomePage() {
   // Check if all data is ready for animation
   useEffect(() => {
     const pricesReady = donutPrice !== undefined && sprinklesPriceValue !== undefined;
-    const videosReady = videosLoaded.donut && videosLoaded.sprinkles;
     
-    if (pricesReady && videosReady && !dataReady) {
-      setDataReady(true);
+    if (pricesReady && !dataReady) {
+      // Small delay to let layout settle
+      const timeout = setTimeout(() => {
+        setDataReady(true);
+      }, 100);
+      return () => clearTimeout(timeout);
     }
-  }, [donutPrice, sprinklesPriceValue, videosLoaded, dataReady]);
+  }, [donutPrice, sprinklesPriceValue, dataReady]);
 
   // Mark animation as complete after data is ready
   useEffect(() => {
@@ -1147,7 +1144,6 @@ export default function HomePage() {
                 <VideoTile
                   videoSrc="/media/donut-loop.mp4"
                   onClick={() => setSelectedMiner("donut")}
-                  onVideoLoaded={() => setVideosLoaded(prev => ({ ...prev, donut: true }))}
                 >
                   <div className="text-3xl font-bold text-pink-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(244,114,182,0.9)' }}>
                     MINE DONUT
@@ -1181,7 +1177,6 @@ export default function HomePage() {
                 <VideoTile
                   videoSrc="/media/sprinkles-loop.mp4"
                   onClick={() => setSelectedMiner("sprinkles")}
-                  onVideoLoaded={() => setVideosLoaded(prev => ({ ...prev, sprinkles: true }))}
                 >
                   <div className="text-3xl font-bold text-green-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(74,222,128,0.9)' }}>
                     MINE SPRINKLES
