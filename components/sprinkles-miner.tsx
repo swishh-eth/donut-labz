@@ -860,7 +860,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               onClick={neynarUser?.user?.fid ? handleViewMinerProfile : undefined}
             >
               <div className="rounded-full bg-black p-0.5 spin-slow">
-                <Avatar className="h-24 w-24 border-2 border-amber-500/50">
+                <Avatar className="h-24 w-24 border-2 border-green-400/50">
                   <AvatarImage
                     src={occupantDisplay.avatarUrl || undefined}
                     alt={occupantDisplay.primary}
@@ -872,12 +872,12 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                 </Avatar>
               </div>
               <div className="mt-2 text-center">
-                <div className="font-bold text-amber-400 text-sm drop-shadow-lg">{occupantDisplay.primary}</div>
-                <div className="text-[10px] text-amber-400/70 drop-shadow-lg">{formatAddress(minerAddress)}</div>
+                <div className="font-bold text-green-400 text-sm drop-shadow-lg">{occupantDisplay.primary}</div>
+                <div className="text-[10px] text-green-400/70 drop-shadow-lg">{formatAddress(minerAddress)}</div>
               </div>
               <div className="flex items-center gap-1 mt-1">
-                <span className="text-[10px] font-bold text-amber-400 drop-shadow-lg uppercase tracking-wider">Current Miner</span>
-                <button onClick={() => setShowHelpDialog(true)} className="text-amber-400/70 hover:text-amber-300 pointer-events-auto">
+                <span className="text-[10px] font-bold text-green-400 drop-shadow-lg uppercase tracking-wider">Current Miner</span>
+                <button onClick={() => setShowHelpDialog(true)} className="text-green-400/70 hover:text-green-300 pointer-events-auto">
                   <HelpCircle className="w-3 h-3" />
                 </button>
               </div>
@@ -913,38 +913,15 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             </button>
           </div>
 
-          <div className="grid grid-cols-4 gap-x-4 gap-y-1">
+          <div className="grid grid-cols-3 gap-x-6 gap-y-2">
             <div>
               <div className="text-xs text-gray-500">Paid</div>
-              <div className="text-lg font-bold text-white">🍩{paidAmountDisplay}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">PnL</div>
-              <div className={cn("text-lg font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
-                {pnlData.donut}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Time</div>
-              <div className="text-lg font-bold text-white whitespace-nowrap">
-                {(() => {
-                  const parts = mineTimeDisplay.split(' ');
-                  if (parts.length === 2) {
-                    return (
-                      <>
-                        <span>{parts[0]}</span>
-                        <span className="text-sm text-gray-300"> {parts[1]}</span>
-                      </>
-                    );
-                  }
-                  return mineTimeDisplay;
-                })()}
-              </div>
+              <div className="text-xl font-bold text-white">🍩{paidAmountDisplay}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500">Mined</div>
-              <div className="text-lg font-bold text-white flex items-center gap-1 whitespace-nowrap">
-                <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+              <div className="text-xl font-bold text-white flex items-center gap-1 whitespace-nowrap">
+                <Sparkles className="w-5 h-5 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                 <span>
                   {(() => {
                     const formatted = formatCompactNumber(earnedDisplay);
@@ -954,8 +931,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                       return (
                         <>
                           <span>{whole}</span>
-                          {decimal && <span className="text-sm text-gray-300">{decimal}</span>}
-                          {suffix && <span className="text-sm text-gray-300">{suffix}</span>}
+                          {decimal && <span className="text-base text-gray-300">{decimal}</span>}
+                          {suffix && <span className="text-base text-gray-300">{suffix}</span>}
                         </>
                       );
                     }
@@ -965,20 +942,43 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               </div>
             </div>
             <div>
-              <div className="text-xs text-gray-500">Total</div>
-              <div className={cn("text-lg font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>
-                {totalPnlUsd.value}
+              <div className="text-xs text-gray-500">Time</div>
+              <div className="text-xl font-bold text-white whitespace-nowrap">
+                {(() => {
+                  const parts = mineTimeDisplay.split(' ');
+                  if (parts.length === 2) {
+                    return (
+                      <>
+                        <span>{parts[0]}</span>
+                        <span className="text-base text-gray-300"> {parts[1]}</span>
+                      </>
+                    );
+                  }
+                  return mineTimeDisplay;
+                })()}
               </div>
             </div>
             <div>
               <div className="text-xs text-gray-500">Mine rate</div>
-              <div className="text-lg font-bold text-white flex items-center gap-1">
-                <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+              <div className="text-xl font-bold text-white flex items-center gap-1">
+                <Sparkles className="w-5 h-5 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                 <span>{mineRateDisplay}/s</span>
               </div>
               {donutPerSecondDisplay && (
                 <div className="text-xs text-green-400">≈ 🍩{donutPerSecondDisplay}/s</div>
               )}
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">PnL</div>
+              <div className={cn("text-xl font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
+                {pnlData.donut}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Total</div>
+              <div className={cn("text-xl font-bold", totalPnlUsd.isPositive ? "text-green-400" : "text-red-400")}>
+                {totalPnlUsd.value}
+              </div>
             </div>
           </div>
 
