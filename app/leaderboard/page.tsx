@@ -846,20 +846,24 @@ export default function LeaderboardPage() {
                             <div className="text-[11px] text-gray-400">
                               {isWinner ? "Claim this spot!" : "Keep grinding"}
                             </div>
-                            {isWinner && prizeUsdc > 0 && (
+                            {isWinner && (
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                   <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
                                   +${prizeUsdc}
                                 </span>
-                                <span className="text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                  <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full object-cover" />
-                                  +{Math.floor(parseFloat(prizeDonut || '0'))}
-                                </span>
-                                <span className="text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                  <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full object-cover" />
-                                  +{Math.floor(parseFloat(prizeSprinkles || '0'))}
-                                </span>
+                                {parseFloat(prizeDonut || '0') > 0 && (
+                                  <span className="text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                    <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full object-cover" />
+                                    +{Math.floor(parseFloat(prizeDonut || '0'))}
+                                  </span>
+                                )}
+                                {parseFloat(prizeSprinkles || '0') > 0 && (
+                                  <span className="text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                    <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full object-cover" />
+                                    +{Math.floor(parseFloat(prizeSprinkles || '0'))}
+                                  </span>
+                                )}
                               </div>
                             )}
                           </div>
@@ -917,20 +921,24 @@ export default function LeaderboardPage() {
                           {username && (
                             <div className="text-[11px] text-gray-400">{username}</div>
                           )}
-                          {isWinner && prizeUsdc > 0 && (
+                          {isWinner && (
                             <div className="flex items-center gap-1.5 mt-1">
                               <span className="text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                 <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
                                 +${prizeUsdc}
                               </span>
-                              <span className="text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full object-cover" />
-                                +{Math.floor(parseFloat(prizeDonut || '0'))}
-                              </span>
-                              <span className="text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full object-cover" />
-                                +{Math.floor(parseFloat(prizeSprinkles || '0'))}
-                              </span>
+                              {parseFloat(prizeDonut || '0') > 0 && (
+                                <span className="text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full object-cover" />
+                                  +{Math.floor(parseFloat(prizeDonut || '0'))}
+                                </span>
+                              )}
+                              {parseFloat(prizeSprinkles || '0') > 0 && (
+                                <span className="text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full object-cover" />
+                                  +{Math.floor(parseFloat(prizeSprinkles || '0'))}
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>
