@@ -186,9 +186,9 @@ function DuneDashboardTile({ onClick }: { onClick: () => void }) {
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <BarChart3 className="w-4 h-4 text-white" />
-            <span className="font-bold text-base text-white">Dune Dashboard</span>
+            <span className="font-bold text-base text-white">Donut Dashboard</span>
           </div>
-          <div className="text-[10px] text-white/60 mb-2">View analytics & on-chain data</div>
+          <div className="text-[10px] text-white/60 mb-2">View Dune analytics & on-chain data</div>
           
           <div className="flex items-center gap-3 text-[9px]">
             <span className="text-white/80">TVL</span>
