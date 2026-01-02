@@ -179,6 +179,10 @@ export default function DonutDashPage() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const thrustOscRef = useRef<OscillatorNode | null>(null);
   const thrustGainRef = useRef<GainNode | null>(null);
+  
+  // Profile picture image ref for player avatar
+  const pfpImageRef = useRef<HTMLImageElement | null>(null);
+  const pfpLoadedRef = useRef(false);
 
   // Contract write for free play
   const { writeContract, data: txHash, isPending, reset: resetWrite, error: writeError } = useWriteContract();
@@ -350,6 +354,23 @@ export default function DonutDashPage() {
       fetchLeaderboard();
     }
   }, [context?.user?.fid, fetchLeaderboard]);
+
+  // Load profile picture for player avatar
+  useEffect(() => {
+    if (context?.user?.pfpUrl && !pfpLoadedRef.current) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        pfpImageRef.current = img;
+        pfpLoadedRef.current = true;
+      };
+      img.onerror = () => {
+        pfpImageRef.current = null;
+        pfpLoadedRef.current = false;
+      };
+      img.src = context.user.pfpUrl;
+    }
+  }, [context?.user?.pfpUrl]);
 
   // Audio functions
   const initAudioContext = useCallback(() => {
@@ -723,25 +744,60 @@ export default function DonutDashPage() {
       ctx.fill();
     }
     
-    // Donut
-    ctx.shadowColor = donutColor;
-    ctx.shadowBlur = player.isThrusting ? 25 : 15;
-    const [h, s, l] = hexToHsl(donutColor);
-    const donutGradient = ctx.createRadialGradient(-3, -3, 0, 0, 0, PLAYER_SIZE / 2);
-    donutGradient.addColorStop(0, hslToHex(h, s, Math.min(100, l + 20)));
-    donutGradient.addColorStop(0.5, donutColor);
-    donutGradient.addColorStop(1, hslToHex(h, s, Math.max(0, l - 20)));
-    ctx.fillStyle = donutGradient;
-    ctx.beginPath();
-    ctx.arc(0, 0, PLAYER_SIZE / 2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
+    // Player avatar (pfp or fallback donut)
+    const radius = PLAYER_SIZE / 2;
     
-    // Hole
-    ctx.fillStyle = '#0a0a0a';
-    ctx.beginPath();
-    ctx.arc(0, 0, PLAYER_SIZE / 5, 0, Math.PI * 2);
-    ctx.fill();
+    if (pfpImageRef.current) {
+      // Draw circular profile picture
+      ctx.save();
+      
+      // Create circular clipping path
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      
+      // Draw the pfp image centered
+      ctx.drawImage(
+        pfpImageRef.current,
+        -radius,
+        -radius,
+        PLAYER_SIZE,
+        PLAYER_SIZE
+      );
+      
+      ctx.restore();
+      
+      // Add glowing border
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = player.isThrusting ? '#FF6B00' : '#FFFFFF';
+      ctx.shadowBlur = player.isThrusting ? 25 : 12;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    } else {
+      // Fallback: Draw donut
+      ctx.shadowColor = donutColor;
+      ctx.shadowBlur = player.isThrusting ? 25 : 15;
+      const [h, s, l] = hexToHsl(donutColor);
+      const donutGradient = ctx.createRadialGradient(-3, -3, 0, 0, 0, PLAYER_SIZE / 2);
+      donutGradient.addColorStop(0, hslToHex(h, s, Math.min(100, l + 20)));
+      donutGradient.addColorStop(0.5, donutColor);
+      donutGradient.addColorStop(1, hslToHex(h, s, Math.max(0, l - 20)));
+      ctx.fillStyle = donutGradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, PLAYER_SIZE / 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      
+      // Hole
+      ctx.fillStyle = '#0a0a0a';
+      ctx.beginPath();
+      ctx.arc(0, 0, PLAYER_SIZE / 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
     
     ctx.restore();
   }, [getDonutColor]);
@@ -1157,12 +1213,36 @@ export default function DonutDashPage() {
       const donutColor = getDonutColor();
       ctx.save();
       ctx.translate(CANVAS_WIDTH / 2, donutY);
-      ctx.shadowColor = donutColor; ctx.shadowBlur = 25;
-      ctx.fillStyle = donutColor;
-      ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = '#0a0a0a';
-      ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
+      
+      if (pfpImageRef.current) {
+        // Draw circular profile picture
+        const menuRadius = 30;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(0, 0, menuRadius, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(pfpImageRef.current, -menuRadius, -menuRadius, menuRadius * 2, menuRadius * 2);
+        ctx.restore();
+        
+        // Glowing border
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#FF69B4';
+        ctx.shadowBlur = 25;
+        ctx.beginPath();
+        ctx.arc(0, 0, menuRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      } else {
+        // Fallback donut
+        ctx.shadowColor = donutColor; ctx.shadowBlur = 25;
+        ctx.fillStyle = donutColor;
+        ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#0a0a0a';
+        ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
+      }
       ctx.restore();
       
       if (gameState === "gameover") {
