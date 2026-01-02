@@ -37,9 +37,9 @@ const SPRINKLES_CLAIM_ABI = [
 ] as const;
 
 // ============== EPOCH CALCULATION (FRONTEND) ==============
-// Week 1 started on Saturday, December 6, 2025 at 00:00 UTC (7pm EST Friday)
-// Claim window is 24 hours: Saturday 00:00 UTC to Sunday 00:00 UTC
-const EPOCH_START_TIME = 1764979200; // Saturday Dec 6, 2025 00:00:00 UTC
+// Week 1 started on Friday, December 5, 2025 at 6pm EST (11pm UTC)
+// Claim window is 24 hours: Friday 6pm EST to Saturday 6pm EST
+const EPOCH_START_TIME = 1764975600; // Friday Dec 5, 2025 23:00:00 UTC (6pm EST)
 const EPOCH_DURATION = 7 * 24 * 60 * 60; // 1 week in seconds
 const CLAIM_WINDOW_DURATION = 24 * 60 * 60; // 24 hours
 
@@ -50,7 +50,7 @@ const calculateCurrentEpoch = (): number => {
   return Math.floor((now - EPOCH_START_TIME) / EPOCH_DURATION) + 1;
 };
 
-// Check if claim window is open (it's Friday)
+// Check if claim window is open (it's Friday 6pm EST or within 24 hours after)
 const isClaimWindowOpen = (): boolean => {
   const now = Math.floor(Date.now() / 1000);
   if (now < EPOCH_START_TIME) return false;
@@ -58,11 +58,11 @@ const isClaimWindowOpen = (): boolean => {
   const timeSinceStart = now - EPOCH_START_TIME;
   const timeInCurrentEpoch = timeSinceStart % EPOCH_DURATION;
   
-  // Claim window is open during the first 24 hours of each epoch (Friday)
+  // Claim window is open during the first 24 hours of each epoch (starting Friday 6pm EST)
   return timeInCurrentEpoch < CLAIM_WINDOW_DURATION;
 };
 
-// Get time until next claim window (next Friday)
+// Get time until next claim window (next Friday 6pm EST)
 const getTimeUntilClaimWindow = (): number => {
   const now = Math.floor(Date.now() / 1000);
   if (now < EPOCH_START_TIME) return EPOCH_START_TIME - now;
@@ -422,7 +422,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
 
   // COMPACT VIEW (for chat page stats row)
   if (compact) {
-    // Claim window is CLOSED - show countdown to Friday
+    // Claim window is CLOSED - show countdown to Friday 6pm EST
     if (!isClaimOpen) {
       return (
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
@@ -438,7 +438,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
       );
     }
 
-    // Claim window is OPEN (Friday!) - check if already claimed this epoch
+    // Claim window is OPEN (Friday 6pm EST!) - check if already claimed this epoch
     if (hasClaimed) {
       return (
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
@@ -451,7 +451,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
       );
     }
 
-    // Claim window is open (it's Friday!) and user has points
+    // Claim window is open (it's Friday 6pm EST!) and user has points
     if (hasClaimableAmount) {
       
       // Show error state
@@ -561,7 +561,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
       }
     }
 
-    // Claim window open (Friday) but no points
+    // Claim window open (Friday 6pm EST) but no points
     return (
       <div className="bg-zinc-900/50 border border-amber-500/30 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
         <div className="flex items-center gap-1">
@@ -653,8 +653,8 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
       ) : (
         <p className="text-xs text-gray-400">
           {hasClaimableAmount
-            ? `${userPoints?.toFixed(2)} SPRINKLES ready! Claim opens Friday.`
-            : "Chat to earn sprinkles points! Claim every Friday."}
+            ? `${userPoints?.toFixed(2)} SPRINKLES ready! Claim opens Friday 6pm EST.`
+            : "Chat to earn sprinkles points! Claim every Friday at 6pm EST."}
         </p>
       )}
     </div>
