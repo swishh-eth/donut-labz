@@ -7,7 +7,7 @@ import { CircleUserRound, HelpCircle, X, MessageCircle, Sparkles } from "lucide-
 // Coin image components
 const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover scale-[1.65]" />
+    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover scale-[1.7]" />
   </span>
 );
 
