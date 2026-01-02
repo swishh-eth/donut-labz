@@ -75,6 +75,13 @@ const formatAddress = (addr: string) => {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 };
 
+// Coin image component with 30% zoom
+const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover scale-[1.3]" />
+  </span>
+);
+
 type DistributionConfig = {
   USDC: number;
   DONUT: number;
@@ -500,7 +507,7 @@ export default function LeaderboardPage() {
                       <span className="text-sm font-bold text-green-400">${distributionConfig.USDC}</span>
                     </div>
                     <div className="flex items-center justify-between w-full px-1">
-                      <img src="/coins/donut_logo.png" alt="DONUT" className="w-3.5 h-3.5 rounded-full object-cover" />
+                      <DonutCoin className="w-3.5 h-3.5" />
                       <span className="text-sm font-bold text-pink-400">{distributionConfig.DONUT.toLocaleString()}</span>
                     </div>
                     <div className="flex items-center justify-between w-full px-1">
@@ -595,7 +602,7 @@ export default function LeaderboardPage() {
                             <span className="text-green-400 text-[10px] font-bold">USDC</span>
                           </div>
                           <div className="flex items-center gap-1 bg-pink-500/20 px-1.5 py-0.5 rounded">
-                            <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full" />
+                            <DonutCoin className="w-3 h-3" />
                             <span className="text-pink-400 text-[10px] font-bold">DONUT</span>
                           </div>
                           <div className="flex items-center gap-1 bg-white/20 px-1.5 py-0.5 rounded">
@@ -710,8 +717,8 @@ export default function LeaderboardPage() {
                                     +${parseFloat(week.first_amount).toFixed(2)}
                                   </span>
                                   {parseFloat(week.first_donut_amount || '0') > 0 && (
-                                    <span className="text-[10px] text-amber-400 font-medium">
-                                      +🍩{parseFloat(week.first_donut_amount).toFixed(0)}
+                                    <span className="text-[10px] text-amber-400 font-medium flex items-center gap-0.5">
+                                      +<DonutCoin className="w-2.5 h-2.5" />{parseFloat(week.first_donut_amount).toFixed(0)}
                                     </span>
                                   )}
                                   {parseFloat(week.first_sprinkles_amount || '0') > 0 && (
@@ -746,8 +753,8 @@ export default function LeaderboardPage() {
                                       +${parseFloat(week.second_amount).toFixed(2)}
                                     </span>
                                     {parseFloat(week.second_donut_amount || '0') > 0 && (
-                                      <span className="text-[10px] text-amber-400 font-medium">
-                                        +🍩{parseFloat(week.second_donut_amount).toFixed(0)}
+                                      <span className="text-[10px] text-amber-400 font-medium flex items-center gap-0.5">
+                                        +<DonutCoin className="w-2.5 h-2.5" />{parseFloat(week.second_donut_amount).toFixed(0)}
                                       </span>
                                     )}
                                     {parseFloat(week.second_sprinkles_amount || '0') > 0 && (
@@ -783,8 +790,8 @@ export default function LeaderboardPage() {
                                       +${parseFloat(week.third_amount).toFixed(2)}
                                     </span>
                                     {parseFloat(week.third_donut_amount || '0') > 0 && (
-                                      <span className="text-[10px] text-amber-400 font-medium">
-                                        +🍩{parseFloat(week.third_donut_amount).toFixed(0)}
+                                      <span className="text-[10px] text-amber-400 font-medium flex items-center gap-0.5">
+                                        +<DonutCoin className="w-2.5 h-2.5" />{parseFloat(week.third_donut_amount).toFixed(0)}
                                       </span>
                                     )}
                                     {parseFloat(week.third_sprinkles_amount || '0') > 0 && (
@@ -917,7 +924,7 @@ export default function LeaderboardPage() {
                                     className={`text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1 ${!hasAnimatedIn ? 'animate-prizeBadge' : ''}`}
                                     style={!hasAnimatedIn ? { animationDelay: `${index * 40 + 400}ms` } : undefined}
                                   >
-                                    <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full object-cover" />
+                                    <DonutCoin className="w-3 h-3" />
                                     +{Math.floor(parseFloat(prizeDonut || '0'))}
                                   </span>
                                 )}
@@ -1001,7 +1008,7 @@ export default function LeaderboardPage() {
                                   className={`text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1 ${!hasAnimatedIn ? 'animate-prizeBadge' : ''}`}
                                   style={!hasAnimatedIn ? { animationDelay: `${index * 40 + 400}ms` } : undefined}
                                 >
-                                  <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full object-cover" />
+                                  <DonutCoin className="w-3 h-3" />
                                   +{Math.floor(parseFloat(prizeDonut || '0'))}
                                 </span>
                               )}
