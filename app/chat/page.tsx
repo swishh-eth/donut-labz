@@ -885,8 +885,8 @@ export default function ChatPage() {
             ref={messagesContainerRef} 
             className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll pb-14"
             style={{
-              WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
-              maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
+              WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black 100%)`,
+              maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black 100%)`,
               transition: 'mask-image 0.3s ease-out, -webkit-mask-image 0.3s ease-out',
             }}
           >
@@ -993,7 +993,7 @@ export default function ChatPage() {
 
           {/* Floating chat input */}
           <div className="absolute bottom-0 left-0 right-0 pointer-events-none z-20">
-            <div className="pointer-events-auto bg-gradient-to-t from-black via-black to-transparent pt-3">
+            <div className="pointer-events-auto bg-black pt-2">
               <div className="pb-2">
                 {!isConnected ? (
                 <div className="flex items-center justify-center bg-zinc-900 border border-zinc-800 rounded-xl p-3">
