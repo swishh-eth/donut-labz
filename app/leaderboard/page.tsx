@@ -885,7 +885,7 @@ export default function LeaderboardPage() {
                             </div>
                             {hasPrize && (
                               <div className="flex items-center gap-1.5 mt-1">
-                                <span className="text-sky-400 text-[10px] font-bold bg-sky-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                <span className="text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                   <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
                                   +${prizeUsdc}
                                 </span>
@@ -960,7 +960,7 @@ export default function LeaderboardPage() {
                           )}
                           {hasPrize && (
                             <div className="flex items-center gap-1.5 mt-1">
-                              <span className="text-sky-400 text-[10px] font-bold bg-sky-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                              <span className="text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                 <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
                                 +${prizeUsdc}
                               </span>

@@ -1056,6 +1056,17 @@ export default function HomePage() {
         .animate-tilePopIn {
           animation: tilePopIn 0.3s ease-out forwards;
         }
+        @keyframes profitablePulse {
+          0%, 100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.02);
+          }
+        }
+        .animate-profitablePulse {
+          animation: profitablePulse 2s ease-in-out infinite;
+        }
       `}</style>
       
       <AddToFarcasterDialog showOnFirstVisit={true} />
@@ -1151,26 +1162,26 @@ export default function HomePage() {
                   className={cn(
                     "relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]",
                     isBurnProfitable
-                      ? "border-amber-500/50 hover:border-amber-500/80"
+                      ? "border-green-500/50 hover:border-green-500/80 animate-profitablePulse"
                       : "border-white/20 hover:border-white/40"
                   )}
                   style={{ 
                     minHeight: '100px', 
                     background: isBurnProfitable 
-                      ? 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)'
+                      ? 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(22,163,74,0.1) 100%)'
                       : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
                   }}
                 >
                   {/* Large background icon */}
                   <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <Flame className={cn("w-24 h-24", isBurnProfitable ? "text-amber-900/80" : "text-zinc-800")} />
+                    <Flame className={cn("w-24 h-24", isBurnProfitable ? "text-green-900/80" : "text-zinc-800")} />
                   </div>
                   
                   <div className="relative z-10 p-4 pr-20">
                     <div className="text-left">
                       <div className="flex items-center gap-2 mb-1">
-                        <Flame className={cn("w-5 h-5", isBurnProfitable ? "text-amber-400" : "text-gray-500")} />
-                        <span className={cn("font-bold text-base", isBurnProfitable ? "text-amber-400" : "text-gray-500")}>
+                        <Flame className={cn("w-5 h-5", isBurnProfitable ? "text-green-400" : "text-gray-500")} />
+                        <span className={cn("font-bold text-base", isBurnProfitable ? "text-green-400" : "text-gray-500")}>
                           LP Burn Auction
                         </span>
                         {isBurnProfitable && (
@@ -1179,10 +1190,10 @@ export default function HomePage() {
                           </span>
                         )}
                       </div>
-                      <div className={cn("text-[10px] mb-2", isBurnProfitable ? "text-amber-200/60" : "text-gray-600")}>
+                      <div className={cn("text-[10px] mb-2", isBurnProfitable ? "text-green-200/60" : "text-gray-600")}>
                         Burn SPRINKLES LP to receive DONUT
                       </div>
-                      <div className={cn("text-[9px]", isBurnProfitable ? "text-amber-400" : "text-gray-600")}>
+                      <div className={cn("text-[9px]", isBurnProfitable ? "text-green-400" : "text-gray-600")}>
                         {isBurnProfitable 
                           ? `💰 Earn $${burnPoolUsd} in DONUT` 
                           : parseFloat(burnPoolUsd) > 0 
