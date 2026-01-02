@@ -622,17 +622,30 @@ export default function DonutDashPage() {
 
   // Draw functions
   const drawBackground = useCallback((ctx: CanvasRenderingContext2D, speed: number) => {
-    ctx.fillStyle = '#0a0a0a';
+    // Dark gradient background (like Glaze Stack)
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+    bgGradient.addColorStop(0, "#1a1a1a");
+    bgGradient.addColorStop(1, "#0d0d0d");
+    ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    
+    // Subtle grid pattern (like Glaze Stack)
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < CANVAS_WIDTH; i += 40) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, CANVAS_HEIGHT);
+      ctx.stroke();
+    }
+    for (let i = 0; i < CANVAS_HEIGHT; i += 40) {
+      ctx.beginPath();
+      ctx.moveTo(0, i);
+      ctx.lineTo(CANVAS_WIDTH, i);
+      ctx.stroke();
+    }
     
     const intensity = Math.min((speed - BASE_SPEED) / (MAX_SPEED - BASE_SPEED), 1);
-    
-    // Subtle vignette
-    const vignette = ctx.createRadialGradient(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, CANVAS_HEIGHT * 0.3, CANVAS_WIDTH/2, CANVAS_HEIGHT/2, CANVAS_HEIGHT * 0.8);
-    vignette.addColorStop(0, 'transparent');
-    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
-    ctx.fillStyle = vignette;
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
     // Speed lines (motion blur effect)
     const lineCount = Math.floor(3 + intensity * 12);
@@ -1197,9 +1210,31 @@ export default function DonutDashPage() {
     const draw = () => {
       const time = (performance.now() - startTime) / 1000;
       ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
-      ctx.fillStyle = '#0f0f0f';
+      
+      // Dark gradient background (like Glaze Stack)
+      const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+      bgGradient.addColorStop(0, "#1a1a1a");
+      bgGradient.addColorStop(1, "#0d0d0d");
+      ctx.fillStyle = bgGradient;
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       
+      // Subtle grid pattern
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
+      ctx.lineWidth = 1;
+      for (let i = 0; i < CANVAS_WIDTH; i += 40) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, CANVAS_HEIGHT);
+        ctx.stroke();
+      }
+      for (let i = 0; i < CANVAS_HEIGHT; i += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(CANVAS_WIDTH, i);
+        ctx.stroke();
+      }
+      
+      // Hazard stripes
       ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(0, 0, CANVAS_WIDTH, 30);
       ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
@@ -1297,6 +1332,16 @@ export default function DonutDashPage() {
           -moz-user-select: none !important;
           -ms-user-select: none !important;
           user-select: none !important;
+          -webkit-user-drag: none !important;
+        }
+        canvas, .game-touch-area {
+          touch-action: none !important;
+          -webkit-touch-callout: none !important;
+          -webkit-user-select: none !important;
+          -khtml-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+          user-select: none !important;
         }
         @keyframes fadeInTitle {
           0% { opacity: 0; transform: translateY(-8px); }
@@ -1356,22 +1401,30 @@ export default function DonutDashPage() {
               width={SCALED_WIDTH}
               height={SCALED_HEIGHT}
               className="rounded-2xl border border-zinc-800 w-full h-full select-none"
-              style={{ touchAction: "none" }}
+              style={{ touchAction: "none", WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" }}
               onPointerDown={(e) => { e.preventDefault(); if (gameState === "playing") handleThrustStart(); }}
               onPointerUp={(e) => { e.preventDefault(); handleThrustEnd(); }}
               onPointerLeave={handleThrustEnd}
               onPointerCancel={handleThrustEnd}
               onContextMenu={(e) => e.preventDefault()}
+              onTouchStart={(e) => e.preventDefault()}
+              onTouchMove={(e) => e.preventDefault()}
+              draggable={false}
             />
             
             {gameState === "playing" && (
               <div 
-                className="absolute inset-0 z-10 select-none"
-                style={{ touchAction: "none" }}
+                className="absolute inset-0 z-10 select-none game-touch-area"
+                style={{ touchAction: "none", WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" }}
                 onPointerDown={(e) => { e.preventDefault(); handleThrustStart(); }}
                 onPointerUp={(e) => { e.preventDefault(); handleThrustEnd(); }}
                 onPointerLeave={handleThrustEnd}
                 onPointerCancel={handleThrustEnd}
+                onContextMenu={(e) => e.preventDefault()}
+                onTouchStart={(e) => { e.preventDefault(); handleThrustStart(); }}
+                onTouchEnd={(e) => { e.preventDefault(); handleThrustEnd(); }}
+                onTouchMove={(e) => e.preventDefault()}
+                draggable={false}
               />
             )}
             
