@@ -134,6 +134,7 @@ export default function ChatPage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
+  const pendingImageUrlRef = useRef<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -345,14 +346,16 @@ export default function ChatPage() {
     if (isSuccess && hash) {
       const completeMessage = async () => {
         // If we uploaded an image, save the image URL to the message
-        if (pendingImageUrl && pendingImageUrl.startsWith("http")) {
+        // Use ref for reliable access (state might not be updated yet due to React batching)
+        const imageUrlToSave = pendingImageUrlRef.current;
+        if (imageUrlToSave && imageUrlToSave.startsWith("http")) {
           try {
             await fetch("/api/chat/save-image", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ 
                 transactionHash: hash,
-                imageUrl: pendingImageUrl,
+                imageUrl: imageUrlToSave,
               }),
             });
           } catch (e) {
@@ -364,6 +367,7 @@ export default function ChatPage() {
         setMessage("");
         clearSelectedImage();
         setPendingImageUrl(null);
+        pendingImageUrlRef.current = null;
         setCooldownRemaining(COOLDOWN_SECONDS);
         setPendingMessageConfirmed(true);
         
@@ -380,7 +384,7 @@ export default function ChatPage() {
       };
       completeMessage();
     }
-  }, [isSuccess, hash, recordPoints, refetchMessages, pendingImageUrl]);
+  }, [isSuccess, hash, recordPoints, refetchMessages]);
 
   useEffect(() => {
     if (cooldownRemaining <= 0) return;
@@ -539,6 +543,7 @@ export default function ChatPage() {
           const imageUrl = await uploadImageToSupabase(selectedImage);
           if (imageUrl) {
             setPendingImageUrl(imageUrl);
+            pendingImageUrlRef.current = imageUrl; // Store in ref for reliable access
             // Now send the actual chat message
             writeContract({
               address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
