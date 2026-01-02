@@ -427,10 +427,10 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
       return (
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
           <div className="flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400 drop-shadow-[0_0_3px_rgba(251,191,36,0.8)]" />
+            <Sparkles className="w-3.5 h-3.5 text-white" />
             <span className="text-[10px] text-gray-400 uppercase tracking-wide">Friday Drop</span>
           </div>
-          <div className="text-2xl font-bold text-amber-400 fade-in-up stagger-2 opacity-0 flex items-center gap-1">
+          <div className="text-2xl font-bold text-white fade-in-up stagger-2 opacity-0 flex items-center gap-1">
             <Clock className="w-4 h-4" />
             {formatCountdown(countdown)}
           </div>
