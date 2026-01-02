@@ -154,6 +154,16 @@ const calculatePrice = (initPrice: bigint, startTime: number): bigint => {
   return currentPrice > MIN_PRICE ? currentPrice : MIN_PRICE;
 };
 
+const formatTimeAgo = (timestamp: number): string => {
+  const now = Math.floor(Date.now() / 1000);
+  const diff = now - timestamp;
+  
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+};
+
 interface SprinklesMinerProps {
   context: MiniAppContext | null;
 }
@@ -917,10 +927,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     ? Math.floor(Number(formatUnits(donutBalance as bigint, DONUT_DECIMALS))).toLocaleString()
     : "—";
 
-  const currentAllowanceDisplay = donutAllowance
-    ? Math.floor(Number(formatUnits(donutAllowance as bigint, DONUT_DECIMALS))).toLocaleString()
-    : "0";
-
   const scrollMessage = slot0?.uri && slot0.uri.trim() !== ""
     ? slot0.uri
     : "Every donut needs sprinkles - Donut Labs";
@@ -988,6 +994,16 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     }
   }, [minePriceDisplay]);
 
+  // Calculate average mine price from recent miners
+  const averageMinePrice = useMemo(() => {
+    const validAmounts = recentMiners
+      .map(m => parseFloat(m.amount))
+      .filter(a => !isNaN(a) && a > 0);
+    if (validAmounts.length === 0) return null;
+    const avg = validAmounts.reduce((sum, a) => sum + a, 0) / validAmounts.length;
+    return Math.floor(avg).toLocaleString();
+  }, [recentMiners]);
+
   return (
     <div className="flex flex-col h-full -mx-2 overflow-hidden">
       <style>{`
@@ -1003,7 +1019,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`
         }}
       >
-        <div className="relative h-[280px] overflow-hidden">
+        <div className="relative h-[240px] overflow-hidden">
           <style>{`
             @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
             @keyframes pulse-scale { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.9; } }
@@ -1030,78 +1046,34 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           />
           
           <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-            <div className="flex items-center gap-6">
-              <div className="text-center w-20">
-                <div className="text-[10px] text-gray-400 uppercase">Time</div>
-                <div className="text-lg font-bold text-white leading-tight whitespace-nowrap">
-                  {(() => {
-                    const parts = mineTimeDisplay.split(' ');
-                    if (parts.length === 2) {
-                      return (
-                        <>
-                          <span>{parts[0]}</span>
-                          <span className="text-sm text-gray-300"> {parts[1]}</span>
-                        </>
-                      );
-                    }
-                    return mineTimeDisplay;
-                  })()}
-                </div>
+            <div 
+              className={cn(
+                "flex flex-col items-center pulse-scale",
+                neynarUser?.user?.fid && "cursor-pointer pointer-events-auto"
+              )}
+              onClick={neynarUser?.user?.fid ? handleViewMinerProfile : undefined}
+            >
+              <div className="rounded-full bg-black p-0.5 spin-slow">
+                <Avatar className="h-24 w-24 border-2 border-amber-500/50">
+                  <AvatarImage
+                    src={occupantDisplay.avatarUrl || undefined}
+                    alt={occupantDisplay.primary}
+                    className="object-cover bg-black"
+                  />
+                  <AvatarFallback className="bg-zinc-900 text-white text-lg">
+                    {slot0 ? occupantFallbackInitials : <CircleUserRound className="h-6 w-6" />}
+                  </AvatarFallback>
+                </Avatar>
               </div>
-              
-              <div 
-                className={cn(
-                  "flex flex-col items-center pulse-scale",
-                  neynarUser?.user?.fid && "cursor-pointer pointer-events-auto"
-                )}
-                onClick={neynarUser?.user?.fid ? handleViewMinerProfile : undefined}
-              >
-                <div className="rounded-full bg-black p-0.5 spin-slow">
-                  <Avatar className="h-24 w-24 border-2 border-amber-500/50">
-                    <AvatarImage
-                      src={occupantDisplay.avatarUrl || undefined}
-                      alt={occupantDisplay.primary}
-                      className="object-cover bg-black"
-                    />
-                    <AvatarFallback className="bg-zinc-900 text-white text-lg">
-                      {slot0 ? occupantFallbackInitials : <CircleUserRound className="h-6 w-6" />}
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
-                <div className="mt-2 text-center">
-                  <div className="font-bold text-amber-400 text-sm drop-shadow-lg">{occupantDisplay.primary}</div>
-                  <div className="text-[10px] text-amber-400/70 drop-shadow-lg">{formatAddress(minerAddress)}</div>
-                </div>
-                <div className="flex items-center gap-1 mt-1">
-                  <span className="text-[10px] font-bold text-amber-400 drop-shadow-lg uppercase tracking-wider">Current Miner</span>
-                  <button onClick={() => setShowHelpDialog(true)} className="text-amber-400/70 hover:text-amber-300 pointer-events-auto">
-                    <HelpCircle className="w-3 h-3" />
-                  </button>
-                </div>
+              <div className="mt-2 text-center">
+                <div className="font-bold text-amber-400 text-sm drop-shadow-lg">{occupantDisplay.primary}</div>
+                <div className="text-[10px] text-amber-400/70 drop-shadow-lg">{formatAddress(minerAddress)}</div>
               </div>
-              
-              <div className="text-center w-20">
-                <div className="text-[10px] text-gray-400 uppercase">Mined</div>
-                <div className="text-lg font-bold text-white flex items-center gap-1 justify-center whitespace-nowrap">
-                  <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                  <span>
-                    {(() => {
-                      const formatted = formatCompactNumber(earnedDisplay);
-                      const match = formatted.match(/^([\d,]+)(\.?\d*)([KM]?)$/);
-                      if (match) {
-                        const [, whole, decimal, suffix] = match;
-                        return (
-                          <>
-                            <span>{whole}</span>
-                            {decimal && <span className="text-sm text-gray-300">{decimal}</span>}
-                            {suffix && <span className="text-sm text-gray-300">{suffix}</span>}
-                          </>
-                        );
-                      }
-                      return formatted;
-                    })()}
-                  </span>
-                </div>
+              <div className="flex items-center gap-1 mt-1">
+                <span className="text-[10px] font-bold text-amber-400 drop-shadow-lg uppercase tracking-wider">Current Miner</span>
+                <button onClick={() => setShowHelpDialog(true)} className="text-amber-400/70 hover:text-amber-300 pointer-events-auto">
+                  <HelpCircle className="w-3 h-3" />
+                </button>
               </div>
             </div>
           </div>
@@ -1135,20 +1107,56 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-            <div>
-              <div className="text-xs text-gray-500">Mine rate</div>
-              <div className="text-lg font-bold text-white flex items-center gap-1">
-                <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                <span>{mineRateDisplay}/s</span>
-              </div>
-              {donutPerSecondDisplay && (
-                <div className="text-xs text-amber-400">≈ 🍩{donutPerSecondDisplay}/s</div>
-              )}
-            </div>
+          <div className="grid grid-cols-4 gap-x-4 gap-y-1">
             <div>
               <div className="text-xs text-gray-500">Paid</div>
               <div className="text-lg font-bold text-white">🍩{paidAmountDisplay}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">PnL</div>
+              <div className={cn("text-lg font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
+                {pnlData.donut}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Time</div>
+              <div className="text-lg font-bold text-white whitespace-nowrap">
+                {(() => {
+                  const parts = mineTimeDisplay.split(' ');
+                  if (parts.length === 2) {
+                    return (
+                      <>
+                        <span>{parts[0]}</span>
+                        <span className="text-sm text-gray-300"> {parts[1]}</span>
+                      </>
+                    );
+                  }
+                  return mineTimeDisplay;
+                })()}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Mined</div>
+              <div className="text-lg font-bold text-white flex items-center gap-1 whitespace-nowrap">
+                <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <span>
+                  {(() => {
+                    const formatted = formatCompactNumber(earnedDisplay);
+                    const match = formatted.match(/^([\d,]+)(\.?\d*)([KM]?)$/);
+                    if (match) {
+                      const [, whole, decimal, suffix] = match;
+                      return (
+                        <>
+                          <span>{whole}</span>
+                          {decimal && <span className="text-sm text-gray-300">{decimal}</span>}
+                          {suffix && <span className="text-sm text-gray-300">{suffix}</span>}
+                        </>
+                      );
+                    }
+                    return formatted;
+                  })()}
+                </span>
+              </div>
             </div>
             <div>
               <div className="text-xs text-gray-500">Total</div>
@@ -1157,22 +1165,23 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               </div>
             </div>
             <div>
-              <div className="text-xs text-gray-500">PnL</div>
-              <div className={cn("text-lg font-bold", pnlData.isPositive ? "text-green-400" : "text-red-400")}>
-                {pnlData.donut}
+              <div className="text-xs text-gray-500">Mine rate</div>
+              <div className="text-lg font-bold text-white flex items-center gap-1">
+                <Sparkles className="w-4 h-4 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <span>{mineRateDisplay}/s</span>
               </div>
+              {donutPerSecondDisplay && (
+                <div className="text-xs text-green-400">≈ 🍩{donutPerSecondDisplay}/s</div>
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-x-6 items-end">
+          <div className="grid grid-cols-2 gap-x-6 items-end mt-1">
             <div>
               <div className="text-xs text-gray-500">Mine price</div>
-              <div className="text-2xl font-bold text-white">🍩{minePriceDisplay}</div>
+              <div className="text-3xl font-bold text-white">🍩{minePriceDisplay}</div>
               {selectedImage && (
                 <div className="text-xs text-amber-400">Includes +1 🍩 image upload fee</div>
-              )}
-              {!selectedImage && (donutAllowance as bigint) > 0n && (
-                <div className="text-xs text-amber-400">Approved: 🍩{currentAllowanceDisplay}</div>
               )}
             </div>
             
@@ -1302,6 +1311,9 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             <div className="mt-2">
               <div className="flex items-center justify-between mb-2">
                 <div className="text-xs text-gray-500 font-semibold">Recent Miners</div>
+                {averageMinePrice && (
+                  <div className="text-xs text-gray-400">Avg: 🍩{averageMinePrice}</div>
+                )}
                 <div className="text-xs text-gray-500 font-semibold">Price Paid</div>
               </div>
               <div className="space-y-2">
@@ -1322,28 +1334,26 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                       }
                     }}
                   >
-                    <Avatar className="h-8 w-8 border border-zinc-700 flex-shrink-0">
+                    <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
                       <AvatarImage src={miner.pfpUrl || undefined} className="object-cover" />
-                      <AvatarFallback className="bg-zinc-800 text-white text-xs">
+                      <AvatarFallback className="bg-zinc-800 text-white text-sm">
                         {miner.username ? initialsFrom(miner.username) : miner.address.slice(-2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0 overflow-hidden">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold text-white text-sm truncate">
-                          {miner.username ? `@${miner.username}` : formatAddress(miner.address)}
-                        </span>
-                        <span className="text-amber-400 text-xs font-bold flex-shrink-0">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-white text-base truncate">
+                            {miner.username ? `@${miner.username}` : formatAddress(miner.address)}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {formatTimeAgo(miner.timestamp)}
+                          </span>
+                        </div>
+                        <span className="text-white text-lg font-bold flex-shrink-0">
                           🍩{!miner.amount || miner.amount === '0' || miner.amount === '' ? '—' : miner.amount}
                         </span>
                       </div>
-                      {miner.message && (
-                        <div className="overflow-x-auto scrollbar-hide mt-0.5">
-                          <div className="text-xs text-gray-400 whitespace-nowrap">
-                            "{miner.message}"
-                          </div>
-                        </div>
-                      )}
                       {miner.imageUrl && (
                         <div className="mt-1.5 w-full">
                           <img
