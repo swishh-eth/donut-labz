@@ -329,7 +329,7 @@ export async function POST(request: NextRequest) {
       transport: http(ALCHEMY_RPC_URL),
     });
 
-    // Send prizes
+    // Send prizes - wait for each tx to confirm before sending next
     const errors: { rank: number; token: string; error: string }[] = [];
 
     for (const dist of distributions) {
@@ -347,7 +347,8 @@ export async function POST(request: NextRequest) {
           }));
           dist.txHashes.push(hash);
           console.log(`[Miners Distribution] Sent ${dist.usdcAmount} USDC to rank ${dist.rank}: ${hash}`);
-          await new Promise((r) => setTimeout(r, 500));
+          // Wait for confirmation before next tx
+          await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
         } catch (err: any) {
           console.error(`Failed to send USDC to rank ${dist.rank}:`, err);
           errors.push({ rank: dist.rank, token: "USDC", error: err.message });
@@ -368,7 +369,8 @@ export async function POST(request: NextRequest) {
           }));
           dist.txHashes.push(hash);
           console.log(`[Miners Distribution] Sent ${dist.donutAmount} DONUT to rank ${dist.rank}: ${hash}`);
-          await new Promise((r) => setTimeout(r, 500));
+          // Wait for confirmation before next tx
+          await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
         } catch (err: any) {
           console.error(`Failed to send DONUT to rank ${dist.rank}:`, err);
           errors.push({ rank: dist.rank, token: "DONUT", error: err.message });
@@ -389,7 +391,8 @@ export async function POST(request: NextRequest) {
           }));
           dist.txHashes.push(hash);
           console.log(`[Miners Distribution] Sent ${dist.sprinklesAmount} SPRINKLES to rank ${dist.rank}: ${hash}`);
-          await new Promise((r) => setTimeout(r, 500));
+          // Wait for confirmation before next tx
+          await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
         } catch (err: any) {
           console.error(`Failed to send SPRINKLES to rank ${dist.rank}:`, err);
           errors.push({ rank: dist.rank, token: "SPRINKLES", error: err.message });
