@@ -236,8 +236,7 @@ export default function ChatPage() {
   const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
     queryKey: ["chat-messages"],
     queryFn: async () => {
-      // Always sync to ensure images are linked to messages
-      const res = await fetch("/api/chat/messages?sync=true&limit=50");
+      const res = await fetch("/api/chat/messages?limit=20");
       if (!res.ok) throw new Error("Failed to fetch messages");
       const data = await res.json();
       return data.messages
@@ -252,7 +251,7 @@ export default function ChatPage() {
         })) as ChatMessage[];
     },
     refetchInterval: 10000,
-    staleTime: 0, // Always fetch fresh data
+    staleTime: 5000,
   });
 
   const { data: statsData } = useQuery({
@@ -350,11 +349,8 @@ export default function ChatPage() {
         // Use ref for reliable access (state might not be updated yet due to React batching)
         const imageUrlToSave = pendingImageUrlRef.current;
         const normalizedHash = hash.toLowerCase(); // Ensure consistent case
-        console.log("Message confirmed, hash:", normalizedHash);
-        console.log("pendingImageUrlRef.current:", imageUrlToSave);
         
         if (imageUrlToSave && imageUrlToSave.startsWith("http")) {
-          console.log("Saving image URL to message...");
           try {
             const saveRes = await fetch("/api/chat/save-image", {
               method: "POST",
@@ -364,17 +360,12 @@ export default function ChatPage() {
                 imageUrl: imageUrlToSave,
               }),
             });
-            console.log("save-image response status:", saveRes.status);
             if (!saveRes.ok) {
               console.error("Failed to save image URL:", await saveRes.text());
-            } else {
-              console.log("Image URL saved successfully");
             }
           } catch (e) {
             console.error("Failed to save image URL:", e);
           }
-        } else {
-          console.log("No image URL to save or invalid URL");
         }
         
         recordPoints();
@@ -389,7 +380,6 @@ export default function ChatPage() {
         
         // Wait longer for blockchain to propagate, then sync and invalidate cache
         setTimeout(async () => {
-          console.log("Running first sync...");
           await fetch("/api/chat/messages?sync=true");
           // Invalidate cache to force fresh fetch
           queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
@@ -397,7 +387,6 @@ export default function ChatPage() {
           
           // Second sync attempt after another delay to catch any stragglers
           setTimeout(async () => {
-            console.log("Running second sync...");
             await fetch("/api/chat/messages?sync=true");
             queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
             await refetchMessages();
@@ -569,13 +558,10 @@ export default function ChatPage() {
       const completeImageUpload = async () => {
         setIsUploadingImage(true);
         try {
-          console.log("Burn successful, uploading image...");
           const imageUrl = await uploadImageToSupabase(selectedImage);
-          console.log("Image uploaded:", imageUrl);
           if (imageUrl) {
             setPendingImageUrl(imageUrl);
             pendingImageUrlRef.current = imageUrl; // Store in ref for reliable access
-            console.log("pendingImageUrlRef set to:", pendingImageUrlRef.current);
             // Now send the actual chat message
             writeContract({
               address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
