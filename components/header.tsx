@@ -27,17 +27,21 @@ export function Header({ title, user }: HeaderProps) {
     <>
       <style>{`
         @keyframes headerFadeIn {
-          0% { opacity: 0; transform: translateY(-4px); }
+          0% { opacity: 0; transform: translateY(-6px); }
           100% { opacity: 1; transform: translateY(0); }
         }
         .header-fade-in {
-          animation: headerFadeIn 0.3s ease-out forwards;
+          animation: headerFadeIn 0.5s ease-out forwards;
+        }
+        .header-fade-in-delay {
+          opacity: 0;
+          animation: headerFadeIn 0.5s ease-out 0.1s forwards;
         }
       `}</style>
       <div className="flex items-center justify-between mb-4 h-12">
         <h1 key={title} className="text-2xl font-bold tracking-wide header-fade-in">{title}</h1>
         <div 
-          className={`flex items-center gap-2 rounded-full bg-black px-3 py-1 transition-opacity duration-200 ${user ? 'opacity-100' : 'opacity-0'}`}
+          className={`flex items-center gap-2 rounded-full bg-black px-3 py-1 ${user ? 'header-fade-in-delay' : 'opacity-0'}`}
         >
           <Avatar className="h-8 w-8 border border-zinc-800">
             <AvatarImage src={avatarUrl || undefined} alt={displayName} className="object-cover" />
