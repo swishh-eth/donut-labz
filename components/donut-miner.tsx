@@ -9,10 +9,6 @@ const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <img src="/coins/donut_logo.png" alt="DONUT" className={`${className} rounded-full object-cover`} />
 );
 
-const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <img src="/media/icon.png" alt="SPRINKLES" className={`${className} rounded-full object-cover`} />
-);
-
 const EthCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <img src="/coins/eth_logo.png" alt="ETH" className={`${className} rounded-full object-cover`} />
 );
@@ -53,16 +49,6 @@ type MinerState = {
   ethBalance: bigint;
   wethBalance: bigint;
   donutBalance: bigint;
-};
-
-type RecentMiner = {
-  address: string;
-  username: string | null;
-  pfpUrl: string | null;
-  fid: number | null;
-  amount: string;
-  message: string;
-  timestamp: number;
 };
 
 const DONUT_DECIMALS = 18;
@@ -157,24 +143,6 @@ const calculatePrice = (initPrice: bigint, startTime: number | bigint): bigint =
   return currentPrice > MIN_PRICE ? currentPrice : MIN_PRICE;
 };
 
-const formatTimeAgo = (timestamp: number): string => {
-  // Handle both seconds and milliseconds timestamps
-  const timestampInSeconds = timestamp > 10000000000 ? Math.floor(timestamp / 1000) : timestamp;
-  const now = Math.floor(Date.now() / 1000);
-  const diff = now - timestampInSeconds;
-  
-  if (diff < 0) return "just now";
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) {
-    const hours = Math.floor(diff / 3600);
-    const mins = Math.floor((diff % 3600) / 60);
-    if (mins === 0) return `${hours}hr ago`;
-    return `${hours}hr ${mins}m ago`;
-  }
-  return `${Math.floor(diff / 86400)}d ago`;
-};
-
 interface DonutMinerProps {
   context: MiniAppContext | null;
 }
@@ -194,7 +162,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
   const prevMinerRef = useRef<string>("");
   const [interpolatedPrice, setInterpolatedPrice] = useState<bigint | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
-  const [recentMiners, setRecentMiners] = useState<RecentMiner[]>([]);
 
   const resetGlazeResult = useCallback(() => {
     if (glazeResultTimeoutRef.current) {
@@ -287,25 +254,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
-    const fetchRecentMiners = async () => {
-      try {
-        // Fetch from on-chain events endpoint
-        const res = await fetch('/api/miners/donut-onchain?limit=10');
-        if (res.ok) {
-          const data = await res.json();
-          setRecentMiners(data.miners || []);
-        }
-      } catch (error) {
-        console.error('Failed to fetch recent miners:', error);
-      }
-    };
-
-    fetchRecentMiners();
-    const interval = setInterval(fetchRecentMiners, 15_000); // Slightly longer interval for on-chain queries
-    return () => clearInterval(interval);
-  }, []);
-
   const { address, isConnected } = useAccount();
   const { connectors, connectAsync, isPending: isConnecting } = useConnect();
   const primaryConnector = connectors[0];
@@ -391,17 +339,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           };
           setTimeout(() => recordGlazeWithRetry(), 2000);
         }
-        
-        // Refresh recent miners after a delay to allow the event to be indexed
-        setTimeout(async () => {
-          try {
-            const res = await fetch('/api/miners/donut-onchain?limit=10');
-            if (res.ok) {
-              const data = await res.json();
-              setRecentMiners(data.miners || []);
-            }
-          } catch {}
-        }, 5000);
       }
 
       refetchMinerState();
@@ -413,23 +350,12 @@ export default function DonutMiner({ context }: DonutMinerProps) {
   const minerAddress = minerState?.miner ?? zeroAddress;
   const hasMiner = minerAddress !== zeroAddress;
 
-  // Detect when miner changes and refresh the list
+  // Detect when miner changes
   useEffect(() => {
     if (prevMinerRef.current && minerAddress !== prevMinerRef.current && minerAddress !== zeroAddress) {
       import("@farcaster/miniapp-sdk").then(({ sdk }) => {
         sdk.haptics.impactOccurred("light").catch(() => {});
       }).catch(() => {});
-      
-      // Refresh the miners list after a short delay to allow the event to be indexed
-      setTimeout(async () => {
-        try {
-          const res = await fetch('/api/miners/donut-onchain?limit=10');
-          if (res.ok) {
-            const data = await res.json();
-            setRecentMiners(data.miners || []);
-          }
-        } catch {}
-      }, 3000);
     }
     prevMinerRef.current = minerAddress;
   }, [minerAddress]);
@@ -645,19 +571,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     }
   }, [glazePriceDisplay]);
 
-  const averageMinePrice = useMemo(() => {
-    const validAmounts = recentMiners
-      .map(m => {
-        if (!m.amount) return NaN;
-        const cleanAmount = m.amount.toString().replace(/,/g, '');
-        return parseFloat(cleanAmount);
-      })
-      .filter(a => !isNaN(a) && a > 0);
-    if (validAmounts.length === 0) return null;
-    const avg = validAmounts.reduce((sum, a) => sum + a, 0) / validAmounts.length;
-    return avg.toFixed(4);
-  }, [recentMiners]);
-
   const paidAmountDisplay = minerState ? Number(formatEther(minerState.initPrice / 2n)).toFixed(3) : '—';
 
   return (
@@ -858,63 +771,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
             />
           </div>
 
-          <div 
-            className="flex flex-col items-center mt-2"
-            style={{ opacity: Math.max(0, 1 - scrollFade.top * 0.5) }}
-          >
-            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Scroll down for miner history</div>
-          </div>
-
-          {recentMiners.length > 0 && (
-            <div className="mt-2">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-xs text-gray-500 font-semibold">Recent Miners</div>
-                {averageMinePrice && (
-                  <div className="text-xs text-gray-400 flex items-center gap-1">Avg: <EthCoin className="w-3 h-3" />{averageMinePrice}</div>
-                )}
-                <div className="text-xs text-gray-500 font-semibold">Price Paid</div>
-              </div>
-              <div className="space-y-2">
-                {recentMiners.map((miner) => (
-                  <div 
-                    key={`${miner.address}-${miner.timestamp}`}
-                    className="flex gap-3 p-2 rounded-lg bg-zinc-900 border border-zinc-800 cursor-pointer hover:bg-zinc-800 transition-colors w-full items-center"
-                    onClick={async () => {
-                      if (miner.fid) {
-                        const { sdk } = await import("@farcaster/miniapp-sdk");
-                        sdk.actions.viewProfile({ fid: miner.fid }).catch(() => {});
-                      } else {
-                        const { sdk } = await import("@farcaster/miniapp-sdk");
-                        sdk.actions.openUrl({ url: `https://basescan.org/address/${miner.address}` }).catch(() => {});
-                      }
-                    }}
-                  >
-                    <Avatar className="h-10 w-10 border border-zinc-700 flex-shrink-0">
-                      <AvatarImage src={miner.pfpUrl || undefined} className="object-cover" />
-                      <AvatarFallback className="bg-zinc-800 text-white text-sm">
-                        {miner.username ? initialsFrom(miner.username) : miner.address.slice(-2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-white text-base truncate">
-                            {miner.username ? `@${miner.username}` : formatAddress(miner.address)}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {formatTimeAgo(miner.timestamp)}
-                          </span>
-                        </div>
-                        <span className="text-white text-lg font-bold flex-shrink-0 flex items-center gap-1">
-                          <EthCoin className="w-4 h-4" />{!miner.amount || miner.amount === '0' || miner.amount === '' ? '—' : miner.amount}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
