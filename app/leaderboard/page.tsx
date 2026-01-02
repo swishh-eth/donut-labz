@@ -270,7 +270,7 @@ export default function LeaderboardPage() {
     if (!isLoading && leaderboardData && !hasAnimatedIn) {
       const timeout = setTimeout(() => {
         setHasAnimatedIn(true);
-      }, 500);
+      }, 1000); // 10 items * 40ms delay + 500ms for last prize badge + buffer
       return () => clearTimeout(timeout);
     }
   }, [isLoading, leaderboardData, hasAnimatedIn]);
@@ -404,6 +404,24 @@ export default function LeaderboardPage() {
         }
         .animate-leaderboardPopIn {
           animation: leaderboardPopIn 0.3s ease-out forwards;
+        }
+        
+        @keyframes prizeBadgePopIn {
+          0% {
+            opacity: 0;
+            transform: scale(0.8);
+          }
+          50% {
+            transform: scale(1.05);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        .animate-prizeBadge {
+          opacity: 0;
+          animation: prizeBadgePopIn 0.25s ease-out forwards;
         }
         
         @keyframes pulseGlow {
@@ -882,18 +900,27 @@ export default function LeaderboardPage() {
                             </div>
                             {hasPrize && (
                               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                <span className="text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                <span 
+                                  className={`text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1 ${!hasAnimatedIn ? 'animate-prizeBadge' : ''}`}
+                                  style={!hasAnimatedIn ? { animationDelay: `${index * 40 + 300}ms` } : undefined}
+                                >
                                   <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
                                   +${prizeUsdc}
                                 </span>
                                 {parseFloat(prizeDonut || '0') > 0 && (
-                                  <span className="text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <span 
+                                    className={`text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1 ${!hasAnimatedIn ? 'animate-prizeBadge' : ''}`}
+                                    style={!hasAnimatedIn ? { animationDelay: `${index * 40 + 400}ms` } : undefined}
+                                  >
                                     <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full object-cover" />
                                     +{Math.floor(parseFloat(prizeDonut || '0'))}
                                   </span>
                                 )}
                                 {sprinklesNum > 0 && (
-                                  <span className="text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <span 
+                                    className={`text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1 ${!hasAnimatedIn ? 'animate-prizeBadge' : ''}`}
+                                    style={!hasAnimatedIn ? { animationDelay: `${index * 40 + 500}ms` } : undefined}
+                                  >
                                     <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full object-cover" />
                                     +{sprinklesDisplay}
                                   </span>
@@ -957,18 +984,27 @@ export default function LeaderboardPage() {
                           )}
                           {hasPrize && (
                             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                              <span className="text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                              <span 
+                                className={`text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1 ${!hasAnimatedIn ? 'animate-prizeBadge' : ''}`}
+                                style={!hasAnimatedIn ? { animationDelay: `${index * 40 + 300}ms` } : undefined}
+                              >
                                 <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
                                 +${prizeUsdc}
                               </span>
                               {parseFloat(prizeDonut || '0') > 0 && (
-                                <span className="text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                <span 
+                                  className={`text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1 ${!hasAnimatedIn ? 'animate-prizeBadge' : ''}`}
+                                  style={!hasAnimatedIn ? { animationDelay: `${index * 40 + 400}ms` } : undefined}
+                                >
                                   <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full object-cover" />
                                   +{Math.floor(parseFloat(prizeDonut || '0'))}
                                 </span>
                               )}
                               {sprinklesNum > 0 && (
-                                <span className="text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                <span 
+                                  className={`text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1 ${!hasAnimatedIn ? 'animate-prizeBadge' : ''}`}
+                                  style={!hasAnimatedIn ? { animationDelay: `${index * 40 + 500}ms` } : undefined}
+                                >
                                   <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full object-cover" />
                                   +{sprinklesDisplay}
                                 </span>
