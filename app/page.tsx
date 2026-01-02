@@ -11,7 +11,6 @@ import { Header } from "@/components/header";
 import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
-import { ShareRewardButton } from "@/components/share-reward-button";
 import { Flame, Droplets, Sparkles, X } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
@@ -670,9 +669,12 @@ function MinerHeader({
 export default function HomePage() {
   const router = useRouter();
   const readyRef = useRef(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [selectedMiner, setSelectedMiner] = useState<"donut" | "sprinkles" | null>(null);
   const [showBurnModal, setShowBurnModal] = useState(false);
+  const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
+  const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
   
   // Client-side interpolated prices
   const [interpolatedDonutPrice, setInterpolatedDonutPrice] = useState<bigint | null>(null);
@@ -880,6 +882,37 @@ export default function HomePage() {
     return () => clearTimeout(timeout);
   }, []);
 
+  // Mark animation as complete
+  useEffect(() => {
+    if (!hasAnimatedIn) {
+      const timeout = setTimeout(() => {
+        setHasAnimatedIn(true);
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [hasAnimatedIn]);
+
+  // Handle scroll fade
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const scrollTop = container.scrollTop;
+      const scrollHeight = container.scrollHeight - container.clientHeight;
+      
+      if (scrollHeight > 0) {
+        const topFade = Math.min(1, scrollTop / 100);
+        const bottomFade = Math.min(1, (scrollHeight - scrollTop) / 100);
+        setScrollFade({ top: topFade, bottom: bottomFade });
+      }
+    };
+
+    handleScroll();
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const resetMiner = () => setSelectedMiner(null);
 
   if (selectedMiner === "donut") {
@@ -940,6 +973,29 @@ export default function HomePage() {
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
+      <style>{`
+        .mine-scroll {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .mine-scroll::-webkit-scrollbar {
+          display: none;
+        }
+        @keyframes tilePopIn {
+          0% {
+            opacity: 0;
+            transform: translateY(8px) scale(0.97);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        .animate-tilePopIn {
+          animation: tilePopIn 0.3s ease-out forwards;
+        }
+      `}</style>
+      
       <AddToFarcasterDialog showOnFirstVisit={true} />
       
       {/* Burn Modal */}
@@ -954,100 +1010,153 @@ export default function HomePage() {
       />
 
       <div
-        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden rounded-[28px] bg-black px-2 pb-4 shadow-inner"
+        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4"
         style={{
           paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)",
         }}
       >
-        <div className="flex flex-1 flex-col">
-          <Header title="MINE" user={context?.user} />
-
-          <div className="grid grid-cols-3 gap-2 px-2 mb-3">
-            <div
-              className="h-24 rounded-xl border border-zinc-800 bg-zinc-900 p-2 flex flex-col items-center justify-center cursor-not-allowed opacity-60"
-            >
-              <Droplets className="w-6 h-6 mb-1 text-gray-500" />
-              <div className="text-[10px] font-bold text-gray-500">
-                Pool To Own
-              </div>
-              <div className="text-[9px] text-gray-600">
-                coming soon...
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowBurnModal(true)}
-              className={`h-24 rounded-xl border p-2 flex flex-col items-center justify-center transition-all ${
-                isBurnProfitable
-                  ? "border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20"
-                  : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
-              }`}
-              style={isBurnProfitable ? {
-                animation: "pulse-scale 2s ease-in-out infinite"
-              } : undefined}
-            >
-              <Flame className={`w-6 h-6 mb-1 ${isBurnProfitable ? "text-amber-400" : "text-gray-500"}`} />
-              <div className={`text-[10px] font-bold ${isBurnProfitable ? "text-amber-400" : "text-gray-500"}`}>
-                Burn
-              </div>
-              <div className={`text-[9px] ${isBurnProfitable ? "text-amber-400/80" : "text-gray-600"}`}>
-                {isBurnProfitable 
-                  ? `Earn $${burnPoolUsd}` 
-                  : parseFloat(burnPoolUsd) > 0 
-                    ? `$${burnPoolUsd} in rewards` 
-                    : "No rewards"}
-              </div>
-            </button>
-
-            <ShareRewardButton userFid={context?.user?.fid} tile />
+        <div className="flex flex-1 flex-col overflow-hidden relative z-10">
+          {/* Fixed Header */}
+          <div className="flex-shrink-0">
+            <Header title="MINE" user={context?.user} />
           </div>
 
-          <style jsx>{`
-            @keyframes pulse-scale {
-              0%, 100% {
-                transform: scale(1);
-              }
-              50% {
-                transform: scale(1.02);
-              }
-            }
-          `}</style>
+          {/* Scrollable Content */}
+          <div 
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden mine-scroll"
+            style={{ 
+              WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
+              maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
+            }}
+          >
+            <div className="space-y-3 pb-4">
+              {/* Video Tiles */}
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '0ms', animationFillMode: 'forwards' } : {}}
+              >
+                <VideoTile
+                  videoSrc="/media/donut-loop.mp4"
+                  onClick={() => setSelectedMiner("donut")}
+                >
+                  <div className="text-xl font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 12px rgba(255,255,255,0.9)' }}>
+                    Pay ETH
+                  </div>
+                  <div className="text-3xl font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(251,191,36,0.9)' }}>
+                    Mine DONUT
+                  </div>
+                  <div className="text-lg text-white/90">
+                    Price: <span className="font-bold text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
+                      Ξ{donutPrice ? formatEth(donutPrice, 2) : "—"}
+                    </span>
+                  </div>
+                </VideoTile>
+              </div>
 
-          <div className="flex-1 flex flex-col gap-3 px-2">
-            <VideoTile
-              videoSrc="/media/donut-loop.mp4"
-              onClick={() => setSelectedMiner("donut")}
-            >
-              <div className="text-xl font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 12px rgba(255,255,255,0.9)' }}>
-                Pay ETH
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}
+              >
+                <VideoTile
+                  videoSrc="/media/sprinkles-loop.mp4"
+                  onClick={() => setSelectedMiner("sprinkles")}
+                >
+                  <div className="text-xl font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 12px rgba(255,255,255,0.9)' }}>
+                    Pay DONUT
+                  </div>
+                  <div className="text-3xl font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(251,191,36,0.9)' }}>
+                    Mine SPRINKLES
+                  </div>
+                  <div className="text-lg text-white/90">
+                    Price: <span className="font-bold text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
+                      🍩{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18, 2) : "—"}
+                    </span>
+                  </div>
+                </VideoTile>
               </div>
-              <div className="text-3xl font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(251,191,36,0.9)' }}>
-                Mine DONUT
-              </div>
-              <div className="text-lg text-white/90">
-                Price: <span className="font-bold text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
-                  Ξ{donutPrice ? formatEth(donutPrice, 2) : "—"}
-                </span>
-              </div>
-            </VideoTile>
 
-            <VideoTile
-              videoSrc="/media/sprinkles-loop.mp4"
-              onClick={() => setSelectedMiner("sprinkles")}
-            >
-              <div className="text-xl font-bold text-white mb-1 text-center" style={{ textShadow: '0 0 12px rgba(255,255,255,0.9)' }}>
-                Pay DONUT
+              {/* Pool To Own Tile */}
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
+              >
+                <div
+                  className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden cursor-not-allowed opacity-60"
+                  style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+                >
+                  {/* Large background icon */}
+                  <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <Droplets className="w-24 h-24 text-zinc-800" />
+                  </div>
+                  
+                  <div className="relative z-10 p-4 pr-20">
+                    <div className="text-left">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Droplets className="w-5 h-5 text-gray-500" />
+                        <span className="font-bold text-base text-gray-500">Pool To Own</span>
+                      </div>
+                      <div className="text-[10px] text-gray-600 mb-2">Contribute liquidity to earn ownership</div>
+                      <div className="text-[9px] text-gray-600">Coming soon...</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="text-3xl font-bold text-amber-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(251,191,36,0.9)' }}>
-                Mine SPRINKLES
+
+              {/* Burn Tile */}
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
+              >
+                <button
+                  onClick={() => setShowBurnModal(true)}
+                  className={cn(
+                    "relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]",
+                    isBurnProfitable
+                      ? "border-amber-500/50 hover:border-amber-500/80"
+                      : "border-white/20 hover:border-white/40"
+                  )}
+                  style={{ 
+                    minHeight: '100px', 
+                    background: isBurnProfitable 
+                      ? 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)'
+                      : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
+                  }}
+                >
+                  {/* Large background icon */}
+                  <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <Flame className={cn("w-24 h-24", isBurnProfitable ? "text-amber-900/80" : "text-zinc-800")} />
+                  </div>
+                  
+                  <div className="relative z-10 p-4 pr-20">
+                    <div className="text-left">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Flame className={cn("w-5 h-5", isBurnProfitable ? "text-amber-400" : "text-gray-500")} />
+                        <span className={cn("font-bold text-base", isBurnProfitable ? "text-amber-400" : "text-gray-500")}>
+                          LP Burn Auction
+                        </span>
+                        {isBurnProfitable && (
+                          <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-bold">
+                            PROFITABLE
+                          </span>
+                        )}
+                      </div>
+                      <div className={cn("text-[10px] mb-2", isBurnProfitable ? "text-amber-200/60" : "text-gray-600")}>
+                        Burn SPRINKLES LP to receive DONUT
+                      </div>
+                      <div className={cn("text-[9px]", isBurnProfitable ? "text-amber-400" : "text-gray-600")}>
+                        {isBurnProfitable 
+                          ? `💰 Earn $${burnPoolUsd} in DONUT` 
+                          : parseFloat(burnPoolUsd) > 0 
+                            ? `$${burnPoolUsd} in rewards available` 
+                            : "No rewards available"}
+                      </div>
+                    </div>
+                  </div>
+                </button>
               </div>
-              <div className="text-lg text-white/90">
-                Price: <span className="font-bold text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
-                  🍩{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18, 2) : "—"}
-                </span>
-              </div>
-            </VideoTile>
+            </div>
           </div>
         </div>
       </div>
