@@ -40,7 +40,7 @@ function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlay
           <div className="flex items-center gap-2 mb-1">
             <Gamepad2 className="w-5 h-5 text-white" />
             <span className="font-bold text-base text-white">Flappy Donut</span>
-            <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
+            <span className="text-[8px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full">ENTRY FEE</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Tap to fly, dodge rolling pins!</div>
           
@@ -80,7 +80,7 @@ function GlazeStackTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlaye
           <div className="flex items-center gap-2 mb-1">
             <Layers className="w-5 h-5 text-white" />
             <span className="font-bold text-base text-white">Glaze Stack</span>
-            <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">LIVE</span>
+            <span className="text-[8px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full">ENTRY FEE</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Stack boxes, don't let them fall!</div>
           
@@ -120,6 +120,7 @@ function DonutDashTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer
           <div className="flex items-center gap-2 mb-1">
             <Rocket className="w-5 h-5 text-white" />
             <span className="font-bold text-base text-white">Donut Dash</span>
+            <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Jetpack through, collect sprinkles!</div>
           
