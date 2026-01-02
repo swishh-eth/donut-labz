@@ -804,7 +804,7 @@ export default function LeaderboardPage() {
                   const tileStyle = isWinner
                     ? {
                         minHeight: '90px',
-                        background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)',
+                        background: 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(22,163,74,0.1) 100%)',
                       }
                     : {
                         minHeight: '90px',
@@ -812,7 +812,7 @@ export default function LeaderboardPage() {
                       };
 
                   const tileBorderClass = isWinner
-                    ? "border-2 border-amber-500/50 hover:border-amber-500/80"
+                    ? "border-2 border-green-500/50 hover:border-green-500/80"
                     : "border-2 border-white/20 hover:border-white/40";
 
                   if (!entry) {
@@ -831,7 +831,7 @@ export default function LeaderboardPage() {
                       >
                         {/* Large background rank number */}
                         <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                          <span className={`text-8xl font-black ${isWinner ? 'text-amber-900/30' : 'text-zinc-800/50'}`}>
+                          <span className={`text-8xl font-black ${isWinner ? 'text-green-900/30' : 'text-zinc-800/50'}`}>
                             {rank}
                           </span>
                         </div>
@@ -850,19 +850,23 @@ export default function LeaderboardPage() {
                             </Avatar>
                           </div>
 
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold truncate text-white">No one yet</span>
-                              {isWinner && prizeUsd > 0 && (
-                                <span className="text-green-400 text-xs font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                  <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
-                                  +${prizeUsd}
-                                </span>
-                              )}
-                            </div>
+                          <div className="min-w-0 flex-1 flex flex-col items-center">
+                            <span className="font-bold truncate text-white">No one yet</span>
                             <div className="text-[11px] text-gray-400">
                               {isWinner ? "Claim this spot!" : "Keep grinding"}
                             </div>
+                            {isWinner && prizeUsd > 0 && (
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
+                                  +${prizeUsd}
+                                </span>
+                                <span className="text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3" />
+                                  +{Math.floor(parseFloat(prizeDonut || '0'))}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -895,7 +899,7 @@ export default function LeaderboardPage() {
                     >
                       {/* Large background rank number */}
                       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                        <span className={`text-8xl font-black ${isWinner ? 'text-amber-900/30' : 'text-zinc-800/50'}`}>
+                        <span className={`text-8xl font-black ${isWinner ? 'text-green-900/30' : 'text-zinc-800/50'}`}>
                           {rank}
                         </span>
                       </div>
@@ -913,18 +917,22 @@ export default function LeaderboardPage() {
                           </Avatar>
                         </div>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold truncate text-white">{displayName}</span>
-                            {isWinner && prizeUsd > 0 && (
-                              <span className="text-green-400 text-xs font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                        <div className="min-w-0 flex-1 flex flex-col items-center">
+                          <span className="font-bold truncate text-white">{displayName}</span>
+                          {username && (
+                            <div className="text-[11px] text-gray-400">{username}</div>
+                          )}
+                          {isWinner && prizeUsd > 0 && (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                 <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
                                 +${prizeUsd}
                               </span>
-                            )}
-                          </div>
-                          {username && (
-                            <div className="text-[11px] text-gray-400">{username}</div>
+                              <span className="text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3" />
+                                +{Math.floor(parseFloat(prizeDonut || '0'))}
+                              </span>
+                            </div>
                           )}
                         </div>
                       </div>
