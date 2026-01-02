@@ -425,7 +425,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
     // Claim window is CLOSED - show countdown to Friday
     if (!isClaimOpen) {
       return (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
           <div className="flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5 text-amber-400 drop-shadow-[0_0_3px_rgba(251,191,36,0.8)]" />
             <span className="text-[10px] text-gray-400 uppercase tracking-wide">Friday Drop</span>
@@ -441,7 +441,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
     // Claim window is OPEN (Friday!) - check if already claimed this epoch
     if (hasClaimed) {
       return (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
           <div className="flex items-center gap-1">
             <CheckCircle className="w-3.5 h-3.5 text-green-500" />
             <span className="text-[10px] text-gray-400 uppercase tracking-wide">Week {currentEpoch}</span>
@@ -458,8 +458,8 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
       if (verifyError || claimError) {
         return (
           <div className="flex flex-col h-[80px]">
-            <div className="flex rounded-lg overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)] h-full">
-              <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-lg p-2 flex items-center">
+            <div className="flex rounded-xl overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)] h-full">
+              <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-xl p-2 flex items-center">
                 <div className="flex items-start gap-1.5">
                   <XCircle className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />
                   <span className="text-[9px] text-red-300/90 leading-relaxed break-words">
@@ -469,7 +469,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
               </div>
               <button
                 onClick={handleReset}
-                className="flex items-center justify-center px-2.5 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-lg hover:bg-red-900/50 transition-colors"
+                className="flex items-center justify-center px-2.5 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-xl hover:bg-red-900/50 transition-colors"
               >
                 <svg
                   className="w-3.5 h-3.5 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] animate-[spin_3s_linear_infinite_reverse]"
@@ -495,7 +495,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
         return (
           <button
             onClick={handleShare}
-            className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border border-amber-400/50 rounded-lg p-3 transition-all shadow-[0_0_15px_rgba(251,191,36,0.3)] flex flex-col items-center justify-center text-center h-[80px]"
+            className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border border-amber-400/50 rounded-xl p-3 transition-all shadow-[0_0_15px_rgba(251,191,36,0.3)] flex flex-col items-center justify-center text-center h-[80px]"
           >
             <div className="flex items-center gap-1">
               <Share2 className="w-3.5 h-3.5 text-white" />
@@ -515,7 +515,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
             onClick={handleVerify}
             disabled={isVerifying}
             className={cn(
-              "bg-amber-500 hover:bg-amber-400 border border-amber-400 rounded-lg p-3 transition-all flex flex-col items-center justify-center text-center h-[80px]",
+              "bg-amber-500 hover:bg-amber-400 border border-amber-400 rounded-xl p-3 transition-all flex flex-col items-center justify-center text-center h-[80px]",
               isVerifying && "opacity-50 cursor-not-allowed"
             )}
           >
@@ -541,7 +541,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
             onClick={handleClaim}
             disabled={isClaimingInProgress}
             className={cn(
-              "bg-green-500 hover:bg-green-400 border border-green-400 rounded-lg p-3 transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] flex flex-col items-center justify-center text-center h-[80px]",
+              "bg-green-500 hover:bg-green-400 border border-green-400 rounded-xl p-3 transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] flex flex-col items-center justify-center text-center h-[80px]",
               isClaimingInProgress && "opacity-50 cursor-not-allowed"
             )}
           >
@@ -563,7 +563,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
 
     // Claim window open (Friday) but no points
     return (
-      <div className="bg-zinc-900 border border-amber-500/30 rounded-lg p-3 flex flex-col items-center justify-center text-center h-[80px]">
+      <div className="bg-zinc-900/50 border border-amber-500/30 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
         <div className="flex items-center gap-1">
           <Calendar className="w-3.5 h-3.5 text-amber-400" />
           <span className="text-[10px] text-gray-400 uppercase tracking-wide">It's Friday!</span>
