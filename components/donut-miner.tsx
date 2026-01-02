@@ -6,7 +6,9 @@ import { CircleUserRound, HelpCircle, X, MessageCircle, Trophy } from "lucide-re
 
 // Coin image components
 const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <img src="/coins/donut_logo.png" alt="DONUT" className={`${className} rounded-full object-cover`} />
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover scale-110" />
+  </span>
 );
 
 const EthCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
