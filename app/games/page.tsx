@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount } from "wagmi";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Settings, Gamepad2, Trophy, Layers, Rocket, ArrowRight, Award } from "lucide-react";
+import { Settings, Gamepad2, Trophy, Layers, Rocket, ArrowRight, Clock, Coins } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -21,47 +21,6 @@ type RecentPlayer = {
   score: number;
   pfpUrl?: string;
 };
-
-// Total Prizes Tile - shows USDC prize pools
-function TotalPrizesTile({ prizes }: { prizes: { donutDash: number } }) {
-  const totalUSDC = prizes.donutDash;
-  
-  return (
-    <button
-      onClick={() => window.location.href = "/games/prizes"}
-      className="relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
-    >
-      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Trophy className="w-28 h-28 text-amber-900/80" />
-      </div>
-      
-      <div className="relative z-10 p-4 pr-20">
-        <div className="text-left">
-          <div className="flex items-center gap-2 mb-1">
-            <Award className="w-5 h-5 text-amber-400" />
-            <span className="font-bold text-base text-amber-400">Weekly Prize Pools</span>
-          </div>
-          <div className="text-[10px] text-amber-200/60 mb-2">Free to play, win real USDC</div>
-          
-          <div className="flex items-center gap-4 mb-2">
-            <div className="flex items-center gap-1.5">
-              <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-5 h-5 rounded-full" />
-              <span className="text-xl font-bold text-white">${totalUSDC}</span>
-              <span className="text-xs text-amber-400/60">USDC</span>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2 text-[9px]">
-            <span className="text-amber-400">Free to play</span>
-            <ArrowRight className="w-3 h-3 text-amber-500/50" />
-            <span className="text-amber-400">Resets Friday 6PM EST</span>
-          </div>
-        </div>
-      </div>
-    </button>
-  );
-}
 
 // Flappy Donut Tile
 function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer | null; prizePool: string }) {
@@ -227,6 +186,42 @@ export default function GamesPage() {
   
   const [dashRecentPlayer, setDashRecentPlayer] = useState<RecentPlayer | null>(null);
   const [dashPrizePool, setDashPrizePool] = useState<number>(5);
+  
+  const [totalGamesPlayed, setTotalGamesPlayed] = useState<number>(0);
+  const [timeUntilReset, setTimeUntilReset] = useState<string>("--");
+  const [showUsdPrize, setShowUsdPrize] = useState(true);
+
+  // Calculate time until Friday 6PM EST
+  useEffect(() => {
+    const calculateTimeUntilFriday = () => {
+      const now = new Date();
+      const estOffset = -5;
+      const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+      const estTime = new Date(utc + 3600000 * estOffset);
+      
+      const daysUntilFriday = (5 - estTime.getDay() + 7) % 7;
+      const targetDate = new Date(estTime);
+      targetDate.setDate(estTime.getDate() + (daysUntilFriday === 0 && estTime.getHours() >= 18 ? 7 : daysUntilFriday));
+      targetDate.setHours(18, 0, 0, 0);
+      
+      const diff = targetDate.getTime() - estTime.getTime();
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (hours >= 24) {
+        const days = Math.floor(hours / 24);
+        const remainingHours = hours % 24;
+        return `${days}d ${remainingHours}h`;
+      }
+      return `${hours}h ${minutes}m`;
+    };
+
+    setTimeUntilReset(calculateTimeUntilFriday());
+    const interval = setInterval(() => {
+      setTimeUntilReset(calculateTimeUntilFriday());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -269,6 +264,12 @@ export default function GamesPage() {
           const data = await res.json();
           if (data.recentPlayer) setFlappyRecentPlayer(data.recentPlayer);
           setFlappyPrizePool(parseFloat(data.prizePool) || 0);
+          if (data.gamesThisWeek !== undefined) {
+            setTotalGamesPlayed(prev => {
+              // This will be updated with all games combined
+              return data.gamesThisWeek || 0;
+            });
+          }
         }
       } catch (e) {
         console.error("Failed to fetch Flappy data:", e);
@@ -326,6 +327,24 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch total games played this week
+  useEffect(() => {
+    const fetchGamesCount = async () => {
+      try {
+        const res = await fetch('/api/games/stats');
+        if (res.ok) {
+          const data = await res.json();
+          setTotalGamesPlayed(data.totalGamesThisWeek || 0);
+        }
+      } catch (e) {
+        console.error("Failed to fetch games stats:", e);
+      }
+    };
+    fetchGamesCount();
+    const interval = setInterval(fetchGamesCount, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -361,6 +380,14 @@ export default function GamesPage() {
         .animate-tilePopIn {
           animation: tilePopIn 0.3s ease-out forwards;
         }
+        @keyframes fadeInUp {
+          0% { opacity: 0; transform: translateY(4px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in-up { animation: fadeInUp 0.4s ease-out forwards; }
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.2s; }
+        .stagger-3 { animation-delay: 0.3s; }
       `}</style>
 
       <div 
@@ -370,6 +397,57 @@ export default function GamesPage() {
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
           <div className="flex-shrink-0">
             <Header title="GAMES" user={context?.user} />
+
+            {/* Top Stats Tiles */}
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {/* Games Played Tile */}
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
+                <div className="flex items-center gap-1">
+                  <Gamepad2 className="w-3.5 h-3.5 text-white/90" />
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Played</span>
+                </div>
+                <div className="text-2xl font-bold text-white fade-in-up stagger-1 opacity-0">{totalGamesPlayed.toLocaleString()}</div>
+              </div>
+
+              {/* Ends In Tile */}
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
+                <div className="flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-white" />
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Resets In</span>
+                </div>
+                <div className="text-2xl font-bold text-white fade-in-up stagger-2 opacity-0">{timeUntilReset}</div>
+              </div>
+
+              {/* Prize Tile */}
+              <button
+                onClick={() => setShowUsdPrize(!showUsdPrize)}
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center transition-all h-[80px] relative overflow-hidden"
+              >
+                {showUsdPrize ? (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <Coins className="w-3.5 h-3.5 text-white" />
+                      <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
+                    </div>
+                    <div className="text-2xl font-bold text-white fade-in-up stagger-3 opacity-0">
+                      ${dashPrizePool}
+                    </div>
+                    <span className="absolute bottom-1 text-[7px] text-gray-600 animate-pulse">tap for tokens</span>
+                  </>
+                ) : (
+                  <div className="flex flex-col w-full h-full justify-center gap-0.5">
+                    <div className="flex items-center justify-between w-full px-1">
+                      <span className="text-amber-400 text-sm">🍩</span>
+                      <span className="text-sm font-bold text-amber-400">{Math.floor(flappyPrizePool + stackPrizePool)}</span>
+                    </div>
+                    <div className="flex items-center justify-between w-full px-1">
+                      <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3.5 h-3.5" />
+                      <span className="text-sm font-bold text-green-400">${dashPrizePool}</span>
+                    </div>
+                  </div>
+                )}
+              </button>
+            </div>
           </div>
 
           <div 
@@ -385,26 +463,19 @@ export default function GamesPage() {
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!hasAnimatedIn ? { opacity: 0, animationDelay: '0ms', animationFillMode: 'forwards' } : {}}
               >
-                <TotalPrizesTile prizes={{ donutDash: dashPrizePool }} />
+                <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool.toLocaleString()} />
               </div>
               
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}
               >
-                <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool.toLocaleString()} />
-              </div>
-              
-              <div 
-                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
-              >
                 <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool.toLocaleString()} />
               </div>
               
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
               >
                 <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} />
               </div>
@@ -413,7 +484,7 @@ export default function GamesPage() {
                 <div 
                   key={i}
                   className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                  style={!hasAnimatedIn ? { opacity: 0, animationDelay: `${200 + i * 50}ms`, animationFillMode: 'forwards' } : {}}
+                  style={!hasAnimatedIn ? { opacity: 0, animationDelay: `${150 + i * 50}ms`, animationFillMode: 'forwards' } : {}}
                 >
                   <ComingSoonTile />
                 </div>
