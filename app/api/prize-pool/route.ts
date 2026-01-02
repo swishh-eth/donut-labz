@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 const LEADERBOARD_CONTRACT = "0x4681A6DeEe2D74f5DE48CEcd2A572979EA641586";
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C";
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
-const WETH_ADDRESS = "0x4200000000000000000000000000000000000006";
+const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
 // Multiple RPC endpoints to fallback through
 const RPC_ENDPOINTS = [
@@ -18,7 +18,7 @@ const RPC_ENDPOINTS = [
 
 // Cache the result for 5 minutes
 let cache: {
-  data: { ethBalance: string; donutBalance: string; sprinklesBalance: string } | null;
+  data: { donutBalance: string; sprinklesBalance: string; usdcBalance: string } | null;
   timestamp: number;
 } = {
   data: null,
@@ -32,24 +32,6 @@ async function tryFetchFromRpc(rpcUrl: string): Promise<any[] | null> {
     const batchRequest = [
       {
         jsonrpc: "2.0",
-        method: "eth_getBalance",
-        params: [LEADERBOARD_CONTRACT, "latest"],
-        id: 1,
-      },
-      {
-        jsonrpc: "2.0",
-        method: "eth_call",
-        params: [
-          {
-            to: WETH_ADDRESS,
-            data: "0x70a08231000000000000000000000000" + LEADERBOARD_CONTRACT.slice(2).toLowerCase(),
-          },
-          "latest",
-        ],
-        id: 2,
-      },
-      {
-        jsonrpc: "2.0",
         method: "eth_call",
         params: [
           {
@@ -58,7 +40,7 @@ async function tryFetchFromRpc(rpcUrl: string): Promise<any[] | null> {
           },
           "latest",
         ],
-        id: 3,
+        id: 1,
       },
       {
         jsonrpc: "2.0",
@@ -70,7 +52,19 @@ async function tryFetchFromRpc(rpcUrl: string): Promise<any[] | null> {
           },
           "latest",
         ],
-        id: 4,
+        id: 2,
+      },
+      {
+        jsonrpc: "2.0",
+        method: "eth_call",
+        params: [
+          {
+            to: USDC_ADDRESS,
+            data: "0x70a08231000000000000000000000000" + LEADERBOARD_CONTRACT.slice(2).toLowerCase(),
+          },
+          "latest",
+        ],
+        id: 3,
       },
     ];
 
@@ -94,8 +88,8 @@ async function tryFetchFromRpc(rpcUrl: string): Promise<any[] | null> {
     const results = Array.isArray(responses) ? responses : [responses];
     
     // Check if we got valid results
-    const ethResult = results.find((r: any) => r.id === 1);
-    if (!ethResult?.result || ethResult.error) {
+    const donutResult = results.find((r: any) => r.id === 1);
+    if (!donutResult?.result || donutResult.error) {
       console.log(`Invalid response from ${rpcUrl}`);
       return null;
     }
@@ -135,26 +129,20 @@ export async function GET() {
     }
 
     return NextResponse.json(
-      { ethBalance: "0x0", donutBalance: "0x0", sprinklesBalance: "0x0", error: "all_rpcs_failed" },
+      { donutBalance: "0x0", sprinklesBalance: "0x0", usdcBalance: "0x0", error: "all_rpcs_failed" },
       { status: 500 }
     );
   }
 
   // Find results by id
-  const ethResult = results.find((r: any) => r.id === 1)?.result || "0x0";
-  const wethResult = results.find((r: any) => r.id === 2)?.result || "0x0";
-  const donutResult = results.find((r: any) => r.id === 3)?.result || "0x0";
-  const sprinklesResult = results.find((r: any) => r.id === 4)?.result || "0x0";
-
-  // Combine ETH + WETH balances
-  const ethBalance = BigInt(ethResult);
-  const wethBalance = BigInt(wethResult);
-  const combinedEthBalance = ethBalance + wethBalance;
+  const donutResult = results.find((r: any) => r.id === 1)?.result || "0x0";
+  const sprinklesResult = results.find((r: any) => r.id === 2)?.result || "0x0";
+  const usdcResult = results.find((r: any) => r.id === 3)?.result || "0x0";
 
   const result = {
-    ethBalance: "0x" + combinedEthBalance.toString(16),
     donutBalance: donutResult,
     sprinklesBalance: sprinklesResult,
+    usdcBalance: BigInt(usdcResult).toString(), // Convert to decimal string for easier handling (6 decimals)
   };
 
   // Update cache

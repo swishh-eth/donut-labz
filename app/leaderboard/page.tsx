@@ -80,7 +80,6 @@ export default function LeaderboardPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [timeUntilDistribution, setTimeUntilDistribution] = useState("");
-  const [ethUsdPrice, setEthUsdPrice] = useState<number>(0);
   const [donutPrice, setDonutPrice] = useState<number>(0);
   const [sprinklesPrice, setSprinklesPrice] = useState<number>(0);
   const [pricesLoaded, setPricesLoaded] = useState(false);
@@ -127,7 +126,6 @@ export default function LeaderboardPage() {
         const res = await fetch('/api/prices');
         if (res.ok) {
           const data = await res.json();
-          if (data.ethPrice) setEthUsdPrice(data.ethPrice);
           if (data.donutPrice) setDonutPrice(data.donutPrice);
           if (data.sprinklesPrice) setSprinklesPrice(data.sprinklesPrice);
           setPricesLoaded(true);
@@ -155,9 +153,9 @@ export default function LeaderboardPage() {
   });
 
   const { data: prizePoolData } = useQuery<{
-    ethBalance: string;
     donutBalance: string;
     sprinklesBalance: string;
+    usdcBalance: string;
   }>({
     queryKey: ["prize-pool"],
     queryFn: async () => {
@@ -298,10 +296,6 @@ export default function LeaderboardPage() {
 
   const leaderboard: LeaderboardEntry[] = leaderboardData?.leaderboard || [];
   const weekNumber = leaderboardData?.weekNumber || 0;
-  
-  const ethBalance = prizePoolData?.ethBalance
-    ? parseFloat(formatEther(BigInt(prizePoolData.ethBalance)))
-    : 0;
 
   const donutBalance = prizePoolData?.donutBalance
     ? parseFloat(formatEther(BigInt(prizePoolData.donutBalance)))
@@ -311,11 +305,12 @@ export default function LeaderboardPage() {
     ? parseFloat(formatEther(BigInt(prizePoolData.sprinklesBalance)))
     : 0;
 
-  const totalPrizeUsd = (ethBalance * ethUsdPrice) + (donutBalance * donutPrice) + (sprinklesBalance * sprinklesPrice);
+  // USDC has 6 decimals
+  const usdcBalance = prizePoolData?.usdcBalance
+    ? parseFloat(prizePoolData.usdcBalance) / 1_000_000
+    : 0;
 
-  const firstPlaceEth = (ethBalance * 0.5).toFixed(4);
-  const secondPlaceEth = (ethBalance * 0.3).toFixed(4);
-  const thirdPlaceEth = (ethBalance * 0.2).toFixed(4);
+  const totalPrizeUsd = usdcBalance + (donutBalance * donutPrice) + (sprinklesBalance * sprinklesPrice);
 
   const firstPlaceDonut = (donutBalance * 0.5).toFixed(2);
   const secondPlaceDonut = (donutBalance * 0.3).toFixed(2);
@@ -325,9 +320,9 @@ export default function LeaderboardPage() {
   const secondPlaceSprinkles = (sprinklesBalance * 0.3).toFixed(0);
   const thirdPlaceSprinkles = (sprinklesBalance * 0.2).toFixed(0);
 
-  const firstPlaceUsd = Math.floor(totalPrizeUsd * 0.5);
-  const secondPlaceUsd = Math.floor(totalPrizeUsd * 0.3);
-  const thirdPlaceUsd = Math.floor(totalPrizeUsd * 0.2);
+  const firstPlaceUsdc = Math.floor(usdcBalance * 0.5);
+  const secondPlaceUsdc = Math.floor(usdcBalance * 0.3);
+  const thirdPlaceUsdc = Math.floor(usdcBalance * 0.2);
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -445,15 +440,15 @@ export default function LeaderboardPage() {
                 ) : (
                   <div className="flex flex-col w-full h-full justify-center gap-0.5">
                     <div className="flex items-center justify-between w-full px-1">
-                      <span className="text-green-400 text-sm">Ξ</span>
-                      <span className="text-sm font-bold text-green-400">{ethBalance.toFixed(3)}</span>
+                      <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3.5 h-3.5" />
+                      <span className="text-sm font-bold text-green-400">${Math.floor(usdcBalance)}</span>
                     </div>
                     <div className="flex items-center justify-between w-full px-1">
-                      <span className="text-amber-400 text-sm">🍩</span>
-                      <span className="text-sm font-bold text-amber-400">{Math.floor(donutBalance)}</span>
+                      <img src="/coins/donut_logo.png" alt="DONUT" className="w-3.5 h-3.5 rounded-full object-cover" />
+                      <span className="text-sm font-bold text-pink-400">{Math.floor(donutBalance)}</span>
                     </div>
                     <div className="flex items-center justify-between w-full px-1">
-                      <Sparkles className="w-3.5 h-3.5 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
+                      <img src="/media/icon.png" alt="SPRINKLES" className="w-3.5 h-3.5 rounded-full object-cover" />
                       <span className="text-sm font-bold text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
                         {sprinklesBalance >= 1000 ? `${(sprinklesBalance/1000).toFixed(0)}k` : Math.floor(sprinklesBalance)}
                       </span>
@@ -514,7 +509,7 @@ export default function LeaderboardPage() {
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">1</div>
                       <div>
                         <div className="font-semibold text-amber-400 text-xs">Mine DONUT = 2 Points</div>
-                        <div className="text-[11px] text-gray-400">Pay ETH to glaze the factory and earn 2 leaderboard points per mine.</div>
+                        <div className="text-[11px] text-gray-400">Glaze the factory and earn 2 leaderboard points per mine.</div>
                       </div>
                     </div>
 
@@ -538,7 +533,7 @@ export default function LeaderboardPage() {
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
                       <div>
                         <div className="font-semibold text-amber-400 text-xs">Win Prizes</div>
-                        <div className="text-[11px] text-gray-400">Top 3 glazers split the prize pool: ETH, DONUT, and SPRINKLES!</div>
+                        <div className="text-[11px] text-gray-400">Top 3 glazers split the prize pool: USDC, DONUT, and SPRINKLES!</div>
                       </div>
                     </div>
 
@@ -546,7 +541,7 @@ export default function LeaderboardPage() {
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">5</div>
                       <div>
                         <div className="font-semibold text-white text-xs">Where Rewards Come From</div>
-                        <div className="text-[11px] text-gray-400">ETH & DONUT from glazing fees. SPRINKLES from weekly Treasury Buybacks.</div>
+                        <div className="text-[11px] text-gray-400">USDC & DONUT from glazing fees. SPRINKLES from weekly Treasury Buybacks.</div>
                       </div>
                     </div>
                   </div>
@@ -774,28 +769,24 @@ export default function LeaderboardPage() {
                   const entry = leaderboard[index];
                   const isWinner = rank <= 3;
                   
-                  let prizeEth: string | null = null;
                   let prizeDonut: string | null = null;
                   let prizeSprinkles: string | null = null;
-                  let prizeUsd: number = 0;
+                  let prizeUsdc: number = 0;
                   
                   if (rank === 1) { 
-                    prizeEth = firstPlaceEth; 
                     prizeDonut = firstPlaceDonut; 
                     prizeSprinkles = firstPlaceSprinkles; 
-                    prizeUsd = firstPlaceUsd; 
+                    prizeUsdc = firstPlaceUsdc; 
                   }
                   if (rank === 2) { 
-                    prizeEth = secondPlaceEth; 
                     prizeDonut = secondPlaceDonut; 
                     prizeSprinkles = secondPlaceSprinkles; 
-                    prizeUsd = secondPlaceUsd; 
+                    prizeUsdc = secondPlaceUsdc; 
                   }
                   if (rank === 3) { 
-                    prizeEth = thirdPlaceEth; 
                     prizeDonut = thirdPlaceDonut; 
                     prizeSprinkles = thirdPlaceSprinkles; 
-                    prizeUsd = thirdPlaceUsd; 
+                    prizeUsdc = thirdPlaceUsdc; 
                   }
                   
                   const spinClass = `spin-avatar-${(rank % 5) + 1}`;
@@ -855,11 +846,11 @@ export default function LeaderboardPage() {
                             <div className="text-[11px] text-gray-400">
                               {isWinner ? "Claim this spot!" : "Keep grinding"}
                             </div>
-                            {isWinner && prizeUsd > 0 && (
+                            {isWinner && prizeUsdc > 0 && (
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                   <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
-                                  +${prizeUsd}
+                                  +${prizeUsdc}
                                 </span>
                                 <span className="text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                   <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full object-cover" />
@@ -926,11 +917,11 @@ export default function LeaderboardPage() {
                           {username && (
                             <div className="text-[11px] text-gray-400">{username}</div>
                           )}
-                          {isWinner && prizeUsd > 0 && (
+                          {isWinner && prizeUsdc > 0 && (
                             <div className="flex items-center gap-1.5 mt-1">
                               <span className="text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                 <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
-                                +${prizeUsd}
+                                +${prizeUsdc}
                               </span>
                               <span className="text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                 <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full object-cover" />
