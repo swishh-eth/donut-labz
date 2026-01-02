@@ -420,10 +420,10 @@ export default function LeaderboardPage() {
               {/* Ends In Tile */}
               <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
                 <div className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  <Clock className="w-3.5 h-3.5 text-white" />
                   <span className="text-[10px] text-gray-400 uppercase tracking-wide">Ends In</span>
                 </div>
-                <div className="text-2xl font-bold text-amber-400 fade-in-up stagger-2 opacity-0">{timeUntilDistribution}</div>
+                <div className="text-2xl font-bold text-white fade-in-up stagger-2 opacity-0">{timeUntilDistribution}</div>
               </div>
 
               {/* Prize Tile */}
@@ -434,10 +434,10 @@ export default function LeaderboardPage() {
                 {showUsdPrize ? (
                   <>
                     <div className="flex items-center gap-1">
-                      <Coins className="w-3.5 h-3.5 text-amber-400" />
+                      <Coins className="w-3.5 h-3.5 text-white" />
                       <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
                     </div>
-                    <div className="text-2xl font-bold text-amber-400 fade-in-up stagger-3 opacity-0">
+                    <div className="text-2xl font-bold text-white fade-in-up stagger-3 opacity-0">
                       ${Math.floor(totalPrizeUsd).toLocaleString()}
                     </div>
                     <span className="absolute bottom-1 text-[7px] text-gray-600 animate-pulse">tap for tokens</span>
@@ -854,7 +854,10 @@ export default function LeaderboardPage() {
                             <div className="flex items-center gap-2">
                               <span className="font-bold truncate text-white">No one yet</span>
                               {isWinner && prizeUsd > 0 && (
-                                <span className="text-amber-400 text-xs font-bold bg-amber-500/20 px-1.5 py-0.5 rounded">+${prizeUsd}</span>
+                                <span className="text-green-400 text-xs font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
+                                  +${prizeUsd}
+                                </span>
                               )}
                             </div>
                             <div className="text-[11px] text-gray-400">
@@ -867,15 +870,6 @@ export default function LeaderboardPage() {
                           <div className="text-sm font-bold text-white">
                             0 <span className="text-[10px] font-normal text-gray-400">pts</span>
                           </div>
-                          {isWinner && (
-                            <div className="flex flex-col items-end">
-                              <div className="text-[10px] text-green-400 font-medium">+Ξ{prizeEth}</div>
-                              <div className="text-[10px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
-                              <div className="text-[10px] text-white font-medium flex items-center gap-0.5 drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
-                                +<Sparkles className="w-2.5 h-2.5" />{prizeSprinkles}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </div>
                     );
@@ -923,7 +917,10 @@ export default function LeaderboardPage() {
                           <div className="flex items-center gap-2">
                             <span className="font-bold truncate text-white">{displayName}</span>
                             {isWinner && prizeUsd > 0 && (
-                              <span className="text-amber-400 text-xs font-bold bg-amber-500/20 px-1.5 py-0.5 rounded">+${prizeUsd}</span>
+                              <span className="text-green-400 text-xs font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
+                                +${prizeUsd}
+                              </span>
                             )}
                           </div>
                           {username && (
@@ -936,15 +933,6 @@ export default function LeaderboardPage() {
                         <div className="text-sm font-bold text-white">
                           {entry.total_points} <span className="text-[10px] font-normal text-gray-400">pts</span>
                         </div>
-                        {isWinner && (
-                          <div className="flex flex-col items-end">
-                            <div className="text-[10px] text-green-400 font-medium">+Ξ{prizeEth}</div>
-                            <div className="text-[10px] text-amber-400 font-medium">+🍩{prizeDonut}</div>
-                            <div className="text-[10px] text-white font-medium flex items-center gap-0.5 drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
-                              +<Sparkles className="w-2.5 h-2.5" />{prizeSprinkles}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   );
