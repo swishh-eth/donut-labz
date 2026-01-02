@@ -369,9 +369,9 @@ export default function AboutPage() {
               {/* Dune Dashboard Tile */}
               <DuneDashboardTile onClick={async () => {
                 try {
-                  await sdk.actions.openUrl({ url: "https://dune.com/chromium_donut_tech/donut-labs" });
+                  await sdk.actions.openUrl({ url: "https://dune.com/xyk/donut-company" });
                 } catch {
-                  window.open("https://dune.com/chromium_donut_tech/donut-labs", "_blank");
+                  window.open("https://dune.com/xyk/donut-company", "_blank");
                 }
               }} />
             </div>
