@@ -180,7 +180,8 @@ function VideoTile({
   return (
     <button
       onClick={onClick}
-      className="relative flex-1 rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
+      className="relative w-full rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
+      style={{ height: '220px' }}
     >
       <div className="absolute inset-0 bg-black" />
       
