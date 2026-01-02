@@ -850,8 +850,8 @@ export default function LeaderboardPage() {
                             </Avatar>
                           </div>
 
-                          <div className="min-w-0 flex-1 flex flex-col items-center">
-                            <span className="font-bold truncate text-white">No one yet</span>
+                          <div className="min-w-0 flex-1">
+                            <span className="font-bold truncate text-white block">No one yet</span>
                             <div className="text-[11px] text-gray-400">
                               {isWinner ? "Claim this spot!" : "Keep grinding"}
                             </div>
@@ -862,7 +862,7 @@ export default function LeaderboardPage() {
                                   +${prizeUsd}
                                 </span>
                                 <span className="text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                  <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3" />
+                                  <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full object-cover" />
                                   +{Math.floor(parseFloat(prizeDonut || '0'))}
                                 </span>
                               </div>
@@ -917,8 +917,8 @@ export default function LeaderboardPage() {
                           </Avatar>
                         </div>
 
-                        <div className="min-w-0 flex-1 flex flex-col items-center">
-                          <span className="font-bold truncate text-white">{displayName}</span>
+                        <div className="min-w-0 flex-1">
+                          <span className="font-bold truncate text-white block">{displayName}</span>
                           {username && (
                             <div className="text-[11px] text-gray-400">{username}</div>
                           )}
@@ -929,7 +929,7 @@ export default function LeaderboardPage() {
                                 +${prizeUsd}
                               </span>
                               <span className="text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3" />
+                                <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full object-cover" />
                                 +{Math.floor(parseFloat(prizeDonut || '0'))}
                               </span>
                             </div>
