@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid image URL" }, { status: 400 });
     }
 
-    // Always store in pending table first (as backup)
+    // Always store in pending table first (as backup) - keep processed=false
     await supabase
       .from("chat_pending_images")
       .upsert({
@@ -34,14 +34,15 @@ export async function POST(request: NextRequest) {
         processed: false,
       }, { onConflict: "transaction_hash" });
 
-    // Also try to update existing message if it exists
-    const { error: updateError } = await supabase
+    // Try to update existing message if it exists
+    const { data: updatedRows, error: updateError } = await supabase
       .from("chat_messages")
       .update({ image_url: imageUrl })
-      .eq("transaction_hash", transactionHash);
+      .eq("transaction_hash", transactionHash)
+      .select("id");
 
-    // If update succeeded (message existed), mark pending as processed
-    if (!updateError) {
+    // Only mark pending as processed if we actually updated a row
+    if (!updateError && updatedRows && updatedRows.length > 0) {
       await supabase
         .from("chat_pending_images")
         .update({ processed: true })
