@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http, parseAbiItem, formatEther } from "viem";
 import { base } from "viem/chains";
 
-// The donut miner contract address - update this to match your CONTRACT_ADDRESSES.multicall or the actual miner contract
-const DONUT_MINER_CONTRACT = "0x..." as `0x${string}`; // UPDATE THIS
+// Donut Miner contract address
+const DONUT_MINER_CONTRACT = "0xF69614F4Ee8D4D3879dd53d5A039eB3114C794F6" as `0x${string}`;
 
-// Mine event signature - adjust based on your contract's actual event
-// Common patterns: Mine(address indexed miner, uint256 price, string uri)
+// Mine event from the Miner contract
+// event Miner__Mined(address indexed sender, address indexed miner, uint256 price, string uri)
 const MINE_EVENT = parseAbiItem(
-  "event Mine(address indexed miner, address indexed prev, uint256 price, string uri)"
+  "event Miner__Mined(address indexed sender, address indexed miner, uint256 price, string uri)"
 );
 
 const client = createPublicClient({
@@ -25,16 +25,25 @@ export async function GET(req: NextRequest) {
     const currentBlock = await client.getBlockNumber();
     
     // Look back ~24 hours of blocks (Base has ~2 second blocks, so ~43200 blocks per day)
-    // Adjust this based on how far back you want to look
     const fromBlock = currentBlock - BigInt(43200);
 
     // Fetch Mine events from the contract
-    const logs = await client.getLogs({
-      address: DONUT_MINER_CONTRACT,
-      event: MINE_EVENT,
-      fromBlock: fromBlock > 0n ? fromBlock : 0n,
-      toBlock: currentBlock,
-    });
+    let logs;
+    try {
+      logs = await client.getLogs({
+        address: DONUT_MINER_CONTRACT,
+        event: MINE_EVENT,
+        fromBlock: fromBlock > 0n ? fromBlock : 0n,
+        toBlock: currentBlock,
+      });
+    } catch (logError) {
+      console.error("Failed to fetch logs:", logError);
+      return NextResponse.json({ miners: [], error: "Failed to fetch events" });
+    }
+
+    if (!logs || logs.length === 0) {
+      return NextResponse.json({ miners: [] });
+    }
 
     // Sort by block number descending (most recent first) and limit
     const sortedLogs = logs.sort((a, b) => 
@@ -44,36 +53,45 @@ export async function GET(req: NextRequest) {
     // Get block timestamps and format the data
     const miners = await Promise.all(
       sortedLogs.map(async (log) => {
-        const block = await client.getBlock({ blockNumber: log.blockNumber! });
-        const address = log.args.miner as string;
-        const price = log.args.price as bigint;
-        const uri = log.args.uri as string || "";
-        
-        // The amount paid is typically price / 2 based on your contract logic
-        const amountPaid = formatEther(price / 2n);
+        try {
+          const block = await client.getBlock({ blockNumber: log.blockNumber! });
+          // The "miner" in the event is who becomes the new miner (recipient)
+          const minerAddress = (log.args as any).miner as string;
+          const price = (log.args as any).price as bigint;
+          const uri = (log.args as any).uri as string || "";
+          
+          // Price is what they paid in ETH
+          const amountPaid = formatEther(price);
 
-        return {
-          address: address.toLowerCase(),
-          amount: Number(amountPaid).toFixed(4),
-          message: uri,
-          timestamp: Number(block.timestamp),
-          txHash: log.transactionHash,
-        };
+          return {
+            address: minerAddress.toLowerCase(),
+            amount: Number(amountPaid).toFixed(4),
+            message: uri,
+            timestamp: Number(block.timestamp),
+            txHash: log.transactionHash,
+          };
+        } catch (err) {
+          console.error("Error processing log:", err);
+          return null;
+        }
       })
     );
 
+    // Filter out any null entries from errors
+    const validMiners = miners.filter((m): m is NonNullable<typeof m> => m !== null);
+
     // Batch fetch Farcaster profiles for all addresses
-    const uniqueAddresses = [...new Set(miners.map(m => m.address))];
+    const uniqueAddresses = [...new Set(validMiners.map(m => m.address))];
     const profileMap: Record<string, { fid: number | null; username: string | null; pfpUrl: string | null }> = {};
 
-    if (uniqueAddresses.length > 0) {
+    if (uniqueAddresses.length > 0 && process.env.NEYNAR_API_KEY) {
       try {
         const neynarRes = await fetch(
           `https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${uniqueAddresses.join(",")}`,
           {
             headers: {
               accept: "application/json",
-              "x-api-key": process.env.NEYNAR_API_KEY || "",
+              "x-api-key": process.env.NEYNAR_API_KEY,
             },
           }
         );
@@ -98,7 +116,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Combine miners with profile data
-    const minersWithProfiles = miners.map((miner) => ({
+    const minersWithProfiles = validMiners.map((miner) => ({
       ...miner,
       fid: profileMap[miner.address]?.fid || null,
       username: profileMap[miner.address]?.username || null,

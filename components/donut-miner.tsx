@@ -12,6 +12,10 @@ const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
 const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <img src="/media/icon.png" alt="SPRINKLES" className={`${className} rounded-full object-cover`} />
 );
+
+const EthCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <img src="/coins/eth_logo.png" alt="ETH" className={`${className} rounded-full object-cover`} />
+);
 import {
   useAccount,
   useConnect,
@@ -564,11 +568,11 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     ? (Number(formatEther(interpolatedGlazed)) * Number(formatEther(minerState.donutPrice)) * ethUsdPrice).toFixed(2) : "0.00";
 
   const pnlData = useMemo(() => {
-    if (!minerState || !displayPrice) return { eth: "+Ξ0.0000", isPositive: true };
+    if (!minerState || !displayPrice) return { value: "0.0000", isPositive: true };
     const pnl = (displayPrice * 80n) / 100n - minerState.initPrice / 2n;
     const isPositive = pnl >= 0n;
     const absolutePnl = pnl >= 0n ? pnl : -pnl;
-    return { eth: `${isPositive ? "+" : "-"}Ξ${formatEth(absolutePnl, 4)}`, isPositive };
+    return { value: `${isPositive ? "+" : "-"}${formatEth(absolutePnl, 4)}`, isPositive };
   }, [minerState, displayPrice]);
 
   const totalPnlUsd = useMemo(() => {
@@ -759,7 +763,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           <div className="grid grid-cols-3 gap-x-6 gap-y-2">
             <div>
               <div className="text-xs text-gray-500">Paid</div>
-              <div className="text-xl font-bold text-white">Ξ{paidAmountDisplay}</div>
+              <div className="text-xl font-bold text-white flex items-center gap-1"><EthCoin className="w-5 h-5" />{paidAmountDisplay}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500">Mined</div>
@@ -792,8 +796,8 @@ export default function DonutMiner({ context }: DonutMinerProps) {
             </div>
             <div>
               <div className="text-xs text-gray-500">PnL</div>
-              <div className={cn("text-xl font-bold", pnlData.isPositive ? "text-pink-400" : "text-red-400")}>
-                {pnlData.eth}
+              <div className={cn("text-xl font-bold flex items-center gap-1", pnlData.isPositive ? "text-pink-400" : "text-red-400")}>
+                {pnlData.value.startsWith('+') ? '+' : pnlData.value.startsWith('-') ? '-' : ''}<EthCoin className="w-5 h-5" />{pnlData.value.replace(/^[+-]/, '')}
               </div>
             </div>
             <div>
@@ -813,14 +817,14 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                 Mine price
                 <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
               </div>
-              <div className="text-3xl font-bold text-white">Ξ{glazePriceDisplay}</div>
+              <div className="text-3xl font-bold text-white flex items-center gap-1"><EthCoin className="w-7 h-7" />{glazePriceDisplay}</div>
               <div className="text-xs text-gray-500">
                 ${displayPrice ? (Number(formatEther(displayPrice)) * ethUsdPrice).toFixed(2) : "0.00"}
               </div>
             </div>
             
             <div className="flex flex-col gap-1">
-              <div className="text-xs text-gray-500">Balance: Ξ{ethBalanceDisplay}</div>
+              <div className="text-xs text-gray-500 flex items-center gap-1">Balance: <EthCoin className="w-3 h-3" />{ethBalanceDisplay}</div>
               <button
                 className={cn(
                   "w-full py-3 rounded-xl text-base font-bold transition-all duration-300",
@@ -866,7 +870,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
               <div className="flex items-center justify-between mb-2">
                 <div className="text-xs text-gray-500 font-semibold">Recent Miners</div>
                 {averageMinePrice && (
-                  <div className="text-xs text-gray-400">Avg: Ξ{averageMinePrice}</div>
+                  <div className="text-xs text-gray-400 flex items-center gap-1">Avg: <EthCoin className="w-3 h-3" />{averageMinePrice}</div>
                 )}
                 <div className="text-xs text-gray-500 font-semibold">Price Paid</div>
               </div>
@@ -901,8 +905,8 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                             {formatTimeAgo(miner.timestamp)}
                           </span>
                         </div>
-                        <span className="text-white text-lg font-bold flex-shrink-0">
-                          Ξ{!miner.amount || miner.amount === '0' || miner.amount === '' ? '—' : miner.amount}
+                        <span className="text-white text-lg font-bold flex-shrink-0 flex items-center gap-1">
+                          <EthCoin className="w-4 h-4" />{!miner.amount || miner.amount === '0' || miner.amount === '' ? '—' : miner.amount}
                         </span>
                       </div>
                     </div>
