@@ -401,57 +401,45 @@ export default function GamesPage() {
           <div className="flex-shrink-0">
             <Header title="GAMES" user={context?.user} />
 
-            {/* Top Stats Tiles - Amber gradient style */}
+            {/* Top Stats Tiles - Dark zinc style matching How to Play */}
             <div className="grid grid-cols-3 gap-2 mb-3">
               {/* Games Played Tile */}
               <div 
-                className="rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]"
-                style={{ 
-                  background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)',
-                  border: '1px solid rgba(245,158,11,0.3)'
-                }}
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]"
               >
                 <div className="flex items-center gap-1">
-                  <Gamepad2 className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="text-[10px] text-amber-400/80 uppercase tracking-wide">Played</span>
+                  <Gamepad2 className="w-3.5 h-3.5 text-white" />
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Played</span>
                 </div>
                 <div className="text-2xl font-bold text-white fade-in-up stagger-1 opacity-0">{totalGamesPlayed.toLocaleString()}</div>
               </div>
 
               {/* Ends In Tile */}
               <div 
-                className="rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]"
-                style={{ 
-                  background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)',
-                  border: '1px solid rgba(245,158,11,0.3)'
-                }}
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]"
               >
                 <div className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="text-[10px] text-amber-400/80 uppercase tracking-wide">Resets In</span>
+                  <Clock className="w-3.5 h-3.5 text-white" />
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Resets In</span>
                 </div>
-                <div className="text-2xl font-bold text-white fade-in-up stagger-2 opacity-0">{timeUntilReset}</div>
+                <div className="text-xl font-bold text-white fade-in-up stagger-2 opacity-0 whitespace-nowrap">{timeUntilReset}</div>
               </div>
 
               {/* Prize Tile */}
               <button
                 onClick={() => setShowUsdPrize(!showUsdPrize)}
-                className="rounded-xl p-3 flex flex-col items-center justify-center text-center transition-all h-[80px] relative overflow-hidden"
-                style={{ 
-                  background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)',
-                  border: '1px solid rgba(245,158,11,0.3)'
-                }}
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center transition-all h-[80px] relative overflow-hidden hover:bg-zinc-800"
               >
                 {showUsdPrize ? (
                   <>
                     <div className="flex items-center gap-1">
-                      <Coins className="w-3.5 h-3.5 text-amber-400" />
-                      <span className="text-[10px] text-amber-400/80 uppercase tracking-wide">Prizes</span>
+                      <Coins className="w-3.5 h-3.5 text-white" />
+                      <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
                     </div>
                     <div className="text-2xl font-bold text-white fade-in-up stagger-3 opacity-0">
                       ${dashPrizePool}
                     </div>
-                    <span className="absolute bottom-1 text-[7px] text-amber-400/50 animate-pulse">tap for tokens</span>
+                    <span className="absolute bottom-1 text-[7px] text-gray-500 animate-pulse">tap for tokens</span>
                   </>
                 ) : (
                   <div className="flex flex-col w-full h-full justify-center gap-0.5">

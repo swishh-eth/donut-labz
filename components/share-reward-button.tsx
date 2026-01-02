@@ -46,6 +46,17 @@ const amberGradientActiveStyle = {
   border: '1px solid rgba(245,158,11,0.5)'
 };
 
+// Green gradient style for active share claim
+const greenGradientActiveStyle = {
+  background: 'linear-gradient(135deg, rgba(34,197,94,0.25) 0%, rgba(22,163,74,0.15) 100%)',
+  border: '1px solid rgba(34,197,94,0.5)'
+};
+
+const greenGradientStyle = {
+  background: 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(22,163,74,0.1) 100%)',
+  border: '1px solid rgba(34,197,94,0.3)'
+};
+
 export function ShareRewardButton({ userFid, compact = false, tile = false }: ShareRewardButtonProps) {
   const { address } = useAccount();
   const [isVerifying, setIsVerifying] = useState(false);
@@ -426,19 +437,19 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
           onClick={handleVerifyAndClaim}
           disabled={isVerifying}
           className={cn(
-            "h-24 rounded-xl border border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20 p-2 flex flex-col items-center justify-center transition-colors",
+            "h-24 rounded-xl border border-green-500 bg-gradient-to-br from-green-600/20 to-emerald-600/20 p-2 flex flex-col items-center justify-center transition-colors",
             isVerifying && "opacity-50 cursor-not-allowed"
           )}
         >
           {isVerifying ? (
-            <Loader2 className="w-6 h-6 text-amber-400 mb-1 animate-spin" />
+            <Loader2 className="w-6 h-6 text-green-400 mb-1 animate-spin" />
           ) : (
-            <CheckCircle className="w-6 h-6 text-amber-400 mb-1" />
+            <CheckCircle className="w-6 h-6 text-green-400 mb-1" />
           )}
-          <div className="text-[10px] font-bold text-amber-400">
+          <div className="text-[10px] font-bold text-green-400">
             {isVerifying ? "Checking..." : "Verify"}
           </div>
-          <div className="text-[9px] text-amber-400/80">Tap to verify</div>
+          <div className="text-[9px] text-green-400/80">Tap to verify</div>
         </button>
       );
     }
@@ -451,14 +462,14 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
         className={cn(
           "h-24 rounded-xl border p-2 flex flex-col items-center justify-center transition-colors",
           isActive && claimsRemaining > 0
-            ? "border-amber-500 bg-gradient-to-br from-amber-600/20 to-orange-600/20"
+            ? "border-green-500 bg-gradient-to-br from-green-600/20 to-emerald-600/20"
             : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800",
           !userFid && "opacity-50 cursor-not-allowed"
         )}
       >
-        <Gift className="w-6 h-6 text-amber-400 mb-1" />
-        <div className="text-[10px] font-bold text-amber-400">Share</div>
-        <div className="text-[9px] text-amber-400/80">{claimsRemaining} left</div>
+        <Gift className="w-6 h-6 text-green-400 mb-1" />
+        <div className="text-[10px] font-bold text-green-400">Share</div>
+        <div className="text-[9px] text-green-400/80">{claimsRemaining} left</div>
       </button>
     );
   }
@@ -470,7 +481,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
       return (
         <div 
           className="rounded-xl h-full w-full flex items-center justify-center"
-          style={{ ...amberGradientStyle, borderColor: 'rgba(34,197,94,0.3)' }}
+          style={greenGradientStyle}
         >
           <div className="flex items-center gap-1.5 text-green-400">
             <CheckCircle className="w-3.5 h-3.5" />
@@ -511,7 +522,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
       return (
         <div 
           className="rounded-xl h-full w-full flex items-center justify-center"
-          style={{ ...amberGradientStyle, borderColor: 'rgba(34,197,94,0.3)' }}
+          style={greenGradientStyle}
         >
           <div className="flex items-center gap-1.5 text-green-400">
             <CheckCircle className="w-3.5 h-3.5" />
@@ -535,8 +546,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     if (compact) {
       return (
         <div 
-          className="rounded-xl h-full w-full flex items-center justify-center opacity-60"
-          style={amberGradientStyle}
+          className="bg-zinc-900/50 border border-zinc-800 rounded-xl h-full w-full flex items-center justify-center opacity-60"
         >
           <div className="flex items-center gap-1.5 text-gray-400">
             <Gift className="w-3.5 h-3.5" />
@@ -717,17 +727,17 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
             "rounded-xl h-full w-full flex items-center justify-center gap-2 transition-all",
             !userFid && "opacity-50 cursor-not-allowed"
           )}
-          style={amberGradientActiveStyle}
+          style={greenGradientActiveStyle}
         >
           <Gift
             className={cn(
-              "w-4 h-4 text-amber-400 transition-transform duration-300",
+              "w-4 h-4 text-green-400 transition-transform duration-300",
               isPulsing ? "scale-75" : "scale-100"
             )}
           />
           <div className="flex flex-col items-start leading-tight">
             <span className="font-bold text-xs text-white">Share to Claim</span>
-            <span className="text-[9px] text-amber-400/80">{claimsRemaining} left</span>
+            <span className="text-[9px] text-green-400/80">{claimsRemaining} left</span>
           </div>
         </button>
       );
@@ -755,14 +765,14 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
               "flex-1 rounded-xl flex items-center justify-center gap-1 transition-all",
               isVerifying && "opacity-50 cursor-not-allowed"
             )}
-            style={amberGradientStyle}
+            style={greenGradientStyle}
           >
             {isVerifying ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-green-400" />
             ) : (
-              <CheckCircle className="w-3.5 h-3.5 text-amber-400" />
+              <CheckCircle className="w-3.5 h-3.5 text-green-400" />
             )}
-            <span className="font-bold text-[10px] text-amber-400">
+            <span className="font-bold text-[10px] text-green-400">
               {isVerifying ? "..." : "Verify"}
             </span>
           </button>
@@ -779,12 +789,12 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
           "rounded-xl h-full w-full flex items-center justify-center gap-1.5 transition-all",
           (isVerifying || !userFid) && "opacity-50 cursor-not-allowed"
         )}
-        style={amberGradientActiveStyle}
+        style={greenGradientActiveStyle}
       >
         {isVerifying ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-green-400" />
         ) : (
-          <CheckCircle className="w-3.5 h-3.5 text-amber-400" />
+          <CheckCircle className="w-3.5 h-3.5 text-green-400" />
         )}
         <span className="font-bold text-xs text-white">
           {isVerifying ? "Checking..." : "Verify"}
