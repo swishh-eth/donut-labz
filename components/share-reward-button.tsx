@@ -35,6 +35,17 @@ type ShareRewardButtonProps = {
   tile?: boolean; // New prop for mine page tile display
 };
 
+// Amber gradient style matching leaderboard
+const amberGradientStyle = {
+  background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)',
+  border: '1px solid rgba(245,158,11,0.3)'
+};
+
+const amberGradientActiveStyle = {
+  background: 'linear-gradient(135deg, rgba(245,158,11,0.25) 0%, rgba(234,88,12,0.15) 100%)',
+  border: '1px solid rgba(245,158,11,0.5)'
+};
+
 export function ShareRewardButton({ userFid, compact = false, tile = false }: ShareRewardButtonProps) {
   const { address } = useAccount();
   const [isVerifying, setIsVerifying] = useState(false);
@@ -452,14 +463,17 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     );
   }
 
-  // ============== COMPACT MODE (for chat page) ==============
+  // ============== COMPACT MODE (for games page) ==============
   // Just claimed success - show share button
   if (showClaimSuccess && claimedAmount) {
     if (compact) {
       return (
-        <div className="bg-zinc-900 border border-green-500/30 rounded-lg p-2 flex items-center justify-center">
+        <div 
+          className="rounded-xl h-full flex items-center justify-center"
+          style={{ ...amberGradientStyle, borderColor: 'rgba(34,197,94,0.3)' }}
+        >
           <div className="flex items-center gap-1.5 text-green-400">
-            <CheckCircle className="w-3 h-3" />
+            <CheckCircle className="w-3.5 h-3.5" />
             <span className="font-semibold text-xs">+{claimedAmount} 🍩</span>
           </div>
         </div>
@@ -495,9 +509,12 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   if (hasClaimed && isActive) {
     if (compact) {
       return (
-        <div className="bg-zinc-900 border border-green-500/30 rounded-lg p-2 flex items-center justify-center">
+        <div 
+          className="rounded-xl h-full flex items-center justify-center"
+          style={{ ...amberGradientStyle, borderColor: 'rgba(34,197,94,0.3)' }}
+        >
           <div className="flex items-center gap-1.5 text-green-400">
-            <CheckCircle className="w-3 h-3" />
+            <CheckCircle className="w-3.5 h-3.5" />
             <span className="font-semibold text-xs">Claimed! 🍩</span>
           </div>
         </div>
@@ -517,9 +534,12 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   if (!isActive) {
     if (compact) {
       return (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 opacity-60 flex items-center justify-center">
-          <div className="flex items-center gap-1.5 text-gray-500">
-            <Share2 className="w-3 h-3" />
+        <div 
+          className="rounded-xl h-full flex items-center justify-center opacity-60"
+          style={amberGradientStyle}
+        >
+          <div className="flex items-center gap-1.5 text-gray-400">
+            <Gift className="w-3.5 h-3.5" />
             <span className="font-semibold text-xs">No Campaign</span>
           </div>
         </div>
@@ -546,16 +566,20 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
           onClick={handleClaim}
           disabled={isWriting || isConfirming}
           className={cn(
-            "bg-green-500 hover:bg-green-400 border border-green-400 rounded-lg p-2 flex items-center justify-center gap-1.5 transition-all",
+            "rounded-xl h-full flex items-center justify-center gap-1.5 transition-all",
             (isWriting || isConfirming) && "opacity-50 cursor-not-allowed"
           )}
+          style={{ 
+            background: 'linear-gradient(135deg, rgba(34,197,94,0.25) 0%, rgba(22,163,74,0.15) 100%)',
+            border: '1px solid rgba(34,197,94,0.5)'
+          }}
         >
           {isWriting || isConfirming ? (
-            <Loader2 className="w-3 h-3 animate-spin text-black" />
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-green-400" />
           ) : (
-            <Gift className="w-3 h-3 text-black" />
+            <Gift className="w-3.5 h-3.5 text-green-400" />
           )}
-          <span className="font-bold text-xs text-black">
+          <span className="font-bold text-xs text-green-400">
             {isWriting ? "Approve..." : isConfirming ? "Claiming..." : "Claim"}
           </span>
         </button>
@@ -640,16 +664,19 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     );
   }
 
-  // Active campaign - main UI
+  // Active campaign - main UI (COMPACT MODE)
   if (compact) {
     // Show error state if there's an error
     if (verifyError) {
       return (
-        <div className="flex rounded-lg overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-          <div className="flex-1 bg-red-950/50 border border-red-500/50 border-r-0 rounded-l-lg p-2">
-            <div className="flex items-start gap-1.5">
-              <XCircle className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />
-              <span className="text-[10px] text-red-300/90 leading-relaxed break-words">
+        <div className="flex rounded-xl overflow-hidden h-full" style={{ border: '1px solid rgba(239,68,68,0.5)' }}>
+          <div 
+            className="flex-1 flex items-center justify-center p-2"
+            style={{ background: 'linear-gradient(135deg, rgba(127,29,29,0.3) 0%, rgba(153,27,27,0.2) 100%)' }}
+          >
+            <div className="flex items-center gap-1.5">
+              <XCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
+              <span className="text-[10px] text-red-300/90 line-clamp-1">
                 {verifyError}
               </span>
             </div>
@@ -660,7 +687,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
               setHasShared(false);
               setNeedsFollow(false);
             }}
-            className="flex items-center justify-center px-2.5 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-lg hover:bg-red-900/50 transition-colors"
+            className="flex items-center justify-center px-2.5 bg-red-900/30 hover:bg-red-900/50 transition-colors"
           >
             <svg
               className="w-3.5 h-3.5 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] animate-[spin_3s_linear_infinite_reverse]"
@@ -680,56 +707,62 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
       );
     }
 
-  // State 1: Initial - Show gift icon, tap to share
-if (!hasShared) {
-  return (
-    <button
-      onClick={handleShareToQualify}
-      disabled={!userFid}
-      className={cn(
-        "bg-amber-500/90 hover:bg-amber-400 border border-amber-400 rounded-lg p-2 flex items-center gap-2 transition-all",
-        !userFid && "opacity-50 cursor-not-allowed"
-      )}
-    >
-      <Gift
-        className={cn(
-          "w-4 h-4 text-black transition-transform duration-300",
-          isPulsing ? "scale-75" : "scale-100"
-        )}
-      />
-      <div className="flex flex-col items-start leading-tight">
-        <span className="font-bold text-xs text-black">Share to Claim</span>
-        <span className="text-[9px] text-black/70">{claimsRemaining} left</span>
-      </div>
-    </button>
-  );
-}
+    // State 1: Initial - Show gift icon, tap to share
+    if (!hasShared) {
+      return (
+        <button
+          onClick={handleShareToQualify}
+          disabled={!userFid}
+          className={cn(
+            "rounded-xl h-full flex items-center justify-center gap-2 transition-all",
+            !userFid && "opacity-50 cursor-not-allowed"
+          )}
+          style={amberGradientActiveStyle}
+        >
+          <Gift
+            className={cn(
+              "w-4 h-4 text-amber-400 transition-transform duration-300",
+              isPulsing ? "scale-75" : "scale-100"
+            )}
+          />
+          <div className="flex flex-col items-start leading-tight">
+            <span className="font-bold text-xs text-white">Share to Claim</span>
+            <span className="text-[9px] text-amber-400/80">{claimsRemaining} left</span>
+          </div>
+        </button>
+      );
+    }
 
     // State 2: Needs to follow @swishh.eth
     if (needsFollow) {
       return (
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 h-full">
           <button
             onClick={handleFollow}
-            className="flex-1 bg-purple-500 hover:bg-purple-400 border border-purple-400 rounded-lg p-2 flex items-center justify-center gap-1 transition-all"
+            className="flex-1 rounded-xl flex items-center justify-center gap-1 transition-all"
+            style={{ 
+              background: 'linear-gradient(135deg, rgba(147,51,234,0.25) 0%, rgba(126,34,206,0.15) 100%)',
+              border: '1px solid rgba(147,51,234,0.5)'
+            }}
           >
-            <UserPlus className="w-3 h-3 text-white" />
-            <span className="font-bold text-[10px] text-white">Follow</span>
+            <UserPlus className="w-3.5 h-3.5 text-purple-400" />
+            <span className="font-bold text-[10px] text-purple-400">Follow</span>
           </button>
           <button
             onClick={handleVerifyAndClaim}
             disabled={isVerifying}
             className={cn(
-              "flex-1 bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 rounded-lg p-2 flex items-center justify-center gap-1 transition-all",
+              "flex-1 rounded-xl flex items-center justify-center gap-1 transition-all",
               isVerifying && "opacity-50 cursor-not-allowed"
             )}
+            style={amberGradientStyle}
           >
             {isVerifying ? (
-              <Loader2 className="w-3 h-3 animate-spin text-white" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
             ) : (
-              <CheckCircle className="w-3 h-3 text-white" />
+              <CheckCircle className="w-3.5 h-3.5 text-amber-400" />
             )}
-            <span className="font-bold text-[10px] text-white">
+            <span className="font-bold text-[10px] text-amber-400">
               {isVerifying ? "..." : "Verify"}
             </span>
           </button>
@@ -743,22 +776,24 @@ if (!hasShared) {
         onClick={handleVerifyAndClaim}
         disabled={isVerifying || !userFid}
         className={cn(
-          "bg-amber-500 hover:bg-amber-400 border border-amber-400 rounded-lg p-2 flex items-center justify-center gap-1.5 transition-all",
+          "rounded-xl h-full flex items-center justify-center gap-1.5 transition-all",
           (isVerifying || !userFid) && "opacity-50 cursor-not-allowed"
         )}
+        style={amberGradientActiveStyle}
       >
         {isVerifying ? (
-          <Loader2 className="w-3 h-3 animate-spin text-black" />
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
         ) : (
-          <CheckCircle className="w-3 h-3 text-black" />
+          <CheckCircle className="w-3.5 h-3.5 text-amber-400" />
         )}
-        <span className="font-bold text-xs text-black">
+        <span className="font-bold text-xs text-white">
           {isVerifying ? "Checking..." : "Verify"}
         </span>
       </button>
     );
   }
 
+  // ============== FULL MODE (non-compact) ==============
   return (
     <div className="bg-gradient-to-r from-amber-900/20 to-orange-900/20 border border-amber-500/30 rounded-lg p-3">
       <div className="flex items-center justify-between mb-2">
