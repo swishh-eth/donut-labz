@@ -262,7 +262,8 @@ export default function LeaderboardPage() {
   useEffect(() => {
     const updateCountdown = () => {
       const now = new Date();
-      const firstDistribution = new Date("2025-12-05T12:00:00Z");
+      // Friday 6pm EST = Friday 11pm UTC (EST is UTC-5)
+      const firstDistribution = new Date("2025-12-05T23:00:00Z");
       
       const weeksSinceFirst = Math.floor(
         (now.getTime() - firstDistribution.getTime()) / (7 * 24 * 60 * 60 * 1000)
@@ -312,17 +313,37 @@ export default function LeaderboardPage() {
 
   const totalPrizeUsd = usdcBalance + (donutBalance * donutPrice) + (sprinklesBalance * sprinklesPrice);
 
-  const firstPlaceDonut = (donutBalance * 0.5).toFixed(2);
-  const secondPlaceDonut = (donutBalance * 0.3).toFixed(2);
-  const thirdPlaceDonut = (donutBalance * 0.2).toFixed(2);
+  // Toggle this to show DONUT/SPRINKLES prizes for positions 4-10
+  const SHOW_TOKENS_FOR_4_TO_10 = false;
 
-  const firstPlaceSprinkles = (sprinklesBalance * 0.5).toFixed(0);
-  const secondPlaceSprinkles = (sprinklesBalance * 0.3).toFixed(0);
-  const thirdPlaceSprinkles = (sprinklesBalance * 0.2).toFixed(0);
+  // Prize distribution percentages - steeper curve to incentivize climbing
+  const PRIZE_SPLITS = {
+    1: 0.30,   // 30%
+    2: 0.18,   // 18%
+    3: 0.12,   // 12%
+    4: 0.10,   // 10%
+    5: 0.08,   // 8%
+    6: 0.07,   // 7%
+    7: 0.06,   // 6%
+    8: 0.04,   // 4%
+    9: 0.03,   // 3%
+    10: 0.02,  // 2%
+  };
 
-  const firstPlaceUsdc = Math.floor(usdcBalance * 0.5);
-  const secondPlaceUsdc = Math.floor(usdcBalance * 0.3);
-  const thirdPlaceUsdc = Math.floor(usdcBalance * 0.2);
+  // Calculate USDC prizes for each position
+  const getUsdcPrize = (rank: number) => Math.floor(usdcBalance * (PRIZE_SPLITS[rank as keyof typeof PRIZE_SPLITS] || 0));
+  
+  // Calculate DONUT prizes for each position (only top 3 for now)
+  const getDonutPrize = (rank: number) => {
+    if (rank > 3 && !SHOW_TOKENS_FOR_4_TO_10) return '0';
+    return (donutBalance * (PRIZE_SPLITS[rank as keyof typeof PRIZE_SPLITS] || 0)).toFixed(2);
+  };
+  
+  // Calculate SPRINKLES prizes for each position (only top 3 for now)
+  const getSprinklesPrize = (rank: number) => {
+    if (rank > 3 && !SHOW_TOKENS_FOR_4_TO_10) return '0';
+    return (sprinklesBalance * (PRIZE_SPLITS[rank as keyof typeof PRIZE_SPLITS] || 0)).toFixed(0);
+  };
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -525,7 +546,7 @@ export default function LeaderboardPage() {
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">3</div>
                       <div>
                         <div className="font-semibold text-white text-xs">Climb the Ranks</div>
-                        <div className="text-[11px] text-gray-400">Compete weekly. Leaderboard resets every Friday at 12pm UTC.</div>
+                        <div className="text-[11px] text-gray-400">Compete weekly. Leaderboard resets every Friday at 6pm EST.</div>
                       </div>
                     </div>
 
@@ -533,7 +554,7 @@ export default function LeaderboardPage() {
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
                       <div>
                         <div className="font-semibold text-amber-400 text-xs">Win Prizes</div>
-                        <div className="text-[11px] text-gray-400">Top 3 glazers split the prize pool: USDC, DONUT, and SPRINKLES!</div>
+                        <div className="text-[11px] text-gray-400">Top 10 glazers win USDC! Top 3 also get DONUT and SPRINKLES.</div>
                       </div>
                     </div>
 
@@ -548,18 +569,48 @@ export default function LeaderboardPage() {
 
                   <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-xl">
                     <div className="text-[9px] text-gray-500 uppercase mb-1.5 text-center">Prize Distribution</div>
-                    <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="grid grid-cols-5 gap-1 text-center mb-1">
                       <div>
-                        <div className="text-base font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]">1st</div>
-                        <div className="text-amber-400 font-bold text-xs">50%</div>
+                        <div className="text-sm font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]">1st</div>
+                        <div className="text-amber-400 font-bold text-[10px]">30%</div>
                       </div>
                       <div>
-                        <div className="text-base font-bold text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]">2nd</div>
-                        <div className="text-amber-400 font-bold text-xs">30%</div>
+                        <div className="text-sm font-bold text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]">2nd</div>
+                        <div className="text-amber-400 font-bold text-[10px]">18%</div>
                       </div>
                       <div>
-                        <div className="text-base font-bold text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]">3rd</div>
-                        <div className="text-amber-400 font-bold text-xs">20%</div>
+                        <div className="text-sm font-bold text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]">3rd</div>
+                        <div className="text-amber-400 font-bold text-[10px]">12%</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-gray-400">4th</div>
+                        <div className="text-gray-400 font-bold text-[10px]">10%</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-gray-400">5th</div>
+                        <div className="text-gray-400 font-bold text-[10px]">8%</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1 text-center">
+                      <div>
+                        <div className="text-sm font-bold text-gray-500">6th</div>
+                        <div className="text-gray-500 font-bold text-[10px]">7%</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-gray-500">7th</div>
+                        <div className="text-gray-500 font-bold text-[10px]">6%</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-gray-500">8th</div>
+                        <div className="text-gray-500 font-bold text-[10px]">4%</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-gray-500">9th</div>
+                        <div className="text-gray-500 font-bold text-[10px]">3%</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-gray-500">10th</div>
+                        <div className="text-gray-500 font-bold text-[10px]">2%</div>
                       </div>
                     </div>
                   </div>
@@ -768,26 +819,12 @@ export default function LeaderboardPage() {
                   const rank = index + 1;
                   const entry = leaderboard[index];
                   const isWinner = rank <= 3;
+                  const hasPrize = rank <= 10;
                   
-                  let prizeDonut: string | null = null;
-                  let prizeSprinkles: string | null = null;
-                  let prizeUsdc: number = 0;
-                  
-                  if (rank === 1) { 
-                    prizeDonut = firstPlaceDonut; 
-                    prizeSprinkles = firstPlaceSprinkles; 
-                    prizeUsdc = firstPlaceUsdc; 
-                  }
-                  if (rank === 2) { 
-                    prizeDonut = secondPlaceDonut; 
-                    prizeSprinkles = secondPlaceSprinkles; 
-                    prizeUsdc = secondPlaceUsdc; 
-                  }
-                  if (rank === 3) { 
-                    prizeDonut = thirdPlaceDonut; 
-                    prizeSprinkles = thirdPlaceSprinkles; 
-                    prizeUsdc = thirdPlaceUsdc; 
-                  }
+                  // Get prizes for this rank using the helper functions
+                  const prizeUsdc = hasPrize ? getUsdcPrize(rank) : 0;
+                  const prizeDonut = hasPrize ? getDonutPrize(rank) : '0';
+                  const prizeSprinkles = hasPrize ? getSprinklesPrize(rank) : '0';
                   
                   const spinClass = `spin-avatar-${(rank % 5) + 1}`;
 
@@ -844,9 +881,9 @@ export default function LeaderboardPage() {
                           <div className="min-w-0 flex-1">
                             <span className="font-bold truncate text-white block">No one yet</span>
                             <div className="text-[11px] text-gray-400">
-                              {isWinner ? "Claim this spot!" : "Keep grinding"}
+                              {hasPrize ? "Claim this spot!" : "Keep grinding"}
                             </div>
-                            {isWinner && (
+                            {hasPrize && (
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-sky-400 text-[10px] font-bold bg-sky-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                   <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
@@ -921,7 +958,7 @@ export default function LeaderboardPage() {
                           {username && (
                             <div className="text-[11px] text-gray-400">{username}</div>
                           )}
-                          {isWinner && (
+                          {hasPrize && (
                             <div className="flex items-center gap-1.5 mt-1">
                               <span className="text-sky-400 text-[10px] font-bold bg-sky-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                 <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
