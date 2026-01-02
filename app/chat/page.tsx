@@ -877,24 +877,7 @@ export default function ChatPage() {
             }}
           >
             {messagesLoading ? (
-              <div className="space-y-2">
-                {[...Array(5)].map((_, i) => (
-                  <div 
-                    key={i} 
-                    className="flex gap-2 p-2 rounded-lg bg-zinc-900 border border-zinc-800 animate-pulse"
-                    style={{ animationDelay: `${i * 100}ms` }}
-                  >
-                    <div className="w-8 h-8 rounded-full bg-zinc-800 flex-shrink-0" />
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="h-3 w-20 bg-zinc-800 rounded" />
-                        <div className="h-2 w-12 bg-zinc-800 rounded" />
-                      </div>
-                      <div className="h-3 w-3/4 bg-zinc-800 rounded" />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <div />
             ) : (!messages || messages.length === 0) && !pendingMessage ? (
               <div className="flex flex-col items-center justify-center h-full py-12 px-4">
                 <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4"><MessageCircle className="w-8 h-8 text-gray-600" /></div>
