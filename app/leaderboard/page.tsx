@@ -865,6 +865,10 @@ export default function LeaderboardPage() {
                                   <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full object-cover" />
                                   +{Math.floor(parseFloat(prizeDonut || '0'))}
                                 </span>
+                                <span className="text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full object-cover" />
+                                  +{Math.floor(parseFloat(prizeSprinkles || '0'))}
+                                </span>
                               </div>
                             )}
                           </div>
@@ -931,6 +935,10 @@ export default function LeaderboardPage() {
                               <span className="text-pink-400 text-[10px] font-bold bg-pink-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                 <img src="/coins/donut_logo.png" alt="DONUT" className="w-3 h-3 rounded-full object-cover" />
                                 +{Math.floor(parseFloat(prizeDonut || '0'))}
+                              </span>
+                              <span className="text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full object-cover" />
+                                +{Math.floor(parseFloat(prizeSprinkles || '0'))}
                               </span>
                             </div>
                           )}
