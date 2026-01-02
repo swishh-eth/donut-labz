@@ -11,6 +11,10 @@
     {
       "path": "/api/games/donut-dash/prize-distribute",
       "schedule": "2 23 * * 5"
+    },
+    {
+      "path": "/api/cron/miners-distribute",
+      "schedule": "3 23 * * 5"
     }
   ]
 }

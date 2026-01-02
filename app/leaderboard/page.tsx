@@ -75,6 +75,17 @@ const formatAddress = (addr: string) => {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 };
 
+type DistributionConfig = {
+  USDC: number;
+  DONUT: number;
+  SPRINKLES: number;
+};
+
+type PrizePercentage = {
+  rank: number;
+  percent: number;
+};
+
 export default function LeaderboardPage() {
   const readyRef = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -88,6 +99,25 @@ export default function LeaderboardPage() {
   const [showUsdPrize, setShowUsdPrize] = useState(true);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
+  
+  // Distribution config fetched from API
+  const [distributionConfig, setDistributionConfig] = useState<DistributionConfig>({
+    USDC: 50,
+    DONUT: 1000,
+    SPRINKLES: 100000,
+  });
+  const [prizePercentages, setPrizePercentages] = useState<PrizePercentage[]>([
+    { rank: 1, percent: 40 },
+    { rank: 2, percent: 20 },
+    { rank: 3, percent: 15 },
+    { rank: 4, percent: 8 },
+    { rank: 5, percent: 5 },
+    { rank: 6, percent: 4 },
+    { rank: 7, percent: 3 },
+    { rank: 8, percent: 2 },
+    { rank: 9, percent: 2 },
+    { rank: 10, percent: 1 },
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -141,26 +171,33 @@ export default function LeaderboardPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch distribution config from API
+  useEffect(() => {
+    const fetchDistributionConfig = async () => {
+      try {
+        const res = await fetch('/api/cron/miners-distribute');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.configuredDistribution) {
+            setDistributionConfig(data.configuredDistribution);
+          }
+          if (data.prizePercentages) {
+            setPrizePercentages(data.prizePercentages);
+          }
+        }
+      } catch {
+        console.error('Failed to fetch distribution config');
+      }
+    };
+
+    fetchDistributionConfig();
+  }, []);
+
   const { data: leaderboardData, isLoading } = useQuery<LeaderboardResponse>({
     queryKey: ["leaderboard"],
     queryFn: async () => {
       const res = await fetch("/api/leaderboard?limit=10");
       if (!res.ok) throw new Error("Failed to fetch leaderboard");
-      return res.json();
-    },
-    refetchInterval: 60_000,
-    staleTime: 30_000,
-  });
-
-  const { data: prizePoolData } = useQuery<{
-    donutBalance: string;
-    sprinklesBalance: string;
-    usdcBalance: string;
-  }>({
-    queryKey: ["prize-pool"],
-    queryFn: async () => {
-      const res = await fetch("/api/prize-pool");
-      if (!res.ok) throw new Error("Failed to fetch prize pool");
       return res.json();
     },
     refetchInterval: 60_000,
@@ -233,7 +270,7 @@ export default function LeaderboardPage() {
     if (!isLoading && leaderboardData && !hasAnimatedIn) {
       const timeout = setTimeout(() => {
         setHasAnimatedIn(true);
-      }, 500); // 10 items * 40ms delay + 300ms animation
+      }, 500);
       return () => clearTimeout(timeout);
     }
   }, [isLoading, leaderboardData, hasAnimatedIn]);
@@ -298,51 +335,31 @@ export default function LeaderboardPage() {
   const leaderboard: LeaderboardEntry[] = leaderboardData?.leaderboard || [];
   const weekNumber = leaderboardData?.weekNumber || 0;
 
-  const donutBalance = prizePoolData?.donutBalance
-    ? parseFloat(formatEther(BigInt(prizePoolData.donutBalance)))
-    : 0;
+  // Calculate total prize value in USD using configured distribution amounts
+  const totalPrizeUsd = distributionConfig.USDC + 
+    (distributionConfig.DONUT * donutPrice) + 
+    (distributionConfig.SPRINKLES * sprinklesPrice);
 
-  const sprinklesBalance = prizePoolData?.sprinklesBalance
-    ? parseFloat(formatEther(BigInt(prizePoolData.sprinklesBalance)))
-    : 0;
+  // Build prize splits map from fetched percentages
+  const prizeSplits: Record<number, number> = {};
+  prizePercentages.forEach(p => {
+    prizeSplits[p.rank] = p.percent / 100;
+  });
 
-  // USDC has 6 decimals
-  const usdcBalance = prizePoolData?.usdcBalance
-    ? parseFloat(prizePoolData.usdcBalance) / 1_000_000
-    : 0;
-
-  const totalPrizeUsd = usdcBalance + (donutBalance * donutPrice) + (sprinklesBalance * sprinklesPrice);
-
-  // Toggle this to show DONUT/SPRINKLES prizes for positions 4-10
-  const SHOW_TOKENS_FOR_4_TO_10 = false;
-
-  // Prize distribution percentages - steeper curve to incentivize climbing
-  const PRIZE_SPLITS = {
-    1: 0.30,   // 30%
-    2: 0.18,   // 18%
-    3: 0.12,   // 12%
-    4: 0.10,   // 10%
-    5: 0.08,   // 8%
-    6: 0.07,   // 7%
-    7: 0.06,   // 6%
-    8: 0.04,   // 4%
-    9: 0.03,   // 3%
-    10: 0.02,  // 2%
+  // Calculate prizes for each position based on configured amounts
+  const getUsdcPrize = (rank: number) => {
+    const percent = prizeSplits[rank] || 0;
+    return Math.floor(distributionConfig.USDC * percent);
   };
-
-  // Calculate USDC prizes for each position
-  const getUsdcPrize = (rank: number) => Math.floor(usdcBalance * (PRIZE_SPLITS[rank as keyof typeof PRIZE_SPLITS] || 0));
   
-  // Calculate DONUT prizes for each position (only top 3 for now)
   const getDonutPrize = (rank: number) => {
-    if (rank > 3 && !SHOW_TOKENS_FOR_4_TO_10) return '0';
-    return (donutBalance * (PRIZE_SPLITS[rank as keyof typeof PRIZE_SPLITS] || 0)).toFixed(2);
+    const percent = prizeSplits[rank] || 0;
+    return (distributionConfig.DONUT * percent).toFixed(0);
   };
   
-  // Calculate SPRINKLES prizes for each position (only top 3 for now)
   const getSprinklesPrize = (rank: number) => {
-    if (rank > 3 && !SHOW_TOKENS_FOR_4_TO_10) return '0';
-    return (sprinklesBalance * (PRIZE_SPLITS[rank as keyof typeof PRIZE_SPLITS] || 0)).toFixed(0);
+    const percent = prizeSplits[rank] || 0;
+    return (distributionConfig.SPRINKLES * percent).toFixed(0);
   };
 
   return (
@@ -462,16 +479,16 @@ export default function LeaderboardPage() {
                   <div className="flex flex-col w-full h-full justify-center gap-0.5">
                     <div className="flex items-center justify-between w-full px-1">
                       <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3.5 h-3.5" />
-                      <span className="text-sm font-bold text-green-400">${Math.floor(usdcBalance)}</span>
+                      <span className="text-sm font-bold text-green-400">${distributionConfig.USDC}</span>
                     </div>
                     <div className="flex items-center justify-between w-full px-1">
                       <img src="/coins/donut_logo.png" alt="DONUT" className="w-3.5 h-3.5 rounded-full object-cover" />
-                      <span className="text-sm font-bold text-pink-400">{Math.floor(donutBalance)}</span>
+                      <span className="text-sm font-bold text-pink-400">{distributionConfig.DONUT.toLocaleString()}</span>
                     </div>
                     <div className="flex items-center justify-between w-full px-1">
                       <img src="/media/icon.png" alt="SPRINKLES" className="w-3.5 h-3.5 rounded-full object-cover" />
                       <span className="text-sm font-bold text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
-                        {sprinklesBalance >= 1000 ? `${(sprinklesBalance/1000).toFixed(0)}k` : Math.floor(sprinklesBalance)}
+                        {distributionConfig.SPRINKLES >= 1000 ? `${(distributionConfig.SPRINKLES/1000).toFixed(0)}k` : distributionConfig.SPRINKLES}
                       </span>
                     </div>
                   </div>
@@ -554,7 +571,7 @@ export default function LeaderboardPage() {
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
                       <div>
                         <div className="font-semibold text-amber-400 text-xs">Win Prizes</div>
-                        <div className="text-[11px] text-gray-400">Top 10 glazers win USDC! Top 3 also get DONUT and SPRINKLES.</div>
+                        <div className="text-[11px] text-gray-400">Top 10 miners win USDC, DONUT, and SPRINKLES!</div>
                       </div>
                     </div>
 
@@ -570,48 +587,22 @@ export default function LeaderboardPage() {
                   <div className="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-xl">
                     <div className="text-[9px] text-gray-500 uppercase mb-1.5 text-center">Prize Distribution</div>
                     <div className="grid grid-cols-5 gap-1 text-center mb-1">
-                      <div>
-                        <div className="text-sm font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]">1st</div>
-                        <div className="text-amber-400 font-bold text-[10px]">30%</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]">2nd</div>
-                        <div className="text-amber-400 font-bold text-[10px]">18%</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]">3rd</div>
-                        <div className="text-amber-400 font-bold text-[10px]">12%</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-gray-400">4th</div>
-                        <div className="text-gray-400 font-bold text-[10px]">10%</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-gray-400">5th</div>
-                        <div className="text-gray-400 font-bold text-[10px]">8%</div>
-                      </div>
+                      {prizePercentages.slice(0, 5).map((p) => (
+                        <div key={p.rank}>
+                          <div className={`text-sm font-bold ${p.rank <= 3 ? 'text-white' : 'text-gray-400'} ${p.rank === 1 ? 'drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]' : p.rank === 2 ? 'drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]' : p.rank === 3 ? 'drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]' : ''}`}>
+                            {p.rank === 1 ? '1st' : p.rank === 2 ? '2nd' : p.rank === 3 ? '3rd' : `${p.rank}th`}
+                          </div>
+                          <div className={`font-bold text-[10px] ${p.rank <= 3 ? 'text-amber-400' : 'text-gray-400'}`}>{p.percent}%</div>
+                        </div>
+                      ))}
                     </div>
                     <div className="grid grid-cols-5 gap-1 text-center">
-                      <div>
-                        <div className="text-sm font-bold text-gray-500">6th</div>
-                        <div className="text-gray-500 font-bold text-[10px]">7%</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-gray-500">7th</div>
-                        <div className="text-gray-500 font-bold text-[10px]">6%</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-gray-500">8th</div>
-                        <div className="text-gray-500 font-bold text-[10px]">4%</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-gray-500">9th</div>
-                        <div className="text-gray-500 font-bold text-[10px]">3%</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-gray-500">10th</div>
-                        <div className="text-gray-500 font-bold text-[10px]">2%</div>
-                      </div>
+                      {prizePercentages.slice(5, 10).map((p) => (
+                        <div key={p.rank}>
+                          <div className="text-sm font-bold text-gray-500">{p.rank}th</div>
+                          <div className="text-gray-500 font-bold text-[10px]">{p.percent}%</div>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
@@ -693,7 +684,7 @@ export default function LeaderboardPage() {
                                 </div>
                                 <div className="flex flex-col items-end">
                                   <span className="text-[10px] text-green-400 font-medium">
-                                    +Ξ{parseFloat(week.first_amount).toFixed(4)}
+                                    +${parseFloat(week.first_amount).toFixed(2)}
                                   </span>
                                   {parseFloat(week.first_donut_amount || '0') > 0 && (
                                     <span className="text-[10px] text-amber-400 font-medium">
@@ -729,7 +720,7 @@ export default function LeaderboardPage() {
                                   </div>
                                   <div className="flex flex-col items-end">
                                     <span className="text-[10px] text-green-400 font-medium">
-                                      +Ξ{parseFloat(week.second_amount).toFixed(4)}
+                                      +${parseFloat(week.second_amount).toFixed(2)}
                                     </span>
                                     {parseFloat(week.second_donut_amount || '0') > 0 && (
                                       <span className="text-[10px] text-amber-400 font-medium">
@@ -766,7 +757,7 @@ export default function LeaderboardPage() {
                                   </div>
                                   <div className="flex flex-col items-end">
                                     <span className="text-[10px] text-green-400 font-medium">
-                                      +Ξ{parseFloat(week.third_amount).toFixed(4)}
+                                      +${parseFloat(week.third_amount).toFixed(2)}
                                     </span>
                                     {parseFloat(week.third_donut_amount || '0') > 0 && (
                                       <span className="text-[10px] text-amber-400 font-medium">
@@ -843,6 +834,12 @@ export default function LeaderboardPage() {
                     ? "border-2 border-green-500/50 hover:border-green-500/80"
                     : "border-2 border-white/20 hover:border-white/40";
 
+                  // Format sprinkles display
+                  const sprinklesNum = parseFloat(prizeSprinkles || '0');
+                  const sprinklesDisplay = sprinklesNum >= 1000 
+                    ? `${(sprinklesNum / 1000).toFixed(sprinklesNum % 1000 === 0 ? 0 : 1)}K`
+                    : sprinklesNum.toFixed(0);
+
                   if (!entry) {
                     return (
                       <div
@@ -884,7 +881,7 @@ export default function LeaderboardPage() {
                               {hasPrize ? "Claim this spot!" : "Keep grinding"}
                             </div>
                             {hasPrize && (
-                              <div className="flex items-center gap-1.5 mt-1">
+                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                 <span className="text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                   <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
                                   +${prizeUsdc}
@@ -895,10 +892,10 @@ export default function LeaderboardPage() {
                                     +{Math.floor(parseFloat(prizeDonut || '0'))}
                                   </span>
                                 )}
-                                {parseFloat(prizeSprinkles || '0') > 0 && (
+                                {sprinklesNum > 0 && (
                                   <span className="text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                     <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full object-cover" />
-                                    +{(parseFloat(prizeSprinkles || '0') / 1000).toFixed(parseFloat(prizeSprinkles || '0') % 1000 === 0 ? 0 : 1)}K
+                                    +{sprinklesDisplay}
                                   </span>
                                 )}
                               </div>
@@ -959,7 +956,7 @@ export default function LeaderboardPage() {
                             <div className="text-[11px] text-gray-400">{username}</div>
                           )}
                           {hasPrize && (
-                            <div className="flex items-center gap-1.5 mt-1">
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                               <span className="text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                 <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
                                 +${prizeUsdc}
@@ -970,10 +967,10 @@ export default function LeaderboardPage() {
                                   +{Math.floor(parseFloat(prizeDonut || '0'))}
                                 </span>
                               )}
-                              {parseFloat(prizeSprinkles || '0') > 0 && (
+                              {sprinklesNum > 0 && (
                                 <span className="text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                                   <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full object-cover" />
-                                  +{(parseFloat(prizeSprinkles || '0') / 1000).toFixed(parseFloat(prizeSprinkles || '0') % 1000 === 0 ? 0 : 1)}K
+                                  +{sprinklesDisplay}
                                 </span>
                               )}
                             </div>
