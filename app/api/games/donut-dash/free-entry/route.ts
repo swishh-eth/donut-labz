@@ -1,5 +1,13 @@
+// Place in: app/api/games/donut-dash/free-entry/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { v4 as uuidv4 } from "uuid";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // Get current week number (weeks start on Friday 11PM UTC / 6PM EST)
 function getCurrentWeek(): number {
@@ -12,18 +20,9 @@ function getCurrentWeek(): number {
 }
 
 export async function POST(request: NextRequest) {
-  console.log("Free entry called");
-  
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
     const body = await request.json();
     const { fid, walletAddress, username, displayName, pfpUrl, txHash } = body;
-
-    console.log("Free entry body:", { fid, walletAddress, txHash });
 
     if (!fid || !walletAddress || !txHash) {
       return NextResponse.json(
@@ -34,120 +33,65 @@ export async function POST(request: NextRequest) {
 
     const currentWeek = getCurrentWeek();
 
-    // Check if player already has a row for this week
-    const { data: existing } = await supabase
+    // Check if this txHash was already used (prevent replay)
+    const { data: existingTx } = await supabase
       .from("donut_dash_scores")
-      .select("id, score")
-      .eq("fid", fid)
-      .eq("week", currentWeek)
-      .limit(1);
+      .select("id")
+      .eq("tx_hash", txHash)
+      .single();
 
-    if (existing && existing.length > 0) {
-      // Player already has a row this week - return existing entry
-      console.log("Existing entry found:", existing[0].id);
-      return NextResponse.json({
-        success: true,
-        entryId: existing[0].id,
-        week: currentWeek,
-        currentBestScore: existing[0].score,
-        isExisting: true,
-      });
-    }
-
-    // Create new entry for this week
-    const { data: entries, error: entryError } = await supabase
-      .from("donut_dash_scores")
-      .insert({
-        fid,
-        wallet_address: walletAddress.toLowerCase(),
-        username,
-        display_name: displayName,
-        pfp_url: pfpUrl,
-        tx_hash: txHash,
-        entry_fee: "0",
-        week: currentWeek,
-        score: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select();
-
-    console.log("Insert result:", { entries, entryError });
-
-    if (entryError) {
-      console.error("Error inserting entry:", entryError);
+    if (existingTx) {
       return NextResponse.json(
-        { success: false, error: "Failed to record entry: " + entryError.message },
-        { status: 500 }
-      );
-    }
-
-    const entry = entries?.[0];
-    if (!entry) {
-      return NextResponse.json(
-        { success: false, error: "Entry not created" },
-        { status: 500 }
-      );
-    }
-
-    console.log("New entry created with id:", entry.id);
-
-    return NextResponse.json({
-      success: true,
-      entryId: entry.id,
-      week: currentWeek,
-      currentBestScore: 0,
-      isExisting: false,
-    });
-  } catch (error: any) {
-    console.error("Free entry error:", error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET(request: NextRequest) {
-  console.log("Free entry GET called");
-  
-  try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    const { searchParams } = new URL(request.url);
-    const fid = searchParams.get("fid");
-
-    if (!fid) {
-      return NextResponse.json(
-        { success: false, error: "Missing fid" },
+        { success: false, error: "Transaction already used" },
         { status: 400 }
       );
     }
 
-    const currentWeek = getCurrentWeek();
+    // Always create a NEW entry for each game
+    const entryId = uuidv4();
 
-    // Get player's current best score for this week
-    const { data: existing } = await supabase
+    const { error: insertError } = await supabase
       .from("donut_dash_scores")
-      .select("id, score")
-      .eq("fid", parseInt(fid))
-      .eq("week", currentWeek)
-      .limit(1);
+      .insert({
+        id: entryId,
+        fid,
+        wallet_address: walletAddress.toLowerCase(),
+        username: username || displayName || null,
+        display_name: displayName || username || null,
+        pfp_url: pfpUrl || null,
+        week: currentWeek,
+        score: 0,
+        tx_hash: txHash,
+        created_at: new Date().toISOString(),
+      });
+
+    if (insertError) {
+      console.error("Failed to create entry:", insertError);
+      return NextResponse.json(
+        { success: false, error: "Failed to create entry" },
+        { status: 500 }
+      );
+    }
+
+    console.log("New entry created:", entryId, "for fid:", fid, "week:", currentWeek);
+
+    // Get games played this week for this user
+    const { count } = await supabase
+      .from("donut_dash_scores")
+      .select("*", { count: "exact", head: true })
+      .eq("fid", fid)
+      .eq("week", currentWeek);
 
     return NextResponse.json({
       success: true,
+      entryId,
       week: currentWeek,
-      currentBestScore: existing?.[0]?.score || 0,
-      hasEntry: existing && existing.length > 0,
-      isFreePlay: true,
+      gamesPlayedThisWeek: count || 1,
     });
-  } catch (error: any) {
-    console.error("Free entry GET error:", error);
+  } catch (error) {
+    console.error("Free entry error:", error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: "Internal server error" },
       { status: 500 }
     );
   }

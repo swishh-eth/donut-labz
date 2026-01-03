@@ -1,3 +1,5 @@
+// Place in: app/api/games/donut-dash/submit-score/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -38,66 +40,90 @@ export async function POST(req: NextRequest) {
 
     const currentWeek = getCurrentWeek();
 
-    // Fetch the player's entry for this week
-    const { data: entries, error: fetchError } = await supabase
+    // Fetch the specific entry
+    const { data: entry, error: fetchError } = await supabase
       .from("donut_dash_scores")
       .select("*")
       .eq("id", entryId)
       .eq("fid", fid)
-      .eq("week", currentWeek)
-      .limit(1);
+      .single();
 
-    console.log("Entry fetch result:", { entries, fetchError });
+    console.log("Entry fetch result:", { entry, fetchError });
 
-    if (fetchError) {
+    if (fetchError || !entry) {
       console.error("Error fetching entry:", fetchError);
-      return NextResponse.json({ success: false, error: "Database error" }, { status: 500 });
+      return NextResponse.json({ success: false, error: "Entry not found" }, { status: 404 });
     }
 
-    const entry = entries?.[0];
-    if (!entry) {
-      return NextResponse.json({ success: false, error: "Entry not found or unauthorized" }, { status: 404 });
+    // Check if score was already submitted for THIS entry
+    if (entry.score > 0) {
+      console.log("Score already submitted for this entry:", entry.score);
+      return NextResponse.json(
+        { success: false, error: "Score already submitted for this entry" },
+        { status: 400 }
+      );
     }
 
-    // Only update if new score is higher than existing score
-    const currentBestScore = entry.score || 0;
-    const isNewBest = score > currentBestScore;
-
-    if (isNewBest) {
-      const { error: updateError } = await supabase
-        .from("donut_dash_scores")
-        .update({ 
-          score, 
-          updated_at: new Date().toISOString() 
-        })
-        .eq("id", entryId);
-
-      if (updateError) {
-        console.error("Error updating score:", updateError);
-        return NextResponse.json({ success: false, error: "Failed to submit score" }, { status: 500 });
-      }
-
-      console.log("Score updated from", currentBestScore, "to", score);
-    } else {
-      console.log("Score", score, "not higher than current best", currentBestScore, "- not updating");
-    }
-
-    // Get rank (count of players with higher scores + 1)
-    const bestScore = isNewBest ? score : currentBestScore;
-    
-    const { count: betterScores } = await supabase
+    // ALWAYS update this entry with the score
+    const { error: updateError } = await supabase
       .from("donut_dash_scores")
-      .select("*", { count: "exact", head: true })
-      .eq("week", currentWeek)
-      .gt("score", bestScore);
+      .update({ 
+        score, 
+        updated_at: new Date().toISOString() 
+      })
+      .eq("id", entryId);
 
-    const rank = (betterScores || 0) + 1;
+    if (updateError) {
+      console.error("Error updating score:", updateError);
+      return NextResponse.json({ success: false, error: "Failed to submit score" }, { status: 500 });
+    }
+
+    console.log("Score submitted:", score, "for entry:", entryId);
+
+    // Get user's best score this week (across all their entries)
+    const { data: userBestEntry } = await supabase
+      .from("donut_dash_scores")
+      .select("score")
+      .eq("fid", fid)
+      .eq("week", currentWeek)
+      .order("score", { ascending: false })
+      .limit(1)
+      .single();
+
+    const bestScore = userBestEntry?.score || score;
+    const isPersonalBest = score >= bestScore;
+
+    // Get rank (count of players with higher best scores + 1)
+    // First get best score per player
+    const { data: allScores } = await supabase
+      .from("donut_dash_scores")
+      .select("fid, score")
+      .eq("week", currentWeek)
+      .gt("score", 0);
+
+    // Calculate best score per player
+    const playerBests = new Map<number, number>();
+    allScores?.forEach((s) => {
+      if (!playerBests.has(s.fid) || s.score > playerBests.get(s.fid)!) {
+        playerBests.set(s.fid, s.score);
+      }
+    });
+
+    // Count how many players have a better best score
+    let betterCount = 0;
+    playerBests.forEach((playerBest, playerFid) => {
+      if (playerFid !== fid && playerBest > bestScore) {
+        betterCount++;
+      }
+    });
+
+    const rank = betterCount + 1;
 
     return NextResponse.json({
       success: true,
       score,
       bestScore,
-      isPersonalBest: isNewBest,
+      isPersonalBest,
       rank,
       week: currentWeek,
     });
