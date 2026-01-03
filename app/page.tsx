@@ -904,7 +904,7 @@ export default function HomePage() {
     abi: FEE_SPLITTER_ABI,
     functionName: "pendingDistribution",
     chainId: base.id,
-    query: { refetchInterval: 30_000 },
+    query: { refetchInterval: 10_000 },
   });
 
   const { data: lastSplitTime } = useReadContract({
@@ -916,7 +916,7 @@ export default function HomePage() {
   });
 
   // User's SPRINKLES balance for split requirement
-  const { data: userSprinklesBalance } = useReadContract({
+  const { data: userSprinklesBalance, refetch: refetchSprinklesBalance } = useReadContract({
     address: SPRINKLES_TOKEN,
     abi: ERC20_ABI,
     functionName: "balanceOf",
@@ -1041,16 +1041,28 @@ export default function HomePage() {
   }, []);
 
   const handleSplit = useCallback(async () => {
-    // Check if user has enough SPRINKLES
-    if (!hasEnoughSprinkles) {
-      setShowMustHoldSprinkles(true);
-      setTimeout(() => setShowMustHoldSprinkles(false), 3000);
-      return;
+    // Always refetch splitter first to get latest state
+    const { data: latestBalance } = await refetchSplitter();
+    
+    // If user is connected, check SPRINKLES balance
+    if (address) {
+      const { data: latestSprinklesBalance } = await refetchSprinklesBalance();
+      const userHasEnough = latestSprinklesBalance ? latestSprinklesBalance >= SPRINKLES_MIN_BALANCE : false;
+      if (!userHasEnough) {
+        setShowMustHoldSprinkles(true);
+        setTimeout(() => setShowMustHoldSprinkles(false), 3000);
+        return;
+      }
     }
     
-    if (!splitterBalance || splitterBalance === 0n) {
+    // Use the freshly fetched balance
+    if (!latestBalance || latestBalance === 0n) {
       setShowNothingToSplit(true);
-      setTimeout(() => setShowNothingToSplit(false), 3000);
+      setTimeout(() => {
+        setShowNothingToSplit(false);
+        // Refetch again after message clears to show latest state
+        refetchSplitter();
+      }, 3000);
       return;
     }
     
@@ -1060,6 +1072,15 @@ export default function HomePage() {
         if (!primaryConnector) throw new Error("Wallet connector not available");
         const result = await connectAsync({ connector: primaryConnector, chainId: base.id });
         targetAddress = result.accounts[0];
+        
+        // After connecting, check SPRINKLES balance
+        const { data: newSprinklesBalance } = await refetchSprinklesBalance();
+        const userHasEnough = newSprinklesBalance ? newSprinklesBalance >= SPRINKLES_MIN_BALANCE : false;
+        if (!userHasEnough) {
+          setShowMustHoldSprinkles(true);
+          setTimeout(() => setShowMustHoldSprinkles(false), 3000);
+          return;
+        }
       }
       if (!targetAddress) throw new Error("Unable to determine wallet address");
 
@@ -1074,7 +1095,7 @@ export default function HomePage() {
       console.error("Split failed:", error);
       showSplitResult("failure");
     }
-  }, [address, connectAsync, primaryConnector, splitterBalance, writeSplitContract, showSplitResult, hasEnoughSprinkles]);
+  }, [address, connectAsync, primaryConnector, writeSplitContract, showSplitResult, refetchSplitter, refetchSprinklesBalance]);
 
   // Handle split write error
   useEffect(() => {
@@ -1121,8 +1142,12 @@ export default function HomePage() {
         showSplitResult("success");
       }
       
-      refetchSplitter();
       resetSplitWrite();
+      
+      // Refetch immediately and then again after delays to ensure UI updates
+      refetchSplitter();
+      setTimeout(() => refetchSplitter(), 2000);
+      setTimeout(() => refetchSplitter(), 5000);
     };
     
     claimReward();
