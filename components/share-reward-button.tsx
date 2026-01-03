@@ -103,12 +103,11 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   const getGradient = () => isDonutToken ? pinkGradientStyle : greenGradientStyle;
   const getTextColor = () => isDonutToken ? "text-pink-400" : "text-green-400";
   
-  const TokenIcon = ({ className = "w-4 h-4", pulsing = false }: { className?: string; pulsing?: boolean }) => {
-    const baseClass = cn(className, "transition-transform duration-300", pulsing && isPulsing ? "scale-75" : "scale-100");
-    if (isDonutToken) return <DonutCoin className={baseClass} />;
-    if (isSprinklesToken) return <SprinklesCoin className={baseClass} />;
-    if (isUsdcToken) return <UsdcCoin className={baseClass} />;
-    return <Gift className={cn(baseClass, getTextColor())} />;
+  const TokenIcon = ({ className = "w-4 h-4" }: { className?: string }) => {
+    if (isDonutToken) return <DonutCoin className={className} />;
+    if (isSprinklesToken) return <SprinklesCoin className={className} />;
+    if (isUsdcToken) return <UsdcCoin className={className} />;
+    return <Gift className={cn(className, getTextColor())} />;
   };
 
   // Pulsing effect for active campaign
@@ -781,30 +780,22 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           )}
           style={getActiveGradient()}
         >
-          <TokenIcon className="w-4 h-4" pulsing />
-          <span className="font-bold text-xs text-white relative">
-            <span 
-              className="inline-block transition-all duration-300"
-              style={{
-                opacity: showClaimsLeft ? 0 : 1,
-                transform: showClaimsLeft ? 'scale(0.8)' : 'scale(1)',
-                position: showClaimsLeft ? 'absolute' : 'relative',
-                visibility: showClaimsLeft ? 'hidden' : 'visible',
-              }}
-            >
-              Share to Claim
-            </span>
-            <span 
-              className="inline-block transition-all duration-300"
-              style={{
-                opacity: showClaimsLeft ? 1 : 0,
-                transform: showClaimsLeft ? 'scale(1)' : 'scale(0.8)',
-                position: showClaimsLeft ? 'relative' : 'absolute',
-                visibility: showClaimsLeft ? 'visible' : 'hidden',
-              }}
-            >
-              {claimsRemaining} left
-            </span>
+          {/* Icon only shows for "Share to Claim" */}
+          <div
+            className="transition-all duration-300 ease-out"
+            style={{
+              opacity: showClaimsLeft ? 0 : 1,
+              width: showClaimsLeft ? 0 : 16,
+              overflow: 'hidden',
+            }}
+          >
+            <TokenIcon className="w-4 h-4" />
+          </div>
+          <span 
+            key={showClaimsLeft ? 'claims' : 'share'}
+            className="font-bold text-xs text-white"
+          >
+            {showClaimsLeft ? `${claimsRemaining} left` : "Share to Claim"}
           </span>
         </button>
       );
