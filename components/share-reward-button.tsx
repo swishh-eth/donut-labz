@@ -200,9 +200,7 @@ Climb the leaderboard. Earn DONUT + USDC.
 🏆 $100+ in leaderboard prizes
 
 I just claimed
-${estimatedAmount} $${tokenSymbol} just for playing! ✨
-
-Start competing in weekly leaderboards 👇`;
+${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     try {
       await sdk.actions.composeCast({
         text: shareText,
