@@ -4,6 +4,11 @@ import { base } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 import { supabase } from '@/lib/supabase-leaderboard';
 
+// Use Alchemy RPC for reliability (public RPC has strict rate limits)
+const ALCHEMY_RPC_URL = process.env.ALCHEMY_API_KEY 
+  ? `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
+  : process.env.BASE_RPC_URL || "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g";
+
 // Contract address - UPDATE AFTER DEPLOYMENT
 const FLAPPY_POOL_ADDRESS = process.env.FLAPPY_POOL_ADDRESS as `0x${string}`;
 const BOT_PRIVATE_KEY = process.env.BOT_PRIVATE_KEY as `0x${string}`;
@@ -49,6 +54,25 @@ const FLAPPY_POOL_ABI = [
 // Prize share percentages (must match contract - 100% of prize pool)
 const PRIZE_SHARES = [3000, 2000, 1500, 1000, 800, 600, 500, 300, 200, 100];
 
+// Retry wrapper for RPC calls
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries = 3,
+  delay = 1000
+): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      const isRateLimit = error?.message?.includes("429") || error?.message?.includes("rate limit");
+      if (i === retries - 1) throw error;
+      console.log(`[Retry ${i + 1}/${retries}] ${isRateLimit ? "Rate limited" : "Error"}, waiting ${delay}ms...`);
+      await new Promise((r) => setTimeout(r, delay * (i + 1)));
+    }
+  }
+  throw new Error("Max retries exceeded");
+}
+
 export async function GET(request: Request) {
   // Verify cron secret (Vercel sends this header)
   const authHeader = request.headers.get('authorization');
@@ -57,17 +81,20 @@ export async function GET(request: Request) {
   }
 
   try {
+    console.log(`[Flappy Distribution] Starting...`);
+    console.log(`[Flappy Distribution] Using RPC: ${ALCHEMY_RPC_URL.replace(/\/v2\/.*/, '/v2/***')}`);
+
     const publicClient = createPublicClient({
       chain: base,
-      transport: http(),
+      transport: http(ALCHEMY_RPC_URL),
     });
 
     // Check if distribution is allowed
-    const canDistribute = await publicClient.readContract({
+    const canDistribute = await withRetry(() => publicClient.readContract({
       address: FLAPPY_POOL_ADDRESS,
       abi: FLAPPY_POOL_ABI,
       functionName: 'canDistribute',
-    });
+    }));
 
     if (!canDistribute) {
       return NextResponse.json({ 
@@ -77,13 +104,14 @@ export async function GET(request: Request) {
     }
 
     // Get current week from contract
-    const currentWeek = await publicClient.readContract({
+    const currentWeek = await withRetry(() => publicClient.readContract({
       address: FLAPPY_POOL_ADDRESS,
       abi: FLAPPY_POOL_ABI,
       functionName: 'currentWeek',
-    });
+    }));
 
     const weekNumber = Number(currentWeek);
+    console.log(`[Flappy Distribution] Week ${weekNumber}`);
 
     // Check if we already distributed this week
     const { data: existingDist } = await supabase
@@ -136,6 +164,8 @@ export async function GET(request: Request) {
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
 
+    console.log(`[Flappy Distribution] Found ${top10.length} winners`);
+
     // Check if there are any players
     if (top10.length === 0) {
       // No games played this week - skip distribution
@@ -173,11 +203,11 @@ export async function GET(request: Request) {
     ] as const;
 
     // Get prize pool size (fees already taken on entry, this is 100% for winners)
-    const prizePoolSize = await publicClient.readContract({
+    const prizePoolSize = await withRetry(() => publicClient.readContract({
       address: FLAPPY_POOL_ADDRESS,
       abi: FLAPPY_POOL_ABI,
       functionName: 'getPrizePool',
-    });
+    }));
 
     const potSizeFormatted = Number(formatUnits(prizePoolSize, 18));
 
@@ -211,17 +241,19 @@ export async function GET(request: Request) {
     const walletClient = createWalletClient({
       account,
       chain: base,
-      transport: http(),
+      transport: http(ALCHEMY_RPC_URL),
     });
 
     console.log(`Distributing week ${weekNumber} pot: ${potSizeFormatted} DONUT to ${top10.length} winners`);
 
-    const hash = await walletClient.writeContract({
+    const hash = await withRetry(() => walletClient.writeContract({
       address: FLAPPY_POOL_ADDRESS,
       abi: FLAPPY_POOL_ABI,
       functionName: 'distribute',
       args: [winnersArray],
-    });
+    }));
+
+    console.log(`[Flappy Distribution] Tx sent: ${hash}`);
 
     // Wait for confirmation
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
