@@ -223,7 +223,7 @@ function BurnCounterTile({
       <FallingCoins />
       
       <div className="relative z-10 p-4">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-6">
           {/* SPRINKLES BURNED - Left side */}
           <div className="text-left">
             <div className="flex items-center gap-2 mb-0.5">
@@ -239,9 +239,9 @@ function BurnCounterTile({
             </div>
           </div>
           
-          {/* DONUT BURNED - Right side */}
-          <div className="text-right">
-            <div className="flex items-center justify-end gap-2 mb-0.5">
+          {/* DONUT BURNED - Center-left */}
+          <div className="text-left">
+            <div className="flex items-center gap-2 mb-0.5">
               <span className="font-bold text-sm text-pink-400">DONUT BURNED</span>
             </div>
             
@@ -280,7 +280,7 @@ const PeeplesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
 // Coin image component for ECO
 const EcoCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/eco_1.png" alt="ECO" className="w-full h-full object-cover scale-[1.2]" />
+    <img src="/coins/franchiser_logo.png" alt="ECO" className="w-full h-full object-cover" />
   </span>
 );
 
