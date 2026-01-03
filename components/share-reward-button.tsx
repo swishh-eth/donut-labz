@@ -486,7 +486,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     if (compact) {
       return (
         <div 
-          className="rounded-xl h-full w-full flex items-center justify-center"
+          className="rounded-xl p-2 flex items-center justify-center"
           style={greenGradientStyle}
         >
           <div className="flex items-center gap-1.5 text-green-400">
@@ -527,7 +527,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     if (compact) {
       return (
         <div 
-          className="rounded-xl h-full w-full flex items-center justify-center"
+          className="rounded-xl p-2 flex items-center justify-center"
           style={greenGradientStyle}
         >
           <div className="flex items-center gap-1.5 text-green-400">
@@ -552,7 +552,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     if (compact) {
       return (
         <div 
-          className="bg-zinc-900/50 border border-zinc-800 rounded-xl h-full w-full flex items-center justify-center opacity-60"
+          className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 flex items-center justify-center opacity-60"
         >
           <div className="flex items-center gap-1.5 text-gray-400">
             <Gift className="w-3.5 h-3.5" />
@@ -582,7 +582,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           onClick={handleClaim}
           disabled={isWriting || isConfirming}
           className={cn(
-            "rounded-xl h-full w-full flex items-center justify-center gap-1.5 transition-all",
+            "rounded-xl p-2 flex items-center justify-center gap-1.5 transition-all",
             (isWriting || isConfirming) && "opacity-50 cursor-not-allowed"
           )}
           style={{ 
@@ -691,7 +691,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             setHasShared(false);
             setNeedsFollow(false);
           }}
-          className="rounded-xl h-full w-full flex items-center justify-between px-3 py-2 transition-colors"
+          className="rounded-xl p-2 flex items-center justify-between transition-colors"
           style={{ 
             background: 'linear-gradient(135deg, rgba(127,29,29,0.3) 0%, rgba(153,27,27,0.2) 100%)',
             border: '1px solid rgba(239,68,68,0.5)'
@@ -727,7 +727,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           onClick={handleShareToQualify}
           disabled={!userFid}
           className={cn(
-            "rounded-xl h-full w-full flex items-center justify-center gap-2 transition-all",
+            "rounded-xl p-2 flex items-center justify-center gap-2 transition-all",
             !userFid && "opacity-50 cursor-not-allowed"
           )}
           style={greenGradientActiveStyle}
@@ -749,10 +749,10 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     // State 2: Needs to follow @swishh.eth
     if (needsFollow) {
       return (
-        <div className="flex gap-1.5 h-full w-full">
+        <div className="flex gap-1.5">
           <button
             onClick={handleFollow}
-            className="flex-1 rounded-xl flex items-center justify-center gap-1 transition-all"
+            className="flex-1 rounded-xl p-2 flex items-center justify-center gap-1 transition-all"
             style={{ 
               background: 'linear-gradient(135deg, rgba(147,51,234,0.25) 0%, rgba(126,34,206,0.15) 100%)',
               border: '1px solid rgba(147,51,234,0.5)'
@@ -765,7 +765,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             onClick={handleVerifyAndClaim}
             disabled={isVerifying}
             className={cn(
-              "flex-1 rounded-xl flex items-center justify-center gap-1 transition-all",
+              "flex-1 rounded-xl p-2 flex items-center justify-center gap-1 transition-all",
               isVerifying && "opacity-50 cursor-not-allowed"
             )}
             style={greenGradientStyle}
@@ -789,7 +789,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
         onClick={handleVerifyAndClaim}
         disabled={isVerifying || !userFid}
         className={cn(
-          "rounded-xl h-full w-full flex items-center justify-center gap-1.5 transition-all",
+          "rounded-xl p-2 flex items-center justify-center gap-1.5 transition-all",
           (isVerifying || !userFid) && "opacity-50 cursor-not-allowed"
         )}
         style={greenGradientActiveStyle}

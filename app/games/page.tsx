@@ -482,7 +482,7 @@ export default function GamesPage() {
             <div className="grid grid-cols-2 gap-2 mb-3">
               <button
                 onClick={() => setShowHelpDialog(true)}
-                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2.5 hover:bg-zinc-800 transition-colors h-[44px]"
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 hover:bg-zinc-800 transition-colors"
               >
                 <div className="flex items-center justify-center gap-2">
                   <Gamepad2 className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
@@ -491,9 +491,7 @@ export default function GamesPage() {
                 </div>
               </button>
 
-              <div className="h-[44px]">
-                <ShareRewardButton userFid={context?.user?.fid} compact />
-              </div>
+              <ShareRewardButton userFid={context?.user?.fid} compact />
             </div>
           </div>
 
