@@ -292,10 +292,7 @@ export default function GamesPage() {
           if (data.recentPlayer) setFlappyRecentPlayer(data.recentPlayer);
           setFlappyPrizePool(parseFloat(data.prizePool) || 0);
           if (data.gamesThisWeek !== undefined) {
-            setTotalGamesPlayed(prev => {
-              // This will be updated with all games combined
-              return data.gamesThisWeek || 0;
-            });
+            setFlappyWeeklyPlays(data.gamesThisWeek);
           }
         }
       } catch (e) {
@@ -318,12 +315,15 @@ export default function GamesPage() {
           setStackPrizePool(prizeData.totalPrize || 5);
         }
         
-        // Fetch recent player
+        // Fetch recent player and weekly plays
         const recentRes = await fetch('/api/games/stack-tower/recent');
         if (recentRes.ok) {
           const recentData = await recentRes.json();
           if (recentData.recentPlayer) {
             setStackRecentPlayer(recentData.recentPlayer);
+          }
+          if (recentData.gamesThisWeek !== undefined) {
+            setStackWeeklyPlays(recentData.gamesThisWeek);
           }
         }
       } catch (e) {
@@ -348,6 +348,9 @@ export default function GamesPage() {
         if (recentRes.ok) {
           const recentData = await recentRes.json();
           if (recentData.recentPlayer) setDashRecentPlayer(recentData.recentPlayer);
+          if (recentData.gamesThisWeek !== undefined) {
+            setDashWeeklyPlays(recentData.gamesThisWeek);
+          }
         }
       } catch (e) {
         console.error("Failed to fetch Dash data:", e);
@@ -358,7 +361,7 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch total games played this week (and individual game stats)
+  // Fetch total games played this week (fallback for individual game stats)
   useEffect(() => {
     const fetchGamesCount = async () => {
       try {
@@ -366,10 +369,16 @@ export default function GamesPage() {
         if (res.ok) {
           const data = await res.json();
           setTotalGamesPlayed(data.totalGamesThisWeek || 0);
-          // Set individual game plays if available
-          if (data.flappyGamesThisWeek !== undefined) setFlappyWeeklyPlays(data.flappyGamesThisWeek);
-          if (data.stackGamesThisWeek !== undefined) setStackWeeklyPlays(data.stackGamesThisWeek);
-          if (data.dashGamesThisWeek !== undefined) setDashWeeklyPlays(data.dashGamesThisWeek);
+          // Only set individual game plays if not already set by individual API calls
+          if (data.flappyGamesThisWeek !== undefined && flappyWeeklyPlays === 0) {
+            setFlappyWeeklyPlays(data.flappyGamesThisWeek);
+          }
+          if (data.stackGamesThisWeek !== undefined && stackWeeklyPlays === 0) {
+            setStackWeeklyPlays(data.stackGamesThisWeek);
+          }
+          if (data.dashGamesThisWeek !== undefined && dashWeeklyPlays === 0) {
+            setDashWeeklyPlays(data.dashGamesThisWeek);
+          }
         }
       } catch (e) {
         console.error("Failed to fetch games stats:", e);
@@ -378,7 +387,7 @@ export default function GamesPage() {
     fetchGamesCount();
     const interval = setInterval(fetchGamesCount, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [flappyWeeklyPlays, stackWeeklyPlays, dashWeeklyPlays]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;

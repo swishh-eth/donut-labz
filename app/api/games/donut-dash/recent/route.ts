@@ -1,5 +1,3 @@
-// Place in: app/api/games/donut-dash/recent/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -8,55 +6,60 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Get current week number (weeks start on Friday 11PM UTC / 6PM EST)
-function getCurrentWeek(): number {
+// Get Friday 6PM EST as the start of the week
+function getWeekStart(): Date {
   const now = new Date();
-  const epoch = new Date(Date.UTC(2025, 0, 3, 23, 0, 0));
-  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-  const weeksSinceEpoch = Math.floor((now.getTime() - epoch.getTime()) / msPerWeek);
-  return weeksSinceEpoch + 1;
+  const estOffset = -5 * 60; // EST offset in minutes
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const estTime = new Date(utc + estOffset * 60000);
+  
+  const dayOfWeek = estTime.getDay();
+  const hourOfDay = estTime.getHours();
+  
+  let daysSinceFriday = (dayOfWeek + 2) % 7;
+  
+  if (dayOfWeek === 5 && hourOfDay < 18) {
+    daysSinceFriday = 7;
+  }
+  
+  const weekStart = new Date(estTime);
+  weekStart.setDate(estTime.getDate() - daysSinceFriday);
+  weekStart.setHours(18, 0, 0, 0);
+  
+  return weekStart;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const currentWeek = getCurrentWeek();
+    const weekStart = getWeekStart();
+    const weekStartISO = weekStart.toISOString();
 
-    // Get most recent game with a score > 0
-    const { data: recentGame, error } = await supabase
+    // Get most recent player
+    const { data: recentScore, error: recentError } = await supabase
       .from("donut_dash_scores")
-      .select("fid, username, display_name, pfp_url, score, created_at")
-      .eq("week", currentWeek)
-      .gt("score", 0)
+      .select("username, score, pfp_url")
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
 
-    if (error && error.code !== "PGRST116") {
-      console.error("Error fetching recent game:", error);
-    }
-
-    // Get total games this week
-    const { count: gamesThisWeek } = await supabase
+    // Get games played this week
+    const { count: gamesThisWeek, error: countError } = await supabase
       .from("donut_dash_scores")
       .select("*", { count: "exact", head: true })
-      .eq("week", currentWeek);
-
-    const recentPlayer = recentGame ? {
-      username: recentGame.username || recentGame.display_name || `fid:${recentGame.fid}`,
-      score: recentGame.score,
-      pfpUrl: recentGame.pfp_url,
-    } : null;
+      .gte("created_at", weekStartISO);
 
     return NextResponse.json({
-      success: true,
-      recentPlayer,
+      recentPlayer: recentScore ? {
+        username: recentScore.username,
+        score: recentScore.score,
+        pfpUrl: recentScore.pfp_url,
+      } : null,
       gamesThisWeek: gamesThisWeek || 0,
-      currentWeek,
     });
-  } catch (error) {
-    console.error("Recent endpoint error:", error);
+  } catch (error: any) {
+    console.error("[Donut Dash Recent] Error:", error);
     return NextResponse.json(
-      { success: false, error: "Internal server error" },
+      { error: error.message, recentPlayer: null, gamesThisWeek: 0 },
       { status: 500 }
     );
   }

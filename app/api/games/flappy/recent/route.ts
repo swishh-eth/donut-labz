@@ -1,62 +1,78 @@
-import { NextResponse } from 'next/server';
-import { createPublicClient, http, formatUnits } from 'viem';
-import { base } from 'viem/chains';
-import { supabase } from '@/lib/supabase-leaderboard';
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-const FLAPPY_POOL_ADDRESS = "0xA3419c6eFbb7a227fC3e24189d8099591327a14A" as const;
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-const FLAPPY_POOL_ABI = [
-  {
-    inputs: [],
-    name: "getPrizePool",
-    outputs: [{ type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
+// Get Friday 6PM EST as the start of the week
+function getWeekStart(): Date {
+  const now = new Date();
+  const estOffset = -5 * 60; // EST offset in minutes
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const estTime = new Date(utc + estOffset * 60000);
+  
+  const dayOfWeek = estTime.getDay();
+  const hourOfDay = estTime.getHours();
+  
+  let daysSinceFriday = (dayOfWeek + 2) % 7;
+  
+  if (dayOfWeek === 5 && hourOfDay < 18) {
+    daysSinceFriday = 7;
+  }
+  
+  const weekStart = new Date(estTime);
+  weekStart.setDate(estTime.getDate() - daysSinceFriday);
+  weekStart.setHours(18, 0, 0, 0);
+  
+  return weekStart;
+}
 
-const publicClient = createPublicClient({
-  chain: base,
-  transport: http(),
-});
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Get most recent game
-    const { data: recentGame, error } = await supabase
-      .from('flappy_games')
-      .select('username, score, pfp_url')
-      .order('created_at', { ascending: false })
+    const weekStart = getWeekStart();
+    const weekStartISO = weekStart.toISOString();
+
+    // Get most recent player
+    const { data: recentScore, error: recentError } = await supabase
+      .from("flappy_scores")
+      .select("username, score, pfp_url")
+      .order("created_at", { ascending: false })
       .limit(1)
       .single();
-    
-    if (error && error.code !== 'PGRST116') {
-      console.error('Failed to fetch recent game:', error);
+
+    // Get games played this week
+    const { count: gamesThisWeek, error: countError } = await supabase
+      .from("flappy_scores")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", weekStartISO);
+
+    // Get prize pool (sum of entry fees this week)
+    const { data: prizeData, error: prizeError } = await supabase
+      .from("flappy_scores")
+      .select("entry_fee")
+      .gte("created_at", weekStartISO);
+
+    let prizePool = 0;
+    if (prizeData) {
+      prizePool = prizeData.reduce((sum, row) => sum + (row.entry_fee || 0), 0);
     }
-    
-    // Get prize pool from contract
-    let prizePool = "0";
-    try {
-      const poolData = await publicClient.readContract({
-        address: FLAPPY_POOL_ADDRESS,
-        abi: FLAPPY_POOL_ABI,
-        functionName: 'getPrizePool',
-      });
-      prizePool = Number(formatUnits(poolData, 18)).toFixed(2);
-    } catch (e) {
-      console.error('Failed to fetch prize pool:', e);
-    }
-    
+
     return NextResponse.json({
-      recentPlayer: recentGame ? {
-        username: recentGame.username,
-        score: recentGame.score,
-        pfpUrl: recentGame.pfp_url,
+      recentPlayer: recentScore ? {
+        username: recentScore.username,
+        score: recentScore.score,
+        pfpUrl: recentScore.pfp_url,
       } : null,
-      prizePool,
+      gamesThisWeek: gamesThisWeek || 0,
+      prizePool: prizePool.toFixed(2),
     });
-  } catch (error) {
-    console.error('Failed to fetch recent data:', error);
-    return NextResponse.json({ recentPlayer: null, prizePool: "0" });
+  } catch (error: any) {
+    console.error("[Flappy Recent] Error:", error);
+    return NextResponse.json(
+      { error: error.message, recentPlayer: null, gamesThisWeek: 0, prizePool: "0" },
+      { status: 500 }
+    );
   }
 }
