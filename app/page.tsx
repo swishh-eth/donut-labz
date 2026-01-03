@@ -32,7 +32,7 @@ const FEE_SPLITTER = "0xcB2604D87fe3e5b6fe33C5d5Ff05781602357D59" as Address;
 const SPRINKLES_TOKEN = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as Address;
 
 const DEADLINE_BUFFER_SECONDS = 5 * 60;
-const SPRINKLES_MIN_BALANCE = 10000n * 10n ** 18n; // 10,000 SPRINKLES
+const SPRINKLES_MIN_BALANCE = 100000n * 10n ** 18n; // 100,000 SPRINKLES
 
 const ERC20_ABI = [
   {
@@ -1612,7 +1612,7 @@ export default function HomePage() {
                           }}
                           className="flex items-center gap-2 font-bold text-sm text-pink-400 hover:text-pink-300 transition-colors"
                         >
-                          <span>HOLD 10,000 $SPRINKLES</span>
+                          <span>HOLD 100,000 $SPRINKLES</span>
                           <ExternalLink className="w-4 h-4" />
                         </button>
                       </div>
