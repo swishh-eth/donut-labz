@@ -144,7 +144,7 @@ const formatTokenAmount = (
 // Coin image component for SPRINKLES
 const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-full h-full object-cover" />
+    <img src="/media/icon.png" alt="SPRINKLES" className="w-full h-full object-cover" />
   </span>
 );
 
@@ -1434,16 +1434,16 @@ export default function HomePage() {
                       : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
                   }}
                 >
-                  {/* Stacked background icons - sprinkles and donut offset */}
-                  <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    {/* Sprinkles icon - back/top */}
+                  {/* Stacked background icons - sprinkles and donut side by side */}
+                  <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none flex items-center">
+                    {/* Sprinkles icon - left */}
                     <span className={cn(
-                      "absolute -top-10 -right-1 w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50",
+                      "w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 -mr-6",
                       isBurnProfitable ? "opacity-100" : "opacity-15"
                     )}>
-                      <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
+                      <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
                     </span>
-                    {/* Donut icon - front/bottom */}
+                    {/* Donut icon - right */}
                     <span className={cn(
                       "w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50",
                       isBurnProfitable ? "opacity-100" : "opacity-10"
@@ -1522,7 +1522,7 @@ export default function HomePage() {
                             ? "opacity-100"
                             : "opacity-10"
                     )}>
-                      <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
+                      <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
                     </span>
                   </div>
                   
