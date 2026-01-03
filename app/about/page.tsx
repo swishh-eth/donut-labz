@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Sparkles, ArrowRight, Dices, TrendingUp, Link2, Coins } from "lucide-react";
+import { Sparkles, ArrowRight, Dices, TrendingUp, Link2, Coins, Flame } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -14,6 +14,166 @@ type MiniAppContext = {
     pfpUrl?: string;
   };
 };
+
+// DONUT token address on Base
+const DONUT_TOKEN = "0x7A5457f5A05a20008830f0d673e49655C5528f95";
+const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD";
+
+// Base RPC endpoints with fallbacks
+const BASE_RPCS = [
+  "https://mainnet.base.org",
+  "https://base.llamarpc.com",
+  "https://base.drpc.org",
+  "https://base-mainnet.public.blastapi.io",
+];
+
+// ERC20 balanceOf ABI fragment
+const BALANCE_OF_ABI = "0x70a08231";
+
+// Fetch burned DONUT balance with fallbacks
+async function fetchBurnedBalance(): Promise<bigint> {
+  const paddedAddress = DEAD_ADDRESS.slice(2).padStart(64, '0');
+  const data = BALANCE_OF_ABI + paddedAddress;
+  
+  for (const rpc of BASE_RPCS) {
+    try {
+      const response = await fetch(rpc, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'eth_call',
+          params: [{ to: DONUT_TOKEN, data }, 'latest']
+        })
+      });
+      
+      const result = await response.json();
+      if (result.result) {
+        return BigInt(result.result);
+      }
+    } catch (e) {
+      console.warn(`RPC ${rpc} failed:`, e);
+      continue;
+    }
+  }
+  
+  return 0n;
+}
+
+// Format large numbers with commas
+function formatBurnedAmount(amount: bigint): string {
+  // DONUT has 18 decimals
+  const value = Number(amount) / 1e18;
+  return Math.floor(value).toLocaleString('en-US');
+}
+
+// Falling Sprinkles Animation Component
+function FallingSprinkles() {
+  const sprinkles = Array.from({ length: 8 }, (_, i) => ({
+    id: i,
+    left: `${10 + (i * 12) % 80}%`,
+    delay: `${i * 0.4}s`,
+    duration: `${3 + (i % 3)}s`,
+    size: 12 + (i % 3) * 4,
+  }));
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {sprinkles.map((s) => (
+        <div
+          key={s.id}
+          className="absolute animate-fall"
+          style={{
+            left: s.left,
+            animationDelay: s.delay,
+            animationDuration: s.duration,
+          }}
+        >
+          <span 
+            className="rounded-full overflow-hidden inline-flex items-center justify-center ring-1 ring-zinc-500/50"
+            style={{ width: s.size, height: s.size }}
+          >
+            <img src="/media/icon.png" alt="" className="w-full h-full object-cover opacity-40" />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Burn Counter Tile Component
+function BurnCounterTile({ burnedAmount, isLoading }: { burnedAmount: bigint; isLoading: boolean }) {
+  const [displayAmount, setDisplayAmount] = useState(0);
+  const targetAmount = Number(burnedAmount) / 1e18;
+  
+  // Animated counter effect
+  useEffect(() => {
+    if (isLoading || targetAmount === 0) return;
+    
+    const startAmount = Math.max(0, targetAmount - 1000); // Start 1000 behind for animation
+    const duration = 2000; // 2 second animation
+    const startTime = Date.now();
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = startAmount + (targetAmount - startAmount) * eased;
+      setDisplayAmount(Math.floor(current));
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    
+    animate();
+  }, [targetAmount, isLoading]);
+
+  // Slow increment effect (simulates live burning)
+  useEffect(() => {
+    if (isLoading || displayAmount === 0) return;
+    
+    const interval = setInterval(() => {
+      setDisplayAmount(prev => prev + Math.floor(Math.random() * 3) + 1);
+    }, 2000 + Math.random() * 3000);
+    
+    return () => clearInterval(interval);
+  }, [isLoading, displayAmount]);
+
+  return (
+    <div
+      className="burn-counter-tile relative w-full rounded-2xl border-2 border-green-500/50 overflow-hidden"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(22,163,74,0.1) 100%)' }}
+    >
+      {/* Falling sprinkles background */}
+      <FallingSprinkles />
+      
+      <div className="relative z-10 p-4">
+        <div className="text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Flame className="w-5 h-5 text-green-400" />
+            <span className="font-bold text-sm text-green-400 uppercase tracking-wide">DONUT Burned</span>
+            <Flame className="w-5 h-5 text-green-400" />
+          </div>
+          
+          <div className="font-mono text-3xl font-bold text-white mb-1">
+            {isLoading ? (
+              <span className="text-green-400/50">Loading...</span>
+            ) : (
+              <span className="tabular-nums">{displayAmount.toLocaleString('en-US')}</span>
+            )}
+          </div>
+          
+          <div className="text-[10px] text-green-200/60">
+            Permanently removed from circulation
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Coin image component for DONUT
 const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
@@ -32,7 +192,7 @@ const PeeplesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
 // Coin image component for ECO
 const EcoCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/eco_1.jpg" alt="ECO" className="w-full h-full object-cover scale-[1.7]" />
+    <img src="/coins/eco_1.png" alt="ECO" className="w-full h-full object-cover scale-[1.2]" />
   </span>
 );
 
@@ -266,6 +426,27 @@ export default function AboutPage() {
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
   const [showComingSoon, setShowComingSoon] = useState(false);
+  const [burnedAmount, setBurnedAmount] = useState<bigint>(0n);
+  const [isBurnLoading, setIsBurnLoading] = useState(true);
+
+  // Fetch burned DONUT amount
+  useEffect(() => {
+    const fetchBurned = async () => {
+      setIsBurnLoading(true);
+      try {
+        const amount = await fetchBurnedBalance();
+        setBurnedAmount(amount);
+      } catch (e) {
+        console.error("Failed to fetch burned amount:", e);
+      }
+      setIsBurnLoading(false);
+    };
+    
+    fetchBurned();
+    // Refresh every 5 minutes
+    const interval = setInterval(fetchBurned, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -351,6 +532,25 @@ export default function AboutPage() {
         .animate-tilePopIn {
           animation: tilePopIn 0.3s ease-out forwards;
         }
+        @keyframes fall {
+          0% {
+            transform: translateY(-20px) rotate(0deg);
+            opacity: 0;
+          }
+          10% {
+            opacity: 0.6;
+          }
+          90% {
+            opacity: 0.6;
+          }
+          100% {
+            transform: translateY(120px) rotate(180deg);
+            opacity: 0;
+          }
+        }
+        .animate-fall {
+          animation: fall linear infinite;
+        }
       `}</style>
 
       <div
@@ -435,10 +635,18 @@ export default function AboutPage() {
             }}
           >
             <div className="space-y-3 pb-4">
-              {/* What is $DONUT Tile */}
+              {/* Burn Counter Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!hasAnimatedIn ? { opacity: 0, animationDelay: '0ms', animationFillMode: 'forwards' } : {}}
+              >
+                <BurnCounterTile burnedAmount={burnedAmount} isLoading={isBurnLoading} />
+              </div>
+
+              {/* What is $DONUT Tile */}
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}
               >
                 <DonutInfoTile onClick={() => window.location.href = "/about/donut"} />
               </div>
@@ -446,7 +654,7 @@ export default function AboutPage() {
               {/* What is $SPRINKLES Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
               >
                 <SprinklesInfoTile onClick={() => window.location.href = "/about/sprinkles"} />
               </div>
@@ -454,7 +662,7 @@ export default function AboutPage() {
               {/* Revenue Flow Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
               >
                 <RevenueFlowTile onClick={() => window.location.href = "/about/revenue"} />
               </div>
@@ -462,7 +670,7 @@ export default function AboutPage() {
               {/* Links & Contracts Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}
               >
                 <LinksContractsTile onClick={() => window.location.href = "/about/links-contracts"} />
               </div>
@@ -470,7 +678,7 @@ export default function AboutPage() {
               {/* Donut Dashboard Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '250ms', animationFillMode: 'forwards' } : {}}
               >
                 <DonutDashboardTile onClick={async () => {
                   try {
@@ -484,7 +692,7 @@ export default function AboutPage() {
               {/* Sprinkles Dashboard Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '250ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '300ms', animationFillMode: 'forwards' } : {}}
               >
                 <SprinklesDashboardTile 
                   showComingSoon={showComingSoon}
