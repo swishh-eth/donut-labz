@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Sparkles, ArrowRight, Dices, TrendingUp, Link2, Coins, Flame } from "lucide-react";
+import { Sparkles, ArrowRight, Dices, TrendingUp, Link2, Coins } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -15,8 +15,8 @@ type MiniAppContext = {
   };
 };
 
-// DONUT token address on Base
-const DONUT_TOKEN = "0x7A5457f5A05a20008830f0d673e49655C5528f95";
+// SPRINKLES token address on Base
+const SPRINKLES_TOKEN = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
 const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
 // Base RPC endpoints with fallbacks
@@ -30,7 +30,7 @@ const BASE_RPCS = [
 // ERC20 balanceOf ABI fragment
 const BALANCE_OF_ABI = "0x70a08231";
 
-// Fetch burned DONUT balance with fallbacks
+// Fetch burned SPRINKLES balance with fallbacks
 async function fetchBurnedBalance(): Promise<bigint> {
   const paddedAddress = DEAD_ADDRESS.slice(2).padStart(64, '0');
   const data = BALANCE_OF_ABI + paddedAddress;
@@ -44,7 +44,7 @@ async function fetchBurnedBalance(): Promise<bigint> {
           jsonrpc: '2.0',
           id: 1,
           method: 'eth_call',
-          params: [{ to: DONUT_TOKEN, data }, 'latest']
+          params: [{ to: SPRINKLES_TOKEN, data }, 'latest']
         })
       });
       
@@ -63,7 +63,7 @@ async function fetchBurnedBalance(): Promise<bigint> {
 
 // Format large numbers with commas
 function formatBurnedAmount(amount: bigint): string {
-  // DONUT has 18 decimals
+  // SPRINKLES has 18 decimals
   const value = Number(amount) / 1e18;
   return Math.floor(value).toLocaleString('en-US');
 }
@@ -151,14 +151,12 @@ function BurnCounterTile({ burnedAmount, isLoading }: { burnedAmount: bigint; is
       <FallingSprinkles />
       
       <div className="relative z-10 p-4">
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Flame className="w-5 h-5 text-green-400" />
-            <span className="font-bold text-sm text-green-400 uppercase tracking-wide">DONUT Burned</span>
-            <Flame className="w-5 h-5 text-green-400" />
+        <div className="text-left">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-bold text-base text-green-400">SPRINKLES BURNED</span>
           </div>
           
-          <div className="font-mono text-3xl font-bold text-white mb-1">
+          <div className="font-mono text-2xl font-bold text-white mb-1">
             {isLoading ? (
               <span className="text-green-400/50">Loading...</span>
             ) : (
@@ -429,7 +427,7 @@ export default function AboutPage() {
   const [burnedAmount, setBurnedAmount] = useState<bigint>(0n);
   const [isBurnLoading, setIsBurnLoading] = useState(true);
 
-  // Fetch burned DONUT amount
+  // Fetch burned SPRINKLES amount
   useEffect(() => {
     const fetchBurned = async () => {
       setIsBurnLoading(true);
