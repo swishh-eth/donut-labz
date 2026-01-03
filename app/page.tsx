@@ -983,41 +983,54 @@ export default function HomePage() {
     if (splitResultTimeoutRef.current) clearTimeout(splitResultTimeoutRef.current);
     setSplitResult(result);
     
-    // Play haptic and sound on success/rewarded
+    // Play haptic melody and sound on success/rewarded
     if (result === "success" || result === "rewarded") {
-      // Haptic feedback - try multiple API patterns
-      try {
-        const actions = sdk.actions as any;
-        if (actions.hapticFeedback) {
-          actions.hapticFeedback({ impactStyle: "medium" }).catch(() => {});
-        } else if (actions.haptic) {
-          actions.haptic("medium").catch(() => {});
+      // Haptic feedback melody - fire multiple times
+      const playHapticMelody = async () => {
+        try {
+          const actions = sdk.actions as any;
+          const haptic = actions.hapticFeedback || actions.haptic;
+          if (haptic) {
+            // Play a quick melody pattern
+            await haptic({ impactStyle: "light" }).catch(() => {});
+            await new Promise(r => setTimeout(r, 100));
+            await haptic({ impactStyle: "medium" }).catch(() => {});
+            await new Promise(r => setTimeout(r, 100));
+            await haptic({ impactStyle: "heavy" }).catch(() => {});
+            await new Promise(r => setTimeout(r, 150));
+            await haptic({ impactStyle: "medium" }).catch(() => {});
+          }
+        } catch {
+          // Fallback to vibration API pattern
+          if (navigator.vibrate) navigator.vibrate([30, 50, 50, 50, 80, 80, 50]);
         }
-      } catch {
-        // Fallback to vibration API if available
-        if (navigator.vibrate) navigator.vibrate(50);
-      }
+      };
+      playHapticMelody();
       
-      // Play claim sound
+      // Play soothing success chime using Web Audio API
       try {
-        const audio = new Audio("/sounds/claim.mp3");
-        audio.volume = 0.5;
-        audio.play().catch(() => {
-          // Fallback: generate a simple success tone
-          try {
-            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            oscillator.frequency.value = 880;
-            oscillator.type = "sine";
-            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-            oscillator.start(audioCtx.currentTime);
-            oscillator.stop(audioCtx.currentTime + 0.3);
-          } catch {}
-        });
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        
+        // Create a pleasant ascending chime
+        const playNote = (freq: number, startTime: number, duration: number, volume: number) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.frequency.value = freq;
+          osc.type = "sine";
+          gain.gain.setValueAtTime(0, audioCtx.currentTime + startTime);
+          gain.gain.linearRampToValueAtTime(volume, audioCtx.currentTime + startTime + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + startTime + duration);
+          osc.start(audioCtx.currentTime + startTime);
+          osc.stop(audioCtx.currentTime + startTime + duration);
+        };
+        
+        // Pleasant ascending chord: C5 -> E5 -> G5 -> C6
+        playNote(523.25, 0, 0.3, 0.15);      // C5
+        playNote(659.25, 0.08, 0.3, 0.12);   // E5
+        playNote(783.99, 0.16, 0.35, 0.1);   // G5
+        playNote(1046.5, 0.24, 0.5, 0.08);   // C6
       } catch {}
     }
     
@@ -1544,11 +1557,9 @@ export default function HomePage() {
                 className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '125ms', animationFillMode: 'forwards' } : {})}
               >
-                <button
-                  onClick={handleSplit}
-                  disabled={isSplitWriting || isSplitConfirming || splitResult !== null || showNothingToSplit || showMustHoldSprinkles}
+                <div
                   className={cn(
-                    "relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]",
+                    "relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300",
                     splitResult === "rewarded"
                       ? "border-green-500/50"
                       : splitResult === "success"
@@ -1586,94 +1597,102 @@ export default function HomePage() {
                     </span>
                   </div>
                   
-                  <div className="relative z-10 p-4 pr-16">
-                    <div className="text-left relative">
-                      {/* Nothing to Split Message */}
-                      <div className={cn(
-                        "absolute inset-0 flex items-center transition-opacity duration-300",
-                        showNothingToSplit ? "opacity-100" : "opacity-0 pointer-events-none"
-                      )}>
-                        <span className="font-bold text-base text-gray-400">NOTHING TO SPLIT</span>
-                      </div>
-                      
-                      {/* Must Hold SPRINKLES Message */}
-                      <div className={cn(
-                        "absolute inset-0 flex items-center transition-opacity duration-300",
-                        showMustHoldSprinkles ? "opacity-100" : "opacity-0 pointer-events-none"
-                      )}>
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            try {
-                              await sdk.actions.openUrl({ url: "https://warpcast.com/~/token/eip155:8453/0xa890060be1788a676dbc3894160f5dc5ded2c98d" });
-                            } catch {
-                              window.open("https://warpcast.com/~/token/eip155:8453/0xa890060be1788a676dbc3894160f5dc5ded2c98d", "_blank");
-                            }
-                          }}
-                          className="flex items-center gap-2 font-bold text-sm text-pink-400 hover:text-pink-300 transition-colors"
-                        >
-                          <span>HOLD 100,000 $SPRINKLES</span>
-                          <ExternalLink className="w-4 h-4" />
-                        </button>
-                      </div>
-                      
-                      {/* Normal Content */}
-                      <div className={cn(
-                        "transition-opacity duration-300",
-                        (showNothingToSplit || showMustHoldSprinkles) ? "opacity-0" : "opacity-100"
-                      )}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={cn(
-                            "font-bold text-base",
-                            splitResult === "rewarded" || splitResult === "success"
-                              ? "text-green-400"
-                              : splitResult === "failure"
-                                ? "text-red-400"
-                                : splitterBalance && splitterBalance > 0n
-                                  ? "text-pink-400"
-                                  : "text-gray-500"
-                          )}>
-                            {splitResult === "rewarded" 
-                              ? <span className="flex items-center gap-1"><SprinklesCoin className="w-4 h-4" /> +100 SPRINKLES!</span>
-                              : splitResult === "success"
-                                ? "Split Complete!"
-                                : splitResult === "failure"
-                                  ? "Split Failed"
-                                  : isSplitWriting || isSplitConfirming
-                                    ? "Splitting..."
-                                    : "Split to Earn"}
-                          </span>
-                          {splitterBalance && splitterBalance > 0n && !splitResult && !isSplitWriting && !isSplitConfirming && (
-                            <span className="text-[9px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded font-bold">
-                              READY
-                            </span>
-                          )}
-                        </div>
+                  {/* Main clickable area */}
+                  <button
+                    onClick={handleSplit}
+                    disabled={isSplitWriting || isSplitConfirming || splitResult !== null || showNothingToSplit || showMustHoldSprinkles}
+                    className="w-full h-full text-left active:scale-[0.98] transition-transform disabled:active:scale-100"
+                  >
+                    <div className="relative z-10 p-4 pr-16">
+                      <div className="text-left relative">
+                        {/* Nothing to Split Message */}
                         <div className={cn(
-                          "text-[10px]",
-                          splitResult === "rewarded" || splitResult === "success"
-                            ? "text-green-200/60"
-                            : splitResult === "failure"
-                              ? "text-red-200/60"
-                              : splitterBalance && splitterBalance > 0n
-                                ? "text-pink-200/60"
-                                : "text-gray-600"
+                          "absolute inset-0 flex items-center transition-opacity duration-300",
+                          showNothingToSplit ? "opacity-100" : "opacity-0 pointer-events-none"
                         )}>
-                          {splitResult === "rewarded"
-                            ? "Reward sent to your wallet"
-                            : splitterBalance && splitterBalance > 0n
-                              ? <span className="flex items-center gap-1">{formatTokenAmount(splitterBalance, 18, 0)} DONUT ready to split • Earn 100 <SprinklesCoin className="w-3 h-3 inline" /></span>
-                              : timeSinceLastSplit 
-                                ? `Last split ${timeSinceLastSplit}`
-                                : "No splits yet"}
+                          <span className="font-bold text-base text-gray-400">NOTHING TO SPLIT</span>
                         </div>
-                        <div className="text-[8px] text-gray-500 mt-1">
-                          Split miner revenue fees for the Sprinkles App
+                        
+                        {/* Normal Content */}
+                        <div className={cn(
+                          "transition-opacity duration-300",
+                          (showNothingToSplit || showMustHoldSprinkles) ? "opacity-0" : "opacity-100"
+                        )}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={cn(
+                              "font-bold text-base",
+                              splitResult === "rewarded" || splitResult === "success"
+                                ? "text-green-400"
+                                : splitResult === "failure"
+                                  ? "text-red-400"
+                                  : splitterBalance && splitterBalance > 0n
+                                    ? "text-pink-400"
+                                    : "text-gray-500"
+                            )}>
+                              {splitResult === "rewarded" 
+                                ? <span className="flex items-center gap-1"><SprinklesCoin className="w-4 h-4" /> +100 SPRINKLES!</span>
+                                : splitResult === "success"
+                                  ? "Split Complete!"
+                                  : splitResult === "failure"
+                                    ? "Split Failed"
+                                    : isSplitWriting || isSplitConfirming
+                                      ? "Splitting..."
+                                      : "Split to Earn"}
+                            </span>
+                            {splitterBalance && splitterBalance > 0n && !splitResult && !isSplitWriting && !isSplitConfirming && (
+                              <span className="text-[9px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded font-bold">
+                                READY
+                              </span>
+                            )}
+                          </div>
+                          <div className={cn(
+                            "text-[10px]",
+                            splitResult === "rewarded" || splitResult === "success"
+                              ? "text-green-200/60"
+                              : splitResult === "failure"
+                                ? "text-red-200/60"
+                                : splitterBalance && splitterBalance > 0n
+                                  ? "text-pink-200/60"
+                                  : "text-gray-600"
+                          )}>
+                            {splitResult === "rewarded"
+                              ? "Reward sent to your wallet"
+                              : splitterBalance && splitterBalance > 0n
+                                ? <span className="flex items-center gap-1">{formatTokenAmount(splitterBalance, 18, 0)} DONUT ready to split • Earn 100 <SprinklesCoin className="w-3 h-3 inline" /></span>
+                                : timeSinceLastSplit 
+                                  ? `Last split ${timeSinceLastSplit}`
+                                  : "No splits yet"}
+                          </div>
+                          <div className="text-[8px] text-gray-500 mt-1">
+                            Free to split • Gas only
+                          </div>
                         </div>
                       </div>
                     </div>
+                  </button>
+                  
+                  {/* Must Hold SPRINKLES Message - Overlay that's always clickable */}
+                  <div className={cn(
+                    "absolute inset-0 flex items-center p-4 transition-opacity duration-300 z-20",
+                    showMustHoldSprinkles ? "opacity-100" : "opacity-0 pointer-events-none"
+                  )}>
+                    <button
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        try {
+                          await sdk.actions.openUrl({ url: "https://warpcast.com/~/token/eip155:8453/0xa890060be1788a676dbc3894160f5dc5ded2c98d" });
+                        } catch {
+                          window.open("https://warpcast.com/~/token/eip155:8453/0xa890060be1788a676dbc3894160f5dc5ded2c98d", "_blank");
+                        }
+                      }}
+                      className="flex items-center gap-2 font-bold text-sm text-pink-400 hover:text-pink-300 active:scale-95 transition-all"
+                    >
+                      <span>HOLD 100,000 $SPRINKLES</span>
+                      <ExternalLink className="w-4 h-4" />
+                    </button>
                   </div>
-                </button>
+                </div>
               </div>
 
               {/* Pool To Own Tile */}
