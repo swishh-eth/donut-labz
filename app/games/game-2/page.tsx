@@ -7,8 +7,8 @@ import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
 import { Trophy, Play, Zap, Share2, X, HelpCircle, Volume2, VolumeX, ChevronRight, Clock, Layers, Palette, Lock, Crown, Sparkles, Check } from "lucide-react";
 
-// Free Arcade Contract (gas-only, no token payment)
-const FREE_ARCADE_CONTRACT = "0x9726D22F49274b575b1cd899868Aa10523A3E895" as const;
+// Free Arcade Contract (gas-only, no token payment) - Glaze Stack specific
+const FREE_ARCADE_CONTRACT = "0xca9f8dce3be5ee0e1d0eb327be8143e2f688fc91" as const;
 
 const FREE_ARCADE_ABI = [
   {
