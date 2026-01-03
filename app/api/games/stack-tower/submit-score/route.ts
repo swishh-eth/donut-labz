@@ -64,7 +64,6 @@ export async function POST(request: NextRequest) {
         score,
         username: username || entry.username,
         pfp_url: pfpUrl || entry.pfp_url,
-        completed_at: new Date().toISOString(),
       })
       .eq("id", entryId);
 
