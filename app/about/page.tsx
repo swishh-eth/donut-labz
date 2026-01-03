@@ -70,11 +70,11 @@ function formatBurnedAmount(amount: bigint): string {
 
 // Falling Sprinkles Animation Component
 function FallingSprinkles() {
-  const sprinkles = Array.from({ length: 8 }, (_, i) => ({
+  const sprinkles = Array.from({ length: 12 }, (_, i) => ({
     id: i,
-    left: `${10 + (i * 12) % 80}%`,
-    delay: `${i * 0.4}s`,
-    duration: `${3 + (i % 3)}s`,
+    left: `${5 + (i * 8) % 90}%`,
+    delay: `${i * 0.3}s`,
+    duration: `${4 + (i % 4)}s`,
     size: 12 + (i % 3) * 4,
   }));
 
@@ -86,6 +86,7 @@ function FallingSprinkles() {
           className="absolute animate-fall"
           style={{
             left: s.left,
+            top: '-60px',
             animationDelay: s.delay,
             animationDuration: s.duration,
           }}
@@ -102,45 +103,73 @@ function FallingSprinkles() {
   );
 }
 
+// Get milliseconds until/since 6PM EST today
+function getTimeSince6pmEST(): { msSince: number; msInDay: number } {
+  const now = new Date();
+  // EST is UTC-5 (ignoring DST for simplicity, or UTC-4 for EDT)
+  const estOffset = -5 * 60; // minutes
+  const utcNow = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+  const estNow = new Date(utcNow + estOffset * 60 * 1000);
+  
+  // Get 6PM EST today
+  const today6pm = new Date(estNow);
+  today6pm.setHours(18, 0, 0, 0);
+  
+  // If we're before 6PM, use yesterday's 6PM
+  if (estNow < today6pm) {
+    today6pm.setDate(today6pm.getDate() - 1);
+  }
+  
+  const msSince = estNow.getTime() - today6pm.getTime();
+  const msInDay = 24 * 60 * 60 * 1000;
+  
+  return { msSince, msInDay };
+}
+
 // Burn Counter Tile Component
 function BurnCounterTile({ burnedAmount, isLoading }: { burnedAmount: bigint; isLoading: boolean }) {
   const [displayAmount, setDisplayAmount] = useState(0);
-  const targetAmount = Number(burnedAmount) / 1e18;
+  const targetAmountRef = useRef(0);
+  const BURN_DELAY = 2_000_000; // Always behind by 2M
   
-  // Animated counter effect
+  // Calculate the display amount with 24-hour interpolation
   useEffect(() => {
-    if (isLoading || targetAmount === 0) return;
+    if (isLoading || burnedAmount === 0n) return;
     
-    const startAmount = Math.max(0, targetAmount - 1000); // Start 1000 behind for animation
-    const duration = 2000; // 2 second animation
-    const startTime = Date.now();
+    const realAmount = Number(burnedAmount) / 1e18;
+    const targetAmount = Math.max(0, realAmount - BURN_DELAY);
+    targetAmountRef.current = targetAmount;
     
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      // Ease out cubic
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const current = startAmount + (targetAmount - startAmount) * eased;
-      setDisplayAmount(Math.floor(current));
-      
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      }
-    };
+    // Estimate yesterday's burned amount (assume ~500k burned per day as baseline)
+    const estimatedDailyBurn = 500_000;
+    const { msSince, msInDay } = getTimeSince6pmEST();
+    const dayProgress = msSince / msInDay; // 0 to 1 over 24 hours
     
-    animate();
-  }, [targetAmount, isLoading]);
+    // Start amount is target minus estimated daily burn
+    const startAmount = Math.max(0, targetAmount - estimatedDailyBurn);
+    
+    // Interpolate based on time of day
+    const interpolatedAmount = startAmount + (targetAmount - startAmount) * dayProgress;
+    
+    setDisplayAmount(Math.floor(interpolatedAmount));
+  }, [burnedAmount, isLoading]);
 
-  // Slow increment effect (simulates live burning)
+  // Slow increment effect - adds small amounts continuously
   useEffect(() => {
-    if (isLoading || displayAmount === 0) return;
+    if (isLoading || targetAmountRef.current === 0) return;
     
+    // Update every 3 seconds with small random increments
     const interval = setInterval(() => {
-      setDisplayAmount(prev => prev + Math.floor(Math.random() * 3) + 1);
-    }, 2000 + Math.random() * 3000);
+      setDisplayAmount(prev => {
+        if (prev >= targetAmountRef.current) return prev;
+        const increment = Math.floor(Math.random() * 50) + 10; // 10-60 per tick
+        const newVal = prev + increment;
+        return Math.min(newVal, Math.floor(targetAmountRef.current));
+      });
+    }, 3000);
     
     return () => clearInterval(interval);
-  }, [isLoading, displayAmount]);
+  }, [isLoading, burnedAmount]);
 
   return (
     <div
@@ -532,17 +561,17 @@ export default function AboutPage() {
         }
         @keyframes fall {
           0% {
-            transform: translateY(-20px) rotate(0deg);
+            transform: translateY(0) rotate(0deg);
             opacity: 0;
           }
-          10% {
+          5% {
             opacity: 0.6;
           }
           90% {
             opacity: 0.6;
           }
           100% {
-            transform: translateY(120px) rotate(180deg);
+            transform: translateY(180px) rotate(180deg);
             opacity: 0;
           }
         }
