@@ -268,8 +268,8 @@ function HalvingCountdownTile() {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isComplete, setIsComplete] = useState(false);
   
-  // Next halving: January 7th, 2025 2:00 AM UTC
-  const HALVING_DATE = new Date('2025-01-07T02:00:00Z').getTime();
+  // Next halving: January 7th, 2026 2:00 AM UTC
+  const HALVING_DATE = new Date('2026-01-07T02:00:00Z').getTime();
   
   useEffect(() => {
     const calculateTimeLeft = () => {

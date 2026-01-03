@@ -285,7 +285,7 @@ export default function AboutSprinklesPage() {
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
           {/* Header */}
           <div className="flex-shrink-0">
-            <Header title="ABOUT SPRINKLES" user={context?.user} />
+            <Header title="SPRINKLES" user={context?.user} />
           </div>
 
           {/* Scrollable Content */}
