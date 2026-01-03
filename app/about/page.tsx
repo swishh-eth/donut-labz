@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Sparkles, ArrowRight, Dices, TrendingUp, Link2, Coins, BarChart3 } from "lucide-react";
+import { Sparkles, ArrowRight, Dices, TrendingUp, Link2, Coins } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -174,25 +174,27 @@ function LinksContractsTile({ onClick }: { onClick: () => void }) {
   );
 }
 
-// Dune Dashboard Tile Component
-function DuneDashboardTile({ onClick }: { onClick: () => void }) {
+// Donut Dashboard Tile Component
+function DonutDashboardTile({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="dune-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
+      className="donut-dashboard-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Large background chart symbol */}
+      {/* Large background donut coin logo */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <BarChart3 className="w-24 h-24 text-zinc-800" />
+        <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
+          <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover scale-[1.7]" />
+        </span>
       </div>
       
       <div className="relative z-10 p-4 pr-16">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-bold text-base text-white">Dune Dashboard</span>
+            <span className="font-bold text-base text-white">Donut Dashboard</span>
           </div>
-          <div className="text-[10px] text-white/60 mb-2">View analytics & on-chain data</div>
+          <div className="text-[10px] text-white/60 mb-2">View Dune analytics & on-chain data</div>
           
           <div className="flex items-center gap-3 text-[9px]">
             <span className="text-white/80">TVL</span>
@@ -207,12 +209,56 @@ function DuneDashboardTile({ onClick }: { onClick: () => void }) {
   );
 }
 
+// Sprinkles Dashboard Tile Component
+function SprinklesDashboardTile({ showComingSoon, onClick }: { showComingSoon: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="sprinkles-dashboard-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] opacity-60"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+    >
+      {/* Large background sprinkles coin logo - faded */}
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 opacity-30">
+          <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
+        </span>
+      </div>
+      
+      <div className="relative z-10 p-4 pr-16">
+        <div className="text-left relative">
+          {/* Coming Soon Message */}
+          <div className={`absolute inset-0 flex items-center transition-opacity duration-300 ${showComingSoon ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+            <span className="font-bold text-base text-gray-400">COMING SOON</span>
+          </div>
+          
+          {/* Normal Content */}
+          <div className={`transition-opacity duration-300 ${showComingSoon ? "opacity-0" : "opacity-100"}`}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-bold text-base text-gray-500">Sprinkles Dashboard</span>
+            </div>
+            <div className="text-[10px] text-gray-600 mb-2">View Dune analytics & on-chain data</div>
+            
+            <div className="flex items-center gap-3 text-[9px]">
+              <span className="text-gray-600">TVL</span>
+              <ArrowRight className="w-3 h-3 text-gray-700" />
+              <span className="text-gray-600">Volume</span>
+              <ArrowRight className="w-3 h-3 text-gray-700" />
+              <span className="text-gray-600">Holders</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export default function AboutPage() {
   const readyRef = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
+  const [showComingSoon, setShowComingSoon] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -414,18 +460,34 @@ export default function AboutPage() {
                 <LinksContractsTile onClick={() => window.location.href = "/about/links-contracts"} />
               </div>
 
-              {/* Dune Dashboard Tile */}
+              {/* Donut Dashboard Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}
               >
-                <DuneDashboardTile onClick={async () => {
+                <DonutDashboardTile onClick={async () => {
                   try {
-                    await sdk.actions.openUrl({ url: "https://dune.com/chromium_donut_tech/donut-labs" });
+                    await sdk.actions.openUrl({ url: "https://dune.com/xyk/donut-company" });
                   } catch {
-                    window.open("https://dune.com/chromium_donut_tech/donut-labs", "_blank");
+                    window.open("https://dune.com/xyk/donut-company", "_blank");
                   }
                 }} />
+              </div>
+
+              {/* Sprinkles Dashboard Tile */}
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '250ms', animationFillMode: 'forwards' } : {}}
+              >
+                <SprinklesDashboardTile 
+                  showComingSoon={showComingSoon}
+                  onClick={() => {
+                    if (!showComingSoon) {
+                      setShowComingSoon(true);
+                      setTimeout(() => setShowComingSoon(false), 3000);
+                    }
+                  }} 
+                />
               </div>
             </div>
           </div>
