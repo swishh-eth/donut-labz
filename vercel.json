@@ -11,9 +11,16 @@
     },
     "app/api/cron/miners-distribute/route.ts": {
       "maxDuration": 120
+    },
+    "app/api/cron/fee-splitter/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [
+    {
+      "path": "/api/cron/fee-splitter",
+      "schedule": "*/10 * * * *"
+    },
     {
       "path": "/api/cron/flappy-distribute",
       "schedule": "0 23 * * 5"
@@ -28,7 +35,7 @@
     },
     {
       "path": "/api/cron/miners-distribute",
-      "schedule": "3 23 * * 5"
+      "schedule": "5 23 * * 5"
     }
   ]
 }

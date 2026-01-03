@@ -15,11 +15,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Use Alchemy RPC for reliability (public RPC has strict rate limits)
-const ALCHEMY_RPC_URL = process.env.ALCHEMY_API_KEY 
-  ? `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-  : process.env.BASE_RPC_URL || "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g";
-
 // Token addresses on Base
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
@@ -36,10 +31,12 @@ const SPRINKLES_DECIMALS = 18;
 // ============================================
 // CONFIGURE WEEKLY DISTRIBUTION AMOUNTS HERE
 // ============================================
+// USDC and SPRINKLES are FIXED amounts
+// DONUT uses the bot wallet's ENTIRE balance (accumulates from 0.5% SPRINKLES miner fee)
 const WEEKLY_DISTRIBUTION = {
-  USDC: 25,          // Total USDC to distribute this week
-  DONUT: 500,       // Total DONUT to distribute this week
-  SPRINKLES: 100000, // Total SPRINKLES to distribute this week
+  USDC: 50,           // Fixed USDC to distribute this week
+  SPRINKLES: 100000,  // Fixed SPRINKLES to distribute this week
+  // DONUT: uses full wallet balance - not configured here
 };
 
 // Prize distribution percentages for top 10
@@ -90,9 +87,8 @@ function getCurrentWeek(): number {
 }
 
 // Get the week that just ended (for distribution)
-// Cron fires at 23:03 UTC, week resets at 23:00 UTC, so we want the previous week
 function getWeekToDistribute(): number {
-  return Math.max(1, getCurrentWeek() - 1);
+  return Math.max(1, getCurrentWeek());
 }
 
 // Calculate prize amount for a given rank
@@ -100,25 +96,6 @@ function getPrizeForRank(rank: number, totalAmount: number): number {
   const prizeInfo = PRIZE_PERCENTAGES.find((p) => p.rank === rank);
   if (!prizeInfo) return 0;
   return (totalAmount * prizeInfo.percent) / 100;
-}
-
-// Retry wrapper for RPC calls
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  retries = 3,
-  delay = 1000
-): Promise<T> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await fn();
-    } catch (error: any) {
-      const isRateLimit = error?.message?.includes("429") || error?.message?.includes("rate limit");
-      if (i === retries - 1) throw error;
-      console.log(`[Retry ${i + 1}/${retries}] ${isRateLimit ? "Rate limited" : "Error"}, waiting ${delay}ms...`);
-      await new Promise((r) => setTimeout(r, delay * (i + 1))); // Exponential backoff
-    }
-  }
-  throw new Error("Max retries exceeded");
 }
 
 export async function POST(request: NextRequest) {
@@ -134,7 +111,6 @@ export async function POST(request: NextRequest) {
     const dryRun = body.dryRun === true;
 
     console.log(`[Miners Distribution] Starting for week ${weekNumber}, dryRun: ${dryRun}`);
-    console.log(`[Miners Distribution] Using RPC: ${ALCHEMY_RPC_URL.replace(/\/v2\/.*/, '/v2/***')}`);
 
     // Check if already distributed for this week
     const { data: existingDistribution } = await supabase
@@ -199,50 +175,52 @@ export async function POST(request: NextRequest) {
     // Setup public client to check balances
     const publicClient = createPublicClient({
       chain: base,
-      transport: http(ALCHEMY_RPC_URL),
+      transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org"),
     });
 
-    // Check bot wallet has enough funds for the configured distribution (with retry)
-    const [usdcBalance, donutBalance, sprinklesBalance] = await withRetry(() => 
-      Promise.all([
-        publicClient.readContract({
-          address: USDC_ADDRESS,
-          abi: ERC20_ABI,
-          functionName: "balanceOf",
-          args: [BOT_WALLET],
-        }),
-        publicClient.readContract({
-          address: DONUT_ADDRESS,
-          abi: ERC20_ABI,
-          functionName: "balanceOf",
-          args: [BOT_WALLET],
-        }),
-        publicClient.readContract({
-          address: SPRINKLES_ADDRESS,
-          abi: ERC20_ABI,
-          functionName: "balanceOf",
-          args: [BOT_WALLET],
-        }),
-      ])
-    );
+    // Get bot wallet balances
+    const [usdcBalance, donutBalance, sprinklesBalance] = await Promise.all([
+      publicClient.readContract({
+        address: USDC_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [BOT_WALLET],
+      }),
+      publicClient.readContract({
+        address: DONUT_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [BOT_WALLET],
+      }),
+      publicClient.readContract({
+        address: SPRINKLES_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [BOT_WALLET],
+      }),
+    ]);
 
     const walletUsdcBalance = parseFloat(formatUnits(usdcBalance, USDC_DECIMALS));
     const walletDonutBalance = parseFloat(formatUnits(donutBalance, DONUT_DECIMALS));
     const walletSprinklesBalance = parseFloat(formatUnits(sprinklesBalance, SPRINKLES_DECIMALS));
 
-    console.log(`[Miners Distribution] Wallet balances - USDC: ${walletUsdcBalance}, DONUT: ${walletDonutBalance}, SPRINKLES: ${walletSprinklesBalance}`);
-    console.log(`[Miners Distribution] Configured distribution - USDC: ${WEEKLY_DISTRIBUTION.USDC}, DONUT: ${WEEKLY_DISTRIBUTION.DONUT}, SPRINKLES: ${WEEKLY_DISTRIBUTION.SPRINKLES}`);
+    // DONUT distribution = ENTIRE wallet balance (accumulated from 0.5% miner fee)
+    const donutToDistribute = walletDonutBalance;
 
-    // Check sufficient balances
+    console.log(`[Miners Distribution] Wallet balances - USDC: ${walletUsdcBalance}, DONUT: ${walletDonutBalance}, SPRINKLES: ${walletSprinklesBalance}`);
+    console.log(`[Miners Distribution] Will distribute - USDC: ${WEEKLY_DISTRIBUTION.USDC} (fixed), DONUT: ${donutToDistribute} (full balance), SPRINKLES: ${WEEKLY_DISTRIBUTION.SPRINKLES} (fixed)`);
+
+    // Check sufficient balances for FIXED amounts (USDC and SPRINKLES)
     const insufficientFunds: string[] = [];
     if (walletUsdcBalance < WEEKLY_DISTRIBUTION.USDC) {
-      insufficientFunds.push(`USDC (need ${WEEKLY_DISTRIBUTION.USDC}, have ${walletUsdcBalance.toFixed(2)})`);
-    }
-    if (walletDonutBalance < WEEKLY_DISTRIBUTION.DONUT) {
-      insufficientFunds.push(`DONUT (need ${WEEKLY_DISTRIBUTION.DONUT}, have ${walletDonutBalance.toFixed(2)})`);
+      insufficientFunds.push(`USDC (need ${WEEKLY_DISTRIBUTION.USDC}, have ${walletUsdcBalance})`);
     }
     if (walletSprinklesBalance < WEEKLY_DISTRIBUTION.SPRINKLES) {
-      insufficientFunds.push(`SPRINKLES (need ${WEEKLY_DISTRIBUTION.SPRINKLES}, have ${walletSprinklesBalance.toFixed(2)})`);
+      insufficientFunds.push(`SPRINKLES (need ${WEEKLY_DISTRIBUTION.SPRINKLES}, have ${walletSprinklesBalance})`);
+    }
+    // DONUT: just warn if zero, but don't fail - it's variable
+    if (donutToDistribute <= 0) {
+      console.warn("[Miners Distribution] Warning: No DONUT to distribute");
     }
 
     if (insufficientFunds.length > 0) {
@@ -255,7 +233,11 @@ export async function POST(request: NextRequest) {
           donut: walletDonutBalance,
           sprinkles: walletSprinklesBalance,
         },
-        requiredAmounts: WEEKLY_DISTRIBUTION,
+        requiredAmounts: {
+          usdc: WEEKLY_DISTRIBUTION.USDC,
+          donut: "full balance",
+          sprinkles: WEEKLY_DISTRIBUTION.SPRINKLES,
+        },
       });
     }
 
@@ -276,9 +258,12 @@ export async function POST(request: NextRequest) {
       const rank = i + 1;
       const entry = sortedLeaderboard[i];
 
-      // Calculate prizes based on configured amounts
+      // Calculate prizes:
+      // - USDC: fixed configured amount
+      // - DONUT: full wallet balance distributed across percentages
+      // - SPRINKLES: fixed configured amount
       const usdcAmount = getPrizeForRank(rank, WEEKLY_DISTRIBUTION.USDC).toFixed(USDC_DECIMALS);
-      const donutAmount = getPrizeForRank(rank, WEEKLY_DISTRIBUTION.DONUT).toFixed(4);
+      const donutAmount = getPrizeForRank(rank, donutToDistribute).toFixed(4);
       const sprinklesAmount = getPrizeForRank(rank, WEEKLY_DISTRIBUTION.SPRINKLES).toFixed(4);
 
       distributions.push({
@@ -298,7 +283,11 @@ export async function POST(request: NextRequest) {
         success: true,
         dryRun: true,
         weekNumber,
-        configuredDistribution: WEEKLY_DISTRIBUTION,
+        configuredDistribution: {
+          USDC: WEEKLY_DISTRIBUTION.USDC,
+          DONUT: donutToDistribute, // Show actual amount to distribute
+          SPRINKLES: WEEKLY_DISTRIBUTION.SPRINKLES,
+        },
         walletBalances: {
           usdc: walletUsdcBalance,
           donut: walletDonutBalance,
@@ -326,17 +315,17 @@ export async function POST(request: NextRequest) {
     const walletClient = createWalletClient({
       account,
       chain: base,
-      transport: http(ALCHEMY_RPC_URL),
+      transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org"),
     });
 
-    // Send prizes - wait for each tx to confirm before sending next
+    // Send prizes
     const errors: { rank: number; token: string; error: string }[] = [];
 
     for (const dist of distributions) {
       // Send USDC
       if (parseFloat(dist.usdcAmount) > 0) {
         try {
-          const hash = await withRetry(() => walletClient.writeContract({
+          const hash = await walletClient.writeContract({
             address: USDC_ADDRESS,
             abi: ERC20_ABI,
             functionName: "transfer",
@@ -344,21 +333,20 @@ export async function POST(request: NextRequest) {
               dist.address as `0x${string}`,
               parseUnits(dist.usdcAmount, USDC_DECIMALS),
             ],
-          }));
+          });
           dist.txHashes.push(hash);
           console.log(`[Miners Distribution] Sent ${dist.usdcAmount} USDC to rank ${dist.rank}: ${hash}`);
-          // Wait for confirmation before next tx
-          await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+          await new Promise((r) => setTimeout(r, 500));
         } catch (err: any) {
           console.error(`Failed to send USDC to rank ${dist.rank}:`, err);
           errors.push({ rank: dist.rank, token: "USDC", error: err.message });
         }
       }
 
-      // Send DONUT
+      // Send DONUT (full balance distributed)
       if (parseFloat(dist.donutAmount) > 0) {
         try {
-          const hash = await withRetry(() => walletClient.writeContract({
+          const hash = await walletClient.writeContract({
             address: DONUT_ADDRESS,
             abi: ERC20_ABI,
             functionName: "transfer",
@@ -366,11 +354,10 @@ export async function POST(request: NextRequest) {
               dist.address as `0x${string}`,
               parseUnits(dist.donutAmount, DONUT_DECIMALS),
             ],
-          }));
+          });
           dist.txHashes.push(hash);
           console.log(`[Miners Distribution] Sent ${dist.donutAmount} DONUT to rank ${dist.rank}: ${hash}`);
-          // Wait for confirmation before next tx
-          await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+          await new Promise((r) => setTimeout(r, 500));
         } catch (err: any) {
           console.error(`Failed to send DONUT to rank ${dist.rank}:`, err);
           errors.push({ rank: dist.rank, token: "DONUT", error: err.message });
@@ -380,7 +367,7 @@ export async function POST(request: NextRequest) {
       // Send SPRINKLES
       if (parseFloat(dist.sprinklesAmount) > 0) {
         try {
-          const hash = await withRetry(() => walletClient.writeContract({
+          const hash = await walletClient.writeContract({
             address: SPRINKLES_ADDRESS,
             abi: ERC20_ABI,
             functionName: "transfer",
@@ -388,11 +375,10 @@ export async function POST(request: NextRequest) {
               dist.address as `0x${string}`,
               parseUnits(dist.sprinklesAmount, SPRINKLES_DECIMALS),
             ],
-          }));
+          });
           dist.txHashes.push(hash);
           console.log(`[Miners Distribution] Sent ${dist.sprinklesAmount} SPRINKLES to rank ${dist.rank}: ${hash}`);
-          // Wait for confirmation before next tx
-          await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+          await new Promise((r) => setTimeout(r, 500));
         } catch (err: any) {
           console.error(`Failed to send SPRINKLES to rank ${dist.rank}:`, err);
           errors.push({ rank: dist.rank, token: "SPRINKLES", error: err.message });
@@ -436,7 +422,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       weekNumber,
-      configuredDistribution: WEEKLY_DISTRIBUTION,
+      configuredDistribution: {
+        USDC: WEEKLY_DISTRIBUTION.USDC,
+        DONUT: donutToDistribute,
+        SPRINKLES: WEEKLY_DISTRIBUTION.SPRINKLES,
+      },
       distributions,
       errors: errors.length > 0 ? errors : undefined,
       totals: {
@@ -461,32 +451,32 @@ export async function GET(request: NextRequest) {
   // Setup public client
   const publicClient = createPublicClient({
     chain: base,
-    transport: http(ALCHEMY_RPC_URL),
+    transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org"),
   });
 
-  // Get wallet balances (with retry)
-  const [usdcBalance, donutBalance, sprinklesBalance] = await withRetry(() =>
-    Promise.all([
-      publicClient.readContract({
-        address: USDC_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "balanceOf",
-        args: [BOT_WALLET],
-      }),
-      publicClient.readContract({
-        address: DONUT_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "balanceOf",
-        args: [BOT_WALLET],
-      }),
-      publicClient.readContract({
-        address: SPRINKLES_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "balanceOf",
-        args: [BOT_WALLET],
-      }),
-    ])
-  );
+  // Get wallet balances
+  const [usdcBalance, donutBalance, sprinklesBalance] = await Promise.all([
+    publicClient.readContract({
+      address: USDC_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [BOT_WALLET],
+    }),
+    publicClient.readContract({
+      address: DONUT_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [BOT_WALLET],
+    }),
+    publicClient.readContract({
+      address: SPRINKLES_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [BOT_WALLET],
+    }),
+  ]);
+
+  const walletDonutBalance = parseFloat(formatUnits(donutBalance, DONUT_DECIMALS));
 
   const walletBalances = {
     usdc: formatUnits(usdcBalance, USDC_DECIMALS),
@@ -498,9 +488,16 @@ export async function GET(request: NextRequest) {
   if (!week) {
     return NextResponse.json({
       currentWeek,
-      configuredDistribution: WEEKLY_DISTRIBUTION,
+      // configuredDistribution shows what WILL be distributed
+      // DONUT = full wallet balance (dynamic), USDC & SPRINKLES = fixed
+      configuredDistribution: {
+        USDC: WEEKLY_DISTRIBUTION.USDC,
+        DONUT: walletDonutBalance, // Current balance - this grows throughout the week
+        SPRINKLES: WEEKLY_DISTRIBUTION.SPRINKLES,
+      },
       walletBalances,
       prizePercentages: PRIZE_PERCENTAGES,
+      note: "DONUT distribution uses full wallet balance (accumulates from 0.5% SPRINKLES miner fee). USDC and SPRINKLES are fixed amounts.",
     });
   }
 
@@ -520,7 +517,11 @@ export async function GET(request: NextRequest) {
     distributed: !!data,
     distribution: data || null,
     currentWeek,
-    configuredDistribution: WEEKLY_DISTRIBUTION,
+    configuredDistribution: {
+      USDC: WEEKLY_DISTRIBUTION.USDC,
+      DONUT: walletDonutBalance,
+      SPRINKLES: WEEKLY_DISTRIBUTION.SPRINKLES,
+    },
     walletBalances,
   });
 }

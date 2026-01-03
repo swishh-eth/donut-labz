@@ -196,9 +196,10 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
 const handleShareToQualify = async () => {
   const estimatedAmount = getEstimatedAmount();
   const shareText = `Free-to-play arcade games just landed on Sprinkles by @swishh.eth
+$100+ in leaderboard prizes weekly! 🏆
 
-Climb the leaderboards. Earn DONUT, USDC, & SPRINKLES.
-🏆 $100+ in leaderboard prizes weekly!
+Climb the leaderboards & earn: 
+$DONUT, $USDC, & $SPRINKLES! 
 
 I just claimed
 ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
