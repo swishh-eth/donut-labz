@@ -948,6 +948,7 @@ export default function HomePage() {
 
   // Split to Earn state
   const [splitResult, setSplitResult] = useState<"success" | "failure" | "rewarded" | null>(null);
+  const [showNothingToSplit, setShowNothingToSplit] = useState(false);
   const splitResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
@@ -973,7 +974,11 @@ export default function HomePage() {
   }, []);
 
   const handleSplit = useCallback(async () => {
-    if (!splitterBalance || splitterBalance === 0n) return;
+    if (!splitterBalance || splitterBalance === 0n) {
+      setShowNothingToSplit(true);
+      setTimeout(() => setShowNothingToSplit(false), 2000);
+      return;
+    }
     
     try {
       let targetAddress = address;
@@ -1324,6 +1329,15 @@ export default function HomePage() {
         connectAsync={connectAsync}
       />
 
+      {/* Nothing to Split Popup */}
+      {showNothingToSplit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl px-6 py-4 shadow-2xl animate-in fade-in zoom-in duration-200">
+            <span className="text-white font-bold text-lg">NOTHING TO SPLIT</span>
+          </div>
+        </div>
+      )}
+
       <div
         className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4"
         style={{
@@ -1434,13 +1448,13 @@ export default function HomePage() {
                       : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
                   }}
                 >
-                  {/* Stacked background icons - sprinkles and donut side by side */}
-                  <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none flex items-center">
-                    {/* Sprinkles icon - left */}
-                    <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 -mr-4">
+                  {/* Stacked background icons - sprinkles behind donut */}
+                  <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                    {/* Sprinkles icon - behind */}
+                    <span className="absolute -left-12 top-1/2 -translate-y-1/2 w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
                       <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
                     </span>
-                    {/* Donut icon - right */}
+                    {/* Donut icon - front */}
                     <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
                       <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover scale-[1.7]" />
                     </span>
@@ -1480,7 +1494,7 @@ export default function HomePage() {
               >
                 <button
                   onClick={handleSplit}
-                  disabled={!splitterBalance || splitterBalance === 0n || isSplitWriting || isSplitConfirming || splitResult !== null}
+                  disabled={isSplitWriting || isSplitConfirming || splitResult !== null}
                   className={cn(
                     "relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]",
                     splitResult === "rewarded"
@@ -1491,7 +1505,7 @@ export default function HomePage() {
                           ? "border-red-500/50"
                           : splitterBalance && splitterBalance > 0n
                             ? "border-pink-500/50 hover:border-pink-500/80"
-                            : "border-white/20 opacity-60 cursor-not-allowed"
+                            : "border-white/20 hover:border-white/30"
                   )}
                   style={{ 
                     minHeight: '80px', 
