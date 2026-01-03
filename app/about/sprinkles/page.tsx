@@ -352,6 +352,20 @@ export default function AboutSprinklesPage() {
                 <p className="text-gray-500 italic mt-2">An onchain donut shop on Base.</p>
               </Section>
 
+              {/* Treasury */}
+              <Section
+                icon={<Building className="w-4 h-4 text-green-400" />}
+                title="Sprinkles Treasury"
+              >
+                <p>The Sprinkles Treasury stakes its DONUT holdings into the <span className="text-pink-400 font-semibold">Donut DAO's Liquid Staked Governance (LSG)</span>.</p>
+                <p className="mt-2">This generates yield in two ways:</p>
+                <div className="pl-2 border-l border-green-500/30 ml-1 space-y-1 mt-2">
+                  <p>• <span className="text-green-400 font-semibold">USDC</span> — Used to fund game reward pools</p>
+                  <p>• <span className="text-pink-400 font-semibold">DONUT</span> — Used to bolster SPRINKLES liquidity</p>
+                </div>
+                <p className="mt-2 text-gray-500 text-[10px]">LSG allows the treasury to earn yield while maintaining governance rights over the staked DONUT.</p>
+              </Section>
+
               {/* Leaderboard */}
               <Section
                 icon={<Trophy className="w-4 h-4 text-green-400" />}
