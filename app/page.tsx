@@ -11,7 +11,7 @@ import { Header } from "@/components/header";
 import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
-import { Flame, Droplets, Sparkles, X, Zap } from "lucide-react";
+import { Flame, Droplets, Sparkles, X, Zap, ExternalLink } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
 import { cn } from "@/lib/utils";
@@ -29,8 +29,10 @@ type MiniAppContext = {
 const SPRINKLES_LP_TOKEN = "0x47E8b03017d8b8d058bA5926838cA4dD4531e668" as Address;
 const SPRINKLES_AUCTION = "0xaCCeeB232556f20Ec6c0690938DBda936D153630" as Address;
 const FEE_SPLITTER = "0xcB2604D87fe3e5b6fe33C5d5Ff05781602357D59" as Address;
+const SPRINKLES_TOKEN = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as Address;
 
 const DEADLINE_BUFFER_SECONDS = 5 * 60;
+const SPRINKLES_MIN_BALANCE = 10000n * 10n ** 18n; // 10,000 SPRINKLES
 
 const ERC20_ABI = [
   {
@@ -913,6 +915,18 @@ export default function HomePage() {
     query: { refetchInterval: 30_000 },
   });
 
+  // User's SPRINKLES balance for split requirement
+  const { data: userSprinklesBalance } = useReadContract({
+    address: SPRINKLES_TOKEN,
+    abi: ERC20_ABI,
+    functionName: "balanceOf",
+    args: [address ?? zeroAddress],
+    chainId: base.id,
+    query: { refetchInterval: 30_000, enabled: !!address },
+  });
+
+  const hasEnoughSprinkles = userSprinklesBalance ? userSprinklesBalance >= SPRINKLES_MIN_BALANCE : false;
+
   // Calculate time since last split
   const [timeSinceLastSplit, setTimeSinceLastSplit] = useState<string>("");
   
@@ -949,6 +963,7 @@ export default function HomePage() {
   // Split to Earn state
   const [splitResult, setSplitResult] = useState<"success" | "failure" | "rewarded" | null>(null);
   const [showNothingToSplit, setShowNothingToSplit] = useState(false);
+  const [showMustHoldSprinkles, setShowMustHoldSprinkles] = useState(false);
   const splitResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
@@ -1013,6 +1028,13 @@ export default function HomePage() {
   }, []);
 
   const handleSplit = useCallback(async () => {
+    // Check if user has enough SPRINKLES
+    if (!hasEnoughSprinkles) {
+      setShowMustHoldSprinkles(true);
+      setTimeout(() => setShowMustHoldSprinkles(false), 3000);
+      return;
+    }
+    
     if (!splitterBalance || splitterBalance === 0n) {
       setShowNothingToSplit(true);
       setTimeout(() => setShowNothingToSplit(false), 3000);
@@ -1039,7 +1061,7 @@ export default function HomePage() {
       console.error("Split failed:", error);
       showSplitResult("failure");
     }
-  }, [address, connectAsync, primaryConnector, splitterBalance, writeSplitContract, showSplitResult]);
+  }, [address, connectAsync, primaryConnector, splitterBalance, writeSplitContract, showSplitResult, hasEnoughSprinkles]);
 
   // Handle split write error
   useEffect(() => {
@@ -1524,7 +1546,7 @@ export default function HomePage() {
               >
                 <button
                   onClick={handleSplit}
-                  disabled={isSplitWriting || isSplitConfirming || splitResult !== null || showNothingToSplit}
+                  disabled={isSplitWriting || isSplitConfirming || splitResult !== null || showNothingToSplit || showMustHoldSprinkles}
                   className={cn(
                     "relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]",
                     splitResult === "rewarded"
@@ -1574,10 +1596,31 @@ export default function HomePage() {
                         <span className="font-bold text-base text-gray-400">NOTHING TO SPLIT</span>
                       </div>
                       
+                      {/* Must Hold SPRINKLES Message */}
+                      <div className={cn(
+                        "absolute inset-0 flex items-center transition-opacity duration-300",
+                        showMustHoldSprinkles ? "opacity-100" : "opacity-0 pointer-events-none"
+                      )}>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await sdk.actions.openUrl({ url: "https://warpcast.com/~/token/eip155:8453/0xa890060be1788a676dbc3894160f5dc5ded2c98d" });
+                            } catch {
+                              window.open("https://warpcast.com/~/token/eip155:8453/0xa890060be1788a676dbc3894160f5dc5ded2c98d", "_blank");
+                            }
+                          }}
+                          className="flex items-center gap-2 font-bold text-sm text-pink-400 hover:text-pink-300 transition-colors"
+                        >
+                          <span>HOLD 10,000 $SPRINKLES</span>
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
+                      </div>
+                      
                       {/* Normal Content */}
                       <div className={cn(
                         "transition-opacity duration-300",
-                        showNothingToSplit ? "opacity-0" : "opacity-100"
+                        (showNothingToSplit || showMustHoldSprinkles) ? "opacity-0" : "opacity-100"
                       )}>
                         <div className="flex items-center gap-2 mb-1">
                           <span className={cn(
