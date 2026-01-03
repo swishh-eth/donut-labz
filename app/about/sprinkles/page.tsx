@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { formatEther } from "viem";
-import { ArrowLeft, Pickaxe, Flame, Beaker, Trophy, Dices, MessageCircle, Timer, TrendingUp, Users, Coins, Sparkles } from "lucide-react";
+import { Pickaxe, Flame, Beaker, Trophy, Dices, MessageCircle, Timer, TrendingUp, Users, Coins, Building } from "lucide-react";
 import { NavBar } from "@/components/nav-bar";
+import { Header } from "@/components/header";
 
 type MiniAppContext = {
   user?: {
@@ -22,6 +22,13 @@ type SectionProps = {
   children: React.ReactNode;
 };
 
+// Sprinkles coin image component
+const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/media/icon.png" alt="SPRINKLES" className="w-full h-full object-cover" />
+  </span>
+);
+
 const Section = ({ icon, title, children }: SectionProps) => {
   return (
     <div className="rounded-xl p-3 bg-zinc-900 border border-zinc-800">
@@ -37,7 +44,6 @@ const Section = ({ icon, title, children }: SectionProps) => {
 };
 
 export default function AboutSprinklesPage() {
-  const router = useRouter();
   const readyRef = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
@@ -106,8 +112,6 @@ export default function AboutSprinklesPage() {
 
     const fetchDonutBurnedInLP = async () => {
       try {
-        // Fetch DONUT balance in the LP burn pool (0x710e042d4F13f5c649dBb1774A3695BFcAC253ce)
-        // DONUT token: 0x8cb68b0bc8a8f50a4f0b2BfC3e36e20c53450b1D
         const response = await fetch('https://mainnet.base.org', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -117,7 +121,7 @@ export default function AboutSprinklesPage() {
             method: 'eth_call',
             params: [
               {
-                to: '0x8cb68b0bc8a8f50a4f0b2BfC3e36e20c53450b1D',
+                to: '0xAE4a37d554C6D6F3E398546d8566B25052e0169C',
                 data: '0x70a08231000000000000000000000000710e042d4f13f5c649dbb1774a3695bfcac253ce'
               },
               'latest'
@@ -197,250 +201,225 @@ export default function AboutSprinklesPage() {
       `}</style>
 
       <div 
-        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-3 pb-4 shadow-inner"
+        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4 shadow-inner"
         style={{
           paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 60px)",
         }}
       >
-        {/* Top fade overlay */}
-        <div 
-          className="absolute left-0 right-0 pointer-events-none"
-          style={{
-            top: 0,
-            height: "calc(env(safe-area-inset-top, 0px) + 70px)",
-            background: "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)",
-            zIndex: 5,
-          }}
-        />
-        
-        {/* Bottom fade overlay */}
-        <div 
-          className="absolute left-0 right-0 pointer-events-none"
-          style={{
-            bottom: 0,
-            height: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
-            background: "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)",
-            zIndex: 5,
-          }}
-        />
-
-        {/* Header */}
-        <div className="flex-shrink-0 mb-3 relative z-10">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.back()}
-              className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-white" />
-            </button>
-            <div>
-              <h1 className="text-xl font-bold tracking-wide flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
-                What is $SPRINKLES
-              </h1>
-              <p className="text-[10px] text-gray-500">Companion token to $DONUT</p>
-            </div>
+        <div className="flex flex-1 flex-col overflow-hidden relative z-10">
+          {/* Header */}
+          <div className="flex-shrink-0">
+            <Header title="ABOUT SPRINKLES" user={context?.user} />
           </div>
-        </div>
 
-        {/* Scrollable Content */}
-        <div 
-          ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden page-scroll relative z-10"
-          style={{ 
-            WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`, 
-            maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` 
-          }}
-        >
-          <div className="space-y-3 pb-8">
-            {/* Overview */}
-            <div className="rounded-xl p-4 border border-white/20 bg-white/5">
-              <p className="text-sm text-gray-300 mb-3">
-                $SPRINKLES is a companion token to $DONUT making $DONUT liquidity even stickier. Sprinkles must be mined by paying $DONUT in a separate dutch auction on the Sprinkles App.
-              </p>
-              <p className="text-white font-semibold text-sm">Max Supply: 210,000,000 SPRINKLES (10x DONUT)</p>
-              <p className="text-gray-500 text-[10px] mt-1">10M preminted & seeded with 1,000 DONUT for permanent LP</p>
-              <p className="text-gray-500 text-[10px]">500k preminted for Sprinkles Treasury</p>
+          {/* Scrollable Content */}
+          <div 
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden page-scroll"
+            style={{ 
+              WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`, 
+              maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)` 
+            }}
+          >
+            <div className="space-y-3 pb-8">
+              {/* Overview Card */}
+              <div className="rounded-xl p-4 border border-green-500/50 bg-gradient-to-br from-green-500/10 to-green-600/5">
+                <div className="flex items-center gap-3 mb-3">
+                  <SprinklesCoin className="w-10 h-10" />
+                  <div>
+                    <h2 className="text-lg font-bold text-white">$SPRINKLES</h2>
+                    <p className="text-[10px] text-green-400">Companion token to $DONUT</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-300 leading-relaxed mb-2">
+                  Mined by paying $DONUT in a separate Dutch auction. Makes $DONUT liquidity even stickier.
+                </p>
+                <p className="text-white font-semibold text-xs">Max Supply: 210,000,000 SPRINKLES</p>
+                <p className="text-gray-500 text-[10px] mt-1">10M preminted & seeded with 1,000 DONUT for permanent LP</p>
+              </div>
+
+              {/* Burn Stats */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Flame className="w-3 h-3 text-green-400" />
+                    <span className="text-[10px] text-gray-400">SPRINKLES Burned</span>
+                  </div>
+                  <span className="text-lg font-bold text-green-400">{burnedBalance}</span>
+                </div>
+                <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Flame className="w-3 h-3 text-pink-400" />
+                    <span className="text-[10px] text-gray-400">DONUT Burned</span>
+                  </div>
+                  <span className="text-lg font-bold text-pink-400">{donutBurnedInLP}</span>
+                </div>
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <div className="text-lg font-bold text-green-400">40/sec</div>
+                  <div className="text-[10px] text-gray-500">Start Rate</div>
+                </div>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <div className="text-lg font-bold text-green-400">30 days</div>
+                  <div className="text-[10px] text-gray-500">Halving</div>
+                </div>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+                  <div className="text-lg font-bold text-green-400">0.1/s</div>
+                  <div className="text-[10px] text-gray-500">Tail Rate</div>
+                </div>
+              </div>
+
+              {/* Revenue Split */}
+              <div className="rounded-xl p-4 bg-zinc-900 border border-zinc-800">
+                <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-green-400" />
+                  SPRINKLES Revenue Split
+                </h2>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10 border border-green-500/30">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-green-400" />
+                      <span className="text-xs text-gray-300">Previous Miner</span>
+                    </div>
+                    <span className="text-sm font-bold text-green-400">80%</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10 border border-green-500/30">
+                    <div className="flex items-center gap-2">
+                      <Flame className="w-4 h-4 text-green-400" />
+                      <span className="text-xs text-gray-300">Buy & Burn SPRINKLES</span>
+                    </div>
+                    <span className="text-sm font-bold text-green-400">10%</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10 border border-green-500/30">
+                    <div className="flex items-center gap-2">
+                      <Building className="w-4 h-4 text-green-400" />
+                      <span className="text-xs text-gray-300">Sprinkles Treasury</span>
+                    </div>
+                    <span className="text-sm font-bold text-green-400">8%</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-800 border border-zinc-700">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-gray-400" />
+                      <span className="text-xs text-gray-300">LP Burn Rewards</span>
+                    </div>
+                    <span className="text-sm font-bold text-gray-400">1%</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-800 border border-zinc-700">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-gray-400" />
+                      <span className="text-xs text-gray-300">Leaderboard Rewards</span>
+                    </div>
+                    <span className="text-sm font-bold text-gray-400">1%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* How Mining Works */}
+              <Section
+                icon={<Pickaxe className="w-4 h-4 text-green-400" />}
+                title="How SPRINKLES Mining Works"
+              >
+                <p>Same auction mechanics as DONUT, but you pay <span className="text-pink-400 font-semibold">$DONUT</span> instead of ETH.</p>
+                <p className="mt-2">The right to mine is bought through a continuous Dutch auction:</p>
+                <div className="pl-2 border-l border-green-500/30 ml-1 space-y-1 mt-2">
+                  <p>• Price doubles after each purchase</p>
+                  <p>• Then decays to 1 DONUT over one hour</p>
+                  <p>• Anyone can purchase control at current price</p>
+                </div>
+              </Section>
+
+              {/* Proof of Just-In-Time Stake */}
+              <Section
+                icon={<Flame className="w-4 h-4 text-green-400" />}
+                title="Proof of Just-In-Time Stake"
+              >
+                <p>DONUT is "staked" only while controlling emissions.</p>
+                <p>Profit if the next purchase pays more, lose if it pays less.</p>
+                <p>Earn <span className="text-green-400 font-semibold">$SPRINKLES</span> the entire time you hold control.</p>
+              </Section>
+
+              {/* What is The Sprinkles App? */}
+              <Section
+                icon={<Beaker className="w-4 h-4 text-green-400" />}
+                title="What is The Sprinkles App?"
+              >
+                <p>The Sprinkles App is an independent donut shop operating inside the $DONUT ecosystem.</p>
+                <p>We build fun ways to interact with $DONUT and $SPRINKLES, including mining interfaces, games, and social features.</p>
+                <p className="text-gray-500 italic mt-2">An onchain donut shop on Base.</p>
+              </Section>
+
+              {/* Leaderboard */}
+              <Section
+                icon={<Trophy className="w-4 h-4 text-green-400" />}
+                title="Leaderboard"
+              >
+                <p>Compete weekly on the Sprinkles leaderboard for a share of the prize pool!</p>
+                <p className="mt-2">Earn points by mining:</p>
+                <div className="pl-2 border-l border-green-500/30 ml-1 space-y-1 mt-1">
+                  <p>• <span className="text-pink-400 font-semibold">Mine DONUT</span> = 3 points per mine</p>
+                  <p>• <span className="text-green-400 font-semibold">Mine SPRINKLES</span> = 1 point per mine</p>
+                </div>
+                <p className="mt-3">Top 10 miners split the weekly prize pool:</p>
+                <div className="grid grid-cols-3 gap-2 text-center mt-2">
+                  <div className="bg-zinc-800 rounded-lg p-2">
+                    <div className="text-sm font-bold text-white">🥇 1st</div>
+                    <div className="text-[10px] text-gray-400">50%</div>
+                  </div>
+                  <div className="bg-zinc-800 rounded-lg p-2">
+                    <div className="text-sm font-bold text-white">🥈 2nd</div>
+                    <div className="text-[10px] text-gray-400">30%</div>
+                  </div>
+                  <div className="bg-zinc-800 rounded-lg p-2">
+                    <div className="text-sm font-bold text-white">🥉 3rd</div>
+                    <div className="text-[10px] text-gray-400">20%</div>
+                  </div>
+                </div>
+                <p className="mt-2 text-gray-500 text-[10px]">Leaderboard resets every Friday at 6PM EST. Prizes include USDC, DONUT, and SPRINKLES!</p>
+              </Section>
+
+              {/* Games */}
+              <Section
+                icon={<Dices className="w-4 h-4 text-green-400" />}
+                title="Games"
+              >
+                <p>The Sprinkles App features arcade games where you can win prizes each week!</p>
+                <p className="mt-2">Games come in two types:</p>
+                <div className="pl-2 border-l border-green-500/30 ml-1 space-y-1 mt-2">
+                  <p>• <span className="text-green-400 font-semibold">Free to Play</span> — Compete for weekly USDC prizes</p>
+                  <p>• <span className="text-pink-400 font-semibold">Entry Fee</span> — Pay DONUT to compete for DONUT prizes</p>
+                </div>
+                <p className="mt-3 text-white font-semibold text-[11px]">Current Games:</p>
+                <div className="pl-2 border-l border-green-500/30 ml-1 space-y-1 mt-1">
+                  <p>• <span className="text-white">Flappy Donut</span> — Tap to fly, dodge rolling pins <span className="text-pink-400 text-[9px]">(Entry Fee)</span></p>
+                  <p>• <span className="text-white">Glaze Stack</span> — Stack boxes, don't let them fall <span className="text-green-400 text-[9px]">(Free)</span></p>
+                  <p>• <span className="text-white">Donut Dash</span> — Jetpack through obstacles <span className="text-green-400 text-[9px]">(Free)</span></p>
+                </div>
+                <p className="mt-2 text-gray-500 text-[10px]">Weekly prize pools reset every Friday at 6PM EST.</p>
+              </Section>
+
+              {/* Chat to Earn */}
+              <Section
+                icon={<MessageCircle className="w-4 h-4 text-green-400" />}
+                title="Chat to Earn"
+              >
+                <p>Send onchain messages in the Chat tab to earn sprinkles points!</p>
+                <p className="mt-2">Requirements: Hold at least <span className="text-green-400 font-semibold">100,000 SPRINKLES</span> to earn points.</p>
+                <div className="mt-2 p-2 bg-zinc-800 border border-zinc-700 rounded-lg">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Timer className="w-3 h-3 text-green-400" />
+                    <span className="text-[10px] text-white font-semibold">Halving Schedule</span>
+                  </div>
+                  <p className="text-[10px] text-gray-400">Multiplier halves every 30 days: 2x → 1x → 0.5x → 0.25x → 0</p>
+                  <p className="text-[10px] text-gray-500 mt-1">Chat rewards are limited — earn while you can!</p>
+                </div>
+              </Section>
+
+              <div className="h-4" />
             </div>
-
-            {/* Burn Stats */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="p-3 bg-white/5 border border-white/20 rounded-xl">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Flame className="w-3 h-3 text-white" />
-                  <span className="text-[10px] text-gray-400">SPRINKLES Burned</span>
-                </div>
-                <span className="text-lg font-bold text-white">{burnedBalance}</span>
-              </div>
-              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Flame className="w-3 h-3 text-amber-400" />
-                  <span className="text-[10px] text-gray-400">DONUT Burned (LP)</span>
-                </div>
-                <span className="text-lg font-bold text-amber-400">🍩{donutBurnedInLP}</span>
-              </div>
-            </div>
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-white/5 border border-white/20 rounded-xl p-3 text-center">
-                <div className="text-lg font-bold text-white">40/sec</div>
-                <div className="text-[10px] text-gray-500">Start Rate</div>
-              </div>
-              <div className="bg-white/5 border border-white/20 rounded-xl p-3 text-center">
-                <div className="text-lg font-bold text-white">30 days</div>
-                <div className="text-[10px] text-gray-500">Halving</div>
-              </div>
-              <div className="bg-white/5 border border-white/20 rounded-xl p-3 text-center">
-                <div className="text-lg font-bold text-white">0.1/s</div>
-                <div className="text-[10px] text-gray-500">Tail Rate</div>
-              </div>
-            </div>
-
-            {/* Revenue Split */}
-            <div className="rounded-xl p-4 bg-zinc-900 border border-zinc-800">
-              <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-white" />
-                SPRINKLES Revenue Split
-              </h2>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs text-gray-300">Previous Miner</span>
-                  </div>
-                  <span className="text-sm font-bold text-amber-400">80%</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/20">
-                  <div className="flex items-center gap-2">
-                    <Flame className="w-4 h-4 text-white" />
-                    <span className="text-xs text-gray-300">Buy & Burn SPRINKLES</span>
-                  </div>
-                  <span className="text-sm font-bold text-white">10%</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                  <div className="flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs text-gray-300">Leaderboard Prizes</span>
-                  </div>
-                  <span className="text-sm font-bold text-amber-400">2.5%</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs text-gray-300">LP Burn Reward Pool</span>
-                  </div>
-                  <span className="text-sm font-bold text-amber-400">2.5%</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-800 border border-zinc-700">
-                  <div className="flex items-center gap-2">
-                    <Coins className="w-4 h-4 text-gray-400" />
-                    <span className="text-xs text-gray-300">Sprinkles App (Provider)</span>
-                  </div>
-                  <span className="text-sm font-bold text-gray-400">5%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* How Mining Works */}
-            <Section
-              icon={<Pickaxe className="w-4 h-4 text-white" />}
-              title="How SPRINKLES Mining Works"
-            >
-              <p>Same auction mechanics as DONUT, but you pay <span className="text-white font-semibold">$DONUT</span> instead of ETH.</p>
-              <p className="mt-2">The right to mine is bought through a continuous Dutch auction:</p>
-              <div className="pl-2 border-l border-white/20 ml-1 space-y-1 mt-2">
-                <p>• Price doubles after each purchase</p>
-                <p>• Then decays to 1 DONUT over one hour</p>
-                <p>• Anyone can purchase control at current price</p>
-              </div>
-            </Section>
-
-            {/* Proof of Just-In-Time Stake */}
-            <Section
-              icon={<Flame className="w-4 h-4 text-white" />}
-              title="Proof of Just-In-Time Stake"
-            >
-              <p>DONUT is "staked" only while controlling emissions.</p>
-              <p>Profit if the next purchase pays more, lose if it pays less.</p>
-              <p>Earn <span className="text-white font-semibold">$SPRINKLES</span> the entire time you hold control.</p>
-            </Section>
-
-            {/* What is The Sprinkles App? */}
-            <Section
-              icon={<Beaker className="w-4 h-4 text-white" />}
-              title="What is The Sprinkles App?"
-            >
-              <p>The Sprinkles App is an independent donut shop operating inside the $DONUT ecosystem.</p>
-              <p>We build fun ways to interact with $DONUT and $SPRINKLES, including mining interfaces, games, and social features.</p>
-              <p className="text-gray-500 italic mt-2">An onchain donut shop on Base.</p>
-            </Section>
-
-            {/* Leaderboard */}
-            <Section
-              icon={<Trophy className="w-4 h-4 text-amber-400" />}
-              title="Leaderboard"
-            >
-              <p>Compete weekly on the Sprinkles weekly leaderboard for a share of the prize pool!</p>
-              <p className="mt-2">Earn points by mining:</p>
-              <div className="pl-2 border-l border-white/20 ml-1 space-y-1 mt-1">
-                <p>• <span className="text-white font-semibold">Mine DONUT</span> = 2 points per mine</p>
-                <p>• <span className="text-white font-semibold">Mine SPRINKLES</span> = 1 point per mine</p>
-              </div>
-              <p className="mt-3">Top 3 glazers split the weekly prize pool:</p>
-              <div className="grid grid-cols-3 gap-2 text-center mt-2">
-                <div className="bg-zinc-800 rounded-lg p-2">
-                  <div className="text-sm font-bold text-white">🥇 1st</div>
-                  <div className="text-[10px] text-gray-400">50%</div>
-                </div>
-                <div className="bg-zinc-800 rounded-lg p-2">
-                  <div className="text-sm font-bold text-white">🥈 2nd</div>
-                  <div className="text-[10px] text-gray-400">30%</div>
-                </div>
-                <div className="bg-zinc-800 rounded-lg p-2">
-                  <div className="text-sm font-bold text-white">🥉 3rd</div>
-                  <div className="text-[10px] text-gray-400">20%</div>
-                </div>
-              </div>
-              <p className="mt-2 text-gray-500 text-[10px]">Leaderboard resets every Friday at 12pm UTC. Prizes include ETH, DONUT, and SPRINKLES!</p>
-            </Section>
-
-            {/* Games */}
-            <Section
-              icon={<Dices className="w-4 h-4 text-white" />}
-              title="Games"
-            >
-              <p>The Sprinkles App features onchain games where you can win ETH, DONUT, and SPRINKLES.</p>
-              <p>All games are <span className="text-white font-semibold">100% onchain</span> and <span className="text-white font-semibold">provably fair</span> — every bet, spin, and outcome is recorded on Base and verifiable.</p>
-              <div className="pl-2 border-l border-white/20 ml-1 space-y-1 mt-2">
-                <p>• <span className="text-white">Donut Tower</span> — Climb levels to win big</p>
-                <p>• <span className="text-white">Glaze Wheel</span> — Spin to win multipliers</p>
-                <p>• <span className="text-white">Sugar Cubes</span> — Roll over/under dice</p>
-                <p>• <span className="text-white">Bakery Mines</span> — Avoid bombs, cash out anytime</p>
-                <p>• <span className="text-gray-500">Donut Slots</span> — Coming soon</p>
-                <p>• <span className="text-gray-500">Keno</span> — Coming soon</p>
-              </div>
-            </Section>
-
-            {/* Chat to Earn */}
-            <Section
-              icon={<MessageCircle className="w-4 h-4 text-white" />}
-              title="Chat to Earn Sprinkles"
-            >
-              <p>Send onchain messages in the Chat tab to earn sprinkles points!</p>
-              <p>Your earnings per message = <span className="text-white font-semibold">Multiplier × Neynar Score</span></p>
-              <div className="mt-2 p-2 bg-zinc-800 border border-zinc-700 rounded-lg">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Timer className="w-3 h-3 text-white" />
-                  <span className="text-[10px] text-white font-semibold">Halving Schedule</span>
-                </div>
-                <p className="text-[10px] text-gray-400">Multiplier halves every 30 days: 2x → 1x → 0.5x → 0.25x → 0 (ends)</p>
-                <p className="text-[10px] text-gray-500 mt-1">Chat rewards are limited — earn while you can!</p>
-              </div>
-            </Section>
-
-            <div className="h-4" />
           </div>
         </div>
       </div>

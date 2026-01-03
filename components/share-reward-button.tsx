@@ -167,23 +167,24 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   const isActive = campaign?.[5] && campaign[2] > 0n;
   const claimsRemaining = campaign ? Number(campaign[3] - campaign[4]) : 0;
 
-  // Text toggle effect: "Share to Claim" (6s) -> "X claims left" (3s) -> repeat
+  // Text toggle effect: "Share to Claim" (8s) -> fade to "X claims left" (4s) -> fade back -> repeat
   useEffect(() => {
     if (!isActive || hasClaimed || hasShared) return;
     
     const toggleText = () => {
+      // Fade in "claims left"
       setShowClaimsLeft(true);
-      // Show "X claims left" for 3 seconds
+      // Show "X claims left" for 4 seconds, then fade back
       setTimeout(() => {
         setShowClaimsLeft(false);
-      }, 3000);
+      }, 4000);
     };
 
-    // Start with "Share to Claim", then toggle after 6 seconds
-    const initialTimeout = setTimeout(toggleText, 6000);
+    // Start with "Share to Claim", then toggle after 8 seconds
+    const initialTimeout = setTimeout(toggleText, 8000);
     
-    // Set up interval: 6s (Share to Claim) + 3s (claims left) = 9s cycle
-    const interval = setInterval(toggleText, 9000);
+    // Set up interval: 8s (Share to Claim) + 4s (claims left) = 12s cycle
+    const interval = setInterval(toggleText, 12000);
 
     return () => {
       clearTimeout(initialTimeout);
@@ -780,24 +781,19 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           )}
           style={getActiveGradient()}
         >
-          {/* Icon only shows for "Share to Claim" */}
           <div
-            className="transition-all duration-300 ease-out flex items-center justify-center"
-            style={{
-              opacity: showClaimsLeft ? 0 : 1,
-              width: showClaimsLeft ? 0 : 16,
-              height: 16,
-              overflow: 'hidden',
-            }}
+            className="flex items-center gap-2 transition-opacity duration-500 ease-in-out"
+            style={{ opacity: showClaimsLeft ? 0 : 1, position: showClaimsLeft ? 'absolute' : 'relative' }}
           >
             <TokenIcon className="w-4 h-4" />
+            <span className="font-semibold text-xs text-white">Share to Claim</span>
           </div>
-          <span 
-            key={showClaimsLeft ? 'claims' : 'share'}
-            className="font-semibold text-xs text-white"
+          <div
+            className="flex items-center transition-opacity duration-500 ease-in-out"
+            style={{ opacity: showClaimsLeft ? 1 : 0, position: showClaimsLeft ? 'relative' : 'absolute' }}
           >
-            {showClaimsLeft ? `${claimsRemaining} left` : "Share to Claim"}
-          </span>
+            <span className="font-semibold text-xs text-white">{claimsRemaining} left</span>
+          </div>
         </button>
       );
     }

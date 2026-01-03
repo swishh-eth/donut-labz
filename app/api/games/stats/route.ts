@@ -1,5 +1,3 @@
-// Place in: app/api/games/stats/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -8,57 +6,71 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Get current week number (weeks start on Friday 11PM UTC / 6PM EST)
-function getCurrentWeek(): number {
+// Get Friday 6PM EST as the start of the week
+function getWeekStart(): Date {
   const now = new Date();
-  const utcNow = new Date(now.toUTCString());
+  const estOffset = -5 * 60; // EST offset in minutes
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const estTime = new Date(utc + estOffset * 60000);
   
-  // Epoch: Friday Jan 3, 2025 23:00 UTC
-  const epoch = new Date(Date.UTC(2025, 0, 3, 23, 0, 0));
-  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  // Find the most recent Friday 6PM EST
+  const dayOfWeek = estTime.getDay();
+  const hourOfDay = estTime.getHours();
   
-  const weeksSinceEpoch = Math.floor((utcNow.getTime() - epoch.getTime()) / msPerWeek);
-  return weeksSinceEpoch + 1;
+  // Days since last Friday (0 = Sunday, 5 = Friday)
+  let daysSinceFriday = (dayOfWeek + 2) % 7; // Convert to days since Friday
+  
+  // If it's Friday but before 6PM, count back to previous Friday
+  if (dayOfWeek === 5 && hourOfDay < 18) {
+    daysSinceFriday = 7;
+  }
+  
+  const weekStart = new Date(estTime);
+  weekStart.setDate(estTime.getDate() - daysSinceFriday);
+  weekStart.setHours(18, 0, 0, 0);
+  
+  return weekStart;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const currentWeek = getCurrentWeek();
+    const weekStart = getWeekStart();
+    const weekStartISO = weekStart.toISOString();
 
-    // Count Flappy Bird games this week
-    const { count: flappyCount } = await supabase
-      .from("flappy_games")
+    // Get Flappy Donut plays this week
+    const { count: flappyCount, error: flappyError } = await supabase
+      .from("flappy_scores")
       .select("*", { count: "exact", head: true })
-      .eq("week_number", currentWeek);
+      .gte("created_at", weekStartISO);
 
-    // Count Stack Tower games this week
-    const { count: stackCount } = await supabase
-      .from("stack_tower_games")
+    // Get Glaze Stack plays this week
+    const { count: stackCount, error: stackError } = await supabase
+      .from("stack_tower_scores")
       .select("*", { count: "exact", head: true })
-      .eq("week_number", currentWeek);
+      .gte("created_at", weekStartISO);
 
-    // Count Donut Dash games this week
-    const { count: dashCount } = await supabase
+    // Get Donut Dash plays this week
+    const { count: dashCount, error: dashError } = await supabase
       .from("donut_dash_scores")
       .select("*", { count: "exact", head: true })
-      .eq("week", currentWeek);
+      .gte("created_at", weekStartISO);
 
-    const totalGamesThisWeek = (flappyCount || 0) + (stackCount || 0) + (dashCount || 0);
+    const flappyGamesThisWeek = flappyCount || 0;
+    const stackGamesThisWeek = stackCount || 0;
+    const dashGamesThisWeek = dashCount || 0;
+    const totalGamesThisWeek = flappyGamesThisWeek + stackGamesThisWeek + dashGamesThisWeek;
 
     return NextResponse.json({
-      success: true,
-      currentWeek,
       totalGamesThisWeek,
-      breakdown: {
-        flappy: flappyCount || 0,
-        stack: stackCount || 0,
-        dash: dashCount || 0,
-      },
+      flappyGamesThisWeek,
+      stackGamesThisWeek,
+      dashGamesThisWeek,
+      weekStart: weekStartISO,
     });
-  } catch (error) {
-    console.error("Games stats error:", error);
+  } catch (error: any) {
+    console.error("[Games Stats] Error:", error);
     return NextResponse.json(
-      { success: false, error: "Internal server error", totalGamesThisWeek: 0 },
+      { error: error.message, totalGamesThisWeek: 0 },
       { status: 500 }
     );
   }

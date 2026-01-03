@@ -38,7 +38,7 @@ const UsdcCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
 );
 
 // Flappy Donut Tile
-function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer | null; prizePool: string }) {
+function FlappyDonutTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer: RecentPlayer | null; prizePool: string; weeklyPlays: number }) {
   return (
     <button
       onClick={() => window.location.href = "/games/game-1"}
@@ -61,6 +61,8 @@ function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlay
           <div className="flex items-center gap-1.5 text-[9px]">
             <DonutCoin className="w-3 h-3" />
             <span className="text-pink-400 font-medium whitespace-nowrap">{prizePool} DONUT</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-500 whitespace-nowrap">{weeklyPlays.toLocaleString()} plays</span>
             {recentPlayer && (
               <>
                 <span className="text-zinc-600">•</span>
@@ -78,7 +80,7 @@ function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlay
 }
 
 // Glaze Stack Tile (Free to Play with USDC prizes)
-function GlazeStackTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer | null; prizePool: number }) {
+function GlazeStackTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer: RecentPlayer | null; prizePool: number; weeklyPlays: number }) {
   return (
     <button
       onClick={() => window.location.href = "/games/game-2"}
@@ -101,6 +103,8 @@ function GlazeStackTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlaye
           <div className="flex items-center gap-1.5 text-[9px]">
             <UsdcCoin className="w-3 h-3" />
             <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-500 whitespace-nowrap">{weeklyPlays.toLocaleString()} plays</span>
             {recentPlayer && (
               <>
                 <span className="text-zinc-600">•</span>
@@ -118,7 +122,7 @@ function GlazeStackTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlaye
 }
 
 // Donut Dash Tile
-function DonutDashTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer | null; prizePool: number }) {
+function DonutDashTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer: RecentPlayer | null; prizePool: number; weeklyPlays: number }) {
   return (
     <button
       onClick={() => window.location.href = "/games/donut-dash"}
@@ -141,6 +145,8 @@ function DonutDashTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer
           <div className="flex items-center gap-1.5 text-[9px]">
             <UsdcCoin className="w-3 h-3" />
             <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-500 whitespace-nowrap">{weeklyPlays.toLocaleString()} plays</span>
             {recentPlayer && (
               <>
                 <span className="text-zinc-600">•</span>
@@ -204,6 +210,9 @@ export default function GamesPage() {
   const [dashPrizePool, setDashPrizePool] = useState<number>(5);
   
   const [totalGamesPlayed, setTotalGamesPlayed] = useState<number>(0);
+  const [flappyWeeklyPlays, setFlappyWeeklyPlays] = useState<number>(0);
+  const [stackWeeklyPlays, setStackWeeklyPlays] = useState<number>(0);
+  const [dashWeeklyPlays, setDashWeeklyPlays] = useState<number>(0);
   const [timeUntilReset, setTimeUntilReset] = useState<string>("--");
   const [showUsdPrize, setShowUsdPrize] = useState(true);
   
@@ -349,7 +358,7 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch total games played this week
+  // Fetch total games played this week (and individual game stats)
   useEffect(() => {
     const fetchGamesCount = async () => {
       try {
@@ -357,6 +366,10 @@ export default function GamesPage() {
         if (res.ok) {
           const data = await res.json();
           setTotalGamesPlayed(data.totalGamesThisWeek || 0);
+          // Set individual game plays if available
+          if (data.flappyGamesThisWeek !== undefined) setFlappyWeeklyPlays(data.flappyGamesThisWeek);
+          if (data.stackGamesThisWeek !== undefined) setStackWeeklyPlays(data.stackGamesThisWeek);
+          if (data.dashGamesThisWeek !== undefined) setDashWeeklyPlays(data.dashGamesThisWeek);
         }
       } catch (e) {
         console.error("Failed to fetch games stats:", e);
@@ -508,21 +521,21 @@ export default function GamesPage() {
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!hasAnimatedIn ? { opacity: 0, animationDelay: '0ms', animationFillMode: 'forwards' } : {}}
               >
-                <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool.toLocaleString()} />
+                <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool.toLocaleString()} weeklyPlays={flappyWeeklyPlays} />
               </div>
               
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}
               >
-                <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} />
+                <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} weeklyPlays={dashWeeklyPlays} />
               </div>
               
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
               >
-                <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} />
+                <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} weeklyPlays={stackWeeklyPlays} />
               </div>
               
               {[...Array(3)].map((_, i) => (
