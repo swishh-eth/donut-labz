@@ -464,13 +464,13 @@ export default function GamesPage() {
                     <span className="absolute bottom-1 text-[7px] text-gray-500 animate-pulse">tap for tokens</span>
                   </>
                 ) : (
-                  <div className="flex flex-col w-full h-full justify-center gap-0.5">
+                  <div className="flex flex-col w-full h-full justify-center gap-1">
                     <div className="flex items-center justify-between w-full px-1">
                       <DonutCoin className="w-4 h-4" />
                       <span className="text-sm font-bold text-pink-400">{Math.floor(flappyPrizePool)}</span>
                     </div>
                     <div className="flex items-center justify-between w-full px-1">
-                      <UsdcCoin className="w-3.5 h-3.5" />
+                      <UsdcCoin className="w-4 h-4" />
                       <span className="text-sm font-bold text-green-400">${totalUsdcPrizes}</span>
                     </div>
                   </div>

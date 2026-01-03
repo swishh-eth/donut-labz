@@ -1303,7 +1303,7 @@ export default function HomePage() {
             transform: scale(1);
           }
           50% {
-            transform: scale(1.02);
+            transform: scale(0.98);
           }
         }
         .animate-profitablePulse {
@@ -1434,9 +1434,22 @@ export default function HomePage() {
                       : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
                   }}
                 >
-                  {/* Large background icon */}
+                  {/* Stacked background icons - sprinkles and donut offset */}
                   <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <Flame className={cn("w-24 h-24", isBurnProfitable ? "text-green-900/80" : "text-zinc-800")} />
+                    {/* Sprinkles icon - back/top */}
+                    <span className={cn(
+                      "absolute -top-8 -right-2 w-16 h-16 rounded-full overflow-hidden inline-flex items-center justify-center",
+                      isBurnProfitable ? "opacity-40" : "opacity-15"
+                    )}>
+                      <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
+                    </span>
+                    {/* Donut icon - front/bottom */}
+                    <span className={cn(
+                      "w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center",
+                      isBurnProfitable ? "opacity-30" : "opacity-10"
+                    )}>
+                      <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover scale-[1.7]" />
+                    </span>
                   </div>
                   
                   <div className="relative z-10 p-4 pr-20">
@@ -1455,9 +1468,9 @@ export default function HomePage() {
                       <div className={cn("text-[10px] mb-2", isBurnProfitable ? "text-green-200/60" : "text-gray-600")}>
                         Burn SPRINKLES LP to receive DONUT
                       </div>
-                      <div className={cn("text-[9px]", isBurnProfitable ? "text-green-400" : "text-gray-600")}>
+                      <div className={cn("text-[9px] flex items-center gap-1", isBurnProfitable ? "text-green-400" : "text-gray-600")}>
                         {isBurnProfitable 
-                          ? `💰 Earn $${burnPoolUsd} in DONUT` 
+                          ? <span className="flex items-center gap-1">Earn ${burnPoolUsd} in <DonutCoin className="w-3 h-3" /> DONUT</span>
                           : parseFloat(burnPoolUsd) > 0 
                             ? `$${burnPoolUsd} in rewards available` 
                             : "No rewards available"}
@@ -1498,18 +1511,20 @@ export default function HomePage() {
                           : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
                   }}
                 >
-                  {/* Large background icon */}
+                  {/* Large background sprinkles icon */}
                   <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <Zap className={cn(
-                      "w-20 h-20",
+                    <span className={cn(
+                      "w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center",
                       splitResult === "rewarded" || splitResult === "success"
-                        ? "text-green-900/80"
+                        ? "opacity-30"
                         : splitResult === "failure"
-                          ? "text-red-900/80"
+                          ? "opacity-20"
                           : splitterBalance && splitterBalance > 0n
-                            ? "text-pink-900/80"
-                            : "text-zinc-800"
-                    )} />
+                            ? "opacity-30"
+                            : "opacity-10"
+                    )}>
+                      <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
+                    </span>
                   </div>
                   
                   <div className="relative z-10 p-4 pr-16">
