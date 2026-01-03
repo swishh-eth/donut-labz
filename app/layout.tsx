@@ -23,10 +23,10 @@ const miniAppEmbed = {
 
 export const metadata: Metadata = {
   title: "Sprinkles",
-  description: "Play to earn Donut, Sprinkles, and USDC rewards on base!",
+  description: "Play Games to earn Donut, Sprinkles, and USDC rewards on base!",
   openGraph: {
     title: "Sprinkles",
-    description: "Play to earn Donut, Sprinkles, and USDC rewards on base!",
+    description: "Play Games to earn Donut, Sprinkles, and USDC rewards on base!",
     url: appDomain,
     images: [
       {

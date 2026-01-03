@@ -8,25 +8,27 @@
     "version": "1",
     "name": "Sprinkles",
     "tagline": "Earn and Burn on Base",
-    "description": "Spend Donut to mine SPRINKLES. Climb weekly leaderboards for ETH, DONUT, and SPRINKLES, and chat with glazers on Base.",
+    "description": "Play Games to earn Donut, Sprinkles, and USDC rewards on base!",
     "iconUrl": "https://donutlabs.vercel.app/media/icon.png",
     "homeUrl": "https://donutlabs.vercel.app/",
-    "splashImageUrl": "https://donutlabs.vercel.app/media/splash.png",
+    "splashImageUrl": "https://donutlabs.vercel.app/media/loading.png",
     "splashBackgroundColor": "#000000",
     "heroImageUrl": "https://donutlabs.vercel.app/media/hero.png",
     "buttonTitle": "Get Some Sprinkles",
-    "ogTitle": "Earn and Burn Glaze on Base",
-    "ogDescription": "Race the rink to seize the donut mine and keep the glaze flowing.",
+    "ogTitle": "Earn and Burn Sprinkles on Base",
+    "ogDescription": "Play Games to earn Donut, Sprinkles, and USDC rewards on base!",
     "ogImageUrl": "https://donutlabs.vercel.app/media/hero.png",
     "requiredChains": [
       "eip155:8453"
     ],
-    "primaryCategory": "finance",
+    "primaryCategory": "gaming",
     "tags": [
-      "gaming",
+      "finance",
       "base",
-      "mining",
-      "rewards"
+      "rewards",
+      "donut",
+      "donutlabs",
+      "earn"
     ],
     "actions": [
       "viewProfile"
