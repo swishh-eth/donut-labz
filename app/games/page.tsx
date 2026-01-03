@@ -63,8 +63,8 @@ function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlay
   );
 }
 
-// Glaze Stack Tile
-function GlazeStackTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer | null; prizePool: string }) {
+// Glaze Stack Tile (Free to Play with USDC prizes)
+function GlazeStackTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer | null; prizePool: number }) {
   return (
     <button
       onClick={() => window.location.href = "/games/game-2"}
@@ -80,13 +80,13 @@ function GlazeStackTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlaye
           <div className="flex items-center gap-2 mb-1">
             <Layers className="w-5 h-5 text-white" />
             <span className="font-bold text-base text-white">Glaze Stack</span>
-            <span className="text-[8px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full">ENTRY FEE</span>
+            <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Stack boxes, don't let them fall!</div>
           
-          <div className="flex items-center gap-2 text-[9px]">
-            <Trophy className="w-3 h-3 text-amber-400 flex-shrink-0" />
-            <span className="text-amber-400 whitespace-nowrap">{prizePool} 🍩</span>
+          <div className="flex items-center gap-1.5 text-[9px]">
+            <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3 rounded-full flex-shrink-0" />
+            <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC</span>
             {recentPlayer && (
               <>
                 <span className="text-zinc-600">•</span>
@@ -184,7 +184,7 @@ export default function GamesPage() {
   const [flappyPrizePool, setFlappyPrizePool] = useState<number>(0);
   
   const [stackRecentPlayer, setStackRecentPlayer] = useState<RecentPlayer | null>(null);
-  const [stackPrizePool, setStackPrizePool] = useState<number>(0);
+  const [stackPrizePool, setStackPrizePool] = useState<number>(5);
   
   const [dashRecentPlayer, setDashRecentPlayer] = useState<RecentPlayer | null>(null);
   const [dashPrizePool, setDashPrizePool] = useState<number>(5);
@@ -284,18 +284,27 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch Glaze Stack data from API
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch('/api/games/stack-tower/leaderboard');
-        if (res.ok) {
-          const data = await res.json();
-          setStackPrizePool(parseFloat(data.prizePool) || 0);
-          if (data.recentPlayer) {
+        // Fetch prize info
+        const prizeRes = await fetch('/api/cron/stack-tower-distribute');
+        if (prizeRes.ok) {
+          const prizeData = await prizeRes.json();
+          setStackPrizePool(prizeData.totalPrize || 5);
+        }
+        
+        // Fetch recent player from leaderboard
+        const leaderboardRes = await fetch('/api/games/stack-tower/leaderboard?limit=1');
+        if (leaderboardRes.ok) {
+          const leaderboardData = await leaderboardRes.json();
+          if (leaderboardData.leaderboard && leaderboardData.leaderboard.length > 0) {
+            const topPlayer = leaderboardData.leaderboard[0];
             setStackRecentPlayer({
-              username: data.recentPlayer.username,
-              score: data.recentPlayer.score,
-              pfpUrl: data.recentPlayer.pfpUrl,
+              username: topPlayer.username || `fid:${topPlayer.fid}`,
+              score: topPlayer.score,
+              pfpUrl: topPlayer.pfpUrl,
             });
           }
         }
@@ -311,7 +320,7 @@ export default function GamesPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const prizeRes = await fetch('/api/games/donut-dash/prize-distribute');
+        const prizeRes = await fetch('/api/cron/donut-dash-distribute');
         if (prizeRes.ok) {
           const prizeData = await prizeRes.json();
           setDashPrizePool(prizeData.totalPrize || 5);
@@ -363,6 +372,9 @@ export default function GamesPage() {
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Calculate total USDC prizes for display
+  const totalUsdcPrizes = dashPrizePool + stackPrizePool;
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -438,7 +450,7 @@ export default function GamesPage() {
                       <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
                     </div>
                     <div className="text-2xl font-bold text-white fade-in-up stagger-3 opacity-0">
-                      ${dashPrizePool}
+                      ${totalUsdcPrizes}
                     </div>
                     <span className="absolute bottom-1 text-[7px] text-gray-500 animate-pulse">tap for tokens</span>
                   </>
@@ -446,11 +458,11 @@ export default function GamesPage() {
                   <div className="flex flex-col w-full h-full justify-center gap-0.5">
                     <div className="flex items-center justify-between w-full px-1">
                       <span className="text-amber-400 text-sm">🍩</span>
-                      <span className="text-sm font-bold text-amber-400">{Math.floor(flappyPrizePool + stackPrizePool)}</span>
+                      <span className="text-sm font-bold text-amber-400">{Math.floor(flappyPrizePool)}</span>
                     </div>
                     <div className="flex items-center justify-between w-full px-1">
                       <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3.5 h-3.5" />
-                      <span className="text-sm font-bold text-green-400">${dashPrizePool}</span>
+                      <span className="text-sm font-bold text-green-400">${totalUsdcPrizes}</span>
                     </div>
                   </div>
                 )}
@@ -496,14 +508,14 @@ export default function GamesPage() {
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}
               >
-                <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool.toLocaleString()} />
+                <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} />
               </div>
               
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
               >
-                <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} />
+                <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} />
               </div>
               
               {[...Array(3)].map((_, i) => (
@@ -550,18 +562,7 @@ export default function GamesPage() {
                   </h3>
                   <p className="text-gray-400 text-xs">
                     Tap to fly your donut through the rolling pins! Each gap passed = 1 point. 
-                    Top 3 weekly scores split the 🍩 prize pool.
-                  </p>
-                </div>
-
-                <div className="bg-zinc-800/50 rounded-xl p-3">
-                  <h3 className="font-bold text-white mb-2 flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-white" />
-                    Glaze Stack
-                  </h3>
-                  <p className="text-gray-400 text-xs">
-                    Tap to drop blocks and stack them perfectly! Overhanging parts fall off. 
-                    Top 3 weekly scores split the 🍩 prize pool.
+                    Top 10 weekly scores split the 🍩 prize pool.
                   </p>
                 </div>
 
@@ -572,14 +573,25 @@ export default function GamesPage() {
                   </h3>
                   <p className="text-gray-400 text-xs">
                     Hold to jetpack up, release to fall! Collect sprinkles and avoid obstacles. 
-                    Top 3 weekly scores split the USDC prize pool.
+                    Top 10 weekly scores split the USDC prize pool. FREE to play!
                   </p>
                 </div>
 
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
-                  <h3 className="font-bold text-amber-400 mb-2">🏆 Weekly Prizes</h3>
+                <div className="bg-zinc-800/50 rounded-xl p-3">
+                  <h3 className="font-bold text-white mb-2 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-white" />
+                    Glaze Stack
+                  </h3>
                   <p className="text-gray-400 text-xs">
-                    All games reset every Friday at 6PM EST. Top 3 players on each leaderboard 
+                    Tap to drop blocks and stack them perfectly! Overhanging parts fall off. 
+                    Top 10 weekly scores split the USDC prize pool. FREE to play!
+                  </p>
+                </div>
+
+                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3">
+                  <h3 className="font-bold text-green-400 mb-2">🏆 Weekly Prizes</h3>
+                  <p className="text-gray-400 text-xs">
+                    All games reset every Friday at 6PM EST. Top 10 players on each leaderboard 
                     win prizes automatically sent to their wallet!
                   </p>
                 </div>
