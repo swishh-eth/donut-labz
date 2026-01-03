@@ -747,7 +747,7 @@ export default function ChatPage() {
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">1</div>
                       <div>
                         <div className="font-semibold text-white text-xs">Hold 100,000 SPRINKLES</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">You must hold at least 100,000 SPRINKLES to earn rewards. Anyone can chat, but only holders earn points.</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">You must hold at least 100,000 SPRINKLES to earn rewards.</div>
                       </div>
                     </div>
                     <div className="flex gap-2.5">
@@ -758,14 +758,14 @@ export default function ChatPage() {
                       </div>
                     </div>
                     <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">3</div>
                       <div>
-                        <div className="font-semibold text-amber-400 text-xs">Halving Schedule</div>
+                        <div className="font-semibold text-white text-xs">Halving Schedule</div>
                         <div className="text-[11px] text-gray-400 mt-0.5">Rewards halve every 30 days: 2x → 1x → 0.5x → 0.25x → 0 (ends).</div>
                         {!rewardsEnded && (
-                          <div className="mt-1.5 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-2 py-1.5">
-                            <Timer className="w-3 h-3 text-amber-400" />
-                            <span className="text-[11px] text-amber-400 font-medium">
+                          <div className="mt-1.5 flex items-center gap-2 bg-white/5 border border-white/20 rounded-lg px-2 py-1.5">
+                            <Timer className="w-3 h-3 text-white" />
+                            <span className="text-[11px] text-white font-medium">
                               Current: {currentMultiplier.toFixed(1)}x • {timeUntilHalving ? `Halving in ${timeUntilHalving}` : 'Final period'}
                             </span>
                           </div>
@@ -778,9 +778,9 @@ export default function ChatPage() {
                       </div>
                     </div>
                     <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-black">4</div>
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">4</div>
                       <div>
-                        <div className="font-semibold text-amber-400 text-xs">Friday Airdrop</div>
+                        <div className="font-semibold text-white text-xs">Friday Airdrop</div>
                         <div className="text-[11px] text-gray-400 mt-0.5">Claim earned points as real SPRINKLES tokens every Friday!</div>
                       </div>
                     </div>
@@ -789,6 +789,20 @@ export default function ChatPage() {
                       <div>
                         <div className="font-semibold text-red-400 text-xs">Rate Limit</div>
                         <div className="text-[11px] text-gray-400 mt-0.5">Max 5 messages per 5 minutes to prevent spam.</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] font-bold text-white">!</div>
+                      <div>
+                        <div className="font-semibold text-red-400 text-xs">No Duplicate Messages</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">Repeated messages will be blocked to prevent spam.</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] font-bold text-white">!</div>
+                      <div>
+                        <div className="font-semibold text-red-400 text-xs">No SPRINKLES = No Earnings</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">Anyone can chat, but you won't earn points without holding 100,000 SPRINKLES.</div>
                       </div>
                     </div>
                   </div>
