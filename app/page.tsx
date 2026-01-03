@@ -11,7 +11,7 @@ import { Header } from "@/components/header";
 import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
-import { Flame, Droplets, Sparkles, X } from "lucide-react";
+import { Flame, Droplets, Sparkles, X, Zap } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
 import { cn } from "@/lib/utils";
@@ -134,6 +134,13 @@ const formatTokenAmount = (
   });
 };
 
+// Coin image component for SPRINKLES
+const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-full h-full object-cover" />
+  </span>
+);
+
 // Client-side price calculation for Dutch auction
 const calculateDonutPrice = (initPrice: bigint, startTime: number | bigint): bigint => {
   const now = Math.floor(Date.now() / 1000);
@@ -252,32 +259,8 @@ function BurnModal({
 }) {
   const [sprinklesBurnResult, setSprinklesBurnResult] = useState<"success" | "failure" | null>(null);
   const [sprinklesTxStep, setSprinklesTxStep] = useState<"idle" | "approving" | "buying">("idle");
-  const [splitResult, setSplitResult] = useState<"success" | "failure" | null>(null);
   const sprinklesResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const splitResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isBuyingRef = useRef(false);
-
-  // Fee splitter balance
-  const { data: splitterBalance, refetch: refetchSplitter } = useReadContract({
-    address: FEE_SPLITTER,
-    abi: FEE_SPLITTER_ABI,
-    functionName: "pendingDistribution",
-    chainId: base.id,
-    query: { refetchInterval: 30_000, enabled: isOpen },
-  });
-
-  const {
-    data: splitTxHash,
-    writeContract: writeSplitContract,
-    isPending: isSplitWriting,
-    reset: resetSplitWrite,
-    error: splitWriteError,
-  } = useWriteContract();
-
-  const { data: splitReceipt, isLoading: isSplitConfirming } = useWaitForTransactionReceipt({
-    hash: splitTxHash,
-    chainId: base.id,
-  });
 
   const { data: sprinklesAuctionData, refetch: refetchSprinklesAuction } = useReadContract({
     address: SPRINKLES_AUCTION,
@@ -315,66 +298,6 @@ function BurnModal({
       sprinklesResultTimeoutRef.current = null;
     }, 3000);
   }, []);
-
-  const showSplitResult = useCallback((result: "success" | "failure") => {
-    if (splitResultTimeoutRef.current) clearTimeout(splitResultTimeoutRef.current);
-    setSplitResult(result);
-    splitResultTimeoutRef.current = setTimeout(() => {
-      setSplitResult(null);
-      splitResultTimeoutRef.current = null;
-    }, 3000);
-  }, []);
-
-  const handleSplit = useCallback(async () => {
-    if (!splitterBalance || splitterBalance === 0n) return;
-    
-    try {
-      let targetAddress = address;
-      if (!targetAddress) {
-        if (!primaryConnector) throw new Error("Wallet connector not available");
-        const result = await connectAsync({ connector: primaryConnector, chainId: base.id });
-        targetAddress = result.accounts[0];
-      }
-      if (!targetAddress) throw new Error("Unable to determine wallet address");
-
-      writeSplitContract({
-        account: targetAddress as Address,
-        address: FEE_SPLITTER,
-        abi: FEE_SPLITTER_ABI,
-        functionName: "distribute",
-        chainId: base.id,
-      });
-    } catch (error) {
-      console.error("Split failed:", error);
-      showSplitResult("failure");
-    }
-  }, [address, connectAsync, primaryConnector, splitterBalance, writeSplitContract, showSplitResult]);
-
-  // Handle split write error
-  useEffect(() => {
-    if (splitWriteError) {
-      const isUserRejection = splitWriteError.message?.includes("User rejected") || 
-                              splitWriteError.message?.includes("user rejected") ||
-                              splitWriteError.message?.includes("User denied");
-      if (!isUserRejection) {
-        showSplitResult("failure");
-      }
-      resetSplitWrite();
-    }
-  }, [splitWriteError, showSplitResult, resetSplitWrite]);
-
-  // Handle split receipt
-  useEffect(() => {
-    if (!splitReceipt) return;
-    
-    if (splitReceipt.status === "reverted") {
-      showSplitResult("failure");
-    } else {
-      showSplitResult("success");
-      refetchSplitter();
-    }
-    resetSplitWrite();
-  }, [splitReceipt, showSplitResult, resetSplitWrite, refetchSplitter]);
 
   const resetSprinklesState = useCallback(() => {
     setSprinklesTxStep("idle");
@@ -485,7 +408,6 @@ function BurnModal({
   useEffect(() => {
     return () => {
       if (sprinklesResultTimeoutRef.current) clearTimeout(sprinklesResultTimeoutRef.current);
-      if (splitResultTimeoutRef.current) clearTimeout(splitResultTimeoutRef.current);
     };
   }, []);
 
@@ -494,10 +416,8 @@ function BurnModal({
     if (!isOpen) {
       resetSprinklesState();
       setSprinklesBurnResult(null);
-      setSplitResult(null);
-      resetSplitWrite();
     }
-  }, [isOpen, resetSprinklesState, resetSplitWrite]);
+  }, [isOpen, resetSprinklesState]);
 
   const handleExternalLink = useCallback(async (url: string) => {
     try {
@@ -647,33 +567,6 @@ function BurnModal({
               Get LP on Aerodrome →
             </button>
           </div>
-
-          {/* Fee Splitter */}
-          {splitterBalance !== undefined && splitterBalance > 0n && (
-            <div className="mt-3 pt-3 border-t border-zinc-800">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-gray-400">
-                  Splitter: <span className="text-white font-semibold">{formatTokenAmount(splitterBalance, 18, 2)}</span> DONUT
-                </span>
-                <button
-                  onClick={handleSplit}
-                  disabled={isSplitWriting || isSplitConfirming || splitResult !== null}
-                  className={cn(
-                    "text-[10px] font-semibold px-2 py-1 rounded transition-all",
-                    splitResult === "success"
-                      ? "bg-green-500/20 text-green-400"
-                      : splitResult === "failure"
-                        ? "bg-red-500/20 text-red-400"
-                        : isSplitWriting || isSplitConfirming
-                          ? "bg-zinc-800 text-gray-500"
-                          : "bg-zinc-800 text-white hover:bg-zinc-700"
-                  )}
-                >
-                  {splitResult === "success" ? "✓" : splitResult === "failure" ? "✗" : isSplitWriting || isSplitConfirming ? "..." : "Split"}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -976,6 +869,125 @@ export default function HomePage() {
   // Prices for burn modal and tile
   const [donutUsdPrice, setDonutUsdPrice] = useState<number>(0);
   const [sprinklesLpPrice, setSprinklesLpPrice] = useState<number>(0);
+
+  // Fee splitter balance
+  const { data: splitterBalance, refetch: refetchSplitter } = useReadContract({
+    address: FEE_SPLITTER,
+    abi: FEE_SPLITTER_ABI,
+    functionName: "pendingDistribution",
+    chainId: base.id,
+    query: { refetchInterval: 30_000 },
+  });
+
+  // Split to Earn state
+  const [splitResult, setSplitResult] = useState<"success" | "failure" | "rewarded" | null>(null);
+  const splitResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const {
+    data: splitTxHash,
+    writeContract: writeSplitContract,
+    isPending: isSplitWriting,
+    reset: resetSplitWrite,
+    error: splitWriteError,
+  } = useWriteContract();
+
+  const { data: splitReceipt, isLoading: isSplitConfirming } = useWaitForTransactionReceipt({
+    hash: splitTxHash,
+    chainId: base.id,
+  });
+
+  const showSplitResult = useCallback((result: "success" | "failure" | "rewarded") => {
+    if (splitResultTimeoutRef.current) clearTimeout(splitResultTimeoutRef.current);
+    setSplitResult(result);
+    splitResultTimeoutRef.current = setTimeout(() => {
+      setSplitResult(null);
+      splitResultTimeoutRef.current = null;
+    }, 4000);
+  }, []);
+
+  const handleSplit = useCallback(async () => {
+    if (!splitterBalance || splitterBalance === 0n) return;
+    
+    try {
+      let targetAddress = address;
+      if (!targetAddress) {
+        if (!primaryConnector) throw new Error("Wallet connector not available");
+        const result = await connectAsync({ connector: primaryConnector, chainId: base.id });
+        targetAddress = result.accounts[0];
+      }
+      if (!targetAddress) throw new Error("Unable to determine wallet address");
+
+      writeSplitContract({
+        account: targetAddress as Address,
+        address: FEE_SPLITTER,
+        abi: FEE_SPLITTER_ABI,
+        functionName: "distribute",
+        chainId: base.id,
+      });
+    } catch (error) {
+      console.error("Split failed:", error);
+      showSplitResult("failure");
+    }
+  }, [address, connectAsync, primaryConnector, splitterBalance, writeSplitContract, showSplitResult]);
+
+  // Handle split write error
+  useEffect(() => {
+    if (splitWriteError) {
+      const isUserRejection = splitWriteError.message?.includes("User rejected") || 
+                              splitWriteError.message?.includes("user rejected") ||
+                              splitWriteError.message?.includes("User denied");
+      if (!isUserRejection) {
+        showSplitResult("failure");
+      }
+      resetSplitWrite();
+    }
+  }, [splitWriteError, showSplitResult, resetSplitWrite]);
+
+  // Handle split receipt and claim reward
+  useEffect(() => {
+    if (!splitReceipt || !splitTxHash) return;
+    
+    if (splitReceipt.status === "reverted") {
+      showSplitResult("failure");
+      resetSplitWrite();
+      return;
+    }
+
+    // Split succeeded - now claim the reward
+    const claimReward = async () => {
+      try {
+        const res = await fetch("/api/split-reward", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            txHash: splitTxHash,
+            address: splitReceipt.from,
+          }),
+        });
+        
+        if (res.ok) {
+          showSplitResult("rewarded");
+        } else {
+          // Split worked but reward failed - still show success
+          showSplitResult("success");
+        }
+      } catch {
+        showSplitResult("success");
+      }
+      
+      refetchSplitter();
+      resetSplitWrite();
+    };
+    
+    claimReward();
+  }, [splitReceipt, splitTxHash, showSplitResult, resetSplitWrite, refetchSplitter]);
+
+  // Cleanup split result timeout
+  useEffect(() => {
+    return () => {
+      if (splitResultTimeoutRef.current) clearTimeout(splitResultTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchPrices = async () => {
@@ -1388,10 +1400,118 @@ export default function HomePage() {
                 </button>
               </div>
 
+              {/* Split to Earn Tile */}
+              <div 
+                className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '125ms', animationFillMode: 'forwards' } : {})}
+              >
+                <button
+                  onClick={handleSplit}
+                  disabled={!splitterBalance || splitterBalance === 0n || isSplitWriting || isSplitConfirming || splitResult !== null}
+                  className={cn(
+                    "relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]",
+                    splitResult === "rewarded"
+                      ? "border-green-500/50"
+                      : splitResult === "success"
+                        ? "border-green-500/50"
+                        : splitResult === "failure"
+                          ? "border-red-500/50"
+                          : splitterBalance && splitterBalance > 0n
+                            ? "border-pink-500/50 hover:border-pink-500/80"
+                            : "border-white/20 opacity-60 cursor-not-allowed"
+                  )}
+                  style={{ 
+                    minHeight: '80px', 
+                    background: splitResult === "rewarded" || splitResult === "success"
+                      ? 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(22,163,74,0.1) 100%)'
+                      : splitResult === "failure"
+                        ? 'linear-gradient(135deg, rgba(239,68,68,0.15) 0%, rgba(220,38,38,0.1) 100%)'
+                        : splitterBalance && splitterBalance > 0n
+                          ? 'linear-gradient(135deg, rgba(244,114,182,0.15) 0%, rgba(219,39,119,0.1) 100%)'
+                          : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
+                  }}
+                >
+                  {/* Large background icon */}
+                  <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <Zap className={cn(
+                      "w-20 h-20",
+                      splitResult === "rewarded" || splitResult === "success"
+                        ? "text-green-900/80"
+                        : splitResult === "failure"
+                          ? "text-red-900/80"
+                          : splitterBalance && splitterBalance > 0n
+                            ? "text-pink-900/80"
+                            : "text-zinc-800"
+                    )} />
+                  </div>
+                  
+                  <div className="relative z-10 p-4 pr-16">
+                    <div className="text-left">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Zap className={cn(
+                          "w-5 h-5",
+                          splitResult === "rewarded" || splitResult === "success"
+                            ? "text-green-400"
+                            : splitResult === "failure"
+                              ? "text-red-400"
+                              : splitterBalance && splitterBalance > 0n
+                                ? "text-pink-400"
+                                : "text-gray-500"
+                        )} />
+                        <span className={cn(
+                          "font-bold text-base",
+                          splitResult === "rewarded" || splitResult === "success"
+                            ? "text-green-400"
+                            : splitResult === "failure"
+                              ? "text-red-400"
+                              : splitterBalance && splitterBalance > 0n
+                                ? "text-pink-400"
+                                : "text-gray-500"
+                        )}>
+                          {splitResult === "rewarded" 
+                            ? <span className="flex items-center gap-1"><SprinklesCoin className="w-4 h-4" /> +100 SPRINKLES!</span>
+                            : splitResult === "success"
+                              ? "Split Complete!"
+                              : splitResult === "failure"
+                                ? "Split Failed"
+                                : isSplitWriting || isSplitConfirming
+                                  ? "Splitting..."
+                                  : "Split to Earn"}
+                        </span>
+                        {splitterBalance && splitterBalance > 0n && !splitResult && !isSplitWriting && !isSplitConfirming && (
+                          <span className="text-[9px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded font-bold">
+                            READY
+                          </span>
+                        )}
+                      </div>
+                      <div className={cn(
+                        "text-[10px]",
+                        splitResult === "rewarded" || splitResult === "success"
+                          ? "text-green-200/60"
+                          : splitResult === "failure"
+                            ? "text-red-200/60"
+                            : splitterBalance && splitterBalance > 0n
+                              ? "text-pink-200/60"
+                              : "text-gray-600"
+                      )}>
+                        {splitResult === "rewarded"
+                          ? "Reward sent to your wallet"
+                          : splitterBalance && splitterBalance > 0n
+                            ? <span className="flex items-center gap-1">{formatTokenAmount(splitterBalance, 18, 2)} DONUT ready to split • Earn 100 <SprinklesCoin className="w-3 h-3 inline" /></span>
+                            : "No fees to split right now"}
+                      </div>
+                      <div className="text-[8px] text-gray-500 mt-1">
+                        Split miner revenue fees for the Sprinkles App
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
               {/* Pool To Own Tile */}
               <div 
                 className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {})}
+                style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '175ms', animationFillMode: 'forwards' } : {})}
               >
                 <div
                   className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden cursor-not-allowed opacity-60"
