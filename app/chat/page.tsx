@@ -63,6 +63,7 @@ const ERC20_ABI = [
 const CHAT_REWARDS_START_TIME = 1767880800; // January 7th, 2026 2:00 PM UTC (aligned with SPRINKLES miner halving)
 const HALVING_PERIOD = 30 * 24 * 60 * 60;
 const MULTIPLIER_SCHEDULE = [2, 1, 0.5, 0.25, 0];
+const MIN_SPRINKLES_FOR_REWARDS = 100000; // 100,000 SPRINKLES to earn
 
 const getCurrentMultiplier = () => {
   const now = Math.floor(Date.now() / 1000);
@@ -746,8 +747,8 @@ export default function ChatPage() {
                     <div className="flex gap-2.5">
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">1</div>
                       <div>
-                        <div className="font-semibold text-white text-xs">Hold 10,000 SPRINKLES</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">You must hold at least 10,000 SPRINKLES to earn rewards.</div>
+                        <div className="font-semibold text-white text-xs">Hold 100,000 SPRINKLES</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">You must hold at least 100,000 SPRINKLES to earn rewards.</div>
                       </div>
                     </div>
                     <div className="flex gap-2.5">
@@ -802,7 +803,7 @@ export default function ChatPage() {
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] font-bold text-white">!</div>
                       <div>
                         <div className="font-semibold text-red-400 text-xs">No SPRINKLES = No Earnings</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">Anyone can chat, but you won't earn points without holding 10,000 SPRINKLES.</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">Anyone can chat, but you won't earn points without holding 100,000 SPRINKLES.</div>
                       </div>
                     </div>
                   </div>
@@ -949,8 +950,7 @@ export default function ChatPage() {
                           <img 
                             src={msg.imageUrl} 
                             alt="Chat image" 
-                            className="max-w-[200px] max-h-[200px] rounded-lg border border-zinc-700 mb-1 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                            onClick={() => window.open(msg.imageUrl, "_blank")}
+                            className="max-w-full max-h-[400px] rounded-lg border border-zinc-700 mb-1 object-contain"
                           />
                         )}
                         {msg.message && msg.message !== "📷" && (
@@ -989,7 +989,7 @@ export default function ChatPage() {
                         <img 
                           src={pendingImageUrl} 
                           alt="Uploading" 
-                          className="max-w-[200px] max-h-[200px] rounded-lg border border-zinc-700 mb-1 object-cover opacity-70"
+                          className="max-w-full max-h-[400px] rounded-lg border border-zinc-700 mb-1 object-contain opacity-70"
                         />
                       )}
                       {pendingMessage && pendingMessage !== "📷" && (
