@@ -15,42 +15,48 @@ type MiniAppContext = {
   };
 };
 
-// Donut Circle Icon Component - uses clipPath for true transparency
-function DonutIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} style={style}>
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" fillRule="evenodd" />
-    </svg>
-  );
-}
+// Coin image component for DONUT
+const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover scale-[1.7]" />
+  </span>
+);
+
+// Coin image component for SPRINKLES
+const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/media/icon.png" alt="SPRINKLES" className="w-full h-full object-cover" />
+  </span>
+);
 
 // Donut Info Tile Component
 function DonutInfoTile({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="donut-tile relative w-full rounded-2xl border-2 border-amber-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-amber-500/80"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)' }}
+      className="donut-tile relative w-full rounded-2xl border-2 border-pink-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-500/80"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(219,39,119,0.1) 100%)' }}
     >
-      {/* Large background donut symbol - solid color */}
-      <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-        <DonutIcon className="w-28 h-28 text-amber-900/80" />
+      {/* Large background donut coin logo */}
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
+          <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover scale-[1.7]" />
+        </span>
       </div>
       
       <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <DonutIcon className="w-5 h-5 text-amber-400" />
-            <span className="font-bold text-base text-amber-400">What is $DONUT</span>
+            <span className="font-bold text-base text-pink-400">What is $DONUT</span>
           </div>
-          <div className="text-[10px] text-amber-200/60 mb-2">Store-of-value token on Base</div>
+          <div className="text-[10px] text-pink-200/60 mb-2">Store-of-value token on Base</div>
           
           <div className="flex items-center gap-2 text-[9px]">
-            <span className="text-amber-400">Dutch Auction</span>
-            <ArrowRight className="w-3 h-3 text-amber-500/50" />
-            <span className="text-amber-400">Mine DONUT</span>
-            <ArrowRight className="w-3 h-3 text-amber-500/50" />
-            <span className="text-amber-400">LP Growth</span>
+            <span className="text-pink-400">Dutch Auction</span>
+            <ArrowRight className="w-3 h-3 text-pink-500/50" />
+            <span className="text-pink-400">Mine DONUT</span>
+            <ArrowRight className="w-3 h-3 text-pink-500/50" />
+            <span className="text-pink-400">LP Growth</span>
           </div>
         </div>
       </div>
@@ -66,15 +72,16 @@ function SprinklesInfoTile({ onClick }: { onClick: () => void }) {
       className="sprinkles-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Large background sparkles symbol */}
+      {/* Large background sprinkles coin logo */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Sparkles className="w-24 h-24 text-zinc-800" />
+        <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
+          <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
+        </span>
       </div>
       
       <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Sparkles className="w-5 h-5 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
             <span className="font-bold text-base text-white">What is $SPRINKLES</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Companion token to $DONUT</div>
@@ -108,13 +115,12 @@ function RevenueFlowTile({ onClick }: { onClick: () => void }) {
       <div className="relative z-10 p-4 pr-16">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Coins className="w-4 h-4 text-white" />
             <span className="font-bold text-base text-white">Sprinkles App Revenue Flow</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">See where miner & game fees go</div>
           
           <div className="flex items-center gap-3 text-[9px]">
-            <div className="flex items-center gap-1 text-amber-400">
+            <div className="flex items-center gap-1 text-pink-400">
               <Dices className="w-3 h-3" />
               <span>Games</span>
             </div>
@@ -151,7 +157,6 @@ function LinksContractsTile({ onClick }: { onClick: () => void }) {
       <div className="relative z-10 p-4 pr-16">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Link2 className="w-4 h-4 text-white" />
             <span className="font-bold text-base text-white">Links & Contracts</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Smart contracts & useful links</div>
@@ -185,7 +190,6 @@ function DuneDashboardTile({ onClick }: { onClick: () => void }) {
       <div className="relative z-10 p-4 pr-16">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <BarChart3 className="w-4 h-4 text-white" />
             <span className="font-bold text-base text-white">Dune Dashboard</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">View analytics & on-chain data</div>
@@ -335,7 +339,7 @@ export default function AboutPage() {
                 }}
                 className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.98]"
               >
-                <DonutIcon className="h-4 w-4 text-amber-400" />
+                <DonutCoin className="h-4 w-4" />
                 <span>Stake Donut</span>
               </button>
               <button
@@ -348,7 +352,7 @@ export default function AboutPage() {
                 }}
                 className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.98]"
               >
-                <Coins className="h-4 w-4 text-amber-400" />
+                <Coins className="h-4 w-4 text-pink-400" />
                 <span>Pool To Mine</span>
               </button>
               <button
@@ -361,7 +365,7 @@ export default function AboutPage() {
                 }}
                 className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.98]"
               >
-                <Sparkles className="h-4 w-4 text-amber-400" />
+                <SprinklesCoin className="h-4 w-4" />
                 <span>Eco Tokens</span>
               </button>
             </div>
