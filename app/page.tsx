@@ -141,6 +141,18 @@ const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   </span>
 );
 
+// Coin image component for DONUT
+const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover scale-[1.7]" />
+  </span>
+);
+
+// Coin image component for ETH
+const EthCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <img src="/coins/eth_logo.png" alt="ETH" className={`${className} rounded-full object-cover`} />
+);
+
 // Client-side price calculation for Dutch auction
 const calculateDonutPrice = (initPrice: bigint, startTime: number | bigint): bigint => {
   const now = Math.floor(Date.now() / 1000);
@@ -1292,9 +1304,9 @@ export default function HomePage() {
                   <div className="text-3xl font-bold text-pink-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(244,114,182,0.9)' }}>
                     MINE DONUT
                   </div>
-                  <div className="text-lg text-white/90 mb-2">
-                    Price: <span className="font-bold text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
-                      Ξ{donutPrice ? formatEth(donutPrice, 2) : "—"}
+                  <div className="text-lg text-white/90 mb-2 flex items-center justify-center gap-1">
+                    Price: <span className="font-bold text-white flex items-center gap-1" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
+                      <EthCoin className="w-5 h-5" />{donutPrice ? formatEth(donutPrice, 2) : "—"}
                     </span>
                   </div>
                   {recentDonutMiner && (
@@ -1325,9 +1337,9 @@ export default function HomePage() {
                   <div className="text-3xl font-bold text-green-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(74,222,128,0.9)' }}>
                     MINE SPRINKLES
                   </div>
-                  <div className="text-lg text-white/90 mb-2">
-                    Price: <span className="font-bold text-white" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
-                      🍩{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18, 2) : "—"}
+                  <div className="text-lg text-white/90 mb-2 flex items-center justify-center gap-1">
+                    Price: <span className="font-bold text-white flex items-center gap-1" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
+                      <DonutCoin className="w-5 h-5" />{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18, 2) : "—"}
                     </span>
                   </div>
                   {recentSprinklesMiner && (
