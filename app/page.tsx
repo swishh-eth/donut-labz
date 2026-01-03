@@ -967,6 +967,45 @@ export default function HomePage() {
   const showSplitResult = useCallback((result: "success" | "failure" | "rewarded") => {
     if (splitResultTimeoutRef.current) clearTimeout(splitResultTimeoutRef.current);
     setSplitResult(result);
+    
+    // Play haptic and sound on success/rewarded
+    if (result === "success" || result === "rewarded") {
+      // Haptic feedback - try multiple API patterns
+      try {
+        const actions = sdk.actions as any;
+        if (actions.hapticFeedback) {
+          actions.hapticFeedback({ impactStyle: "medium" }).catch(() => {});
+        } else if (actions.haptic) {
+          actions.haptic("medium").catch(() => {});
+        }
+      } catch {
+        // Fallback to vibration API if available
+        if (navigator.vibrate) navigator.vibrate(50);
+      }
+      
+      // Play claim sound
+      try {
+        const audio = new Audio("/sounds/claim.mp3");
+        audio.volume = 0.5;
+        audio.play().catch(() => {
+          // Fallback: generate a simple success tone
+          try {
+            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.frequency.value = 880;
+            oscillator.type = "sine";
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 0.3);
+          } catch {}
+        });
+      } catch {}
+    }
+    
     splitResultTimeoutRef.current = setTimeout(() => {
       setSplitResult(null);
       splitResultTimeoutRef.current = null;
@@ -976,7 +1015,7 @@ export default function HomePage() {
   const handleSplit = useCallback(async () => {
     if (!splitterBalance || splitterBalance === 0n) {
       setShowNothingToSplit(true);
-      setTimeout(() => setShowNothingToSplit(false), 2000);
+      setTimeout(() => setShowNothingToSplit(false), 3000);
       return;
     }
     
@@ -1329,15 +1368,6 @@ export default function HomePage() {
         connectAsync={connectAsync}
       />
 
-      {/* Nothing to Split Popup */}
-      {showNothingToSplit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl px-6 py-4 shadow-2xl animate-in fade-in zoom-in duration-200">
-            <span className="text-white font-bold text-lg">NOTHING TO SPLIT</span>
-          </div>
-        </div>
-      )}
-
       <div
         className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4"
         style={{
@@ -1494,7 +1524,7 @@ export default function HomePage() {
               >
                 <button
                   onClick={handleSplit}
-                  disabled={isSplitWriting || isSplitConfirming || splitResult !== null}
+                  disabled={isSplitWriting || isSplitConfirming || splitResult !== null || showNothingToSplit}
                   className={cn(
                     "relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]",
                     splitResult === "rewarded"
@@ -1535,54 +1565,68 @@ export default function HomePage() {
                   </div>
                   
                   <div className="relative z-10 p-4 pr-16">
-                    <div className="text-left">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={cn(
-                          "font-bold text-base",
-                          splitResult === "rewarded" || splitResult === "success"
-                            ? "text-green-400"
-                            : splitResult === "failure"
-                              ? "text-red-400"
-                              : splitterBalance && splitterBalance > 0n
-                                ? "text-pink-400"
-                                : "text-gray-500"
-                        )}>
-                          {splitResult === "rewarded" 
-                            ? <span className="flex items-center gap-1"><SprinklesCoin className="w-4 h-4" /> +100 SPRINKLES!</span>
-                            : splitResult === "success"
-                              ? "Split Complete!"
-                              : splitResult === "failure"
-                                ? "Split Failed"
-                                : isSplitWriting || isSplitConfirming
-                                  ? "Splitting..."
-                                  : "Split to Earn"}
-                        </span>
-                        {splitterBalance && splitterBalance > 0n && !splitResult && !isSplitWriting && !isSplitConfirming && (
-                          <span className="text-[9px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded font-bold">
-                            READY
-                          </span>
-                        )}
-                      </div>
+                    <div className="text-left relative">
+                      {/* Nothing to Split Message */}
                       <div className={cn(
-                        "text-[10px]",
-                        splitResult === "rewarded" || splitResult === "success"
-                          ? "text-green-200/60"
-                          : splitResult === "failure"
-                            ? "text-red-200/60"
-                            : splitterBalance && splitterBalance > 0n
-                              ? "text-pink-200/60"
-                              : "text-gray-600"
+                        "absolute inset-0 flex items-center transition-opacity duration-300",
+                        showNothingToSplit ? "opacity-100" : "opacity-0 pointer-events-none"
                       )}>
-                        {splitResult === "rewarded"
-                          ? "Reward sent to your wallet"
-                          : splitterBalance && splitterBalance > 0n
-                            ? <span className="flex items-center gap-1">{formatTokenAmount(splitterBalance, 18, 0)} DONUT ready to split • Earn 100 <SprinklesCoin className="w-3 h-3 inline" /></span>
-                            : timeSinceLastSplit 
-                              ? `Last split ${timeSinceLastSplit}`
-                              : "No splits yet"}
+                        <span className="font-bold text-base text-gray-400">NOTHING TO SPLIT</span>
                       </div>
-                      <div className="text-[8px] text-gray-500 mt-1">
-                        Split miner revenue fees for the Sprinkles App
+                      
+                      {/* Normal Content */}
+                      <div className={cn(
+                        "transition-opacity duration-300",
+                        showNothingToSplit ? "opacity-0" : "opacity-100"
+                      )}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={cn(
+                            "font-bold text-base",
+                            splitResult === "rewarded" || splitResult === "success"
+                              ? "text-green-400"
+                              : splitResult === "failure"
+                                ? "text-red-400"
+                                : splitterBalance && splitterBalance > 0n
+                                  ? "text-pink-400"
+                                  : "text-gray-500"
+                          )}>
+                            {splitResult === "rewarded" 
+                              ? <span className="flex items-center gap-1"><SprinklesCoin className="w-4 h-4" /> +100 SPRINKLES!</span>
+                              : splitResult === "success"
+                                ? "Split Complete!"
+                                : splitResult === "failure"
+                                  ? "Split Failed"
+                                  : isSplitWriting || isSplitConfirming
+                                    ? "Splitting..."
+                                    : "Split to Earn"}
+                          </span>
+                          {splitterBalance && splitterBalance > 0n && !splitResult && !isSplitWriting && !isSplitConfirming && (
+                            <span className="text-[9px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded font-bold">
+                              READY
+                            </span>
+                          )}
+                        </div>
+                        <div className={cn(
+                          "text-[10px]",
+                          splitResult === "rewarded" || splitResult === "success"
+                            ? "text-green-200/60"
+                            : splitResult === "failure"
+                              ? "text-red-200/60"
+                              : splitterBalance && splitterBalance > 0n
+                                ? "text-pink-200/60"
+                                : "text-gray-600"
+                        )}>
+                          {splitResult === "rewarded"
+                            ? "Reward sent to your wallet"
+                            : splitterBalance && splitterBalance > 0n
+                              ? <span className="flex items-center gap-1">{formatTokenAmount(splitterBalance, 18, 0)} DONUT ready to split • Earn 100 <SprinklesCoin className="w-3 h-3 inline" /></span>
+                              : timeSinceLastSplit 
+                                ? `Last split ${timeSinceLastSplit}`
+                                : "No splits yet"}
+                        </div>
+                        <div className="text-[8px] text-gray-500 mt-1">
+                          Split miner revenue fees for the Sprinkles App
+                        </div>
                       </div>
                     </div>
                   </div>
