@@ -682,44 +682,41 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
 
   // Active campaign - main UI (COMPACT MODE)
   if (compact) {
-    // Show error state if there's an error
+    // Show error state if there's an error - FULL READABLE MESSAGE
     if (verifyError) {
       return (
-        <div className="flex rounded-xl overflow-hidden h-full w-full" style={{ border: '1px solid rgba(239,68,68,0.5)' }}>
-          <div 
-            className="flex-1 flex items-center justify-center p-2"
-            style={{ background: 'linear-gradient(135deg, rgba(127,29,29,0.3) 0%, rgba(153,27,27,0.2) 100%)' }}
-          >
-            <div className="flex items-center gap-1.5">
-              <XCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
-              <span className="text-[10px] text-red-300/90 line-clamp-1">
-                {verifyError}
-              </span>
-            </div>
+        <button
+          onClick={() => {
+            setVerifyError(null);
+            setHasShared(false);
+            setNeedsFollow(false);
+          }}
+          className="rounded-xl h-full w-full flex items-center justify-between px-3 py-2 transition-colors"
+          style={{ 
+            background: 'linear-gradient(135deg, rgba(127,29,29,0.3) 0%, rgba(153,27,27,0.2) 100%)',
+            border: '1px solid rgba(239,68,68,0.5)'
+          }}
+        >
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+            <span className="text-[10px] text-red-300 leading-tight">
+              {verifyError}
+            </span>
           </div>
-          <button
-            onClick={() => {
-              setVerifyError(null);
-              setHasShared(false);
-              setNeedsFollow(false);
-            }}
-            className="flex items-center justify-center px-2.5 bg-red-900/30 hover:bg-red-900/50 transition-colors"
+          <svg
+            className="w-4 h-4 text-red-400 flex-shrink-0 ml-2 animate-[spin_3s_linear_infinite_reverse]"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg
-              className="w-3.5 h-3.5 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] animate-[spin_3s_linear_infinite_reverse]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-          </button>
-        </div>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+        </button>
       );
     }
 
