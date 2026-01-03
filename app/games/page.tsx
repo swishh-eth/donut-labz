@@ -30,6 +30,13 @@ const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   </span>
 );
 
+// USDC coin image component with circular boundary
+const UsdcCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-full h-full object-cover" />
+  </span>
+);
+
 // Flappy Donut Tile
 function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer | null; prizePool: string }) {
   return (
@@ -92,7 +99,7 @@ function GlazeStackTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlaye
           <div className="text-[10px] text-white/60 mb-2">Stack boxes, don't let them fall!</div>
           
           <div className="flex items-center gap-1.5 text-[9px]">
-            <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3 rounded-full flex-shrink-0" />
+            <UsdcCoin className="w-3 h-3" />
             <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC</span>
             {recentPlayer && (
               <>
@@ -132,7 +139,7 @@ function DonutDashTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer
           <div className="text-[10px] text-white/60 mb-2">Jetpack through, collect sprinkles!</div>
           
           <div className="flex items-center gap-1.5 text-[9px]">
-            <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3 rounded-full flex-shrink-0" />
+            <UsdcCoin className="w-3 h-3" />
             <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC</span>
             {recentPlayer && (
               <>
@@ -463,7 +470,7 @@ export default function GamesPage() {
                       <span className="text-sm font-bold text-pink-400">{Math.floor(flappyPrizePool)}</span>
                     </div>
                     <div className="flex items-center justify-between w-full px-1">
-                      <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3.5 h-3.5" />
+                      <UsdcCoin className="w-3.5 h-3.5" />
                       <span className="text-sm font-bold text-green-400">${totalUsdcPrizes}</span>
                     </div>
                   </div>

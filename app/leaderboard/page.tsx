@@ -75,10 +75,24 @@ const formatAddress = (addr: string) => {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 };
 
-// Coin image component with 70% zoom
+// Coin image component for DONUT with zoom
 const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
     <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover scale-[1.7]" />
+  </span>
+);
+
+// Coin image component for USDC with circular boundary
+const UsdcCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-full h-full object-cover" />
+  </span>
+);
+
+// Coin image component for SPRINKLES
+const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/media/icon.png" alt="SPRINKLES" className="w-full h-full object-cover" />
   </span>
 );
 
@@ -503,7 +517,7 @@ export default function LeaderboardPage() {
                 ) : (
                   <div className="flex flex-col w-full h-full justify-center gap-0.5">
                     <div className="flex items-center justify-between w-full px-1">
-                      <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3.5 h-3.5" />
+                      <UsdcCoin className="w-3.5 h-3.5" />
                       <span className="text-sm font-bold text-green-400">${distributionConfig.USDC}</span>
                     </div>
                     <div className="flex items-center justify-between w-full px-1">
@@ -511,7 +525,7 @@ export default function LeaderboardPage() {
                       <span className="text-sm font-bold text-pink-400">{distributionConfig.DONUT.toLocaleString()}</span>
                     </div>
                     <div className="flex items-center justify-between w-full px-1">
-                      <img src="/media/icon.png" alt="SPRINKLES" className="w-3.5 h-3.5 rounded-full object-cover" />
+                      <SprinklesCoin className="w-3.5 h-3.5" />
                       <span className="text-sm font-bold text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]">
                         {distributionConfig.SPRINKLES >= 1000 ? `${(distributionConfig.SPRINKLES/1000).toFixed(0)}k` : distributionConfig.SPRINKLES}
                       </span>
@@ -598,7 +612,7 @@ export default function LeaderboardPage() {
                         <div className="font-semibold text-green-400 text-xs mb-1">Win Prizes</div>
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-1 bg-green-500/20 px-1.5 py-0.5 rounded">
-                            <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
+                            <UsdcCoin className="w-3 h-3" />
                             <span className="text-green-400 text-[10px] font-bold">USDC</span>
                           </div>
                           <div className="flex items-center gap-1 bg-pink-500/20 px-1.5 py-0.5 rounded">
@@ -606,7 +620,7 @@ export default function LeaderboardPage() {
                             <span className="text-pink-400 text-[10px] font-bold">DONUT</span>
                           </div>
                           <div className="flex items-center gap-1 bg-white/20 px-1.5 py-0.5 rounded">
-                            <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full" />
+                            <SprinklesCoin className="w-3 h-3" />
                             <span className="text-white text-[10px] font-bold">SPRNKL</span>
                           </div>
                         </div>
@@ -916,7 +930,7 @@ export default function LeaderboardPage() {
                                   className={`text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1 ${!hasAnimatedIn ? 'animate-prizeBadge' : ''}`}
                                   style={!hasAnimatedIn ? { animationDelay: `${index * 40 + 300}ms` } : undefined}
                                 >
-                                  <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
+                                  <UsdcCoin className="w-3 h-3" />
                                   +${prizeUsdc}
                                 </span>
                                 {parseFloat(prizeDonut || '0') > 0 && (
@@ -933,7 +947,7 @@ export default function LeaderboardPage() {
                                     className={`text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1 ${!hasAnimatedIn ? 'animate-prizeBadge' : ''}`}
                                     style={!hasAnimatedIn ? { animationDelay: `${index * 40 + 500}ms` } : undefined}
                                   >
-                                    <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full object-cover" />
+                                    <SprinklesCoin className="w-3 h-3" />
                                     +{sprinklesDisplay}
                                   </span>
                                 )}
@@ -1000,7 +1014,7 @@ export default function LeaderboardPage() {
                                 className={`text-green-400 text-[10px] font-bold bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1 ${!hasAnimatedIn ? 'animate-prizeBadge' : ''}`}
                                 style={!hasAnimatedIn ? { animationDelay: `${index * 40 + 300}ms` } : undefined}
                               >
-                                <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3 h-3" />
+                                <UsdcCoin className="w-3 h-3" />
                                 +${prizeUsdc}
                               </span>
                               {parseFloat(prizeDonut || '0') > 0 && (
@@ -1017,7 +1031,7 @@ export default function LeaderboardPage() {
                                   className={`text-white text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded flex items-center gap-1 ${!hasAnimatedIn ? 'animate-prizeBadge' : ''}`}
                                   style={!hasAnimatedIn ? { animationDelay: `${index * 40 + 500}ms` } : undefined}
                                 >
-                                  <img src="/media/icon.png" alt="SPRINKLES" className="w-3 h-3 rounded-full object-cover" />
+                                  <SprinklesCoin className="w-3 h-3" />
                                   +{sprinklesDisplay}
                                 </span>
                               )}

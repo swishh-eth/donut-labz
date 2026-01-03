@@ -155,6 +155,13 @@ const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   </span>
 );
 
+// Coin image component for USDC
+const UsdcCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-full h-full object-cover" />
+  </span>
+);
+
 // Coin image component for ETH
 const EthCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <img src="/coins/eth_logo.png" alt="ETH" className={`${className} rounded-full object-cover`} />
