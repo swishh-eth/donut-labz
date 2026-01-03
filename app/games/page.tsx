@@ -23,6 +23,13 @@ type RecentPlayer = {
   pfpUrl?: string;
 };
 
+// Donut coin image component
+const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover scale-[1.7]" />
+  </span>
+);
+
 // Flappy Donut Tile
 function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlayer | null; prizePool: string }) {
   return (
@@ -40,13 +47,13 @@ function FlappyDonutTile({ recentPlayer, prizePool }: { recentPlayer: RecentPlay
           <div className="flex items-center gap-2 mb-1">
             <Gamepad2 className="w-5 h-5 text-white" />
             <span className="font-bold text-base text-white">Flappy Donut</span>
-            <span className="text-[8px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full">ENTRY FEE</span>
+            <span className="text-[8px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded-full">ENTRY FEE</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Tap to fly, dodge rolling pins!</div>
           
-          <div className="flex items-center gap-2 text-[9px]">
-            <Trophy className="w-3 h-3 text-amber-400 flex-shrink-0" />
-            <span className="text-amber-400 whitespace-nowrap">{prizePool} 🍩</span>
+          <div className="flex items-center gap-1.5 text-[9px]">
+            <DonutCoin className="w-3 h-3" />
+            <span className="text-pink-400 font-medium whitespace-nowrap">{prizePool} DONUT</span>
             {recentPlayer && (
               <>
                 <span className="text-zinc-600">•</span>
@@ -452,8 +459,8 @@ export default function GamesPage() {
                 ) : (
                   <div className="flex flex-col w-full h-full justify-center gap-0.5">
                     <div className="flex items-center justify-between w-full px-1">
-                      <span className="text-amber-400 text-sm">🍩</span>
-                      <span className="text-sm font-bold text-amber-400">{Math.floor(flappyPrizePool)}</span>
+                      <DonutCoin className="w-4 h-4" />
+                      <span className="text-sm font-bold text-pink-400">{Math.floor(flappyPrizePool)}</span>
                     </div>
                     <div className="flex items-center justify-between w-full px-1">
                       <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-3.5 h-3.5" />
@@ -538,7 +545,7 @@ export default function GamesPage() {
             <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-4 shadow-2xl max-h-[70vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Gamepad2 className="w-5 h-5 text-amber-400" />
+                  <Gamepad2 className="w-5 h-5 text-white" />
                   How to Play
                 </h2>
                 <button
@@ -557,7 +564,7 @@ export default function GamesPage() {
                   </h3>
                   <p className="text-gray-400 text-xs">
                     Tap to fly your donut through the rolling pins! Each gap passed = 1 point. 
-                    Top 10 weekly scores split the 🍩 prize pool.
+                    Top 10 weekly scores split the <DonutCoin className="w-3 h-3 inline-block align-middle mx-0.5" /> DONUT prize pool.
                   </p>
                 </div>
 
