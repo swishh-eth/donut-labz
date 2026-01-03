@@ -1448,14 +1448,14 @@ export default function HomePage() {
                       : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
                   }}
                 >
-                  {/* Stacked background icons - sprinkles behind donut */}
-                  <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    {/* Sprinkles icon - behind */}
-                    <span className="absolute -left-12 top-1/2 -translate-y-1/2 w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
+                  {/* Stacked background icons - sprinkles and donut inline */}
+                  <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none flex items-center">
+                    {/* Sprinkles icon - left/behind */}
+                    <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 -mr-6 relative z-0">
                       <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
                     </span>
-                    {/* Donut icon - front */}
-                    <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
+                    {/* Donut icon - right/front */}
+                    <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 relative z-10">
                       <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover scale-[1.7]" />
                     </span>
                   </div>
@@ -1606,7 +1606,6 @@ export default function HomePage() {
                   <div className="relative z-10 p-4 pr-20">
                     <div className="text-left">
                       <div className="flex items-center gap-2 mb-1">
-                        <Droplets className="w-5 h-5 text-gray-500" />
                         <span className="font-bold text-base text-gray-500">Pool To Own</span>
                       </div>
                       <div className="text-[10px] text-gray-600 mb-2">Contribute liquidity to earn ownership</div>
