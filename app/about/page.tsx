@@ -23,10 +23,10 @@ const FEE_SPLITTER_ADDRESS = "0x710e042d4F13f5c649dBb1774A3695BFcAC253ce"; // Ef
 
 // Base RPC endpoints with fallbacks
 const BASE_RPCS = [
+  "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g",
   "https://mainnet.base.org",
   "https://base.llamarpc.com",
   "https://base.drpc.org",
-  "https://base-mainnet.public.blastapi.io",
 ];
 
 // ERC20 balanceOf ABI fragment

@@ -65,7 +65,7 @@ export default function AboutSprinklesPage() {
     const fetchBurnedBalance = async () => {
       try {
         // Fetch SPRINKLES burned (dead address)
-        const deadResponse = await fetch('https://mainnet.base.org', {
+        const deadResponse = await fetch('https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -83,7 +83,7 @@ export default function AboutSprinklesPage() {
         });
         
         // Fetch SPRINKLES in LP burn pool (0x710e042d4F13f5c649dBb1774A3695BFcAC253ce)
-        const lpPoolResponse = await fetch('https://mainnet.base.org', {
+        const lpPoolResponse = await fetch('https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -121,7 +121,7 @@ export default function AboutSprinklesPage() {
 
     const fetchDonutBurnedInLP = async () => {
       try {
-        const response = await fetch('https://mainnet.base.org', {
+        const response = await fetch('https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -154,7 +154,7 @@ export default function AboutSprinklesPage() {
     // Fetch gDONUT staked by treasury
     const fetchGDonutStaked = async () => {
       try {
-        const response = await fetch('https://mainnet.base.org', {
+        const response = await fetch('https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -184,7 +184,7 @@ export default function AboutSprinklesPage() {
     // Fetch SPRINKLES held by treasury
     const fetchTreasurySprinkles = async () => {
       try {
-        const response = await fetch('https://mainnet.base.org', {
+        const response = await fetch('https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
