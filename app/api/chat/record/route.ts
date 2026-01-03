@@ -4,10 +4,10 @@ import { base } from "viem/chains";
 import { createClient } from "@supabase/supabase-js";
 
 const SPRINKLES_TOKEN = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
-const MIN_SPRINKLES_BALANCE = 100000n * 10n ** 18n; // 100,000 SPRINKLES
+const MIN_SPRINKLES_BALANCE = 10000n * 10n ** 18n; // 10,000 SPRINKLES
 
 // Points calculation constants
-const CHAT_REWARDS_START_TIME = 1765163000;
+const CHAT_REWARDS_START_TIME = 1767880800; // January 7th, 2026 2:00 PM UTC (aligned with SPRINKLES miner halving)
 const HALVING_PERIOD = 30 * 24 * 60 * 60;
 const MULTIPLIER_SCHEDULE = [2, 1, 0.5, 0.25, 0];
 const BASE_POINTS_PER_MESSAGE = 1; // Flat rate for holding 100k SPRINKLES
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         success: true, 
         points: 0, 
-        message: "Must hold 100,000 SPRINKLES to earn" 
+        message: "Must hold 10,000 SPRINKLES to earn" 
       });
     }
 

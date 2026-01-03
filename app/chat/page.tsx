@@ -60,7 +60,7 @@ const ERC20_ABI = [
   },
 ] as const;
 
-const CHAT_REWARDS_START_TIME = 1765163000;
+const CHAT_REWARDS_START_TIME = 1767880800; // January 7th, 2026 2:00 PM UTC (aligned with SPRINKLES miner halving)
 const HALVING_PERIOD = 30 * 24 * 60 * 60;
 const MULTIPLIER_SCHEDULE = [2, 1, 0.5, 0.25, 0];
 
@@ -746,8 +746,8 @@ export default function ChatPage() {
                     <div className="flex gap-2.5">
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">1</div>
                       <div>
-                        <div className="font-semibold text-white text-xs">Hold 100,000 SPRINKLES</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">You must hold at least 100,000 SPRINKLES to earn rewards.</div>
+                        <div className="font-semibold text-white text-xs">Hold 10,000 SPRINKLES</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">You must hold at least 10,000 SPRINKLES to earn rewards.</div>
                       </div>
                     </div>
                     <div className="flex gap-2.5">
@@ -761,7 +761,7 @@ export default function ChatPage() {
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">3</div>
                       <div>
                         <div className="font-semibold text-white text-xs">Halving Schedule</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">Rewards halve every 30 days: 2x → 1x → 0.5x → 0.25x → 0 (ends).</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">Rewards halve every 30 days: 2x → 1x → 0.5x → 0.25x → 0 (ends). Aligned with SPRINKLES miner halving.</div>
                         {!rewardsEnded && (
                           <div className="mt-1.5 flex items-center gap-2 bg-white/5 border border-white/20 rounded-lg px-2 py-1.5">
                             <Timer className="w-3 h-3 text-white" />
@@ -802,7 +802,7 @@ export default function ChatPage() {
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] font-bold text-white">!</div>
                       <div>
                         <div className="font-semibold text-red-400 text-xs">No SPRINKLES = No Earnings</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">Anyone can chat, but you won't earn points without holding 100,000 SPRINKLES.</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">Anyone can chat, but you won't earn points without holding 10,000 SPRINKLES.</div>
                       </div>
                     </div>
                   </div>
