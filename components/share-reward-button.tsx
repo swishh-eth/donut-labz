@@ -578,7 +578,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     if (compact) {
       return (
         <div 
-          className="rounded-xl p-2 flex items-center justify-center"
+          className="rounded-xl p-2 h-[36px] flex items-center justify-center"
           style={getGradient()}
         >
           <div className={cn("flex items-center gap-1.5", getTextColor())}>
@@ -603,7 +603,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     if (compact) {
       return (
         <div 
-          className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 flex items-center justify-center opacity-60"
+          className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] flex items-center justify-center opacity-60"
         >
           <div className="flex items-center gap-1.5 text-gray-400">
             <Gift className="w-3.5 h-3.5" />
@@ -633,7 +633,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           onClick={handleClaim}
           disabled={isWriting || isConfirming}
           className={cn(
-            "rounded-xl p-2 flex items-center justify-center gap-1.5 transition-all",
+            "rounded-xl p-2 h-[36px] flex items-center justify-center gap-1.5 transition-all",
             (isWriting || isConfirming) && "opacity-50 cursor-not-allowed"
           )}
           style={getActiveGradient()}
@@ -643,7 +643,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           ) : (
             <TokenIcon className="w-3.5 h-3.5" />
           )}
-          <span className={cn("font-bold text-xs", getTextColor())}>
+          <span className={cn("font-semibold text-xs", getTextColor())}>
             {isWriting ? "Approve..." : isConfirming ? "Claiming..." : "Claim"}
           </span>
         </button>
@@ -739,7 +739,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             setHasShared(false);
             setNeedsFollow(false);
           }}
-          className="rounded-xl p-2 flex items-center justify-between transition-colors"
+          className="rounded-xl p-2 h-[36px] flex items-center justify-between transition-colors"
           style={{ 
             background: 'linear-gradient(135deg, rgba(127,29,29,0.3) 0%, rgba(153,27,27,0.2) 100%)',
             border: '1px solid rgba(239,68,68,0.5)'
@@ -747,7 +747,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
         >
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-            <span className="text-[10px] text-red-300 leading-tight">
+            <span className="text-[10px] text-red-300 leading-tight truncate">
               {verifyError}
             </span>
           </div>
@@ -775,17 +775,18 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           onClick={handleShareToQualify}
           disabled={!userFid}
           className={cn(
-            "rounded-xl p-2 flex items-center justify-center gap-2 transition-all",
+            "rounded-xl p-2 h-[36px] flex items-center justify-center gap-2 transition-all",
             !userFid && "opacity-50 cursor-not-allowed"
           )}
           style={getActiveGradient()}
         >
           {/* Icon only shows for "Share to Claim" */}
           <div
-            className="transition-all duration-300 ease-out"
+            className="transition-all duration-300 ease-out flex items-center justify-center"
             style={{
               opacity: showClaimsLeft ? 0 : 1,
               width: showClaimsLeft ? 0 : 16,
+              height: 16,
               overflow: 'hidden',
             }}
           >
@@ -793,7 +794,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           </div>
           <span 
             key={showClaimsLeft ? 'claims' : 'share'}
-            className="font-bold text-xs text-white"
+            className="font-semibold text-xs text-white"
           >
             {showClaimsLeft ? `${claimsRemaining} left` : "Share to Claim"}
           </span>
@@ -804,7 +805,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     // State 2: Needs to follow @swishh.eth
     if (needsFollow) {
       return (
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 h-[36px]">
           <button
             onClick={handleFollow}
             className="flex-1 rounded-xl p-2 flex items-center justify-center gap-1 transition-all"
@@ -814,7 +815,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             }}
           >
             <UserPlus className="w-3.5 h-3.5 text-purple-400" />
-            <span className="font-bold text-[10px] text-purple-400">Follow</span>
+            <span className="font-semibold text-[10px] text-purple-400">Follow</span>
           </button>
           <button
             onClick={handleVerifyAndClaim}
@@ -830,7 +831,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             ) : (
               <CheckCircle className={cn("w-3.5 h-3.5", getTextColor())} />
             )}
-            <span className={cn("font-bold text-[10px]", getTextColor())}>
+            <span className={cn("font-semibold text-[10px]", getTextColor())}>
               {isVerifying ? "..." : "Verify"}
             </span>
           </button>
@@ -844,7 +845,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
         onClick={handleVerifyAndClaim}
         disabled={isVerifying || !userFid}
         className={cn(
-          "rounded-xl p-2 flex items-center justify-center gap-1.5 transition-all",
+          "rounded-xl p-2 h-[36px] flex items-center justify-center gap-1.5 transition-all",
           (isVerifying || !userFid) && "opacity-50 cursor-not-allowed"
         )}
         style={getActiveGradient()}
@@ -854,7 +855,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
         ) : (
           <CheckCircle className={cn("w-3.5 h-3.5", getTextColor())} />
         )}
-        <span className="font-bold text-xs text-white">
+        <span className="font-semibold text-xs text-white">
           {isVerifying ? "Checking..." : "Verify"}
         </span>
       </button>

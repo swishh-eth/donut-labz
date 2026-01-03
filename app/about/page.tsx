@@ -354,48 +354,6 @@ function SprinklesInfoTile({ onClick }: { onClick: () => void }) {
   );
 }
 
-// Revenue Flow Tile Component
-function RevenueFlowTile({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="revenue-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
-    >
-      {/* Large background coins symbol */}
-      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Coins className="w-24 h-24 text-zinc-800" />
-      </div>
-      
-      <div className="relative z-10 p-4 pr-16">
-        <div className="text-left">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-bold text-base text-white">Sprinkles App Revenue Flow</span>
-          </div>
-          <div className="text-[10px] text-white/60 mb-2">See where miner & game fees go</div>
-          
-          <div className="flex items-center gap-3 text-[9px]">
-            <div className="flex items-center gap-1 text-pink-400">
-              <Dices className="w-3 h-3" />
-              <span>Games</span>
-            </div>
-            <ArrowRight className="w-3 h-3 text-white/30" />
-            <div className="flex items-center gap-1 text-green-400">
-              <TrendingUp className="w-3 h-3" />
-              <span>LP</span>
-            </div>
-            <ArrowRight className="w-3 h-3 text-white/30" />
-            <div className="flex items-center gap-1 text-white">
-              <Sparkles className="w-3 h-3" />
-              <span>Stakers</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </button>
-  );
-}
-
 // Links & Contracts Tile Component
 function LinksContractsTile({ onClick }: { onClick: () => void }) {
   return (
@@ -752,18 +710,10 @@ export default function AboutPage() {
                 <SprinklesInfoTile onClick={() => window.location.href = "/about/sprinkles"} />
               </div>
 
-              {/* Revenue Flow Tile */}
-              <div 
-                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
-              >
-                <RevenueFlowTile onClick={() => window.location.href = "/about/revenue"} />
-              </div>
-
               {/* Links & Contracts Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
               >
                 <LinksContractsTile onClick={() => window.location.href = "/about/links-contracts"} />
               </div>
@@ -771,7 +721,7 @@ export default function AboutPage() {
               {/* Donut Dashboard Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '250ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}
               >
                 <DonutDashboardTile onClick={async () => {
                   try {
@@ -785,7 +735,7 @@ export default function AboutPage() {
               {/* Sprinkles Dashboard Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '300ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '250ms', animationFillMode: 'forwards' } : {}}
               >
                 <SprinklesDashboardTile 
                   showComingSoon={showComingSoon}

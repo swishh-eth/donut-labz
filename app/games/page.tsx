@@ -482,9 +482,9 @@ export default function GamesPage() {
             <div className="grid grid-cols-2 gap-2 mb-3">
               <button
                 onClick={() => setShowHelpDialog(true)}
-                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 hover:bg-zinc-800 transition-colors"
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] hover:bg-zinc-800 transition-colors"
               >
-                <div className="flex items-center justify-center gap-2">
+                <div className="flex items-center justify-center gap-2 h-full">
                   <Gamepad2 className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                   <span className="text-xs font-semibold text-white">How to Play</span>
                   <HelpCircle className="w-3 h-3 text-gray-400" />
