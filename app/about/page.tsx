@@ -308,7 +308,7 @@ function HalvingCountdownTile() {
       
       <div className="relative z-10 p-4 pr-20">
         <div className="flex items-center gap-2 mb-2">
-          <span className="font-bold text-sm text-white">Sprinkles Halving Countdown Timer</span>
+          <span className="font-bold text-sm text-white">Sprinkles Halving Countdown</span>
         </div>
         
         {isComplete ? (
