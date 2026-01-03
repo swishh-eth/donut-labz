@@ -98,6 +98,13 @@ const FEE_SPLITTER_ABI = [
     stateMutability: "nonpayable",
     type: "function",
   },
+  {
+    inputs: [],
+    name: "lastDistributionTime",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
 ] as const;
 
 // Dutch auction constants for DONUT miner
@@ -891,6 +898,47 @@ export default function HomePage() {
     query: { refetchInterval: 30_000 },
   });
 
+  const { data: lastSplitTime } = useReadContract({
+    address: FEE_SPLITTER,
+    abi: FEE_SPLITTER_ABI,
+    functionName: "lastDistributionTime",
+    chainId: base.id,
+    query: { refetchInterval: 30_000 },
+  });
+
+  // Calculate time since last split
+  const [timeSinceLastSplit, setTimeSinceLastSplit] = useState<string>("");
+  
+  useEffect(() => {
+    if (!lastSplitTime || lastSplitTime === 0n) {
+      setTimeSinceLastSplit("");
+      return;
+    }
+
+    const updateTimeSince = () => {
+      const now = Math.floor(Date.now() / 1000);
+      const lastSplit = Number(lastSplitTime);
+      const diff = now - lastSplit;
+
+      if (diff < 60) {
+        setTimeSinceLastSplit("just now");
+      } else if (diff < 3600) {
+        const mins = Math.floor(diff / 60);
+        setTimeSinceLastSplit(`${mins}m ago`);
+      } else if (diff < 86400) {
+        const hours = Math.floor(diff / 3600);
+        setTimeSinceLastSplit(`${hours}h ago`);
+      } else {
+        const days = Math.floor(diff / 86400);
+        setTimeSinceLastSplit(`${days}d ago`);
+      }
+    };
+
+    updateTimeSince();
+    const interval = setInterval(updateTimeSince, 60_000);
+    return () => clearInterval(interval);
+  }, [lastSplitTime]);
+
   // Split to Earn state
   const [splitResult, setSplitResult] = useState<"success" | "failure" | "rewarded" | null>(null);
   const splitResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1339,7 +1387,7 @@ export default function HomePage() {
                   </div>
                   <div className="text-lg text-white/90 mb-2 flex items-center justify-center gap-1">
                     Price: <span className="font-bold text-white flex items-center gap-1" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
-                      <DonutCoin className="w-5 h-5" />{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18, 2) : "—"}
+                      <DonutCoin className="w-5 h-5" />{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18, 0) : "—"}
                     </span>
                   </div>
                   {recentSprinklesMiner && (
@@ -1509,8 +1557,10 @@ export default function HomePage() {
                         {splitResult === "rewarded"
                           ? "Reward sent to your wallet"
                           : splitterBalance && splitterBalance > 0n
-                            ? <span className="flex items-center gap-1">{formatTokenAmount(splitterBalance, 18, 2)} DONUT ready to split • Earn 100 <SprinklesCoin className="w-3 h-3 inline" /></span>
-                            : "No fees to split right now"}
+                            ? <span className="flex items-center gap-1">{formatTokenAmount(splitterBalance, 18, 0)} DONUT ready to split • Earn 100 <SprinklesCoin className="w-3 h-3 inline" /></span>
+                            : timeSinceLastSplit 
+                              ? `Last split ${timeSinceLastSplit}`
+                              : "No splits yet"}
                       </div>
                       <div className="text-[8px] text-gray-500 mt-1">
                         Split miner revenue fees for the Sprinkles App
