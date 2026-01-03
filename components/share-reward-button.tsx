@@ -198,7 +198,7 @@ const handleShareToQualify = async () => {
   const shareText = `Free-to-play arcade games just landed on Sprinkles by @swishh.eth
 $100+ in leaderboard prizes weekly! 🏆
 
-Climb the leaderboards & earn: 
+Climb game leaderboards & earn: 
 $DONUT, $USDC, & $SPRINKLES! 
 
 I just claimed
