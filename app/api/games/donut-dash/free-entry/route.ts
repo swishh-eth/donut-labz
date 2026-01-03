@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
         pfp_url: pfpUrl || null,
         week: currentWeek,
         score: 0,
+        entry_fee: 0,
         tx_hash: txHash,
         created_at: new Date().toISOString(),
       });
