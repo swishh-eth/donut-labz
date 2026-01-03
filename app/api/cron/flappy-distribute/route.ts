@@ -54,6 +54,25 @@ const FLAPPY_POOL_ABI = [
 // Prize share percentages (must match contract - 100% of prize pool)
 const PRIZE_SHARES = [3000, 2000, 1500, 1000, 800, 600, 500, 300, 200, 100];
 
+// Get current week number (weeks start on Friday 11PM UTC / 6PM EST)
+// Matches the backend week calculation, not the contract
+function getCurrentWeek(): number {
+  const now = new Date();
+  // Epoch: Friday Dec 5, 2025 23:00 UTC (6PM EST)
+  const epoch = new Date(Date.UTC(2025, 11, 5, 23, 0, 0));
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+
+  const weeksSinceEpoch = Math.floor(
+    (now.getTime() - epoch.getTime()) / msPerWeek
+  );
+  return weeksSinceEpoch + 1;
+}
+
+// Get the week that just ended (for distribution)
+function getWeekToDistribute(): number {
+  return Math.max(1, getCurrentWeek() - 1);
+}
+
 // Retry wrapper for RPC calls
 async function withRetry<T>(
   fn: () => Promise<T>,
@@ -89,7 +108,7 @@ export async function GET(request: Request) {
       transport: http(ALCHEMY_RPC_URL),
     });
 
-    // Check if distribution is allowed
+    // Check if distribution is allowed (still use contract for time window)
     const canDistribute = await withRetry(() => publicClient.readContract({
       address: FLAPPY_POOL_ADDRESS,
       abi: FLAPPY_POOL_ABI,
@@ -103,15 +122,9 @@ export async function GET(request: Request) {
       });
     }
 
-    // Get current week from contract
-    const currentWeek = await withRetry(() => publicClient.readContract({
-      address: FLAPPY_POOL_ADDRESS,
-      abi: FLAPPY_POOL_ABI,
-      functionName: 'currentWeek',
-    }));
-
-    const weekNumber = Number(currentWeek);
-    console.log(`[Flappy Distribution] Week ${weekNumber}`);
+    // Use calculated week (matches database), not contract week
+    const weekNumber = getWeekToDistribute();
+    console.log(`[Flappy Distribution] Distributing week ${weekNumber}`);
 
     // Check if we already distributed this week
     const { data: existingDist } = await supabase

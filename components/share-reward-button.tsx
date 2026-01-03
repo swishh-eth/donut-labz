@@ -192,11 +192,17 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     }
   }, [estimatedReward, tokenDecimals]);
 
-  // Share before claiming (to qualify)
-  const handleShareToQualify = async () => {
-    const estimatedAmount = getEstimatedAmount();
-    const shareText = `Sprinkles by @swishh.eth just did another daily airdrop!\n\n${estimatedAmount} $${tokenSymbol} claimed! ✨\n\nStart competing in weekly leaderboards 👇`;
+// Share before claiming (to qualify)
+const handleShareToQualify = async () => {
+  const estimatedAmount = getEstimatedAmount();
+  const shareText = `Free-to-play arcade games just landed on Sprinkles by @swishh.eth
+Climb the leaderboard. Earn DONUT + USDC.
+🏆 $100+ in leaderboard prizes
 
+I just claimed
+${estimatedAmount} $${tokenSymbol} just for playing! ✨
+
+Start competing in weekly leaderboards 👇`;
     try {
       await sdk.actions.composeCast({
         text: shareText,
