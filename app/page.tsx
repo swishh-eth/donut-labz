@@ -1437,17 +1437,11 @@ export default function HomePage() {
                   {/* Stacked background icons - sprinkles and donut side by side */}
                   <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none flex items-center">
                     {/* Sprinkles icon - left */}
-                    <span className={cn(
-                      "w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 -mr-6",
-                      isBurnProfitable ? "opacity-100" : "opacity-15"
-                    )}>
+                    <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 -mr-4">
                       <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
                     </span>
                     {/* Donut icon - right */}
-                    <span className={cn(
-                      "w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50",
-                      isBurnProfitable ? "opacity-100" : "opacity-10"
-                    )}>
+                    <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
                       <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover scale-[1.7]" />
                     </span>
                   </div>
