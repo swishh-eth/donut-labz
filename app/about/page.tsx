@@ -17,7 +17,9 @@ type MiniAppContext = {
 
 // SPRINKLES token address on Base
 const SPRINKLES_TOKEN = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
+const DONUT_TOKEN = "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d";
 const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD";
+const FEE_SPLITTER_ADDRESS = "0x710e042d4F13f5c649dBb1774A3695BFcAC253ce"; // Effectively burned - locked in fee splitter
 
 // Base RPC endpoints with fallbacks
 const BASE_RPCS = [
@@ -30,9 +32,9 @@ const BASE_RPCS = [
 // ERC20 balanceOf ABI fragment
 const BALANCE_OF_ABI = "0x70a08231";
 
-// Fetch burned SPRINKLES balance with fallbacks
-async function fetchBurnedBalance(): Promise<bigint> {
-  const paddedAddress = DEAD_ADDRESS.slice(2).padStart(64, '0');
+// Fetch token balance from an address
+async function fetchTokenBalance(tokenAddress: string, walletAddress: string): Promise<bigint> {
+  const paddedAddress = walletAddress.slice(2).padStart(64, '0');
   const data = BALANCE_OF_ABI + paddedAddress;
   
   for (const rpc of BASE_RPCS) {
@@ -44,7 +46,7 @@ async function fetchBurnedBalance(): Promise<bigint> {
           jsonrpc: '2.0',
           id: 1,
           method: 'eth_call',
-          params: [{ to: SPRINKLES_TOKEN, data }, 'latest']
+          params: [{ to: tokenAddress, data }, 'latest']
         })
       });
       
@@ -61,6 +63,20 @@ async function fetchBurnedBalance(): Promise<bigint> {
   return 0n;
 }
 
+// Fetch burned SPRINKLES balance (dead address + fee splitter)
+async function fetchBurnedSprinklesBalance(): Promise<bigint> {
+  const [deadBalance, feeBalance] = await Promise.all([
+    fetchTokenBalance(SPRINKLES_TOKEN, DEAD_ADDRESS),
+    fetchTokenBalance(SPRINKLES_TOKEN, FEE_SPLITTER_ADDRESS),
+  ]);
+  return deadBalance + feeBalance;
+}
+
+// Fetch burned DONUT balance (fee splitter only - DONUT accumulates there)
+async function fetchBurnedDonutBalance(): Promise<bigint> {
+  return fetchTokenBalance(DONUT_TOKEN, FEE_SPLITTER_ADDRESS);
+}
+
 // Format large numbers with commas
 function formatBurnedAmount(amount: bigint): string {
   // SPRINKLES has 18 decimals
@@ -68,34 +84,39 @@ function formatBurnedAmount(amount: bigint): string {
   return Math.floor(value).toLocaleString('en-US');
 }
 
-// Falling Sprinkles Animation Component
-function FallingSprinkles() {
-  const sprinkles = Array.from({ length: 12 }, (_, i) => ({
+// Falling Sprinkles and Donuts Animation Component
+function FallingCoins() {
+  const coins = Array.from({ length: 16 }, (_, i) => ({
     id: i,
-    left: `${5 + (i * 8) % 90}%`,
-    delay: `${i * 0.3}s`,
+    left: `${5 + (i * 6) % 90}%`,
+    delay: `${i * 0.25}s`,
     duration: `${4 + (i % 4)}s`,
     size: 12 + (i % 3) * 4,
+    isDonut: i % 3 === 0, // Every 3rd coin is a donut
   }));
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {sprinkles.map((s) => (
+      {coins.map((c) => (
         <div
-          key={s.id}
+          key={c.id}
           className="absolute animate-fall"
           style={{
-            left: s.left,
+            left: c.left,
             top: '-60px',
-            animationDelay: s.delay,
-            animationDuration: s.duration,
+            animationDelay: c.delay,
+            animationDuration: c.duration,
           }}
         >
           <span 
             className="rounded-full overflow-hidden inline-flex items-center justify-center ring-1 ring-zinc-500/50"
-            style={{ width: s.size, height: s.size }}
+            style={{ width: c.size, height: c.size }}
           >
-            <img src="/media/icon.png" alt="" className="w-full h-full object-cover opacity-40" />
+            {c.isDonut ? (
+              <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover scale-[1.7] opacity-40" />
+            ) : (
+              <img src="/media/icon.png" alt="" className="w-full h-full object-cover opacity-40" />
+            )}
           </span>
         </div>
       ))}
@@ -127,18 +148,29 @@ function getTimeSince6pmEST(): { msSince: number; msInDay: number } {
 }
 
 // Burn Counter Tile Component
-function BurnCounterTile({ burnedAmount, isLoading }: { burnedAmount: bigint; isLoading: boolean }) {
-  const [displayAmount, setDisplayAmount] = useState(0);
-  const targetAmountRef = useRef(0);
-  const BURN_DELAY = 2_000_000; // Always behind by 2M
+function BurnCounterTile({ 
+  sprinklesBurned, 
+  donutBurned, 
+  isLoading 
+}: { 
+  sprinklesBurned: bigint; 
+  donutBurned: bigint;
+  isLoading: boolean;
+}) {
+  const [displaySprinkles, setDisplaySprinkles] = useState(0);
+  const [displayDonut, setDisplayDonut] = useState(0);
+  const targetSprinklesRef = useRef(0);
+  const targetDonutRef = useRef(0);
+  const BURN_DELAY = 2_000_000; // Always behind by 2M for sprinkles
+  const DONUT_BURN_DELAY = 50; // Small delay for donut
   
-  // Calculate the display amount with 24-hour interpolation
+  // Calculate the display amount with 24-hour interpolation for SPRINKLES
   useEffect(() => {
-    if (isLoading || burnedAmount === 0n) return;
+    if (isLoading || sprinklesBurned === 0n) return;
     
-    const realAmount = Number(burnedAmount) / 1e18;
+    const realAmount = Number(sprinklesBurned) / 1e18;
     const targetAmount = Math.max(0, realAmount - BURN_DELAY);
-    targetAmountRef.current = targetAmount;
+    targetSprinklesRef.current = targetAmount;
     
     // Estimate yesterday's burned amount (assume ~500k burned per day as baseline)
     const estimatedDailyBurn = 500_000;
@@ -151,51 +183,80 @@ function BurnCounterTile({ burnedAmount, isLoading }: { burnedAmount: bigint; is
     // Interpolate based on time of day
     const interpolatedAmount = startAmount + (targetAmount - startAmount) * dayProgress;
     
-    setDisplayAmount(Math.floor(interpolatedAmount));
-  }, [burnedAmount, isLoading]);
+    setDisplaySprinkles(Math.floor(interpolatedAmount));
+  }, [sprinklesBurned, isLoading]);
 
-  // Slow increment effect - adds small amounts continuously
+  // Calculate display amount for DONUT
   useEffect(() => {
-    if (isLoading || targetAmountRef.current === 0) return;
+    if (isLoading || donutBurned === 0n) return;
+    
+    const realAmount = Number(donutBurned) / 1e18;
+    const targetAmount = Math.max(0, realAmount - DONUT_BURN_DELAY);
+    targetDonutRef.current = targetAmount;
+    
+    setDisplayDonut(Math.floor(targetAmount));
+  }, [donutBurned, isLoading]);
+
+  // Slow increment effect - adds small amounts continuously for SPRINKLES
+  useEffect(() => {
+    if (isLoading || targetSprinklesRef.current === 0) return;
     
     // Update every 3 seconds with small random increments
     const interval = setInterval(() => {
-      setDisplayAmount(prev => {
-        if (prev >= targetAmountRef.current) return prev;
+      setDisplaySprinkles(prev => {
+        if (prev >= targetSprinklesRef.current) return prev;
         const increment = Math.floor(Math.random() * 50) + 10; // 10-60 per tick
         const newVal = prev + increment;
-        return Math.min(newVal, Math.floor(targetAmountRef.current));
+        return Math.min(newVal, Math.floor(targetSprinklesRef.current));
       });
     }, 3000);
     
     return () => clearInterval(interval);
-  }, [isLoading, burnedAmount]);
+  }, [isLoading, sprinklesBurned]);
 
   return (
     <div
       className="burn-counter-tile relative w-full rounded-2xl border-2 border-green-500/50 overflow-hidden"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(22,163,74,0.1) 100%)' }}
     >
-      {/* Falling sprinkles background */}
-      <FallingSprinkles />
+      {/* Falling coins background */}
+      <FallingCoins />
       
       <div className="relative z-10 p-4">
-        <div className="text-left">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-bold text-base text-green-400">SPRINKLES BURNED</span>
+        <div className="flex items-start justify-between gap-4">
+          {/* SPRINKLES BURNED - Left side */}
+          <div className="text-left">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="font-bold text-sm text-green-400">SPRINKLES BURNED</span>
+            </div>
+            
+            <div className="font-mono text-xl font-bold text-white">
+              {isLoading ? (
+                <span className="text-green-400/50">Loading...</span>
+              ) : (
+                <span className="tabular-nums">{displaySprinkles.toLocaleString('en-US')}</span>
+              )}
+            </div>
           </div>
           
-          <div className="font-mono text-2xl font-bold text-white mb-1">
-            {isLoading ? (
-              <span className="text-green-400/50">Loading...</span>
-            ) : (
-              <span className="tabular-nums">{displayAmount.toLocaleString('en-US')}</span>
-            )}
+          {/* DONUT BURNED - Right side */}
+          <div className="text-right">
+            <div className="flex items-center justify-end gap-2 mb-0.5">
+              <span className="font-bold text-sm text-pink-400">DONUT BURNED</span>
+            </div>
+            
+            <div className="font-mono text-xl font-bold text-pink-400">
+              {isLoading ? (
+                <span className="text-pink-400/50">Loading...</span>
+              ) : (
+                <span className="tabular-nums">{displayDonut.toLocaleString('en-US')}</span>
+              )}
+            </div>
           </div>
-          
-          <div className="text-[10px] text-green-200/60">
-            Permanently removed from circulation
-          </div>
+        </div>
+        
+        <div className="text-[9px] text-green-200/60 mt-2">
+          Permanently removed from circulation
         </div>
       </div>
     </div>
@@ -453,18 +514,23 @@ export default function AboutPage() {
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
   const [showComingSoon, setShowComingSoon] = useState(false);
-  const [burnedAmount, setBurnedAmount] = useState<bigint>(0n);
+  const [sprinklesBurned, setSprinklesBurned] = useState<bigint>(0n);
+  const [donutBurned, setDonutBurned] = useState<bigint>(0n);
   const [isBurnLoading, setIsBurnLoading] = useState(true);
 
-  // Fetch burned SPRINKLES amount
+  // Fetch burned amounts for both tokens
   useEffect(() => {
     const fetchBurned = async () => {
       setIsBurnLoading(true);
       try {
-        const amount = await fetchBurnedBalance();
-        setBurnedAmount(amount);
+        const [sprinkles, donut] = await Promise.all([
+          fetchBurnedSprinklesBalance(),
+          fetchBurnedDonutBalance(),
+        ]);
+        setSprinklesBurned(sprinkles);
+        setDonutBurned(donut);
       } catch (e) {
-        console.error("Failed to fetch burned amount:", e);
+        console.error("Failed to fetch burned amounts:", e);
       }
       setIsBurnLoading(false);
     };
@@ -667,7 +733,7 @@ export default function AboutPage() {
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!hasAnimatedIn ? { opacity: 0, animationDelay: '0ms', animationFillMode: 'forwards' } : {}}
               >
-                <BurnCounterTile burnedAmount={burnedAmount} isLoading={isBurnLoading} />
+                <BurnCounterTile sprinklesBurned={sprinklesBurned} donutBurned={donutBurned} isLoading={isBurnLoading} />
               </div>
 
               {/* What is $DONUT Tile */}
