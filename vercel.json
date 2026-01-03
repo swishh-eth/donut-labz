@@ -6,7 +6,7 @@
     "app/api/cron/stack-tower-distribute/route.ts": {
       "maxDuration": 120
     },
-    "app/api/games/donut-dash/prize-distribute/route.ts": {
+    "app/api/cron/donut-dash-distribute/route.ts": {
       "maxDuration": 120
     },
     "app/api/cron/miners-distribute/route.ts": {
@@ -23,7 +23,7 @@
       "schedule": "1 23 * * 5"
     },
     {
-      "path": "/api/games/donut-dash/prize-distribute",
+      "path": "/api/cron/donut-dash-distribute",
       "schedule": "2 23 * * 5"
     },
     {
