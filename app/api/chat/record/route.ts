@@ -7,7 +7,7 @@ const SPRINKLES_TOKEN = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
 const MIN_SPRINKLES_BALANCE = 100000n * 10n ** 18n; // 100,000 SPRINKLES
 
 // Points calculation constants
-const CHAT_REWARDS_START_TIME = 1767880800; // January 7th, 2026 2:00 PM UTC (aligned with SPRINKLES miner halving)
+const CHAT_REWARDS_START_TIME = 1765159200; // December 8th, 2025 2:00 AM UTC (aligned with SPRINKLES miner halving)
 const HALVING_PERIOD = 30 * 24 * 60 * 60;
 const MULTIPLIER_SCHEDULE = [2, 1, 0.5, 0.25, 0];
 const BASE_POINTS_PER_MESSAGE = 1; // Flat rate for holding 100k SPRINKLES
@@ -35,6 +35,10 @@ const supabase = createClient(
 const getCurrentMultiplier = () => {
   const now = Math.floor(Date.now() / 1000);
   const elapsed = now - CHAT_REWARDS_START_TIME;
+  
+  // If rewards haven't started yet, return the initial multiplier
+  if (elapsed < 0) return MULTIPLIER_SCHEDULE[0];
+  
   const halvings = Math.floor(elapsed / HALVING_PERIOD);
   if (halvings >= MULTIPLIER_SCHEDULE.length) return 0;
   return MULTIPLIER_SCHEDULE[halvings];

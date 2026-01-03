@@ -60,7 +60,7 @@ const ERC20_ABI = [
   },
 ] as const;
 
-const CHAT_REWARDS_START_TIME = 1767880800; // January 7th, 2026 2:00 PM UTC (aligned with SPRINKLES miner halving)
+const CHAT_REWARDS_START_TIME = 1765159200; // December 8th, 2025 2:00 AM UTC (aligned with SPRINKLES miner halving)
 const HALVING_PERIOD = 30 * 24 * 60 * 60;
 const MULTIPLIER_SCHEDULE = [2, 1, 0.5, 0.25, 0];
 const MIN_SPRINKLES_FOR_REWARDS = 100000; // 100,000 SPRINKLES to earn
@@ -68,6 +68,10 @@ const MIN_SPRINKLES_FOR_REWARDS = 100000; // 100,000 SPRINKLES to earn
 const getCurrentMultiplier = () => {
   const now = Math.floor(Date.now() / 1000);
   const elapsed = now - CHAT_REWARDS_START_TIME;
+  
+  // If rewards haven't started yet, return the initial multiplier
+  if (elapsed < 0) return MULTIPLIER_SCHEDULE[0];
+  
   const halvings = Math.floor(elapsed / HALVING_PERIOD);
   if (halvings >= MULTIPLIER_SCHEDULE.length) return 0;
   return MULTIPLIER_SCHEDULE[halvings];
@@ -76,6 +80,18 @@ const getCurrentMultiplier = () => {
 const getTimeUntilNextHalving = () => {
   const now = Math.floor(Date.now() / 1000);
   const elapsed = now - CHAT_REWARDS_START_TIME;
+  
+  // If rewards haven't started yet, show time until start
+  if (elapsed < 0) {
+    const secondsRemaining = CHAT_REWARDS_START_TIME - now;
+    const days = Math.floor(secondsRemaining / 86400);
+    const hours = Math.floor((secondsRemaining % 86400) / 3600);
+    const minutes = Math.floor((secondsRemaining % 3600) / 60);
+    if (days > 0) return `Starts in ${days}d ${hours}h`;
+    if (hours > 0) return `Starts in ${hours}h ${minutes}m`;
+    return `Starts in ${minutes}m`;
+  }
+  
   const currentPeriod = Math.floor(elapsed / HALVING_PERIOD);
   if (currentPeriod >= MULTIPLIER_SCHEDULE.length - 1) return null;
   const nextHalvingTime = CHAT_REWARDS_START_TIME + ((currentPeriod + 1) * HALVING_PERIOD);
@@ -767,7 +783,7 @@ export default function ChatPage() {
                           <div className="mt-1.5 flex items-center gap-2 bg-white/5 border border-white/20 rounded-lg px-2 py-1.5">
                             <Timer className="w-3 h-3 text-white" />
                             <span className="text-[11px] text-white font-medium">
-                              Current: {currentMultiplier.toFixed(1)}x • {timeUntilHalving ? `Halving in ${timeUntilHalving}` : 'Final period'}
+                              Current: {currentMultiplier.toFixed(1)}x • {timeUntilHalving ? (timeUntilHalving.startsWith('Starts') ? timeUntilHalving : `Halving in ${timeUntilHalving}`) : 'Final period'}
                             </span>
                           </div>
                         )}
