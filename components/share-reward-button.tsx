@@ -32,21 +32,40 @@ type CampaignInfo = [
 type ShareRewardButtonProps = {
   userFid?: number;
   compact?: boolean;
-  tile?: boolean; // New prop for mine page tile display
+  tile?: boolean;
 };
 
-// Amber gradient style matching leaderboard
-const amberGradientStyle = {
-  background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)',
-  border: '1px solid rgba(245,158,11,0.3)'
+// Coin icon components
+const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover scale-[1.7]" />
+  </span>
+);
+
+const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/media/icon.png" alt="SPRINKLES" className="w-full h-full object-cover" />
+  </span>
+);
+
+const UsdcCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-full h-full object-cover" />
+  </span>
+);
+
+// Pink gradient style for DONUT
+const pinkGradientActiveStyle = {
+  background: 'linear-gradient(135deg, rgba(236,72,153,0.25) 0%, rgba(219,39,119,0.15) 100%)',
+  border: '1px solid rgba(236,72,153,0.5)'
 };
 
-const amberGradientActiveStyle = {
-  background: 'linear-gradient(135deg, rgba(245,158,11,0.25) 0%, rgba(234,88,12,0.15) 100%)',
-  border: '1px solid rgba(245,158,11,0.5)'
+const pinkGradientStyle = {
+  background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(219,39,119,0.1) 100%)',
+  border: '1px solid rgba(236,72,153,0.3)'
 };
 
-// Green gradient style for active share claim
+// Green gradient style for SPRINKLES/USDC
 const greenGradientActiveStyle = {
   background: 'linear-gradient(135deg, rgba(34,197,94,0.25) 0%, rgba(22,163,74,0.15) 100%)',
   border: '1px solid rgba(34,197,94,0.5)'
@@ -73,6 +92,24 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   const [showClaimSuccess, setShowClaimSuccess] = useState(false);
   const [hasShared, setHasShared] = useState(false);
   const [needsFollow, setNeedsFollow] = useState(false);
+  const [showClaimsLeft, setShowClaimsLeft] = useState(false);
+
+  // Helper functions for token-specific styling
+  const isDonutToken = tokenSymbol === "DONUT";
+  const isSprinklesToken = tokenSymbol === "SPRINKLES";
+  const isUsdcToken = tokenSymbol === "USDC";
+  
+  const getActiveGradient = () => isDonutToken ? pinkGradientActiveStyle : greenGradientActiveStyle;
+  const getGradient = () => isDonutToken ? pinkGradientStyle : greenGradientStyle;
+  const getTextColor = () => isDonutToken ? "text-pink-400" : "text-green-400";
+  
+  const TokenIcon = ({ className = "w-4 h-4", pulsing = false }: { className?: string; pulsing?: boolean }) => {
+    const baseClass = cn(className, "transition-transform duration-300", pulsing && isPulsing ? "scale-75" : "scale-100");
+    if (isDonutToken) return <DonutCoin className={baseClass} />;
+    if (isSprinklesToken) return <SprinklesCoin className={baseClass} />;
+    if (isUsdcToken) return <UsdcCoin className={baseClass} />;
+    return <Gift className={cn(baseClass, getTextColor())} />;
+  };
 
   // Pulsing effect for active campaign
   useEffect(() => {
@@ -131,6 +168,30 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   const isActive = campaign?.[5] && campaign[2] > 0n;
   const claimsRemaining = campaign ? Number(campaign[3] - campaign[4]) : 0;
 
+  // Text toggle effect: "Share to Claim" (6s) -> "X claims left" (3s) -> repeat
+  useEffect(() => {
+    if (!isActive || hasClaimed || hasShared) return;
+    
+    const toggleText = () => {
+      setShowClaimsLeft(true);
+      // Show "X claims left" for 3 seconds
+      setTimeout(() => {
+        setShowClaimsLeft(false);
+      }, 3000);
+    };
+
+    // Start with "Share to Claim", then toggle after 6 seconds
+    const initialTimeout = setTimeout(toggleText, 6000);
+    
+    // Set up interval: 6s (Share to Claim) + 3s (claims left) = 9s cycle
+    const interval = setInterval(toggleText, 9000);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
+  }, [isActive, hasClaimed, hasShared]);
+
   // Fetch token info when campaign is active
   useEffect(() => {
     if (isNativeETH) {
@@ -162,10 +223,8 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   // Handle successful claim - calculate and store the claimed amount
   useEffect(() => {
     if (isSuccess && claimData && estimatedReward) {
-      // Calculate what they actually claimed
       const amount = (estimatedReward * BigInt(claimData.neynarScore)) / 10000n;
       const formattedAmount = formatUnits(amount, tokenDecimals);
-      // Round to reasonable decimals
       const roundedAmount = parseFloat(formattedAmount).toFixed(
         tokenDecimals > 4 ? 4 : 2
       );
@@ -177,11 +236,10 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     }
   }, [isSuccess, claimData, estimatedReward, tokenDecimals, refetchCampaign, refetchClaimed]);
 
-  // Calculate estimated amount for share message (same as displayed in UI)
+  // Calculate estimated amount for share message
   const getEstimatedAmount = useCallback(() => {
     if (!estimatedReward) return "some";
     const amount = formatUnits(estimatedReward, tokenDecimals);
-    // Show same precision as UI - don't over-round
     const num = parseFloat(amount);
     if (num >= 1) {
       return num.toFixed(2);
@@ -192,10 +250,10 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     }
   }, [estimatedReward, tokenDecimals]);
 
-// Share before claiming (to qualify)
-const handleShareToQualify = async () => {
-  const estimatedAmount = getEstimatedAmount();
-  const shareText = `Free-to-play arcade games just landed on Sprinkles by @swishh.eth
+  // Share before claiming (to qualify)
+  const handleShareToQualify = async () => {
+    const estimatedAmount = getEstimatedAmount();
+    const shareText = `Free-to-play arcade games just landed on Sprinkles by @swishh.eth
 $100+ in leaderboard prizes weekly! 🏆
 
 Climb game leaderboards & earn: 
@@ -258,7 +316,6 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
       return;
     }
 
-    // If no address, try to connect wallet first
     if (!address) {
       setVerifyError("Please connect your wallet first");
       return;
@@ -278,17 +335,15 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
       const data = await res.json();
 
       if (!res.ok) {
-        // Check if they need to follow
         if (data.needsFollow) {
           setNeedsFollow(true);
-          setHasShared(true); // They've shared, just need to follow
+          setHasShared(true);
           return;
         }
         setVerifyError(data.message || data.error || "Verification failed");
         return;
       }
 
-      // Success - they've shared AND followed
       setNeedsFollow(false);
       setClaimData({
         neynarScore: data.scoreBps || data.neynarScore,
@@ -302,7 +357,6 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     }
   };
 
-  // Handle opening swishh.eth profile to follow
   const handleFollow = async () => {
     try {
       await sdk.actions.openUrl("https://warpcast.com/swishh.eth");
@@ -336,10 +390,10 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     // Just claimed success
     if (showClaimSuccess && claimedAmount) {
       return (
-        <div className="h-24 rounded-xl border border-green-500/30 bg-zinc-900 p-2 flex flex-col items-center justify-center">
-          <CheckCircle className="w-6 h-6 text-green-400 mb-1" />
-          <div className="text-[10px] font-bold text-green-400">Claimed!</div>
-          <div className="text-[9px] text-green-500">+{claimedAmount} {tokenSymbol}</div>
+        <div className={cn("h-24 rounded-xl bg-zinc-900 p-2 flex flex-col items-center justify-center", isDonutToken ? "border border-pink-500/30" : "border border-green-500/30")}>
+          <CheckCircle className={cn("w-6 h-6 mb-1", getTextColor())} />
+          <div className={cn("text-[10px] font-bold", getTextColor())}>Claimed!</div>
+          <div className={cn("text-[9px]", isDonutToken ? "text-pink-500" : "text-green-500")}>+{claimedAmount} {tokenSymbol}</div>
         </div>
       );
     }
@@ -347,9 +401,9 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     // Already claimed
     if (hasClaimed && isActive) {
       return (
-        <div className="h-24 rounded-xl border border-green-500/30 bg-zinc-900 p-2 flex flex-col items-center justify-center">
-          <CheckCircle className="w-6 h-6 text-green-400 mb-1" />
-          <div className="text-[10px] font-bold text-green-400">Claimed!</div>
+        <div className={cn("h-24 rounded-xl bg-zinc-900 p-2 flex flex-col items-center justify-center", isDonutToken ? "border border-pink-500/30" : "border border-green-500/30")}>
+          <CheckCircle className={cn("w-6 h-6 mb-1", getTextColor())} />
+          <div className={cn("text-[10px] font-bold", getTextColor())}>Claimed!</div>
           <div className="text-[9px] text-gray-500">Check back later</div>
         </div>
       );
@@ -373,16 +427,17 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           onClick={handleClaim}
           disabled={isWriting || isConfirming}
           className={cn(
-            "h-24 rounded-xl border border-green-500/30 bg-zinc-900 p-2 flex flex-col items-center justify-center transition-all",
+            "h-24 rounded-xl bg-zinc-900 p-2 flex flex-col items-center justify-center transition-all",
+            isDonutToken ? "border border-pink-500/30" : "border border-green-500/30",
             (isWriting || isConfirming) && "opacity-50 cursor-not-allowed"
           )}
         >
           {isWriting || isConfirming ? (
-            <Loader2 className="w-6 h-6 text-green-400 mb-1 animate-spin" />
+            <Loader2 className={cn("w-6 h-6 mb-1 animate-spin", getTextColor())} />
           ) : (
-            <Gift className="w-6 h-6 text-green-400 mb-1" />
+            <TokenIcon className="w-6 h-6 mb-1" />
           )}
-          <div className="text-[10px] font-bold text-green-400">
+          <div className={cn("text-[10px] font-bold", getTextColor())}>
             {isWriting ? "Confirm..." : isConfirming ? "Claiming..." : "Claim Now"}
           </div>
           <div className="text-[9px] text-gray-400">Tap to claim</div>
@@ -419,7 +474,6 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
 
     // Has shared - show verify button (or error)
     if (hasShared) {
-      // Show error if there is one
       if (verifyError) {
         return (
           <button
@@ -443,19 +497,20 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           onClick={handleVerifyAndClaim}
           disabled={isVerifying}
           className={cn(
-            "h-24 rounded-xl border border-green-500 bg-gradient-to-br from-green-600/20 to-emerald-600/20 p-2 flex flex-col items-center justify-center transition-colors",
+            "h-24 rounded-xl p-2 flex flex-col items-center justify-center transition-colors",
             isVerifying && "opacity-50 cursor-not-allowed"
           )}
+          style={getActiveGradient()}
         >
           {isVerifying ? (
-            <Loader2 className="w-6 h-6 text-green-400 mb-1 animate-spin" />
+            <Loader2 className={cn("w-6 h-6 mb-1 animate-spin", getTextColor())} />
           ) : (
-            <CheckCircle className="w-6 h-6 text-green-400 mb-1" />
+            <CheckCircle className={cn("w-6 h-6 mb-1", getTextColor())} />
           )}
-          <div className="text-[10px] font-bold text-green-400">
+          <div className={cn("text-[10px] font-bold", getTextColor())}>
             {isVerifying ? "Checking..." : "Verify"}
           </div>
-          <div className="text-[9px] text-green-400/80">Tap to verify</div>
+          <div className={cn("text-[9px]", isDonutToken ? "text-pink-400/80" : "text-green-400/80")}>Tap to verify</div>
         </button>
       );
     }
@@ -466,32 +521,29 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
         onClick={handleShareToQualify}
         disabled={!userFid}
         className={cn(
-          "h-24 rounded-xl border p-2 flex flex-col items-center justify-center transition-colors",
-          isActive && claimsRemaining > 0
-            ? "border-green-500 bg-gradient-to-br from-green-600/20 to-emerald-600/20"
-            : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800",
+          "h-24 rounded-xl p-2 flex flex-col items-center justify-center transition-colors",
           !userFid && "opacity-50 cursor-not-allowed"
         )}
+        style={isActive && claimsRemaining > 0 ? getActiveGradient() : { background: 'rgb(24,24,27)', border: '1px solid rgb(39,39,42)' }}
       >
-        <Gift className="w-6 h-6 text-green-400 mb-1" />
-        <div className="text-[10px] font-bold text-green-400">Share</div>
-        <div className="text-[9px] text-green-400/80">{claimsRemaining} left</div>
+        <TokenIcon className="w-6 h-6 mb-1" />
+        <div className={cn("text-[10px] font-bold", getTextColor())}>Share</div>
       </button>
     );
   }
 
   // ============== COMPACT MODE (for games page) ==============
-  // Just claimed success - show share button
+  // Just claimed success - show claimed state (disabled)
   if (showClaimSuccess && claimedAmount) {
     if (compact) {
       return (
         <div 
           className="rounded-xl p-2 flex items-center justify-center"
-          style={greenGradientStyle}
+          style={getGradient()}
         >
-          <div className="flex items-center gap-1.5 text-green-400">
+          <div className={cn("flex items-center gap-1.5", getTextColor())}>
             <CheckCircle className="w-3.5 h-3.5" />
-            <span className="font-semibold text-xs">+{claimedAmount} 🍩</span>
+            <span className="font-semibold text-xs">Claimed!</span>
           </div>
         </div>
       );
@@ -522,17 +574,17 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     );
   }
 
-  // Already claimed state (from previous session)
+  // Already claimed state (from previous session) - show claimed (disabled)
   if (hasClaimed && isActive) {
     if (compact) {
       return (
         <div 
           className="rounded-xl p-2 flex items-center justify-center"
-          style={greenGradientStyle}
+          style={getGradient()}
         >
-          <div className="flex items-center gap-1.5 text-green-400">
+          <div className={cn("flex items-center gap-1.5", getTextColor())}>
             <CheckCircle className="w-3.5 h-3.5" />
-            <span className="font-semibold text-xs">Claimed! 🍩</span>
+            <span className="font-semibold text-xs">Claimed!</span>
           </div>
         </div>
       );
@@ -585,17 +637,14 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             "rounded-xl p-2 flex items-center justify-center gap-1.5 transition-all",
             (isWriting || isConfirming) && "opacity-50 cursor-not-allowed"
           )}
-          style={{ 
-            background: 'linear-gradient(135deg, rgba(34,197,94,0.25) 0%, rgba(22,163,74,0.15) 100%)',
-            border: '1px solid rgba(34,197,94,0.5)'
-          }}
+          style={getActiveGradient()}
         >
           {isWriting || isConfirming ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-green-400" />
+            <Loader2 className={cn("w-3.5 h-3.5 animate-spin", getTextColor())} />
           ) : (
-            <Gift className="w-3.5 h-3.5 text-green-400" />
+            <TokenIcon className="w-3.5 h-3.5" />
           )}
-          <span className="font-bold text-xs text-green-400">
+          <span className={cn("font-bold text-xs", getTextColor())}>
             {isWriting ? "Approve..." : isConfirming ? "Claiming..." : "Claim"}
           </span>
         </button>
@@ -682,7 +731,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
 
   // Active campaign - main UI (COMPACT MODE)
   if (compact) {
-    // Show error state if there's an error - FULL READABLE MESSAGE
+    // Show error state if there's an error
     if (verifyError) {
       return (
         <button
@@ -720,7 +769,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
       );
     }
 
-    // State 1: Initial - Show gift icon, tap to share
+    // State 1: Initial - Show token icon, tap to share with animated text toggle
     if (!hasShared) {
       return (
         <button
@@ -730,18 +779,33 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             "rounded-xl p-2 flex items-center justify-center gap-2 transition-all",
             !userFid && "opacity-50 cursor-not-allowed"
           )}
-          style={greenGradientActiveStyle}
+          style={getActiveGradient()}
         >
-          <Gift
-            className={cn(
-              "w-4 h-4 text-green-400 transition-transform duration-300",
-              isPulsing ? "scale-75" : "scale-100"
-            )}
-          />
-          <div className="flex flex-col items-start leading-tight">
-            <span className="font-bold text-xs text-white">Share to Claim</span>
-            <span className="text-[9px] text-green-400/80">{claimsRemaining} left</span>
-          </div>
+          <TokenIcon className="w-4 h-4" pulsing />
+          <span className="font-bold text-xs text-white relative">
+            <span 
+              className="inline-block transition-all duration-300"
+              style={{
+                opacity: showClaimsLeft ? 0 : 1,
+                transform: showClaimsLeft ? 'scale(0.8)' : 'scale(1)',
+                position: showClaimsLeft ? 'absolute' : 'relative',
+                visibility: showClaimsLeft ? 'hidden' : 'visible',
+              }}
+            >
+              Share to Claim
+            </span>
+            <span 
+              className="inline-block transition-all duration-300"
+              style={{
+                opacity: showClaimsLeft ? 1 : 0,
+                transform: showClaimsLeft ? 'scale(1)' : 'scale(0.8)',
+                position: showClaimsLeft ? 'relative' : 'absolute',
+                visibility: showClaimsLeft ? 'visible' : 'hidden',
+              }}
+            >
+              {claimsRemaining} left
+            </span>
+          </span>
         </button>
       );
     }
@@ -768,14 +832,14 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
               "flex-1 rounded-xl p-2 flex items-center justify-center gap-1 transition-all",
               isVerifying && "opacity-50 cursor-not-allowed"
             )}
-            style={greenGradientStyle}
+            style={getGradient()}
           >
             {isVerifying ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-green-400" />
+              <Loader2 className={cn("w-3.5 h-3.5 animate-spin", getTextColor())} />
             ) : (
-              <CheckCircle className="w-3.5 h-3.5 text-green-400" />
+              <CheckCircle className={cn("w-3.5 h-3.5", getTextColor())} />
             )}
-            <span className="font-bold text-[10px] text-green-400">
+            <span className={cn("font-bold text-[10px]", getTextColor())}>
               {isVerifying ? "..." : "Verify"}
             </span>
           </button>
@@ -792,12 +856,12 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           "rounded-xl p-2 flex items-center justify-center gap-1.5 transition-all",
           (isVerifying || !userFid) && "opacity-50 cursor-not-allowed"
         )}
-        style={greenGradientActiveStyle}
+        style={getActiveGradient()}
       >
         {isVerifying ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-green-400" />
+          <Loader2 className={cn("w-3.5 h-3.5 animate-spin", getTextColor())} />
         ) : (
-          <CheckCircle className="w-3.5 h-3.5 text-green-400" />
+          <CheckCircle className={cn("w-3.5 h-3.5", getTextColor())} />
         )}
         <span className="font-bold text-xs text-white">
           {isVerifying ? "Checking..." : "Verify"}
@@ -862,7 +926,6 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
       )}
 
       <div className="flex gap-2">
-        {/* Share Button - Pulsing */}
         <button
           onClick={handleShareToQualify}
           className={cn(
@@ -874,7 +937,6 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           Share 🍩
         </button>
 
-        {/* Verify Button */}
         <button
           onClick={handleVerifyAndClaim}
           disabled={isVerifying || !userFid}
