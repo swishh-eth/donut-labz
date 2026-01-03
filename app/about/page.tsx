@@ -263,6 +263,90 @@ function BurnCounterTile({
   );
 }
 
+// Halving Countdown Tile Component
+function HalvingCountdownTile() {
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [isComplete, setIsComplete] = useState(false);
+  
+  // Next halving: January 7th, 2025 2:00 AM UTC
+  const HALVING_DATE = new Date('2025-01-07T02:00:00Z').getTime();
+  
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const now = Date.now();
+      const diff = HALVING_DATE - now;
+      
+      if (diff <= 0) {
+        setIsComplete(true);
+        return;
+      }
+      
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      setTimeLeft({ days, hours, minutes, seconds });
+    };
+    
+    calculateTimeLeft();
+    const interval = setInterval(calculateTimeLeft, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div
+      className="halving-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+    >
+      {/* Background sprinkles logo */}
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
+          <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
+        </span>
+      </div>
+      
+      <div className="relative z-10 p-4 pr-20">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="font-bold text-sm text-white">Sprinkles Halving Countdown Timer</span>
+        </div>
+        
+        {isComplete ? (
+          <div className="font-mono text-xl font-bold text-white">
+            Halving Complete!
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="text-center">
+              <div className="font-mono text-2xl font-bold text-white">{timeLeft.days}</div>
+              <div className="text-[9px] text-white/60">DAYS</div>
+            </div>
+            <span className="text-white/30 text-xl font-bold">:</span>
+            <div className="text-center">
+              <div className="font-mono text-2xl font-bold text-white">{String(timeLeft.hours).padStart(2, '0')}</div>
+              <div className="text-[9px] text-white/60">HOURS</div>
+            </div>
+            <span className="text-white/30 text-xl font-bold">:</span>
+            <div className="text-center">
+              <div className="font-mono text-2xl font-bold text-white">{String(timeLeft.minutes).padStart(2, '0')}</div>
+              <div className="text-[9px] text-white/60">MINS</div>
+            </div>
+            <span className="text-white/30 text-xl font-bold">:</span>
+            <div className="text-center">
+              <div className="font-mono text-2xl font-bold text-white">{String(timeLeft.seconds).padStart(2, '0')}</div>
+              <div className="text-[9px] text-white/60">SECS</div>
+            </div>
+          </div>
+        )}
+        
+        <div className="text-[9px] text-white/60 mt-2">
+          Mining rewards halve • Jan 7th 2:00 AM UTC
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Coin image component for DONUT
 const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
@@ -694,10 +778,18 @@ export default function AboutPage() {
                 <BurnCounterTile sprinklesBurned={sprinklesBurned} donutBurned={donutBurned} isLoading={isBurnLoading} />
               </div>
 
-              {/* What is $DONUT Tile */}
+              {/* Halving Countdown Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}
+              >
+                <HalvingCountdownTile />
+              </div>
+
+              {/* What is $DONUT Tile */}
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
               >
                 <DonutInfoTile onClick={() => window.location.href = "/about/donut"} />
               </div>
@@ -705,7 +797,7 @@ export default function AboutPage() {
               {/* What is $SPRINKLES Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
               >
                 <SprinklesInfoTile onClick={() => window.location.href = "/about/sprinkles"} />
               </div>
@@ -713,7 +805,7 @@ export default function AboutPage() {
               {/* Links & Contracts Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}
               >
                 <LinksContractsTile onClick={() => window.location.href = "/about/links-contracts"} />
               </div>
@@ -721,7 +813,7 @@ export default function AboutPage() {
               {/* Donut Dashboard Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '250ms', animationFillMode: 'forwards' } : {}}
               >
                 <DonutDashboardTile onClick={async () => {
                   try {
@@ -735,7 +827,7 @@ export default function AboutPage() {
               {/* Sprinkles Dashboard Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '250ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '300ms', animationFillMode: 'forwards' } : {}}
               >
                 <SprinklesDashboardTile 
                   showComingSoon={showComingSoon}
