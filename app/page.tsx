@@ -1438,15 +1438,15 @@ export default function HomePage() {
                   <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
                     {/* Sprinkles icon - back/top */}
                     <span className={cn(
-                      "absolute -top-8 -right-2 w-16 h-16 rounded-full overflow-hidden inline-flex items-center justify-center",
-                      isBurnProfitable ? "opacity-40" : "opacity-15"
+                      "absolute -top-10 -right-1 w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50",
+                      isBurnProfitable ? "opacity-100" : "opacity-15"
                     )}>
-                      <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
+                      <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
                     </span>
                     {/* Donut icon - front/bottom */}
                     <span className={cn(
-                      "w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center",
-                      isBurnProfitable ? "opacity-30" : "opacity-10"
+                      "w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50",
+                      isBurnProfitable ? "opacity-100" : "opacity-10"
                     )}>
                       <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover scale-[1.7]" />
                     </span>
@@ -1455,7 +1455,6 @@ export default function HomePage() {
                   <div className="relative z-10 p-4 pr-20">
                     <div className="text-left">
                       <div className="flex items-center gap-2 mb-1">
-                        <Flame className={cn("w-5 h-5", isBurnProfitable ? "text-green-400" : "text-gray-500")} />
                         <span className={cn("font-bold text-base", isBurnProfitable ? "text-green-400" : "text-gray-500")}>
                           LP Burn Auction
                         </span>
@@ -1514,32 +1513,22 @@ export default function HomePage() {
                   {/* Large background sprinkles icon */}
                   <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
                     <span className={cn(
-                      "w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center",
+                      "w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50",
                       splitResult === "rewarded" || splitResult === "success"
-                        ? "opacity-30"
+                        ? "opacity-100"
                         : splitResult === "failure"
                           ? "opacity-20"
                           : splitterBalance && splitterBalance > 0n
-                            ? "opacity-30"
+                            ? "opacity-100"
                             : "opacity-10"
                     )}>
-                      <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
+                      <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
                     </span>
                   </div>
                   
                   <div className="relative z-10 p-4 pr-16">
                     <div className="text-left">
                       <div className="flex items-center gap-2 mb-1">
-                        <Zap className={cn(
-                          "w-5 h-5",
-                          splitResult === "rewarded" || splitResult === "success"
-                            ? "text-green-400"
-                            : splitResult === "failure"
-                              ? "text-red-400"
-                              : splitterBalance && splitterBalance > 0n
-                                ? "text-pink-400"
-                                : "text-gray-500"
-                        )} />
                         <span className={cn(
                           "font-bold text-base",
                           splitResult === "rewarded" || splitResult === "success"
