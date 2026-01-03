@@ -495,7 +495,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
         return (
           <button
             onClick={handleShare}
-            className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border border-amber-400/50 rounded-xl p-3 transition-all shadow-[0_0_15px_rgba(251,191,36,0.3)] flex flex-col items-center justify-center text-center h-[80px]"
+            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 border border-green-400/50 rounded-xl p-3 transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] flex flex-col items-center justify-center text-center h-[80px]"
           >
             <div className="flex items-center gap-1">
               <Share2 className="w-3.5 h-3.5 text-white" />
@@ -515,7 +515,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
             onClick={handleVerify}
             disabled={isVerifying}
             className={cn(
-              "bg-amber-500 hover:bg-amber-400 border border-amber-400 rounded-xl p-3 transition-all flex flex-col items-center justify-center text-center h-[80px]",
+              "bg-green-500 hover:bg-green-400 border border-green-400 rounded-xl p-3 transition-all flex flex-col items-center justify-center text-center h-[80px]",
               isVerifying && "opacity-50 cursor-not-allowed"
             )}
           >
@@ -563,9 +563,9 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
 
     // Claim window open (Friday 6pm EST) but no points
     return (
-      <div className="bg-zinc-900/50 border border-amber-500/30 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
+      <div className="bg-zinc-900/50 border border-green-500/30 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
         <div className="flex items-center gap-1">
-          <Calendar className="w-3.5 h-3.5 text-amber-400" />
+          <Calendar className="w-3.5 h-3.5 text-green-400" />
           <span className="text-[10px] text-gray-400 uppercase tracking-wide">It's Friday!</span>
         </div>
         <div className="text-2xl font-bold text-gray-500 fade-in-up stagger-2 opacity-0">0 pts</div>
@@ -575,10 +575,10 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
 
   // FULL VIEW - not used currently but available
   return (
-    <div className="bg-gradient-to-r from-amber-900/20 to-orange-900/20 border border-amber-500/30 rounded-lg p-3">
+    <div className="bg-gradient-to-r from-green-900/20 to-emerald-900/20 border border-green-500/30 rounded-lg p-3">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-amber-400" />
+          <Sparkles className="w-5 h-5 text-green-400" />
           <span className="font-bold text-white text-sm">Friday Sprinkles Drop</span>
         </div>
         {isClaimOpen ? (
@@ -586,7 +586,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
             🎉 IT'S FRIDAY
           </span>
         ) : (
-          <span className="text-xs text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+          <span className="text-xs text-green-300 bg-green-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
             <Calendar className="w-3 h-3" />
             {formatCountdown(countdown)}
           </span>
@@ -611,7 +611,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
           {!hasShared ? (
             <button
               onClick={handleShare}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-2.5 px-3 rounded-lg transition-all text-sm"
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold py-2.5 px-3 rounded-lg transition-all text-sm"
             >
               <Share2 className="w-4 h-4" />
               Share to Claim {userPoints?.toFixed(2)} SPRINKLES
@@ -621,7 +621,7 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
               onClick={handleVerify}
               disabled={isVerifying}
               className={cn(
-                "w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold py-2.5 px-3 rounded-lg transition-all text-sm",
+                "w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-400 text-black font-bold py-2.5 px-3 rounded-lg transition-all text-sm",
                 isVerifying && "opacity-50 cursor-not-allowed"
               )}
             >
