@@ -4,7 +4,7 @@ import { Providers } from "@/components/providers";
 
 const appDomain = "https://donutlabs.vercel.app/";
 const heroImageUrl = `${appDomain}/media/hero.png`;
-const splashImageUrl = `${appDomain}/media/splash.png`;
+const splashImageUrl = `${appDomain}/media/loading.png`;
 
 const miniAppEmbed = {
   version: "1",
@@ -23,10 +23,10 @@ const miniAppEmbed = {
 
 export const metadata: Metadata = {
   title: "Sprinkles",
-  description: "Mine $DONUT and compete in weekly leaderboard rewards",
+  description: "Play to earn Donut, Sprinkles, and USDC rewards on base!",
   openGraph: {
     title: "Sprinkles",
-    description: "The premium De-Fi (Donut-Finance) experience on base .",
+    description: "Play to earn Donut, Sprinkles, and USDC rewards on base!",
     url: appDomain,
     images: [
       {
