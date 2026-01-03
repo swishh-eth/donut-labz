@@ -4,8 +4,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
+import { Header } from "@/components/header";
 import { Trophy, Play, Coins, Zap, Share2, Palette, Check, X, ExternalLink, HelpCircle, Volume2, VolumeX, ChevronRight, Clock, Lock, Crown, Sparkles } from "lucide-react";
 
 // Contract addresses
@@ -23,6 +23,13 @@ const FLAPPY_POOL_ABI = [
   { inputs: [], name: "getPrizePool", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
 ] as const;
 
+// Donut coin image component
+const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover scale-[1.7]" />
+  </span>
+);
+
 // Game constants - Base dimensions (will be scaled 2x for retina)
 const CANVAS_WIDTH = 360;
 const CANVAS_HEIGHT = 480;
@@ -37,8 +44,8 @@ const PIPE_GAP_MIN = 140; // Minimum gap size (was 115, increased for playabilit
 const PIPE_SPEED_START = 2.0;
 const PIPE_SPEED_MAX = 4.0;
 const PIPE_SPAWN_DISTANCE = 240;
-const DONUT_SIZE = 36;
-const DONUT_X = 80;
+const PLAYER_SIZE = 36;
+const PLAYER_X = 80;
 
 // Skin type definition
 type SkinTier = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic' | 'ultimate' | 'default';
@@ -126,12 +133,6 @@ type LeaderboardEntry = { rank: number; username: string; pfpUrl?: string; score
 const getDifficulty = (score: number) => {
   const progress = Math.min(score / 50, 1);
   return { pipeGap: PIPE_GAP_START - (PIPE_GAP_START - PIPE_GAP_MIN) * progress, pipeSpeed: PIPE_SPEED_START + (PIPE_SPEED_MAX - PIPE_SPEED_START) * progress };
-};
-
-const initialsFrom = (label?: string) => {
-  if (!label) return "";
-  const stripped = label.replace(/[^a-zA-Z0-9]/g, "");
-  return stripped ? stripped.slice(0, 2).toUpperCase() : label.slice(0, 2).toUpperCase();
 };
 
 // Falling Donut Animation Component - starts above view
@@ -261,6 +262,10 @@ export default function FlappyDonutPage() {
   const [previewSkin, setPreviewSkin] = useState<GameSkin | null>(null);
   const [userStats, setUserStats] = useState<{ gamesPlayed: number; highScore: number; totalScore: number }>({ gamesPlayed: 0, highScore: 0, totalScore: 0 });
   
+  // User PFP image for player model
+  const pfpImageRef = useRef<HTMLImageElement | null>(null);
+  const [pfpLoaded, setPfpLoaded] = useState(false);
+  
   const donutRef = useRef({ y: CANVAS_HEIGHT / 2, velocity: 0 });
   const pipesRef = useRef<{ x: number; topHeight: number; baseTopHeight: number; gap: number; passed: boolean; phase: number; oscillates: boolean; oscSpeed: number; oscAmount: number }[]>([]);
   const buildingsRef = useRef<{ x: number; width: number; height: number; shade: number; windows: number[] }[]>([]);
@@ -273,6 +278,23 @@ export default function FlappyDonutPage() {
   const paidCostRef = useRef(1);
   const hasFlappedRef = useRef(false); // Tracks if player has made first flap
   const gameStartPendingRef = useRef(false); // Track if we're waiting to start a game after tx
+  
+  // Load user PFP image
+  useEffect(() => {
+    if (context?.user?.pfpUrl) {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        pfpImageRef.current = img;
+        setPfpLoaded(true);
+      };
+      img.onerror = () => {
+        pfpImageRef.current = null;
+        setPfpLoaded(false);
+      };
+      img.src = context.user.pfpUrl;
+    }
+  }, [context?.user?.pfpUrl]);
   
   // Initialize audio context - call early to prevent lag on first flap
   const initAudioContext = useCallback(() => {
@@ -484,112 +506,115 @@ export default function FlappyDonutPage() {
     return `#${f(0)}${f(8)}${f(4)}`;
   };
 
-  const drawDonut = useCallback((ctx: CanvasRenderingContext2D, y: number, velocity: number, skin: GameSkin = selectedSkin) => {
-    const x = DONUT_X;
+  const drawPlayer = useCallback((ctx: CanvasRenderingContext2D, y: number, velocity: number, skin: GameSkin = selectedSkin) => {
+    const x = PLAYER_X;
     const rotation = Math.min(Math.max(velocity * 0.04, -0.5), 0.5);
     
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(rotation);
     
-    // Calculate animated color for legendary skins
-    let frostingColor = skin.frostingColor;
+    // Calculate animated color for legendary skins (used for glow/border)
+    let borderColor = skin.frostingColor;
     let glowIntensity = 0;
-    let sparkleOffset = 0;
     
     if (skin.animated) {
       const time = Date.now();
       
       if (skin.animationType === 'rainbow') {
-        // Cycle through hue values
         const hueShift = (time / 20) % 360;
         const [, s, l] = hexToHsl(skin.frostingColor);
-        frostingColor = hslToHex(hueShift, s, l);
+        borderColor = hslToHex(hueShift, s, l);
+        glowIntensity = 15;
       } else if (skin.animationType === 'glow') {
-        // Pulsing glow effect
         glowIntensity = 15 + Math.sin(time / 200) * 10;
       } else if (skin.animationType === 'pulse') {
-        // Pulsing size/brightness effect
-        const pulseAmount = Math.sin(time / 300) * 0.15;
-        const [h, s, l] = hexToHsl(skin.frostingColor);
-        frostingColor = hslToHex(h, s, Math.min(100, l + pulseAmount * 20));
         glowIntensity = 10 + Math.sin(time / 300) * 8;
-      } else if (skin.animationType === 'sparkle') {
-        // Brightness variation
-        sparkleOffset = Math.sin(time / 100) * 0.3;
-        const [h, s, l] = hexToHsl(skin.frostingColor);
-        frostingColor = hslToHex(h, s, Math.min(100, l + sparkleOffset * 30));
+      } else if (skin.animationType === 'electric') {
+        glowIntensity = 12 + Math.sin(time / 150) * 8;
       }
     }
     
     // Shadow
     ctx.beginPath();
-    ctx.ellipse(3, 5, DONUT_SIZE / 2, DONUT_SIZE / 2.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(3, 5, PLAYER_SIZE / 2, PLAYER_SIZE / 2.5, 0, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
     ctx.fill();
     
     // Glow effect for animated skins
-    if (skin.animated && (skin.animationType === 'glow' || skin.animationType === 'rainbow' || skin.animationType === 'pulse')) {
-      ctx.shadowColor = frostingColor;
-      ctx.shadowBlur = glowIntensity || 20;
+    if (skin.animated && glowIntensity > 0) {
+      ctx.shadowColor = borderColor;
+      ctx.shadowBlur = glowIntensity;
     }
     
-    // Main donut body - full skin color
-    ctx.beginPath();
-    ctx.arc(0, 0, DONUT_SIZE / 2, 0, Math.PI * 2);
-    ctx.fillStyle = frostingColor;
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    
-    // Donut hole
-    ctx.beginPath();
-    ctx.arc(0, 0, DONUT_SIZE / 5, 0, Math.PI * 2);
-    ctx.fillStyle = "#1a1a1a";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    
-    // Sparkle particles for sparkle animation
-    if (skin.animated && skin.animationType === 'sparkle') {
-      const time = Date.now();
-      for (let i = 0; i < 4; i++) {
-        const angle = (time / 500 + i * Math.PI / 2) % (Math.PI * 2);
-        const dist = DONUT_SIZE / 2 + 5 + Math.sin(time / 200 + i) * 3;
-        const sparkleX = Math.cos(angle) * dist;
-        const sparkleY = Math.sin(angle) * dist;
-        const sparkleSize = 2 + Math.sin(time / 150 + i * 2) * 1;
-        
-        ctx.beginPath();
-        ctx.arc(sparkleX, sparkleY, sparkleSize, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.5 + Math.sin(time / 100 + i) * 0.3})`;
-        ctx.fill();
-      }
+    // Draw player as PFP circle or fallback donut
+    if (pfpImageRef.current && pfpLoaded) {
+      // Draw PFP in circle
+      ctx.beginPath();
+      ctx.arc(0, 0, PLAYER_SIZE / 2, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      
+      ctx.drawImage(
+        pfpImageRef.current,
+        -PLAYER_SIZE / 2,
+        -PLAYER_SIZE / 2,
+        PLAYER_SIZE,
+        PLAYER_SIZE
+      );
+      
+      // Reset clip
+      ctx.restore();
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rotation);
+      
+      // Border ring (skin color)
+      ctx.beginPath();
+      ctx.arc(0, 0, PLAYER_SIZE / 2 + 2, 0, Math.PI * 2);
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    } else {
+      // Fallback: Draw donut
+      ctx.beginPath();
+      ctx.arc(0, 0, PLAYER_SIZE / 2, 0, Math.PI * 2);
+      ctx.fillStyle = borderColor;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Donut hole
+      ctx.beginPath();
+      ctx.arc(0, 0, PLAYER_SIZE / 5, 0, Math.PI * 2);
+      ctx.fillStyle = "#1a1a1a";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
     }
     
     // Wings - improved animation
-    const flapSpeed = velocity < 0 ? 0.6 : 0.25; // Faster flap when going up
+    const flapSpeed = velocity < 0 ? 0.6 : 0.25;
     const flapAmount = velocity < 0 ? 12 : 6;
     const wingFlap = Math.sin(frameCountRef.current * flapSpeed) * flapAmount;
-    const wingAngle = velocity < 0 ? -0.6 : -0.1; // More dramatic angle when flapping up
-    const wingScale = velocity < 0 ? 1.2 : 1.0; // Wings expand when flapping
+    const wingAngle = velocity < 0 ? -0.6 : -0.1;
+    const wingScale = velocity < 0 ? 1.2 : 1.0;
     
     // Left wing
     ctx.save();
-    ctx.translate(-DONUT_SIZE / 2 - 2, -2);
+    ctx.translate(-PLAYER_SIZE / 2 - 2, -2);
     ctx.rotate(wingAngle + wingFlap * 0.08);
     ctx.scale(wingScale, 1);
     
-    // Wing gradient for depth
     const wingGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 16);
     wingGradient.addColorStop(0, "rgba(255, 255, 255, 0.95)");
     wingGradient.addColorStop(0.7, "rgba(240, 240, 255, 0.9)");
     wingGradient.addColorStop(1, "rgba(200, 200, 220, 0.8)");
     
-    // Main wing shape
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.quadraticCurveTo(-8, -8 - wingFlap, -18, -4 - wingFlap * 0.8);
@@ -602,7 +627,6 @@ export default function FlappyDonutPage() {
     ctx.lineWidth = 1;
     ctx.stroke();
     
-    // Wing feather details
     ctx.strokeStyle = "rgba(150, 150, 180, 0.4)";
     ctx.beginPath();
     ctx.moveTo(-4, 0);
@@ -616,7 +640,7 @@ export default function FlappyDonutPage() {
     
     // Right wing (mirrored)
     ctx.save();
-    ctx.translate(DONUT_SIZE / 2 + 2, -2);
+    ctx.translate(PLAYER_SIZE / 2 + 2, -2);
     ctx.rotate(-wingAngle - wingFlap * 0.08);
     ctx.scale(-wingScale, 1);
     
@@ -644,14 +668,13 @@ export default function FlappyDonutPage() {
     ctx.restore();
     
     ctx.restore();
-  }, [selectedSkin]);
+  }, [selectedSkin, pfpLoaded]);
   
   // Draw scrolling cityscape background
   const drawCityscape = useCallback((ctx: CanvasRenderingContext2D, speed: number) => {
     const GROUND_HEIGHT = 50;
     const BUILDING_COLORS = ['#2a2a2a', '#3d3d3d', '#4a4a4a', '#5c5c5c', '#6e6e6e'];
     
-    // Helper to generate window brightness array for a building
     const generateWindows = (width: number, height: number): number[] => {
       const windowRows = Math.floor(height / 15);
       const windowCols = Math.floor(width / 12);
@@ -662,10 +685,8 @@ export default function FlappyDonutPage() {
       return windows;
     };
     
-    // Update background offset
     bgOffsetRef.current += speed * 0.5;
     
-    // Initialize buildings if empty
     if (buildingsRef.current.length === 0) {
       let x = 0;
       while (x < CANVAS_WIDTH + 100) {
@@ -678,12 +699,10 @@ export default function FlappyDonutPage() {
       }
     }
     
-    // Move buildings and recycle
     buildingsRef.current.forEach(building => {
       building.x -= speed * 0.5;
     });
     
-    // Remove off-screen buildings and add new ones
     while (buildingsRef.current.length > 0 && buildingsRef.current[0].x + buildingsRef.current[0].width < -10) {
       buildingsRef.current.shift();
     }
@@ -698,23 +717,18 @@ export default function FlappyDonutPage() {
       buildingsRef.current.push({ x, width, height, shade, windows });
     }
     
-    // Draw ground
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, CANVAS_HEIGHT - GROUND_HEIGHT, CANVAS_WIDTH, GROUND_HEIGHT);
     
-    // Draw buildings
     buildingsRef.current.forEach(building => {
       const baseY = CANVAS_HEIGHT - GROUND_HEIGHT;
       
-      // Building body
       ctx.fillStyle = BUILDING_COLORS[building.shade];
       ctx.fillRect(building.x, baseY - building.height, building.width, building.height);
       
-      // Building edge highlight
       ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
       ctx.fillRect(building.x, baseY - building.height, 2, building.height);
       
-      // Windows - use stored brightness values
       const windowRows = Math.floor(building.height / 15);
       const windowCols = Math.floor(building.width / 12);
       let windowIdx = 0;
@@ -736,7 +750,6 @@ export default function FlappyDonutPage() {
       }
     });
     
-    // Ground line
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -744,7 +757,6 @@ export default function FlappyDonutPage() {
     ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_HEIGHT);
     ctx.stroke();
     
-    // Ground texture - moving dashes
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     const dashOffset = bgOffsetRef.current % 20;
     for (let i = -dashOffset; i < CANVAS_WIDTH + 20; i += 20) {
@@ -763,13 +775,11 @@ export default function FlappyDonutPage() {
     gradient.addColorStop(0.7, "#E8D5B7");
     gradient.addColorStop(1, "#C4A77D");
     
-    // Top pipe - simple rounded ends, no caps
     ctx.fillStyle = gradient;
     ctx.beginPath();
     ctx.roundRect(x, -10, PIPE_WIDTH, topHeight + 10, [0, 0, 8, 8]);
     ctx.fill();
     
-    // Bottom pipe - simple rounded ends, no caps
     const bottomY = topHeight + gap;
     ctx.fillStyle = gradient;
     ctx.beginPath();
@@ -782,16 +792,12 @@ export default function FlappyDonutPage() {
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx || !gameActiveRef.current) return;
     
-    // Calculate delta time for smooth movement - use fixed timestep for consistency
     const now = performance.now();
     const rawDelta = now - lastFrameTimeRef.current;
     lastFrameTimeRef.current = now;
     
-    // Use a fixed timestep approach - accumulate time and step at fixed intervals
-    // This prevents the jerky movement caused by variable delta times
-    const deltaTime = Math.min(rawDelta / 16.667, 2); // Normalize to 60fps, cap at 2x
+    const deltaTime = Math.min(rawDelta / 16.667, 2);
     
-    // Scale the context for high-DPI rendering
     ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
     
     frameCountRef.current++;
@@ -808,38 +814,32 @@ export default function FlappyDonutPage() {
     for (let i = 0; i < CANVAS_WIDTH; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, CANVAS_HEIGHT); ctx.stroke(); }
     for (let i = 0; i < CANVAS_HEIGHT; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_WIDTH, i); ctx.stroke(); }
     
-    // Draw scrolling cityscape - use fixed speed for background to prevent jitter
     drawCityscape(ctx, difficulty.pipeSpeed);
     
-    // Only apply gravity after first flap - donut hovers until player taps
     if (hasFlappedRef.current) {
       donutRef.current.velocity += GRAVITY * deltaTime;
       donutRef.current.velocity = Math.min(donutRef.current.velocity, 10);
       donutRef.current.y += donutRef.current.velocity * deltaTime;
     }
     
-    // Move pipes with consistent speed - don't multiply by deltaTime for position checks
     const pipeMovement = difficulty.pipeSpeed * deltaTime;
     
     pipesRef.current.forEach((pipe, index) => {
       pipe.x -= pipeMovement;
       
-      // Apply oscillation if pipe was spawned with it (time-based for smooth movement)
       if (pipe.oscillates) {
-        const time = performance.now() / 1000; // Use high-precision time
+        const time = performance.now() / 1000;
         pipe.topHeight = pipe.baseTopHeight + Math.sin(time * pipe.oscSpeed * 60 + pipe.phase) * pipe.oscAmount;
         
-        // Clamp to valid range
         const minTop = 40;
         const maxTop = CANVAS_HEIGHT - pipe.gap - 40;
         pipe.topHeight = Math.max(minTop, Math.min(maxTop, pipe.topHeight));
       }
       
-      if (!pipe.passed && pipe.x + PIPE_WIDTH < DONUT_X) { 
+      if (!pipe.passed && pipe.x + PIPE_WIDTH < PLAYER_X) { 
         pipe.passed = true; 
         scoreRef.current++; 
         setScore(scoreRef.current);
-        // Play point sound and haptic
         playPointSound();
         triggerPointHaptic();
       }
@@ -852,7 +852,6 @@ export default function FlappyDonutPage() {
       const topHeight = Math.random() * (CANVAS_HEIGHT - currentGap - 120) + 60;
       const phase = Math.random() * Math.PI * 2;
       
-      // Determine oscillation at spawn time based on current score
       const shouldOscillate = scoreRef.current >= 100;
       const oscillationProgress = shouldOscillate ? Math.min((scoreRef.current - 100) / 100, 1) : 0;
       const oscSpeed = 0.02 + oscillationProgress * 0.02;
@@ -872,9 +871,8 @@ export default function FlappyDonutPage() {
     }
     
     pipesRef.current.forEach(pipe => drawPipe(ctx, pipe.x, pipe.topHeight, pipe.gap));
-    drawDonut(ctx, donutRef.current.y, donutRef.current.velocity);
+    drawPlayer(ctx, donutRef.current.y, donutRef.current.velocity);
     
-    // Score display - white with white glow
     ctx.shadowColor = "#FFFFFF";
     ctx.shadowBlur = 20;
     ctx.fillStyle = "#FFFFFF";
@@ -883,8 +881,8 @@ export default function FlappyDonutPage() {
     ctx.fillText(scoreRef.current.toString(), CANVAS_WIDTH / 2, 70);
     ctx.shadowBlur = 0;
     
-    const donutY = donutRef.current.y;
-    const hitboxRadius = DONUT_SIZE / 2 - 6;
+    const playerY = donutRef.current.y;
+    const hitboxRadius = PLAYER_SIZE / 2 - 6;
     
     const endGameInline = () => {
       gameActiveRef.current = false;
@@ -893,7 +891,6 @@ export default function FlappyDonutPage() {
       setHighScore(prev => Math.max(prev, scoreRef.current));
       
       if (address && scoreRef.current >= 0) {
-        // Submit score to leaderboard
         fetch('/api/games/flappy/submit-score', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -910,10 +907,8 @@ export default function FlappyDonutPage() {
             if (data.error) {
               console.error('Score submission failed:', data.error);
             }
-            // Refresh data
             fetch(`/api/games/flappy/attempts?address=${address}`).then(r => r.json()).then(data => { setAttempts(data.attempts); setEntryCost(data.nextCost); });
             fetch('/api/games/flappy/leaderboard').then(r => r.json()).then(data => setLeaderboard(data.leaderboard || []));
-            // Refresh skin data (games played may have changed)
             const fidParam = context?.user?.fid ? `&fid=${context.user.fid}` : '';
             fetch(`/api/games/skin-market/user-data?address=${address}${fidParam}`).then(r => r.json()).then(data => {
               if (data.stats && data.stats['flappy-donut']) {
@@ -925,7 +920,6 @@ export default function FlappyDonutPage() {
             console.error('Score submission error:', err);
           });
         
-        // Send game announcement to chat (only if score > 0)
         if (scoreRef.current > 0) {
           fetch('/api/chat/game-announce', {
             method: 'POST',
@@ -945,27 +939,25 @@ export default function FlappyDonutPage() {
       }
     };
     
-    if (donutY - hitboxRadius < 0 || donutY + hitboxRadius > CANVAS_HEIGHT) { endGameInline(); return; }
+    if (playerY - hitboxRadius < 0 || playerY + hitboxRadius > CANVAS_HEIGHT) { endGameInline(); return; }
     for (const pipe of pipesRef.current) {
-      if (DONUT_X + hitboxRadius > pipe.x && DONUT_X - hitboxRadius < pipe.x + PIPE_WIDTH) {
-        if (donutY - hitboxRadius < pipe.topHeight || donutY + hitboxRadius > pipe.topHeight + pipe.gap) { endGameInline(); return; }
+      if (PLAYER_X + hitboxRadius > pipe.x && PLAYER_X - hitboxRadius < pipe.x + PIPE_WIDTH) {
+        if (playerY - hitboxRadius < pipe.topHeight || playerY + hitboxRadius > pipe.topHeight + pipe.gap) { endGameInline(); return; }
       }
     }
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawDonut, drawPipe, drawCityscape, address, context, playPointSound, triggerPointHaptic, selectedSkin]);
+  }, [drawPlayer, drawPipe, drawCityscape, address, context, playPointSound, triggerPointHaptic, selectedSkin]);
   
   const handleFlap = useCallback(() => {
     if (gameState === "playing" && gameActiveRef.current) {
-      hasFlappedRef.current = true; // Mark that player has started
+      hasFlappedRef.current = true;
       donutRef.current.velocity = FLAP_STRENGTH;
       playFlapSound();
-      // Removed tap haptic - only haptic on points now
     }
   }, [gameState, playFlapSound]);
   
   const startGame = useCallback(() => {
-    // Pre-initialize audio during countdown to prevent lag on first flap
     initAudioContext();
     
     donutRef.current = { y: CANVAS_HEIGHT / 2, velocity: 0 };
@@ -976,14 +968,13 @@ export default function FlappyDonutPage() {
     scoreRef.current = 0;
     frameCountRef.current = 0;
     countdownRef.current = 3;
-    hasFlappedRef.current = false; // Reset - donut hovers until first tap
+    hasFlappedRef.current = false;
     gameStartPendingRef.current = false;
     setScore(0);
     setCountdown(3);
     setGameState("countdown");
     setError(null);
     
-    // Play initial countdown sound
     playCountdownSound(false);
     
     let count = 3;
@@ -992,16 +983,15 @@ export default function FlappyDonutPage() {
       countdownRef.current = count;
       setCountdown(count);
       
-      // Play countdown sound
       if (count > 0) {
         playCountdownSound(false);
       } else {
-        playCountdownSound(true); // "Go" sound
+        playCountdownSound(true);
       }
       
       if (count <= 0) {
         clearInterval(countdownInterval);
-        lastFrameTimeRef.current = performance.now(); // Reset for smooth first frame
+        lastFrameTimeRef.current = performance.now();
         gameActiveRef.current = true;
         setGameState("playing");
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
@@ -1010,7 +1000,6 @@ export default function FlappyDonutPage() {
     }, 1000);
   }, [gameLoop, initAudioContext, playCountdownSound]);
 
-  // Handle approval success - trigger payment
   useEffect(() => {
     if (isTxSuccess && pendingTxType === "approve") {
       setPendingTxType("approved");
@@ -1019,7 +1008,6 @@ export default function FlappyDonutPage() {
     }
   }, [isTxSuccess, pendingTxType, resetWrite, refetchAllowance]);
 
-  // After approval is confirmed and allowance refetched, send payment
   useEffect(() => {
     if (pendingTxType === "approved" && allowance) {
       const costWei = parseUnits(entryCost.toFixed(1), 18);
@@ -1030,7 +1018,6 @@ export default function FlappyDonutPage() {
     }
   }, [pendingTxType, allowance, entryCost, writeContract]);
 
-  // Handle payment success - start game (works from both menu AND gameover states)
   useEffect(() => {
     if (isTxSuccess && pendingTxType === "pay" && gameStartPendingRef.current) {
       setPendingTxType(null);
@@ -1044,7 +1031,6 @@ export default function FlappyDonutPage() {
     }
   }, [isTxSuccess, pendingTxType, entryCost, refetchAllowance, refetchBalance, startGame, resetWrite]);
 
-  // Handle transaction errors
   useEffect(() => {
     if (writeError || isTxError) {
       setIsLoading(false);
@@ -1068,9 +1054,9 @@ export default function FlappyDonutPage() {
     if (!address) { setError("Connect wallet to play"); return; }
     setIsLoading(true);
     setError(null);
-    gameStartPendingRef.current = true; // Mark that we want to start a game after tx
+    gameStartPendingRef.current = true;
     const costWei = parseUnits(entryCost.toFixed(1), 18);
-    if (balance && balance < costWei) { setError(`Insufficient DONUT. Need ${entryCost.toFixed(1)} 🍩`); setIsLoading(false); gameStartPendingRef.current = false; return; }
+    if (balance && balance < costWei) { setError(`Insufficient DONUT. Need ${entryCost.toFixed(1)}`); setIsLoading(false); gameStartPendingRef.current = false; return; }
     if (!allowance || allowance < costWei) { 
       setPendingTxType("approve");
       writeContract({ address: DONUT_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [FLAPPY_POOL_ADDRESS, parseUnits("100", 18)] }); 
@@ -1080,14 +1066,12 @@ export default function FlappyDonutPage() {
     writeContract({ address: FLAPPY_POOL_ADDRESS, abi: FLAPPY_POOL_ABI, functionName: "payEntry", args: [costWei] });
   };
   
-  // Handle selecting/equipping a skin
   const handleSelectSkin = async (skin: GameSkin) => {
     if (!address) return;
-    if (!unlockedSkins.includes(skin.id)) return; // Can't select locked skins
+    if (!unlockedSkins.includes(skin.id)) return;
     
     setSelectedSkin(skin);
     
-    // Only save to backend for non-default skins
     if (skin.id !== 'default') {
       try {
         await fetch('/api/games/skin-market/equip-skin', {
@@ -1101,7 +1085,6 @@ export default function FlappyDonutPage() {
     }
   };
   
-  // Handle claiming an unlocked skin
   const handleClaimSkin = async (skin: GameSkin) => {
     if (!address || !isPremium) return;
     
@@ -1121,7 +1104,6 @@ export default function FlappyDonutPage() {
     }
   };
   
-  // Check if skin requirements are met
   const canClaimSkin = (skin: GameSkin): boolean => {
     if (!skin.requirement || !isPremium) return false;
     if (skin.requirement.type === 'games_played') {
@@ -1132,7 +1114,6 @@ export default function FlappyDonutPage() {
     return false;
   };
   
-  // Get progress towards skin requirement
   const getSkinProgress = (skin: GameSkin): { current: number; target: number } => {
     if (!skin.requirement) return { current: 0, target: 0 };
     if (skin.requirement.type === 'games_played') {
@@ -1145,23 +1126,21 @@ export default function FlappyDonutPage() {
   
   const handleShare = useCallback(async () => {
     const miniappUrl = "https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles";
-    const castText = `🍩 I just scored ${score} in Flappy Donut on the Sprinkles App by @swishh.eth!\n\nThink you can beat me? Play now and compete for the ${prizePool} 🍩 weekly prize pool! 🏆`;
+    const castText = `I just scored ${score} in Flappy Donut on the Sprinkles App by @swishh.eth!\n\nThink you can beat me? Play now and compete for the ${prizePool} DONUT weekly prize pool!`;
     try { await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(miniappUrl)}`); } 
     catch { try { await navigator.clipboard.writeText(castText + "\n\n" + miniappUrl); alert("Copied!"); } catch {} }
   }, [score, prizePool]);
   
-  // Draw menu/countdown/gameover - donut position is fixed
+  // Draw menu/countdown/gameover
   useEffect(() => {
     if (gameState === "playing") return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
     
-    // Fixed donut Y position for menu/countdown/gameover
-    const menuDonutY = CANVAS_HEIGHT / 2 - 40;
+    const menuPlayerY = CANVAS_HEIGHT / 2 - 40;
     
     const draw = () => {
-      // Scale the context for high-DPI rendering
       ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
       
       const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
@@ -1174,21 +1153,17 @@ export default function FlappyDonutPage() {
       for (let i = 0; i < CANVAS_WIDTH; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, CANVAS_HEIGHT); ctx.stroke(); }
       for (let i = 0; i < CANVAS_HEIGHT; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_WIDTH, i); ctx.stroke(); }
       
-      // Draw scrolling cityscape (slow on menu)
       drawCityscape(ctx, 0.5);
       
-      // Draw donut at fixed position with gentle float
       const floatOffset = Math.sin(Date.now() / 500) * 6;
-      drawDonut(ctx, menuDonutY + floatOffset, 0, previewSkin || selectedSkin);
+      drawPlayer(ctx, menuPlayerY + floatOffset, 0, previewSkin || selectedSkin);
       
-      // Title - clean white text
       ctx.fillStyle = "#FFFFFF";
       ctx.font = "bold 28px monospace";
       ctx.textAlign = "center";
       ctx.fillText("FLAPPY DONUT", CANVAS_WIDTH / 2, 60);
       
       if (gameState === "countdown") {
-        // Countdown number - centered, pulsing
         const scale = 1 + Math.sin(Date.now() / 100) * 0.08;
         ctx.save();
         ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
@@ -1227,7 +1202,7 @@ export default function FlappyDonutPage() {
       const interval = setInterval(draw, 50);
       return () => clearInterval(interval);
     }
-  }, [gameState, score, highScore, drawDonut, drawCityscape, previewSkin, selectedSkin]);
+  }, [gameState, score, highScore, drawPlayer, drawCityscape, previewSkin, selectedSkin]);
   
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => { if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); handleFlap(); } };
@@ -1236,13 +1211,10 @@ export default function FlappyDonutPage() {
   }, [handleFlap]);
   
   const isPaying = isWritePending || isTxLoading;
-  const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Player";
-  const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
-  // Get tier badge color
   const getTierColor = (tier: SkinTier) => {
     switch (tier) {
-      case 'ultimate': return 'bg-gradient-to-br from-amber-400 to-orange-500';
+      case 'ultimate': return 'bg-gradient-to-br from-pink-400 to-orange-500';
       case 'mythic': return 'bg-violet-500';
       case 'legendary': return 'bg-yellow-500';
       case 'epic': return 'bg-cyan-500';
@@ -1266,58 +1238,47 @@ export default function FlappyDonutPage() {
         .hide-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
       
-      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-3 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
+      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
         
-        {/* Header - matching Games page style */}
-        <div className="flex items-center justify-between mb-2 px-1">
-          <h1 className="text-xl font-bold tracking-wide">FLAPPY DONUT</h1>
-          {context?.user && (
-            <div className="flex items-center gap-2 rounded-full bg-black px-2 py-0.5">
-              <Avatar className="h-6 w-6 border border-zinc-800">
-                <AvatarImage src={userAvatarUrl || undefined} alt={userDisplayName} className="object-cover" />
-                <AvatarFallback className="bg-zinc-800 text-white text-[10px]">{initialsFrom(userDisplayName)}</AvatarFallback>
-              </Avatar>
-              <div className="leading-tight text-left">
-                <div className="text-xs font-bold">{userDisplayName}</div>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Global Header */}
+        <Header title="FLAPPY DONUT" user={context?.user} />
         
         {/* Prize Pool Tile - Clickable to open leaderboard */}
         <button
           onClick={() => setShowLeaderboard(true)}
-          className="relative w-full mb-3 px-4 py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl transition-all active:scale-[0.98] hover:border-amber-500/50 group"
+          className="relative w-full mb-3 px-4 py-3 bg-gradient-to-r from-pink-500/20 to-pink-600/20 border border-pink-500/30 rounded-xl transition-all active:scale-[0.98] hover:border-pink-500/50 group"
           style={{ minHeight: '70px' }}
         >
           <div className="flex items-center justify-between">
             <div className="flex flex-col items-start">
               <div className="flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-amber-400" />
-                <span className="text-[10px] text-amber-200/80 font-medium">Weekly Prize Pool</span>
+                <Trophy className="w-4 h-4 text-pink-400" />
+                <span className="text-[10px] text-pink-200/80 font-medium">Weekly Prize Pool</span>
               </div>
-              <span className="text-2xl font-bold text-amber-400">{prizePool} 🍩</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-2xl font-bold text-pink-400">{prizePool}</span>
+                <DonutCoin className="w-6 h-6" />
+              </div>
             </div>
             <div className="flex flex-col items-end">
-              <div className="flex items-center gap-1 text-amber-400/60 group-hover:text-amber-400 transition-colors">
+              <div className="flex items-center gap-1 text-pink-400/60 group-hover:text-pink-400 transition-colors">
                 <span className="text-[10px]">View Leaderboard</span>
                 <ChevronRight className="w-3 h-3" />
               </div>
-              <div className="text-[10px] text-amber-200/60 flex items-center gap-1">
+              <div className="text-[10px] text-pink-200/60 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                <span>Resets in <span className="font-bold text-amber-300">{resetCountdown}</span></span>
+                <span>Resets in <span className="font-bold text-pink-300">{resetCountdown}</span></span>
               </div>
             </div>
           </div>
         </button>
         
-        {/* Game Area - fixed aspect ratio */}
+        {/* Game Area */}
         <div className="flex flex-col items-center">
           <div 
             className="relative w-full" 
             style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}
           >
-            {/* Clickable overlay for game input - only during playing */}
             {gameState === "playing" && (
               <div 
                 className="absolute inset-0 z-10 cursor-pointer"
@@ -1333,14 +1294,17 @@ export default function FlappyDonutPage() {
               style={{ touchAction: "none", WebkitTapHighlightColor: "transparent" }} 
             />
             
-            {/* Menu/Gameover overlay buttons */}
             {(gameState === "menu" || gameState === "gameover") && (
               <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-2 pointer-events-none z-20">
                 <div className="pointer-events-auto flex flex-col items-center gap-2">
                   {gameState === "gameover" && score > 0 && (
                     <button onClick={handleShare} className="flex items-center gap-2 px-5 py-1.5 bg-purple-600 text-white text-sm font-bold rounded-full hover:bg-purple-500"><Share2 className="w-3 h-3" /><span>Share</span></button>
                   )}
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 rounded-full border border-zinc-700"><Zap className="w-3 h-3 text-yellow-400" /><span className="text-xs">Entry: <span className="font-bold">{entryCost.toFixed(1)} 🍩</span></span></div>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 rounded-full border border-zinc-700">
+                    <Zap className="w-3 h-3 text-pink-400" />
+                    <span className="text-xs">Entry: <span className="font-bold">{entryCost.toFixed(1)}</span></span>
+                    <DonutCoin className="w-3.5 h-3.5" />
+                  </div>
                   <button onClick={handlePlay} disabled={isPaying || isLoading} className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95 disabled:opacity-50">
                     {isPaying ? <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Processing...</span></> : <><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span></>}
                   </button>
@@ -1354,7 +1318,6 @@ export default function FlappyDonutPage() {
           </div>
         </div>
           
-        {/* Skins, Help, and Mute buttons - always visible below canvas */}
         {(gameState === "menu" || gameState === "gameover") && (
           <div className="py-4 flex items-center justify-center gap-2">
             <button onClick={() => setShowSkins(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
@@ -1375,13 +1338,16 @@ export default function FlappyDonutPage() {
           <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
             <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
               <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-                <div className="flex items-center gap-2"><Trophy className="w-5 h-5 text-amber-400" /><span className="font-bold">Weekly Leaderboard</span></div>
+                <div className="flex items-center gap-2"><Trophy className="w-5 h-5 text-pink-400" /><span className="font-bold">Weekly Leaderboard</span></div>
                 <button onClick={() => setShowLeaderboard(false)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
               </div>
               <div className="px-4 py-2 bg-zinc-800/50 border-b border-zinc-800">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-zinc-400">Prize Pool</span>
-                  <span className="text-sm font-bold text-amber-400">{prizePool} 🍩</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm font-bold text-pink-400">{prizePool}</span>
+                    <DonutCoin className="w-4 h-4" />
+                  </div>
                 </div>
               </div>
               <div className="max-h-80 overflow-y-auto">
@@ -1394,12 +1360,15 @@ export default function FlappyDonutPage() {
                   const prizePercent = PRIZE_DISTRIBUTION[entry.rank - 1] || 0;
                   const prizeAmount = ((parseFloat(prizePool) * prizePercent) / 100).toFixed(2);
                   return (
-                    <div key={i} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${entry.rank <= 3 ? "bg-amber-500/10" : ""}`}>
-                      <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-amber-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>{entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}</span>
-                      {entry.pfpUrl ? <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center">🍩</div>}
+                    <div key={i} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${entry.rank <= 3 ? "bg-pink-500/10" : ""}`}>
+                      <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-pink-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>{entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}</span>
+                      {entry.pfpUrl ? <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center"><DonutCoin className="w-5 h-5" /></div>}
                       <div className="flex-1 min-w-0">
                         <span className="block truncate text-sm">{entry.username}</span>
-                        <span className="text-xs text-amber-400">+{prizeAmount} 🍩</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-pink-400">+{prizeAmount}</span>
+                          <DonutCoin className="w-3 h-3" />
+                        </div>
                       </div>
                       <span className="font-bold text-sm">{entry.score}</span>
                     </div>
@@ -1415,7 +1384,7 @@ export default function FlappyDonutPage() {
           </div>
         )}
         
-        {/* Skins Modal - Updated for Premium System */}
+        {/* Skins Modal */}
         {showSkins && (
           <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
             <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
@@ -1429,17 +1398,15 @@ export default function FlappyDonutPage() {
                 </button>
               </div>
               
-              {/* Premium Status Banner */}
               {!isPremium && (
-                <div className="px-4 py-3 bg-amber-500/10 border-b border-amber-500/20">
+                <div className="px-4 py-3 bg-pink-500/10 border-b border-pink-500/20">
                   <div className="flex items-center gap-2">
-                    <Crown className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs text-amber-200">Unlock Premium to earn skins by playing!</span>
+                    <Crown className="w-4 h-4 text-pink-400" />
+                    <span className="text-xs text-pink-200">Unlock Premium to earn skins by playing!</span>
                   </div>
                 </div>
               )}
               
-              {/* Stats Display */}
               {isPremium && (
                 <div className="px-4 py-2 bg-zinc-800/50 border-b border-zinc-800">
                   <div className="flex items-center justify-between text-xs">
@@ -1477,7 +1444,6 @@ export default function FlappyDonutPage() {
                         "border-zinc-800 opacity-60"
                       }`}
                     >
-                      {/* Tier badge */}
                       {!isDefault && (
                         <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center ${getTierColor(skin.tier)}`}>
                           {skin.tier === 'ultimate' ? <Crown className="w-2.5 h-2.5 text-black" /> :
@@ -1488,7 +1454,6 @@ export default function FlappyDonutPage() {
                         </div>
                       )}
                       
-                      {/* Donut preview */}
                       <div className="w-12 h-12 mx-auto mb-2 rounded-full relative" style={{ backgroundColor: isUnlocked || canClaim ? skin.frostingColor : '#3f3f46' }}>
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="w-3 h-3 rounded-full bg-zinc-900 border border-zinc-700" />
@@ -1502,14 +1467,12 @@ export default function FlappyDonutPage() {
                       
                       <p className="text-[10px] font-bold truncate text-center">{skin.name}</p>
                       
-                      {/* Status indicator */}
                       {isSelected && (
                         <div className="flex items-center justify-center gap-1 mt-1">
                           <Check className="w-3 h-3 text-green-400" />
                         </div>
                       )}
                       
-                      {/* Progress bar for locked skins */}
                       {!isUnlocked && !isDefault && isPremium && (
                         <div className="mt-1">
                           {canClaim ? (
@@ -1533,7 +1496,6 @@ export default function FlappyDonutPage() {
                         </div>
                       )}
                       
-                      {/* Requirement text for non-premium */}
                       {!isUnlocked && !isDefault && !isPremium && (
                         <p className="text-[8px] text-zinc-600 text-center mt-1 flex items-center justify-center gap-0.5">
                           <Crown className="w-2 h-2" /> Premium
@@ -1547,7 +1509,7 @@ export default function FlappyDonutPage() {
               <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
                 <button 
                   onClick={() => { setShowSkins(false); window.location.href = "/games/skin-market"; }} 
-                  className="w-full flex items-center justify-center gap-2 py-2 text-amber-400 hover:text-amber-300"
+                  className="w-full flex items-center justify-center gap-2 py-2 text-pink-400 hover:text-pink-300"
                 >
                   <Crown className="w-4 h-4" />
                   <span className="text-sm font-bold">{isPremium ? 'View All Skins' : 'Get Premium'}</span>
@@ -1568,32 +1530,32 @@ export default function FlappyDonutPage() {
               
               <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
                 <div>
-                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Play className="w-4 h-4 text-amber-400" />Gameplay</h3>
-                  <p className="text-xs text-zinc-400">Tap or click to make your donut flap and fly. Navigate through the rolling pin obstacles without hitting them or the edges!</p>
+                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Play className="w-4 h-4 text-pink-400" />Gameplay</h3>
+                  <p className="text-xs text-zinc-400">Tap or click to make your character flap and fly. Navigate through the rolling pin obstacles without hitting them or the edges!</p>
                 </div>
                 
                 <div>
-                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-400" />Entry Cost</h3>
+                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-pink-400" />Entry Cost</h3>
                   <p className="text-xs text-zinc-400">Each game costs DONUT to play. The cost increases by 0.1 with each attempt:</p>
                   <ul className="text-xs text-zinc-400 mt-1 space-y-1 pl-4">
-                    <li>• 1st game: <span className="text-white">1.0 DONUT</span></li>
-                    <li>• 2nd game: <span className="text-white">1.1 DONUT</span></li>
-                    <li>• 3rd game: <span className="text-white">1.2 DONUT</span></li>
+                    <li className="flex items-center gap-1">• 1st game: <span className="text-white">1.0</span> <DonutCoin className="w-3 h-3" /></li>
+                    <li className="flex items-center gap-1">• 2nd game: <span className="text-white">1.1</span> <DonutCoin className="w-3 h-3" /></li>
+                    <li className="flex items-center gap-1">• 3rd game: <span className="text-white">1.2</span> <DonutCoin className="w-3 h-3" /></li>
                     <li>• And so on...</li>
                   </ul>
                   <p className="text-xs text-zinc-500 mt-2">Cost resets daily at 6PM EST</p>
                 </div>
                 
                 <div>
-                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Coins className="w-4 h-4 text-amber-400" />Prize Pool</h3>
+                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Coins className="w-4 h-4 text-pink-400" />Prize Pool</h3>
                   <p className="text-xs text-zinc-400">90% of all entry fees go to the weekly prize pool. 5% goes to LP rewards, 5% to treasury.</p>
                 </div>
                 
                 <div>
-                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-amber-400" />Weekly Rewards</h3>
+                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-pink-400" />Weekly Rewards</h3>
                   <p className="text-xs text-zinc-400">Every week, the prize pool is distributed to the top 10 players based on their highest score:</p>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs">
-                    <div className="flex justify-between"><span className="text-amber-400">🥇 1st</span><span className="text-white">30%</span></div>
+                    <div className="flex justify-between"><span className="text-pink-400">🥇 1st</span><span className="text-white">30%</span></div>
                     <div className="flex justify-between"><span className="text-zinc-300">🥈 2nd</span><span className="text-white">20%</span></div>
                     <div className="flex justify-between"><span className="text-orange-400">🥉 3rd</span><span className="text-white">15%</span></div>
                     <div className="flex justify-between"><span className="text-zinc-400">4th</span><span className="text-white">10%</span></div>
@@ -1608,7 +1570,7 @@ export default function FlappyDonutPage() {
                 
                 <div>
                   <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Palette className="w-4 h-4 text-zinc-400" />Skins</h3>
-                  <p className="text-xs text-zinc-400">Unlock Premium to earn skins by playing! Each game has 4 unique skins to unlock based on milestones:</p>
+                  <p className="text-xs text-zinc-400">Unlock Premium to earn skins by playing! Each game has unique skins to unlock based on milestones:</p>
                   <ul className="text-xs text-zinc-400 mt-1 space-y-1 pl-4">
                     <li>• <span className="text-zinc-300">Common:</span> Play 25 games</li>
                     <li>• <span className="text-purple-400">Rare:</span> Play 50 games</li>

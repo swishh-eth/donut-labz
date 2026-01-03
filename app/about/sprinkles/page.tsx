@@ -50,6 +50,15 @@ export default function AboutSprinklesPage() {
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [burnedBalance, setBurnedBalance] = useState<string>("0");
   const [donutBurnedInLP, setDonutBurnedInLP] = useState<string>("0");
+  const [gDonutStaked, setGDonutStaked] = useState<string>("0");
+  const [treasurySprinkles, setTreasurySprinkles] = useState<string>("0");
+
+  // Treasury address
+  const TREASURY_ADDRESS = "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d";
+  // gDONUT token address (LSG staked DONUT)
+  const GDONUT_ADDRESS = "0xC78B6e362cB0f48b59E573dfe7C99d92153a16d3";
+  // SPRINKLES token address
+  const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
 
   // Fetch burned balances
   useEffect(() => {
@@ -141,9 +150,75 @@ export default function AboutSprinklesPage() {
 
     fetchBurnedBalance();
     fetchDonutBurnedInLP();
+    
+    // Fetch gDONUT staked by treasury
+    const fetchGDonutStaked = async () => {
+      try {
+        const response = await fetch('https://mainnet.base.org', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'eth_call',
+            params: [
+              {
+                to: GDONUT_ADDRESS,
+                data: `0x70a08231000000000000000000000000${TREASURY_ADDRESS.slice(2).toLowerCase()}`
+              },
+              'latest'
+            ]
+          })
+        });
+        const data = await response.json();
+        if (data.result) {
+          const balanceBigInt = BigInt(data.result);
+          const formatted = Math.floor(Number(formatEther(balanceBigInt))).toLocaleString();
+          setGDonutStaked(formatted);
+        }
+      } catch (error) {
+        console.error('Failed to fetch gDONUT staked:', error);
+      }
+    };
+
+    // Fetch SPRINKLES held by treasury
+    const fetchTreasurySprinkles = async () => {
+      try {
+        const response = await fetch('https://mainnet.base.org', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'eth_call',
+            params: [
+              {
+                to: SPRINKLES_ADDRESS,
+                data: `0x70a08231000000000000000000000000${TREASURY_ADDRESS.slice(2).toLowerCase()}`
+              },
+              'latest'
+            ]
+          })
+        });
+        const data = await response.json();
+        if (data.result) {
+          const balanceBigInt = BigInt(data.result);
+          const formatted = Math.floor(Number(formatEther(balanceBigInt))).toLocaleString();
+          setTreasurySprinkles(formatted);
+        }
+      } catch (error) {
+        console.error('Failed to fetch treasury SPRINKLES:', error);
+      }
+    };
+
+    fetchGDonutStaked();
+    fetchTreasurySprinkles();
+    
     const interval = setInterval(() => {
       fetchBurnedBalance();
       fetchDonutBurnedInLP();
+      fetchGDonutStaked();
+      fetchTreasurySprinkles();
     }, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -239,7 +314,7 @@ export default function AboutSprinklesPage() {
                 <p className="text-gray-500 text-[10px] mt-1">10M preminted & seeded with 1,000 DONUT for permanent LP</p>
               </div>
 
-              {/* Burn Stats */}
+              {/* Stats Grid - Burn & Treasury */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
                   <div className="flex items-center gap-1.5 mb-1">
@@ -254,6 +329,20 @@ export default function AboutSprinklesPage() {
                     <span className="text-[10px] text-gray-400">DONUT Burned</span>
                   </div>
                   <span className="text-lg font-bold text-pink-400">{donutBurnedInLP}</span>
+                </div>
+                <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Building className="w-3 h-3 text-pink-400" />
+                    <span className="text-[10px] text-gray-400">gDONUT Staked</span>
+                  </div>
+                  <span className="text-lg font-bold text-pink-400">{gDonutStaked}</span>
+                </div>
+                <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Coins className="w-3 h-3 text-green-400" />
+                    <span className="text-[10px] text-gray-400">Treasury SPRINKLES</span>
+                  </div>
+                  <span className="text-lg font-bold text-green-400">{treasurySprinkles}</span>
                 </div>
               </div>
 
