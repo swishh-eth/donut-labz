@@ -295,17 +295,12 @@ export default function GamesPage() {
           setStackPrizePool(prizeData.totalPrize || 5);
         }
         
-        // Fetch recent player from leaderboard
-        const leaderboardRes = await fetch('/api/games/stack-tower/leaderboard?limit=1');
-        if (leaderboardRes.ok) {
-          const leaderboardData = await leaderboardRes.json();
-          if (leaderboardData.leaderboard && leaderboardData.leaderboard.length > 0) {
-            const topPlayer = leaderboardData.leaderboard[0];
-            setStackRecentPlayer({
-              username: topPlayer.username || `fid:${topPlayer.fid}`,
-              score: topPlayer.score,
-              pfpUrl: topPlayer.pfpUrl,
-            });
+        // Fetch recent player
+        const recentRes = await fetch('/api/games/stack-tower/recent');
+        if (recentRes.ok) {
+          const recentData = await recentRes.json();
+          if (recentData.recentPlayer) {
+            setStackRecentPlayer(recentData.recentPlayer);
           }
         }
       } catch (e) {

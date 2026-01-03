@@ -1,4 +1,4 @@
-// Place in: app/api/games/donut-dash/recent/route.ts
+// Place in: app/api/games/stack-tower/recent/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -11,9 +11,10 @@ const supabase = createClient(
 // Get current week number (weeks start on Friday 11PM UTC / 6PM EST)
 function getCurrentWeek(): number {
   const now = new Date();
+  const utcNow = new Date(now.toUTCString());
   const epoch = new Date(Date.UTC(2025, 0, 3, 23, 0, 0));
   const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-  const weeksSinceEpoch = Math.floor((now.getTime() - epoch.getTime()) / msPerWeek);
+  const weeksSinceEpoch = Math.floor((utcNow.getTime() - epoch.getTime()) / msPerWeek);
   return weeksSinceEpoch + 1;
 }
 
@@ -23,9 +24,9 @@ export async function GET(request: NextRequest) {
 
     // Get most recent game with a score > 0
     const { data: recentGame, error } = await supabase
-      .from("donut_dash_scores")
-      .select("fid, username, display_name, pfp_url, score, created_at")
-      .eq("week", currentWeek)
+      .from("stack_tower_games")
+      .select("fid, username, pfp_url, score, created_at")
+      .eq("week_number", currentWeek)
       .gt("score", 0)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -37,12 +38,12 @@ export async function GET(request: NextRequest) {
 
     // Get total games this week
     const { count: gamesThisWeek } = await supabase
-      .from("donut_dash_scores")
+      .from("stack_tower_games")
       .select("*", { count: "exact", head: true })
-      .eq("week", currentWeek);
+      .eq("week_number", currentWeek);
 
     const recentPlayer = recentGame ? {
-      username: recentGame.username || recentGame.display_name || `fid:${recentGame.fid}`,
+      username: recentGame.username || `fid:${recentGame.fid}`,
       score: recentGame.score,
       pfpUrl: recentGame.pfp_url,
     } : null;
