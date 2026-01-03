@@ -1,209 +1,107 @@
-import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase-leaderboard";
-import { createPublicClient, http, formatEther } from "viem";
-import { base } from "viem/chains";
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-const baseClient = createPublicClient({
-  chain: base,
-  transport: http("https://base.publicnode.com"),
-});
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-// Requirements
-const MIN_ETH_BALANCE = 0.0005;
-const MIN_NEYNAR_SCORE = 0.6;
-const MIN_FOLLOWERS = 500;
-const MIN_MESSAGE_LENGTH = 3;
-const RATE_LIMIT_SECONDS = 30;
-const MAX_SAME_MESSAGE = 3;
-const SCORE_CACHE_DAYS = 7;
+// Rate limit: 5 messages per 5 minutes
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const RATE_LIMIT_MAX_MESSAGES = 5;
+const BAN_DURATION_SECONDS = 5 * 60; // 5 minute ban for exceeding rate limit
 
-// New rate limit: 5 messages per 5 minutes
-const RATE_LIMIT_MESSAGES = 5;
-const RATE_LIMIT_WINDOW = 5 * 60; // 5 minutes in seconds
-
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { senderAddress, message, fid } = body;
+    const { senderAddress, message } = await request.json();
 
     if (!senderAddress) {
-      return NextResponse.json(
-        { eligible: false, reasons: ["Missing wallet address"] },
-        { status: 400 }
-      );
-    }
-
-    if (!fid) {
-      return NextResponse.json(
-        { eligible: false, reasons: ["Farcaster account not detected"] },
-        { status: 400 }
-      );
-    }
-
-    const address = senderAddress.toLowerCase();
-    const trimmedMessage = message?.trim() || "";
-    const reasons: string[] = [];
-
-    // === CHECK 1: Minimum message length ===
-    if (trimmedMessage.length < MIN_MESSAGE_LENGTH) {
-      reasons.push(`Message must be at least ${MIN_MESSAGE_LENGTH} characters`);
-    }
-
-    // === CHECK 2: ETH balance ===
-    try {
-      const balance = await baseClient.getBalance({ address: address as `0x${string}` });
-      const ethBalance = parseFloat(formatEther(balance));
-
-      if (ethBalance < MIN_ETH_BALANCE) {
-        reasons.push(`Need at least ${MIN_ETH_BALANCE} ETH in wallet`);
-      }
-    } catch (e) {
-      console.error("Failed to check ETH balance:", e);
-    }
-
-    // === CHECK 3: Get user data from chat_points ===
-    const { data: existing } = await supabase
-      .from("chat_points")
-      .select("*")
-      .eq("address", address)
-      .single();
-
-    // === CHECK 4: Rate limiting (30s between messages) ===
-    if (existing?.last_message_at) {
-      const lastMessageTime = new Date(existing.last_message_at).getTime();
-      const now = Date.now();
-      const secondsSinceLastMessage = (now - lastMessageTime) / 1000;
-
-      if (secondsSinceLastMessage < RATE_LIMIT_SECONDS) {
-        const waitTime = Math.ceil(RATE_LIMIT_SECONDS - secondsSinceLastMessage);
-        reasons.push(`Wait ${waitTime}s before sending another message`);
-      }
-    }
-
-    // === CHECK 4.5: 5 messages per 5 minutes rate limit ===
-    const windowStart = Math.floor(Date.now() / 1000) - RATE_LIMIT_WINDOW;
-    
-    const { data: recentMessages, error: rateLimitError } = await supabase
-      .from("chat_messages")
-      .select("timestamp")
-      .eq("sender", address)
-      .eq("is_system_message", false)
-      .gte("timestamp", windowStart)
-      .order("timestamp", { ascending: false });
-
-    if (rateLimitError) {
-      console.error("Rate limit check error:", rateLimitError);
-    }
-
-    const messageCount = recentMessages?.length || 0;
-
-    if (messageCount >= RATE_LIMIT_MESSAGES) {
-      // Calculate when the ban expires (5 min from the 5th most recent message)
-      const fifthMessageTimestamp = recentMessages?.[RATE_LIMIT_MESSAGES - 1]?.timestamp || Math.floor(Date.now() / 1000);
-      const banEndsAt = fifthMessageTimestamp + RATE_LIMIT_WINDOW;
-      const banSecondsRemaining = Math.max(0, banEndsAt - Math.floor(Date.now() / 1000));
-
       return NextResponse.json({
         eligible: false,
-        reasons: [`Rate limited: max ${RATE_LIMIT_MESSAGES} messages per ${RATE_LIMIT_WINDOW / 60} minutes`],
-        rateLimitBan: true,
-        banSecondsRemaining,
+        reasons: ["Wallet address is required"],
       });
     }
 
-    // === CHECK 5: Duplicate consecutive message ===
-    if (trimmedMessage && existing?.last_message === trimmedMessage) {
-      reasons.push("Cannot send the same message twice in a row");
-    }
+    const reasons: string[] = [];
 
-    // === CHECK 6: Repeated message abuse ===
-    if (trimmedMessage && existing?.recent_messages) {
-      const recentMsgs = existing.recent_messages as string[];
-      const sameMessageCount = recentMsgs.filter(m => m === trimmedMessage).length;
+    // Check for duplicate messages (spam prevention)
+    if (message && message.trim()) {
+      const { data: recentMessages } = await supabase
+        .from("chat_messages")
+        .select("message")
+        .eq("sender", senderAddress.toLowerCase())
+        .gte("timestamp", Math.floor(Date.now() / 1000) - 300) // Last 5 minutes
+        .order("timestamp", { ascending: false })
+        .limit(10);
 
-      if (sameMessageCount >= MAX_SAME_MESSAGE) {
-        reasons.push("Message used too frequently, try something different");
+      if (recentMessages) {
+        const duplicateCount = recentMessages.filter(
+          (m) => m.message?.toLowerCase() === message.toLowerCase()
+        ).length;
+
+        if (duplicateCount >= 2) {
+          reasons.push("Please don't send duplicate messages");
+        }
       }
     }
 
-    // === CHECK 7: Neynar score and follower count using FID ===
-    let neynarScore = 0;
-    let followerCount = 0;
-    let needsFreshData = true;
-
-    // Check profile_cache by address first (for cached data)
-    const { data: cachedProfile } = await supabase
-      .from("profile_cache")
-      .select("profile, updated_at")
-      .eq("address", address)
+    // Check rate limit
+    const { data: rateLimitData } = await supabase
+      .from("chat_rate_limits")
+      .select("*")
+      .eq("address", senderAddress.toLowerCase())
       .single();
 
-    if (cachedProfile?.profile) {
-      const profile = cachedProfile.profile as { neynarScore?: number; followerCount?: number; fid?: number };
-      const cacheAge = Date.now() - new Date(cachedProfile.updated_at).getTime();
-      const cacheMaxAge = SCORE_CACHE_DAYS * 24 * 60 * 60 * 1000;
+    const now = Date.now();
 
-      // Use cache if fresh, FID matches, AND followerCount exists
-      if (cacheAge < cacheMaxAge && profile.fid === fid && profile.followerCount !== undefined) {
-        neynarScore = profile.neynarScore ?? 0;
-        followerCount = profile.followerCount ?? 0;
-        needsFreshData = false;
+    if (rateLimitData) {
+      // Check if user is banned
+      if (rateLimitData.banned_until && new Date(rateLimitData.banned_until).getTime() > now) {
+        const banSecondsRemaining = Math.ceil((new Date(rateLimitData.banned_until).getTime() - now) / 1000);
+        return NextResponse.json({
+          eligible: false,
+          reasons: ["Rate limited - too many messages"],
+          rateLimitBan: true,
+          banSecondsRemaining,
+        });
       }
-    }
 
-    // Fetch fresh data from Neynar using FID
-    if (needsFreshData) {
-      try {
-        const neynarRes = await fetch(
-          `https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`,
-          {
-            headers: {
-              accept: "application/json",
-              api_key: process.env.NEYNAR_API_KEY || "",
-            },
-          }
-        );
+      // Check message count in window
+      const windowStart = now - RATE_LIMIT_WINDOW_MS;
+      const messageTimestamps: number[] = rateLimitData.message_timestamps || [];
+      const recentTimestamps = messageTimestamps.filter((ts) => ts > windowStart);
 
-        if (neynarRes.ok) {
-          const neynarData = await neynarRes.json();
-          const users = neynarData.users;
-          if (users && users.length > 0) {
-            const user = users[0];
-            neynarScore = user.experimental?.neynar_user_score || 0;
-            followerCount = user.follower_count || 0;
+      if (recentTimestamps.length >= RATE_LIMIT_MAX_MESSAGES) {
+        // Ban the user
+        const bannedUntil = new Date(now + BAN_DURATION_SECONDS * 1000).toISOString();
+        await supabase
+          .from("chat_rate_limits")
+          .update({ banned_until: bannedUntil })
+          .eq("address", senderAddress.toLowerCase());
 
-            // Update profile_cache with fresh data
-            const profileData = {
-              fid: user.fid,
-              pfpUrl: user.pfp_url,
-              username: user.username,
-              displayName: user.display_name,
-              neynarScore: neynarScore,
-              followerCount: followerCount,
-            };
-
-            await supabase
-              .from("profile_cache")
-              .upsert({
-                address,
-                profile: profileData,
-                updated_at: new Date().toISOString(),
-              }, { onConflict: "address" });
-          }
-        }
-      } catch (e) {
-        console.error("Failed to fetch neynar data:", e);
+        return NextResponse.json({
+          eligible: false,
+          reasons: ["Rate limited - too many messages (5 per 5 minutes)"],
+          rateLimitBan: true,
+          banSecondsRemaining: BAN_DURATION_SECONDS,
+        });
       }
-    }
 
-    // Check neynar score
-    if (neynarScore < MIN_NEYNAR_SCORE) {
-      reasons.push(`Neynar score must be at least ${MIN_NEYNAR_SCORE} (yours: ${neynarScore.toFixed(2)})`);
-    }
-
-    // Check follower count
-    if (followerCount < MIN_FOLLOWERS) {
-      reasons.push(`Need at least ${MIN_FOLLOWERS} followers (yours: ${followerCount})`);
+      // Update timestamps
+      const updatedTimestamps = [...recentTimestamps, now];
+      await supabase
+        .from("chat_rate_limits")
+        .update({ 
+          message_timestamps: updatedTimestamps,
+          banned_until: null 
+        })
+        .eq("address", senderAddress.toLowerCase());
+    } else {
+      // Create new rate limit record
+      await supabase.from("chat_rate_limits").insert({
+        address: senderAddress.toLowerCase(),
+        message_timestamps: [now],
+      });
     }
 
     // Return result
@@ -211,22 +109,17 @@ export async function POST(request: Request) {
       return NextResponse.json({
         eligible: false,
         reasons,
-        neynarScore,
-        followerCount,
       });
     }
 
     return NextResponse.json({
       eligible: true,
-      neynarScore,
-      followerCount,
-      messagesRemaining: RATE_LIMIT_MESSAGES - messageCount - 1,
     });
   } catch (error) {
-    console.error("Error verifying eligibility:", error);
-    return NextResponse.json(
-      { eligible: false, reasons: ["Verification failed, try again"] },
-      { status: 500 }
-    );
+    console.error("Verify error:", error);
+    return NextResponse.json({
+      eligible: false,
+      reasons: ["Server error - please try again"],
+    });
   }
 }

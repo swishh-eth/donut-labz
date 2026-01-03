@@ -429,7 +429,7 @@ export default function ChatPage() {
       const verifyRes = await fetch("/api/chat/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ senderAddress: address, message: message.trim() || (selectedImage ? "📷" : ""), fid: context?.user?.fid }),
+        body: JSON.stringify({ senderAddress: address, message: message.trim() || (selectedImage ? "📷" : "") }),
       });
       const verifyData = await verifyRes.json();
       if (!verifyData.eligible) {
@@ -746,15 +746,15 @@ export default function ChatPage() {
                     <div className="flex gap-2.5">
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">1</div>
                       <div>
-                        <div className="font-semibold text-white text-xs">Send Onchain Messages</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">Every message earns sprinkles. Stored permanently on Base.</div>
+                        <div className="font-semibold text-white text-xs">Hold 100,000 SPRINKLES</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">You must hold at least 100,000 SPRINKLES to earn rewards. Anyone can chat, but only holders earn points.</div>
                       </div>
                     </div>
                     <div className="flex gap-2.5">
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
                       <div>
-                        <div className="font-semibold text-white text-xs">Neynar Score Multiplier</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">Your Farcaster reputation (0-1) determines earnings.</div>
+                        <div className="font-semibold text-white text-xs">Send Onchain Messages</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">Every message earns sprinkles. Stored permanently on Base.</div>
                       </div>
                     </div>
                     <div className="flex gap-2.5">

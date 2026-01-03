@@ -1,230 +1,138 @@
-import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase-leaderboard";
-import { createPublicClient, http, formatEther } from "viem";
+import { NextRequest, NextResponse } from "next/server";
+import { createPublicClient, http, formatUnits } from "viem";
 import { base } from "viem/chains";
+import { createClient } from "@supabase/supabase-js";
 
-const baseClient = createPublicClient({
+const SPRINKLES_TOKEN = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
+const MIN_SPRINKLES_BALANCE = 100000n * 10n ** 18n; // 100,000 SPRINKLES
+
+// Points calculation constants
+const CHAT_REWARDS_START_TIME = 1765163000;
+const HALVING_PERIOD = 30 * 24 * 60 * 60;
+const MULTIPLIER_SCHEDULE = [2, 1, 0.5, 0.25, 0];
+const BASE_POINTS_PER_MESSAGE = 1; // Flat rate for holding 100k SPRINKLES
+
+const ERC20_ABI = [
+  {
+    inputs: [{ name: "account", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+const publicClient = createPublicClient({
   chain: base,
-  transport: http("https://base.publicnode.com"),
+  transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org"),
 });
 
-// Minimum ETH balance required (0.0005 ETH)
-const MIN_ETH_BALANCE = 0.0005;
-
-// Rate limit: minimum seconds between messages
-const RATE_LIMIT_SECONDS = 30;
-
-// Minimum message length to earn points
-const MIN_MESSAGE_LENGTH = 3;
-
-// Only refresh Neynar score if cache is older than 7 days
-const SCORE_CACHE_DAYS = 7;
-
-// Sprinkles chat reward halving constants - STARTS AT 2x, ends at 0
-const CHAT_REWARDS_START_TIME = 1765163000; // Approx when sprinkles miner deployed
-const HALVING_PERIOD = 30 * 24 * 60 * 60; // 30 days in seconds
-const MULTIPLIER_SCHEDULE = [2, 1, 0.5, 0.25, 0]; // After 4 halvings, rewards end
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 const getCurrentMultiplier = () => {
   const now = Math.floor(Date.now() / 1000);
   const elapsed = now - CHAT_REWARDS_START_TIME;
   const halvings = Math.floor(elapsed / HALVING_PERIOD);
-  
-  // Use the schedule array, return 0 if past the end
-  if (halvings >= MULTIPLIER_SCHEDULE.length) {
-    return 0;
-  }
+  if (halvings >= MULTIPLIER_SCHEDULE.length) return 0;
   return MULTIPLIER_SCHEDULE[halvings];
 };
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { senderAddress, message } = body;
+    const { senderAddress, message } = await request.json();
 
     if (!senderAddress) {
-      return NextResponse.json(
-        { error: "Missing sender address" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Address required" }, { status: 400 });
     }
 
-    const address = senderAddress.toLowerCase();
-
-    // Check if rewards have ended
-    const currentMultiplier = getCurrentMultiplier();
-    if (currentMultiplier === 0) {
-      return NextResponse.json({
-        success: true,
-        pointsAwarded: 0,
-        multiplier: 0,
-        reason: "Chat rewards have ended",
+    const multiplier = getCurrentMultiplier();
+    
+    // If rewards have ended, don't record points
+    if (multiplier === 0) {
+      return NextResponse.json({ 
+        success: true, 
+        points: 0, 
+        message: "Rewards have ended" 
       });
     }
 
-    // === SPAM CHECK 1: Minimum message length ===
-    if (message && message.trim().length < MIN_MESSAGE_LENGTH) {
-      return NextResponse.json({
-        success: true,
-        pointsAwarded: 0,
-        reason: "Message too short to earn sprinkles",
-      });
-    }
-
-    // === SPAM CHECK 2: ETH balance check (free RPC call) ===
+    // Check SPRINKLES balance
+    let hasEnoughSprinkles = false;
     try {
-      const balance = await baseClient.getBalance({ address: address as `0x${string}` });
-      const ethBalance = parseFloat(formatEther(balance));
-      
-      if (ethBalance < MIN_ETH_BALANCE) {
-        return NextResponse.json({
-          success: true,
-          pointsAwarded: 0,
-          reason: "Insufficient ETH balance",
-        });
-      }
+      const balance = await publicClient.readContract({
+        address: SPRINKLES_TOKEN as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [senderAddress as `0x${string}`],
+      });
+      hasEnoughSprinkles = balance >= MIN_SPRINKLES_BALANCE;
     } catch (e) {
-      console.error("Failed to check ETH balance:", e);
+      console.error("Failed to check SPRINKLES balance:", e);
+      return NextResponse.json({ 
+        success: true, 
+        points: 0, 
+        message: "Could not verify balance" 
+      });
     }
 
-    // Check if user exists in chat_points
+    // If user doesn't have enough SPRINKLES, no points
+    if (!hasEnoughSprinkles) {
+      return NextResponse.json({ 
+        success: true, 
+        points: 0, 
+        message: "Must hold 100,000 SPRINKLES to earn" 
+      });
+    }
+
+    // Calculate points: base rate * halving multiplier
+    const points = BASE_POINTS_PER_MESSAGE * multiplier;
+
+    // Record points in database
+    const { error } = await supabase.from("chat_points").insert({
+      address: senderAddress.toLowerCase(),
+      points,
+      message: message?.slice(0, 280) || "",
+      multiplier,
+      timestamp: Math.floor(Date.now() / 1000),
+    });
+
+    if (error) {
+      console.error("Failed to record points:", error);
+    }
+
+    // Update leaderboard
     const { data: existing } = await supabase
-      .from("chat_points")
-      .select("*")
-      .eq("address", address)
+      .from("chat_leaderboard")
+      .select("total_points")
+      .eq("address", senderAddress.toLowerCase())
       .single();
 
-    // === SPAM CHECK 3: Rate limiting ===
-    if (existing?.last_message_at) {
-      const lastMessageTime = new Date(existing.last_message_at).getTime();
-      const now = Date.now();
-      const secondsSinceLastMessage = (now - lastMessageTime) / 1000;
-
-      if (secondsSinceLastMessage < RATE_LIMIT_SECONDS) {
-        return NextResponse.json({
-          success: true,
-          pointsAwarded: 0,
-          reason: "Rate limited",
-        });
-      }
-    }
-
-    // === SPAM CHECK 4: Duplicate message detection ===
-    if (message && existing?.last_message === message.trim()) {
-      return NextResponse.json({
-        success: true,
-        pointsAwarded: 0,
-        reason: "Duplicate message",
-      });
-    }
-
-    // === GET NEYNAR SCORE FROM profile_cache FIRST ===
-    let neynarScore = 0;
-    let needsFreshScore = true;
-
-    // Check profile_cache for existing score
-    const { data: cachedProfile } = await supabase
-      .from("profile_cache")
-      .select("profile, updated_at")
-      .eq("address", address)
-      .single();
-
-    if (cachedProfile?.profile) {
-      const profile = cachedProfile.profile as { neynarScore?: number };
-      const cacheAge = Date.now() - new Date(cachedProfile.updated_at).getTime();
-      const cacheMaxAge = SCORE_CACHE_DAYS * 24 * 60 * 60 * 1000;
-
-      if (profile.neynarScore !== undefined && cacheAge < cacheMaxAge) {
-        // Use cached score
-        neynarScore = profile.neynarScore;
-        needsFreshScore = false;
-      }
-    }
-
-    // Only fetch from Neynar if cache is missing or stale
-    if (needsFreshScore) {
-      try {
-        const neynarRes = await fetch(
-          `https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${address}`,
-          {
-            headers: {
-              accept: "application/json",
-              api_key: process.env.NEYNAR_API_KEY || "",
-            },
-          }
-        );
-
-        if (neynarRes.ok) {
-          const neynarData = await neynarRes.json();
-          const users = neynarData[address];
-          if (users && users.length > 0) {
-            const user = users[0];
-            neynarScore = user.experimental?.neynar_user_score || 0;
-
-            // Update profile_cache with fresh data
-            const profileData = {
-              fid: user.fid,
-              pfpUrl: user.pfp_url,
-              username: user.username,
-              displayName: user.display_name,
-              neynarScore: neynarScore,
-              followerCount: user.follower_count,
-            };
-
-            await supabase
-              .from("profile_cache")
-              .upsert({
-                address,
-                profile: profileData,
-                updated_at: new Date().toISOString(),
-              }, { onConflict: "address" });
-          }
-        }
-      } catch (e) {
-        console.error("Failed to fetch neynar score:", e);
-      }
-    }
-
-    // Calculate points with halving multiplier
-    const pointsAwarded = neynarScore * currentMultiplier;
-
-    // Update chat_points
     if (existing) {
-      const { error } = await supabase
-        .from("chat_points")
-        .update({
-          total_messages: existing.total_messages + 1,
-          total_points: existing.total_points + pointsAwarded,
+      await supabase
+        .from("chat_leaderboard")
+        .update({ 
+          total_points: existing.total_points + points,
           last_message_at: new Date().toISOString(),
-          last_message: message?.trim() || null,
-          updated_at: new Date().toISOString(),
         })
-        .eq("address", address);
-
-      if (error) throw error;
+        .eq("address", senderAddress.toLowerCase());
     } else {
-      const { error } = await supabase.from("chat_points").insert({
-        address,
-        total_messages: 1,
-        total_points: pointsAwarded,
+      await supabase.from("chat_leaderboard").insert({
+        address: senderAddress.toLowerCase(),
+        total_points: points,
         last_message_at: new Date().toISOString(),
-        last_message: message?.trim() || null,
       });
-
-      if (error) throw error;
     }
 
-    return NextResponse.json({
-      success: true,
-      pointsAwarded: pointsAwarded,
-      multiplier: currentMultiplier,
-      neynarScore: neynarScore,
+    return NextResponse.json({ 
+      success: true, 
+      points,
+      multiplier,
     });
   } catch (error) {
-    console.error("Error recording points:", error);
-    return NextResponse.json(
-      { error: "Failed to record points" },
-      { status: 500 }
-    );
+    console.error("Record error:", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
