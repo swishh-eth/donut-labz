@@ -1706,9 +1706,23 @@ export default function HomePage() {
                         e.preventDefault();
                         e.stopPropagation();
                         try {
-                          await sdk.actions.openUrl({ url: "https://warpcast.com/~/token/eip155:8453/0xa890060be1788a676dbc3894160f5dc5ded2c98d" });
-                        } catch {
-                          window.open("https://warpcast.com/~/token/eip155:8453/0xa890060be1788a676dbc3894160f5dc5ded2c98d", "_blank");
+                          // Use experimental viewToken with CAIP-19 asset ID format
+                          const experimental = (sdk as any).experimental;
+                          if (experimental?.viewToken) {
+                            await experimental.viewToken({
+                              token: "eip155:8453/erc20:0xa890060BE1788a676dBC3894160f5dc5DeD2C98D"
+                            });
+                          } else {
+                            // Fallback - try actions.viewToken
+                            const actions = sdk.actions as any;
+                            if (actions.viewToken) {
+                              await actions.viewToken({
+                                token: "eip155:8453/erc20:0xa890060BE1788a676dBC3894160f5dc5DeD2C98D"
+                              });
+                            }
+                          }
+                        } catch (err) {
+                          console.error("viewToken failed:", err);
                         }
                       }}
                       className="flex items-center gap-2 font-bold text-sm text-pink-400 hover:text-pink-300 active:scale-95 transition-all"
