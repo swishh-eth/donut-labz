@@ -29,6 +29,13 @@ const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   </span>
 );
 
+// Coin image component for PEEPLES
+const PeeplesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/peeples_logo.png" alt="PEEPLES" className="w-full h-full object-cover scale-[1.7]" />
+  </span>
+);
+
 // Donut Info Tile Component
 function DonutInfoTile({ onClick }: { onClick: () => void }) {
   return (
@@ -398,7 +405,7 @@ export default function AboutPage() {
                 }}
                 className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.98]"
               >
-                <Coins className="h-4 w-4 text-pink-400" />
+                <PeeplesCoin className="h-4 w-4" />
                 <span>Pool To Mine</span>
               </button>
               <button
