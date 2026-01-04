@@ -752,6 +752,8 @@ export default function ChatPage() {
       <style jsx global>{`
         .chat-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .chat-scroll::-webkit-scrollbar { display: none; }
+        .help-dialog-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+        .help-dialog-scroll::-webkit-scrollbar { display: none; }
         @keyframes messagePopIn {
           from {
             opacity: 0;
@@ -828,15 +830,15 @@ export default function ChatPage() {
             <div className="fixed inset-0 z-50">
               <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHelpDialog(false)} />
               <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
+                <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl flex flex-col" style={{ maxHeight: 'calc(100vh - 160px)' }}>
                   <button onClick={() => setShowHelpDialog(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white z-10">
                     <X className="h-4 w-4" />
                   </button>
-                  <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+                  <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2 flex-shrink-0">
                     <MessageCircle className="w-4 h-4 text-white" />
                     How to Earn Sprinkles
                   </h2>
-                  <div className="space-y-3">
+                  <div className="space-y-3 overflow-y-auto flex-1 help-dialog-scroll">
                     <div className="flex gap-2.5">
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">1</div>
                       <div>
@@ -907,7 +909,7 @@ export default function ChatPage() {
                       </div>
                     </div>
                   </div>
-                  <button onClick={() => setShowHelpDialog(false)} className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors">Got it</button>
+                  <button onClick={() => setShowHelpDialog(false)} className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors flex-shrink-0">Got it</button>
                 </div>
               </div>
             </div>
