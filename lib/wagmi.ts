@@ -4,9 +4,16 @@ import { base } from "wagmi/chains";
 import { createConfig } from "wagmi";
 import { injected, coinbaseWallet } from "wagmi/connectors";
 
-const baseTransports = process.env.NEXT_PUBLIC_BASE_RPC_URL
-  ? [http(process.env.NEXT_PUBLIC_BASE_RPC_URL), http()]
-  : [http()];
+// Primary RPC from env (Alchemy) with fallbacks
+const baseTransports = [
+  // Primary - your paid Alchemy plan
+  http(process.env.NEXT_PUBLIC_BASE_RPC_URL, { timeout: 10_000 }),
+  // Fallbacks in case Alchemy fails
+  http("https://mainnet.base.org", { timeout: 15_000 }),
+  http("https://base.llamarpc.com", { timeout: 15_000 }),
+  http("https://1rpc.io/base", { timeout: 15_000 }),
+  http("https://base.meowrpc.com", { timeout: 15_000 }),
+];
 
 export const wagmiConfig = createConfig({
   chains: [base],
@@ -16,7 +23,7 @@ export const wagmiConfig = createConfig({
     injected({
       shimDisconnect: true,
     }),
-    coinbaseWallet({ appName: "Donut Labs" }),
+    coinbaseWallet({ appName: "Sprinkles" }),
   ],
   transports: {
     [base.id]: fallback(baseTransports),
@@ -24,5 +31,5 @@ export const wagmiConfig = createConfig({
   storage: createStorage({
     storage: cookieStorage,
   }),
-  pollingInterval: 12_000,
+  pollingInterval: 8_000,
 });
