@@ -96,7 +96,6 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
 
   // Helper functions for token-specific styling
   const isDonutToken = tokenSymbol === "DONUT";
-  const isSprinklesToken = tokenSymbol === "SPRINKLES";
   const isUsdcToken = tokenSymbol === "USDC";
   
   const getActiveGradient = () => isDonutToken ? pinkGradientActiveStyle : greenGradientActiveStyle;
@@ -105,9 +104,9 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   
   const TokenIcon = ({ className = "w-4 h-4" }: { className?: string }) => {
     if (isDonutToken) return <DonutCoin className={className} />;
-    if (isSprinklesToken) return <SprinklesCoin className={className} />;
     if (isUsdcToken) return <UsdcCoin className={className} />;
-    return <Gift className={cn(className, getTextColor())} />;
+    // Default to SprinklesCoin for SPRINKLES or any unknown token
+    return <SprinklesCoin className={className} />;
   };
 
   // Pulsing effect for active campaign
@@ -710,7 +709,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             {isWriting || isConfirming ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Gift className="w-4 h-4" />
+              <TokenIcon className="w-4 h-4" />
             )}
             {isWriting ? "Confirm..." : isConfirming ? "Claiming..." : "Claim"}
           </button>
@@ -865,7 +864,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     <div className="bg-gradient-to-r from-amber-900/20 to-orange-900/20 border border-amber-500/30 rounded-lg p-3">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Gift className="w-4 h-4 text-amber-400" />
+          <TokenIcon className="w-4 h-4" />
           <span className="font-bold text-white text-sm">Share for Rewards!</span>
         </div>
         <div className="text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
