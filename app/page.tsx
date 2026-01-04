@@ -208,10 +208,11 @@ function FallingCoins({ coinSrc, count = 12 }: { coinSrc: string; count?: number
     return Array.from({ length: count }, (_, i) => ({
       id: i,
       left: Math.random() * 100,
-      delay: Math.random() * 5,
-      duration: 3 + Math.random() * 4,
+      delay: Math.random() * 8, // Longer stagger so not all visible at once
+      duration: 4 + Math.random() * 4,
       size: 16 + Math.random() * 20,
       opacity: 0.15 + Math.random() * 0.25,
+      startY: -50 - Math.random() * 50, // Random start position above tile
     }));
   }, [count]);
 
@@ -222,14 +223,14 @@ function FallingCoins({ coinSrc, count = 12 }: { coinSrc: string; count?: number
           key={coin.id}
           src={coinSrc}
           alt=""
-          className="absolute rounded-full animate-falling"
+          className="absolute rounded-full"
           style={{
             left: `${coin.left}%`,
+            top: coin.startY,
             width: coin.size,
             height: coin.size,
-            opacity: coin.opacity,
-            animationDelay: `${coin.delay}s`,
-            animationDuration: `${coin.duration}s`,
+            opacity: 0,
+            animation: `falling ${coin.duration}s linear ${coin.delay}s infinite`,
           }}
         />
       ))}
@@ -950,9 +951,26 @@ export default function HomePage() {
     },
   });
 
-  const donutInitPrice = rawMinerState ? (rawMinerState as any).initPrice as bigint : undefined;
-  const donutStartTime = rawMinerState ? (rawMinerState as any).startTime as bigint : undefined;
-  const donutMinerAddress = rawMinerState ? (rawMinerState as any).miner as string : undefined;
+  const donutInitPrice = rawMinerState 
+    ? (typeof (rawMinerState as any).initPrice !== 'undefined' 
+        ? (rawMinerState as any).initPrice as bigint 
+        : (rawMinerState as any)[1] as bigint)
+    : undefined;
+  const donutStartTime = rawMinerState 
+    ? (typeof (rawMinerState as any).startTime !== 'undefined' 
+        ? (rawMinerState as any).startTime as bigint 
+        : (rawMinerState as any)[2] as bigint)
+    : undefined;
+  const donutMinerAddress = rawMinerState 
+    ? (typeof (rawMinerState as any).miner !== 'undefined'
+        ? (rawMinerState as any).miner as string
+        : (rawMinerState as any)[8] as string)
+    : undefined;
+  const donutPriceDirect = rawMinerState
+    ? (typeof (rawMinerState as any).price !== 'undefined'
+        ? (rawMinerState as any).price as bigint
+        : (rawMinerState as any)[4] as bigint)
+    : undefined;
   
   const sprinklesInitPrice = sprinklesSlot0 
     ? BigInt((sprinklesSlot0 as any).initPrice ?? (sprinklesSlot0 as any)[2] ?? 0)
@@ -994,7 +1012,7 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [sprinklesInitPrice, sprinklesStartTime]);
 
-  const donutPrice = interpolatedDonutPrice ?? (rawMinerState ? (rawMinerState as any).price as bigint : undefined);
+  const donutPrice = interpolatedDonutPrice ?? donutPriceDirect;
   const sprinklesPriceValue = interpolatedSprinklesPrice ?? (sprinklesPriceFallback as bigint | undefined);
 
   const { data: sprinklesAuctionRewards } = useReadContract({
@@ -1554,23 +1572,17 @@ export default function HomePage() {
         }
         @keyframes falling {
           0% {
-            transform: translateY(-60px) rotate(0deg);
+            transform: translateY(0);
             opacity: 0;
           }
-          5% {
-            opacity: 0;
+          10% {
+            opacity: 0.25;
           }
-          15% {
-            opacity: 1;
-          }
-          85% {
-            opacity: 1;
-          }
-          95% {
-            opacity: 0;
+          80% {
+            opacity: 0.25;
           }
           100% {
-            transform: translateY(260px) rotate(360deg);
+            transform: translateY(300px);
             opacity: 0;
           }
         }
