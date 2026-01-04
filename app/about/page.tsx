@@ -91,6 +91,94 @@ function formatBurnedAmount(amount: bigint): string {
   return Math.floor(value).toLocaleString('en-US');
 }
 
+// Matrix-style number digit component
+function MatrixDigit({ digit, delay = 0 }: { digit: string; delay?: number }) {
+  const [displayDigit, setDisplayDigit] = useState('0');
+  const [isAnimating, setIsAnimating] = useState(true);
+  
+  useEffect(() => {
+    if (digit === ',') {
+      setDisplayDigit(',');
+      setIsAnimating(false);
+      return;
+    }
+    
+    setIsAnimating(true);
+    const targetNum = parseInt(digit) || 0;
+    
+    // Random digits cycling effect
+    let cycleCount = 0;
+    const maxCycles = 8 + Math.floor(delay / 50); // More cycles for later digits
+    
+    const cycleInterval = setInterval(() => {
+      if (cycleCount < maxCycles) {
+        setDisplayDigit(Math.floor(Math.random() * 10).toString());
+        cycleCount++;
+      } else {
+        setDisplayDigit(digit);
+        setIsAnimating(false);
+        clearInterval(cycleInterval);
+      }
+    }, 50);
+    
+    return () => clearInterval(cycleInterval);
+  }, [digit, delay]);
+  
+  return (
+    <span 
+      className={`inline-block transition-all duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}
+      style={{ 
+        minWidth: digit === ',' ? '0.3em' : '0.6em',
+        textAlign: 'center'
+      }}
+    >
+      {displayDigit}
+    </span>
+  );
+}
+
+// Matrix-style number display
+function MatrixNumber({ 
+  value, 
+  isLoading,
+  className = "text-white"
+}: { 
+  value: number; 
+  isLoading: boolean;
+  className?: string;
+}) {
+  const [key, setKey] = useState(0);
+  const prevValueRef = useRef(0);
+  
+  // Only re-trigger animation when value changes significantly (more than 1%)
+  useEffect(() => {
+    if (!isLoading && value > 0) {
+      const diff = Math.abs(value - prevValueRef.current);
+      const threshold = prevValueRef.current * 0.01; // 1% change threshold
+      
+      if (prevValueRef.current === 0 || diff > threshold) {
+        setKey(prev => prev + 1);
+        prevValueRef.current = value;
+      }
+    }
+  }, [value, isLoading]);
+  
+  if (isLoading) {
+    return <span className={`${className} opacity-50`}>Loading...</span>;
+  }
+  
+  const formattedValue = value.toLocaleString('en-US');
+  const digits = formattedValue.split('');
+  
+  return (
+    <span key={key} className={`tabular-nums ${className}`}>
+      {digits.map((digit, index) => (
+        <MatrixDigit key={`${key}-${index}`} digit={digit} delay={index * 30} />
+      ))}
+    </span>
+  );
+}
+
 // Falling Sprinkles and Donuts Animation Component
 function FallingCoins() {
   // Use seeded random for consistent but random-looking positions
@@ -212,60 +300,19 @@ function BurnCounterTile({
 }) {
   const [displaySprinkles, setDisplaySprinkles] = useState(0);
   const [displayDonut, setDisplayDonut] = useState(0);
-  const targetSprinklesRef = useRef(0);
-  const targetDonutRef = useRef(0);
-  const BURN_DELAY = 2_000_000; // Always behind by 2M for sprinkles
-  const DONUT_BURN_DELAY = 50; // Small delay for donut
   
-  // Calculate the display amount with 24-hour interpolation for SPRINKLES
+  // Calculate display amounts - just show live balance
   useEffect(() => {
     if (isLoading || sprinklesBurned === 0n) return;
-    
     const realAmount = Number(sprinklesBurned) / 1e18;
-    const targetAmount = Math.max(0, realAmount - BURN_DELAY);
-    targetSprinklesRef.current = targetAmount;
-    
-    // Estimate yesterday's burned amount (assume ~500k burned per day as baseline)
-    const estimatedDailyBurn = 500_000;
-    const { msSince, msInDay } = getTimeSince6pmEST();
-    const dayProgress = msSince / msInDay; // 0 to 1 over 24 hours
-    
-    // Start amount is target minus estimated daily burn
-    const startAmount = Math.max(0, targetAmount - estimatedDailyBurn);
-    
-    // Interpolate based on time of day
-    const interpolatedAmount = startAmount + (targetAmount - startAmount) * dayProgress;
-    
-    setDisplaySprinkles(Math.floor(interpolatedAmount));
+    setDisplaySprinkles(Math.floor(realAmount));
   }, [sprinklesBurned, isLoading]);
 
-  // Calculate display amount for DONUT
   useEffect(() => {
     if (isLoading || donutBurned === 0n) return;
-    
     const realAmount = Number(donutBurned) / 1e18;
-    const targetAmount = Math.max(0, realAmount - DONUT_BURN_DELAY);
-    targetDonutRef.current = targetAmount;
-    
-    setDisplayDonut(Math.floor(targetAmount));
+    setDisplayDonut(Math.floor(realAmount));
   }, [donutBurned, isLoading]);
-
-  // Slow increment effect - adds small amounts continuously for SPRINKLES
-  useEffect(() => {
-    if (isLoading || targetSprinklesRef.current === 0) return;
-    
-    // Update every 3 seconds with small random increments
-    const interval = setInterval(() => {
-      setDisplaySprinkles(prev => {
-        if (prev >= targetSprinklesRef.current) return prev;
-        const increment = Math.floor(Math.random() * 50) + 10; // 10-60 per tick
-        const newVal = prev + increment;
-        return Math.min(newVal, Math.floor(targetSprinklesRef.current));
-      });
-    }, 3000);
-    
-    return () => clearInterval(interval);
-  }, [isLoading, sprinklesBurned]);
 
   return (
     <div
@@ -280,15 +327,11 @@ function BurnCounterTile({
           {/* SPRINKLES BURNED - Left side */}
           <div className="text-left">
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="font-bold text-xs text-green-400">SPRINKLES BURNED</span>
+              <span className="font-bold text-xs text-white">SPRINKLES BURNED</span>
             </div>
             
-            <div className="font-mono text-xl font-bold text-green-400">
-              {isLoading ? (
-                <span className="text-green-400/50">Loading...</span>
-              ) : (
-                <span className="tabular-nums">{displaySprinkles.toLocaleString('en-US')}</span>
-              )}
+            <div className="font-mono text-xl font-bold">
+              <MatrixNumber value={displaySprinkles} isLoading={isLoading} className="text-white" />
             </div>
           </div>
           
@@ -298,12 +341,8 @@ function BurnCounterTile({
               <span className="font-bold text-xs text-pink-400">DONUT BURNED</span>
             </div>
             
-            <div className="font-mono text-xl font-bold text-pink-400">
-              {isLoading ? (
-                <span className="text-pink-400/50">Loading...</span>
-              ) : (
-                <span className="tabular-nums">{displayDonut.toLocaleString('en-US')}</span>
-              )}
+            <div className="font-mono text-xl font-bold">
+              <MatrixNumber value={displayDonut} isLoading={isLoading} className="text-pink-400" />
             </div>
           </div>
         </div>
@@ -325,48 +364,18 @@ function GDonutStakedTile({
   isLoading: boolean;
 }) {
   const [displayAmount, setDisplayAmount] = useState(0);
-  const targetRef = useRef(0);
-  const DISPLAY_DELAY = 100; // Small delay behind real amount
   
-  // Calculate display amount
+  // Calculate display amount - just show live balance
   useEffect(() => {
     if (isLoading || gDonutStaked === 0n) return;
-    
     const realAmount = Number(gDonutStaked) / 1e18;
-    const targetAmount = Math.max(0, realAmount - DISPLAY_DELAY);
-    targetRef.current = targetAmount;
-    
-    // Estimate daily increase (~5000 DONUT staked per day as baseline based on 15% miner fee)
-    const estimatedDailyIncrease = 5_000;
-    const { msSince, msInDay } = getTimeSince6pmEST();
-    const dayProgress = msSince / msInDay;
-    
-    const startAmount = Math.max(0, targetAmount - estimatedDailyIncrease);
-    const interpolatedAmount = startAmount + (targetAmount - startAmount) * dayProgress;
-    
-    setDisplayAmount(Math.floor(interpolatedAmount));
+    setDisplayAmount(Math.floor(realAmount));
   }, [gDonutStaked, isLoading]);
-
-  // Slow increment effect
-  useEffect(() => {
-    if (isLoading || targetRef.current === 0) return;
-    
-    const interval = setInterval(() => {
-      setDisplayAmount(prev => {
-        if (prev >= targetRef.current) return prev;
-        const increment = Math.floor(Math.random() * 3) + 1; // 1-4 per tick
-        const newVal = prev + increment;
-        return Math.min(newVal, Math.floor(targetRef.current));
-      });
-    }, 3000);
-    
-    return () => clearInterval(interval);
-  }, [isLoading, gDonutStaked]);
 
   return (
     <div
-      className="gdonut-staked-tile relative w-full rounded-2xl border-2 border-pink-500/50 overflow-hidden"
-      style={{ height: '100px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(219,39,119,0.1) 100%)' }}
+      className="gdonut-staked-tile relative w-full rounded-2xl border-2 border-zinc-700 overflow-hidden bg-zinc-900/50"
+      style={{ height: '100px' }}
     >
       {/* Falling donuts background */}
       <FallingDonuts />
@@ -374,19 +383,15 @@ function GDonutStakedTile({
       <div className="relative z-10 p-4 h-full flex flex-col justify-center">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="font-bold text-xs text-pink-400">TREASURY gDONUT STAKED</span>
+            <span className="font-bold text-xs text-pink-400">SPRINKLES TREASURY gDONUT HOLDINGS</span>
           </div>
           
-          <div className="font-mono text-2xl font-bold text-pink-400">
-            {isLoading ? (
-              <span className="text-pink-400/50">Loading...</span>
-            ) : (
-              <span className="tabular-nums">{displayAmount.toLocaleString('en-US')}</span>
-            )}
+          <div className="font-mono text-2xl font-bold">
+            <MatrixNumber value={displayAmount} isLoading={isLoading} className="text-pink-400" />
           </div>
         </div>
         
-        <div className="text-[9px] text-pink-300/50 mt-1">
+        <div className="text-[9px] text-zinc-500 mt-1">
           Miner 15% revenue fee • Liquid Staked Governance
         </div>
       </div>
