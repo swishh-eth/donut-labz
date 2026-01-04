@@ -435,10 +435,13 @@ export default function GamesPage() {
           animation: tilePopIn 0.3s ease-out forwards;
         }
         @keyframes fadeInUp {
-          0% { opacity: 0; transform: translateY(4px); }
-          100% { opacity: 1; transform: translateY(0); }
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .fade-in-up { animation: fadeInUp 0.4s ease-out forwards; }
+        .fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.2s; }
+        .stagger-3 { animation-delay: 0.3s; }
       `}</style>
 
       <div 
@@ -455,30 +458,26 @@ export default function GamesPage() {
               <div 
                 className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]"
               >
-                {isStatsLoaded && (
-                  <>
-                    <div className="flex items-center gap-1">
-                      <Gamepad2 className="w-3.5 h-3.5 text-white" />
-                      <span className="text-[10px] text-gray-400 uppercase tracking-wide">Total Plays</span>
-                    </div>
-                    <div className="text-2xl font-bold text-white fade-in-up opacity-0" style={{ animationDelay: '0.1s' }}>{totalGamesPlayed.toLocaleString()}</div>
-                  </>
-                )}
+                <div className="flex items-center gap-1">
+                  <Gamepad2 className="w-3.5 h-3.5 text-white" />
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Total Plays</span>
+                </div>
+                <div className={`text-2xl font-bold text-white ${isStatsLoaded ? 'fade-in-up stagger-1 opacity-0' : 'opacity-0'}`}>
+                  {totalGamesPlayed.toLocaleString()}
+                </div>
               </div>
 
               {/* Ends In Tile */}
               <div 
                 className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]"
               >
-                {isTimeLoaded && (
-                  <>
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-white" />
-                      <span className="text-[10px] text-gray-400 uppercase tracking-wide">Resets In</span>
-                    </div>
-                    <div className="text-xl font-bold text-white fade-in-up opacity-0 whitespace-nowrap" style={{ animationDelay: '0.2s' }}>{timeUntilReset}</div>
-                  </>
-                )}
+                <div className="flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-white" />
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Resets In</span>
+                </div>
+                <div className={`text-xl font-bold text-white whitespace-nowrap ${isTimeLoaded ? 'fade-in-up stagger-2 opacity-0' : 'opacity-0'}`}>
+                  {timeUntilReset}
+                </div>
               </div>
 
               {/* Prize Tile */}
@@ -486,32 +485,30 @@ export default function GamesPage() {
                 onClick={() => setShowUsdPrize(!showUsdPrize)}
                 className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center transition-all h-[80px] relative overflow-hidden hover:bg-zinc-800"
               >
-                {isStatsLoaded && (
+                {showUsdPrize ? (
                   <>
-                    {showUsdPrize ? (
-                      <>
-                        <div className="flex items-center gap-1">
-                          <Coins className="w-3.5 h-3.5 text-white" />
-                          <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
-                        </div>
-                        <div className="text-2xl font-bold text-white fade-in-up opacity-0" style={{ animationDelay: '0.3s' }}>
-                          ${totalUsdcPrizes}
-                        </div>
-                        <span className="absolute bottom-1 text-[7px] text-gray-500 animate-pulse">tap for tokens</span>
-                      </>
-                    ) : (
-                      <div className="flex flex-col w-full h-full justify-center gap-1">
-                        <div className="flex items-center justify-between w-full px-1">
-                          <DonutCoin className="w-4 h-4" />
-                          <span className="text-sm font-bold text-pink-400">{Math.floor(flappyPrizePool)}</span>
-                        </div>
-                        <div className="flex items-center justify-between w-full px-1">
-                          <UsdcCoin className="w-4 h-4" />
-                          <span className="text-sm font-bold text-green-400">${totalUsdcPrizes}</span>
-                        </div>
-                      </div>
+                    <div className="flex items-center gap-1">
+                      <Coins className="w-3.5 h-3.5 text-white" />
+                      <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
+                    </div>
+                    <div className={`text-2xl font-bold text-white ${isStatsLoaded ? 'fade-in-up stagger-3 opacity-0' : 'opacity-0'}`}>
+                      ${totalUsdcPrizes}
+                    </div>
+                    {isStatsLoaded && (
+                      <span className="absolute bottom-1 text-[7px] text-gray-500 animate-pulse">tap for tokens</span>
                     )}
                   </>
+                ) : (
+                  <div className="flex flex-col w-full h-full justify-center gap-1">
+                    <div className="flex items-center justify-between w-full px-1">
+                      <DonutCoin className="w-4 h-4" />
+                      <span className="text-sm font-bold text-pink-400">{Math.floor(flappyPrizePool)}</span>
+                    </div>
+                    <div className="flex items-center justify-between w-full px-1">
+                      <UsdcCoin className="w-4 h-4" />
+                      <span className="text-sm font-bold text-green-400">${totalUsdcPrizes}</span>
+                    </div>
+                  </div>
                 )}
               </button>
             </div>

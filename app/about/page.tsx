@@ -301,14 +301,14 @@ function HalvingCountdownTile() {
     >
       {/* Background sprinkles logo */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
+        <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
           <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
         </span>
       </div>
       
       <div className="relative z-10 p-4 pr-20">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="font-bold text-sm text-white">Sprinkles Halving Countdown Timer</span>
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="font-bold text-sm text-white">Sprinkles Halving Countdown</span>
         </div>
         
         {isComplete ? (
@@ -316,30 +316,30 @@ function HalvingCountdownTile() {
             Halving Complete!
           </div>
         ) : (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="text-center">
-              <div className="font-mono text-2xl font-bold text-white">{timeLeft.days}</div>
-              <div className="text-[9px] text-white/60">DAYS</div>
+              <div className="font-mono text-xl font-bold text-white">{timeLeft.days}</div>
+              <div className="text-[8px] text-white/60">DAYS</div>
             </div>
-            <span className="text-white/30 text-xl font-bold">:</span>
+            <span className="text-white/30 text-lg font-bold">:</span>
             <div className="text-center">
-              <div className="font-mono text-2xl font-bold text-white">{String(timeLeft.hours).padStart(2, '0')}</div>
-              <div className="text-[9px] text-white/60">HOURS</div>
+              <div className="font-mono text-xl font-bold text-white">{String(timeLeft.hours).padStart(2, '0')}</div>
+              <div className="text-[8px] text-white/60">HRS</div>
             </div>
-            <span className="text-white/30 text-xl font-bold">:</span>
+            <span className="text-white/30 text-lg font-bold">:</span>
             <div className="text-center">
-              <div className="font-mono text-2xl font-bold text-white">{String(timeLeft.minutes).padStart(2, '0')}</div>
-              <div className="text-[9px] text-white/60">MINS</div>
+              <div className="font-mono text-xl font-bold text-white">{String(timeLeft.minutes).padStart(2, '0')}</div>
+              <div className="text-[8px] text-white/60">MIN</div>
             </div>
-            <span className="text-white/30 text-xl font-bold">:</span>
+            <span className="text-white/30 text-lg font-bold">:</span>
             <div className="text-center">
-              <div className="font-mono text-2xl font-bold text-white">{String(timeLeft.seconds).padStart(2, '0')}</div>
-              <div className="text-[9px] text-white/60">SECS</div>
+              <div className="font-mono text-xl font-bold text-white">{String(timeLeft.seconds).padStart(2, '0')}</div>
+              <div className="text-[8px] text-white/60">SEC</div>
             </div>
           </div>
         )}
         
-        <div className="text-[9px] text-white/60 mt-2">
+        <div className="text-[9px] text-white/60 mt-1">
           Mining rewards halve • Jan 7th 2:00 AM UTC
         </div>
       </div>
@@ -720,8 +720,7 @@ export default function AboutPage() {
                   </span>
                 </div>
                 <div className="relative z-10 flex flex-col items-center">
-                  <DonutCoin className="w-5 h-5 mb-1" />
-                  <span className="text-[10px] text-white font-semibold">Stake Donut</span>
+                  <span className="text-sm text-white font-bold">Stake Donut</span>
                 </div>
               </button>
 
@@ -743,8 +742,7 @@ export default function AboutPage() {
                   </span>
                 </div>
                 <div className="relative z-10 flex flex-col items-center">
-                  <PeeplesCoin className="w-5 h-5 mb-1" />
-                  <span className="text-[10px] text-white font-semibold">Pool To Mine</span>
+                  <span className="text-sm text-white font-bold">Pool To Mine</span>
                 </div>
               </button>
 
@@ -766,8 +764,7 @@ export default function AboutPage() {
                   </span>
                 </div>
                 <div className="relative z-10 flex flex-col items-center">
-                  <EcoCoin className="w-5 h-5 mb-1" />
-                  <span className="text-[10px] text-white font-semibold">Eco Tokens</span>
+                  <span className="text-sm text-white font-bold">Eco Tokens</span>
                 </div>
               </button>
             </div>
