@@ -1076,11 +1076,11 @@ export default function ChatPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="font-semibold text-white text-xs truncate">{userDisplayName}</span>
-                        <span className={`text-[10px] ml-auto flex-shrink-0 transition-colors duration-500 ${
-                          pendingMessageConfirmed ? "text-green-400" : "text-gray-400"
-                        }`}>
-                          {pendingMessageConfirmed ? "Sent ✓" : isUploadingImage ? "Uploading..." : isBurnPending || isBurnConfirming ? "Burning..." : "Sending..."}
-                        </span>
+                        {!pendingMessageConfirmed && (
+                          <div className="ml-auto flex-shrink-0">
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          </div>
+                        )}
                       </div>
                       {pendingImageUrl && (
                         <img 
