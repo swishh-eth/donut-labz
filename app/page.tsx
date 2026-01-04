@@ -1554,17 +1554,23 @@ export default function HomePage() {
         }
         @keyframes falling {
           0% {
-            transform: translateY(-20px) rotate(0deg);
+            transform: translateY(-60px) rotate(0deg);
             opacity: 0;
           }
-          10% {
+          5% {
+            opacity: 0;
+          }
+          15% {
             opacity: 1;
           }
-          90% {
+          85% {
             opacity: 1;
+          }
+          95% {
+            opacity: 0;
           }
           100% {
-            transform: translateY(220px) rotate(360deg);
+            transform: translateY(260px) rotate(360deg);
             opacity: 0;
           }
         }
@@ -1617,7 +1623,7 @@ export default function HomePage() {
                 <MinerTile
                   coinSrc="/coins/donut_logo.png"
                   title="MINE DONUT"
-                  titleColor="text-pink-400"
+                  titleColor="text-white"
                   priceIcon={<EthCoin className="w-5 h-5" />}
                   priceValue={donutPrice ? formatEth(donutPrice, 2) : "—"}
                   isReady={dataReady}
@@ -1633,7 +1639,7 @@ export default function HomePage() {
                 <MinerTile
                   coinSrc="/coins/sprinkles_logo.png"
                   title="MINE SPRINKLES"
-                  titleColor="text-green-400"
+                  titleColor="text-pink-400"
                   priceIcon={<DonutCoin className="w-5 h-5" />}
                   priceValue={sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18, 0) : "—"}
                   isReady={dataReady}
