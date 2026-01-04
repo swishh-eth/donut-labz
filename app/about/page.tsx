@@ -86,10 +86,16 @@ function formatBurnedAmount(amount: bigint): string {
 
 // Falling Sprinkles and Donuts Animation Component
 function FallingCoins() {
+  // Use seeded random for consistent but random-looking positions
+  const getRandomDelay = (seed: number) => {
+    const x = Math.sin(seed * 12.9898) * 43758.5453;
+    return (x - Math.floor(x)) * 6; // 0-6 seconds random delay
+  };
+  
   const coins = Array.from({ length: 16 }, (_, i) => ({
     id: i,
     left: `${5 + (i * 6) % 90}%`,
-    delay: `${i * 0.25}s`,
+    delay: `${getRandomDelay(i + 1)}s`,
     duration: `${4 + (i % 4)}s`,
     size: 12 + (i % 3) * 4,
     isDonut: i % 3 === 0, // Every 3rd coin is a donut
@@ -216,7 +222,7 @@ function BurnCounterTile({
 
   return (
     <div
-      className="burn-counter-tile relative w-full rounded-2xl border border-zinc-800 overflow-hidden bg-zinc-900/50"
+      className="burn-counter-tile relative w-full rounded-2xl border-2 border-zinc-700 overflow-hidden bg-zinc-900/50"
       style={{ height: '100px' }}
     >
       {/* Falling coins background */}
@@ -296,7 +302,7 @@ function HalvingCountdownTile() {
 
   return (
     <div
-      className="halving-tile relative w-full rounded-2xl border border-zinc-800 overflow-hidden bg-zinc-900/50"
+      className="halving-tile relative w-full rounded-2xl border-2 border-zinc-700 overflow-hidden bg-zinc-900/50"
       style={{ height: '100px' }}
     >
       {/* Background sprinkles logo */}
