@@ -23,7 +23,7 @@ const MULTICALL_ADDRESS = '0x3ec144554b484C6798A683E34c8e8E222293f323'.toLowerCa
 const SPRINKLES_MINER_ADDRESS = '0x924b2d4a89b84a37510950031dcdb6552dc97bcc'.toLowerCase();
 
 // Fee splitter contract - receives 5% of mining fee
-const FEE_SPLITTER_ADDRESS = '0x710e042d4F13f5c649dBb1774A3695BFcAC253ce'.toLowerCase();
+const FEE_SPLITTER_ADDRESS = '0xcB2604D87fe3e5b6fe33C5d5Ff05781602357D59'.toLowerCase();
 
 // Alchemy RPC (primary) with fallback
 const ALCHEMY_RPC = 'https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g';
@@ -312,7 +312,7 @@ export async function POST(request: Request) {
     }
 
     // All checks passed - record the glaze with txHash and mineType
-    // DONUT = 3 points, SPRINKLES = 1 point
+    // DONUT = 2 points, SPRINKLES = 1 point
     const result = await recordGlaze(address, txHash, mineType);
 
     if (result.alreadyRecorded) {

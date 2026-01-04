@@ -28,7 +28,7 @@ const DONUT_MINE_SELECTOR = keccak256(toBytes('mine(address,uint256,uint256,uint
 const TRANSFER_EVENT_TOPIC = keccak256(toBytes('Transfer(address,address,uint256)')).toLowerCase();
 
 // Fee splitter contract - receives 5% of mining fee
-const FEE_SPLITTER_ADDRESS = '0x710e042d4F13f5c649dBb1774A3695BFcAC253ce'.toLowerCase();
+const FEE_SPLITTER_ADDRESS = '0xcB2604D87fe3e5b6fe33C5d5Ff05781602357D59'.toLowerCase();
 
 // Alchemy webhook signing key - set this in your environment variables
 const ALCHEMY_SIGNING_KEY = process.env.ALCHEMY_WEBHOOK_SIGNING_KEY || '';
