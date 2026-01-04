@@ -262,6 +262,7 @@ function MatrixText({
       let cycleCount = 0;
       const maxCycles = 10;
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let completed = false;
       
       const interval = setInterval(() => {
         if (cycleCount < maxCycles) {
@@ -271,13 +272,21 @@ function MatrixText({
           setAnimatingText(randomText);
           cycleCount++;
         } else {
+          completed = true;
           setIsAnimating(false);
           setAnimationComplete(true);
           clearInterval(interval);
         }
       }, 50);
       
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+        // If cleanup happens before animation finished, still mark complete
+        if (!completed) {
+          setIsAnimating(false);
+          setAnimationComplete(true);
+        }
+      };
     }
   }, [isReady, text]);
 
@@ -320,6 +329,7 @@ function MatrixPrice({
       
       let cycleCount = 0;
       const maxCycles = 10;
+      let completed = false;
       
       const interval = setInterval(() => {
         if (cycleCount < maxCycles) {
@@ -330,13 +340,21 @@ function MatrixPrice({
           setAnimatingValue(randomValue);
           cycleCount++;
         } else {
+          completed = true;
           setIsAnimating(false);
           setAnimationComplete(true);
           clearInterval(interval);
         }
       }, 40);
       
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+        // If cleanup happens before animation finished, still mark complete
+        if (!completed) {
+          setIsAnimating(false);
+          setAnimationComplete(true);
+        }
+      };
     }
   }, [isReady, value]);
 
