@@ -202,41 +202,205 @@ const calculateSprinklesPrice = (initPrice: bigint, startTime: number | bigint):
 
 
 
-// Image tile component (static images instead of videos for bandwidth savings)
-function ImageTile({ 
-  imageSrc, 
-  onClick,
-  children
+// Falling coin animation component
+function FallingCoins({ coinSrc, count = 12 }: { coinSrc: string; count?: number }) {
+  const coins = useMemo(() => {
+    return Array.from({ length: count }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 5,
+      duration: 3 + Math.random() * 4,
+      size: 16 + Math.random() * 20,
+      opacity: 0.15 + Math.random() * 0.25,
+    }));
+  }, [count]);
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {coins.map((coin) => (
+        <img
+          key={coin.id}
+          src={coinSrc}
+          alt=""
+          className="absolute rounded-full animate-falling"
+          style={{
+            left: `${coin.left}%`,
+            width: coin.size,
+            height: coin.size,
+            opacity: coin.opacity,
+            animationDelay: `${coin.delay}s`,
+            animationDuration: `${coin.duration}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Matrix-style text animation for miner tiles
+function MatrixText({ 
+  text, 
+  isReady,
+  className = ""
 }: { 
-  imageSrc: string;
+  text: string; 
+  isReady: boolean;
+  className?: string;
+}) {
+  const [displayText, setDisplayText] = useState(text);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const hasAnimatedRef = useRef(false);
+
+  useEffect(() => {
+    if (isReady && !hasAnimatedRef.current) {
+      hasAnimatedRef.current = true;
+      setIsAnimating(true);
+      
+      let cycleCount = 0;
+      const maxCycles = 10;
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      
+      const interval = setInterval(() => {
+        if (cycleCount < maxCycles) {
+          // Generate random text of same length
+          const randomText = text.split('').map(char => 
+            char === ' ' ? ' ' : chars[Math.floor(Math.random() * chars.length)]
+          ).join('');
+          setDisplayText(randomText);
+          cycleCount++;
+        } else {
+          setDisplayText(text);
+          setIsAnimating(false);
+          clearInterval(interval);
+        }
+      }, 50);
+      
+      return () => clearInterval(interval);
+    }
+  }, [isReady, text]);
+
+  return (
+    <span className={`${className} ${isAnimating ? 'text-green-400/80' : ''} transition-colors duration-200`}>
+      {displayText}
+    </span>
+  );
+}
+
+// Matrix-style price animation
+function MatrixPrice({ 
+  value, 
+  isReady,
+  prefix = "",
+  suffix = "",
+  className = ""
+}: { 
+  value: string; 
+  isReady: boolean;
+  prefix?: string;
+  suffix?: string;
+  className?: string;
+}) {
+  const [displayValue, setDisplayValue] = useState("—");
+  const [isAnimating, setIsAnimating] = useState(false);
+  const hasAnimatedRef = useRef(false);
+
+  useEffect(() => {
+    if (isReady && value && value !== "—" && !hasAnimatedRef.current) {
+      hasAnimatedRef.current = true;
+      setIsAnimating(true);
+      
+      let cycleCount = 0;
+      const maxCycles = 12;
+      
+      const interval = setInterval(() => {
+        if (cycleCount < maxCycles) {
+          // Generate random number-like string
+          const randomValue = value.split('').map(char => {
+            if (char === '.' || char === ',') return char;
+            return Math.floor(Math.random() * 10).toString();
+          }).join('');
+          setDisplayValue(randomValue);
+          cycleCount++;
+        } else {
+          setDisplayValue(value);
+          setIsAnimating(false);
+          clearInterval(interval);
+        }
+      }, 50);
+      
+      return () => clearInterval(interval);
+    } else if (!isReady) {
+      setDisplayValue("—");
+    }
+  }, [isReady, value]);
+
+  return (
+    <span className={`tabular-nums ${className} ${isAnimating ? 'text-green-400/80' : ''} transition-colors duration-200`}>
+      {prefix}{displayValue}{suffix}
+    </span>
+  );
+}
+
+// Miner tile component with falling coins
+function MinerTile({ 
+  coinSrc,
+  title,
+  titleColor,
+  priceIcon,
+  priceValue,
+  isReady,
+  recentMiner,
+  onClick,
+}: { 
+  coinSrc: string;
+  title: string;
+  titleColor: string;
+  priceIcon: React.ReactNode;
+  priceValue: string;
+  isReady: boolean;
+  recentMiner: { username: string; pfpUrl?: string } | null;
   onClick: () => void;
-  children: React.ReactNode;
 }) {
   return (
     <button
       onClick={onClick}
-      className="relative w-full rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all active:scale-[0.98]"
-      style={{ height: '280px' }}
+      className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
+      style={{ 
+        height: '200px', 
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' 
+      }}
     >
-      <div className="absolute inset-0 bg-black" />
+      {/* Falling coins background */}
+      <FallingCoins coinSrc={coinSrc} count={15} />
       
-      <img
-        src={imageSrc}
-        alt=""
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{ transform: 'scale(1.2)' }}
-      />
-      
-      {/* Center darkening gradient for text readability */}
-      <div 
-        className="absolute inset-0 pointer-events-none"
-        style={{ 
-          background: 'radial-gradient(ellipse 80% 60% at 50% 50%, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 70%)'
-        }}
-      />
-      
+      {/* Content */}
       <div className="relative z-10 flex flex-col items-center justify-center h-full p-4">
-        {children}
+        <div className={`text-3xl font-bold mb-3 text-center ${titleColor}`} style={{ textShadow: `0 0 12px currentColor` }}>
+          <MatrixText text={title} isReady={isReady} />
+        </div>
+        
+        <div className="text-lg text-white/90 mb-3 flex items-center justify-center gap-2">
+          <span className="text-white/70">Price:</span>
+          <span className="font-bold text-white flex items-center gap-1" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
+            {priceIcon}
+            <MatrixPrice value={priceValue} isReady={isReady && priceValue !== "—"} />
+          </span>
+        </div>
+        
+        {recentMiner && (
+          <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5 border border-zinc-700/50">
+            {recentMiner.pfpUrl && (
+              <img 
+                src={recentMiner.pfpUrl} 
+                alt="" 
+                className="w-4 h-4 rounded-full border border-zinc-600"
+              />
+            )}
+            <span className="text-[9px] text-white/70 font-medium">
+              {recentMiner.username?.startsWith('@') ? recentMiner.username : `@${recentMiner.username}`} has control
+            </span>
+          </div>
+        )}
       </div>
     </button>
   );
@@ -1388,6 +1552,25 @@ export default function HomePage() {
         .animate-profitablePulse {
           animation: profitablePulse 2s ease-in-out infinite;
         }
+        @keyframes falling {
+          0% {
+            transform: translateY(-20px) rotate(0deg);
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          90% {
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(220px) rotate(360deg);
+            opacity: 0;
+          }
+        }
+        .animate-falling {
+          animation: falling linear infinite;
+        }
       `}</style>
       
       <AddToFarcasterDialog showOnFirstVisit={true} />
@@ -1426,71 +1609,37 @@ export default function HomePage() {
             }}
           >
             <div className="space-y-3 pb-4">
-              {/* Video Tiles - Hidden until data ready, then animate */}
+              {/* Miner Tiles - Hidden until data ready, then animate */}
               <div 
                 className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '0ms', animationFillMode: 'forwards' } : {})}
               >
-                <ImageTile
-                  imageSrc="/media/tile1.png"
+                <MinerTile
+                  coinSrc="/coins/donut_logo.png"
+                  title="MINE DONUT"
+                  titleColor="text-pink-400"
+                  priceIcon={<EthCoin className="w-5 h-5" />}
+                  priceValue={donutPrice ? formatEth(donutPrice, 2) : "—"}
+                  isReady={dataReady}
+                  recentMiner={recentDonutMiner}
                   onClick={() => setSelectedMiner("donut")}
-                >
-                  <div className="text-3xl font-bold text-pink-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(244,114,182,0.9)' }}>
-                    MINE DONUT
-                  </div>
-                  <div className="text-lg text-white/90 mb-2 flex items-center justify-center gap-1">
-                    Price: <span className="font-bold text-white flex items-center gap-1" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
-                      <EthCoin className="w-5 h-5" />{donutPrice ? formatEth(donutPrice, 2) : "—"}
-                    </span>
-                  </div>
-                  {recentDonutMiner && (
-                    <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5 border border-zinc-700/50">
-                      {recentDonutMiner.pfpUrl && (
-                        <img 
-                          src={recentDonutMiner.pfpUrl} 
-                          alt="" 
-                          className="w-4 h-4 rounded-full border border-zinc-600"
-                        />
-                      )}
-                      <span className="text-[9px] text-white/70 font-medium">
-                        {recentDonutMiner.username?.startsWith('@') ? recentDonutMiner.username : `@${recentDonutMiner.username}`} has control
-                      </span>
-                    </div>
-                  )}
-                </ImageTile>
+                />
               </div>
 
               <div 
                 className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {})}
               >
-                <ImageTile
-                  imageSrc="/media/tile2.png"
+                <MinerTile
+                  coinSrc="/coins/sprinkles_logo.png"
+                  title="MINE SPRINKLES"
+                  titleColor="text-green-400"
+                  priceIcon={<DonutCoin className="w-5 h-5" />}
+                  priceValue={sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18, 0) : "—"}
+                  isReady={dataReady}
+                  recentMiner={recentSprinklesMiner}
                   onClick={() => setSelectedMiner("sprinkles")}
-                >
-                  <div className="text-3xl font-bold text-green-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(74,222,128,0.9)' }}>
-                    MINE SPRINKLES
-                  </div>
-                  <div className="text-lg text-white/90 mb-2 flex items-center justify-center gap-1">
-                    Price: <span className="font-bold text-white flex items-center gap-1" style={{ textShadow: '0 0 10px rgba(255,255,255,0.7)' }}>
-                      <DonutCoin className="w-5 h-5" />{sprinklesPriceValue ? formatTokenAmount(sprinklesPriceValue, 18, 0) : "—"}
-                    </span>
-                  </div>
-                  {recentSprinklesMiner && (
-                    <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5 border border-zinc-700/50">
-                      {recentSprinklesMiner.pfpUrl && (
-                        <img 
-                          src={recentSprinklesMiner.pfpUrl} 
-                          alt="" 
-                          className="w-4 h-4 rounded-full border border-zinc-600"
-                        />
-                      )}
-                      <span className="text-[9px] text-white/70 font-medium">
-                        {recentSprinklesMiner.username?.startsWith('@') ? recentSprinklesMiner.username : `@${recentSprinklesMiner.username}`} has control
-                      </span>
-                    </div>
-                  )}
-                </ImageTile>
+                />
               </div>
 
               {/* Burn Tile */}
