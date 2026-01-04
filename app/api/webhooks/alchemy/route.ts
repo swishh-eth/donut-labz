@@ -1,11 +1,11 @@
 // app/api/webhooks/alchemy/route.ts
 // Alchemy webhook handler for mining events - more reliable than client-side reporting
+// UPDATED: Now verifies transaction success before recording
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createHmac } from 'crypto';
 import { keccak256, toBytes, decodeAbiParameters, parseAbiParameters, formatUnits } from 'viem';
-import { recordGlaze } from '@/lib/supabase-leaderboard';
 
 // Supabase client
 const supabase = createClient(
@@ -17,7 +17,7 @@ const supabase = createClient(
 const SPRINKLES_MINER_ADDRESS = '0x924b2d4a89b84a37510950031dcdb6552dc97bcc'.toLowerCase();
 const DONUT_MULTICALL_ADDRESS = '0x3ec144554b484C6798A683E34c8e8E222293f323'.toLowerCase();
 
-// Your provider address - only DONUT mines through this provider count
+// Your provider address for DONUT mining verification
 const YOUR_PROVIDER_ADDRESS = '0x30cb501B97c6b87B7b240755C730A9795dBB84f5'.toLowerCase();
 
 // Function selectors
@@ -29,6 +29,10 @@ const TRANSFER_EVENT_TOPIC = keccak256(toBytes('Transfer(address,address,uint256
 
 // Alchemy webhook signing key - set this in your environment variables
 const ALCHEMY_SIGNING_KEY = process.env.ALCHEMY_WEBHOOK_SIGNING_KEY || '';
+
+// Alchemy RPC for fetching transaction details
+const ALCHEMY_RPC = 'https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g';
+const FALLBACK_RPC = 'https://mainnet.base.org';
 
 // Verify Alchemy webhook signature
 function verifyAlchemySignature(body: string, signature: string): boolean {
@@ -44,6 +48,69 @@ function verifyAlchemySignature(body: string, signature: string): boolean {
   return signature === expectedSignature;
 }
 
+// Fetch transaction receipt to verify success
+async function fetchTransactionReceipt(txHash: string): Promise<{ status: string | null; logs: any[] }> {
+  const rpcs = [ALCHEMY_RPC, FALLBACK_RPC];
+  
+  for (const rpc of rpcs) {
+    try {
+      const response = await fetch(rpc, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_getTransactionReceipt',
+          params: [txHash],
+          id: 1,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.result) {
+        return {
+          status: data.result.status,
+          logs: data.result.logs || [],
+        };
+      }
+    } catch (e) {
+      console.warn(`RPC ${rpc} failed for receipt:`, e);
+      continue;
+    }
+  }
+  
+  return { status: null, logs: [] };
+}
+
+// Fetch full transaction data
+async function fetchTransaction(txHash: string): Promise<any | null> {
+  const rpcs = [ALCHEMY_RPC, FALLBACK_RPC];
+  
+  for (const rpc of rpcs) {
+    try {
+      const response = await fetch(rpc, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_getTransactionByHash',
+          params: [txHash],
+          id: 1,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.result) {
+        return data.result;
+      }
+    } catch (e) {
+      console.warn(`RPC ${rpc} failed for tx:`, e);
+      continue;
+    }
+  }
+  
+  return null;
+}
+
 // Extract amount from transaction logs for SPRINKLES mining
 function extractSprinklesAmount(logs: any[]): string {
   const DECIMALS = BigInt("1000000000000000000"); // 10^18
@@ -53,11 +120,11 @@ function extractSprinklesAmount(logs: any[]): string {
     if (topics[0]?.toLowerCase() === TRANSFER_EVENT_TOPIC) {
       const toAddr = '0x' + topics[2]?.slice(26)?.toLowerCase();
       
-      // Check if this transfer is TO the sprinkles miner contract (10% fee)
+      // Check if this transfer is TO the sprinkles miner contract (fee portion)
       if (toAddr === SPRINKLES_MINER_ADDRESS) {
         const feeWei = BigInt(log.data);
-        // Miner receives 10% fee, so multiply by 10 to get total paid
-        const totalPaidWei = feeWei * BigInt(10);
+        // Miner receives 20% fee now (was 10%), so multiply by 5 to get total paid
+        const totalPaidWei = feeWei * BigInt(5);
         const totalPaid = totalPaidWei / DECIMALS;
         return totalPaid.toString();
       }
@@ -67,7 +134,7 @@ function extractSprinklesAmount(logs: any[]): string {
   return '';
 }
 
-// Process a single transaction
+// Process a single transaction with full verification
 async function processTransaction(tx: any, receipt: any): Promise<{ success: boolean; txHash: string; error?: string }> {
   const txHash = tx.hash?.toLowerCase();
   const toAddress = tx.to?.toLowerCase();
@@ -78,8 +145,9 @@ async function processTransaction(tx: any, receipt: any): Promise<{ success: boo
     return { success: false, txHash: txHash || 'unknown', error: 'Missing transaction data' };
   }
   
-  // Check if transaction was successful
+  // Check if transaction was successful - CRITICAL CHECK
   if (receipt?.status !== '0x1' && receipt?.status !== 1) {
+    console.log(`Transaction ${txHash} failed/reverted (status: ${receipt?.status}) - NOT recording`);
     return { success: false, txHash, error: 'Transaction failed/reverted' };
   }
   
@@ -114,10 +182,10 @@ async function processTransaction(tx: any, receipt: any): Promise<{ success: boo
         `0x${inputData.slice(10)}` as `0x${string}`
       );
       
-      // Check if this mine used our provider
+      // Verify provider address matches
       const providerAddress = (params[0] as string).toLowerCase();
       if (providerAddress !== YOUR_PROVIDER_ADDRESS) {
-        console.log(`DONUT mine used different provider: ${providerAddress}, skipping`);
+        console.log(`DONUT mine from different provider: ${providerAddress}, skipping`);
         return { success: false, txHash, error: 'Different provider' };
       }
       
@@ -170,15 +238,6 @@ async function processTransaction(tx: any, receipt: any): Promise<{ success: boo
       return { success: false, txHash, error: `Database error: ${insertError.message}` };
     }
     
-    // Also record to leaderboard for points (DONUT = 3 points, SPRINKLES = 1 point)
-    try {
-      const glazeResult = await recordGlaze(fromAddress, txHash, mineType);
-      console.log(`Leaderboard updated: ${glazeResult.pointsAdded} points added, alreadyRecorded: ${glazeResult.alreadyRecorded}`);
-    } catch (glazeError) {
-      console.error('Failed to record glaze for leaderboard:', glazeError);
-      // Don't fail - mining_events was recorded successfully
-    }
-    
     console.log(`Successfully recorded ${mineType} mine: ${txHash} from ${fromAddress} for ${amount}`);
     return { success: true, txHash };
     
@@ -217,16 +276,9 @@ export async function POST(request: NextRequest) {
       const activities = event.activity || [];
       
       for (const activity of activities) {
-        // We need the full transaction and receipt
-        // For address activity, we get limited data, so we may need to fetch more
         const txHash = activity.hash;
-        
         if (!txHash) continue;
         
-        // The activity webhook gives us basic info
-        // For full processing, we'd need to fetch tx details
-        // But we can still record basic info
-        const fromAddress = activity.fromAddress?.toLowerCase();
         const toAddress = activity.toAddress?.toLowerCase();
         
         // Quick check if it's to our contracts
@@ -234,41 +286,30 @@ export async function POST(request: NextRequest) {
           continue;
         }
         
-        // For now, record with what we have and let the full data come from rawContract
-        if (activity.rawContract?.rawValue && toAddress === SPRINKLES_MINER_ADDRESS) {
-          // Check if already exists
-          const { data: existing } = await supabase
-            .from('mining_events')
-            .select('id')
-            .eq('tx_hash', txHash.toLowerCase())
-            .maybeSingle();
-          
-          if (!existing) {
-            // Calculate amount from value if available
-            let amount = '';
-            if (activity.value) {
-              // This might be the fee transfer, multiply by 10
-              const value = parseFloat(activity.value);
-              if (value > 0) {
-                amount = Math.floor(value * 10).toString();
-              }
-            }
-            
-            await supabase
-              .from('mining_events')
-              .insert({
-                address: fromAddress,
-                tx_hash: txHash.toLowerCase(),
-                mine_type: 'sprinkles',
-                amount,
-                message: '',
-                created_at: new Date().toISOString(),
-              });
-            
-            console.log(`Recorded from activity: ${txHash}`);
-            results.push({ success: true, txHash });
-          }
+        // IMPORTANT: Fetch full transaction and receipt to verify success
+        console.log(`Fetching details for tx: ${txHash}`);
+        
+        const [tx, receiptData] = await Promise.all([
+          fetchTransaction(txHash),
+          fetchTransactionReceipt(txHash),
+        ]);
+        
+        if (!tx) {
+          console.log(`Could not fetch transaction ${txHash}`);
+          results.push({ success: false, txHash, error: 'Could not fetch transaction' });
+          continue;
         }
+        
+        // Verify transaction succeeded before recording
+        if (receiptData.status !== '0x1') {
+          console.log(`Transaction ${txHash} FAILED (status: ${receiptData.status}) - NOT recording`);
+          results.push({ success: false, txHash, error: 'Transaction failed/reverted' });
+          continue;
+        }
+        
+        // Process with full data
+        const result = await processTransaction(tx, { status: receiptData.status, logs: receiptData.logs });
+        results.push(result);
       }
     }
     
@@ -279,7 +320,14 @@ export async function POST(request: NextRequest) {
       for (const tx of transactions) {
         if (!tx) continue;
         
-        const receipt = event.receipt || tx.receipt;
+        let receipt = event.receipt || tx.receipt;
+        
+        // If no receipt in payload, fetch it
+        if (!receipt) {
+          const receiptData = await fetchTransactionReceipt(tx.hash);
+          receipt = { status: receiptData.status, logs: receiptData.logs };
+        }
+        
         const result = await processTransaction(tx, receipt);
         results.push(result);
       }
@@ -287,7 +335,6 @@ export async function POST(request: NextRequest) {
     
     // Handle Custom Webhook with logs
     if (event.logs) {
-      // Process logs if needed
       console.log('Received logs webhook with', event.logs.length, 'logs');
     }
     
