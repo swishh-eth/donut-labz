@@ -183,6 +183,108 @@ const calculatePrice = (initPrice: bigint, startTime: number | bigint): bigint =
   return currentPrice > MIN_PRICE ? currentPrice : MIN_PRICE;
 };
 
+// Matrix-style single digit component
+function MatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: number; isReady: boolean }) {
+  const [displayChar, setDisplayChar] = useState(char === '.' || char === ',' || char === '-' || char === '+' || char === '$' || char === 'h' || char === 'm' || char === 's' || char === 'r' ? char : '0');
+  const [isAnimating, setIsAnimating] = useState(false);
+  const hasAnimatedRef = useRef(false);
+  
+  // Don't animate punctuation or letter suffixes
+  const isNonNumeric = char === '.' || char === ',' || char === '-' || char === '+' || char === '$' || char === 'h' || char === 'm' || char === 's' || char === 'r';
+  
+  useEffect(() => {
+    if (isNonNumeric) {
+      setDisplayChar(char);
+      setIsAnimating(false);
+      return;
+    }
+    
+    // If already animated, just show the char (live updates)
+    if (hasAnimatedRef.current) {
+      setDisplayChar(char);
+      setIsAnimating(false);
+      return;
+    }
+    
+    // Wait for ready signal
+    if (!isReady) return;
+    
+    hasAnimatedRef.current = true;
+    setIsAnimating(true);
+    
+    let cycleCount = 0;
+    const maxCycles = 8 + Math.floor(delay / 30);
+    
+    const cycleInterval = setInterval(() => {
+      if (cycleCount < maxCycles) {
+        setDisplayChar(Math.floor(Math.random() * 10).toString());
+        cycleCount++;
+      } else {
+        setDisplayChar(char);
+        setIsAnimating(false);
+        clearInterval(cycleInterval);
+      }
+    }, 50);
+    
+    return () => {
+      clearInterval(cycleInterval);
+      setIsAnimating(false);
+    };
+  }, [char, delay, isReady, isNonNumeric]);
+  
+  return (
+    <span 
+      className={`inline-block transition-colors duration-100 ${isAnimating ? 'text-pink-400/70' : ''}`}
+      style={{ 
+        width: char === ',' ? '0.35em' : char === '.' ? '0.3em' : char === '-' || char === '+' ? '0.5em' : char === '$' ? '0.6em' : isNonNumeric ? '0.5em' : '0.65em',
+        textAlign: 'center'
+      }}
+    >
+      {displayChar}
+    </span>
+  );
+}
+
+// Matrix-style number display
+function MatrixNumber({ 
+  value, 
+  isReady,
+  className = ""
+}: { 
+  value: string; 
+  isReady: boolean;
+  className?: string;
+}) {
+  const [key, setKey] = useState(0);
+  const initializedRef = useRef(false);
+  
+  useEffect(() => {
+    if (!initializedRef.current && isReady && value && value !== "—") {
+      initializedRef.current = true;
+      setKey(1);
+    }
+  }, [isReady, value]);
+  
+  if (!value || value === "—" || !initializedRef.current) {
+    return <span className={`tabular-nums ${className}`}>—</span>;
+  }
+  
+  const chars = value.split('');
+  
+  return (
+    <span key={key} className={`tabular-nums ${className}`}>
+      {chars.map((char, index) => (
+        <MatrixDigit 
+          key={`${key}-${index}`} 
+          char={char} 
+          delay={index * 30} 
+          isReady={isReady}
+        />
+      ))}
+    </span>
+  );
+}
+
 // Falling Donut Coins Component
 function FallingDonutCoins() {
   const coins = useMemo(() => {
@@ -212,7 +314,7 @@ function FallingDonutCoins() {
             className="rounded-full overflow-hidden inline-flex items-center justify-center ring-1 ring-pink-500/30"
             style={{ width: c.size, height: c.size }}
           >
-            <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover opacity-50" />
+            <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover" />
           </span>
         </div>
       ))}
@@ -665,8 +767,8 @@ export default function DonutMiner({ context }: DonutMinerProps) {
         @keyframes pulse-scale { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.9; } }
         @keyframes falling-coin {
           0% { transform: translateY(0) rotate(0deg); opacity: 0; }
-          5% { opacity: 0.5; }
-          90% { opacity: 0.5; }
+          5% { opacity: 1; }
+          90% { opacity: 1; }
           100% { transform: translateY(280px) rotate(360deg); opacity: 0; }
         }
         .spin-slow { animation: spin-slow 8s linear infinite; }
@@ -755,48 +857,46 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           <div className="grid grid-cols-3 gap-x-6 gap-y-2">
             <div>
               <div className="text-xs text-gray-500">Paid</div>
-              <div className="text-xl font-bold text-white flex items-center gap-1"><EthCoin className="w-5 h-5" />{paidAmountDisplay}</div>
+              <div className="text-xl font-bold text-white flex items-center gap-1">
+                <EthCoin className="w-5 h-5" />
+                <MatrixNumber value={paidAmountDisplay} isReady={!!minerState} />
+              </div>
             </div>
             <div>
               <div className="text-xs text-gray-500">Mined</div>
               <div className="text-xl font-bold text-white flex items-center gap-1 whitespace-nowrap">
                 <span>+</span>
                 <DonutCoin className="w-5 h-5" />
-                <span>{glazedDisplay}</span>
+                <MatrixNumber value={glazedDisplay} isReady={!!minerState} />
               </div>
             </div>
             <div>
               <div className="text-xs text-gray-500">Time</div>
               <div className="text-xl font-bold text-white whitespace-nowrap">
-                {(() => {
-                  const parts = glazeTimeDisplay.split(' ');
-                  if (parts.length === 2) {
-                    return (
-                      <>
-                        <span>{parts[0]}</span>
-                        <span className="text-base text-gray-300"> {parts[1]}</span>
-                      </>
-                    );
-                  }
-                  return glazeTimeDisplay;
-                })()}
+                <MatrixNumber value={glazeTimeDisplay.replace(/\s+/g, '')} isReady={!!minerState} />
               </div>
             </div>
             <div>
               <div className="text-xs text-gray-500">Mine rate</div>
-              <div className="text-xl font-bold text-white">{glazeRateDisplay}/s</div>
-              <div className="text-xs text-pink-400">${glazeRateUsdValue}/s</div>
+              <div className="text-xl font-bold text-white flex items-center gap-1">
+                <MatrixNumber value={glazeRateDisplay} isReady={!!minerState} />
+                <span>/s</span>
+              </div>
+              <div className="text-xs text-pink-400">
+                $<MatrixNumber value={glazeRateUsdValue} isReady={!!minerState} className="text-pink-400" />/s
+              </div>
             </div>
             <div>
               <div className="text-xs text-gray-500">PnL</div>
               <div className={cn("text-xl font-bold flex items-center gap-1", pnlData.isPositive ? "text-pink-400" : "text-red-400")}>
-                {pnlData.value.startsWith('+') ? '+' : pnlData.value.startsWith('-') ? '-' : ''}<EthCoin className="w-5 h-5" />{pnlData.value.replace(/^[+-]/, '')}
+                <EthCoin className="w-5 h-5" />
+                <MatrixNumber value={pnlData.value} isReady={!!minerState} className={pnlData.isPositive ? "text-pink-400" : "text-red-400"} />
               </div>
             </div>
             <div>
               <div className="text-xs text-gray-500">Total</div>
               <div className={cn("text-xl font-bold", totalPnlUsd.isPositive ? "text-pink-400" : "text-red-400")}>
-                {totalPnlUsd.value}
+                <MatrixNumber value={totalPnlUsd.value} isReady={!!minerState} className={totalPnlUsd.isPositive ? "text-pink-400" : "text-red-400"} />
               </div>
             </div>
           </div>
@@ -810,14 +910,20 @@ export default function DonutMiner({ context }: DonutMinerProps) {
                 Mine price
                 <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
               </div>
-              <div className="text-3xl font-bold text-white flex items-center gap-1"><EthCoin className="w-7 h-7" />{glazePriceDisplay}</div>
+              <div className="text-3xl font-bold text-white flex items-center gap-1">
+                <EthCoin className="w-7 h-7" />
+                <MatrixNumber value={glazePriceDisplay} isReady={!!minerState} />
+              </div>
               <div className="text-xs text-gray-500">
-                ${displayPrice ? (Number(formatEther(displayPrice)) * ethUsdPrice).toFixed(2) : "0.00"}
+                $<MatrixNumber value={displayPrice ? (Number(formatEther(displayPrice)) * ethUsdPrice).toFixed(2) : "0.00"} isReady={!!minerState} className="text-gray-500" />
               </div>
             </div>
             
             <div className="flex flex-col gap-1">
-              <div className="text-xs text-gray-500 flex items-center gap-1">Balance: <EthCoin className="w-3 h-3" />{ethBalanceDisplay}</div>
+              <div className="text-xs text-gray-500 flex items-center gap-1">
+                Balance: <EthCoin className="w-3 h-3" />
+                <MatrixNumber value={ethBalanceDisplay} isReady={!!minerState} className="text-gray-500" />
+              </div>
               <button
                 className={cn(
                   "w-full py-3 rounded-xl text-base font-bold transition-all duration-300",

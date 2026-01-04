@@ -212,7 +212,6 @@ function FallingCoins({ coinSrc, count = 12 }: { coinSrc: string; count?: number
       delay: Math.random() * 8, // Longer stagger so not all visible at once
       duration: 4 + Math.random() * 4,
       size: 16 + Math.random() * 20,
-      opacity: 0.15 + Math.random() * 0.25,
       startY: -50 - Math.random() * 50, // Random start position above tile
     }));
   }, [count]);
@@ -1719,10 +1718,10 @@ export default function HomePage() {
             opacity: 0;
           }
           10% {
-            opacity: 0.25;
+            opacity: 1;
           }
           80% {
-            opacity: 0.25;
+            opacity: 1;
           }
           100% {
             transform: translateY(300px);
