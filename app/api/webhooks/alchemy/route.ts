@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createHmac } from 'crypto';
 import { keccak256, toBytes, decodeAbiParameters, parseAbiParameters, formatUnits } from 'viem';
+import { recordGlaze } from '@/lib/supabase-leaderboard';
 
 // Supabase client
 const supabase = createClient(
@@ -167,6 +168,15 @@ async function processTransaction(tx: any, receipt: any): Promise<{ success: boo
     if (insertError) {
       console.error('Supabase insert error:', insertError);
       return { success: false, txHash, error: `Database error: ${insertError.message}` };
+    }
+    
+    // Also record to leaderboard for points (DONUT = 3 points, SPRINKLES = 1 point)
+    try {
+      const glazeResult = await recordGlaze(fromAddress, txHash, mineType);
+      console.log(`Leaderboard updated: ${glazeResult.pointsAdded} points added, alreadyRecorded: ${glazeResult.alreadyRecorded}`);
+    } catch (glazeError) {
+      console.error('Failed to record glaze for leaderboard:', glazeError);
+      // Don't fail - mining_events was recorded successfully
     }
     
     console.log(`Successfully recorded ${mineType} mine: ${txHash} from ${fromAddress} for ${amount}`);
