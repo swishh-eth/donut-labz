@@ -322,6 +322,7 @@ export default function AboutSprinklesPage() {
                     <span className="text-[10px] text-gray-400">SPRINKLES Burned</span>
                   </div>
                   <span className="text-lg font-bold text-green-400">{burnedBalance}</span>
+                  <p className="text-[9px] text-gray-500 mt-0.5">Miner 10% Buy & Burn Fee</p>
                 </div>
                 <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl">
                   <div className="flex items-center gap-1.5 mb-1">
@@ -329,13 +330,7 @@ export default function AboutSprinklesPage() {
                     <span className="text-[10px] text-gray-400">DONUT Burned</span>
                   </div>
                   <span className="text-lg font-bold text-pink-400">{donutBurnedInLP}</span>
-                </div>
-                <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Building className="w-3 h-3 text-pink-400" />
-                    <span className="text-[10px] text-gray-400">gDONUT Staked</span>
-                  </div>
-                  <span className="text-lg font-bold text-pink-400">{gDonutStaked}</span>
+                  <p className="text-[9px] text-gray-500 mt-0.5">LP Fee's In Dead Address</p>
                 </div>
                 <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
                   <div className="flex items-center gap-1.5 mb-1">
@@ -343,6 +338,15 @@ export default function AboutSprinklesPage() {
                     <span className="text-[10px] text-gray-400">Treasury SPRINKLES</span>
                   </div>
                   <span className="text-lg font-bold text-green-400">{treasurySprinkles}</span>
+                  <p className="text-[9px] text-gray-500 mt-0.5">Miner Revenue Buybacks</p>
+                </div>
+                <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Building className="w-3 h-3 text-pink-400" />
+                    <span className="text-[10px] text-gray-400">gDONUT Staked</span>
+                  </div>
+                  <span className="text-lg font-bold text-pink-400">{gDonutStaked}</span>
+                  <p className="text-[9px] text-gray-500 mt-0.5">Miner 8% Revenue Fee</p>
                 </div>
               </div>
 
