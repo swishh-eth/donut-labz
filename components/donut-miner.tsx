@@ -728,6 +728,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
             <div>
               <div className="text-xs text-gray-500">Mined</div>
               <div className="text-xl font-bold text-white flex items-center gap-1 whitespace-nowrap">
+                <span>+</span>
                 <DonutCoin className="w-5 h-5" />
                 <span>{glazedDisplay}</span>
               </div>
