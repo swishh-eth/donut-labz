@@ -234,11 +234,7 @@ function MatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: numbe
   
   return (
     <span 
-      className={`inline-block transition-colors duration-100 ${isAnimating ? 'text-pink-400/70' : ''}`}
-      style={{ 
-        width: char === ',' ? '0.35em' : char === '.' ? '0.3em' : char === '-' || char === '+' ? '0.5em' : char === '$' ? '0.6em' : isNonNumeric ? '0.5em' : '0.65em',
-        textAlign: 'center'
-      }}
+      className={`transition-colors duration-100 ${isAnimating ? 'text-pink-400/70' : ''}`}
     >
       {displayChar}
     </span>

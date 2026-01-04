@@ -289,13 +289,7 @@ function MatrixChar({ char, delay = 0, isReady }: { char: string; delay?: number
   }, [char, delay, isReady]);
   
   return (
-    <span 
-      className={`inline-block transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}
-      style={{ 
-        width: char === ' ' ? '0.35em' : '0.65em',
-        textAlign: 'center'
-      }}
-    >
+    <span className={`transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}>
       {displayChar}
     </span>
   );
@@ -388,13 +382,7 @@ function MatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: numbe
   }, [char, delay, isReady]);
   
   return (
-    <span 
-      className={`inline-block transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}
-      style={{ 
-        width: char === ',' ? '0.35em' : char === '.' ? '0.3em' : '0.65em',
-        textAlign: 'center'
-      }}
-    >
+    <span className={`transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}>
       {displayChar}
     </span>
   );
