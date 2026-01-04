@@ -391,7 +391,7 @@ export default function AboutSprinklesPage() {
                   <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10 border border-green-500/30">
                     <div className="flex items-center gap-2">
                       <Building className="w-4 h-4 text-green-400" />
-                      <span className="text-xs text-gray-300">Sprinkles Treasury (Sprinkles LSG Position)</span>
+                      <span className="text-xs text-gray-300">Sprinkles Treasury (LSG)</span>
                     </div>
                     <span className="text-sm font-bold text-green-400">15%</span>
                   </div>
@@ -401,7 +401,7 @@ export default function AboutSprinklesPage() {
                         <span className="text-gray-500 mr-1">↑</span>
                         <Flame className="w-4 h-4 text-gray-500" />
                       </div>
-                      <span className="text-xs text-gray-500 italic">Buy & Burn (Enabled by SPRINKLES Holders) — coming soon</span>
+                      <span className="text-[10px] text-gray-500 italic">Buy & Burn - Togglable By Holders</span>
                     </div>
                     <span className="text-sm font-bold text-gray-500">5%</span>
                   </div>
