@@ -56,12 +56,7 @@ type PastWinner = {
 };
 
 const ANON_PFPS = [
-  "/media/anonpfp1.png",
-  "/media/anonpfp2.png",
-  "/media/anonpfp3.png",
-  "/media/anonpfp4.png",
-  "/media/anonpfp5.png",
-  "/media/anonpfp6.png",
+  "/media/anonpfp.png",
 ];
 
 const getAnonPfp = (address: string): string => {
