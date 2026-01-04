@@ -1020,10 +1020,9 @@ export default function ChatPage() {
                         <div className="flex items-center gap-2 mb-0.5">
                           <button onClick={() => openUserProfile(username)} disabled={!username} className={`font-semibold text-white text-xs truncate ${username ? "hover:text-gray-300" : ""}`}>{displayName}</button>
                           {username && <button onClick={() => openUserProfile(username)} className="text-[10px] text-gray-500 truncate hover:text-gray-300">{username}</button>}
-                          <span className="text-[10px] text-gray-600 ml-auto flex-shrink-0">{timeAgo(msg.timestamp)}</span>
                         </div>
                         
-                        {/* Reply indicator */}
+                        {/* Reply indicator - show original message being replied to */}
                         {repliedMsg && (
                           <div className="flex items-start gap-1 mb-1 pl-1 border-l-2 border-zinc-600">
                             <CornerDownRight className="w-3 h-3 text-zinc-500 flex-shrink-0 mt-0.5" />
@@ -1044,20 +1043,22 @@ export default function ChatPage() {
                           <p className="text-xs text-gray-300 break-words">{msg.message}</p>
                         )}
                       </div>
-                      <div className="flex flex-col gap-1 flex-shrink-0">
-                        {/* Tip button */}
-                        <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={!isConnected || isOwnMessage || isTipPending || isTipConfirming} className={`flex flex-col items-center justify-center w-[32px] h-[32px] rounded-lg transition-all ${isTipping ? "bg-white/20" : tipCount > 0 ? "bg-white/10" : (!isConnected || isOwnMessage) ? "" : "hover:bg-white/10"}`} title={!isConnected ? "Connect wallet to tip" : isOwnMessage ? "Can't tip yourself" : `Tip ${tipSettings.amount} SPRINKLES`}>
-                          <Heart className={`w-4 h-4 transition-colors ${isTipping ? "text-white animate-pulse fill-white" : tipCount > 0 ? "text-white fill-white/50" : "text-gray-500"}`} />
-                          {tipCount > 0 && <span className="text-[8px] font-bold text-white">{tipCount}</span>}
-                        </button>
+                      {/* Time and action buttons in a row */}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className="text-[10px] text-gray-600">{timeAgo(msg.timestamp)}</span>
                         {/* Reply button */}
                         <button 
                           onClick={() => handleReply(msg)} 
                           disabled={!isConnected}
-                          className={`flex flex-col items-center justify-center w-[32px] h-[32px] rounded-lg transition-all ${!isConnected ? "" : "hover:bg-white/10"}`}
+                          className={`flex items-center justify-center w-[28px] h-[28px] rounded-lg transition-all ${!isConnected ? "" : "hover:bg-white/10"}`}
                           title={!isConnected ? "Connect wallet to reply" : "Reply"}
                         >
-                          <Reply className="w-4 h-4 text-gray-500 hover:text-white transition-colors" />
+                          <Reply className="w-3.5 h-3.5 text-gray-500 hover:text-white transition-colors" />
+                        </button>
+                        {/* Tip button */}
+                        <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={!isConnected || isOwnMessage || isTipPending || isTipConfirming} className={`flex flex-col items-center justify-center w-[28px] h-[28px] rounded-lg transition-all ${isTipping ? "bg-white/20" : tipCount > 0 ? "bg-white/10" : (!isConnected || isOwnMessage) ? "" : "hover:bg-white/10"}`} title={!isConnected ? "Connect wallet to tip" : isOwnMessage ? "Can't tip yourself" : `Tip ${tipSettings.amount} SPRINKLES`}>
+                          <Heart className={`w-3.5 h-3.5 transition-colors ${isTipping ? "text-white animate-pulse fill-white" : tipCount > 0 ? "text-white fill-white/50" : "text-gray-500"}`} />
+                          {tipCount > 0 && <span className="text-[7px] font-bold text-white -mt-0.5">{tipCount}</span>}
                         </button>
                       </div>
                     </div>
