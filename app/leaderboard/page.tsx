@@ -6,7 +6,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Trophy, Clock, Coins, HelpCircle, X, Sparkles, History, ExternalLink } from "lucide-react";
+import { Trophy, Clock, Coins, X, Sparkles, History, ExternalLink } from "lucide-react";
 import { formatEther } from "viem";
 
 type MiniAppContext = {
@@ -477,7 +477,7 @@ export default function LeaderboardPage() {
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
           {/* Fixed Header Section */}
           <div className="flex-shrink-0">
-            <Header title="LEADERBOARD" user={context?.user} />
+            <Header title="TOP MINERS" user={context?.user} />
 
             <div className="grid grid-cols-3 gap-2 mb-3">
               {/* Week Tile */}
@@ -522,7 +522,7 @@ export default function LeaderboardPage() {
                     </div>
                     <div className="flex items-center justify-between w-full px-1">
                       <DonutCoin className="w-3.5 h-3.5" />
-                      <span className="text-sm font-bold text-pink-400">{distributionConfig.DONUT.toLocaleString()}</span>
+                      <span className="text-sm font-bold text-pink-400">{Math.floor(distributionConfig.DONUT).toLocaleString()}</span>
                     </div>
                     <div className="flex items-center justify-between w-full px-1">
                       <SprinklesCoin className="w-3.5 h-3.5" />
@@ -541,10 +541,8 @@ export default function LeaderboardPage() {
                 onClick={() => setShowHelpDialog(true)}
                 className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] hover:bg-zinc-800 transition-colors"
               >
-                <div className="flex items-center justify-center gap-2 h-full">
-                  <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                  <span className="text-xs font-semibold text-white">How to Win</span>
-                  <HelpCircle className="w-3 h-3 text-gray-400" />
+                <div className="flex items-center justify-center h-full">
+                  <span className="text-xs font-bold text-white">HOW TO WIN</span>
                 </div>
               </button>
 
@@ -552,9 +550,8 @@ export default function LeaderboardPage() {
                 onClick={() => setShowPastWinnersDialog(true)}
                 className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] hover:bg-zinc-800 transition-colors"
               >
-                <div className="flex items-center justify-center gap-2 h-full">
-                  <History className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                  <span className="text-xs font-semibold text-white">Past Winners</span>
+                <div className="flex items-center justify-center h-full">
+                  <span className="text-xs font-bold text-white">PAST WINNERS</span>
                 </div>
               </button>
             </div>
