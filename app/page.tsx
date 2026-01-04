@@ -238,7 +238,72 @@ function FallingCoins({ coinSrc, count = 12 }: { coinSrc: string; count?: number
   );
 }
 
-// Matrix-style text animation for miner tiles
+// Matrix-style single character component for text
+function MatrixChar({ char, delay = 0, isReady }: { char: string; delay?: number; isReady: boolean }) {
+  const [displayChar, setDisplayChar] = useState(char === ' ' ? ' ' : 'A');
+  const [isAnimating, setIsAnimating] = useState(true);
+  const hasAnimatedRef = useRef(false);
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  
+  useEffect(() => {
+    // Don't animate spaces
+    if (char === ' ') {
+      setDisplayChar(' ');
+      setIsAnimating(false);
+      return;
+    }
+    
+    // If already animated, just show the char
+    if (hasAnimatedRef.current) {
+      setDisplayChar(char);
+      return;
+    }
+    
+    // Wait for ready signal
+    if (!isReady) return;
+    
+    hasAnimatedRef.current = true;
+    setIsAnimating(true);
+    
+    // Random chars cycling effect - more cycles for later chars (creates wipe effect)
+    let cycleCount = 0;
+    const maxCycles = 8 + Math.floor(delay / 30);
+    
+    const cycleInterval = setInterval(() => {
+      if (cycleCount < maxCycles) {
+        setDisplayChar(chars[Math.floor(Math.random() * chars.length)]);
+        cycleCount++;
+      } else {
+        setDisplayChar(char);
+        setIsAnimating(false);
+        clearInterval(cycleInterval);
+      }
+    }, 50);
+    
+    return () => clearInterval(cycleInterval);
+  }, [char, delay, isReady]);
+  
+  // After animation done, update with new values
+  useEffect(() => {
+    if (hasAnimatedRef.current && !isAnimating) {
+      setDisplayChar(char);
+    }
+  }, [char, isAnimating]);
+  
+  return (
+    <span 
+      className={`inline-block transition-all duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}
+      style={{ 
+        minWidth: char === ' ' ? '0.3em' : '0.6em',
+        textAlign: 'center'
+      }}
+    >
+      {displayChar}
+    </span>
+  );
+}
+
+// Matrix-style text animation for miner tiles (per-character like about page)
 function MatrixText({ 
   text, 
   isReady,
@@ -248,61 +313,98 @@ function MatrixText({
   isReady: boolean;
   className?: string;
 }) {
-  const [animationComplete, setAnimationComplete] = useState(false);
-  const [animatingText, setAnimatingText] = useState(text);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const hasStartedAnimationRef = useRef(false);
-
+  const [key, setKey] = useState(0);
+  const initializedRef = useRef(false);
+  
+  // Trigger animation once when ready
   useEffect(() => {
-    // Only run animation once when ready
-    if (!hasStartedAnimationRef.current && isReady) {
-      hasStartedAnimationRef.current = true;
-      setIsAnimating(true);
-      
-      let cycleCount = 0;
-      const maxCycles = 10;
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      let completed = false;
-      
-      const interval = setInterval(() => {
-        if (cycleCount < maxCycles) {
-          const randomText = text.split('').map(char => 
-            char === ' ' ? ' ' : chars[Math.floor(Math.random() * chars.length)]
-          ).join('');
-          setAnimatingText(randomText);
-          cycleCount++;
-        } else {
-          completed = true;
-          setIsAnimating(false);
-          setAnimationComplete(true);
-          clearInterval(interval);
-        }
-      }, 50);
-      
-      return () => {
-        clearInterval(interval);
-        // If cleanup happens before animation finished, still mark complete
-        if (!completed) {
-          setIsAnimating(false);
-          setAnimationComplete(true);
-        }
-      };
+    if (!initializedRef.current && isReady) {
+      initializedRef.current = true;
+      setKey(1);
     }
-  }, [isReady, text]);
-
-  // After animation completes, show the live text prop directly
-  const displayText = animationComplete 
-    ? text 
-    : (isAnimating ? animatingText : text);
-
+  }, [isReady]);
+  
+  const chars = text.split('');
+  
   return (
-    <span className={`${className} ${isAnimating ? 'text-green-400/80' : ''} transition-colors duration-200`}>
-      {displayText}
+    <span key={key} className={className}>
+      {chars.map((char, index) => (
+        <MatrixChar 
+          key={`${key}-${index}`} 
+          char={char} 
+          delay={index * 30} 
+          isReady={isReady}
+        />
+      ))}
     </span>
   );
 }
 
-// Matrix-style price animation
+// Matrix-style single digit component (matches about page style)
+function MatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: number; isReady: boolean }) {
+  const [displayChar, setDisplayChar] = useState(char === '.' || char === ',' ? char : '0');
+  const [isAnimating, setIsAnimating] = useState(true);
+  const hasAnimatedRef = useRef(false);
+  
+  useEffect(() => {
+    // Don't animate punctuation
+    if (char === '.' || char === ',') {
+      setDisplayChar(char);
+      setIsAnimating(false);
+      return;
+    }
+    
+    // If already animated, just show the char
+    if (hasAnimatedRef.current) {
+      setDisplayChar(char);
+      return;
+    }
+    
+    // Wait for ready signal
+    if (!isReady) return;
+    
+    hasAnimatedRef.current = true;
+    setIsAnimating(true);
+    
+    // Random digits cycling effect - more cycles for later digits (creates wipe effect)
+    let cycleCount = 0;
+    const maxCycles = 8 + Math.floor(delay / 30);
+    
+    const cycleInterval = setInterval(() => {
+      if (cycleCount < maxCycles) {
+        setDisplayChar(Math.floor(Math.random() * 10).toString());
+        cycleCount++;
+      } else {
+        setDisplayChar(char);
+        setIsAnimating(false);
+        clearInterval(cycleInterval);
+      }
+    }, 50);
+    
+    return () => clearInterval(cycleInterval);
+  }, [char, delay, isReady]);
+  
+  // After animation done, update with new values
+  useEffect(() => {
+    if (hasAnimatedRef.current && !isAnimating) {
+      setDisplayChar(char === '.' || char === ',' ? char : char);
+    }
+  }, [char, isAnimating]);
+  
+  return (
+    <span 
+      className={`inline-block transition-all duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}
+      style={{ 
+        minWidth: char === ',' ? '0.3em' : char === '.' ? '0.25em' : '0.6em',
+        textAlign: 'center'
+      }}
+    >
+      {displayChar}
+    </span>
+  );
+}
+
+// Matrix-style price animation (per-digit like about page)
 function MatrixPrice({ 
   value, 
   isReady,
@@ -316,58 +418,40 @@ function MatrixPrice({
   suffix?: string;
   className?: string;
 }) {
-  const [animationComplete, setAnimationComplete] = useState(false);
-  const [animatingValue, setAnimatingValue] = useState("—");
-  const [isAnimating, setIsAnimating] = useState(false);
-  const hasStartedAnimationRef = useRef(false);
-
+  const [key, setKey] = useState(0);
+  const initializedRef = useRef(false);
+  
+  // Trigger animation once when we first get a valid value
   useEffect(() => {
-    // Only run animation once when we first get a valid value
-    if (!hasStartedAnimationRef.current && isReady && value && value !== "—") {
-      hasStartedAnimationRef.current = true;
-      setIsAnimating(true);
-      
-      let cycleCount = 0;
-      const maxCycles = 10;
-      let completed = false;
-      
-      const interval = setInterval(() => {
-        if (cycleCount < maxCycles) {
-          const randomValue = value.split('').map(char => {
-            if (char === '.' || char === ',') return char;
-            return Math.floor(Math.random() * 10).toString();
-          }).join('');
-          setAnimatingValue(randomValue);
-          cycleCount++;
-        } else {
-          completed = true;
-          setIsAnimating(false);
-          setAnimationComplete(true);
-          clearInterval(interval);
-        }
-      }, 40);
-      
-      return () => {
-        clearInterval(interval);
-        // If cleanup happens before animation finished, still mark complete
-        if (!completed) {
-          setIsAnimating(false);
-          setAnimationComplete(true);
-        }
-      };
+    if (!initializedRef.current && isReady && value && value !== "—") {
+      initializedRef.current = true;
+      setKey(1);
     }
   }, [isReady, value]);
-
-  // After animation completes, show the live value prop directly
-  // During animation, show the animating value
-  // Before animation starts, show dash
-  const displayValue = animationComplete 
-    ? (value || "—") 
-    : (isAnimating ? animatingValue : "—");
-
+  
+  // If not ready or no value, show dash
+  if (!value || value === "—" || !initializedRef.current) {
+    return (
+      <span className={`tabular-nums ${className}`}>
+        {prefix}—{suffix}
+      </span>
+    );
+  }
+  
+  const chars = value.split('');
+  
   return (
-    <span className={`tabular-nums ${className} ${isAnimating ? 'text-green-400/80' : ''} transition-colors duration-200`}>
-      {prefix}{displayValue}{suffix}
+    <span key={key} className={`tabular-nums ${className}`}>
+      {prefix}
+      {chars.map((char, index) => (
+        <MatrixDigit 
+          key={`${key}-${index}`} 
+          char={char} 
+          delay={index * 30} 
+          isReady={isReady}
+        />
+      ))}
+      {suffix}
     </span>
   );
 }
