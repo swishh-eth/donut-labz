@@ -114,8 +114,30 @@ export async function GET(request: Request) {
 
     if (error) throw error;
 
+    // Fetch recent airdrops to mark which messages received tips
+    const { data: airdrops } = await supabase
+      .from("chat_image_airdrops")
+      .select("recipient_message_hash, amount")
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    // Create a map of message hashes that received airdrops
+    const airdropMap = new Map<string, number>();
+    for (const airdrop of airdrops || []) {
+      if (airdrop.recipient_message_hash) {
+        const hash = airdrop.recipient_message_hash.toLowerCase();
+        airdropMap.set(hash, (airdropMap.get(hash) || 0) + parseInt(airdrop.amount || '1'));
+      }
+    }
+
+    // Add airdrop info to messages
+    const messagesWithAirdrops = (messages || []).map(msg => ({
+      ...msg,
+      airdrop_amount: airdropMap.get(msg.transaction_hash?.toLowerCase()) || 0,
+    }));
+
     // Reverse to get oldest first (so newest appears at bottom when rendered)
-    const sortedMessages = (messages || []).reverse();
+    const sortedMessages = messagesWithAirdrops.reverse();
 
     return NextResponse.json({ messages: sortedMessages });
   } catch (e) {

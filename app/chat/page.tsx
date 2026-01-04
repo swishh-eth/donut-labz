@@ -37,6 +37,7 @@ type ChatMessage = {
   blockNumber: bigint;
   imageUrl?: string;
   replyToHash?: string;
+  airdropAmount?: number;
 };
 
 type FarcasterProfile = {
@@ -52,8 +53,8 @@ type TipSettings = {
 };
 
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as `0x${string}`;
-const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD" as `0x${string}`;
-const IMAGE_UPLOAD_COST = 10n * 10n ** 18n; // 10 SPRINKLES
+const IMAGE_DISTRIBUTION_WALLET = "0x322BcC769f879549E0c20daFf3e1cbD64A1cf0f1" as `0x${string}`; // Bot wallet for distributing to chatters
+const IMAGE_UPLOAD_COST = 10n * 10n ** 18n; // 10 SPRINKLES (1 each to last 10 chatters)
 
 const ERC20_ABI = [
   {
@@ -281,6 +282,7 @@ export default function ChatPage() {
           blockNumber: BigInt(m.block_number),
           imageUrl: m.image_url || null,
           replyToHash: m.reply_to_hash || null,
+          airdropAmount: m.airdrop_amount || 0,
         })) as ChatMessage[];
     },
     refetchInterval: 10000,
@@ -505,7 +507,7 @@ export default function ChatPage() {
           address: SPRINKLES_ADDRESS,
           abi: ERC20_ABI,
           functionName: "transfer",
-          args: [BURN_ADDRESS, IMAGE_UPLOAD_COST],
+          args: [IMAGE_DISTRIBUTION_WALLET, IMAGE_UPLOAD_COST],
         });
       } else {
         // No image, send message directly
@@ -623,7 +625,7 @@ export default function ChatPage() {
 
   // Handle burn success - upload image and send message
   useEffect(() => {
-    if (isBurnSuccess && selectedImage && pendingMessage !== undefined) {
+    if (isBurnSuccess && burnHash && selectedImage && pendingMessage !== undefined) {
       const completeImageUpload = async () => {
         setIsUploadingImage(true);
         try {
@@ -631,6 +633,17 @@ export default function ChatPage() {
           if (imageUrl) {
             setPendingImageUrl(imageUrl);
             pendingImageUrlRef.current = imageUrl; // Store in ref for reliable access
+            
+            // Trigger the distribution to last 10 chatters (fire and forget)
+            fetch('/api/chat/distribute-image-tips', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                triggerTxHash: burnHash,
+                senderAddress: address 
+              }),
+            }).catch(e => console.error('Distribution trigger failed:', e));
+            
             // Now send the actual chat message
             writeContract({
               address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
@@ -639,7 +652,7 @@ export default function ChatPage() {
               args: [message.trim() || "📷"],
             });
           } else {
-            setEligibilityError(["Failed to upload image. SPRINKLES were burned but image upload failed."]);
+            setEligibilityError(["Failed to upload image. SPRINKLES were sent but image upload failed."]);
             clearSelectedImage();
           }
         } catch (e) {
@@ -1038,6 +1051,15 @@ export default function ChatPage() {
                         )}
                         {msg.message && msg.message !== "📷" && (
                           <p className="text-xs text-gray-300 break-words">{msg.message}</p>
+                        )}
+                        {/* Airdrop badge - shows when this message received SPRINKLES from an image upload */}
+                        {msg.airdropAmount && msg.airdropAmount > 0 && (
+                          <div className="flex items-center gap-1 mt-1">
+                            <span className="text-[10px] font-bold text-green-400 bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                              <SprinklesCoin className="w-3 h-3" />
+                              +{msg.airdropAmount}
+                            </span>
+                          </div>
                         )}
                       </div>
                       {/* Time and action buttons in a row */}
