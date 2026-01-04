@@ -1236,7 +1236,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               </h2>
               <div className="space-y-3">
                 <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-xs font-bold text-black">1</div>
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-white flex items-center justify-center text-xs font-bold text-black">1</div>
                   <div>
                     <div className="font-semibold text-white text-sm flex items-center gap-1">Pay <DonutCoin className="w-4 h-4" />DONUT to Mine</div>
                     <div className="text-xs text-gray-400 mt-0.5">Pay the current price in DONUT.</div>
@@ -1269,15 +1269,15 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                   <div className="text-xs text-gray-500 mb-2 font-semibold">20% Mining Fee Distribution</div>
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2 text-xs">
-                      <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                      <span className="text-gray-400">15% → Treasury (LSG Revenue)</span>
+                      <div className="w-2 h-2 rounded-full bg-pink-500"></div>
+                      <span className="text-gray-400">15% → Treasury (LSG Revenue) <span className="text-gray-500 italic">"5% buy & burn can be enabled by SPRINKLES holders - coming soon"</span></span>
                     </div>
                     <div className="flex items-center gap-2 text-xs">
-                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                      <div className="w-2 h-2 rounded-full bg-pink-500"></div>
                       <span className="text-gray-400">4% → LP Burn Rewards</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs">
-                      <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                      <div className="w-2 h-2 rounded-full bg-pink-500"></div>
                       <span className="text-gray-400">1% → Leaderboard Rewards</span>
                     </div>
                   </div>
