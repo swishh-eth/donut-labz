@@ -202,36 +202,16 @@ const calculateSprinklesPrice = (initPrice: bigint, startTime: number | bigint):
 
 
 
-// Video tile component with lazy loading
-function VideoTile({ 
-  videoSrc, 
+// Image tile component (static images instead of videos for bandwidth savings)
+function ImageTile({ 
+  imageSrc, 
   onClick,
   children
 }: { 
-  videoSrc: string;
+  imageSrc: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const handleCanPlay = () => {
-      setIsLoaded(true);
-    };
-    video.addEventListener('canplay', handleCanPlay);
-    
-    // Start loading the video
-    video.load();
-
-    return () => {
-      video.removeEventListener('canplay', handleCanPlay);
-    };
-  }, []);
-
   return (
     <button
       onClick={onClick}
@@ -240,16 +220,11 @@ function VideoTile({
     >
       <div className="absolute inset-0 bg-black" />
       
-      <video
-        ref={videoRef}
-        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+      <img
+        src={imageSrc}
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover"
         style={{ transform: 'scale(1.2)' }}
-        autoPlay
-        muted
-        playsInline
-        loop
-        preload="auto"
-        src={videoSrc}
       />
       
       {/* Center darkening gradient for text readability */}
@@ -1456,8 +1431,8 @@ export default function HomePage() {
                 className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '0ms', animationFillMode: 'forwards' } : {})}
               >
-                <VideoTile
-                  videoSrc="/media/donut-loop.mp4"
+                <ImageTile
+                  imageSrc="/media/tile1.png"
                   onClick={() => setSelectedMiner("donut")}
                 >
                   <div className="text-3xl font-bold text-pink-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(244,114,182,0.9)' }}>
@@ -1482,15 +1457,15 @@ export default function HomePage() {
                       </span>
                     </div>
                   )}
-                </VideoTile>
+                </ImageTile>
               </div>
 
               <div 
                 className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {})}
               >
-                <VideoTile
-                  videoSrc="/media/sprinkles-loop.mp4"
+                <ImageTile
+                  imageSrc="/media/tile2.png"
                   onClick={() => setSelectedMiner("sprinkles")}
                 >
                   <div className="text-3xl font-bold text-green-400 mb-2 text-center" style={{ textShadow: '0 0 12px rgba(74,222,128,0.9)' }}>
@@ -1515,7 +1490,7 @@ export default function HomePage() {
                       </span>
                     </div>
                   )}
-                </VideoTile>
+                </ImageTile>
               </div>
 
               {/* Burn Tile */}
