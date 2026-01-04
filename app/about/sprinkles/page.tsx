@@ -330,7 +330,7 @@ export default function AboutSprinklesPage() {
                     <span className="text-[10px] text-gray-400">SPRINKLES Burned</span>
                   </div>
                   <span className="text-lg font-bold text-green-400">{burnedBalance}</span>
-                  <p className="text-[9px] text-gray-500 mt-0.5">Miner 10% Buy & Burn Fee</p>
+                  <p className="text-[9px] text-gray-500 mt-0.5">LP Rewards & Dead Address</p>
                 </div>
                 <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl">
                   <div className="flex items-center gap-1.5 mb-1">
@@ -346,7 +346,7 @@ export default function AboutSprinklesPage() {
                     <span className="text-[10px] text-gray-400">Treasury SPRINKLES</span>
                   </div>
                   <span className="text-lg font-bold text-green-400">{treasurySprinkles}</span>
-                  <p className="text-[9px] text-gray-500 mt-0.5">Miner Revenue Buybacks</p>
+                  <p className="text-[9px] text-gray-500 mt-0.5">Initial LP Allocation</p>
                 </div>
                 <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl">
                   <div className="flex items-center gap-1.5 mb-1">
@@ -354,7 +354,7 @@ export default function AboutSprinklesPage() {
                     <span className="text-[10px] text-gray-400">gDONUT Staked</span>
                   </div>
                   <span className="text-lg font-bold text-pink-400">{gDonutStaked}</span>
-                  <p className="text-[9px] text-gray-500 mt-0.5">Miner 8% Revenue Fee</p>
+                  <p className="text-[9px] text-gray-500 mt-0.5">Miner 15% Revenue Fee</p>
                 </div>
               </div>
 
@@ -390,24 +390,17 @@ export default function AboutSprinklesPage() {
                   </div>
                   <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10 border border-green-500/30">
                     <div className="flex items-center gap-2">
-                      <Flame className="w-4 h-4 text-green-400" />
-                      <span className="text-xs text-gray-300">Buy & Burn SPRINKLES</span>
+                      <Building className="w-4 h-4 text-green-400" />
+                      <span className="text-xs text-gray-300">Sprinkles Treasury (LSG)</span>
                     </div>
-                    <span className="text-sm font-bold text-green-400">10%</span>
+                    <span className="text-sm font-bold text-green-400">15%</span>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10 border border-green-500/30">
                     <div className="flex items-center gap-2">
-                      <Building className="w-4 h-4 text-green-400" />
-                      <span className="text-xs text-gray-300">Sprinkles Treasury</span>
-                    </div>
-                    <span className="text-sm font-bold text-green-400">8%</span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-800 border border-zinc-700">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-gray-400" />
+                      <TrendingUp className="w-4 h-4 text-green-400" />
                       <span className="text-xs text-gray-300">LP Burn Rewards</span>
                     </div>
-                    <span className="text-sm font-bold text-gray-400">1%</span>
+                    <span className="text-sm font-bold text-green-400">4%</span>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-800 border border-zinc-700">
                     <div className="flex items-center gap-2">

@@ -18,6 +18,8 @@ type MiniAppContext = {
 // SPRINKLES token address on Base
 const SPRINKLES_TOKEN = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
 const DONUT_TOKEN = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C";
+const GDONUT_TOKEN = "0xC78B6e362cB0f48b59E573dfe7C99d92153a16d3"; // Liquid Staked Governance DONUT
+const TREASURY_ADDRESS = "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d";
 const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 const FEE_SPLITTER_ADDRESS = "0x710e042d4F13f5c649dBb1774A3695BFcAC253ce"; // Effectively burned - locked in fee splitter
 
@@ -77,6 +79,11 @@ async function fetchBurnedDonutBalance(): Promise<bigint> {
   return fetchTokenBalance(DONUT_TOKEN, FEE_SPLITTER_ADDRESS);
 }
 
+// Fetch gDONUT staked by treasury
+async function fetchGDonutStaked(): Promise<bigint> {
+  return fetchTokenBalance(GDONUT_TOKEN, TREASURY_ADDRESS);
+}
+
 // Format large numbers with commas
 function formatBurnedAmount(amount: bigint): string {
   // SPRINKLES has 18 decimals
@@ -123,6 +130,46 @@ function FallingCoins() {
             ) : (
               <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover opacity-40" />
             )}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Falling Donuts Only Animation Component (for pink themed tiles)
+function FallingDonuts() {
+  const getRandomDelay = (seed: number) => {
+    const x = Math.sin(seed * 12.9898) * 43758.5453;
+    return (x - Math.floor(x)) * 6;
+  };
+  
+  const coins = Array.from({ length: 12 }, (_, i) => ({
+    id: i,
+    left: `${5 + (i * 8) % 90}%`,
+    delay: `${getRandomDelay(i + 1)}s`,
+    duration: `${4 + (i % 4)}s`,
+    size: 12 + (i % 3) * 4,
+  }));
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {coins.map((c) => (
+        <div
+          key={c.id}
+          className="absolute animate-fall"
+          style={{
+            left: c.left,
+            top: '-60px',
+            animationDelay: c.delay,
+            animationDuration: c.duration,
+          }}
+        >
+          <span 
+            className="rounded-full overflow-hidden inline-flex items-center justify-center ring-1 ring-pink-500/30"
+            style={{ width: c.size, height: c.size }}
+          >
+            <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover opacity-40" />
           </span>
         </div>
       ))}
@@ -263,6 +310,84 @@ function BurnCounterTile({
         
         <div className="text-[9px] text-zinc-500 mt-1">
           Permanently removed from circulation
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Treasury gDONUT Staked Tile Component
+function GDonutStakedTile({ 
+  gDonutStaked, 
+  isLoading 
+}: { 
+  gDonutStaked: bigint; 
+  isLoading: boolean;
+}) {
+  const [displayAmount, setDisplayAmount] = useState(0);
+  const targetRef = useRef(0);
+  const DISPLAY_DELAY = 100; // Small delay behind real amount
+  
+  // Calculate display amount
+  useEffect(() => {
+    if (isLoading || gDonutStaked === 0n) return;
+    
+    const realAmount = Number(gDonutStaked) / 1e18;
+    const targetAmount = Math.max(0, realAmount - DISPLAY_DELAY);
+    targetRef.current = targetAmount;
+    
+    // Estimate daily increase (~5000 DONUT staked per day as baseline based on 15% miner fee)
+    const estimatedDailyIncrease = 5_000;
+    const { msSince, msInDay } = getTimeSince6pmEST();
+    const dayProgress = msSince / msInDay;
+    
+    const startAmount = Math.max(0, targetAmount - estimatedDailyIncrease);
+    const interpolatedAmount = startAmount + (targetAmount - startAmount) * dayProgress;
+    
+    setDisplayAmount(Math.floor(interpolatedAmount));
+  }, [gDonutStaked, isLoading]);
+
+  // Slow increment effect
+  useEffect(() => {
+    if (isLoading || targetRef.current === 0) return;
+    
+    const interval = setInterval(() => {
+      setDisplayAmount(prev => {
+        if (prev >= targetRef.current) return prev;
+        const increment = Math.floor(Math.random() * 3) + 1; // 1-4 per tick
+        const newVal = prev + increment;
+        return Math.min(newVal, Math.floor(targetRef.current));
+      });
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, [isLoading, gDonutStaked]);
+
+  return (
+    <div
+      className="gdonut-staked-tile relative w-full rounded-2xl border-2 border-pink-500/50 overflow-hidden"
+      style={{ height: '100px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(219,39,119,0.1) 100%)' }}
+    >
+      {/* Falling donuts background */}
+      <FallingDonuts />
+      
+      <div className="relative z-10 p-4 h-full flex flex-col justify-center">
+        <div className="text-left">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="font-bold text-xs text-pink-400">TREASURY gDONUT STAKED</span>
+          </div>
+          
+          <div className="font-mono text-2xl font-bold text-pink-400">
+            {isLoading ? (
+              <span className="text-pink-400/50">Loading...</span>
+            ) : (
+              <span className="tabular-nums">{displayAmount.toLocaleString('en-US')}</span>
+            )}
+          </div>
+        </div>
+        
+        <div className="text-[9px] text-pink-300/50 mt-1">
+          Miner 15% revenue fee • Liquid Staked Governance
         </div>
       </div>
     </div>
@@ -564,7 +689,9 @@ export default function AboutPage() {
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [sprinklesBurned, setSprinklesBurned] = useState<bigint>(0n);
   const [donutBurned, setDonutBurned] = useState<bigint>(0n);
+  const [gDonutStaked, setGDonutStaked] = useState<bigint>(0n);
   const [isBurnLoading, setIsBurnLoading] = useState(true);
+  const [isGDonutLoading, setIsGDonutLoading] = useState(true);
 
   // Fetch burned amounts for both tokens
   useEffect(() => {
@@ -586,6 +713,24 @@ export default function AboutPage() {
     fetchBurned();
     // Refresh every 5 minutes
     const interval = setInterval(fetchBurned, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch gDONUT staked
+  useEffect(() => {
+    const fetchGDonut = async () => {
+      setIsGDonutLoading(true);
+      try {
+        const staked = await fetchGDonutStaked();
+        setGDonutStaked(staked);
+      } catch (e) {
+        console.error("Failed to fetch gDONUT staked:", e);
+      }
+      setIsGDonutLoading(false);
+    };
+    
+    fetchGDonut();
+    const interval = setInterval(fetchGDonut, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -832,10 +977,18 @@ export default function AboutPage() {
                 <BurnCounterTile sprinklesBurned={sprinklesBurned} donutBurned={donutBurned} isLoading={isBurnLoading} />
               </div>
 
-              {/* Halving Countdown Tile */}
+              {/* Treasury gDONUT Staked Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}
+              >
+                <GDonutStakedTile gDonutStaked={gDonutStaked} isLoading={isGDonutLoading} />
+              </div>
+
+              {/* Halving Countdown Tile */}
+              <div 
+                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
               >
                 <HalvingCountdownTile />
               </div>
@@ -843,7 +996,7 @@ export default function AboutPage() {
               {/* What is $DONUT Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
               >
                 <DonutInfoTile onClick={() => window.location.href = "/about/donut"} />
               </div>
@@ -851,7 +1004,7 @@ export default function AboutPage() {
               {/* What is $SPRINKLES Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}
               >
                 <SprinklesInfoTile onClick={() => window.location.href = "/about/sprinkles"} />
               </div>
@@ -859,7 +1012,7 @@ export default function AboutPage() {
               {/* Links & Contracts Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '250ms', animationFillMode: 'forwards' } : {}}
               >
                 <LinksContractsTile onClick={() => window.location.href = "/about/links-contracts"} />
               </div>
@@ -867,7 +1020,7 @@ export default function AboutPage() {
               {/* Donut Dashboard Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '250ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '300ms', animationFillMode: 'forwards' } : {}}
               >
                 <DonutDashboardTile onClick={async () => {
                   try {
@@ -881,7 +1034,7 @@ export default function AboutPage() {
               {/* Sprinkles Dashboard Tile */}
               <div 
                 className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '300ms', animationFillMode: 'forwards' } : {}}
+                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '350ms', animationFillMode: 'forwards' } : {}}
               >
                 <SprinklesDashboardTile 
                   showComingSoon={showComingSoon}
