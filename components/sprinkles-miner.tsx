@@ -556,15 +556,14 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           }
         };
 
-        // Fixed: Send correct field names and explicitly set imageUrl to null
+        // Fixed: Send correct field names (removed imageUrl since feature is deprecated)
         (async () => {
           try {
             const result = await fetchWithRetry("/api/record-glaze", {
               address: address,
               txHash: txHashToRecord,
               mineType: "sprinkles",
-              imageUrl: null, // Explicitly send null instead of undefined
-              providedAmount: paidAmount, // Use correct field name expected by API
+              providedAmount: paidAmount,
             });
             console.log('Record glaze final result:', result);
           } catch (err) {

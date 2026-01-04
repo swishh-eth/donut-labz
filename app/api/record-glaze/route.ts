@@ -1,5 +1,6 @@
 // app/api/record-glaze/route.ts
 // Updated to also store mining events for the Recent Miners feature
+// Removed deprecated image_url feature
 
 import { NextResponse } from 'next/server';
 import { recordGlaze } from '@/lib/supabase-leaderboard';
@@ -21,17 +22,53 @@ const MULTICALL_ADDRESS = '0x3ec144554b484C6798A683E34c8e8E222293f323'.toLowerCa
 // The SPRINKLES miner contract address
 const SPRINKLES_MINER_ADDRESS = '0x924b2d4a89b84a37510950031dcdb6552dc97bcc'.toLowerCase();
 
+// Alchemy RPC (primary) with fallback
+const ALCHEMY_RPC = 'https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g';
+const FALLBACK_RPC = 'https://mainnet.base.org';
+
 // Calculate the mine function selectors
 // DONUT: mine(address,uint256,uint256,uint256,string)
 const DONUT_MINE_SELECTOR = keccak256(toBytes('mine(address,uint256,uint256,uint256,string)')).slice(0, 10);
 // SPRINKLES: mine(address,address,uint256,uint256,uint256,string)
 const SPRINKLES_MINE_SELECTOR = keccak256(toBytes('mine(address,address,uint256,uint256,uint256,string)')).slice(0, 10);
 
+// Helper function to fetch with fallback RPC
+async function fetchWithFallback(method: string, params: any[]): Promise<any> {
+  const rpcs = [ALCHEMY_RPC, FALLBACK_RPC];
+  
+  for (const rpc of rpcs) {
+    try {
+      const response = await fetch(rpc, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method,
+          params,
+          id: 1,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.result) {
+        return data;
+      }
+    } catch (e) {
+      console.warn(`RPC ${rpc} failed for ${method}:`, e);
+      continue;
+    }
+  }
+  
+  return { result: null };
+}
+
 export async function POST(request: Request) {
   try {
-    const { address, txHash, mineType = 'donut', imageUrl, amount: providedAmount } = await request.json();
+    // Accept both 'amount' and 'providedAmount' for backwards compatibility
+    const { address, txHash, mineType = 'donut', amount: providedAmountAlt, providedAmount } = await request.json();
+    const finalProvidedAmount = providedAmount || providedAmountAlt;
     
-    console.log('record-glaze called with:', { address, txHash, mineType, imageUrl, providedAmount });
+    console.log('record-glaze called with:', { address, txHash, mineType, providedAmount: finalProvidedAmount });
 
     if (!address || !txHash) {
       return NextResponse.json(
@@ -48,21 +85,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const rpcUrl = process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org';
-
-    // Get transaction receipt to verify success
-    const receiptResponse = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getTransactionReceipt',
-        params: [txHash],
-        id: 1,
-      }),
-    });
-
-    const receiptData = await receiptResponse.json();
+    // Get transaction receipt to verify success (using Alchemy with fallback)
+    const receiptData = await fetchWithFallback('eth_getTransactionReceipt', [txHash]);
     
     if (!receiptData.result) {
       return NextResponse.json(
@@ -81,18 +105,7 @@ export async function POST(request: Request) {
     const receipt = receiptData.result;
 
     // Get the actual transaction to check the input data
-    const txResponse = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getTransactionByHash',
-        params: [txHash],
-        id: 2,
-      }),
-    });
-
-    const txData = await txResponse.json();
+    const txData = await fetchWithFallback('eth_getTransactionByHash', [txHash]);
     const tx = txData.result;
 
     if (!tx) {
@@ -108,7 +121,7 @@ export async function POST(request: Request) {
     
     // Variables to store for mining_events
     // Use provided amount if available (captured at mine time for accuracy)
-    let amount = providedAmount || '';
+    let amount = finalProvidedAmount || '';
     let message = '';
 
     // Verify based on mine type
@@ -149,7 +162,7 @@ export async function POST(request: Request) {
         }
         
         // Extract amount from tx.value (ETH sent) if not provided, and message from uri
-        if (!providedAmount) {
+        if (!finalProvidedAmount) {
           amount = tx.value || '0';
         }
         message = params[4] as string || '';
@@ -240,7 +253,7 @@ export async function POST(request: Request) {
       const txHashLower = txHash.toLowerCase();
       const addressLower = address.toLowerCase();
       
-      console.log('Storing mining event:', { address: addressLower, tx_hash: txHashLower, mine_type: mineType, amount, message, image_url: imageUrl || null });
+      console.log('Storing mining event:', { address: addressLower, tx_hash: txHashLower, mine_type: mineType, amount, message });
       
       // First check if this tx_hash already exists
       const { data: existing, error: selectError } = await supabase
@@ -252,7 +265,7 @@ export async function POST(request: Request) {
       if (selectError) {
         console.error('Supabase select error:', selectError);
       } else if (existing) {
-        // Update existing record
+        // Update existing record (removed image_url)
         const { error: updateError } = await supabase
           .from('mining_events')
           .update({
@@ -260,7 +273,6 @@ export async function POST(request: Request) {
             mine_type: mineType,
             amount,
             message,
-            image_url: imageUrl || null,
             created_at: new Date().toISOString(),
           })
           .eq('id', existing.id);
@@ -271,7 +283,7 @@ export async function POST(request: Request) {
           console.log('Supabase update success for id:', existing.id);
         }
       } else {
-        // Insert new record (don't specify id, let it auto-generate)
+        // Insert new record (removed image_url)
         const { data: insertData, error: insertError } = await supabase
           .from('mining_events')
           .insert({
@@ -280,7 +292,6 @@ export async function POST(request: Request) {
             mine_type: mineType,
             amount,
             message,
-            image_url: imageUrl || null,
             created_at: new Date().toISOString(),
           })
           .select('id')

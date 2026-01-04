@@ -17,12 +17,50 @@ const EthCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
 import {
   useAccount,
   useConnect,
-  useReadContract,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi";
 import { base } from "wagmi/chains";
-import { formatEther, formatUnits, zeroAddress, type Address } from "viem";
+import { createPublicClient, http, fallback, formatEther, formatUnits, zeroAddress, type Address } from "viem";
+
+// Alchemy RPC (primary) with fallbacks for reliability
+const ALCHEMY_RPC = "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g";
+const FALLBACK_RPCS = [
+  "https://mainnet.base.org",
+  "https://base.llamarpc.com",
+  "https://1rpc.io/base",
+  "https://base.meowrpc.com",
+];
+
+// Create a public client with Alchemy as primary and fallbacks
+const publicClient = createPublicClient({
+  chain: base,
+  transport: fallback([
+    http(ALCHEMY_RPC, { timeout: 10_000 }),
+    http(FALLBACK_RPCS[0], { timeout: 15_000 }),
+    http(FALLBACK_RPCS[1], { timeout: 15_000 }),
+    http(FALLBACK_RPCS[2], { timeout: 15_000 }),
+    http(FALLBACK_RPCS[3], { timeout: 15_000 }),
+  ]),
+});
+
+// Helper function to read contract with Alchemy RPC
+async function readContractWithAlchemy<T>(
+  address: Address,
+  abi: any,
+  functionName: string,
+  args?: readonly any[]
+): Promise<T> {
+  const params: any = {
+    address,
+    abi,
+    functionName,
+  };
+  if (args && args.length > 0) {
+    params.args = args;
+  }
+  return publicClient.readContract(params) as Promise<T>;
+}
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
@@ -203,13 +241,14 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     };
   }, []);
 
+  // ETH price - refresh every 30 seconds (was 60)
   useEffect(() => {
     const fetchPrice = async () => {
       const price = await getEthPrice();
       setEthUsdPrice(price);
     };
     fetchPrice();
-    const interval = setInterval(fetchPrice, 60_000);
+    const interval = setInterval(fetchPrice, 30_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -266,18 +305,24 @@ export default function DonutMiner({ context }: DonutMinerProps) {
     connectAsync({ connector: primaryConnector, chainId: base.id }).catch(() => {});
   }, [connectAsync, isConnected, isConnecting, primaryConnector]);
 
-  const { data: rawMinerState, refetch: refetchMinerState } = useReadContract({
-    address: CONTRACT_ADDRESSES.multicall,
-    abi: MULTICALL_ABI,
-    functionName: "getMiner",
-    args: [address ?? zeroAddress],
-    chainId: base.id,
-    query: { refetchInterval: 10_000 },
+  // Use Alchemy RPC for miner state - refresh every 5 seconds (was 10)
+  const { data: rawMinerState, refetch: refetchMinerState } = useQuery({
+    queryKey: ["minerState", CONTRACT_ADDRESSES.multicall, address],
+    queryFn: async () => {
+      return readContractWithAlchemy<MinerState>(
+        CONTRACT_ADDRESSES.multicall as Address,
+        MULTICALL_ABI,
+        "getMiner",
+        [address ?? zeroAddress]
+      );
+    },
+    refetchInterval: 5_000, // Refresh every 5 seconds
+    staleTime: 3_000,
   });
 
   const minerState = useMemo(() => {
     if (!rawMinerState) return undefined;
-    return rawMinerState as unknown as MinerState;
+    return rawMinerState as MinerState;
   }, [rawMinerState]);
 
   useEffect(() => {
