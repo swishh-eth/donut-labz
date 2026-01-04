@@ -1,9 +1,10 @@
 // app/api/chat/distribute-image-tips/route.ts
-// Distributes 1 SPRINKLES each to the last 10 unique chatters when an image is uploaded
+// Distributes 1 SPRINKLES each to the last 10 UNIQUE chatters when an image is uploaded
+// FIXED: Now finds 10 unique addresses even if we need to look further back in history
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createWalletClient, createPublicClient, http, parseUnits, encodeFunctionData } from 'viem';
+import { createWalletClient, createPublicClient, http, parseUnits } from 'viem';
 import { base } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -13,8 +14,8 @@ const supabase = createClient(
 );
 
 const SPRINKLES_ADDRESS = '0xa890060BE1788a676dBC3894160f5dc5DeD2C98D';
-const CHAT_BOT_WALLET = '0x322BcC769f879549E0c20daFf3e1cbD64A1cf0f1';
 const AMOUNT_PER_CHATTER = parseUnits('1', 18); // 1 SPRINKLES each
+const TARGET_UNIQUE_CHATTERS = 10;
 
 const ERC20_ABI = [
   {
@@ -26,13 +27,6 @@ const ERC20_ABI = [
       { name: 'amount', type: 'uint256' },
     ],
     outputs: [{ type: 'bool' }],
-  },
-  {
-    name: 'balanceOf',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'account', type: 'address' }],
-    outputs: [{ type: 'uint256' }],
   },
 ] as const;
 
@@ -67,53 +61,61 @@ export async function POST(request: NextRequest) {
 
     // Create wallet client
     const account = privateKeyToAccount(privateKey as `0x${string}`);
-    const publicClient = createPublicClient({
-      chain: base,
-      transport: http('https://mainnet.base.org'),
-    });
     const walletClient = createWalletClient({
       account,
       chain: base,
-      transport: http('https://mainnet.base.org'),
+      transport: http('https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g'),
     });
 
-    // Get last 10 unique chatters (excluding sender)
-    const { data: messages, error: msgError } = await supabase
-      .from('chat_messages')
-      .select('sender, transaction_hash, timestamp')
-      .order('timestamp', { ascending: false })
-      .limit(100);
-
-    if (msgError) {
-      console.error('[distribute-image-tips] Failed to fetch messages:', msgError);
-      return NextResponse.json({ error: 'Failed to fetch chatters' }, { status: 500 });
-    }
-
-    // Get unique senders with their most recent message hash
+    // Find 10 UNIQUE chatters by fetching in batches until we have enough
+    const senderLower = senderAddress?.toLowerCase();
     const uniqueChatters: { address: string; messageHash: string }[] = [];
     const seen = new Set<string>();
-    const senderLower = senderAddress?.toLowerCase();
+    
+    let offset = 0;
+    const batchSize = 50;
+    const maxIterations = 20; // Safety limit: max 1000 messages to scan
+    
+    for (let i = 0; i < maxIterations && uniqueChatters.length < TARGET_UNIQUE_CHATTERS; i++) {
+      const { data: messages, error: msgError } = await supabase
+        .from('chat_messages')
+        .select('sender, transaction_hash')
+        .order('timestamp', { ascending: false })
+        .range(offset, offset + batchSize - 1);
 
-    for (const msg of messages || []) {
-      const sender = msg.sender.toLowerCase();
-      
-      // Skip if it's the image uploader or already seen
-      if (sender === senderLower || seen.has(sender)) {
-        continue;
-      }
-      
-      seen.add(sender);
-      uniqueChatters.push({
-        address: sender,
-        messageHash: msg.transaction_hash,
-      });
-      
-      if (uniqueChatters.length >= 10) {
+      if (msgError) {
+        console.error('[distribute-image-tips] Failed to fetch messages:', msgError);
         break;
       }
+
+      if (!messages || messages.length === 0) {
+        console.log(`[distribute-image-tips] No more messages to scan at offset ${offset}`);
+        break;
+      }
+
+      for (const msg of messages) {
+        const sender = msg.sender.toLowerCase();
+        
+        // Skip if it's the image uploader or already seen
+        if (sender === senderLower || seen.has(sender)) {
+          continue;
+        }
+        
+        seen.add(sender);
+        uniqueChatters.push({
+          address: sender,
+          messageHash: msg.transaction_hash,
+        });
+        
+        if (uniqueChatters.length >= TARGET_UNIQUE_CHATTERS) {
+          break;
+        }
+      }
+
+      offset += batchSize;
     }
 
-    console.log(`[distribute-image-tips] Found ${uniqueChatters.length} unique chatters to tip`);
+    console.log(`[distribute-image-tips] Found ${uniqueChatters.length} unique chatters to tip (scanned ${offset} messages)`);
 
     if (uniqueChatters.length === 0) {
       return NextResponse.json({ success: true, distributed: 0, message: 'No chatters to tip' });

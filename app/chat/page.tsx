@@ -702,6 +702,18 @@ export default function ChatPage() {
     }
   }, [messages?.length]);
 
+  // Scroll to bottom when pendingMessage is set (to show spinner)
+  useEffect(() => {
+    if (pendingMessage && !pendingMessageConfirmed) {
+      const container = messagesContainerRef.current;
+      if (container) {
+        requestAnimationFrame(() => {
+          container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        });
+      }
+    }
+  }, [pendingMessage, pendingMessageConfirmed]);
+
   const userDisplayName = context?.user?.displayName ?? context?.user?.username ?? "Farcaster user";
   const userAvatarUrl = context?.user?.pfpUrl ?? null;
 
@@ -861,6 +873,13 @@ export default function ChatPage() {
                     </div>
                     <div className="flex gap-2.5">
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">4</div>
+                      <div>
+                        <div className="font-semibold text-white text-xs">Image Airdrop Game</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">Upload an image for 10 SPRINKLES → automatically distributed to the last 10 unique chatters (1 each). Be active to catch airdrops!</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">5</div>
                       <div>
                         <div className="font-semibold text-white text-xs">Weekly Airdrop</div>
                         <div className="text-[11px] text-gray-400 mt-0.5">Claim earned points as real SPRINKLES tokens every Friday!</div>
@@ -1211,8 +1230,7 @@ export default function ChatPage() {
                         <X className="w-3 h-3 text-white" />
                       </button>
                       <div className="absolute bottom-1 left-1 bg-black/80 px-1.5 py-0.5 rounded text-[9px] text-white flex items-center gap-1">
-                        <SprinklesCoin className="w-2.5 h-2.5" />
-                        10 burn
+                        -10 <SprinklesCoin className="w-2.5 h-2.5" /> to recent chatters
                       </div>
                     </div>
                   )}
