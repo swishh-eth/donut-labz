@@ -308,7 +308,7 @@ function HalvingCountdownTile() {
       
       <div className="relative z-10 p-4 pr-20">
         <div className="flex items-center gap-2 mb-2">
-          <span className="font-bold text-sm text-white">Sprinkles Halving Countdown</span>
+          <span className="font-bold text-sm text-white">Sprinkles Halving Countdown Timer</span>
         </div>
         
         {isComplete ? (
@@ -700,7 +700,79 @@ export default function AboutPage() {
           <div className="flex-shrink-0">
             <Header title="INFO" user={context?.user} />
 
-            {/* Quick Links */}
+            {/* Top Stats Tiles - Matching Games page style */}
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {/* Stake Donut Tile */}
+              <button
+                onClick={async () => {
+                  try {
+                    await sdk.actions.openUrl({ url: "https://farcaster.xyz/miniapps/fOIgVq2bFKru/glazecorp" });
+                  } catch (e) {
+                    window.open("https://farcaster.xyz/miniapps/fOIgVq2bFKru/glazecorp", "_blank");
+                  }
+                }}
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px] relative overflow-hidden hover:bg-zinc-800 transition-colors active:scale-[0.98]"
+              >
+                {/* Background coin */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className="w-16 h-16 rounded-full overflow-hidden inline-flex items-center justify-center opacity-20">
+                    <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover scale-[1.7]" />
+                  </span>
+                </div>
+                <div className="relative z-10 flex flex-col items-center">
+                  <DonutCoin className="w-5 h-5 mb-1" />
+                  <span className="text-[10px] text-white font-semibold">Stake Donut</span>
+                </div>
+              </button>
+
+              {/* Pool To Mine Tile */}
+              <button
+                onClick={async () => {
+                  try {
+                    await sdk.actions.openUrl({ url: "https://farcaster.xyz/miniapps/OBSXNsOaGYv1/peeples-donuts" });
+                  } catch (e) {
+                    window.open("https://farcaster.xyz/miniapps/OBSXNsOaGYv1/peeples-donuts", "_blank");
+                  }
+                }}
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px] relative overflow-hidden hover:bg-zinc-800 transition-colors active:scale-[0.98]"
+              >
+                {/* Background coin */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className="w-16 h-16 rounded-full overflow-hidden inline-flex items-center justify-center opacity-20">
+                    <img src="/coins/peeples_logo.png" alt="" className="w-full h-full object-cover scale-[1.7]" />
+                  </span>
+                </div>
+                <div className="relative z-10 flex flex-col items-center">
+                  <PeeplesCoin className="w-5 h-5 mb-1" />
+                  <span className="text-[10px] text-white font-semibold">Pool To Mine</span>
+                </div>
+              </button>
+
+              {/* Eco Tokens Tile */}
+              <button
+                onClick={async () => {
+                  try {
+                    await sdk.actions.openUrl({ url: "https://farcaster.xyz/miniapps/yetHcJ1rdN-n/franchiser" });
+                  } catch (e) {
+                    window.open("https://farcaster.xyz/miniapps/yetHcJ1rdN-n/franchiser", "_blank");
+                  }
+                }}
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px] relative overflow-hidden hover:bg-zinc-800 transition-colors active:scale-[0.98]"
+              >
+                {/* Background coin */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className="w-16 h-16 rounded-full overflow-hidden inline-flex items-center justify-center opacity-20">
+                    <img src="/coins/franchiser_logo.png" alt="" className="w-full h-full object-cover" />
+                  </span>
+                </div>
+                <div className="relative z-10 flex flex-col items-center">
+                  <EcoCoin className="w-5 h-5 mb-1" />
+                  <span className="text-[10px] text-white font-semibold">Eco Tokens</span>
+                </div>
+              </button>
+            </div>
+
+            {/* Split Buttons */}
             <div className="grid grid-cols-2 gap-2 mb-3">
               <button
                 onClick={async () => {
@@ -710,51 +782,30 @@ export default function AboutPage() {
                     console.error("Failed to add mini app:", e);
                   }
                 }}
-                className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.98]"
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] hover:bg-zinc-800 transition-colors"
               >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                <span>App Added</span>
+                <div className="flex items-center justify-center gap-2 h-full">
+                  <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <span className="text-xs font-semibold text-white">App Added</span>
+                </div>
               </button>
+
               <button
                 onClick={async () => {
-                  try {
-                    await sdk.actions.openUrl({ url: "https://farcaster.xyz/miniapps/fOIgVq2bFKru/glazecorp" });
-                  } catch (e) {
-                    window.open("https://farcaster.xyz/miniapps/fOIgVq2bFKru/glazecorp", "_blank");
-                  }
+                  // TODO: Implement notifications
+                  console.log("Enable notifications clicked");
                 }}
-                className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.98]"
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] hover:bg-zinc-800 transition-colors"
               >
-                <DonutCoin className="h-4 w-4" />
-                <span>Stake Donut</span>
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    await sdk.actions.openUrl({ url: "https://farcaster.xyz/miniapps/OBSXNsOaGYv1/peeples-donuts" });
-                  } catch (e) {
-                    window.open("https://farcaster.xyz/miniapps/OBSXNsOaGYv1/peeples-donuts", "_blank");
-                  }
-                }}
-                className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.98]"
-              >
-                <PeeplesCoin className="h-4 w-4" />
-                <span>Pool To Mine</span>
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    await sdk.actions.openUrl({ url: "https://farcaster.xyz/miniapps/yetHcJ1rdN-n/franchiser" });
-                  } catch (e) {
-                    window.open("https://farcaster.xyz/miniapps/yetHcJ1rdN-n/franchiser", "_blank");
-                  }
-                }}
-                className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.98]"
-              >
-                <EcoCoin className="h-4 w-4" />
-                <span>Eco Tokens</span>
+                <div className="flex items-center justify-center gap-2 h-full">
+                  <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                  </svg>
+                  <span className="text-xs font-semibold text-white">Notifications</span>
+                </div>
               </button>
             </div>
           </div>
