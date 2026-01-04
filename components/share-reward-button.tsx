@@ -35,24 +35,7 @@ type ShareRewardButtonProps = {
   tile?: boolean;
 };
 
-// Coin icon components
-const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover" />
-  </span>
-);
-
-const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-full h-full object-cover" />
-  </span>
-);
-
-const UsdcCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-full h-full object-cover" />
-  </span>
-);
+// Coin icon components removed - using text instead to avoid flash issues
 
 // Pink gradient style for DONUT
 const pinkGradientActiveStyle = {
@@ -101,13 +84,6 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   const getActiveGradient = () => isDonutToken ? pinkGradientActiveStyle : greenGradientActiveStyle;
   const getGradient = () => isDonutToken ? pinkGradientStyle : greenGradientStyle;
   const getTextColor = () => isDonutToken ? "text-pink-400" : "text-green-400";
-  
-  const TokenIcon = ({ className = "w-4 h-4" }: { className?: string }) => {
-    if (isDonutToken) return <DonutCoin className={className} />;
-    if (isUsdcToken) return <UsdcCoin className={className} />;
-    // Default to SprinklesCoin for SPRINKLES or any unknown token
-    return <SprinklesCoin className={className} />;
-  };
 
   // Pulsing effect for active campaign
   useEffect(() => {
@@ -434,10 +410,10 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           {isWriting || isConfirming ? (
             <Loader2 className={cn("w-6 h-6 mb-1 animate-spin", getTextColor())} />
           ) : (
-            <TokenIcon className="w-6 h-6 mb-1" />
+            <Gift className={cn("w-6 h-6 mb-1", getTextColor())} />
           )}
           <div className={cn("text-[10px] font-bold", getTextColor())}>
-            {isWriting ? "Confirm..." : isConfirming ? "Claiming..." : "Claim Now"}
+            {isWriting ? "Confirm..." : isConfirming ? "Claiming..." : `Claim ${tokenSymbol}`}
           </div>
           <div className="text-[9px] text-gray-400">Tap to claim</div>
         </button>
@@ -525,8 +501,9 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
         )}
         style={isActive && claimsRemaining > 0 ? getActiveGradient() : { background: 'rgb(24,24,27)', border: '1px solid rgb(39,39,42)' }}
       >
-        <TokenIcon className="w-6 h-6 mb-1" />
-        <div className={cn("text-[10px] font-bold", getTextColor())}>Share</div>
+        <Share2 className={cn("w-6 h-6 mb-1", getTextColor())} />
+        <div className={cn("text-[10px] font-bold", getTextColor())}>Share to claim</div>
+        <div className={cn("text-[9px]", getTextColor())}>{tokenSymbol}</div>
       </button>
     );
   }
@@ -641,10 +618,10 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           {isWriting || isConfirming ? (
             <Loader2 className={cn("w-3.5 h-3.5 animate-spin", getTextColor())} />
           ) : (
-            <TokenIcon className="w-3.5 h-3.5" />
+            <Gift className={cn("w-3.5 h-3.5", getTextColor())} />
           )}
           <span className={cn("font-semibold text-xs", getTextColor())}>
-            {isWriting ? "Approve..." : isConfirming ? "Claiming..." : "Claim"}
+            {isWriting ? "Approve..." : isConfirming ? "Claiming..." : `Claim ${tokenSymbol}`}
           </span>
         </button>
       );
@@ -709,9 +686,9 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             {isWriting || isConfirming ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <TokenIcon className="w-4 h-4" />
+              <Gift className="w-4 h-4" />
             )}
-            {isWriting ? "Confirm..." : isConfirming ? "Claiming..." : "Claim"}
+            {isWriting ? "Confirm..." : isConfirming ? "Claiming..." : `Claim ${tokenSymbol}`}
           </button>
           <button
             onClick={() => {
@@ -785,8 +762,8 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             className="flex items-center gap-2 transition-opacity duration-300 ease-in-out absolute inset-0 justify-center"
             style={{ opacity: showClaimsLeft ? 0 : 1 }}
           >
-            <TokenIcon className="w-4 h-4" />
-            <span className="font-semibold text-xs text-white">Share to Claim</span>
+            <Share2 className={cn("w-4 h-4", getTextColor())} />
+            <span className={cn("font-semibold text-xs", getTextColor())}>Share to claim {tokenSymbol}</span>
           </div>
           {/* Claims left state */}
           <div
@@ -864,8 +841,8 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     <div className="bg-gradient-to-r from-amber-900/20 to-orange-900/20 border border-amber-500/30 rounded-lg p-3">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <TokenIcon className="w-4 h-4" />
-          <span className="font-bold text-white text-sm">Share for Rewards!</span>
+          <Gift className={cn("w-4 h-4", getTextColor())} />
+          <span className="font-bold text-white text-sm">Share to claim {tokenSymbol}!</span>
         </div>
         <div className="text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
           {claimsRemaining} left
