@@ -11,7 +11,7 @@ import { Header } from "@/components/header";
 import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
-import { Flame, Droplets, Sparkles, X, Zap, ExternalLink } from "lucide-react";
+import { Flame, Sparkles, X, Zap, ExternalLink } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
 import { cn } from "@/lib/utils";
@@ -1734,7 +1734,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Pool To Own Tile */}
+              {/* Activate Auction Burn Tile */}
               <div 
                 className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '175ms', animationFillMode: 'forwards' } : {})}
@@ -1745,15 +1745,15 @@ export default function HomePage() {
                 >
                   {/* Large background icon */}
                   <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <Droplets className="w-24 h-24 text-zinc-800" />
+                    <Flame className="w-24 h-24 text-zinc-800" />
                   </div>
                   
                   <div className="relative z-10 p-4 pr-20">
                     <div className="text-left">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-bold text-base text-gray-500">Pool To Own</span>
+                        <span className="font-bold text-base text-gray-500">Activate Auction Burn</span>
                       </div>
-                      <div className="text-[10px] text-gray-600 mb-2">Contribute liquidity to earn ownership</div>
+                      <div className="text-[10px] text-gray-600 mb-2">5% togglable burn voted on by $SPRINKLES holders</div>
                       <div className="text-[9px] text-gray-600">Coming soon...</div>
                     </div>
                   </div>
