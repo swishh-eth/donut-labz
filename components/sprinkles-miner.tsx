@@ -1259,18 +1259,18 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-xs font-bold text-black">4</div>
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">4</div>
                   <div>
-                    <div className="font-semibold text-green-400 text-sm">Get Paid Back</div>
+                    <div className="font-semibold text-white text-sm">Get Paid Back</div>
                     <div className="text-xs text-gray-400 mt-0.5">When outbid, get 80% of their DONUT.</div>
                   </div>
                 </div>
                 <div className="border-t border-zinc-800 pt-3 mt-3">
                   <div className="text-xs text-gray-500 mb-2 font-semibold">20% Mining Fee Distribution</div>
                   <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 text-xs">
+                    <div className="flex items-center gap-2 text-[10px]">
                       <div className="w-2 h-2 rounded-full bg-pink-500"></div>
-                      <span className="text-gray-400">15% → Treasury (LSG Revenue) <span className="text-gray-500 italic">"5% buy & burn can be enabled by SPRINKLES holders - coming soon"</span></span>
+                      <span className="text-gray-400">15% → Treasury (LSG) (Togglable Buy & Burn)</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs">
                       <div className="w-2 h-2 rounded-full bg-pink-500"></div>
