@@ -327,7 +327,7 @@ function BurnCounterTile({
           {/* SPRINKLES BURNED - Left side */}
           <div className="text-left">
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="font-bold text-xs text-white">SPRINKLES BURNED</span>
+              <span className="font-bold text-xs text-white">SPRINKLES BURNED <span className="text-[9px] text-white/50">(Togglable Burn)</span></span>
             </div>
             
             <div className="font-mono text-xl font-bold">
