@@ -185,12 +185,12 @@ const calculatePrice = (initPrice: bigint, startTime: number | bigint): bigint =
 
 // Matrix-style single digit component
 function MatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: number; isReady: boolean }) {
-  const [displayChar, setDisplayChar] = useState(char === '.' || char === ',' || char === '-' || char === '+' || char === '$' || char === 'h' || char === 'm' || char === 's' || char === 'r' ? char : '0');
+  const [displayChar, setDisplayChar] = useState(char === '.' || char === ',' || char === '-' || char === '+' || char === '$' || char === 'h' || char === 'm' || char === 's' || char === 'r' || char === ' ' ? char : '0');
   const [isAnimating, setIsAnimating] = useState(false);
   const hasAnimatedRef = useRef(false);
   
-  // Don't animate punctuation or letter suffixes
-  const isNonNumeric = char === '.' || char === ',' || char === '-' || char === '+' || char === '$' || char === 'h' || char === 'm' || char === 's' || char === 'r';
+  // Don't animate punctuation, letter suffixes, or spaces
+  const isNonNumeric = char === '.' || char === ',' || char === '-' || char === '+' || char === '$' || char === 'h' || char === 'm' || char === 's' || char === 'r' || char === ' ';
   
   useEffect(() => {
     if (isNonNumeric) {
@@ -869,7 +869,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
             <div>
               <div className="text-xs text-gray-500">Time</div>
               <div className="text-xl font-bold text-white whitespace-nowrap">
-                <MatrixNumber value={glazeTimeDisplay.replace(/\s+/g, '')} isReady={!!minerState} />
+                <MatrixNumber value={glazeTimeDisplay} isReady={!!minerState} />
               </div>
             </div>
             <div>

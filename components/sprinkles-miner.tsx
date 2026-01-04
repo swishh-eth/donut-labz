@@ -204,12 +204,12 @@ const formatTimeAgo = (timestamp: number): string => {
 
 // Matrix-style single digit component
 function MatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: number; isReady: boolean }) {
-  const [displayChar, setDisplayChar] = useState(char === '.' || char === ',' || char === '-' || char === '+' || char === '$' || char === '≈' || char === 'K' || char === 'M' || char === 'h' || char === 'm' || char === 's' || char === 'd' ? char : '0');
+  const [displayChar, setDisplayChar] = useState(char === '.' || char === ',' || char === '-' || char === '+' || char === '$' || char === '≈' || char === 'K' || char === 'M' || char === 'h' || char === 'm' || char === 's' || char === 'd' || char === ' ' ? char : '0');
   const [isAnimating, setIsAnimating] = useState(false);
   const hasAnimatedRef = useRef(false);
   
-  // Don't animate punctuation or letter suffixes
-  const isNonNumeric = char === '.' || char === ',' || char === '-' || char === '+' || char === '$' || char === '≈' || char === 'K' || char === 'M' || char === 'h' || char === 'm' || char === 's' || char === 'd';
+  // Don't animate punctuation, letter suffixes, or spaces
+  const isNonNumeric = char === '.' || char === ',' || char === '-' || char === '+' || char === '$' || char === '≈' || char === 'K' || char === 'M' || char === 'h' || char === 'm' || char === 's' || char === 'd' || char === ' ';
   
   useEffect(() => {
     if (isNonNumeric) {
@@ -1151,7 +1151,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             <div>
               <div className="text-xs text-gray-500">Time</div>
               <div className="text-xl font-bold text-white whitespace-nowrap">
-                <MatrixNumber value={mineTimeDisplay.replace(/\s+/g, '')} isReady={!!slot0} />
+                <MatrixNumber value={mineTimeDisplay} isReady={!!slot0} />
               </div>
             </div>
             <div>
