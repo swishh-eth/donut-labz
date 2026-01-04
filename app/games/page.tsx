@@ -453,7 +453,7 @@ export default function GamesPage() {
               >
                 <div className="flex items-center gap-1">
                   <Gamepad2 className="w-3.5 h-3.5 text-white" />
-                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Played</span>
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Total</span>
                 </div>
                 <div className="text-2xl font-bold text-white fade-in-up stagger-1 opacity-0">{totalGamesPlayed.toLocaleString()}</div>
               </div>

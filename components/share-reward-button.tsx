@@ -776,23 +776,25 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           onClick={handleShareToQualify}
           disabled={!userFid}
           className={cn(
-            "rounded-xl p-2 h-[36px] flex items-center justify-center gap-2 transition-all",
+            "rounded-xl p-2 h-[36px] flex items-center justify-center transition-all relative overflow-hidden",
             !userFid && "opacity-50 cursor-not-allowed"
           )}
           style={getActiveGradient()}
         >
+          {/* Share to Claim state */}
           <div
-            className="flex items-center gap-2 transition-opacity duration-500 ease-in-out"
-            style={{ opacity: showClaimsLeft ? 0 : 1, position: showClaimsLeft ? 'absolute' : 'relative' }}
+            className="flex items-center gap-2 transition-opacity duration-300 ease-in-out absolute inset-0 justify-center"
+            style={{ opacity: showClaimsLeft ? 0 : 1 }}
           >
             <TokenIcon className="w-4 h-4" />
             <span className="font-semibold text-xs text-white">Share to Claim</span>
           </div>
+          {/* Claims left state */}
           <div
-            className="flex items-center transition-opacity duration-500 ease-in-out"
-            style={{ opacity: showClaimsLeft ? 1 : 0, position: showClaimsLeft ? 'relative' : 'absolute' }}
+            className="flex items-center transition-opacity duration-300 ease-in-out absolute inset-0 justify-center"
+            style={{ opacity: showClaimsLeft ? 1 : 0 }}
           >
-            <span className="font-semibold text-xs text-white">{claimsRemaining} left</span>
+            <span className="font-semibold text-xs text-white">{claimsRemaining} claims left</span>
           </div>
         </button>
       );
