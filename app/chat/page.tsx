@@ -6,7 +6,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Send, MessageCircle, HelpCircle, X, Timer, Heart, Settings, Image as ImageIcon, User, Reply, CornerDownRight } from "lucide-react";
+import { Send, MessageCircle, X, Timer, Heart, Image as ImageIcon, User, Reply, CornerDownRight } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseUnits } from "viem";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
@@ -782,18 +782,15 @@ export default function ChatPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-2 mb-3 flex-shrink-0">
-            <button onClick={() => setShowHelpDialog(true)} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 hover:bg-zinc-800 transition-colors">
-              <div className="flex items-center justify-center gap-2">
-                <MessageCircle className="w-4 h-4 text-white" />
-                <span className="text-xs font-semibold text-white">Chat To Earn</span>
-                <HelpCircle className="w-3 h-3 text-gray-400" />
+            <button onClick={() => setShowHelpDialog(true)} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] hover:bg-zinc-800 transition-colors">
+              <div className="flex items-center justify-center h-full">
+                <span className="text-xs font-bold text-white">HOW TO EARN</span>
               </div>
             </button>
-            <button onClick={openTipSettings} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 hover:bg-zinc-800 transition-colors">
-              <div className="flex items-center justify-center gap-2">
-                <Settings className="w-4 h-4 text-white" />
-                <span className="text-xs font-semibold text-white">Tip Settings</span>
-                <span className="text-[9px] text-gray-400 flex items-center gap-0.5">
+            <button onClick={openTipSettings} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] hover:bg-zinc-800 transition-colors">
+              <div className="flex items-center justify-center gap-2 h-full">
+                <span className="text-xs font-bold text-white">TIP SETTINGS</span>
+                <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
                   <SprinklesCoin className="w-3 h-3" />
                   {tipSettings.amount}
                 </span>
