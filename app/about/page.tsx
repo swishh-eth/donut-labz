@@ -338,7 +338,7 @@ function BurnCounterTile({
           {/* DONUT BURNED - Center-left */}
           <div className="text-left">
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="font-bold text-xs text-pink-400">DONUT BURNED</span>
+              <span className="font-bold text-xs text-pink-400">DONUT BURNED <span className="text-[9px] text-pink-400/70">(LP Fee's)</span></span>
             </div>
             
             <div className="font-mono text-xl font-bold">
@@ -383,7 +383,7 @@ function GDonutStakedTile({
       <div className="relative z-10 p-4 h-full flex flex-col justify-center">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="font-bold text-xs text-pink-400">SPRINKLES TREASURY gDONUT HOLDINGS</span>
+            <span className="font-bold text-xs text-pink-400">SPRINKLES TREASURY gDONUT</span>
           </div>
           
           <div className="font-mono text-2xl font-bold">
@@ -403,6 +403,8 @@ function GDonutStakedTile({
 function HalvingCountdownTile() {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isComplete, setIsComplete] = useState(false);
+  const [hasAnimated, setHasAnimated] = useState(false);
+  const [displayValues, setDisplayValues] = useState({ days: '0', hours: '00', minutes: '00', seconds: '00' });
   
   // Next halving: January 7th, 2026 2:00 AM UTC
   const HALVING_DATE = new Date('2026-01-07T02:00:00Z').getTime();
@@ -430,6 +432,49 @@ function HalvingCountdownTile() {
     return () => clearInterval(interval);
   }, []);
 
+  // Matrix animation on initial load
+  useEffect(() => {
+    if (hasAnimated || timeLeft.days === 0 && timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0) return;
+    
+    let cycleCount = 0;
+    const maxCycles = 12;
+    
+    const animationInterval = setInterval(() => {
+      if (cycleCount < maxCycles) {
+        setDisplayValues({
+          days: String(Math.floor(Math.random() * 10)),
+          hours: String(Math.floor(Math.random() * 100)).padStart(2, '0'),
+          minutes: String(Math.floor(Math.random() * 100)).padStart(2, '0'),
+          seconds: String(Math.floor(Math.random() * 100)).padStart(2, '0'),
+        });
+        cycleCount++;
+      } else {
+        setDisplayValues({
+          days: String(timeLeft.days),
+          hours: String(timeLeft.hours).padStart(2, '0'),
+          minutes: String(timeLeft.minutes).padStart(2, '0'),
+          seconds: String(timeLeft.seconds).padStart(2, '0'),
+        });
+        setHasAnimated(true);
+        clearInterval(animationInterval);
+      }
+    }, 50);
+    
+    return () => clearInterval(animationInterval);
+  }, [timeLeft, hasAnimated]);
+
+  // Update display values after animation is done
+  useEffect(() => {
+    if (hasAnimated) {
+      setDisplayValues({
+        days: String(timeLeft.days),
+        hours: String(timeLeft.hours).padStart(2, '0'),
+        minutes: String(timeLeft.minutes).padStart(2, '0'),
+        seconds: String(timeLeft.seconds).padStart(2, '0'),
+      });
+    }
+  }, [timeLeft, hasAnimated]);
+
   return (
     <div
       className="halving-tile relative w-full rounded-2xl border-2 border-zinc-700 overflow-hidden bg-zinc-900/50"
@@ -437,7 +482,7 @@ function HalvingCountdownTile() {
     >
       {/* Background sprinkles logo */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
+        <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
           <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
         </span>
       </div>
@@ -454,22 +499,22 @@ function HalvingCountdownTile() {
         ) : (
           <div className="flex items-center gap-1.5">
             <div className="text-center">
-              <div className="font-mono text-lg font-bold text-white">{timeLeft.days}</div>
+              <div className={`font-mono text-lg font-bold text-white tabular-nums ${!hasAnimated ? 'text-green-400/70' : ''}`}>{displayValues.days}</div>
               <div className="text-[7px] text-white/60">DAYS</div>
             </div>
             <span className="text-white/30 text-sm font-bold">:</span>
             <div className="text-center">
-              <div className="font-mono text-lg font-bold text-white">{String(timeLeft.hours).padStart(2, '0')}</div>
+              <div className={`font-mono text-lg font-bold text-white tabular-nums ${!hasAnimated ? 'text-green-400/70' : ''}`}>{displayValues.hours}</div>
               <div className="text-[7px] text-white/60">HRS</div>
             </div>
             <span className="text-white/30 text-sm font-bold">:</span>
             <div className="text-center">
-              <div className="font-mono text-lg font-bold text-white">{String(timeLeft.minutes).padStart(2, '0')}</div>
+              <div className={`font-mono text-lg font-bold text-white tabular-nums ${!hasAnimated ? 'text-green-400/70' : ''}`}>{displayValues.minutes}</div>
               <div className="text-[7px] text-white/60">MIN</div>
             </div>
             <span className="text-white/30 text-sm font-bold">:</span>
             <div className="text-center">
-              <div className="font-mono text-lg font-bold text-white">{String(timeLeft.seconds).padStart(2, '0')}</div>
+              <div className={`font-mono text-lg font-bold text-white tabular-nums ${!hasAnimated ? 'text-green-400/70' : ''}`}>{displayValues.seconds}</div>
               <div className="text-[7px] text-white/60">SEC</div>
             </div>
           </div>
@@ -823,6 +868,16 @@ export default function AboutPage() {
         .animate-tilePopIn {
           animation: tilePopIn 0.3s ease-out forwards;
         }
+        @keyframes fadeScaleIn {
+          0% {
+            opacity: 0;
+            transform: scale(0.7);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
         @keyframes fall {
           0% {
             transform: translateY(0) rotate(0deg);
@@ -869,9 +924,11 @@ export default function AboutPage() {
                 }}
                 className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex items-center justify-center text-center h-[80px] relative overflow-hidden hover:bg-zinc-800 transition-colors active:scale-[0.98]"
               >
-                {/* Background coin */}
+                {/* Background coin with ring */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="w-16 h-16 rounded-full overflow-hidden inline-flex items-center justify-center opacity-20">
+                  <span 
+                    className="w-14 h-14 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 animate-[fadeScaleIn_0.4s_ease-out_0.1s_forwards] opacity-0"
+                  >
                     <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover" />
                   </span>
                 </div>
@@ -891,9 +948,11 @@ export default function AboutPage() {
                 }}
                 className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex items-center justify-center text-center h-[80px] relative overflow-hidden hover:bg-zinc-800 transition-colors active:scale-[0.98]"
               >
-                {/* Background coin */}
+                {/* Background coin with ring */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="w-16 h-16 rounded-full overflow-hidden inline-flex items-center justify-center opacity-20">
+                  <span 
+                    className="w-14 h-14 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 animate-[fadeScaleIn_0.4s_ease-out_0.2s_forwards] opacity-0"
+                  >
                     <img src="/coins/peeples_logo.png" alt="" className="w-full h-full object-cover" />
                   </span>
                 </div>
@@ -913,9 +972,11 @@ export default function AboutPage() {
                 }}
                 className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex items-center justify-center text-center h-[80px] relative overflow-hidden hover:bg-zinc-800 transition-colors active:scale-[0.98]"
               >
-                {/* Background coin */}
+                {/* Background coin with ring */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="w-16 h-16 rounded-full overflow-hidden inline-flex items-center justify-center opacity-20">
+                  <span 
+                    className="w-14 h-14 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 animate-[fadeScaleIn_0.4s_ease-out_0.3s_forwards] opacity-0"
+                  >
                     <img src="/coins/franchiser_logo.png" alt="" className="w-full h-full object-cover" />
                   </span>
                 </div>
