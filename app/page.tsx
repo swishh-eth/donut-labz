@@ -250,34 +250,44 @@ function MatrixText({
 }) {
   const [displayText, setDisplayText] = useState(text);
   const [isAnimating, setIsAnimating] = useState(false);
-  const hasAnimatedRef = useRef(false);
+  const hasAnimatedOnceRef = useRef(false);
 
   useEffect(() => {
-    if (isReady && !hasAnimatedRef.current) {
-      hasAnimatedRef.current = true;
-      setIsAnimating(true);
-      
-      let cycleCount = 0;
-      const maxCycles = 10;
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      
-      const interval = setInterval(() => {
-        if (cycleCount < maxCycles) {
-          // Generate random text of same length
-          const randomText = text.split('').map(char => 
-            char === ' ' ? ' ' : chars[Math.floor(Math.random() * chars.length)]
-          ).join('');
-          setDisplayText(randomText);
-          cycleCount++;
-        } else {
-          setDisplayText(text);
-          setIsAnimating(false);
-          clearInterval(interval);
-        }
-      }, 50);
-      
-      return () => clearInterval(interval);
+    // If we already did the initial animation, just show the text
+    if (hasAnimatedOnceRef.current) {
+      setDisplayText(text);
+      return;
     }
+    
+    // Wait until ready to animate
+    if (!isReady) {
+      setDisplayText(text);
+      return;
+    }
+    
+    // First time ready - do the animation
+    hasAnimatedOnceRef.current = true;
+    setIsAnimating(true);
+    
+    let cycleCount = 0;
+    const maxCycles = 10;
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    
+    const interval = setInterval(() => {
+      if (cycleCount < maxCycles) {
+        const randomText = text.split('').map(char => 
+          char === ' ' ? ' ' : chars[Math.floor(Math.random() * chars.length)]
+        ).join('');
+        setDisplayText(randomText);
+        cycleCount++;
+      } else {
+        setDisplayText(text);
+        setIsAnimating(false);
+        clearInterval(interval);
+      }
+    }, 50);
+    
+    return () => clearInterval(interval);
   }, [isReady, text]);
 
   return (
@@ -303,36 +313,44 @@ function MatrixPrice({
 }) {
   const [displayValue, setDisplayValue] = useState("—");
   const [isAnimating, setIsAnimating] = useState(false);
-  const hasAnimatedRef = useRef(false);
+  const hasAnimatedOnceRef = useRef(false);
 
   useEffect(() => {
-    if (isReady && value && value !== "—" && !hasAnimatedRef.current) {
-      hasAnimatedRef.current = true;
-      setIsAnimating(true);
-      
-      let cycleCount = 0;
-      const maxCycles = 12;
-      
-      const interval = setInterval(() => {
-        if (cycleCount < maxCycles) {
-          // Generate random number-like string
-          const randomValue = value.split('').map(char => {
-            if (char === '.' || char === ',') return char;
-            return Math.floor(Math.random() * 10).toString();
-          }).join('');
-          setDisplayValue(randomValue);
-          cycleCount++;
-        } else {
-          setDisplayValue(value);
-          setIsAnimating(false);
-          clearInterval(interval);
-        }
-      }, 50);
-      
-      return () => clearInterval(interval);
-    } else if (!isReady) {
+    // If no value or not ready, show dash
+    if (!value || value === "—" || !isReady) {
       setDisplayValue("—");
+      return;
     }
+    
+    // If we already did the initial animation, just show live value
+    if (hasAnimatedOnceRef.current) {
+      setDisplayValue(value);
+      return;
+    }
+    
+    // First time we have a value - do the animation
+    hasAnimatedOnceRef.current = true;
+    setIsAnimating(true);
+    
+    let cycleCount = 0;
+    const maxCycles = 10;
+    
+    const interval = setInterval(() => {
+      if (cycleCount < maxCycles) {
+        const randomValue = value.split('').map(char => {
+          if (char === '.' || char === ',') return char;
+          return Math.floor(Math.random() * 10).toString();
+        }).join('');
+        setDisplayValue(randomValue);
+        cycleCount++;
+      } else {
+        setDisplayValue(value);
+        setIsAnimating(false);
+        clearInterval(interval);
+      }
+    }, 40);
+    
+    return () => clearInterval(interval);
   }, [isReady, value]);
 
   return (
