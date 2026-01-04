@@ -392,6 +392,28 @@ function MinerTile({
   recentMiner: { username: string; pfpUrl?: string } | null;
   onClick: () => void;
 }) {
+  // Matrix animation for loading miner name
+  const [loadingText, setLoadingText] = useState("loading...");
+  const loadingAnimRef = useRef<NodeJS.Timeout | null>(null);
+  
+  useEffect(() => {
+    if (!recentMiner && isReady) {
+      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      loadingAnimRef.current = setInterval(() => {
+        const randomText = Array.from({ length: 8 }, () => 
+          chars[Math.floor(Math.random() * chars.length)]
+        ).join('');
+        setLoadingText(`@${randomText}`);
+      }, 80);
+      
+      return () => {
+        if (loadingAnimRef.current) clearInterval(loadingAnimRef.current);
+      };
+    } else if (loadingAnimRef.current) {
+      clearInterval(loadingAnimRef.current);
+    }
+  }, [recentMiner, isReady]);
+
   return (
     <button
       onClick={onClick}
@@ -418,20 +440,30 @@ function MinerTile({
           </span>
         </div>
         
-        {recentMiner && (
-          <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5 border border-zinc-700/50">
-            {recentMiner.pfpUrl && (
-              <img 
-                src={recentMiner.pfpUrl} 
-                alt="" 
-                className="w-4 h-4 rounded-full border border-zinc-600"
-              />
-            )}
-            <span className="text-[9px] text-white/70 font-medium">
-              {recentMiner.username?.startsWith('@') ? recentMiner.username : `@${recentMiner.username}`} has control
-            </span>
-          </div>
-        )}
+        {/* Always render miner badge to prevent layout shift */}
+        <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5 border border-zinc-700/50">
+          {recentMiner ? (
+            <>
+              {recentMiner.pfpUrl && (
+                <img 
+                  src={recentMiner.pfpUrl} 
+                  alt="" 
+                  className="w-4 h-4 rounded-full border border-zinc-600"
+                />
+              )}
+              <span className="text-[9px] text-white/70 font-medium">
+                {recentMiner.username?.startsWith('@') ? recentMiner.username : `@${recentMiner.username}`} has control
+              </span>
+            </>
+          ) : (
+            <>
+              <div className="w-4 h-4 rounded-full border border-zinc-600 bg-zinc-800" />
+              <span className="text-[9px] text-green-400/70 font-medium">
+                {loadingText} has control
+              </span>
+            </>
+          )}
+        </div>
       </div>
     </button>
   );
