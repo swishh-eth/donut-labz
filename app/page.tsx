@@ -117,14 +117,15 @@ const DONUT_MIN_PRICE = 100000000000000n; // 0.0001 ETH
 const SPRINKLES_AUCTION_DURATION = 3600; // 1 hour
 const SPRINKLES_MIN_PRICE = 1000000000000000000n; // 1 DONUT
 
-const formatEth = (value: bigint, maximumFractionDigits = 2) => {
-  if (value === 0n) return "0";
+const formatEth = (value: bigint, decimalPlaces = 2) => {
+  if (value === 0n) return "0." + "0".repeat(decimalPlaces);
   const asNumber = Number(formatEther(value));
   if (!Number.isFinite(asNumber)) {
     return formatEther(value);
   }
   return asNumber.toLocaleString(undefined, {
-    maximumFractionDigits,
+    minimumFractionDigits: decimalPlaces,
+    maximumFractionDigits: decimalPlaces,
   });
 };
 
@@ -240,8 +241,8 @@ function FallingCoins({ coinSrc, count = 12 }: { coinSrc: string; count?: number
 
 // Matrix-style single character component for text
 function MatrixChar({ char, delay = 0, isReady }: { char: string; delay?: number; isReady: boolean }) {
-  const [displayChar, setDisplayChar] = useState(char === ' ' ? ' ' : 'A');
-  const [isAnimating, setIsAnimating] = useState(true);
+  const [displayChar, setDisplayChar] = useState(char);
+  const [isAnimating, setIsAnimating] = useState(false);
   const hasAnimatedRef = useRef(false);
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   
@@ -253,9 +254,10 @@ function MatrixChar({ char, delay = 0, isReady }: { char: string; delay?: number
       return;
     }
     
-    // If already animated, just show the char
+    // If already animated, just show the char (live updates)
     if (hasAnimatedRef.current) {
       setDisplayChar(char);
+      setIsAnimating(false);
       return;
     }
     
@@ -280,21 +282,18 @@ function MatrixChar({ char, delay = 0, isReady }: { char: string; delay?: number
       }
     }, 50);
     
-    return () => clearInterval(cycleInterval);
+    return () => {
+      clearInterval(cycleInterval);
+      // Always clear animating state on cleanup
+      setIsAnimating(false);
+    };
   }, [char, delay, isReady]);
-  
-  // After animation done, update with new values
-  useEffect(() => {
-    if (hasAnimatedRef.current && !isAnimating) {
-      setDisplayChar(char);
-    }
-  }, [char, isAnimating]);
   
   return (
     <span 
-      className={`inline-block transition-all duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}
+      className={`inline-block transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}
       style={{ 
-        minWidth: char === ' ' ? '0.3em' : '0.6em',
+        width: char === ' ' ? '0.35em' : '0.65em',
         textAlign: 'center'
       }}
     >
@@ -343,7 +342,7 @@ function MatrixText({
 // Matrix-style single digit component (matches about page style)
 function MatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: number; isReady: boolean }) {
   const [displayChar, setDisplayChar] = useState(char === '.' || char === ',' ? char : '0');
-  const [isAnimating, setIsAnimating] = useState(true);
+  const [isAnimating, setIsAnimating] = useState(false);
   const hasAnimatedRef = useRef(false);
   
   useEffect(() => {
@@ -354,9 +353,10 @@ function MatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: numbe
       return;
     }
     
-    // If already animated, just show the char
+    // If already animated, just show the char (live updates)
     if (hasAnimatedRef.current) {
       setDisplayChar(char);
+      setIsAnimating(false);
       return;
     }
     
@@ -381,21 +381,18 @@ function MatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: numbe
       }
     }, 50);
     
-    return () => clearInterval(cycleInterval);
+    return () => {
+      clearInterval(cycleInterval);
+      // Always clear animating state on cleanup
+      setIsAnimating(false);
+    };
   }, [char, delay, isReady]);
-  
-  // After animation done, update with new values
-  useEffect(() => {
-    if (hasAnimatedRef.current && !isAnimating) {
-      setDisplayChar(char === '.' || char === ',' ? char : char);
-    }
-  }, [char, isAnimating]);
   
   return (
     <span 
-      className={`inline-block transition-all duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}
+      className={`inline-block transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}
       style={{ 
-        minWidth: char === ',' ? '0.3em' : char === '.' ? '0.25em' : '0.6em',
+        width: char === ',' ? '0.35em' : char === '.' ? '0.3em' : '0.65em',
         textAlign: 'center'
       }}
     >

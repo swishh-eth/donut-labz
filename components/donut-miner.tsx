@@ -183,6 +183,43 @@ const calculatePrice = (initPrice: bigint, startTime: number | bigint): bigint =
   return currentPrice > MIN_PRICE ? currentPrice : MIN_PRICE;
 };
 
+// Falling Donut Coins Component
+function FallingDonutCoins() {
+  const coins = useMemo(() => {
+    return Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      left: `${5 + (i * 5) % 90}%`,
+      delay: `${(Math.sin(i * 12.9898) * 43758.5453 % 1) * 8}s`,
+      duration: `${5 + (i % 4)}s`,
+      size: 20 + (i % 4) * 8,
+    }));
+  }, []);
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {coins.map((c) => (
+        <div
+          key={c.id}
+          className="absolute falling-coin"
+          style={{
+            left: c.left,
+            top: '-60px',
+            animationDelay: c.delay,
+            animationDuration: c.duration,
+          }}
+        >
+          <span 
+            className="rounded-full overflow-hidden inline-flex items-center justify-center ring-1 ring-pink-500/30"
+            style={{ width: c.size, height: c.size }}
+          >
+            <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover opacity-50" />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface DonutMinerProps {
   context: MiniAppContext | null;
 }
@@ -194,7 +231,6 @@ export default function DonutMiner({ context }: DonutMinerProps) {
   const [glazeResult, setGlazeResult] = useState<"success" | "failure" | null>(null);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const glazeResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -625,6 +661,17 @@ export default function DonutMiner({ context }: DonutMinerProps) {
       <style>{`
         .miner-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .miner-scroll::-webkit-scrollbar { display: none; }
+        @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes pulse-scale { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.9; } }
+        @keyframes falling-coin {
+          0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+          5% { opacity: 0.5; }
+          90% { opacity: 0.5; }
+          100% { transform: translateY(280px) rotate(360deg); opacity: 0; }
+        }
+        .spin-slow { animation: spin-slow 8s linear infinite; }
+        .pulse-scale { animation: pulse-scale 3s ease-in-out infinite; }
+        .falling-coin { animation: falling-coin linear infinite; }
       `}</style>
       
       <div 
@@ -635,30 +682,14 @@ export default function DonutMiner({ context }: DonutMinerProps) {
           maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`
         }}
       >
-        <div className="relative h-[240px] overflow-hidden">
-          <style>{`
-            @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-            @keyframes pulse-scale { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.9; } }
-            .spin-slow { animation: spin-slow 8s linear infinite; }
-            .pulse-scale { animation: pulse-scale 3s ease-in-out infinite; }
-            .scrollbar-hide::-webkit-scrollbar { display: none; }
-            .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-          `}</style>
+        <div className="relative h-[240px] overflow-hidden bg-black">
+          {/* Falling donut coins background */}
+          <FallingDonutCoins />
           
+          {/* Top fade */}
           <div 
             className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-10"
             style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
-          />
-          
-          <video
-            ref={videoRef}
-            className="w-full h-full object-cover"
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            src="/media/donut-loop.mp4"
           />
           
           <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
@@ -691,6 +722,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
             </div>
           </div>
           
+          {/* Bottom fade */}
           <div 
             className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-10"
             style={{ background: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
