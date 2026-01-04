@@ -22,6 +22,9 @@ const MULTICALL_ADDRESS = '0x3ec144554b484C6798A683E34c8e8E222293f323'.toLowerCa
 // The SPRINKLES miner contract address
 const SPRINKLES_MINER_ADDRESS = '0x924b2d4a89b84a37510950031dcdb6552dc97bcc'.toLowerCase();
 
+// Fee splitter contract - receives 5% of mining fee
+const FEE_SPLITTER_ADDRESS = '0x710e042d4F13f5c649dBb1774A3695BFcAC253ce'.toLowerCase();
+
 // Alchemy RPC (primary) with fallback
 const ALCHEMY_RPC = 'https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g';
 const FALLBACK_RPC = 'https://mainnet.base.org';
@@ -203,8 +206,8 @@ export async function POST(request: Request) {
         console.error('Failed to decode SPRINKLES input:', decodeError);
       }
       
-      // Extract amount from Transfer event TO the miner contract
-      // The miner contract receives 10% fee, so multiply by 10 to get actual amount paid
+      // Extract amount from Transfer event TO the fee splitter contract
+      // The fee splitter receives 5% of total, so multiply by 20 to get actual amount paid
       const TRANSFER_EVENT_TOPIC = keccak256(toBytes('Transfer(address,address,uint256)'));
       const DECIMALS = BigInt("1000000000000000000"); // 10^18
       
@@ -212,19 +215,19 @@ export async function POST(request: Request) {
         const logs = receipt.logs || [];
         console.log('Processing', logs.length, 'logs for tx:', txHash);
         
-        // Find Transfer TO the miner contract (this is the 10% fee)
+        // Find Transfer TO the fee splitter contract (this is 5% of total)
         for (const log of logs) {
           if (log.topics?.[0]?.toLowerCase() === TRANSFER_EVENT_TOPIC.toLowerCase()) {
             const toAddr = '0x' + log.topics[2].slice(26).toLowerCase();
             
-            // Check if this transfer is TO the sprinkles miner contract
-            if (toAddr === SPRINKLES_MINER_ADDRESS) {
+            // Check if this transfer is TO the fee splitter contract
+            if (toAddr === FEE_SPLITTER_ADDRESS) {
               const feeWei = BigInt(log.data);
-              // Miner receives 10% fee, so multiply by 10 BEFORE dividing to preserve precision
-              const totalPaidWei = feeWei * BigInt(10);
+              // Fee splitter receives 5%, so multiply by 20 to get total paid
+              const totalPaidWei = feeWei * BigInt(20);
               const totalPaid = totalPaidWei / DECIMALS;
               amount = totalPaid.toString();
-              console.log('Miner received fee (wei):', feeWei.toString(), '-> Total paid:', amount);
+              console.log('Fee splitter received (wei):', feeWei.toString(), '-> Total paid:', amount);
               break;
             }
           }
@@ -309,7 +312,7 @@ export async function POST(request: Request) {
     }
 
     // All checks passed - record the glaze with txHash and mineType
-    // DONUT = 2 points, SPRINKLES = 1 point
+    // DONUT = 3 points, SPRINKLES = 1 point
     const result = await recordGlaze(address, txHash, mineType);
 
     if (result.alreadyRecorded) {

@@ -27,6 +27,9 @@ const DONUT_MINE_SELECTOR = keccak256(toBytes('mine(address,uint256,uint256,uint
 // Transfer event topic for extracting amounts
 const TRANSFER_EVENT_TOPIC = keccak256(toBytes('Transfer(address,address,uint256)')).toLowerCase();
 
+// Fee splitter contract - receives 5% of mining fee
+const FEE_SPLITTER_ADDRESS = '0x710e042d4F13f5c649dBb1774A3695BFcAC253ce'.toLowerCase();
+
 // Alchemy webhook signing key - set this in your environment variables
 const ALCHEMY_SIGNING_KEY = process.env.ALCHEMY_WEBHOOK_SIGNING_KEY || '';
 
@@ -112,6 +115,7 @@ async function fetchTransaction(txHash: string): Promise<any | null> {
 }
 
 // Extract amount from transaction logs for SPRINKLES mining
+// The fee splitter receives 5% of total, so we multiply by 20 to get total paid
 function extractSprinklesAmount(logs: any[]): string {
   const DECIMALS = BigInt("1000000000000000000"); // 10^18
   
@@ -120,11 +124,11 @@ function extractSprinklesAmount(logs: any[]): string {
     if (topics[0]?.toLowerCase() === TRANSFER_EVENT_TOPIC) {
       const toAddr = '0x' + topics[2]?.slice(26)?.toLowerCase();
       
-      // Check if this transfer is TO the sprinkles miner contract (fee portion)
-      if (toAddr === SPRINKLES_MINER_ADDRESS) {
+      // Check if this transfer is TO the fee splitter contract (5% of total)
+      if (toAddr === FEE_SPLITTER_ADDRESS) {
         const feeWei = BigInt(log.data);
-        // Miner receives 20% fee now (was 10%), so multiply by 5 to get total paid
-        const totalPaidWei = feeWei * BigInt(5);
+        // Fee splitter receives 5%, so multiply by 20 to get total paid
+        const totalPaidWei = feeWei * BigInt(20);
         const totalPaid = totalPaidWei / DECIMALS;
         return totalPaid.toString();
       }
