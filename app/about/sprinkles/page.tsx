@@ -391,9 +391,19 @@ export default function AboutSprinklesPage() {
                   <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10 border border-green-500/30">
                     <div className="flex items-center gap-2">
                       <Building className="w-4 h-4 text-green-400" />
-                      <span className="text-xs text-gray-300">Sprinkles Treasury (LSG)</span>
+                      <span className="text-xs text-gray-300">Sprinkles Treasury (Sprinkles LSG Position)</span>
                     </div>
                     <span className="text-sm font-bold text-green-400">15%</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-800/50 border border-zinc-700/50 opacity-50">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center">
+                        <span className="text-gray-500 mr-1">↑</span>
+                        <Flame className="w-4 h-4 text-gray-500" />
+                      </div>
+                      <span className="text-xs text-gray-500 italic">Buy & Burn (Enabled by SPRINKLES Holders) — coming soon</span>
+                    </div>
+                    <span className="text-sm font-bold text-gray-500">5%</span>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10 border border-green-500/30">
                     <div className="flex items-center gap-2">
@@ -402,12 +412,12 @@ export default function AboutSprinklesPage() {
                     </div>
                     <span className="text-sm font-bold text-green-400">4%</span>
                   </div>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-800 border border-zinc-700">
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10 border border-green-500/30">
                     <div className="flex items-center gap-2">
-                      <Trophy className="w-4 h-4 text-gray-400" />
+                      <Trophy className="w-4 h-4 text-green-400" />
                       <span className="text-xs text-gray-300">Leaderboard Rewards</span>
                     </div>
-                    <span className="text-sm font-bold text-gray-400">1%</span>
+                    <span className="text-sm font-bold text-green-400">1%</span>
                   </div>
                 </div>
               </div>
@@ -472,18 +482,50 @@ export default function AboutSprinklesPage() {
                   <p>• <span className="text-green-400 font-semibold">Mine SPRINKLES</span> = 1 point per mine</p>
                 </div>
                 <p className="mt-3">Top 10 miners split the weekly prize pool:</p>
-                <div className="grid grid-cols-3 gap-2 text-center mt-2">
-                  <div className="bg-zinc-800 rounded-lg p-2">
-                    <div className="text-sm font-bold text-white">🥇 1st</div>
-                    <div className="text-[10px] text-gray-400">50%</div>
+                <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-2 mt-2">
+                  <div className="grid grid-cols-5 gap-1 text-center mb-1">
+                    <div>
+                      <div className="text-sm font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]">1st</div>
+                      <div className="font-bold text-[10px] text-green-400">40%</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]">2nd</div>
+                      <div className="font-bold text-[10px] text-green-400">20%</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]">3rd</div>
+                      <div className="font-bold text-[10px] text-green-400">15%</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-gray-400">4th</div>
+                      <div className="font-bold text-[10px] text-gray-400">8%</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-gray-400">5th</div>
+                      <div className="font-bold text-[10px] text-gray-400">5%</div>
+                    </div>
                   </div>
-                  <div className="bg-zinc-800 rounded-lg p-2">
-                    <div className="text-sm font-bold text-white">🥈 2nd</div>
-                    <div className="text-[10px] text-gray-400">30%</div>
-                  </div>
-                  <div className="bg-zinc-800 rounded-lg p-2">
-                    <div className="text-sm font-bold text-white">🥉 3rd</div>
-                    <div className="text-[10px] text-gray-400">20%</div>
+                  <div className="grid grid-cols-5 gap-1 text-center">
+                    <div>
+                      <div className="text-sm font-bold text-gray-500">6th</div>
+                      <div className="text-gray-500 font-bold text-[10px]">4%</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-gray-500">7th</div>
+                      <div className="text-gray-500 font-bold text-[10px]">3%</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-gray-500">8th</div>
+                      <div className="text-gray-500 font-bold text-[10px]">2%</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-gray-500">9th</div>
+                      <div className="text-gray-500 font-bold text-[10px]">2%</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-gray-500">10th</div>
+                      <div className="text-gray-500 font-bold text-[10px]">1%</div>
+                    </div>
                   </div>
                 </div>
                 <p className="mt-2 text-gray-500 text-[10px]">Leaderboard resets every Friday at 6PM EST. Prizes include USDC, DONUT, and SPRINKLES!</p>
