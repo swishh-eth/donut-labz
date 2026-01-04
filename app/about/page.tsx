@@ -216,21 +216,21 @@ function BurnCounterTile({
 
   return (
     <div
-      className="burn-counter-tile relative w-full rounded-2xl border-2 border-green-500/50 overflow-hidden"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(22,163,74,0.1) 100%)' }}
+      className="burn-counter-tile relative w-full rounded-2xl border border-zinc-800 overflow-hidden bg-zinc-900/50"
+      style={{ height: '100px' }}
     >
       {/* Falling coins background */}
       <FallingCoins />
       
-      <div className="relative z-10 p-4">
+      <div className="relative z-10 p-4 h-full flex flex-col justify-center">
         <div className="flex items-start gap-6">
           {/* SPRINKLES BURNED - Left side */}
           <div className="text-left">
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="font-bold text-sm text-green-400">SPRINKLES BURNED</span>
+              <span className="font-bold text-xs text-green-400">SPRINKLES BURNED</span>
             </div>
             
-            <div className="font-mono text-xl font-bold text-white">
+            <div className="font-mono text-xl font-bold text-green-400">
               {isLoading ? (
                 <span className="text-green-400/50">Loading...</span>
               ) : (
@@ -242,7 +242,7 @@ function BurnCounterTile({
           {/* DONUT BURNED - Center-left */}
           <div className="text-left">
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="font-bold text-sm text-pink-400">DONUT BURNED</span>
+              <span className="font-bold text-xs text-pink-400">DONUT BURNED</span>
             </div>
             
             <div className="font-mono text-xl font-bold text-pink-400">
@@ -255,7 +255,7 @@ function BurnCounterTile({
           </div>
         </div>
         
-        <div className="text-[9px] text-green-200/60 mt-2">
+        <div className="text-[9px] text-zinc-500 mt-1">
           Permanently removed from circulation
         </div>
       </div>
@@ -296,8 +296,8 @@ function HalvingCountdownTile() {
 
   return (
     <div
-      className="halving-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+      className="halving-tile relative w-full rounded-2xl border border-zinc-800 overflow-hidden bg-zinc-900/50"
+      style={{ height: '100px' }}
     >
       {/* Background sprinkles logo */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -306,40 +306,40 @@ function HalvingCountdownTile() {
         </span>
       </div>
       
-      <div className="relative z-10 p-4 pr-20">
+      <div className="relative z-10 p-3 pr-20 h-full flex flex-col justify-center">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="font-bold text-sm text-white">Sprinkles Halving Countdown</span>
+          <span className="font-bold text-xs text-white">Sprinkles Halving Countdown</span>
         </div>
         
         {isComplete ? (
-          <div className="font-mono text-xl font-bold text-white">
+          <div className="font-mono text-lg font-bold text-white">
             Halving Complete!
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <div className="text-center">
-              <div className="font-mono text-xl font-bold text-white">{timeLeft.days}</div>
-              <div className="text-[8px] text-white/60">DAYS</div>
+              <div className="font-mono text-lg font-bold text-white">{timeLeft.days}</div>
+              <div className="text-[7px] text-white/60">DAYS</div>
             </div>
-            <span className="text-white/30 text-lg font-bold">:</span>
+            <span className="text-white/30 text-sm font-bold">:</span>
             <div className="text-center">
-              <div className="font-mono text-xl font-bold text-white">{String(timeLeft.hours).padStart(2, '0')}</div>
-              <div className="text-[8px] text-white/60">HRS</div>
+              <div className="font-mono text-lg font-bold text-white">{String(timeLeft.hours).padStart(2, '0')}</div>
+              <div className="text-[7px] text-white/60">HRS</div>
             </div>
-            <span className="text-white/30 text-lg font-bold">:</span>
+            <span className="text-white/30 text-sm font-bold">:</span>
             <div className="text-center">
-              <div className="font-mono text-xl font-bold text-white">{String(timeLeft.minutes).padStart(2, '0')}</div>
-              <div className="text-[8px] text-white/60">MIN</div>
+              <div className="font-mono text-lg font-bold text-white">{String(timeLeft.minutes).padStart(2, '0')}</div>
+              <div className="text-[7px] text-white/60">MIN</div>
             </div>
-            <span className="text-white/30 text-lg font-bold">:</span>
+            <span className="text-white/30 text-sm font-bold">:</span>
             <div className="text-center">
-              <div className="font-mono text-xl font-bold text-white">{String(timeLeft.seconds).padStart(2, '0')}</div>
-              <div className="text-[8px] text-white/60">SEC</div>
+              <div className="font-mono text-lg font-bold text-white">{String(timeLeft.seconds).padStart(2, '0')}</div>
+              <div className="text-[7px] text-white/60">SEC</div>
             </div>
           </div>
         )}
         
-        <div className="text-[9px] text-white/60 mt-1">
+        <div className="text-[8px] text-zinc-500 mt-0.5">
           Mining rewards halve • Jan 7th 2:00 AM UTC
         </div>
       </div>
@@ -711,7 +711,7 @@ export default function AboutPage() {
                     window.open("https://farcaster.xyz/miniapps/fOIgVq2bFKru/glazecorp", "_blank");
                   }
                 }}
-                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px] relative overflow-hidden hover:bg-zinc-800 transition-colors active:scale-[0.98]"
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex items-center justify-center text-center h-[80px] relative overflow-hidden hover:bg-zinc-800 transition-colors active:scale-[0.98]"
               >
                 {/* Background coin */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -719,8 +719,8 @@ export default function AboutPage() {
                     <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover" />
                   </span>
                 </div>
-                <div className="relative z-10 flex flex-col items-center">
-                  <span className="text-sm text-white font-bold">Stake Donut</span>
+                <div className="relative z-10">
+                  <span className="text-xs text-white font-bold whitespace-nowrap">Stake Donut</span>
                 </div>
               </button>
 
@@ -733,7 +733,7 @@ export default function AboutPage() {
                     window.open("https://farcaster.xyz/miniapps/OBSXNsOaGYv1/peeples-donuts", "_blank");
                   }
                 }}
-                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px] relative overflow-hidden hover:bg-zinc-800 transition-colors active:scale-[0.98]"
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex items-center justify-center text-center h-[80px] relative overflow-hidden hover:bg-zinc-800 transition-colors active:scale-[0.98]"
               >
                 {/* Background coin */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -741,8 +741,8 @@ export default function AboutPage() {
                     <img src="/coins/peeples_logo.png" alt="" className="w-full h-full object-cover" />
                   </span>
                 </div>
-                <div className="relative z-10 flex flex-col items-center">
-                  <span className="text-sm text-white font-bold">Pool To Mine</span>
+                <div className="relative z-10">
+                  <span className="text-xs text-white font-bold whitespace-nowrap">Pool To Mine</span>
                 </div>
               </button>
 
@@ -755,7 +755,7 @@ export default function AboutPage() {
                     window.open("https://farcaster.xyz/miniapps/yetHcJ1rdN-n/franchiser", "_blank");
                   }
                 }}
-                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px] relative overflow-hidden hover:bg-zinc-800 transition-colors active:scale-[0.98]"
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex items-center justify-center text-center h-[80px] relative overflow-hidden hover:bg-zinc-800 transition-colors active:scale-[0.98]"
               >
                 {/* Background coin */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -763,8 +763,8 @@ export default function AboutPage() {
                     <img src="/coins/franchiser_logo.png" alt="" className="w-full h-full object-cover" />
                   </span>
                 </div>
-                <div className="relative z-10 flex flex-col items-center">
-                  <span className="text-sm text-white font-bold">Eco Tokens</span>
+                <div className="relative z-10">
+                  <span className="text-xs text-white font-bold whitespace-nowrap">Eco Tokens</span>
                 </div>
               </button>
             </div>
