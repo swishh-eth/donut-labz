@@ -316,38 +316,38 @@ function BurnCounterTile({
 
   return (
     <div
-      className="burn-counter-tile relative w-full rounded-2xl border-2 border-zinc-700 overflow-hidden bg-zinc-900/50"
-      style={{ height: '100px' }}
+      className="burn-counter-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden"
+      style={{ height: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
       {/* Falling coins background */}
       <FallingCoins />
       
       <div className="relative z-10 p-4 h-full flex flex-col justify-center">
-        <div className="flex items-start gap-6">
+        <div className="flex items-start gap-4">
           {/* SPRINKLES BURNED - Left side */}
-          <div className="text-left">
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className="font-bold text-xs text-white">SPRINKLES BURNED <span className="text-[9px] text-white/50">(Togglable Burn)</span></span>
+          <div className="text-left flex-1">
+            <div className="flex items-center gap-1 mb-0.5">
+              <span className="font-bold text-[10px] text-white whitespace-nowrap">SPRINKLES BURNED</span>
             </div>
             
-            <div className="font-mono text-xl font-bold">
+            <div className="font-mono text-lg font-bold">
               <MatrixNumber value={displaySprinkles} isLoading={isLoading} className="text-white" />
             </div>
           </div>
           
-          {/* DONUT BURNED - Center-left */}
-          <div className="text-left">
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className="font-bold text-xs text-pink-400">DONUT BURNED <span className="text-[9px] text-pink-400/70">(LP Fee's)</span></span>
+          {/* DONUT BURNED - Right side */}
+          <div className="text-left flex-1">
+            <div className="flex items-center gap-1 mb-0.5">
+              <span className="font-bold text-[10px] text-pink-400 whitespace-nowrap">DONUT BURNED</span>
             </div>
             
-            <div className="font-mono text-xl font-bold">
+            <div className="font-mono text-lg font-bold">
               <MatrixNumber value={displayDonut} isLoading={isLoading} className="text-pink-400" />
             </div>
           </div>
         </div>
         
-        <div className="text-[9px] text-zinc-500 mt-1">
+        <div className="text-[9px] text-white/40 mt-1">
           Permanently removed from circulation
         </div>
       </div>
@@ -374,8 +374,8 @@ function GDonutStakedTile({
 
   return (
     <div
-      className="gdonut-staked-tile relative w-full rounded-2xl border-2 border-zinc-700 overflow-hidden bg-zinc-900/50"
-      style={{ height: '100px' }}
+      className="gdonut-staked-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden"
+      style={{ height: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
       {/* Falling donuts background */}
       <FallingDonuts />
@@ -391,7 +391,7 @@ function GDonutStakedTile({
           </div>
         </div>
         
-        <div className="text-[9px] text-zinc-500 mt-1">
+        <div className="text-[9px] text-white/40 mt-1">
           Miner 15% revenue fee • Liquid Staked Governance
         </div>
       </div>
@@ -477,8 +477,8 @@ function HalvingCountdownTile() {
 
   return (
     <div
-      className="halving-tile relative w-full rounded-2xl border-2 border-zinc-700 overflow-hidden bg-zinc-900/50"
-      style={{ height: '100px' }}
+      className="halving-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden"
+      style={{ height: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
       {/* Background sprinkles logo */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -520,7 +520,7 @@ function HalvingCountdownTile() {
           </div>
         )}
         
-        <div className="text-[8px] text-zinc-500 mt-0.5">
+        <div className="text-[8px] text-white/40 mt-0.5">
           Mining rewards halve • Jan 7th 2:00 AM UTC
         </div>
       </div>
@@ -554,8 +554,8 @@ function DonutInfoTile({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="donut-tile relative w-full rounded-2xl border-2 border-pink-500/50 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-pink-500/80"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(236,72,153,0.15) 0%, rgba(219,39,119,0.1) 100%)' }}
+      className="donut-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
       {/* Large background donut coin logo */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -569,7 +569,7 @@ function DonutInfoTile({ onClick }: { onClick: () => void }) {
           <div className="flex items-center gap-2 mb-1">
             <span className="font-bold text-base text-pink-400">What is $DONUT</span>
           </div>
-          <div className="text-[10px] text-pink-200/60 mb-2">Store-of-value token on Base</div>
+          <div className="text-[10px] text-pink-400/60 mb-2">Store-of-value token on Base</div>
           
           <div className="flex items-center gap-2 text-[9px]">
             <span className="text-pink-400">Dutch Auction</span>
