@@ -46,8 +46,18 @@ async function syncRecentMessages() {
         .eq("processed", false)
         .single();
 
+      // Check if there's a pending reply for this transaction
+      const { data: pendingReply } = await supabase
+        .from("chat_pending_replies")
+        .select("reply_to_hash")
+        .eq("transaction_hash", txHash)
+        .eq("processed", false)
+        .single();
+
       // Determine the image_url to use (preserve existing, or use pending)
       const imageUrl = existingMessage?.image_url || pendingImage?.image_url || null;
+      // Determine the reply_to_hash to use (preserve existing, or use pending)
+      const replyToHash = existingMessage?.reply_to_hash || pendingReply?.reply_to_hash || null;
 
       await supabase
         .from("chat_messages")
@@ -58,13 +68,21 @@ async function syncRecentMessages() {
           transaction_hash: txHash,
           block_number: Number(log.blockNumber),
           image_url: imageUrl,
-          reply_to_hash: existingMessage?.reply_to_hash || null,
+          reply_to_hash: replyToHash,
         }, { onConflict: "transaction_hash" });
 
       // Mark pending image as processed
       if (pendingImage) {
         await supabase
           .from("chat_pending_images")
+          .update({ processed: true })
+          .eq("transaction_hash", txHash);
+      }
+
+      // Mark pending reply as processed
+      if (pendingReply) {
+        await supabase
+          .from("chat_pending_replies")
           .update({ processed: true })
           .eq("transaction_hash", txHash);
       }
