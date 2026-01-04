@@ -429,14 +429,14 @@ function SprinklesInfoTile({ onClick }: { onClick: () => void }) {
           <div className="flex items-center gap-2 mb-1">
             <span className="font-bold text-base text-white">What is $SPRINKLES</span>
           </div>
-          <div className="text-[10px] text-white/60 mb-2">Companion token to $DONUT</div>
+          <div className="text-[10px] text-white/60 mb-2">Play to Earn on Base</div>
           
           <div className="flex items-center gap-2 text-[9px]">
-            <span className="text-white/80">Pay DONUT</span>
+            <span className="text-white/80">Games</span>
             <ArrowRight className="w-3 h-3 text-white/30" />
-            <span className="text-white/80">Mine SPRINKLES</span>
+            <span className="text-white/80">Mining</span>
             <ArrowRight className="w-3 h-3 text-white/30" />
-            <span className="text-white/80">Sticky LP</span>
+            <span className="text-white/80">Rewards</span>
           </div>
         </div>
       </div>

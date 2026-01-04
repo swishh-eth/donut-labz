@@ -300,18 +300,26 @@ export default function AboutSprinklesPage() {
             <div className="space-y-3 pb-8">
               {/* Overview Card */}
               <div className="rounded-xl p-4 border border-green-500/50 bg-gradient-to-br from-green-500/10 to-green-600/5">
-                <div className="flex items-center gap-3 mb-3">
-                  <SprinklesCoin className="w-10 h-10" />
-                  <div>
-                    <h2 className="text-lg font-bold text-white">$SPRINKLES</h2>
-                    <p className="text-[10px] text-green-400">Companion token to $DONUT</p>
+                <div className="flex items-start gap-3 mb-3">
+                  <SprinklesCoin className="w-16 h-16 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-xl font-bold text-white">$SPRINKLES</h2>
+                    <p className="text-xs text-green-400 font-medium">Play to Earn on Base</p>
                   </div>
                 </div>
-                <p className="text-xs text-gray-300 leading-relaxed mb-2">
-                  Mined by paying $DONUT in a separate Dutch auction. Makes $DONUT liquidity even stickier.
+                <p className="text-sm text-gray-300 leading-relaxed mb-3">
+                  Earn SPRINKLES by playing games, mining, and chatting in the Sprinkles App — powered by $DONUT.
                 </p>
-                <p className="text-white font-semibold text-xs">Max Supply: 210,000,000 SPRINKLES</p>
-                <p className="text-gray-500 text-[10px] mt-1">10M preminted & seeded with 1,000 DONUT for permanent LP</p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Max Supply</span>
+                    <span className="text-sm font-bold text-white">210,000,000</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Initial LP</span>
+                    <span className="text-xs text-gray-500">10M Pre-minted for initial Burned LP</span>
+                  </div>
+                </div>
               </div>
 
               {/* Stats Grid - Burn & Treasury */}
@@ -440,9 +448,9 @@ export default function AboutSprinklesPage() {
                 icon={<Beaker className="w-4 h-4 text-green-400" />}
                 title="What is The Sprinkles App?"
               >
-                <p>The Sprinkles App is an independent donut shop operating inside the $DONUT ecosystem.</p>
-                <p>We build fun ways to interact with $DONUT and $SPRINKLES, including mining interfaces, games, and social features.</p>
-                <p className="text-gray-500 italic mt-2">An onchain donut shop on Base.</p>
+                <p>A Play to Earn app on Base powered by $DONUT.</p>
+                <p className="mt-2">Play arcade games, mine tokens, and chat to earn DONUT, SPRINKLES, and USDC rewards every week!</p>
+                <p className="text-green-400 font-medium mt-2">Your onchain donut shop on Base.</p>
               </Section>
 
               {/* Treasury */}

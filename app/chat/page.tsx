@@ -6,12 +6,19 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Send, MessageCircle, HelpCircle, X, Sparkles, Timer, Heart, Settings, Image as ImageIcon } from "lucide-react";
+import { Send, MessageCircle, HelpCircle, X, Timer, Heart, Settings, Image as ImageIcon, User, Reply, CornerDownRight } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseUnits } from "viem";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
 import { SprinklesClaimButton } from "@/components/sprinkles-claim-button";
 import { cn } from "@/lib/utils";
+
+// Sprinkles coin logo component
+const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-full h-full object-cover" />
+  </span>
+);
 
 type MiniAppContext = {
   user?: {
@@ -29,6 +36,7 @@ type ChatMessage = {
   transactionHash: string;
   blockNumber: bigint;
   imageUrl?: string;
+  replyToHash?: string;
 };
 
 type FarcasterProfile = {
@@ -158,6 +166,10 @@ export default function ChatPage() {
   const [readyToAnimate, setReadyToAnimate] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Reply state
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+  const pendingReplyToHashRef = useRef<string | null>(null);
 
   const [tipSettings, setTipSettings] = useState<TipSettings>(() => {
     if (typeof window !== 'undefined') {
@@ -268,6 +280,7 @@ export default function ChatPage() {
           transactionHash: m.transaction_hash,
           blockNumber: BigInt(m.block_number),
           imageUrl: m.image_url || null,
+          replyToHash: m.reply_to_hash || null,
         })) as ChatMessage[];
     },
     refetchInterval: 10000,
@@ -368,6 +381,7 @@ export default function ChatPage() {
         // If we uploaded an image, save the image URL to the message
         // Use ref for reliable access (state might not be updated yet due to React batching)
         const imageUrlToSave = pendingImageUrlRef.current;
+        const replyToHashToSave = pendingReplyToHashRef.current;
         const normalizedHash = hash.toLowerCase(); // Ensure consistent case
         
         if (imageUrlToSave && imageUrlToSave.startsWith("http")) {
@@ -388,15 +402,33 @@ export default function ChatPage() {
           }
         }
         
+        // Save reply relationship
+        if (replyToHashToSave) {
+          try {
+            await fetch("/api/chat/save-reply", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                transactionHash: normalizedHash,
+                replyToHash: replyToHashToSave,
+              }),
+            });
+          } catch (e) {
+            console.error("Failed to save reply:", e);
+          }
+        }
+        
         recordPoints();
         setMessage("");
         clearSelectedImage();
+        setReplyingTo(null);
         setCooldownRemaining(COOLDOWN_SECONDS);
         setPendingMessageConfirmed(true);
         
-        // Clear image state AFTER save-image call completes
+        // Clear image and reply state AFTER save calls complete
         setPendingImageUrl(null);
         pendingImageUrlRef.current = null;
+        pendingReplyToHashRef.current = null;
         
         // Wait longer for blockchain to propagate, then sync and invalidate cache
         setTimeout(async () => {
@@ -461,6 +493,11 @@ export default function ChatPage() {
       setPendingMessage(message.trim() || (selectedImage ? "📷" : ""));
       setIsVerifying(false);
       
+      // Store reply hash in ref for reliable access
+      if (replyingTo) {
+        pendingReplyToHashRef.current = replyingTo.transactionHash;
+      }
+      
       // If there's an image, burn SPRINKLES first
       if (selectedImage) {
         setPendingImageUrl(imagePreview); // Show preview while uploading
@@ -505,6 +542,18 @@ export default function ChatPage() {
       functionName: "transfer",
       args: [recipientAddress as `0x${string}`, amount],
     });
+  };
+
+  const handleReply = (msg: ChatMessage) => {
+    setReplyingTo(msg);
+    inputRef.current?.focus();
+    try {
+      sdk.haptics.impactOccurred("light").catch(() => {});
+    } catch {}
+  };
+
+  const cancelReply = () => {
+    setReplyingTo(null);
   };
 
   const openUserProfile = async (username: string | null) => {
@@ -667,6 +716,12 @@ export default function ChatPage() {
 
   const rewardsEnded = currentMultiplier === 0;
 
+  // Helper to find the message being replied to
+  const getReplyMessage = (replyToHash: string | undefined) => {
+    if (!replyToHash || !messages) return null;
+    return messages.find(m => m.transactionHash.toLowerCase() === replyToHash.toLowerCase());
+  };
+
   return (
     <main className="flex h-[100dvh] w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style jsx global>{`
@@ -718,7 +773,7 @@ export default function ChatPage() {
             {/* Your Sprinkles Tile */}
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
               <div className="flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
+                <User className="w-3.5 h-3.5 text-white" />
                 <span className="text-[10px] text-gray-400 uppercase tracking-wide">Your Sprinkles</span>
               </div>
               <div className="text-2xl font-bold text-white fade-in-up stagger-1 opacity-0">{typeof userPoints === 'number' ? userPoints.toFixed(2) : '0.00'}</div>
@@ -729,7 +784,7 @@ export default function ChatPage() {
           <div className="grid grid-cols-2 gap-2 mb-3 flex-shrink-0">
             <button onClick={() => setShowHelpDialog(true)} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 hover:bg-zinc-800 transition-colors">
               <div className="flex items-center justify-center gap-2">
-                <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                <MessageCircle className="w-4 h-4 text-white" />
                 <span className="text-xs font-semibold text-white">Chat To Earn</span>
                 <HelpCircle className="w-3 h-3 text-gray-400" />
               </div>
@@ -739,7 +794,7 @@ export default function ChatPage() {
                 <Settings className="w-4 h-4 text-white" />
                 <span className="text-xs font-semibold text-white">Tip Settings</span>
                 <span className="text-[9px] text-gray-400 flex items-center gap-0.5">
-                  <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />
+                  <SprinklesCoin className="w-3 h-3" />
                   {tipSettings.amount}
                 </span>
               </div>
@@ -756,7 +811,7 @@ export default function ChatPage() {
                     <X className="h-4 w-4" />
                   </button>
                   <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                    <MessageCircle className="w-4 h-4 text-white" />
                     How to Earn Sprinkles
                   </h2>
                   <div className="space-y-3">
@@ -797,7 +852,7 @@ export default function ChatPage() {
                     <div className="flex gap-2.5">
                       <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">4</div>
                       <div>
-                        <div className="font-semibold text-white text-xs">Friday Airdrop</div>
+                        <div className="font-semibold text-white text-xs">Weekly Airdrop</div>
                         <div className="text-[11px] text-gray-400 mt-0.5">Claim earned points as real SPRINKLES tokens every Friday!</div>
                       </div>
                     </div>
@@ -839,7 +894,7 @@ export default function ChatPage() {
                     <X className="h-4 w-4" />
                   </button>
                   <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                    <SprinklesCoin className="w-4 h-4" />
                     Tip Settings
                   </h2>
                   
@@ -864,7 +919,7 @@ export default function ChatPage() {
                               : "border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600"
                           )}
                         >
-                          <Sparkles className="w-3 h-3" />
+                          <SprinklesCoin className="w-3 h-3" />
                           {amt}
                         </button>
                       ))}
@@ -895,7 +950,7 @@ export default function ChatPage() {
                     <div className="flex items-center gap-2">
                       <Heart className="w-5 h-5 text-white fill-white/50" />
                       <span className="text-base font-bold text-white flex items-center gap-1">
-                        {customAmount || tempTipSettings.amount} <Sparkles className="w-4 h-4 text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" /> SPRINKLES
+                        {customAmount || tempTipSettings.amount} <SprinklesCoin className="w-4 h-4" /> SPRINKLES
                       </span>
                     </div>
                   </div>
@@ -939,6 +994,11 @@ export default function ChatPage() {
                   const isOwnMessage = address?.toLowerCase() === msg.sender.toLowerCase();
                   const isTipping = tippingMessageHash === msg.transactionHash;
                   const tipCount = tipCounts[msg.transactionHash] || 0;
+                  
+                  // Get replied message info
+                  const repliedMsg = getReplyMessage(msg.replyToHash);
+                  const repliedProfile = repliedMsg ? profiles?.[repliedMsg.sender.toLowerCase()] : null;
+                  const repliedDisplayName = repliedProfile?.displayName || (repliedMsg ? formatAddress(repliedMsg.sender) : null);
 
                   return (
                     <div 
@@ -962,6 +1022,17 @@ export default function ChatPage() {
                           {username && <button onClick={() => openUserProfile(username)} className="text-[10px] text-gray-500 truncate hover:text-gray-300">{username}</button>}
                           <span className="text-[10px] text-gray-600 ml-auto flex-shrink-0">{timeAgo(msg.timestamp)}</span>
                         </div>
+                        
+                        {/* Reply indicator */}
+                        {repliedMsg && (
+                          <div className="flex items-start gap-1 mb-1 pl-1 border-l-2 border-zinc-600">
+                            <CornerDownRight className="w-3 h-3 text-zinc-500 flex-shrink-0 mt-0.5" />
+                            <div className="text-[10px] text-zinc-500 truncate">
+                              <span className="font-medium">{repliedDisplayName}</span>: {repliedMsg.message.slice(0, 50)}{repliedMsg.message.length > 50 ? '...' : ''}
+                            </div>
+                          </div>
+                        )}
+                        
                         {msg.imageUrl && (
                           <img 
                             src={msg.imageUrl} 
@@ -973,10 +1044,22 @@ export default function ChatPage() {
                           <p className="text-xs text-gray-300 break-words">{msg.message}</p>
                         )}
                       </div>
-                      <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={!isConnected || isOwnMessage || isTipPending || isTipConfirming} className={`flex-shrink-0 flex flex-col items-center justify-center w-[32px] h-[40px] rounded-lg transition-all ${isTipping ? "bg-white/20" : tipCount > 0 ? "bg-white/10" : (!isConnected || isOwnMessage) ? "" : "hover:bg-white/10"}`} title={!isConnected ? "Connect wallet to tip" : isOwnMessage ? "Can't tip yourself" : `Tip ${tipSettings.amount} SPRINKLES`}>
-                        <Heart className={`w-4 h-4 transition-colors ${isTipping ? "text-white animate-pulse fill-white" : tipCount > 0 ? "text-white fill-white/50" : "text-gray-500"}`} />
-                        <span className={`text-[9px] font-bold text-white h-3 ${tipCount > 0 ? "opacity-100" : "opacity-0"}`}>{tipCount || 0}</span>
-                      </button>
+                      <div className="flex flex-col gap-1 flex-shrink-0">
+                        {/* Tip button */}
+                        <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={!isConnected || isOwnMessage || isTipPending || isTipConfirming} className={`flex flex-col items-center justify-center w-[32px] h-[32px] rounded-lg transition-all ${isTipping ? "bg-white/20" : tipCount > 0 ? "bg-white/10" : (!isConnected || isOwnMessage) ? "" : "hover:bg-white/10"}`} title={!isConnected ? "Connect wallet to tip" : isOwnMessage ? "Can't tip yourself" : `Tip ${tipSettings.amount} SPRINKLES`}>
+                          <Heart className={`w-4 h-4 transition-colors ${isTipping ? "text-white animate-pulse fill-white" : tipCount > 0 ? "text-white fill-white/50" : "text-gray-500"}`} />
+                          {tipCount > 0 && <span className="text-[8px] font-bold text-white">{tipCount}</span>}
+                        </button>
+                        {/* Reply button */}
+                        <button 
+                          onClick={() => handleReply(msg)} 
+                          disabled={!isConnected}
+                          className={`flex flex-col items-center justify-center w-[32px] h-[32px] rounded-lg transition-all ${!isConnected ? "" : "hover:bg-white/10"}`}
+                          title={!isConnected ? "Connect wallet to reply" : "Reply"}
+                        >
+                          <Reply className="w-4 h-4 text-gray-500 hover:text-white transition-colors" />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -1062,7 +1145,7 @@ export default function ChatPage() {
                     <div className="mb-2 bg-white/10 border border-white/30 rounded-xl p-2 flex items-center justify-center gap-2">
                       <Heart className="w-4 h-4 text-white animate-pulse" />
                       <span className="text-xs text-white flex items-center gap-1">
-                        {isTipPending ? "Confirm tip in wallet..." : <>Sending {tipSettings.amount} <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.8)]" /> SPRINKLES...</>}
+                        {isTipPending ? "Confirm tip in wallet..." : <>Sending {tipSettings.amount} <SprinklesCoin className="w-3 h-3" /> SPRINKLES...</>}
                       </span>
                     </div>
                   )}
@@ -1070,8 +1153,22 @@ export default function ChatPage() {
                     <div className="mb-2 bg-white/10 border border-white/30 rounded-xl p-2 flex items-center justify-center gap-2">
                       <Heart className="w-4 h-4 text-white fill-white" />
                       <span className="text-xs text-white flex items-center gap-1">
-                        Tip sent! <Sparkles className="w-3 h-3 text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.8)]" />
+                        Tip sent! <SprinklesCoin className="w-3 h-3" />
                       </span>
+                    </div>
+                  )}
+                  
+                  {/* Reply preview - shown above input when replying */}
+                  {replyingTo && (
+                    <div className="mb-2 bg-zinc-900 border border-zinc-700 rounded-xl p-2 flex items-center gap-2">
+                      <CornerDownRight className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] text-zinc-400">Replying to <span className="font-semibold text-white">{profiles?.[replyingTo.sender.toLowerCase()]?.displayName || formatAddress(replyingTo.sender)}</span></div>
+                        <div className="text-xs text-zinc-500 truncate">{replyingTo.message.slice(0, 60)}{replyingTo.message.length > 60 ? '...' : ''}</div>
+                      </div>
+                      <button onClick={cancelReply} className="p-1 hover:bg-zinc-800 rounded transition-colors">
+                        <X className="w-4 h-4 text-zinc-500 hover:text-white" />
+                      </button>
                     </div>
                   )}
                   
@@ -1090,7 +1187,7 @@ export default function ChatPage() {
                         <X className="w-3 h-3 text-white" />
                       </button>
                       <div className="absolute bottom-1 left-1 bg-black/80 px-1.5 py-0.5 rounded text-[9px] text-white flex items-center gap-1">
-                        <Sparkles className="w-2.5 h-2.5" />
+                        <SprinklesCoin className="w-2.5 h-2.5" />
                         10 burn
                       </div>
                     </div>
@@ -1120,7 +1217,7 @@ export default function ChatPage() {
                       value={message}
                       onChange={(e) => { setMessage(e.target.value.slice(0, 280)); if (eligibilityError) setEligibilityError(null); }}
                       onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                      placeholder={selectedImage ? "Add caption (optional)..." : "Type a message..."}
+                      placeholder={replyingTo ? "Write a reply..." : selectedImage ? "Add caption (optional)..." : "Type a message..."}
                       disabled={isPending || isConfirming || isVerifying || isBurnPending || isBurnConfirming || isUploadingImage}
                       className="flex-1 bg-transparent text-white placeholder-gray-500 text-base px-1 py-1 outline-none disabled:opacity-50 min-w-0"
                       style={{ fontSize: '16px' }}

@@ -10,7 +10,7 @@ import {
 import { base } from "wagmi/chains";
 import { parseUnits } from "viem";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { Sparkles, Gift, Loader2, CheckCircle, Clock, Calendar, Share2, XCircle } from "lucide-react";
+import { Gift, Loader2, CheckCircle, Clock, Calendar, Share2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Contract address - NEW VERIFIED CONTRACT
@@ -427,8 +427,8 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
       return (
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
           <div className="flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-white" />
-            <span className="text-[10px] text-gray-400 uppercase tracking-wide">Friday Drop</span>
+            <Gift className="w-3.5 h-3.5 text-white" />
+            <span className="text-[10px] text-gray-400 uppercase tracking-wide">Weekly Airdrop</span>
           </div>
           <div className="text-2xl font-bold text-white fade-in-up stagger-2 opacity-0 flex items-center gap-1">
             <Clock className="w-4 h-4" />
@@ -578,8 +578,8 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
     <div className="bg-gradient-to-r from-green-900/20 to-emerald-900/20 border border-green-500/30 rounded-lg p-3">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-green-400" />
-          <span className="font-bold text-white text-sm">Friday Sprinkles Drop</span>
+          <Gift className="w-5 h-5 text-green-400" />
+          <span className="font-bold text-white text-sm">Weekly Airdrop</span>
         </div>
         {isClaimOpen ? (
           <span className="text-xs text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full">
