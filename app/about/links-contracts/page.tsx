@@ -3,45 +3,94 @@
 import { useEffect, useRef, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { NavBar } from "@/components/nav-bar";
-import { ArrowLeft, Copy, ExternalLink, Check } from "lucide-react";
+import { Header } from "@/components/header";
+import { Copy, ExternalLink, Check } from "lucide-react";
+
+type MiniAppContext = {
+  user?: {
+    fid: number;
+    username?: string;
+    displayName?: string;
+    pfpUrl?: string;
+  };
+};
 
 type CopiedState = string | null;
+
+// Donut coin component
+const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover" />
+  </span>
+);
+
+// Sprinkles coin component
+const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-full h-full object-cover" />
+  </span>
+);
 
 const CONTRACTS = [
   {
     name: "$DONUT Token",
     address: "0xAE4a37d554C6D6F3E398546d8566B25052e0169C",
     description: "ERC-20 token contract",
+    type: "donut",
   },
   {
     name: "$SPRINKLES Token",
     address: "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D",
     description: "ERC-20 token contract",
+    type: "sprinkles",
+  },
+  {
+    name: "gDONUT (LSG)",
+    address: "0xC78B6e362cB0f48b59E573dfe7C99d92153a16d3",
+    description: "Liquid Staked Governance DONUT",
+    type: "donut",
   },
   {
     name: "DONUT Miner",
     address: "0xf5af51e15E408A78488fBdb06c6f544040a226f6",
     description: "Dutch auction miner",
+    type: "donut",
   },
   {
     name: "SPRINKLES Miner",
     address: "0x924b2d4a89b84A37510950031DCDb6552Dc97bcC",
     description: "SPRINKLES miner contract",
+    type: "sprinkles",
+  },
+  {
+    name: "DONUT Fee Splitter",
+    address: "0xcB2604D87fe3e5b6fe33C5d5Ff05781602357D59",
+    description: "Splits SPRINKLES miner fees",
+    type: "sprinkles",
+  },
+  {
+    name: "LP Burn Rewards",
+    address: "0x710e042d4F13f5c649dBb1774A3695BFcAC253ce",
+    description: "LP burn reward distribution",
+    type: "donut",
   },
   {
     name: "Treasury",
     address: "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d",
     description: "Protocol treasury",
+    type: "neutral",
   },
   {
     name: "DONUT/ETH LP",
     address: "0xEF2a5b4B5Fb475Ff80E72311C8bb7D546c33E5FE",
     description: "Uniswap V3 pool",
+    type: "donut",
   },
   {
     name: "SPRINKLES/DONUT LP",
     address: "0x47E8b03017d8b8d058bA5926838cA4dD4531e668",
     description: "Uniswap V2 pool",
+    type: "sprinkles",
   },
 ];
 
@@ -77,14 +126,14 @@ const LINKS = [
     isFarcaster: false,
   },
   {
-    name: "Uniswap (Buy DONUT)",
-    url: "https://app.uniswap.org/swap?outputCurrency=0xAE4a37d554C6D6F3E398546d8566B25052e0169C&chain=base",
-    description: "Trade on Uniswap",
+    name: "DexScreener (DONUT)",
+    url: "https://dexscreener.com/base/0xef2a5b4b5fb475ff80e72311c8bb7d546c33e5fe",
+    description: "Chart & price",
     isFarcaster: false,
   },
   {
-    name: "DexScreener",
-    url: "https://dexscreener.com/base/0xef2a5b4b5fb475ff80e72311c8bb7d546c33e5fe",
+    name: "DexScreener (SPRINKLES)",
+    url: "https://dexscreener.com/base/0x47e8b03017d8b8d058ba5926838ca4dd4531e668",
     description: "Chart & price",
     isFarcaster: false,
   },
@@ -97,8 +146,25 @@ function formatAddress(address: string) {
 export default function LinksContractsPage() {
   const readyRef = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [context, setContext] = useState<MiniAppContext | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [copied, setCopied] = useState<CopiedState>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const hydrateContext = async () => {
+      try {
+        const ctx = (await (sdk as unknown as {
+          context: Promise<MiniAppContext> | MiniAppContext;
+        }).context) as MiniAppContext;
+        if (!cancelled) setContext(ctx);
+      } catch {
+        if (!cancelled) setContext(null);
+      }
+    };
+    hydrateContext();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -145,7 +211,6 @@ export default function LinksContractsPage() {
   const handleOpenUrl = async (url: string, isFarcaster?: boolean) => {
     try {
       if (isFarcaster && url.includes("warpcast.com/")) {
-        // Extract username from URL and open profile in Farcaster
         const username = url.split("warpcast.com/")[1]?.split("/")[0];
         if (username) {
           await sdk.actions.openUrl({ url: `https://warpcast.com/${username}` });
@@ -156,6 +221,22 @@ export default function LinksContractsPage() {
     } catch {
       window.open(url, "_blank");
     }
+  };
+
+  const handleBuyToken = async (tokenAddress: string) => {
+    try {
+      // Open Farcaster native wallet UI to token page
+      await sdk.actions.openUrl({ url: `https://warpcast.com/~/token/eip155:8453:${tokenAddress}` });
+    } catch {
+      // Fallback to Uniswap
+      window.open(`https://app.uniswap.org/swap?outputCurrency=${tokenAddress}&chain=base`, "_blank");
+    }
+  };
+
+  const getAddressColor = (type: string) => {
+    if (type === "donut") return "text-pink-400";
+    if (type === "sprinkles") return "text-green-400";
+    return "text-gray-400";
   };
 
   return (
@@ -179,15 +260,25 @@ export default function LinksContractsPage() {
       >
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
           {/* Header */}
-          <div className="flex-shrink-0 mb-4">
-            <div className="flex items-center gap-3">
+          <div className="flex-shrink-0">
+            <Header title="LINKS & CONTRACTS" user={context?.user} />
+
+            {/* Buy Buttons */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
               <button
-                onClick={() => window.location.href = "/about"}
-                className="p-2 rounded-full bg-zinc-900 hover:bg-zinc-800 transition-colors"
+                onClick={() => handleBuyToken("0xAE4a37d554C6D6F3E398546d8566B25052e0169C")}
+                className="flex items-center justify-center gap-2 p-3 rounded-xl bg-pink-500/20 border border-pink-500/50 hover:bg-pink-500/30 transition-colors active:scale-[0.98]"
               >
-                <ArrowLeft className="w-5 h-5 text-white" />
+                <DonutCoin className="w-5 h-5" />
+                <span className="text-sm font-bold text-pink-400">Buy DONUT</span>
               </button>
-              <h1 className="text-2xl font-bold tracking-wide">Links & Contracts</h1>
+              <button
+                onClick={() => handleBuyToken("0xa890060BE1788a676dBC3894160f5dc5DeD2C98D")}
+                className="flex items-center justify-center gap-2 p-3 rounded-xl bg-green-500/20 border border-green-500/50 hover:bg-green-500/30 transition-colors active:scale-[0.98]"
+              >
+                <SprinklesCoin className="w-5 h-5" />
+                <span className="text-sm font-bold text-green-400">Buy SPRINKLES</span>
+              </button>
             </div>
           </div>
 
@@ -214,7 +305,7 @@ export default function LinksContractsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold text-white">{contract.name}</div>
                         <div className="text-xs text-gray-500">{contract.description}</div>
-                        <div className="text-xs text-amber-400 font-mono mt-1">{formatAddress(contract.address)}</div>
+                        <div className={`text-xs font-mono mt-1 ${getAddressColor(contract.type)}`}>{formatAddress(contract.address)}</div>
                       </div>
                       <div className="flex items-center gap-2 ml-3">
                         <button
