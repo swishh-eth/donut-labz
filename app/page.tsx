@@ -248,47 +248,43 @@ function MatrixText({
   isReady: boolean;
   className?: string;
 }) {
-  const [displayText, setDisplayText] = useState(text);
+  const [animationComplete, setAnimationComplete] = useState(false);
+  const [animatingText, setAnimatingText] = useState(text);
   const [isAnimating, setIsAnimating] = useState(false);
-  const hasAnimatedOnceRef = useRef(false);
+  const hasStartedAnimationRef = useRef(false);
 
   useEffect(() => {
-    // If we already did the initial animation, just show the text
-    if (hasAnimatedOnceRef.current) {
-      setDisplayText(text);
-      return;
+    // Only run animation once when ready
+    if (!hasStartedAnimationRef.current && isReady) {
+      hasStartedAnimationRef.current = true;
+      setIsAnimating(true);
+      
+      let cycleCount = 0;
+      const maxCycles = 10;
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      
+      const interval = setInterval(() => {
+        if (cycleCount < maxCycles) {
+          const randomText = text.split('').map(char => 
+            char === ' ' ? ' ' : chars[Math.floor(Math.random() * chars.length)]
+          ).join('');
+          setAnimatingText(randomText);
+          cycleCount++;
+        } else {
+          setIsAnimating(false);
+          setAnimationComplete(true);
+          clearInterval(interval);
+        }
+      }, 50);
+      
+      return () => clearInterval(interval);
     }
-    
-    // Wait until ready to animate
-    if (!isReady) {
-      setDisplayText(text);
-      return;
-    }
-    
-    // First time ready - do the animation
-    hasAnimatedOnceRef.current = true;
-    setIsAnimating(true);
-    
-    let cycleCount = 0;
-    const maxCycles = 10;
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    
-    const interval = setInterval(() => {
-      if (cycleCount < maxCycles) {
-        const randomText = text.split('').map(char => 
-          char === ' ' ? ' ' : chars[Math.floor(Math.random() * chars.length)]
-        ).join('');
-        setDisplayText(randomText);
-        cycleCount++;
-      } else {
-        setDisplayText(text);
-        setIsAnimating(false);
-        clearInterval(interval);
-      }
-    }, 50);
-    
-    return () => clearInterval(interval);
   }, [isReady, text]);
+
+  // After animation completes, show the live text prop directly
+  const displayText = animationComplete 
+    ? text 
+    : (isAnimating ? animatingText : text);
 
   return (
     <span className={`${className} ${isAnimating ? 'text-green-400/80' : ''} transition-colors duration-200`}>
@@ -311,47 +307,45 @@ function MatrixPrice({
   suffix?: string;
   className?: string;
 }) {
-  const [displayValue, setDisplayValue] = useState("—");
+  const [animationComplete, setAnimationComplete] = useState(false);
+  const [animatingValue, setAnimatingValue] = useState("—");
   const [isAnimating, setIsAnimating] = useState(false);
-  const hasAnimatedOnceRef = useRef(false);
+  const hasStartedAnimationRef = useRef(false);
 
   useEffect(() => {
-    // If no value or not ready, show dash
-    if (!value || value === "—" || !isReady) {
-      setDisplayValue("—");
-      return;
+    // Only run animation once when we first get a valid value
+    if (!hasStartedAnimationRef.current && isReady && value && value !== "—") {
+      hasStartedAnimationRef.current = true;
+      setIsAnimating(true);
+      
+      let cycleCount = 0;
+      const maxCycles = 10;
+      
+      const interval = setInterval(() => {
+        if (cycleCount < maxCycles) {
+          const randomValue = value.split('').map(char => {
+            if (char === '.' || char === ',') return char;
+            return Math.floor(Math.random() * 10).toString();
+          }).join('');
+          setAnimatingValue(randomValue);
+          cycleCount++;
+        } else {
+          setIsAnimating(false);
+          setAnimationComplete(true);
+          clearInterval(interval);
+        }
+      }, 40);
+      
+      return () => clearInterval(interval);
     }
-    
-    // If we already did the initial animation, just show live value
-    if (hasAnimatedOnceRef.current) {
-      setDisplayValue(value);
-      return;
-    }
-    
-    // First time we have a value - do the animation
-    hasAnimatedOnceRef.current = true;
-    setIsAnimating(true);
-    
-    let cycleCount = 0;
-    const maxCycles = 10;
-    
-    const interval = setInterval(() => {
-      if (cycleCount < maxCycles) {
-        const randomValue = value.split('').map(char => {
-          if (char === '.' || char === ',') return char;
-          return Math.floor(Math.random() * 10).toString();
-        }).join('');
-        setDisplayValue(randomValue);
-        cycleCount++;
-      } else {
-        setDisplayValue(value);
-        setIsAnimating(false);
-        clearInterval(interval);
-      }
-    }, 40);
-    
-    return () => clearInterval(interval);
   }, [isReady, value]);
+
+  // After animation completes, show the live value prop directly
+  // During animation, show the animating value
+  // Before animation starts, show dash
+  const displayValue = animationComplete 
+    ? (value || "—") 
+    : (isAnimating ? animatingValue : "—");
 
   return (
     <span className={`tabular-nums ${className} ${isAnimating ? 'text-green-400/80' : ''} transition-colors duration-200`}>
@@ -1655,7 +1649,7 @@ export default function HomePage() {
                   title="MINE DONUT"
                   titleColor="text-white"
                   priceIcon={<EthCoin className="w-5 h-5" />}
-                  priceValue={donutPrice ? formatEth(donutPrice, 2) : "—"}
+                  priceValue={donutPrice ? formatEth(donutPrice, 3) : "—"}
                   isReady={dataReady}
                   recentMiner={recentDonutMiner}
                   onClick={() => setSelectedMiner("donut")}
