@@ -17,12 +17,50 @@ const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
 import {
   useAccount,
   useConnect,
-  useReadContract,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi";
 import { base } from "wagmi/chains";
-import { formatUnits, parseUnits, zeroAddress, type Address } from "viem";
+import { createPublicClient, http, fallback, formatUnits, parseUnits, zeroAddress, type Address } from "viem";
+
+// Alchemy RPC (primary) with fallbacks for reliability
+const ALCHEMY_RPC = "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g";
+const FALLBACK_RPCS = [
+  "https://mainnet.base.org",
+  "https://base.llamarpc.com",
+  "https://1rpc.io/base",
+  "https://base.meowrpc.com",
+];
+
+// Create a public client with Alchemy as primary and fallbacks
+const publicClient = createPublicClient({
+  chain: base,
+  transport: fallback([
+    http(ALCHEMY_RPC, { timeout: 10_000 }),
+    http(FALLBACK_RPCS[0], { timeout: 15_000 }),
+    http(FALLBACK_RPCS[1], { timeout: 15_000 }),
+    http(FALLBACK_RPCS[2], { timeout: 15_000 }),
+    http(FALLBACK_RPCS[3], { timeout: 15_000 }),
+  ]),
+});
+
+// Helper function to read contract with Alchemy RPC
+async function readContractWithAlchemy<T>(
+  address: Address,
+  abi: any,
+  functionName: string,
+  args?: readonly any[]
+): Promise<T> {
+  const params: any = {
+    address,
+    abi,
+    functionName,
+  };
+  if (args && args.length > 0) {
+    params.args = args;
+  }
+  return publicClient.readContract(params) as Promise<T>;
+}
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI, DONUT_ADDRESS, DONUT_ABI } from "@/lib/contracts/sprinkles";
@@ -229,7 +267,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       }
     };
     fetchPrices();
-    const interval = setInterval(fetchPrices, 60_000);
+    const interval = setInterval(fetchPrices, 30_000); // Refresh every 30 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -258,7 +296,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       setEthUsdPrice(price);
     };
     fetchPrice();
-    const interval = setInterval(fetchPrice, 60_000);
+    const interval = setInterval(fetchPrice, 30_000); // Refresh every 30 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -305,6 +343,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Fetch recent miners - refresh every 5 seconds for more real-time updates
   useEffect(() => {
     const fetchRecentMiners = async () => {
       try {
@@ -319,7 +358,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     };
 
     fetchRecentMiners();
-    const interval = setInterval(fetchRecentMiners, 10_000);
+    const interval = setInterval(fetchRecentMiners, 5_000); // Refresh every 5 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -333,46 +372,75 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     connectAsync({ connector: primaryConnector, chainId: base.id }).catch(() => {});
   }, [connectAsync, isConnected, isConnecting, primaryConnector]);
 
-  const { data: rawSlot0, refetch: refetchSlot0 } = useReadContract({
-    address: SPRINKLES_MINER_ADDRESS,
-    abi: SPRINKLES_MINER_ABI,
-    functionName: "getSlot0",
-    chainId: base.id,
-    query: { refetchInterval: 10_000 },
+  const { data: rawSlot0, refetch: refetchSlot0 } = useQuery({
+    queryKey: ["slot0", SPRINKLES_MINER_ADDRESS],
+    queryFn: async () => {
+      return readContractWithAlchemy(
+        SPRINKLES_MINER_ADDRESS,
+        SPRINKLES_MINER_ABI,
+        "getSlot0"
+      );
+    },
+    refetchInterval: 5_000, // Refresh every 5 seconds
+    staleTime: 3_000,
   });
 
-  const { data: currentPrice, refetch: refetchPrice } = useReadContract({
-    address: SPRINKLES_MINER_ADDRESS,
-    abi: SPRINKLES_MINER_ABI,
-    functionName: "getPrice",
-    chainId: base.id,
-    query: { refetchInterval: 20_000 },
+  const { data: currentPrice, refetch: refetchPrice } = useQuery({
+    queryKey: ["price", SPRINKLES_MINER_ADDRESS],
+    queryFn: async () => {
+      return readContractWithAlchemy<bigint>(
+        SPRINKLES_MINER_ADDRESS,
+        SPRINKLES_MINER_ABI,
+        "getPrice"
+      );
+    },
+    refetchInterval: 10_000, // Refresh every 10 seconds
+    staleTime: 5_000,
   });
 
-  const { data: currentDps } = useReadContract({
-    address: SPRINKLES_MINER_ADDRESS,
-    abi: SPRINKLES_MINER_ABI,
-    functionName: "getDps",
-    chainId: base.id,
-    query: { refetchInterval: 30_000 },
+  const { data: currentDps } = useQuery({
+    queryKey: ["dps", SPRINKLES_MINER_ADDRESS],
+    queryFn: async () => {
+      return readContractWithAlchemy<bigint>(
+        SPRINKLES_MINER_ADDRESS,
+        SPRINKLES_MINER_ABI,
+        "getDps"
+      );
+    },
+    refetchInterval: 15_000, // Refresh every 15 seconds
+    staleTime: 10_000,
   });
 
-  const { data: donutBalance } = useReadContract({
-    address: DONUT_ADDRESS,
-    abi: DONUT_ABI,
-    functionName: "balanceOf",
-    args: [address ?? zeroAddress],
-    chainId: base.id,
-    query: { refetchInterval: 30_000, enabled: !!address },
+  const { data: donutBalance } = useQuery({
+    queryKey: ["donutBalance", address],
+    queryFn: async () => {
+      if (!address) return 0n;
+      return readContractWithAlchemy<bigint>(
+        DONUT_ADDRESS,
+        DONUT_ABI,
+        "balanceOf",
+        [address]
+      );
+    },
+    refetchInterval: 15_000, // Refresh every 15 seconds
+    staleTime: 10_000,
+    enabled: !!address,
   });
 
-  const { data: donutAllowance, refetch: refetchAllowance } = useReadContract({
-    address: DONUT_ADDRESS,
-    abi: DONUT_ABI,
-    functionName: "allowance",
-    args: [address ?? zeroAddress, SPRINKLES_MINER_ADDRESS],
-    chainId: base.id,
-    query: { refetchInterval: 30_000, enabled: !!address },
+  const { data: donutAllowance, refetch: refetchAllowance } = useQuery({
+    queryKey: ["donutAllowance", address, SPRINKLES_MINER_ADDRESS],
+    queryFn: async () => {
+      if (!address) return 0n;
+      return readContractWithAlchemy<bigint>(
+        DONUT_ADDRESS,
+        DONUT_ABI,
+        "allowance",
+        [address, SPRINKLES_MINER_ADDRESS]
+      );
+    },
+    refetchInterval: 15_000, // Refresh every 15 seconds
+    staleTime: 10_000,
+    enabled: !!address,
   });
 
   const slot0 = useMemo(() => {
@@ -488,13 +556,15 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           }
         };
 
+        // Fixed: Send correct field names and explicitly set imageUrl to null
         (async () => {
           try {
             const result = await fetchWithRetry("/api/record-glaze", {
               address: address,
               txHash: txHashToRecord,
               mineType: "sprinkles",
-              amount: paidAmount,
+              imageUrl: null, // Explicitly send null instead of undefined
+              providedAmount: paidAmount, // Use correct field name expected by API
             });
             console.log('Record glaze final result:', result);
           } catch (err) {
@@ -504,6 +574,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           }
         })();
         
+        // Refresh recent miners after 2 seconds
         setTimeout(async () => {
           try {
             const res = await fetch('/api/miners/recent?type=sprinkles&limit=10');
@@ -512,7 +583,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
               setRecentMiners(data.miners || []);
             }
           } catch {}
-        }, 3000);
+        }, 2000);
       }
       
       setPendingTxType(null);
@@ -532,6 +603,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         sdk.haptics.impactOccurred("light").catch(() => {});
       }).catch(() => {});
       
+      // Refresh recent miners immediately when miner changes
       setTimeout(async () => {
         try {
           const res = await fetch('/api/miners/recent?type=sprinkles&limit=10');
@@ -540,7 +612,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             setRecentMiners(data.miners || []);
           }
         } catch {}
-      }, 2000);
+      }, 1000);
     }
     prevMinerRef.current = minerAddress;
   }, [minerAddress]);
