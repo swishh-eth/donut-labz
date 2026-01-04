@@ -225,10 +225,25 @@ export default function LinksContractsPage() {
 
   const handleBuyToken = async (tokenAddress: string) => {
     try {
-      // Open Farcaster native wallet UI to token page
-      await sdk.actions.openUrl({ url: `https://warpcast.com/~/token/eip155:8453:${tokenAddress}` });
+      // Use experimental viewToken with CAIP-19 asset ID format
+      const experimental = (sdk as any).experimental;
+      if (experimental?.viewToken) {
+        await experimental.viewToken({
+          token: `eip155:8453/erc20:${tokenAddress}`
+        });
+      } else {
+        // Fallback - try actions.viewToken
+        const actions = sdk.actions as any;
+        if (actions.viewToken) {
+          await actions.viewToken({
+            token: `eip155:8453/erc20:${tokenAddress}`
+          });
+        } else {
+          // Final fallback to Uniswap
+          await sdk.actions.openUrl({ url: `https://app.uniswap.org/swap?outputCurrency=${tokenAddress}&chain=base` });
+        }
+      }
     } catch {
-      // Fallback to Uniswap
       window.open(`https://app.uniswap.org/swap?outputCurrency=${tokenAddress}&chain=base`, "_blank");
     }
   };
