@@ -113,9 +113,9 @@ function FallingCoins() {
             style={{ width: c.size, height: c.size }}
           >
             {c.isDonut ? (
-              <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover scale-[1.7] opacity-40" />
+              <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover opacity-40" />
             ) : (
-              <img src="/media/icon.png" alt="" className="w-full h-full object-cover opacity-40" />
+              <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover opacity-40" />
             )}
           </span>
         </div>
@@ -302,7 +302,7 @@ function HalvingCountdownTile() {
       {/* Background sprinkles logo */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
-          <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
+          <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
         </span>
       </div>
       
@@ -350,14 +350,14 @@ function HalvingCountdownTile() {
 // Coin image component for DONUT
 const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover scale-[1.7]" />
+    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover" />
   </span>
 );
 
 // Coin image component for PEEPLES
 const PeeplesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/peeples_logo.png" alt="PEEPLES" className="w-full h-full object-cover scale-[1.7]" />
+    <img src="/coins/peeples_logo.png" alt="PEEPLES" className="w-full h-full object-cover" />
   </span>
 );
 
@@ -379,7 +379,7 @@ function DonutInfoTile({ onClick }: { onClick: () => void }) {
       {/* Large background donut coin logo */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
-          <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover scale-[1.7]" />
+          <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover" />
         </span>
       </div>
       
@@ -414,7 +414,7 @@ function SprinklesInfoTile({ onClick }: { onClick: () => void }) {
       {/* Large background sprinkles coin logo */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
-          <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
+          <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
         </span>
       </div>
       
@@ -482,7 +482,7 @@ function DonutDashboardTile({ onClick }: { onClick: () => void }) {
       {/* Large background donut coin logo */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
-          <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover scale-[1.7]" />
+          <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover" />
         </span>
       </div>
       
@@ -517,7 +517,7 @@ function SprinklesDashboardTile({ showComingSoon, onClick }: { showComingSoon: b
       {/* Large background sprinkles coin logo - faded */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 opacity-30">
-          <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
+          <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
         </span>
       </div>
       
@@ -716,7 +716,7 @@ export default function AboutPage() {
                 {/* Background coin */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <span className="w-16 h-16 rounded-full overflow-hidden inline-flex items-center justify-center opacity-20">
-                    <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover scale-[1.7]" />
+                    <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover" />
                   </span>
                 </div>
                 <div className="relative z-10 flex flex-col items-center">
@@ -738,7 +738,7 @@ export default function AboutPage() {
                 {/* Background coin */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <span className="w-16 h-16 rounded-full overflow-hidden inline-flex items-center justify-center opacity-20">
-                    <img src="/coins/peeples_logo.png" alt="" className="w-full h-full object-cover scale-[1.7]" />
+                    <img src="/coins/peeples_logo.png" alt="" className="w-full h-full object-cover" />
                   </span>
                 </div>
                 <div className="relative z-10 flex flex-col items-center">

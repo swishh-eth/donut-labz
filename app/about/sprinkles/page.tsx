@@ -25,7 +25,7 @@ type SectionProps = {
 // Sprinkles coin image component
 const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/media/icon.png" alt="SPRINKLES" className="w-full h-full object-cover" />
+    <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-full h-full object-cover" />
   </span>
 );
 

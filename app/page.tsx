@@ -146,14 +146,14 @@ const formatTokenAmount = (
 // Coin image component for SPRINKLES
 const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/media/icon.png" alt="SPRINKLES" className="w-full h-full object-cover" />
+    <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-full h-full object-cover" />
   </span>
 );
 
 // Coin image component for DONUT
 const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover scale-[1.7]" />
+    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover" />
   </span>
 );
 
@@ -1542,11 +1542,11 @@ export default function HomePage() {
                   <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none flex items-center">
                     {/* Sprinkles icon - left/behind */}
                     <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 -mr-6 relative z-0">
-                      <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
+                      <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
                     </span>
                     {/* Donut icon - right/front */}
                     <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 relative z-10">
-                      <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover scale-[1.7]" />
+                      <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover" />
                     </span>
                   </div>
                   
@@ -1618,7 +1618,7 @@ export default function HomePage() {
                             ? "opacity-100"
                             : "opacity-10"
                     )}>
-                      <img src="/media/icon.png" alt="" className="w-full h-full object-cover" />
+                      <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
                     </span>
                   </div>
                   

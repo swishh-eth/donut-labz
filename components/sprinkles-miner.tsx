@@ -7,12 +7,14 @@ import { CircleUserRound, HelpCircle, X, MessageCircle, Sparkles } from "lucide-
 // Coin image components
 const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover scale-[1.7]" />
+    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover" />
   </span>
 );
 
 const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <img src="/media/icon.png" alt="SPRINKLES" className={`${className} rounded-full object-cover`} />
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-full h-full object-cover" />
+  </span>
 );
 import {
   useAccount,

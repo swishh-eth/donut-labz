@@ -78,7 +78,7 @@ const formatAddress = (addr: string) => {
 // Coin image component for DONUT with zoom
 const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover scale-[1.7]" />
+    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover" />
   </span>
 );
 
@@ -92,7 +92,7 @@ const UsdcCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
 // Coin image component for SPRINKLES
 const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/media/icon.png" alt="SPRINKLES" className="w-full h-full object-cover" />
+    <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-full h-full object-cover" />
   </span>
 );
 
@@ -539,9 +539,9 @@ export default function LeaderboardPage() {
             <div className="grid grid-cols-2 gap-2 mb-3">
               <button
                 onClick={() => setShowHelpDialog(true)}
-                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 hover:bg-zinc-800 transition-colors"
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] hover:bg-zinc-800 transition-colors"
               >
-                <div className="flex items-center justify-center gap-2">
+                <div className="flex items-center justify-center gap-2 h-full">
                   <Trophy className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                   <span className="text-xs font-semibold text-white">How to Win</span>
                   <HelpCircle className="w-3 h-3 text-gray-400" />
@@ -550,9 +550,9 @@ export default function LeaderboardPage() {
 
               <button
                 onClick={() => setShowPastWinnersDialog(true)}
-                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 hover:bg-zinc-800 transition-colors"
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] hover:bg-zinc-800 transition-colors"
               >
-                <div className="flex items-center justify-center gap-2">
+                <div className="flex items-center justify-center gap-2 h-full">
                   <History className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                   <span className="text-xs font-semibold text-white">Past Winners</span>
                 </div>
