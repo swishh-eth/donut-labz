@@ -1234,7 +1234,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                 <SprinklesCoin className="w-5 h-5" />
                 How Mining Works
               </h2>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex gap-3">
                   <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-xs font-bold text-black">1</div>
                   <div>
@@ -1265,10 +1265,24 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
                     <div className="text-xs text-gray-400 mt-0.5">When outbid, get 80% of their DONUT.</div>
                   </div>
                 </div>
+                <div className="border-t border-zinc-800 pt-3 mt-3">
+                  <div className="text-xs text-gray-500 mb-2 font-semibold">20% Mining Fee Distribution</div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                      <span className="text-gray-400">15% → Treasury (LSG Revenue)</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                      <span className="text-gray-400">4% → LP Burn Rewards</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                      <span className="text-gray-400">1% → Leaderboard Rewards</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p className="text-[10px] text-gray-500 text-center mt-4 flex items-center justify-center gap-1">
-                10% of all <DonutCoin className="w-3 h-3" />DONUT buys and burns <SprinklesCoin className="w-3 h-3" />SPRINKLES!
-              </p>
               <button onClick={() => setShowHelpDialog(false)} className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors">
                 Got it
               </button>
