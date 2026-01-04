@@ -34,7 +34,7 @@ async function syncRecentMessages() {
       // Check if message already exists with an image_url
       const { data: existingMessage } = await supabase
         .from("chat_messages")
-        .select("image_url")
+        .select("image_url, reply_to_hash")
         .eq("transaction_hash", txHash)
         .single();
       
@@ -58,6 +58,7 @@ async function syncRecentMessages() {
           transaction_hash: txHash,
           block_number: Number(log.blockNumber),
           image_url: imageUrl,
+          reply_to_hash: existingMessage?.reply_to_hash || null,
         }, { onConflict: "transaction_hash" });
 
       // Mark pending image as processed
@@ -89,7 +90,7 @@ export async function GET(request: Request) {
     // Fetch last N messages, ordered by timestamp ascending (oldest first, newest at bottom)
     const { data: messages, error } = await supabase
       .from("chat_messages")
-      .select("sender, message, timestamp, transaction_hash, block_number, is_system_message, image_url")
+      .select("sender, message, timestamp, transaction_hash, block_number, is_system_message, image_url, reply_to_hash")
       .order("timestamp", { ascending: false })
       .limit(Math.min(limit, 100)); // Cap at 100 max
 
