@@ -501,9 +501,8 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
         )}
         style={isActive && claimsRemaining > 0 ? getActiveGradient() : { background: 'rgb(24,24,27)', border: '1px solid rgb(39,39,42)' }}
       >
-        <Share2 className={cn("w-6 h-6 mb-1", getTextColor())} />
-        <div className={cn("text-[10px] font-bold", getTextColor())}>Share to claim</div>
-        <div className={cn("text-[9px]", getTextColor())}>{tokenSymbol}</div>
+        <Gift className={cn("w-6 h-6 mb-1", getTextColor())} />
+        <div className={cn("text-[10px] font-bold", getTextColor())}>SHARE TO CLAIM</div>
       </button>
     );
   }
@@ -759,18 +758,17 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
         >
           {/* Share to Claim state */}
           <div
-            className="flex items-center gap-2 transition-opacity duration-300 ease-in-out absolute inset-0 justify-center"
+            className="flex items-center transition-opacity duration-300 ease-in-out absolute inset-0 justify-center"
             style={{ opacity: showClaimsLeft ? 0 : 1 }}
           >
-            <Share2 className={cn("w-4 h-4", getTextColor())} />
-            <span className={cn("font-semibold text-xs", getTextColor())}>Share to claim {tokenSymbol}</span>
+            <span className={cn("font-semibold text-xs", getTextColor())}>SHARE TO CLAIM</span>
           </div>
           {/* Claims left state */}
           <div
             className="flex items-center transition-opacity duration-300 ease-in-out absolute inset-0 justify-center"
             style={{ opacity: showClaimsLeft ? 1 : 0 }}
           >
-            <span className="font-semibold text-xs text-white">{claimsRemaining} claims left</span>
+            <span className={cn("font-semibold text-xs", getTextColor())}>{claimsRemaining} CLAIMS LEFT</span>
           </div>
         </button>
       );
@@ -842,7 +840,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Gift className={cn("w-4 h-4", getTextColor())} />
-          <span className="font-bold text-white text-sm">Share to claim {tokenSymbol}!</span>
+          <span className="font-bold text-white text-sm">SHARE TO CLAIM</span>
         </div>
         <div className="text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
           {claimsRemaining} left
