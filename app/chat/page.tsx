@@ -1053,7 +1053,7 @@ export default function ChatPage() {
                           <p className="text-xs text-gray-300 break-words">{msg.message}</p>
                         )}
                         {/* Airdrop badge - shows when this message received SPRINKLES from an image upload */}
-                        {msg.airdropAmount && msg.airdropAmount > 0 && (
+                        {(msg.airdropAmount ?? 0) > 0 && (
                           <div className="flex items-center gap-1 mt-1">
                             <span className="text-[10px] font-bold text-green-400 bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                               <SprinklesCoin className="w-3 h-3" />
