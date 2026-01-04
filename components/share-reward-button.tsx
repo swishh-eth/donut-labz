@@ -59,6 +59,17 @@ const greenGradientStyle = {
   border: '1px solid rgba(34,197,94,0.3)'
 };
 
+// Neutral gradient style for loading state
+const neutralGradientActiveStyle = {
+  background: 'linear-gradient(135deg, rgba(113,113,122,0.25) 0%, rgba(82,82,91,0.15) 100%)',
+  border: '1px solid rgba(113,113,122,0.5)'
+};
+
+const neutralGradientStyle = {
+  background: 'linear-gradient(135deg, rgba(113,113,122,0.15) 0%, rgba(82,82,91,0.1) 100%)',
+  border: '1px solid rgba(113,113,122,0.3)'
+};
+
 export function ShareRewardButton({ userFid, compact = false, tile = false }: ShareRewardButtonProps) {
   const { address } = useAccount();
   const [isVerifying, setIsVerifying] = useState(false);
@@ -70,6 +81,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   } | null>(null);
   const [tokenSymbol, setTokenSymbol] = useState<string>("TOKEN");
   const [tokenDecimals, setTokenDecimals] = useState<number>(18);
+  const [tokenLoading, setTokenLoading] = useState(true);
   const [isPulsing, setIsPulsing] = useState(false);
   const [claimedAmount, setClaimedAmount] = useState<string | null>(null);
   const [showClaimSuccess, setShowClaimSuccess] = useState(false);
@@ -81,9 +93,30 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   const isDonutToken = tokenSymbol === "DONUT";
   const isUsdcToken = tokenSymbol === "USDC";
   
-  const getActiveGradient = () => isDonutToken ? pinkGradientActiveStyle : greenGradientActiveStyle;
-  const getGradient = () => isDonutToken ? pinkGradientStyle : greenGradientStyle;
-  const getTextColor = () => isDonutToken ? "text-pink-400" : "text-green-400";
+  const getActiveGradient = () => {
+    if (tokenLoading) return neutralGradientActiveStyle;
+    return isDonutToken ? pinkGradientActiveStyle : greenGradientActiveStyle;
+  };
+  const getGradient = () => {
+    if (tokenLoading) return neutralGradientStyle;
+    return isDonutToken ? pinkGradientStyle : greenGradientStyle;
+  };
+  const getTextColor = () => {
+    if (tokenLoading) return "text-zinc-400";
+    return isDonutToken ? "text-pink-400" : "text-green-400";
+  };
+  const getBorderColor = () => {
+    if (tokenLoading) return "border border-zinc-500/30";
+    return isDonutToken ? "border border-pink-500/30" : "border border-green-500/30";
+  };
+  const getSubTextColor = () => {
+    if (tokenLoading) return "text-zinc-500";
+    return isDonutToken ? "text-pink-500" : "text-green-500";
+  };
+  const getSubTextColor2 = () => {
+    if (tokenLoading) return "text-zinc-400/80";
+    return isDonutToken ? "text-pink-400/80" : "text-green-400/80";
+  };
 
   // Pulsing effect for active campaign
   useEffect(() => {
@@ -172,14 +205,24 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
     if (isNativeETH) {
       setTokenSymbol("ETH");
       setTokenDecimals(18);
+      setTokenLoading(false);
     } else if (campaign?.[0] && campaign[0] !== "0x0000000000000000000000000000000000000000") {
       fetch(`https://base.blockscout.com/api/v2/tokens/${campaign[0]}`)
         .then((res) => res.json())
         .then((data) => {
           setTokenSymbol(data.symbol || "TOKEN");
           setTokenDecimals(data.decimals || 18);
+          setTokenLoading(false);
         })
-        .catch(() => {});
+        .catch(() => {
+          setTokenLoading(false);
+        });
+    } else if (campaign === undefined) {
+      // Still loading campaign data
+      setTokenLoading(true);
+    } else {
+      // No active campaign
+      setTokenLoading(false);
     }
   }, [campaign, isNativeETH]);
 
@@ -365,10 +408,10 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     // Just claimed success
     if (showClaimSuccess && claimedAmount) {
       return (
-        <div className={cn("h-24 rounded-xl bg-zinc-900 p-2 flex flex-col items-center justify-center", isDonutToken ? "border border-pink-500/30" : "border border-green-500/30")}>
+        <div className={cn("h-24 rounded-xl bg-zinc-900 p-2 flex flex-col items-center justify-center", getBorderColor())}>
           <CheckCircle className={cn("w-6 h-6 mb-1", getTextColor())} />
           <div className={cn("text-[10px] font-bold", getTextColor())}>Claimed!</div>
-          <div className={cn("text-[9px]", isDonutToken ? "text-pink-500" : "text-green-500")}>+{claimedAmount} {tokenSymbol}</div>
+          <div className={cn("text-[9px]", getSubTextColor())}>+{claimedAmount} {tokenSymbol}</div>
         </div>
       );
     }
@@ -376,7 +419,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     // Already claimed
     if (hasClaimed && isActive) {
       return (
-        <div className={cn("h-24 rounded-xl bg-zinc-900 p-2 flex flex-col items-center justify-center", isDonutToken ? "border border-pink-500/30" : "border border-green-500/30")}>
+        <div className={cn("h-24 rounded-xl bg-zinc-900 p-2 flex flex-col items-center justify-center", getBorderColor())}>
           <CheckCircle className={cn("w-6 h-6 mb-1", getTextColor())} />
           <div className={cn("text-[10px] font-bold", getTextColor())}>Claimed!</div>
           <div className="text-[9px] text-gray-500">Check back later</div>
@@ -403,7 +446,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           disabled={isWriting || isConfirming}
           className={cn(
             "h-24 rounded-xl bg-zinc-900 p-2 flex flex-col items-center justify-center transition-all",
-            isDonutToken ? "border border-pink-500/30" : "border border-green-500/30",
+            getBorderColor(),
             (isWriting || isConfirming) && "opacity-50 cursor-not-allowed"
           )}
         >
@@ -485,7 +528,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           <div className={cn("text-[10px] font-bold", getTextColor())}>
             {isVerifying ? "Checking..." : "Verify"}
           </div>
-          <div className={cn("text-[9px]", isDonutToken ? "text-pink-400/80" : "text-green-400/80")}>Tap to verify</div>
+          <div className={cn("text-[9px]", getSubTextColor2())}>Tap to verify</div>
         </button>
       );
     }
