@@ -34,9 +34,9 @@ export async function GET(request: NextRequest) {
     const weekStart = getWeekStart();
     const weekStartISO = weekStart.toISOString();
 
-    // Get most recent player
+    // Get most recent player - using stack_tower_games table
     const { data: recentScore, error: recentError } = await supabase
-      .from("stack_tower_scores")
+      .from("stack_tower_games")
       .select("username, score, pfp_url")
       .order("created_at", { ascending: false })
       .limit(1)
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
 
     // Get games played this week
     const { count: gamesThisWeek, error: countError } = await supabase
-      .from("stack_tower_scores")
+      .from("stack_tower_games")
       .select("*", { count: "exact", head: true })
       .gte("created_at", weekStartISO);
 

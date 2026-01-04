@@ -39,13 +39,13 @@ export async function GET(request: NextRequest) {
 
     // Get Flappy Donut plays this week
     const { count: flappyCount, error: flappyError } = await supabase
-      .from("flappy_scores")
+      .from("flappy_games")
       .select("*", { count: "exact", head: true })
       .gte("created_at", weekStartISO);
 
     // Get Glaze Stack plays this week
     const { count: stackCount, error: stackError } = await supabase
-      .from("stack_tower_scores")
+      .from("stack_tower_games")
       .select("*", { count: "exact", head: true })
       .gte("created_at", weekStartISO);
 

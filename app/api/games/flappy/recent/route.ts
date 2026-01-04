@@ -34,9 +34,9 @@ export async function GET(request: NextRequest) {
     const weekStart = getWeekStart();
     const weekStartISO = weekStart.toISOString();
 
-    // Get most recent player
+    // Get most recent player - using flappy_games table
     const { data: recentScore, error: recentError } = await supabase
-      .from("flappy_scores")
+      .from("flappy_games")
       .select("username, score, pfp_url")
       .order("created_at", { ascending: false })
       .limit(1)
@@ -44,19 +44,19 @@ export async function GET(request: NextRequest) {
 
     // Get games played this week
     const { count: gamesThisWeek, error: countError } = await supabase
-      .from("flappy_scores")
+      .from("flappy_games")
       .select("*", { count: "exact", head: true })
       .gte("created_at", weekStartISO);
 
-    // Get prize pool (sum of entry fees this week)
+    // Get prize pool (sum of to_prize_pool this week)
     const { data: prizeData, error: prizeError } = await supabase
-      .from("flappy_scores")
-      .select("entry_fee")
+      .from("flappy_games")
+      .select("to_prize_pool")
       .gte("created_at", weekStartISO);
 
     let prizePool = 0;
     if (prizeData) {
-      prizePool = prizeData.reduce((sum, row) => sum + (row.entry_fee || 0), 0);
+      prizePool = prizeData.reduce((sum, row) => sum + (row.to_prize_pool || 0), 0);
     }
 
     return NextResponse.json({

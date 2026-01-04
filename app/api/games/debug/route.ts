@@ -34,34 +34,34 @@ export async function GET(request: NextRequest) {
     const weekStart = getWeekStart();
     const weekStartISO = weekStart.toISOString();
 
-    // Check flappy_scores
+    // Check flappy_games
     const { count: flappyTotal } = await supabase
-      .from("flappy_scores")
+      .from("flappy_games")
       .select("*", { count: "exact", head: true });
 
     const { count: flappyWeek } = await supabase
-      .from("flappy_scores")
+      .from("flappy_games")
       .select("*", { count: "exact", head: true })
       .gte("created_at", weekStartISO);
 
     const { data: flappySample } = await supabase
-      .from("flappy_scores")
+      .from("flappy_games")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(1);
 
-    // Check stack_tower_scores
+    // Check stack_tower_games
     const { count: stackTotal } = await supabase
-      .from("stack_tower_scores")
+      .from("stack_tower_games")
       .select("*", { count: "exact", head: true });
 
     const { count: stackWeek } = await supabase
-      .from("stack_tower_scores")
+      .from("stack_tower_games")
       .select("*", { count: "exact", head: true })
       .gte("created_at", weekStartISO);
 
     const { data: stackSample } = await supabase
-      .from("stack_tower_scores")
+      .from("stack_tower_games")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(1);
