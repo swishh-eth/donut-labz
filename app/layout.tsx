@@ -2,9 +2,10 @@ import "@/app/globals.css";
 import type { Metadata } from "next";
 import { Providers } from "@/components/providers";
 
-const appDomain = "https://donutlabs.vercel.app/";
-const heroImageUrl = `${appDomain}/media/hero.png`;
-const splashImageUrl = `${appDomain}/media/loading.png`;
+const cacheVersion = "2";
+const appDomain = "https://donutlabs.vercel.app";
+const heroImageUrl = `${appDomain}/media/hero.png?v=${cacheVersion}`;
+const splashImageUrl = `${appDomain}/media/loading.png?v=${cacheVersion}`;
 
 const miniAppEmbed = {
   version: "1",
