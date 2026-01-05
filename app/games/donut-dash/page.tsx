@@ -43,16 +43,16 @@ const SPEED_INCREMENT = 0.0005;
 const COMBO_WINDOW = 500; // ms to chain coins
 const NEAR_MISS_DISTANCE = 25; // pixels for near-miss bonus
 
-// Zone thresholds (by score)
+// Zone thresholds (by score) - spread out for better pacing
 const ZONES = [
   { name: 'Factory', threshold: 0, bg1: '#1a1a1a', bg2: '#0d0d0d', accent: '#FF6B00', gridColor: 'rgba(255, 255, 255, 0.02)' },
-  { name: 'Lava', threshold: 50, bg1: '#2a1a0a', bg2: '#1a0a00', accent: '#FF4400', gridColor: 'rgba(255, 100, 0, 0.03)' },
-  { name: 'Ice', threshold: 100, bg1: '#0a1a2a', bg2: '#001020', accent: '#00CCFF', gridColor: 'rgba(0, 200, 255, 0.03)' },
-  { name: 'Space', threshold: 150, bg1: '#0a0a1a', bg2: '#000010', accent: '#AA00FF', gridColor: 'rgba(150, 0, 255, 0.03)' },
+  { name: 'Lava', threshold: 100, bg1: '#2a1a0a', bg2: '#1a0a00', accent: '#FF4400', gridColor: 'rgba(255, 100, 0, 0.03)' },
+  { name: 'Ice', threshold: 250, bg1: '#0a1a2a', bg2: '#001020', accent: '#00CCFF', gridColor: 'rgba(0, 200, 255, 0.03)' },
+  { name: 'Space', threshold: 400, bg1: '#0a0a1a', bg2: '#000010', accent: '#AA00FF', gridColor: 'rgba(150, 0, 255, 0.03)' },
 ];
 
-// Milestone thresholds
-const MILESTONES = [25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500];
+// Milestone thresholds - spread out for better pacing
+const MILESTONES = [50, 100, 150, 200, 300, 400, 500, 750, 1000];
 
 // Weekly USDC prize pool (fetched from API)
 interface PrizeInfo {
@@ -747,9 +747,9 @@ export default function DonutDashPage() {
     let types: ObstacleType[] = ['zapper_h', 'zapper_v', 'zapper_diag'];
     
     // Add more obstacle types as zones progress
-    if (zone.threshold >= 50) types.push('zapper_moving');
-    if (zone.threshold >= 100) types.push('missile', 'laser');
-    if (zone.threshold >= 150) types.push('zapper_rotating');
+    if (zone.threshold >= 100) types.push('zapper_moving');
+    if (zone.threshold >= 250) types.push('missile', 'laser');
+    if (zone.threshold >= 400) types.push('zapper_rotating');
     
     const type = types[Math.floor(Math.random() * types.length)];
     let obstacle: Obstacle;
@@ -1075,9 +1075,12 @@ export default function DonutDashPage() {
   }, []);
 
   const drawGhost = useCallback((ctx: CanvasRenderingContext2D) => {
-    if (!showGhost || bestGhostRef.current.length === 0) return;
+    // Only draw ghost if enabled, has data, and player has started flying
+    if (!showGhost || !hasStartedFlyingRef.current || bestGhostRef.current.length === 0) return;
     
     const frameIndex = Math.min(frameCountRef.current, bestGhostRef.current.length - 1);
+    if (frameIndex < 0) return;
+    
     const ghostFrame = bestGhostRef.current[frameIndex];
     if (!ghostFrame) return;
     
@@ -2067,7 +2070,7 @@ export default function DonutDashPage() {
       
       const lastObs = obstaclesRef.current[obstaclesRef.current.length - 1];
       const baseSpawnGap = 200 + Math.random() * 150;
-      const spawnGap = currentScore >= 150 ? baseSpawnGap * 0.75 : baseSpawnGap;
+      const spawnGap = currentScore >= 300 ? baseSpawnGap * 0.75 : baseSpawnGap;
       if (!lastObs || (lastObs.type === 'zapper_rotating' ? (lastObs.centerX || lastObs.x) : lastObs.x) < CANVAS_WIDTH - spawnGap) {
         spawnObstacle();
       }
@@ -2117,26 +2120,18 @@ export default function DonutDashPage() {
     drawCombo(ctx);
     drawActivePowerUps(ctx);
     
-    // Start prompt
+    // Start prompt - just text, no floating donut
     if (!hasStarted) {
-      const pulseScale = 1 + Math.sin(frameCountRef.current * 0.1) * 0.15;
       ctx.save();
-      ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 30);
-      ctx.globalAlpha = 0.8;
-      ctx.scale(pulseScale, pulseScale);
-      ctx.beginPath();
-      ctx.arc(0, 0, 18, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(0, 0, 6, 0, Math.PI * 2);
-      ctx.fillStyle = '#1a1a1a';
-      ctx.fill();
-      ctx.scale(1/pulseScale, 1/pulseScale);
-      ctx.font = 'bold 14px monospace';
+      ctx.font = 'bold 16px monospace';
       ctx.fillStyle = '#FFFFFF';
       ctx.textAlign = 'center';
-      ctx.fillText('TAP TO START', 0, 55);
+      ctx.shadowColor = '#FFFFFF';
+      ctx.shadowBlur = 10;
+      const pulse = 0.7 + Math.sin(frameCountRef.current * 0.1) * 0.3;
+      ctx.globalAlpha = pulse;
+      ctx.fillText('TAP TO START', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+      ctx.shadowBlur = 0;
       ctx.restore();
     }
     
