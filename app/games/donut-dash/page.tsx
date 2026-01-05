@@ -51,8 +51,8 @@ const ZONES = [
   { name: 'Space', threshold: 400, bg1: '#0a0a1a', bg2: '#000010', accent: '#AA00FF', gridColor: 'rgba(150, 0, 255, 0.03)' },
 ];
 
-// Milestone thresholds - spread out for better pacing
-const MILESTONES = [50, 100, 150, 200, 300, 400, 500, 750, 1000];
+// Milestone thresholds - spread out by 200 for better pacing
+const MILESTONES = [200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000];
 
 // Weekly USDC prize pool (fetched from API)
 interface PrizeInfo {
