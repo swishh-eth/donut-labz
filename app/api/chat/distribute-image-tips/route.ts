@@ -1,6 +1,7 @@
 // app/api/chat/distribute-image-tips/route.ts
 // Distributes 1 SPRINKLES each to the last 10 UNIQUE chatters when an image is uploaded
 // FIXED: Now finds 10 unique addresses even if we need to look further back in history
+// FIXED: Now updates airdrop_amount on the recipient's chat message for UI display
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -135,7 +136,7 @@ export async function POST(request: NextRequest) {
 
         console.log(`[distribute-image-tips] Sent to ${chatter.address}: ${hash}`);
 
-        // Record the airdrop
+        // Record the airdrop in the airdrops table
         await supabase
           .from('chat_image_airdrops')
           .insert({
@@ -146,6 +147,18 @@ export async function POST(request: NextRequest) {
             amount: '1',
             created_at: new Date().toISOString(),
           });
+
+        // UPDATE: Also set airdrop_amount on the chat message so UI can display it
+        const { error: updateError } = await supabase
+          .from('chat_messages')
+          .update({ airdrop_amount: 1 })
+          .eq('transaction_hash', chatter.messageHash);
+
+        if (updateError) {
+          console.error(`[distribute-image-tips] Failed to update airdrop_amount for message ${chatter.messageHash}:`, updateError);
+        } else {
+          console.log(`[distribute-image-tips] Updated airdrop_amount for message ${chatter.messageHash}`);
+        }
 
         results.push({ address: chatter.address, txHash: hash, success: true });
 

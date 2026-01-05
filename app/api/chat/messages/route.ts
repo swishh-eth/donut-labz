@@ -34,7 +34,7 @@ async function syncRecentMessages() {
       // Check if message already exists with an image_url
       const { data: existingMessage } = await supabase
         .from("chat_messages")
-        .select("image_url, reply_to_hash")
+        .select("image_url, reply_to_hash, airdrop_amount")
         .eq("transaction_hash", txHash)
         .single();
       
@@ -58,6 +58,8 @@ async function syncRecentMessages() {
       const imageUrl = existingMessage?.image_url || pendingImage?.image_url || null;
       // Determine the reply_to_hash to use (preserve existing, or use pending)
       const replyToHash = existingMessage?.reply_to_hash || pendingReply?.reply_to_hash || null;
+      // Preserve existing airdrop_amount
+      const airdropAmount = existingMessage?.airdrop_amount || 0;
 
       await supabase
         .from("chat_messages")
@@ -69,6 +71,7 @@ async function syncRecentMessages() {
           block_number: Number(log.blockNumber),
           image_url: imageUrl,
           reply_to_hash: replyToHash,
+          airdrop_amount: airdropAmount,
         }, { onConflict: "transaction_hash" });
 
       // Mark pending image as processed
@@ -106,20 +109,24 @@ export async function GET(request: Request) {
     }
 
     // Fetch last N messages, ordered by timestamp ascending (oldest first, newest at bottom)
+    // Include airdrop_amount directly from the column
     const { data: messages, error } = await supabase
       .from("chat_messages")
-      .select("sender, message, timestamp, transaction_hash, block_number, is_system_message, image_url, reply_to_hash")
+      .select("sender, message, timestamp, transaction_hash, block_number, is_system_message, image_url, reply_to_hash, airdrop_amount")
       .order("timestamp", { ascending: false })
       .limit(Math.min(limit, 100)); // Cap at 100 max
 
     if (error) throw error;
 
-    // Fetch recent airdrops to mark which messages received tips
+    // If airdrop_amount column doesn't exist or is null, fall back to joining with airdrops table
+    // This provides backwards compatibility
+    const messageHashes = (messages || []).map(m => m.transaction_hash?.toLowerCase()).filter(Boolean);
+    
+    // Fetch airdrops for these specific messages
     const { data: airdrops } = await supabase
       .from("chat_image_airdrops")
       .select("recipient_message_hash, amount")
-      .order("created_at", { ascending: false })
-      .limit(200);
+      .in("recipient_message_hash", messageHashes);
 
     // Create a map of message hashes that received airdrops
     const airdropMap = new Map<string, number>();
@@ -130,11 +137,19 @@ export async function GET(request: Request) {
       }
     }
 
-    // Add airdrop info to messages
-    const messagesWithAirdrops = (messages || []).map(msg => ({
-      ...msg,
-      airdrop_amount: airdropMap.get(msg.transaction_hash?.toLowerCase()) || 0,
-    }));
+    // Add airdrop info to messages - use column value if exists, otherwise use map
+    const messagesWithAirdrops = (messages || []).map(msg => {
+      const hashLower = msg.transaction_hash?.toLowerCase();
+      // Prefer the column value, fall back to the airdrops table lookup
+      const airdropFromColumn = msg.airdrop_amount || 0;
+      const airdropFromTable = airdropMap.get(hashLower) || 0;
+      const finalAirdrop = airdropFromColumn > 0 ? airdropFromColumn : airdropFromTable;
+      
+      return {
+        ...msg,
+        airdrop_amount: finalAirdrop,
+      };
+    });
 
     // Reverse to get oldest first (so newest appears at bottom when rendered)
     const sortedMessages = messagesWithAirdrops.reverse();
