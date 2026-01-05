@@ -265,6 +265,9 @@ export default function DonutDashPage() {
   // Shield hit tracking
   const hasShieldRef = useRef(false);
   
+  // Invincibility after shield break (in milliseconds)
+  const invincibleUntilRef = useRef(0);
+  
   // Audio refs
   const audioContextRef = useRef<AudioContext | null>(null);
   const thrustOscRef = useRef<OscillatorNode | null>(null);
@@ -841,9 +844,24 @@ export default function DonutDashPage() {
     const types: PowerUpType[] = ['magnet', 'shield', 'slowmo', 'rocket', 'ghost'];
     const type = types[Math.floor(Math.random() * types.length)];
     
+    // Find Y positions to avoid (active or upcoming lasers)
+    const laserYPositions = obstaclesRef.current
+      .filter(o => o.type === 'laser')
+      .map(o => o.y);
+    
+    // Try to find a safe Y position
+    let y = 80 + Math.random() * (CANVAS_HEIGHT - 200);
+    let attempts = 0;
+    while (attempts < 10) {
+      const tooCloseToLaser = laserYPositions.some(laserY => Math.abs(y - laserY) < 50);
+      if (!tooCloseToLaser) break;
+      y = 80 + Math.random() * (CANVAS_HEIGHT - 200);
+      attempts++;
+    }
+    
     powerUpsRef.current.push({
       x: CANVAS_WIDTH + 30,
-      y: 80 + Math.random() * (CANVAS_HEIGHT - 200),
+      y,
       type,
       collected: false,
     });
@@ -854,13 +872,27 @@ export default function DonutDashPage() {
     const hasCoinsInSpawnZone = coinsRef.current.some(c => !c.collected && c.x > spawnZoneStart);
     if (hasCoinsInSpawnZone) return;
     
+    // Find Y positions to avoid (active or upcoming lasers)
+    const laserYPositions = obstaclesRef.current
+      .filter(o => o.type === 'laser')
+      .map(o => o.y);
+    
     const patterns = ['line', 'arc', 'wave', 'diagonal', 'zigzag'];
     const pattern = patterns[Math.floor(Math.random() * patterns.length)];
     const startX = CANVAS_WIDTH + 50;
     
     const minY = 80;
     const maxY = CANVAS_HEIGHT - 120;
-    const centerY = minY + Math.random() * (maxY - minY);
+    
+    // Try to find a safe center Y position
+    let centerY = minY + Math.random() * (maxY - minY);
+    let attempts = 0;
+    while (attempts < 10) {
+      const tooCloseToLaser = laserYPositions.some(laserY => Math.abs(centerY - laserY) < 60);
+      if (!tooCloseToLaser) break;
+      centerY = minY + Math.random() * (maxY - minY);
+      attempts++;
+    }
     
     const newCoins: Coin[] = [];
     
@@ -1112,6 +1144,7 @@ export default function DonutDashPage() {
     const isGhost = isPowerUpActive('ghost');
     const isRocket = isPowerUpActive('rocket');
     const hasShield = hasShieldRef.current;
+    const isInvincible = Date.now() < invincibleUntilRef.current;
     
     ctx.save();
     ctx.translate(x, y);
@@ -1120,6 +1153,11 @@ export default function DonutDashPage() {
     // Ghost effect
     if (isGhost) {
       ctx.globalAlpha = 0.5;
+    }
+    
+    // Invincibility flash effect (blink rapidly)
+    if (isInvincible && Math.floor(frameCountRef.current / 4) % 2 === 0) {
+      ctx.globalAlpha = 0.4;
     }
     
     // Jetpack - improved metallic design
@@ -1732,18 +1770,25 @@ export default function DonutDashPage() {
     const playerRadius = PLAYER_SIZE / 2 - 5;
     const isGhost = isPowerUpActive('ghost');
     const isRocket = isPowerUpActive('rocket');
+    const now = Date.now();
     
-    // Ghost and rocket are invincible
-    if (isGhost || isRocket) {
+    // Ghost, rocket, or post-shield invincibility
+    if (isGhost || isRocket || now < invincibleUntilRef.current) {
       return { hit: false, nearMiss: false };
     }
+    
+    // Helper to break shield and grant invincibility
+    const breakShield = () => {
+      hasShieldRef.current = false;
+      invincibleUntilRef.current = now + 1000; // 1 second invincibility
+      addShieldBreakParticles();
+      playShieldBreakSound();
+    };
     
     // Boundary check
     if (player.y - playerRadius < 30 || player.y + playerRadius > CANVAS_HEIGHT - 30) {
       if (hasShieldRef.current) {
-        hasShieldRef.current = false;
-        addShieldBreakParticles();
-        playShieldBreakSound();
+        breakShield();
         // Bounce player back
         player.y = player.y - playerRadius < 30 ? 30 + playerRadius + 5 : CANVAS_HEIGHT - 30 - playerRadius - 5;
         player.velocity = -player.velocity * 0.5;
@@ -1763,9 +1808,7 @@ export default function DonutDashPage() {
         distance = Math.sqrt(dx * dx + dy * dy);
         if (distance < playerRadius + 15) {
           if (hasShieldRef.current) {
-            hasShieldRef.current = false;
-            addShieldBreakParticles();
-            playShieldBreakSound();
+            breakShield();
             // Remove the missile
             obstaclesRef.current = obstaclesRef.current.filter(o => o !== obstacle);
             return { hit: false, nearMiss: false };
@@ -1776,9 +1819,7 @@ export default function DonutDashPage() {
         const dy = Math.abs(player.y - obstacle.y);
         if (dy < playerRadius + 4) {
           if (hasShieldRef.current) {
-            hasShieldRef.current = false;
-            addShieldBreakParticles();
-            playShieldBreakSound();
+            breakShield();
             return { hit: false, nearMiss: false };
           }
           return { hit: true, nearMiss: false };
@@ -1796,9 +1837,7 @@ export default function DonutDashPage() {
         distance = pointToLineDistance(PLAYER_X, player.y, x1, y1, x2, y2);
         if (distance < playerRadius + 10) {
           if (hasShieldRef.current) {
-            hasShieldRef.current = false;
-            addShieldBreakParticles();
-            playShieldBreakSound();
+            breakShield();
             return { hit: false, nearMiss: false };
           }
           return { hit: true, nearMiss: false };
@@ -1807,9 +1846,7 @@ export default function DonutDashPage() {
         distance = pointToLineDistance(PLAYER_X, player.y, obstacle.x, obstacle.y + obstacle.height / 2, obstacle.x + obstacle.width, obstacle.y + obstacle.height / 2);
         if (distance < playerRadius + 10) {
           if (hasShieldRef.current) {
-            hasShieldRef.current = false;
-            addShieldBreakParticles();
-            playShieldBreakSound();
+            breakShield();
             return { hit: false, nearMiss: false };
           }
           return { hit: true, nearMiss: false };
@@ -1818,9 +1855,7 @@ export default function DonutDashPage() {
         distance = pointToLineDistance(PLAYER_X, player.y, obstacle.x + obstacle.width / 2, obstacle.y, obstacle.x + obstacle.width / 2, obstacle.y + obstacle.height);
         if (distance < playerRadius + 10) {
           if (hasShieldRef.current) {
-            hasShieldRef.current = false;
-            addShieldBreakParticles();
-            playShieldBreakSound();
+            breakShield();
             return { hit: false, nearMiss: false };
           }
           return { hit: true, nearMiss: false };
@@ -1835,9 +1870,7 @@ export default function DonutDashPage() {
         distance = pointToLineDistance(PLAYER_X, player.y, x1, y1, x2, y2);
         if (distance < playerRadius + 10) {
           if (hasShieldRef.current) {
-            hasShieldRef.current = false;
-            addShieldBreakParticles();
-            playShieldBreakSound();
+            breakShield();
             return { hit: false, nearMiss: false };
           }
           return { hit: true, nearMiss: false };
@@ -2261,6 +2294,7 @@ export default function DonutDashPage() {
     currentZoneRef.current = ZONES[0];
     ghostRecordingRef.current = [];
     hasShieldRef.current = false;
+    invincibleUntilRef.current = 0;
     screenShakeRef.current = { intensity: 0, duration: 0, startTime: 0 };
     setScore(0);
     setCurrentZone(ZONES[0]);
