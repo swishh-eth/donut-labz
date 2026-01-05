@@ -11,7 +11,7 @@ import {
 import { base } from "wagmi/chains";
 import { formatUnits } from "viem";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { Share2, Gift, Loader2, CheckCircle, XCircle, UserPlus } from "lucide-react";
+import { Share2, Gift, Loader2, CheckCircle, XCircle, UserPlus, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SHARE_REWARDS_ADDRESS,
@@ -34,8 +34,6 @@ type ShareRewardButtonProps = {
   compact?: boolean;
   tile?: boolean;
 };
-
-// Coin icon components removed - using text instead to avoid flash issues
 
 // Pink gradient style for DONUT
 const pinkGradientActiveStyle = {
@@ -70,6 +68,12 @@ const neutralGradientStyle = {
   border: '1px solid rgba(113,113,122,0.3)'
 };
 
+// Green gradient style for SPRINKLES requirement (matches app theme)
+const sprinklesRequirementGradientStyle = {
+  background: 'linear-gradient(135deg, rgba(34,197,94,0.25) 0%, rgba(22,163,74,0.15) 100%)',
+  border: '1px solid rgba(34,197,94,0.5)'
+};
+
 export function ShareRewardButton({ userFid, compact = false, tile = false }: ShareRewardButtonProps) {
   const { address } = useAccount();
   const [isVerifying, setIsVerifying] = useState(false);
@@ -87,6 +91,8 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   const [showClaimSuccess, setShowClaimSuccess] = useState(false);
   const [hasShared, setHasShared] = useState(false);
   const [needsFollow, setNeedsFollow] = useState(false);
+  const [needsSprinkles, setNeedsSprinkles] = useState(false);
+  const [sprinklesBalance, setSprinklesBalance] = useState<number>(0);
   const [showClaimsLeft, setShowClaimsLeft] = useState(false);
 
   // Helper functions for token-specific styling
@@ -342,6 +348,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     setIsVerifying(true);
     setVerifyError(null);
     setNeedsFollow(false);
+    setNeedsSprinkles(false);
 
     try {
       const res = await fetch("/api/share/verify", {
@@ -358,11 +365,18 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           setHasShared(true);
           return;
         }
+        if (data.needsSprinkles) {
+          setNeedsSprinkles(true);
+          setSprinklesBalance(data.currentBalance || 0);
+          setVerifyError(`Need 10K SPRINKLES (you have ${Math.floor(data.currentBalance || 0).toLocaleString()})`);
+          return;
+        }
         setVerifyError(data.message || data.error || "Verification failed");
         return;
       }
 
       setNeedsFollow(false);
+      setNeedsSprinkles(false);
       setClaimData({
         neynarScore: data.scoreBps || data.neynarScore,
         castHash: data.castHash,
@@ -380,6 +394,32 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
       await sdk.actions.openUrl("https://warpcast.com/swishh.eth");
     } catch (e) {
       window.open("https://warpcast.com/swishh.eth", "_blank");
+    }
+  };
+
+  const handleBuySprinkles = async () => {
+    try {
+      // Try native Farcaster token view UI first (CAIP-19 asset ID format)
+      const experimental = (sdk as any).experimental;
+      if (experimental?.viewToken) {
+        await experimental.viewToken({
+          token: "eip155:8453/erc20:0xa890060BE1788a676dBC3894160f5dc5DeD2C98D"
+        });
+        return;
+      }
+      // Fallback - try actions.viewToken
+      const actions = sdk.actions as any;
+      if (actions.viewToken) {
+        await actions.viewToken({
+          token: "eip155:8453/erc20:0xa890060BE1788a676dBC3894160f5dc5DeD2C98D"
+        });
+        return;
+      }
+      // Final fallback - open Uniswap
+      await sdk.actions.openUrl("https://app.uniswap.org/swap?outputCurrency=0xa890060BE1788a676dBC3894160f5dc5DeD2C98D&chain=base");
+    } catch (e) {
+      // If SDK fails, open Uniswap in browser
+      window.open("https://app.uniswap.org/swap?outputCurrency=0xa890060BE1788a676dBC3894160f5dc5DeD2C98D&chain=base", "_blank");
     }
   };
 
@@ -463,6 +503,33 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
       );
     }
 
+    // Needs SPRINKLES
+    if (needsSprinkles) {
+      return (
+        <div className="h-24 rounded-xl p-2 flex flex-col items-center justify-center gap-1" style={sprinklesRequirementGradientStyle}>
+          <button
+            onClick={handleBuySprinkles}
+            className="flex-1 w-full bg-green-500 hover:bg-green-400 rounded-lg flex items-center justify-center gap-1 transition-all"
+          >
+            <Coins className="w-4 h-4 text-white" />
+            <span className="font-bold text-[10px] text-white">Get SPRINKLES</span>
+          </button>
+          <button
+            onClick={handleVerifyAndClaim}
+            disabled={isVerifying}
+            className="flex-1 w-full bg-zinc-700 hover:bg-zinc-600 rounded-lg flex items-center justify-center gap-1 transition-all"
+          >
+            {isVerifying ? (
+              <Loader2 className="w-3 h-3 animate-spin text-white" />
+            ) : (
+              <CheckCircle className="w-3 h-3 text-white" />
+            )}
+            <span className="font-bold text-[10px] text-white">Verify</span>
+          </button>
+        </div>
+      );
+    }
+
     // Needs to follow
     if (needsFollow) {
       return (
@@ -498,6 +565,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             onClick={() => {
               setVerifyError(null);
               setHasShared(false);
+              setNeedsSprinkles(false);
             }}
             className="h-24 rounded-xl border border-red-500/50 bg-red-950/30 p-2 flex flex-col items-center justify-center transition-colors"
           >
@@ -672,7 +740,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
       <div className="bg-gradient-to-r from-amber-900/20 to-orange-900/20 border border-amber-500/30 rounded-lg p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="text-xs text-gray-400">
-            Score: {(claimData.neynarScore / 10000).toFixed(2)}x
+            Ready to claim
           </div>
           <div className="text-xs text-amber-400 font-semibold">
             ~{estimatedReward
@@ -696,6 +764,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
                 setVerifyError(null);
                 setHasShared(false);
                 setNeedsFollow(false);
+                setNeedsSprinkles(false);
               }}
               className="flex items-center justify-center px-3 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-lg hover:bg-red-900/50 transition-colors"
             >
@@ -749,14 +818,53 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
 
   // Active campaign - main UI (COMPACT MODE)
   if (compact) {
-    // Show error state if there's an error
+    // Show error state if there's an error (including SPRINKLES requirement)
     if (verifyError) {
+      // Special styling for SPRINKLES requirement
+      if (needsSprinkles) {
+        return (
+          <div className="flex gap-1.5 h-[36px]">
+            <button
+              onClick={handleBuySprinkles}
+              className="flex-1 rounded-xl p-2 flex items-center justify-center gap-1 transition-all"
+              style={sprinklesRequirementGradientStyle}
+            >
+              <Coins className="w-3.5 h-3.5 text-green-400" />
+              <span className="font-semibold text-[10px] text-green-400">Get SPRINKLES</span>
+            </button>
+            <button
+              onClick={() => {
+                setVerifyError(null);
+                setNeedsSprinkles(false);
+                handleVerifyAndClaim();
+              }}
+              disabled={isVerifying}
+              className={cn(
+                "flex-1 rounded-xl p-2 flex items-center justify-center gap-1 transition-all",
+                isVerifying && "opacity-50 cursor-not-allowed"
+              )}
+              style={getGradient()}
+            >
+              {isVerifying ? (
+                <Loader2 className={cn("w-3.5 h-3.5 animate-spin", getTextColor())} />
+              ) : (
+                <CheckCircle className={cn("w-3.5 h-3.5", getTextColor())} />
+              )}
+              <span className={cn("font-semibold text-[10px]", getTextColor())}>
+                {isVerifying ? "..." : "Retry"}
+              </span>
+            </button>
+          </div>
+        );
+      }
+
       return (
         <button
           onClick={() => {
             setVerifyError(null);
             setHasShared(false);
             setNeedsFollow(false);
+            setNeedsSprinkles(false);
           }}
           className="rounded-xl p-2 h-[36px] flex items-center justify-between transition-colors"
           style={{ 
@@ -891,10 +999,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
       </div>
 
       <div className="text-xs text-gray-400 mb-3">
-        Earn ~<span className="text-amber-400 font-semibold">
-          {estimatedReward ? formatUnits(estimatedReward, tokenDecimals) : "..."} {tokenSymbol}
-        </span>{" "}
-        (±10% based on Neynar score)
+        Requires <span className="text-green-400 font-semibold">10,000 SPRINKLES</span> + follow @swishh.eth
       </div>
 
       {verifyError && (
@@ -912,6 +1017,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
               setVerifyError(null);
               setHasShared(false);
               setNeedsFollow(false);
+              setNeedsSprinkles(false);
             }}
             className="flex items-center justify-center px-3 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-lg hover:bg-red-900/50 transition-colors"
           >
