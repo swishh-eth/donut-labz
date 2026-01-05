@@ -92,6 +92,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   const [hasShared, setHasShared] = useState(false);
   const [needsFollow, setNeedsFollow] = useState(false);
   const [needsSprinkles, setNeedsSprinkles] = useState(false);
+  const [showSprinklesActions, setShowSprinklesActions] = useState(false);
   const [sprinklesBalance, setSprinklesBalance] = useState<number>(0);
   const [showClaimsLeft, setShowClaimsLeft] = useState(false);
 
@@ -349,6 +350,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     setVerifyError(null);
     setNeedsFollow(false);
     setNeedsSprinkles(false);
+    setShowSprinklesActions(false);
 
     try {
       const res = await fetch("/api/share/verify", {
@@ -377,6 +379,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
 
       setNeedsFollow(false);
       setNeedsSprinkles(false);
+      setShowSprinklesActions(false);
       setClaimData({
         neynarScore: data.scoreBps || data.neynarScore,
         castHash: data.castHash,
@@ -505,6 +508,22 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
 
     // Needs SPRINKLES
     if (needsSprinkles) {
+      // First show "NOT ENOUGH SPRINKLES" message, then show action buttons on tap
+      if (!showSprinklesActions) {
+        return (
+          <button
+            onClick={() => setShowSprinklesActions(true)}
+            className="h-24 rounded-xl p-2 flex flex-col items-center justify-center transition-all active:scale-[0.98]"
+            style={sprinklesRequirementGradientStyle}
+          >
+            <Coins className="w-6 h-6 text-green-400 mb-1" />
+            <div className="text-[10px] font-bold text-green-400">NOT ENOUGH SPRINKLES</div>
+            <div className="text-[9px] text-green-400/70">Need 10K (have {Math.floor(sprinklesBalance).toLocaleString()})</div>
+          </button>
+        );
+      }
+      
+      // Show action buttons after tap
       return (
         <div className="h-24 rounded-xl p-2 flex flex-col items-center justify-center gap-1" style={sprinklesRequirementGradientStyle}>
           <button
@@ -566,6 +585,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
               setVerifyError(null);
               setHasShared(false);
               setNeedsSprinkles(false);
+              setShowSprinklesActions(false);
             }}
             className="h-24 rounded-xl border border-red-500/50 bg-red-950/30 p-2 flex flex-col items-center justify-center transition-colors"
           >
@@ -765,6 +785,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
                 setHasShared(false);
                 setNeedsFollow(false);
                 setNeedsSprinkles(false);
+                setShowSprinklesActions(false);
               }}
               className="flex items-center justify-center px-3 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-lg hover:bg-red-900/50 transition-colors"
             >
@@ -822,6 +843,21 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     if (verifyError) {
       // Special styling for SPRINKLES requirement
       if (needsSprinkles) {
+        // First show "NOT ENOUGH SPRINKLES" message, then show action buttons on tap
+        if (!showSprinklesActions) {
+          return (
+            <button
+              onClick={() => setShowSprinklesActions(true)}
+              className="rounded-xl p-2 h-[36px] flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+              style={sprinklesRequirementGradientStyle}
+            >
+              <Coins className="w-3.5 h-3.5 text-green-400" />
+              <span className="font-semibold text-[10px] text-green-400">NEED 10K SPRINKLES</span>
+            </button>
+          );
+        }
+        
+        // Show action buttons after tap
         return (
           <div className="flex gap-1.5 h-[36px]">
             <button
@@ -836,6 +872,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
               onClick={() => {
                 setVerifyError(null);
                 setNeedsSprinkles(false);
+                setShowSprinklesActions(false);
                 handleVerifyAndClaim();
               }}
               disabled={isVerifying}
@@ -865,6 +902,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             setHasShared(false);
             setNeedsFollow(false);
             setNeedsSprinkles(false);
+            setShowSprinklesActions(false);
           }}
           className="rounded-xl p-2 h-[36px] flex items-center justify-between transition-colors"
           style={{ 
@@ -1018,6 +1056,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
               setHasShared(false);
               setNeedsFollow(false);
               setNeedsSprinkles(false);
+              setShowSprinklesActions(false);
             }}
             className="flex items-center justify-center px-3 bg-red-900/30 border border-red-500/50 border-l-0 rounded-r-lg hover:bg-red-900/50 transition-colors"
           >
