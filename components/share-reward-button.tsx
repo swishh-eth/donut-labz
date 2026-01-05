@@ -288,20 +288,20 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     try {
       await sdk.actions.composeCast({
         text: shareText,
-        embeds: ["https://donutlabs.vercel.app"],
+        embeds: ["https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles"],
       });
       setHasShared(true);
     } catch (e) {
       try {
         const encodedText = encodeURIComponent(shareText);
         await sdk.actions.openUrl({
-          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
+          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles`,
         });
         setHasShared(true);
       } catch {
         const encodedText = encodeURIComponent(shareText);
         window.open(
-          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
+          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles`,
           "_blank"
         );
         setHasShared(true);
@@ -316,18 +316,18 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     try {
       await sdk.actions.composeCast({
         text: shareText,
-        embeds: ["https://donutlabs.vercel.app"],
+        embeds: ["https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles"],
       });
     } catch (e) {
       try {
         const encodedText = encodeURIComponent(shareText);
         await sdk.actions.openUrl({
-          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
+          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles`,
         });
       } catch {
         const encodedText = encodeURIComponent(shareText);
         window.open(
-          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
+          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles`,
           "_blank"
         );
       }

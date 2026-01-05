@@ -14,22 +14,62 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Minimum requirements
-const MIN_NEYNAR_SCORE = 0.7;
-const MIN_FOLLOWERS = 500;
+// SPRINKLES token address on Base
+const SPRINKLES_TOKEN = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
+const MIN_SPRINKLES_BALANCE = 10000n * 10n ** 18n; // 10,000 SPRINKLES (18 decimals)
 
 // swishh.eth FID - users must follow this account
 const SWISHH_FID = 209951;
 
-// The EXACT miniapp URL that must be in the cast
+// The URLs/text that indicate a valid share
 const REQUIRED_EMBED_URLS = [
   "donutlabs.vercel.app",
+  "farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles",
+  "farcaster.xyz/miniapps/5argX24fr_Tq",
+  "5argX24fr_Tq", // miniapp ID
   "warpcast.com/miniapps/donutlabs",
   "warpcast.com/~/miniapps/donutlabs",
 ];
 
-// Cache TTL - 1 week
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// Helper to check if a string contains any of our required URLs
+const containsRequiredUrl = (str: string): boolean => {
+  if (!str) return false;
+  const lowerStr = str.toLowerCase();
+  return REQUIRED_EMBED_URLS.some((url) => lowerStr.includes(url.toLowerCase()));
+};
+
+// Helper to extract all URLs from an embed object (handles various Neynar structures)
+const getUrlsFromEmbed = (embed: any): string[] => {
+  const urls: string[] = [];
+  if (!embed) return urls;
+  
+  // Direct URL
+  if (embed.url) urls.push(embed.url);
+  
+  // Metadata URL (for frames/miniapps)
+  if (embed.metadata?.url) urls.push(embed.metadata.url);
+  if (embed.metadata?.html?.ogUrl) urls.push(embed.metadata.html.ogUrl);
+  
+  // Frame URL
+  if (embed.frame?.url) urls.push(embed.frame.url);
+  if (embed.frame?.frames_url) urls.push(embed.frame.frames_url);
+  
+  // Cast embed might have URL in different places
+  if (typeof embed === 'string') urls.push(embed);
+  
+  return urls;
+};
+
+// ERC20 balanceOf ABI
+const ERC20_BALANCE_OF_ABI = [
+  {
+    inputs: [{ name: "account", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
 
 export async function POST(req: NextRequest) {
   try {
@@ -116,8 +156,43 @@ export async function POST(req: NextRequest) {
     }
 
     // ============================================
-    // STEP 2: Check for valid cast FIRST (1 Neynar call)
-    // If no cast found, reject early - saves 2 API calls
+    // STEP 2: Check SPRINKLES balance (FREE - on-chain read)
+    // ============================================
+    let sprinklesBalance: bigint;
+    try {
+      sprinklesBalance = await publicClient.readContract({
+        address: SPRINKLES_TOKEN as `0x${string}`,
+        abi: ERC20_BALANCE_OF_ABI,
+        functionName: "balanceOf",
+        args: [address as `0x${string}`],
+      });
+    } catch (e) {
+      console.error("Failed to check SPRINKLES balance:", e);
+      return NextResponse.json(
+        { error: "Failed to check token balance" },
+        { status: 500 }
+      );
+    }
+
+    const sprinklesHuman = Number(sprinklesBalance) / 1e18;
+    console.log("Share verify - SPRINKLES balance:", { address, balance: sprinklesHuman });
+
+    if (sprinklesBalance < MIN_SPRINKLES_BALANCE) {
+      const needed = 10000 - Math.floor(sprinklesHuman);
+      return NextResponse.json(
+        {
+          error: "Insufficient SPRINKLES",
+          message: `You need at least 10,000 SPRINKLES to claim. You have ${Math.floor(sprinklesHuman).toLocaleString()}.`,
+          needsSprinkles: true,
+          currentBalance: sprinklesHuman,
+          requiredBalance: 10000,
+        },
+        { status: 403 }
+      );
+    }
+
+    // ============================================
+    // STEP 3: Check for valid cast (1 Neynar call)
     // ============================================
     const castsRes = await fetch(
       `https://api.neynar.com/v2/farcaster/feed/user/casts?fid=${fid}&limit=25`,
@@ -140,6 +215,25 @@ export async function POST(req: NextRequest) {
     const castsData = await castsRes.json();
     const casts = castsData.casts || [];
 
+    // Debug logging
+    console.log("Share verify - Checking casts for fid:", fid);
+    console.log("Share verify - Campaign start:", new Date(campaignStartMs).toISOString());
+    console.log("Share verify - Found", casts.length, "casts");
+    
+    // Log first few casts for debugging
+    casts.slice(0, 5).forEach((cast: any, i: number) => {
+      console.log(`Cast ${i}:`, {
+        hash: cast.hash,
+        timestamp: cast.timestamp,
+        text: cast.text?.substring(0, 50),
+        embeds: cast.embeds?.map((e: any) => ({
+          url: e.url,
+          metadataUrl: e.metadata?.url,
+          frameUrl: e.frame?.url,
+        })),
+      });
+    });
+
     const validCast = casts.find((cast: any) => {
       const castTime = new Date(cast.timestamp).getTime();
 
@@ -147,144 +241,38 @@ export async function POST(req: NextRequest) {
         return false;
       }
 
+      // Check embeds for our URL
       const embeds = cast.embeds || [];
       const hasValidEmbed = embeds.some((embed: any) => {
-        const url = (embed.url || "").toLowerCase();
-        return REQUIRED_EMBED_URLS.some((requiredUrl) =>
-          url.includes(requiredUrl.toLowerCase())
-        );
+        const urls = getUrlsFromEmbed(embed);
+        return urls.some((url) => containsRequiredUrl(url));
       });
 
-      const text = (cast.text || "").toLowerCase();
-      const hasValidText = REQUIRED_EMBED_URLS.some((requiredUrl) =>
-        text.includes(requiredUrl.toLowerCase())
-      );
+      // Check cast text for our URL or miniapp name
+      const hasValidText = containsRequiredUrl(cast.text || "");
+
+      // Log for debugging
+      if (hasValidEmbed || hasValidText) {
+        console.log("Found valid cast:", { hash: cast.hash, hasValidEmbed, hasValidText });
+      }
 
       return hasValidEmbed || hasValidText;
     });
 
     if (!validCast) {
       const campaignStartDate = new Date(campaignStartMs).toLocaleString();
+      console.log("Share verify - No valid cast found. Campaign started:", campaignStartDate);
       return NextResponse.json(
         {
           error: "No valid share found",
-          message: `Please share the mini app AFTER the campaign started (${campaignStartDate}). Make sure to include the Donut Labs miniapp link in your cast.`,
+          message: `No qualifying cast found. Share the Sprinkles miniapp and try again.`,
         },
         { status: 404 }
       );
     }
 
     // ============================================
-    // STEP 3: Check profile cache in Supabase (FREE)
-    // ============================================
-    let neynarScore: number | null = null;
-    let followerCount: number | null = null;
-
-    try {
-      const { data: cachedProfile } = await supabase
-        .from("profile_cache")
-        .select("*")
-        .eq("address", address.toLowerCase())
-        .single();
-
-      if (cachedProfile) {
-        const cachedTime = new Date(cachedProfile.updated_at).getTime();
-        if (Date.now() - cachedTime < CACHE_TTL_MS) {
-          neynarScore = cachedProfile.profile?.neynarScore ?? null;
-          followerCount = cachedProfile.profile?.followerCount ?? null;
-          console.log("Share verify - Using cached profile:", { neynarScore, followerCount });
-        }
-      }
-    } catch (e) {
-      // Cache miss, will fetch from Neynar
-    }
-
-    // ============================================
-    // STEP 4: Fetch user data from Neynar if not cached (1 Neynar call)
-    // ============================================
-    let user: any = null;
-    
-    if (neynarScore === null || followerCount === null) {
-      const userRes = await fetch(
-        `https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`,
-        {
-          headers: {
-            accept: "application/json",
-            api_key: NEYNAR_API_KEY,
-          },
-        }
-      );
-
-      if (!userRes.ok) {
-        console.error("Failed to fetch user:", await userRes.text());
-        return NextResponse.json(
-          { error: "Failed to fetch user data" },
-          { status: 500 }
-        );
-      }
-
-      const userData = await userRes.json();
-      user = userData.users?.[0];
-      
-      neynarScore = user?.experimental?.neynar_user_score || 0;
-      followerCount = user?.follower_count ?? 0;
-
-      // Update cache with fresh data including follower count
-      const userVerifiedAddress = user?.verified_addresses?.eth_addresses?.[0]?.toLowerCase();
-      if (userVerifiedAddress) {
-        try {
-          await supabase.from("profile_cache").upsert(
-            {
-              address: userVerifiedAddress,
-              profile: {
-                fid: user.fid,
-                username: user.username,
-                displayName: user.display_name,
-                pfpUrl: user.pfp_url,
-                neynarScore: neynarScore,
-                followerCount: followerCount,
-              },
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "address" }
-          );
-        } catch (e) {
-          console.error("Failed to update profile cache:", e);
-        }
-      }
-    }
-
-    console.log("Share verify - User check:", { 
-      fid, 
-      neynarScore, 
-      followerCount,
-      fromCache: user === null,
-    });
-
-    // Check minimum follower requirement
-    if (followerCount! < MIN_FOLLOWERS) {
-      return NextResponse.json(
-        {
-          error: "Not enough followers",
-          message: `You need at least ${MIN_FOLLOWERS} followers to claim (you have ${followerCount}).`,
-        },
-        { status: 403 }
-      );
-    }
-
-    // Check minimum score requirement
-    if (neynarScore! < MIN_NEYNAR_SCORE) {
-      return NextResponse.json(
-        {
-          error: "Score too low",
-          message: `Your Neynar score (${neynarScore!.toFixed(2)}) is below the minimum required (${MIN_NEYNAR_SCORE}). Build up your reputation and try again!`,
-        },
-        { status: 403 }
-      );
-    }
-
-    // ============================================
-    // STEP 5: Check if user follows swishh.eth (1 Neynar call)
+    // STEP 4: Check if user follows swishh.eth (1 Neynar call)
     // ============================================
     let followsSwishh = false;
     try {
@@ -321,11 +309,10 @@ export async function POST(req: NextRequest) {
     }
 
     // ============================================
-    // STEP 6: All checks passed - generate signature
+    // STEP 5: All checks passed - generate signature
+    // Use a flat 1.0x multiplier since we removed Neynar score scaling
     // ============================================
-    const multiplier = 0.9 + ((neynarScore! - 0.7) / 0.3) * 0.2;
-    const clampedMultiplier = Math.min(Math.max(multiplier, 0.9), 1.1);
-    const scoreBps = Math.floor(clampedMultiplier * 10000);
+    const scoreBps = 10000; // 1.0x multiplier (no bonus/penalty)
 
     let castHashHex = validCast.hash;
     if (!castHashHex.startsWith("0x")) {
@@ -358,6 +345,7 @@ export async function POST(req: NextRequest) {
       fid,
       scoreBps,
       castHash: castHashHex,
+      sprinklesBalance: sprinklesHuman,
     });
 
     return NextResponse.json({
@@ -366,7 +354,6 @@ export async function POST(req: NextRequest) {
       scoreBps,
       castHash: castHashHex,
       signature,
-      neynarScore,
     });
   } catch (error) {
     console.error("Share verify error:", error);
