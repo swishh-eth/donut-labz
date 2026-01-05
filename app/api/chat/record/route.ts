@@ -22,9 +22,10 @@ const ERC20_ABI = [
   },
 ] as const;
 
+// Use Alchemy RPC for reliability (same as other routes)
 const publicClient = createPublicClient({
   chain: base,
-  transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org"),
+  transport: http("https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g"),
 });
 
 const supabase = createClient(
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
     
     // If rewards have ended, don't record points
     if (multiplier === 0) {
+      console.log(`[chat-record] Rewards ended for ${senderAddress}`);
       return NextResponse.json({ 
         success: true, 
         points: 0, 
@@ -64,35 +66,48 @@ export async function POST(request: NextRequest) {
     }
 
     // Check SPRINKLES balance
+    let balance: bigint = 0n;
     let hasEnoughSprinkles = false;
+    
     try {
-      const balance = await publicClient.readContract({
+      balance = await publicClient.readContract({
         address: SPRINKLES_TOKEN as `0x${string}`,
         abi: ERC20_ABI,
         functionName: "balanceOf",
         args: [senderAddress as `0x${string}`],
       });
       hasEnoughSprinkles = balance >= MIN_SPRINKLES_BALANCE;
+      
+      // Debug logging
+      const balanceFormatted = formatUnits(balance, 18);
+      const minRequired = formatUnits(MIN_SPRINKLES_BALANCE, 18);
+      console.log(`[chat-record] Balance check for ${senderAddress}: ${balanceFormatted} SPRINKLES (need ${minRequired}, eligible: ${hasEnoughSprinkles})`);
+      
     } catch (e) {
-      console.error("Failed to check SPRINKLES balance:", e);
+      console.error(`[chat-record] Failed to check SPRINKLES balance for ${senderAddress}:`, e);
       return NextResponse.json({ 
         success: true, 
         points: 0, 
-        message: "Could not verify balance" 
+        message: "Could not verify balance - RPC error" 
       });
     }
 
     // If user doesn't have enough SPRINKLES, no points
     if (!hasEnoughSprinkles) {
+      const balanceFormatted = formatUnits(balance, 18);
+      console.log(`[chat-record] ${senderAddress} has ${balanceFormatted} SPRINKLES - not enough to earn`);
       return NextResponse.json({ 
         success: true, 
         points: 0, 
+        balance: formatUnits(balance, 18),
         message: "Must hold 100,000 SPRINKLES to earn" 
       });
     }
 
     // Calculate points: base rate * halving multiplier
     const points = BASE_POINTS_PER_MESSAGE * multiplier;
+
+    console.log(`[chat-record] Awarding ${points} points to ${senderAddress} (multiplier: ${multiplier}x)`);
 
     // Record points in database
     const { error } = await supabase.from("chat_points").insert({
@@ -104,7 +119,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      console.error("Failed to record points:", error);
+      console.error("[chat-record] Failed to record points:", error);
     }
 
     // Update leaderboard
@@ -134,9 +149,10 @@ export async function POST(request: NextRequest) {
       success: true, 
       points,
       multiplier,
+      balance: formatUnits(balance, 18),
     });
   } catch (error) {
-    console.error("Record error:", error);
+    console.error("[chat-record] Record error:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
