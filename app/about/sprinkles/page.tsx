@@ -268,6 +268,9 @@ export default function AboutSprinklesPage() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Calculate circulating supply
+  const circulatingSupply = (210000000 - parseInt(burnedBalance.replace(/,/g, '') || '0')).toLocaleString();
+
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style>{`
@@ -299,7 +302,7 @@ export default function AboutSprinklesPage() {
           >
             <div className="space-y-3 pb-8">
               {/* Overview Card */}
-              <div className="rounded-xl p-4 border border-green-500/50 bg-gradient-to-br from-green-500/10 to-green-600/5">
+              <div className="rounded-xl p-4 border border-zinc-700 bg-zinc-900">
                 <div className="flex items-start gap-3 mb-3">
                   <SprinklesCoin className="w-16 h-16 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
@@ -308,7 +311,7 @@ export default function AboutSprinklesPage() {
                   </div>
                 </div>
                 <p className="text-sm text-gray-300 leading-relaxed mb-3">
-                  Earn SPRINKLES by playing games, mining, and chatting in the Sprinkles App — powered by $DONUT.
+                  Play games. Mine tokens. Chat onchain. Stack SPRINKLES — powered by $DONUT.
                 </p>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
@@ -316,8 +319,12 @@ export default function AboutSprinklesPage() {
                     <span className="text-sm font-bold text-white">210,000,000</span>
                   </div>
                   <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Circulating</span>
+                    <span className="text-sm font-bold text-green-400">{circulatingSupply}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">Initial LP</span>
-                    <span className="text-xs text-gray-500">10M Pre-minted for initial Burned LP</span>
+                    <span className="text-xs text-gray-500">10M Pre-minted & Burned</span>
                   </div>
                 </div>
               </div>
@@ -330,7 +337,7 @@ export default function AboutSprinklesPage() {
                     <span className="text-[10px] text-gray-400">SPRINKLES Burned</span>
                   </div>
                   <span className="text-lg font-bold text-green-400">{burnedBalance}</span>
-                  <p className="text-[9px] text-gray-500 mt-0.5">LP Rewards & Dead Address</p>
+                  <p className="text-[9px] text-gray-500 mt-0.5">Togglable Burn Switch</p>
                 </div>
                 <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl">
                   <div className="flex items-center gap-1.5 mb-1">
@@ -346,7 +353,7 @@ export default function AboutSprinklesPage() {
                     <span className="text-[10px] text-gray-400">Treasury SPRINKLES</span>
                   </div>
                   <span className="text-lg font-bold text-green-400">{treasurySprinkles}</span>
-                  <p className="text-[9px] text-gray-500 mt-0.5">Initial LP Allocation</p>
+                  <p className="text-[9px] text-gray-500 mt-0.5">Buybacks w/ Miner Rev</p>
                 </div>
                 <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl">
                   <div className="flex items-center gap-1.5 mb-1">

@@ -6,7 +6,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Send, MessageCircle, X, Timer, Heart, Image as ImageIcon, User, Reply, CornerDownRight } from "lucide-react";
+import { Send, MessageCircle, X, Timer, Heart, Image as ImageIcon, User, Reply, CornerDownRight, Gift } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseUnits } from "viem";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
@@ -782,6 +782,20 @@ export default function ChatPage() {
         }
         .stagger-1 { animation-delay: 0.1s; }
         .stagger-2 { animation-delay: 0.2s; }
+        @keyframes airdropGlow {
+          0%, 100% { box-shadow: 0 0 8px rgba(74, 222, 128, 0.4); }
+          50% { box-shadow: 0 0 16px rgba(74, 222, 128, 0.7); }
+        }
+        .airdrop-glow {
+          animation: airdropGlow 2s ease-in-out infinite;
+        }
+        @keyframes coinBounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-2px); }
+        }
+        .coin-bounce {
+          animation: coinBounce 1s ease-in-out infinite;
+        }
       `}</style>
 
       <div 
@@ -1025,6 +1039,7 @@ export default function ChatPage() {
                   const isOwnMessage = address?.toLowerCase() === msg.sender.toLowerCase();
                   const isTipping = tippingMessageHash === msg.transactionHash;
                   const tipCount = tipCounts[msg.transactionHash] || 0;
+                  const hasAirdrop = (msg.airdropAmount ?? 0) > 0;
                   
                   // Get replied message info
                   const repliedMsg = getReplyMessage(msg.replyToHash);
@@ -1034,23 +1049,53 @@ export default function ChatPage() {
                   return (
                     <div 
                       key={`${msg.transactionHash}-${index}`} 
-                      className={`flex gap-2 p-2 rounded-lg ${isOwnMessage ? "bg-zinc-800 border border-zinc-700" : "bg-zinc-900 border border-zinc-800"} ${!hasAnimatedIn ? 'animate-messagePopIn' : ''}`}
+                      className={cn(
+                        "flex gap-2 p-2 rounded-lg relative",
+                        isOwnMessage ? "bg-zinc-800 border border-zinc-700" : "bg-zinc-900 border border-zinc-800",
+                        hasAirdrop && "border-green-500/50 airdrop-glow",
+                        !hasAnimatedIn && "animate-messagePopIn"
+                      )}
                       style={!hasAnimatedIn ? {
                         opacity: 0,
                         animationDelay: `${index * 30}ms`,
                         animationFillMode: 'forwards',
                       } : undefined}
                     >
+                      {/* Airdrop indicator - floating badge on message */}
+                      {hasAirdrop && (
+                        <div className="absolute -top-2 -right-2 z-10">
+                          <div className="flex items-center gap-0.5 bg-green-500 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-lg">
+                            <SprinklesCoin className="w-3 h-3 coin-bounce" />
+                            <span>+{msg.airdropAmount}</span>
+                          </div>
+                        </div>
+                      )}
+                      
                       <button onClick={() => openUserProfile(username)} disabled={!username} className={`flex-shrink-0 ${username ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}>
-                        <Avatar className="h-8 w-8 border border-zinc-700">
-                          <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
-                          <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(displayName)}</AvatarFallback>
-                        </Avatar>
+                        <div className="relative">
+                          <Avatar className={cn("h-8 w-8 border", hasAirdrop ? "border-green-500" : "border-zinc-700")}>
+                            <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+                            <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(displayName)}</AvatarFallback>
+                          </Avatar>
+                          {/* Small sprinkles indicator on avatar for airdrop recipients */}
+                          {hasAirdrop && (
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center border-2 border-zinc-900">
+                              <Gift className="w-2.5 h-2.5 text-black" />
+                            </div>
+                          )}
+                        </div>
                       </button>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <button onClick={() => openUserProfile(username)} disabled={!username} className={`font-semibold text-white text-xs truncate ${username ? "hover:text-gray-300" : ""}`}>{displayName}</button>
+                          <button onClick={() => openUserProfile(username)} disabled={!username} className={cn("font-semibold text-xs truncate", hasAirdrop ? "text-green-400" : "text-white", username && "hover:text-gray-300")}>{displayName}</button>
                           {username && <button onClick={() => openUserProfile(username)} className="text-[10px] text-gray-500 truncate hover:text-gray-300">{username}</button>}
+                          {/* Inline airdrop label */}
+                          {hasAirdrop && (
+                            <span className="text-[9px] text-green-400 bg-green-500/20 px-1 py-0.5 rounded flex items-center gap-0.5">
+                              <Gift className="w-2.5 h-2.5" />
+                              airdrop
+                            </span>
+                          )}
                         </div>
                         
                         {/* Reply indicator - show original message being replied to */}
@@ -1067,20 +1112,11 @@ export default function ChatPage() {
                           <img 
                             src={msg.imageUrl} 
                             alt="Chat image" 
-                            className="max-w-full max-h-[400px] rounded-lg border border-zinc-700 mb-1 object-contain"
+                            className={cn("max-w-full max-h-[400px] rounded-lg border mb-1 object-contain", hasAirdrop ? "border-green-500/50" : "border-zinc-700")}
                           />
                         )}
                         {msg.message && msg.message !== "📷" && (
                           <p className="text-xs text-gray-300 break-words">{msg.message}</p>
-                        )}
-                        {/* Airdrop badge - shows when this message received SPRINKLES from an image upload */}
-                        {(msg.airdropAmount ?? 0) > 0 && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <span className="text-[10px] font-bold text-green-400 bg-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
-                              <SprinklesCoin className="w-3 h-3" />
-                              +{msg.airdropAmount}
-                            </span>
-                          </div>
                         )}
                       </div>
                       {/* Time and action buttons in a row */}
