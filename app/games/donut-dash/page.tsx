@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Play, Share2, X, HelpCircle, Volume2, VolumeX, Trophy, ChevronRight, Clock, Sparkles } from "lucide-react";
+import { Play, Share2, X, HelpCircle, Volume2, VolumeX, Trophy, ChevronRight, Clock, Sparkles, Ghost, Zap } from "lucide-react";
 
 // Free Arcade Contract
 const FREE_ARCADE_CONTRACT = "0x9726D22F49274b575b1cd899868Aa10523A3E895" as const;
@@ -39,6 +39,21 @@ const BASE_SPEED = 4;
 const MAX_SPEED = 8;
 const SPEED_INCREMENT = 0.0005;
 
+// Combo settings
+const COMBO_WINDOW = 500; // ms to chain coins
+const NEAR_MISS_DISTANCE = 25; // pixels for near-miss bonus
+
+// Zone thresholds (by score)
+const ZONES = [
+  { name: 'Factory', threshold: 0, bg1: '#1a1a1a', bg2: '#0d0d0d', accent: '#FF6B00', gridColor: 'rgba(255, 255, 255, 0.02)' },
+  { name: 'Lava', threshold: 50, bg1: '#2a1a0a', bg2: '#1a0a00', accent: '#FF4400', gridColor: 'rgba(255, 100, 0, 0.03)' },
+  { name: 'Ice', threshold: 100, bg1: '#0a1a2a', bg2: '#001020', accent: '#00CCFF', gridColor: 'rgba(0, 200, 255, 0.03)' },
+  { name: 'Space', threshold: 150, bg1: '#0a0a1a', bg2: '#000010', accent: '#AA00FF', gridColor: 'rgba(150, 0, 255, 0.03)' },
+];
+
+// Milestone thresholds
+const MILESTONES = [25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500];
+
 // Weekly USDC prize pool (fetched from API)
 interface PrizeInfo {
   totalPrize: number;
@@ -64,14 +79,58 @@ const DEFAULT_PRIZE_INFO: PrizeInfo = {
 };
 
 // Types
-type ObstacleType = 'zapper_h' | 'zapper_v' | 'zapper_diag';
+type ObstacleType = 'zapper_h' | 'zapper_v' | 'zapper_diag' | 'zapper_moving' | 'missile' | 'laser' | 'zapper_rotating';
+type PowerUpType = 'magnet' | 'shield' | 'slowmo' | 'rocket' | 'ghost';
 type PlayState = 'idle' | 'confirming' | 'recording' | 'error';
 
-interface Obstacle { x: number; y: number; type: ObstacleType; width: number; height: number; angle?: number; }
-interface Coin { x: number; y: number; collected: boolean; }
+interface Obstacle { 
+  x: number; 
+  y: number; 
+  type: ObstacleType; 
+  width: number; 
+  height: number; 
+  angle?: number;
+  // For moving zappers
+  baseY?: number;
+  moveRange?: number;
+  moveSpeed?: number;
+  movePhase?: number;
+  // For missiles
+  velocityY?: number;
+  targetY?: number;
+  // For lasers
+  warningTime?: number;
+  firingTime?: number;
+  active?: boolean;
+  // For rotating
+  rotationSpeed?: number;
+  centerX?: number;
+  centerY?: number;
+  orbitRadius?: number;
+}
+
+interface PowerUp {
+  x: number;
+  y: number;
+  type: PowerUpType;
+  collected: boolean;
+}
+
+interface ActivePowerUp {
+  type: PowerUpType;
+  endTime: number;
+}
+
+interface Coin { x: number; y: number; collected: boolean; trail?: { x: number; y: number; alpha: number }[]; }
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; color: string; size: number; }
 interface LeaderboardEntry { rank: number; fid: number; username?: string; displayName?: string; pfpUrl?: string; score: number; }
 type MiniAppContext = { user?: { fid: number; username?: string; displayName?: string; pfpUrl?: string } };
+
+// Ghost run recording
+interface GhostFrame {
+  y: number;
+  isThrusting: boolean;
+}
 
 // Color conversion helpers for animations
 const hexToHsl = (hex: string): [number, number, number] => {
@@ -123,6 +182,15 @@ function getTimeUntilReset(): string {
   return `${hours}h ${minutes}m`;
 }
 
+// Power-up colors and icons
+const POWERUP_CONFIG: Record<PowerUpType, { color: string; icon: string; duration: number }> = {
+  magnet: { color: '#FF00FF', icon: '🧲', duration: 5000 },
+  shield: { color: '#00FFFF', icon: '🛡️', duration: 0 }, // One-time use
+  slowmo: { color: '#FFFF00', icon: '⏱️', duration: 3000 },
+  rocket: { color: '#FF6600', icon: '🚀', duration: 4000 },
+  ghost: { color: '#AAAAFF', icon: '👻', duration: 3000 },
+};
+
 export default function DonutDashPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number | null>(null);
@@ -137,6 +205,7 @@ export default function DonutDashPage() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
+  const [showGhost, setShowGhost] = useState(true);
   
   // Play state (simplified - no payment, just gas tx)
   const [playState, setPlayState] = useState<PlayState>('idle');
@@ -154,10 +223,17 @@ export default function DonutDashPage() {
   // Prize info (fetched from API)
   const [prizeInfo, setPrizeInfo] = useState<PrizeInfo>(DEFAULT_PRIZE_INFO);
   
+  // Display state for UI
+  const [currentZone, setCurrentZone] = useState(ZONES[0]);
+  const [comboDisplay, setComboDisplay] = useState(0);
+  const [activePowerUpsDisplay, setActivePowerUpsDisplay] = useState<ActivePowerUp[]>([]);
+  
   // Game refs
   const playerRef = useRef({ y: CANVAS_HEIGHT / 2, velocity: 0, isThrusting: false });
   const obstaclesRef = useRef<Obstacle[]>([]);
   const coinsRef = useRef<Coin[]>([]);
+  const powerUpsRef = useRef<PowerUp[]>([]);
+  const activePowerUpsRef = useRef<ActivePowerUp[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const speedRef = useRef(BASE_SPEED);
   const coinsCollectedRef = useRef(0);
@@ -167,10 +243,33 @@ export default function DonutDashPage() {
   const bgElementsRef = useRef<{ x: number; y: number; type: string; speed: number; height?: number }[]>([]);
   const hasStartedFlyingRef = useRef(false);
   
+  // Combo system refs
+  const comboRef = useRef(0);
+  const lastCoinTimeRef = useRef(0);
+  const nearMissBonusRef = useRef(0);
+  
+  // Screen shake refs
+  const screenShakeRef = useRef({ intensity: 0, duration: 0, startTime: 0 });
+  
+  // Milestone tracking
+  const lastMilestoneRef = useRef(0);
+  
+  // Zone tracking
+  const currentZoneRef = useRef(ZONES[0]);
+  
+  // Ghost run refs
+  const ghostRecordingRef = useRef<GhostFrame[]>([]);
+  const bestGhostRef = useRef<GhostFrame[]>([]);
+  const bestGhostScoreRef = useRef(0);
+  
+  // Shield hit tracking
+  const hasShieldRef = useRef(false);
+  
   // Audio refs
   const audioContextRef = useRef<AudioContext | null>(null);
   const thrustOscRef = useRef<OscillatorNode | null>(null);
   const thrustGainRef = useRef<GainNode | null>(null);
+  const baseMusicTempoRef = useRef(1);
   
   // Profile picture image ref for player avatar
   const pfpImageRef = useRef<HTMLImageElement | null>(null);
@@ -200,7 +299,6 @@ export default function DonutDashPage() {
         const res = await fetch('/api/games/donut-dash/prize-distribute');
         if (res.ok) {
           const data = await res.json();
-          // Use API prizeStructure if available, otherwise calculate locally
           setPrizeInfo({
             totalPrize: data.totalPrize,
             prizeStructure: data.prizeStructure || calculatePrizeStructure(data.totalPrize),
@@ -374,7 +472,8 @@ export default function DonutDashPage() {
     }
   }, []);
 
-  const playCollectSound = useCallback(() => {
+  // Pitch-shifted collect sound based on combo
+  const playCollectSound = useCallback((combo: number = 1) => {
     if (isMuted || !audioContextRef.current) return;
     try {
       const ctx = audioContextRef.current;
@@ -382,12 +481,90 @@ export default function DonutDashPage() {
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.frequency.setValueAtTime(800, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+      // Pitch increases with combo
+      const baseFreq = 800 + Math.min(combo * 50, 400);
+      osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, ctx.currentTime + 0.1);
       gain.gain.setValueAtTime(0.15, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
       osc.start();
       osc.stop(ctx.currentTime + 0.1);
+    } catch {}
+  }, [isMuted]);
+
+  const playPowerUpSound = useCallback(() => {
+    if (isMuted || !audioContextRef.current) return;
+    try {
+      const ctx = audioContextRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(400, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.1);
+      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch {}
+  }, [isMuted]);
+
+  const playMilestoneSound = useCallback(() => {
+    if (isMuted || !audioContextRef.current) return;
+    try {
+      const ctx = audioContextRef.current;
+      // Play a triumphant chord
+      const frequencies = [523.25, 659.25, 783.99]; // C5, E5, G5
+      frequencies.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.05);
+        gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + i * 0.05 + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+        osc.start(ctx.currentTime + i * 0.05);
+        osc.stop(ctx.currentTime + 0.5);
+      });
+    } catch {}
+  }, [isMuted]);
+
+  const playNearMissSound = useCallback(() => {
+    if (isMuted || !audioContextRef.current) return;
+    try {
+      const ctx = audioContextRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(300, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.05);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch {}
+  }, [isMuted]);
+
+  const playHeartbeatSound = useCallback(() => {
+    if (isMuted || !audioContextRef.current) return;
+    try {
+      const ctx = audioContextRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(60, ctx.currentTime);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
     } catch {}
   }, [isMuted]);
 
@@ -409,12 +586,31 @@ export default function DonutDashPage() {
     } catch {}
   }, [isMuted]);
 
+  const playShieldBreakSound = useCallback(() => {
+    if (isMuted || !audioContextRef.current) return;
+    try {
+      const ctx = audioContextRef.current;
+      // Shimmering break sound
+      for (let i = 0; i < 5; i++) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(1000 + i * 200, ctx.currentTime + i * 0.02);
+        gain.gain.setValueAtTime(0.1, ctx.currentTime + i * 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.02 + 0.2);
+        osc.start(ctx.currentTime + i * 0.02);
+        osc.stop(ctx.currentTime + i * 0.02 + 0.2);
+      }
+    } catch {}
+  }, [isMuted]);
+
   const startThrustSound = useCallback(() => {
     if (isMuted || !audioContextRef.current || thrustOscRef.current) return;
     try {
       const ctx = audioContextRef.current;
       
-      // Create noise for the hiss/whoosh
       const bufferSize = ctx.sampleRate * 0.5;
       const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
       const output = noiseBuffer.getChannelData(0);
@@ -426,7 +622,6 @@ export default function DonutDashPage() {
       noise.buffer = noiseBuffer;
       noise.loop = true;
       
-      // Filter the noise to make it more like a jet whoosh
       const noiseFilter = ctx.createBiquadFilter();
       noiseFilter.type = 'bandpass';
       noiseFilter.frequency.setValueAtTime(800, ctx.currentTime);
@@ -439,7 +634,6 @@ export default function DonutDashPage() {
       noiseFilter.connect(noiseGain);
       noiseGain.connect(ctx.destination);
       
-      // Low rumble oscillator
       const rumble = ctx.createOscillator();
       rumble.type = 'triangle';
       rumble.frequency.setValueAtTime(55, ctx.currentTime);
@@ -447,7 +641,6 @@ export default function DonutDashPage() {
       const rumbleGain = ctx.createGain();
       rumbleGain.gain.setValueAtTime(0.04, ctx.currentTime);
       
-      // Add slight frequency modulation for variation
       const lfo = ctx.createOscillator();
       lfo.frequency.setValueAtTime(6, ctx.currentTime);
       const lfoGain = ctx.createGain();
@@ -462,7 +655,6 @@ export default function DonutDashPage() {
       rumble.start();
       lfo.start();
       
-      // Store references for cleanup
       thrustOscRef.current = rumble;
       thrustGainRef.current = rumbleGain;
       (thrustOscRef.current as any)._noise = noise;
@@ -480,7 +672,6 @@ export default function DonutDashPage() {
         thrustGainRef.current.gain.exponentialRampToValueAtTime(0.001, fadeTime);
       }
       
-      // Fade out noise
       if (thrustOscRef.current && (thrustOscRef.current as any)._noiseGain && ctx) {
         (thrustOscRef.current as any)._noiseGain.gain.exponentialRampToValueAtTime(0.001, fadeTime);
       }
@@ -500,6 +691,38 @@ export default function DonutDashPage() {
     } catch {}
   }, []);
 
+  // Screen shake helper
+  const triggerScreenShake = useCallback((intensity: number, duration: number) => {
+    screenShakeRef.current = {
+      intensity,
+      duration,
+      startTime: performance.now(),
+    };
+  }, []);
+
+  // Check if power-up is active
+  const isPowerUpActive = useCallback((type: PowerUpType): boolean => {
+    const now = Date.now();
+    return activePowerUpsRef.current.some(p => p.type === type && p.endTime > now);
+  }, []);
+
+  // Add power-up
+  const activatePowerUp = useCallback((type: PowerUpType) => {
+    const config = POWERUP_CONFIG[type];
+    const now = Date.now();
+    
+    if (type === 'shield') {
+      hasShieldRef.current = true;
+    } else {
+      // Remove existing power-up of same type
+      activePowerUpsRef.current = activePowerUpsRef.current.filter(p => p.type !== type);
+      activePowerUpsRef.current.push({ type, endTime: now + config.duration });
+    }
+    
+    setActivePowerUpsDisplay([...activePowerUpsRef.current]);
+    playPowerUpSound();
+  }, [playPowerUpSound]);
+
   // Initialize background
   const initBackground = useCallback(() => {
     bgElementsRef.current = [];
@@ -517,31 +740,124 @@ export default function DonutDashPage() {
 
   // Spawn functions
   const spawnObstacle = useCallback(() => {
-    const types: ObstacleType[] = ['zapper_h', 'zapper_v', 'zapper_diag'];
+    const currentScore = coinsCollectedRef.current;
+    const zone = currentZoneRef.current;
+    
+    // Available obstacle types based on zone
+    let types: ObstacleType[] = ['zapper_h', 'zapper_v', 'zapper_diag'];
+    
+    // Add more obstacle types as zones progress
+    if (zone.threshold >= 50) types.push('zapper_moving');
+    if (zone.threshold >= 100) types.push('missile', 'laser');
+    if (zone.threshold >= 150) types.push('zapper_rotating');
+    
     const type = types[Math.floor(Math.random() * types.length)];
     let obstacle: Obstacle;
+    
     if (type === 'zapper_h') {
-      obstacle = { x: CANVAS_WIDTH + 20, y: 60 + Math.random() * (CANVAS_HEIGHT - 180), type, width: 80 + Math.random() * 40, height: 12 };
+      obstacle = { 
+        x: CANVAS_WIDTH + 20, 
+        y: 60 + Math.random() * (CANVAS_HEIGHT - 180), 
+        type, 
+        width: 80 + Math.random() * 40, 
+        height: 12 
+      };
     } else if (type === 'zapper_v') {
       const fromTop = Math.random() > 0.5;
-      obstacle = { x: CANVAS_WIDTH + 20, y: fromTop ? 30 : CANVAS_HEIGHT - 30 - (60 + Math.random() * 80), type, width: 12, height: 60 + Math.random() * 80 };
+      obstacle = { 
+        x: CANVAS_WIDTH + 20, 
+        y: fromTop ? 30 : CANVAS_HEIGHT - 30 - (60 + Math.random() * 80), 
+        type, 
+        width: 12, 
+        height: 60 + Math.random() * 80 
+      };
+    } else if (type === 'zapper_diag') {
+      obstacle = { 
+        x: CANVAS_WIDTH + 20, 
+        y: 60 + Math.random() * (CANVAS_HEIGHT - 200), 
+        type, 
+        width: 100, 
+        height: 100, 
+        angle: Math.random() > 0.5 ? 45 : -45 
+      };
+    } else if (type === 'zapper_moving') {
+      const baseY = 100 + Math.random() * (CANVAS_HEIGHT - 260);
+      obstacle = {
+        x: CANVAS_WIDTH + 20,
+        y: baseY,
+        type,
+        width: 70,
+        height: 12,
+        baseY,
+        moveRange: 60 + Math.random() * 40,
+        moveSpeed: 0.03 + Math.random() * 0.02,
+        movePhase: Math.random() * Math.PI * 2,
+      };
+    } else if (type === 'missile') {
+      const playerY = playerRef.current.y;
+      obstacle = {
+        x: CANVAS_WIDTH + 40,
+        y: playerY + (Math.random() - 0.5) * 100,
+        type,
+        width: 30,
+        height: 12,
+        targetY: playerY,
+        velocityY: 0,
+      };
+    } else if (type === 'laser') {
+      obstacle = {
+        x: CANVAS_WIDTH + 20,
+        y: 60 + Math.random() * (CANVAS_HEIGHT - 180),
+        type,
+        width: CANVAS_WIDTH,
+        height: 8,
+        warningTime: 60, // frames of warning
+        firingTime: 30, // frames of firing
+        active: false,
+      };
+    } else if (type === 'zapper_rotating') {
+      const centerX = CANVAS_WIDTH + 60;
+      const centerY = 100 + Math.random() * (CANVAS_HEIGHT - 200);
+      obstacle = {
+        x: centerX,
+        y: centerY,
+        type,
+        width: 60,
+        height: 12,
+        centerX,
+        centerY,
+        orbitRadius: 40,
+        angle: Math.random() * 360,
+        rotationSpeed: 2 + Math.random() * 2,
+      };
     } else {
-      obstacle = { x: CANVAS_WIDTH + 20, y: 60 + Math.random() * (CANVAS_HEIGHT - 200), type, width: 100, height: 100, angle: Math.random() > 0.5 ? 45 : -45 };
+      return;
     }
+    
     obstaclesRef.current.push(obstacle);
   }, []);
 
+  const spawnPowerUp = useCallback(() => {
+    const types: PowerUpType[] = ['magnet', 'shield', 'slowmo', 'rocket', 'ghost'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    
+    powerUpsRef.current.push({
+      x: CANVAS_WIDTH + 30,
+      y: 80 + Math.random() * (CANVAS_HEIGHT - 200),
+      type,
+      collected: false,
+    });
+  }, []);
+
   const spawnCoins = useCallback(() => {
-    // Check if there are already coins too close to spawn area
     const spawnZoneStart = CANVAS_WIDTH - 50;
     const hasCoinsInSpawnZone = coinsRef.current.some(c => !c.collected && c.x > spawnZoneStart);
-    if (hasCoinsInSpawnZone) return; // Don't spawn if coins are still in the spawn zone
+    if (hasCoinsInSpawnZone) return;
     
     const patterns = ['line', 'arc', 'wave', 'diagonal', 'zigzag'];
     const pattern = patterns[Math.floor(Math.random() * patterns.length)];
     const startX = CANVAS_WIDTH + 50;
     
-    // Keep centerY well within bounds (accounting for pattern height variations)
     const minY = 80;
     const maxY = CANVAS_HEIGHT - 120;
     const centerY = minY + Math.random() * (maxY - minY);
@@ -551,33 +867,32 @@ export default function DonutDashPage() {
     if (pattern === 'line') {
       const count = 5 + Math.floor(Math.random() * 3);
       for (let i = 0; i < count; i++) {
-        newCoins.push({ x: startX + i * 28, y: centerY, collected: false });
+        newCoins.push({ x: startX + i * 28, y: centerY, collected: false, trail: [] });
       }
     } else if (pattern === 'arc') {
       for (let i = 0; i < 7; i++) {
         const arcY = centerY + Math.sin((i / 6) * Math.PI) * 40;
-        // Clamp Y to stay in bounds
         const clampedY = Math.max(50, Math.min(CANVAS_HEIGHT - 50, arcY));
-        newCoins.push({ x: startX + i * 24, y: clampedY, collected: false });
+        newCoins.push({ x: startX + i * 24, y: clampedY, collected: false, trail: [] });
       }
     } else if (pattern === 'wave') {
       for (let i = 0; i < 7; i++) {
         const waveY = centerY + Math.sin(i * 0.9) * 30;
         const clampedY = Math.max(50, Math.min(CANVAS_HEIGHT - 50, waveY));
-        newCoins.push({ x: startX + i * 24, y: clampedY, collected: false });
+        newCoins.push({ x: startX + i * 24, y: clampedY, collected: false, trail: [] });
       }
     } else if (pattern === 'diagonal') {
       const goingUp = Math.random() > 0.5;
       for (let i = 0; i < 5; i++) {
         const diagY = centerY + (goingUp ? -i * 18 : i * 18);
         const clampedY = Math.max(50, Math.min(CANVAS_HEIGHT - 50, diagY));
-        newCoins.push({ x: startX + i * 30, y: clampedY, collected: false });
+        newCoins.push({ x: startX + i * 30, y: clampedY, collected: false, trail: [] });
       }
     } else if (pattern === 'zigzag') {
       for (let i = 0; i < 6; i++) {
         const zigY = centerY + (i % 2 === 0 ? -25 : 25);
         const clampedY = Math.max(50, Math.min(CANVAS_HEIGHT - 50, zigY));
-        newCoins.push({ x: startX + i * 25, y: clampedY, collected: false });
+        newCoins.push({ x: startX + i * 25, y: clampedY, collected: false, trail: [] });
       }
     }
     
@@ -587,18 +902,23 @@ export default function DonutDashPage() {
   const addThrustParticles = useCallback(() => {
     const player = playerRef.current;
     if (!player.isThrusting) return;
-    for (let i = 0; i < 2; i++) {
+    
+    // Rocket power-up has bigger flames
+    const isRocket = isPowerUpActive('rocket');
+    const particleCount = isRocket ? 4 : 2;
+    
+    for (let i = 0; i < particleCount; i++) {
       particlesRef.current.push({
         x: PLAYER_X - PLAYER_SIZE / 2,
         y: player.y + PLAYER_SIZE / 2 + Math.random() * 10,
-        vx: -3 - Math.random() * 2,
+        vx: -3 - Math.random() * (isRocket ? 4 : 2),
         vy: (Math.random() - 0.5) * 2,
         life: 20 + Math.random() * 10,
         color: Math.random() > 0.5 ? '#FF6B00' : '#FFD700',
-        size: 3 + Math.random() * 4,
+        size: (isRocket ? 5 : 3) + Math.random() * 4,
       });
     }
-  }, []);
+  }, [isPowerUpActive]);
 
   const addCollectParticles = useCallback((x: number, y: number, color: string) => {
     for (let i = 0; i < 8; i++) {
@@ -614,17 +934,61 @@ export default function DonutDashPage() {
     }
   }, []);
 
+  const addShieldBreakParticles = useCallback(() => {
+    for (let i = 0; i < 20; i++) {
+      const angle = (i / 20) * Math.PI * 2;
+      particlesRef.current.push({
+        x: PLAYER_X,
+        y: playerRef.current.y,
+        vx: Math.cos(angle) * 5,
+        vy: Math.sin(angle) * 5,
+        life: 30,
+        color: '#00FFFF',
+        size: 6,
+      });
+    }
+  }, []);
+
+  const addMilestoneParticles = useCallback(() => {
+    // Burst of golden particles
+    for (let i = 0; i < 30; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 2 + Math.random() * 4;
+      particlesRef.current.push({
+        x: CANVAS_WIDTH / 2,
+        y: CANVAS_HEIGHT / 2,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 40 + Math.random() * 20,
+        color: Math.random() > 0.5 ? '#FFD700' : '#FFA500',
+        size: 6 + Math.random() * 4,
+      });
+    }
+  }, []);
+
+  // Get current zone based on score
+  const getCurrentZone = useCallback((score: number) => {
+    for (let i = ZONES.length - 1; i >= 0; i--) {
+      if (score >= ZONES[i].threshold) {
+        return ZONES[i];
+      }
+    }
+    return ZONES[0];
+  }, []);
+
   // Draw functions
   const drawBackground = useCallback((ctx: CanvasRenderingContext2D, speed: number) => {
-    // Dark gradient background (like Glaze Stack)
+    const zone = currentZoneRef.current;
+    
+    // Zone-based gradient background
     const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-    bgGradient.addColorStop(0, "#1a1a1a");
-    bgGradient.addColorStop(1, "#0d0d0d");
+    bgGradient.addColorStop(0, zone.bg1);
+    bgGradient.addColorStop(1, zone.bg2);
     ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
-    // Subtle grid pattern (like Glaze Stack)
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
+    // Subtle grid pattern with zone color
+    ctx.strokeStyle = zone.gridColor;
     ctx.lineWidth = 1;
     for (let i = 0; i < CANVAS_WIDTH; i += 40) {
       ctx.beginPath();
@@ -639,9 +1003,47 @@ export default function DonutDashPage() {
       ctx.stroke();
     }
     
+    // Space zone: add stars
+    if (zone.name === 'Space') {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      for (let i = 0; i < 50; i++) {
+        const x = (frameCountRef.current * 0.5 + i * 73) % CANVAS_WIDTH;
+        const y = (i * 97) % CANVAS_HEIGHT;
+        const size = (i % 3) + 1;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    // Ice zone: add floating ice particles
+    if (zone.name === 'Ice') {
+      ctx.fillStyle = 'rgba(200, 240, 255, 0.3)';
+      for (let i = 0; i < 20; i++) {
+        const x = (frameCountRef.current * 0.3 + i * 89) % CANVAS_WIDTH;
+        const y = (i * 67 + frameCountRef.current * 0.1) % CANVAS_HEIGHT;
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    // Lava zone: add embers rising
+    if (zone.name === 'Lava') {
+      for (let i = 0; i < 15; i++) {
+        const x = (i * 83) % CANVAS_WIDTH;
+        const y = CANVAS_HEIGHT - ((frameCountRef.current * 0.5 + i * 47) % CANVAS_HEIGHT);
+        const alpha = 0.3 + Math.sin(frameCountRef.current * 0.1 + i) * 0.2;
+        ctx.fillStyle = `rgba(255, 100, 0, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(x, y, 2 + Math.sin(frameCountRef.current * 0.2 + i) * 1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
     const intensity = Math.min((speed - BASE_SPEED) / (MAX_SPEED - BASE_SPEED), 1);
     
-    // Speed lines (motion blur effect)
+    // Speed lines with zone accent color
     const lineCount = Math.floor(3 + intensity * 12);
     for (let i = 0; i < lineCount; i++) {
       const y = (frameCountRef.current * 2 + i * 47) % CANVAS_HEIGHT;
@@ -655,13 +1057,13 @@ export default function DonutDashPage() {
       ctx.stroke();
     }
     
-    // Hazard stripes - top and bottom
+    // Hazard stripes - use zone accent
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, CANVAS_WIDTH, 30);
     ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
     
     const stripeOffset = (frameCountRef.current * speed) % 30;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.fillStyle = zone.accent + 'BB';
     for (let x = -stripeOffset; x < CANVAS_WIDTH + 30; x += 30) {
       ctx.beginPath();
       ctx.moveTo(x, 0); ctx.lineTo(x + 15, 0); ctx.lineTo(x + 5, 30); ctx.lineTo(x - 10, 30);
@@ -672,6 +1074,30 @@ export default function DonutDashPage() {
     }
   }, []);
 
+  const drawGhost = useCallback((ctx: CanvasRenderingContext2D) => {
+    if (!showGhost || bestGhostRef.current.length === 0) return;
+    
+    const frameIndex = Math.min(frameCountRef.current, bestGhostRef.current.length - 1);
+    const ghostFrame = bestGhostRef.current[frameIndex];
+    if (!ghostFrame) return;
+    
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    ctx.translate(PLAYER_X - 20, ghostFrame.y);
+    
+    // Ghost donut
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(0, 0, PLAYER_SIZE / 2 - 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = currentZoneRef.current.bg1;
+    ctx.beginPath();
+    ctx.arc(0, 0, PLAYER_SIZE / 5, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
+  }, [showGhost]);
+
   const drawPlayer = useCallback((ctx: CanvasRenderingContext2D) => {
     const player = playerRef.current;
     const x = PLAYER_X;
@@ -679,9 +1105,19 @@ export default function DonutDashPage() {
     const tilt = Math.max(-0.4, Math.min(0.4, player.velocity * 0.04));
     const donutColor = getDonutColor();
     
+    // Check for active power-ups
+    const isGhost = isPowerUpActive('ghost');
+    const isRocket = isPowerUpActive('rocket');
+    const hasShield = hasShieldRef.current;
+    
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(tilt);
+    
+    // Ghost effect
+    if (isGhost) {
+      ctx.globalAlpha = 0.5;
+    }
     
     // Jetpack - improved metallic design
     const tankX = -PLAYER_SIZE / 2 - 18;
@@ -732,17 +1168,18 @@ export default function DonutDashPage() {
     ctx.closePath();
     ctx.fill();
     
-    // Flames
-    if (player.isThrusting) {
+    // Flames (bigger for rocket)
+    if (player.isThrusting || isRocket) {
       const time = frameCountRef.current * 0.15;
-      const flameSize = 22 + Math.sin(time * 4) * 8;
-      const flameWidth = 12 + Math.sin(time * 5) * 3;
+      const baseFlameSize = isRocket ? 35 : 22;
+      const flameSize = baseFlameSize + Math.sin(time * 4) * 8;
+      const flameWidth = (isRocket ? 18 : 12) + Math.sin(time * 5) * 3;
       
       // Outer flame
       const outerFlame = ctx.createLinearGradient(tankX + 8, tankY + 40, tankX + 8, tankY + 40 + flameSize);
-      outerFlame.addColorStop(0, '#FF6B00');
-      outerFlame.addColorStop(0.3, '#FF4500');
-      outerFlame.addColorStop(0.6, '#FF2200');
+      outerFlame.addColorStop(0, isRocket ? '#00AAFF' : '#FF6B00');
+      outerFlame.addColorStop(0.3, isRocket ? '#0066FF' : '#FF4500');
+      outerFlame.addColorStop(0.6, isRocket ? '#0044AA' : '#FF2200');
       outerFlame.addColorStop(1, 'transparent');
       ctx.fillStyle = outerFlame;
       ctx.beginPath();
@@ -751,12 +1188,12 @@ export default function DonutDashPage() {
       ctx.quadraticCurveTo(tankX + 8 + flameWidth/3, tankY + 40 + flameSize * 0.6, tankX + 8 + flameWidth/2, tankY + 40);
       ctx.fill();
       
-      // Inner flame (white/yellow core)
+      // Inner flame
       const innerSize = flameSize * 0.6;
       const innerFlame = ctx.createLinearGradient(tankX + 8, tankY + 40, tankX + 8, tankY + 40 + innerSize);
       innerFlame.addColorStop(0, '#FFFFFF');
-      innerFlame.addColorStop(0.3, '#FFFF00');
-      innerFlame.addColorStop(0.6, '#FFA500');
+      innerFlame.addColorStop(0.3, isRocket ? '#AADDFF' : '#FFFF00');
+      innerFlame.addColorStop(0.6, isRocket ? '#00AAFF' : '#FFA500');
       innerFlame.addColorStop(1, 'transparent');
       ctx.fillStyle = innerFlame;
       ctx.beginPath();
@@ -770,27 +1207,14 @@ export default function DonutDashPage() {
     const radius = PLAYER_SIZE / 2;
     
     if (pfpImageRef.current) {
-      // Draw circular profile picture
       ctx.save();
-      
-      // Create circular clipping path
       ctx.beginPath();
       ctx.arc(0, 0, radius, 0, Math.PI * 2);
       ctx.closePath();
       ctx.clip();
-      
-      // Draw the pfp image centered
-      ctx.drawImage(
-        pfpImageRef.current,
-        -radius,
-        -radius,
-        PLAYER_SIZE,
-        PLAYER_SIZE
-      );
-      
+      ctx.drawImage(pfpImageRef.current, -radius, -radius, PLAYER_SIZE, PLAYER_SIZE);
       ctx.restore();
       
-      // Add glowing border
       ctx.lineWidth = player.isThrusting ? 3 : 2;
       ctx.strokeStyle = player.isThrusting ? '#FF6B00' : '#FFFFFF';
       ctx.shadowColor = player.isThrusting ? '#FF4500' : '#FFFFFF';
@@ -799,7 +1223,6 @@ export default function DonutDashPage() {
       ctx.arc(0, 0, radius, 0, Math.PI * 2);
       ctx.stroke();
       
-      // Add extra inner glow when thrusting
       if (player.isThrusting) {
         ctx.strokeStyle = 'rgba(255, 100, 0, 0.5)';
         ctx.lineWidth = 6;
@@ -810,7 +1233,6 @@ export default function DonutDashPage() {
       }
       ctx.shadowBlur = 0;
     } else {
-      // Fallback: Draw donut
       ctx.shadowColor = donutColor;
       ctx.shadowBlur = player.isThrusting ? 25 : 15;
       const [h, s, l] = hexToHsl(donutColor);
@@ -824,21 +1246,163 @@ export default function DonutDashPage() {
       ctx.fill();
       ctx.shadowBlur = 0;
       
-      // Hole
       ctx.fillStyle = '#0a0a0a';
       ctx.beginPath();
       ctx.arc(0, 0, PLAYER_SIZE / 5, 0, Math.PI * 2);
       ctx.fill();
     }
     
+    // Shield effect
+    if (hasShield) {
+      ctx.strokeStyle = '#00FFFF';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#00FFFF';
+      ctx.shadowBlur = 20;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius + 8, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Animated shield particles
+      const shieldTime = frameCountRef.current * 0.1;
+      for (let i = 0; i < 6; i++) {
+        const angle = shieldTime + (i / 6) * Math.PI * 2;
+        const sx = Math.cos(angle) * (radius + 8);
+        const sy = Math.sin(angle) * (radius + 8);
+        ctx.fillStyle = '#00FFFF';
+        ctx.beginPath();
+        ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+    }
+    
     ctx.restore();
-  }, [getDonutColor]);
+  }, [getDonutColor, isPowerUpActive]);
 
   const drawObstacles = useCallback((ctx: CanvasRenderingContext2D) => {
     const time = frameCountRef.current * 0.1;
+    const zone = currentZoneRef.current;
     
     obstaclesRef.current.forEach(obstacle => {
       ctx.save();
+      
+      // Handle special obstacle types
+      if (obstacle.type === 'missile') {
+        // Draw missile
+        const missileX = obstacle.x;
+        const missileY = obstacle.y;
+        
+        // Missile body
+        ctx.fillStyle = '#FF4444';
+        ctx.beginPath();
+        ctx.ellipse(missileX, missileY, 15, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Nose cone
+        ctx.fillStyle = '#AA0000';
+        ctx.beginPath();
+        ctx.moveTo(missileX - 15, missileY);
+        ctx.lineTo(missileX - 25, missileY);
+        ctx.lineTo(missileX - 15, missileY - 4);
+        ctx.lineTo(missileX - 15, missileY + 4);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Fins
+        ctx.fillStyle = '#CC2222';
+        ctx.beginPath();
+        ctx.moveTo(missileX + 10, missileY - 6);
+        ctx.lineTo(missileX + 18, missileY - 12);
+        ctx.lineTo(missileX + 15, missileY - 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(missileX + 10, missileY + 6);
+        ctx.lineTo(missileX + 18, missileY + 12);
+        ctx.lineTo(missileX + 15, missileY + 6);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Exhaust
+        ctx.fillStyle = `rgba(255, 200, 0, ${0.5 + Math.sin(time * 5) * 0.3})`;
+        ctx.beginPath();
+        ctx.moveTo(missileX + 15, missileY);
+        ctx.lineTo(missileX + 25 + Math.sin(time * 8) * 5, missileY);
+        ctx.lineTo(missileX + 15, missileY + 4);
+        ctx.lineTo(missileX + 15, missileY - 4);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Warning indicator
+        ctx.fillStyle = '#FF0000';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚠', missileX, missileY - 15);
+        
+        ctx.restore();
+        return;
+      }
+      
+      if (obstacle.type === 'laser') {
+        const laserX = obstacle.x;
+        const laserY = obstacle.y;
+        
+        if (obstacle.warningTime && obstacle.warningTime > 0) {
+          // Warning phase - flashing line
+          const flash = Math.sin(time * 10) > 0;
+          if (flash) {
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(0, laserY);
+            ctx.lineTo(CANVAS_WIDTH, laserY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+          
+          // Warning markers on sides
+          ctx.fillStyle = '#FF0000';
+          ctx.font = 'bold 14px monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText('⚡', 5, laserY + 5);
+          ctx.textAlign = 'right';
+          ctx.fillText('⚡', CANVAS_WIDTH - 5, laserY + 5);
+        } else if (obstacle.active) {
+          // Firing phase - full laser beam
+          ctx.shadowColor = '#FF0000';
+          ctx.shadowBlur = 20;
+          
+          // Outer glow
+          ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+          ctx.lineWidth = 20;
+          ctx.beginPath();
+          ctx.moveTo(0, laserY);
+          ctx.lineTo(CANVAS_WIDTH, laserY);
+          ctx.stroke();
+          
+          // Main beam
+          ctx.strokeStyle = 'rgba(255, 100, 100, 0.8)';
+          ctx.lineWidth = 8;
+          ctx.beginPath();
+          ctx.moveTo(0, laserY);
+          ctx.lineTo(CANVAS_WIDTH, laserY);
+          ctx.stroke();
+          
+          // Core
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(0, laserY);
+          ctx.lineTo(CANVAS_WIDTH, laserY);
+          ctx.stroke();
+          
+          ctx.shadowBlur = 0;
+        }
+        
+        ctx.restore();
+        return;
+      }
       
       let x1: number, y1: number, x2: number, y2: number;
       
@@ -861,6 +1425,18 @@ export default function DonutDashPage() {
         y1 = centerY - halfLength * Math.sin(angleRad);
         x2 = centerX + halfLength * Math.cos(angleRad);
         y2 = centerY + halfLength * Math.sin(angleRad);
+      } else if (obstacle.type === 'zapper_moving') {
+        x1 = obstacle.x;
+        y1 = obstacle.y + obstacle.height / 2;
+        x2 = obstacle.x + obstacle.width;
+        y2 = obstacle.y + obstacle.height / 2;
+      } else if (obstacle.type === 'zapper_rotating' && obstacle.centerX !== undefined) {
+        const angleRad = ((obstacle.angle || 0) * Math.PI) / 180;
+        const halfLength = obstacle.width / 2;
+        x1 = obstacle.centerX - halfLength * Math.cos(angleRad);
+        y1 = obstacle.centerY! - halfLength * Math.sin(angleRad);
+        x2 = obstacle.centerX + halfLength * Math.cos(angleRad);
+        y2 = obstacle.centerY! + halfLength * Math.sin(angleRad);
       } else {
         ctx.restore();
         return;
@@ -880,8 +1456,8 @@ export default function DonutDashPage() {
       ctx.fill();
       ctx.stroke();
       
-      // Inner node glow
-      ctx.fillStyle = '#FF4400';
+      // Inner node glow - use zone accent
+      ctx.fillStyle = zone.accent;
       ctx.beginPath();
       ctx.arc(x1, y1, 3, 0, Math.PI * 2);
       ctx.fill();
@@ -890,9 +1466,9 @@ export default function DonutDashPage() {
       ctx.fill();
       
       // Outer glow
-      ctx.shadowColor = '#FF3300';
+      ctx.shadowColor = zone.accent;
       ctx.shadowBlur = 20;
-      ctx.strokeStyle = 'rgba(255, 100, 0, 0.3)';
+      ctx.strokeStyle = zone.accent + '4D';
       ctx.lineWidth = 12;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
@@ -901,7 +1477,7 @@ export default function DonutDashPage() {
       
       // Mid glow
       ctx.shadowBlur = 15;
-      ctx.strokeStyle = 'rgba(255, 150, 0, 0.5)';
+      ctx.strokeStyle = zone.accent + '80';
       ctx.lineWidth = 6;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
@@ -909,27 +1485,24 @@ export default function DonutDashPage() {
       ctx.stroke();
       
       // Electric beam with flickering jagged effect
-      ctx.shadowColor = '#FFAA00';
+      ctx.shadowColor = zone.accent;
       ctx.shadowBlur = 10;
       const flicker = 0.7 + Math.sin(time * 8 + obstacle.x) * 0.3;
-      ctx.strokeStyle = `rgba(255, 200, 0, ${flicker})`;
+      ctx.strokeStyle = `${zone.accent}${Math.floor(flicker * 255).toString(16).padStart(2, '0')}`;
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       
-      // Create jagged electric effect
       const segments = 8;
       const dx = (x2 - x1) / segments;
       const dy = (y2 - y1) / segments;
-      const perpX = -dy / Math.sqrt(dx*dx + dy*dy) * 4;
-      const perpY = dx / Math.sqrt(dx*dx + dy*dy) * 4;
+      const len = Math.sqrt(dx*dx + dy*dy);
+      const perpX = len > 0 ? -dy / len * 4 : 0;
+      const perpY = len > 0 ? dx / len * 4 : 0;
       
       for (let i = 1; i < segments; i++) {
         const jitter = Math.sin(time * 15 + i * 2 + obstacle.x * 0.1) * (i % 2 === 0 ? 1 : -1);
-        ctx.lineTo(
-          x1 + dx * i + perpX * jitter,
-          y1 + dy * i + perpY * jitter
-        );
+        ctx.lineTo(x1 + dx * i + perpX * jitter, y1 + dy * i + perpY * jitter);
       }
       ctx.lineTo(x2, y2);
       ctx.stroke();
@@ -948,16 +1521,88 @@ export default function DonutDashPage() {
     });
   }, []);
 
+  const drawPowerUps = useCallback((ctx: CanvasRenderingContext2D) => {
+    powerUpsRef.current.forEach(powerUp => {
+      if (powerUp.collected) return;
+      
+      const config = POWERUP_CONFIG[powerUp.type];
+      const float = Math.sin(frameCountRef.current * 0.1 + powerUp.x * 0.05) * 5;
+      const pulse = 1 + Math.sin(frameCountRef.current * 0.15) * 0.1;
+      
+      ctx.save();
+      ctx.translate(powerUp.x, powerUp.y + float);
+      ctx.scale(pulse, pulse);
+      
+      // Glow
+      ctx.shadowColor = config.color;
+      ctx.shadowBlur = 20;
+      
+      // Background circle
+      ctx.fillStyle = config.color + '40';
+      ctx.beginPath();
+      ctx.arc(0, 0, 18, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Border
+      ctx.strokeStyle = config.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 18, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Icon
+      ctx.shadowBlur = 0;
+      ctx.font = '16px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(config.icon, 0, 0);
+      
+      ctx.restore();
+    });
+  }, []);
+
   const drawCoins = useCallback((ctx: CanvasRenderingContext2D) => {
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF69B4', '#00CED1'];
+    const isMagnet = isPowerUpActive('magnet');
     
     coinsRef.current.forEach(coin => {
       if (coin.collected) return;
+      
+      // Draw trail
+      if (coin.trail && coin.trail.length > 0) {
+        coin.trail.forEach((t, i) => {
+          ctx.globalAlpha = t.alpha;
+          const color = colors[Math.floor(coin.x / 40) % colors.length];
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+      }
+      
       ctx.save();
       ctx.translate(coin.x, coin.y);
       const float = Math.sin(frameCountRef.current * 0.12 + coin.x * 0.05) * 4;
       ctx.translate(0, float);
+      
       const color = colors[Math.floor(coin.x / 40) % colors.length];
+      
+      // Magnet attraction visual
+      if (isMagnet) {
+        const dx = PLAYER_X - coin.x;
+        const dy = playerRef.current.y - coin.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 150) {
+          ctx.strokeStyle = '#FF00FF44';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(dx * 0.3, dy * 0.3);
+          ctx.stroke();
+        }
+      }
+      
       ctx.shadowColor = color;
       ctx.shadowBlur = 15;
       ctx.fillStyle = color;
@@ -967,7 +1612,7 @@ export default function DonutDashPage() {
       ctx.shadowBlur = 0;
       ctx.restore();
     });
-  }, []);
+  }, [isPowerUpActive]);
 
   const drawParticles = useCallback((ctx: CanvasRenderingContext2D) => {
     particlesRef.current.forEach((particle, index) => {
@@ -984,6 +1629,88 @@ export default function DonutDashPage() {
     });
   }, []);
 
+  const drawCombo = useCallback((ctx: CanvasRenderingContext2D) => {
+    if (comboRef.current <= 1) return;
+    
+    const combo = comboRef.current;
+    const scale = 1 + Math.sin(frameCountRef.current * 0.3) * 0.1;
+    
+    ctx.save();
+    ctx.translate(CANVAS_WIDTH - 60, 70);
+    ctx.scale(scale, scale);
+    
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 24px monospace';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#FFD700';
+    ctx.shadowBlur = 10;
+    ctx.fillText(`${combo}x`, 0, 0);
+    
+    ctx.font = '10px monospace';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowBlur = 0;
+    ctx.fillText('COMBO', 0, 14);
+    
+    ctx.restore();
+  }, []);
+
+  const drawActivePowerUps = useCallback((ctx: CanvasRenderingContext2D) => {
+    const now = Date.now();
+    const activePowerUps = activePowerUpsRef.current.filter(p => p.endTime > now);
+    
+    activePowerUps.forEach((powerUp, index) => {
+      const config = POWERUP_CONFIG[powerUp.type];
+      const remaining = (powerUp.endTime - now) / config.duration;
+      const x = 20 + index * 35;
+      const y = 90;
+      
+      ctx.save();
+      ctx.translate(x, y);
+      
+      // Background
+      ctx.fillStyle = '#00000080';
+      ctx.beginPath();
+      ctx.arc(0, 0, 14, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Progress ring
+      ctx.strokeStyle = config.color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 14, -Math.PI / 2, -Math.PI / 2 + remaining * Math.PI * 2);
+      ctx.stroke();
+      
+      // Icon
+      ctx.font = '12px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(config.icon, 0, 0);
+      
+      ctx.restore();
+    });
+    
+    // Show shield separately
+    if (hasShieldRef.current) {
+      const x = 20 + activePowerUps.length * 35;
+      ctx.save();
+      ctx.translate(x, 90);
+      ctx.fillStyle = '#00000080';
+      ctx.beginPath();
+      ctx.arc(0, 0, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#00FFFF';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 14, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.font = '12px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🛡️', 0, 0);
+      ctx.restore();
+    }
+  }, []);
+
   // Collision helpers
   const pointToLineDistance = useCallback((px: number, py: number, x1: number, y1: number, x2: number, y2: number): number => {
     const dx = x2 - x1;
@@ -997,13 +1724,64 @@ export default function DonutDashPage() {
     return Math.sqrt((px - closestX) * (px - closestX) + (py - closestY) * (py - closestY));
   }, []);
 
-  const checkCollisions = useCallback((): boolean => {
+  const checkCollisions = useCallback((): { hit: boolean; nearMiss: boolean } => {
     const player = playerRef.current;
     const playerRadius = PLAYER_SIZE / 2 - 5;
-    if (player.y - playerRadius < 30 || player.y + playerRadius > CANVAS_HEIGHT - 30) return true;
+    const isGhost = isPowerUpActive('ghost');
+    const isRocket = isPowerUpActive('rocket');
+    
+    // Ghost and rocket are invincible
+    if (isGhost || isRocket) {
+      return { hit: false, nearMiss: false };
+    }
+    
+    // Boundary check
+    if (player.y - playerRadius < 30 || player.y + playerRadius > CANVAS_HEIGHT - 30) {
+      if (hasShieldRef.current) {
+        hasShieldRef.current = false;
+        addShieldBreakParticles();
+        playShieldBreakSound();
+        // Bounce player back
+        player.y = player.y - playerRadius < 30 ? 30 + playerRadius + 5 : CANVAS_HEIGHT - 30 - playerRadius - 5;
+        player.velocity = -player.velocity * 0.5;
+        return { hit: false, nearMiss: false };
+      }
+      return { hit: true, nearMiss: false };
+    }
+    
+    let nearMissDetected = false;
     
     for (const obstacle of obstaclesRef.current) {
-      if (obstacle.type === 'zapper_diag' && obstacle.angle) {
+      let distance = Infinity;
+      
+      if (obstacle.type === 'missile') {
+        const dx = PLAYER_X - obstacle.x;
+        const dy = player.y - obstacle.y;
+        distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < playerRadius + 15) {
+          if (hasShieldRef.current) {
+            hasShieldRef.current = false;
+            addShieldBreakParticles();
+            playShieldBreakSound();
+            // Remove the missile
+            obstaclesRef.current = obstaclesRef.current.filter(o => o !== obstacle);
+            return { hit: false, nearMiss: false };
+          }
+          return { hit: true, nearMiss: false };
+        }
+      } else if (obstacle.type === 'laser' && obstacle.active) {
+        const dy = Math.abs(player.y - obstacle.y);
+        if (dy < playerRadius + 4) {
+          if (hasShieldRef.current) {
+            hasShieldRef.current = false;
+            addShieldBreakParticles();
+            playShieldBreakSound();
+            return { hit: false, nearMiss: false };
+          }
+          return { hit: true, nearMiss: false };
+        }
+        distance = dy;
+      } else if (obstacle.type === 'zapper_diag' && obstacle.angle) {
         const centerX = obstacle.x + obstacle.width / 2;
         const centerY = obstacle.y + obstacle.height / 2;
         const angleRad = (obstacle.angle * Math.PI) / 180;
@@ -1012,31 +1790,186 @@ export default function DonutDashPage() {
         const y1 = centerY - halfLength * Math.sin(angleRad);
         const x2 = centerX + halfLength * Math.cos(angleRad);
         const y2 = centerY + halfLength * Math.sin(angleRad);
-        if (pointToLineDistance(PLAYER_X, player.y, x1, y1, x2, y2) < playerRadius + 10) return true;
-      } else if (obstacle.type === 'zapper_h') {
-        if (pointToLineDistance(PLAYER_X, player.y, obstacle.x, obstacle.y + obstacle.height / 2, obstacle.x + obstacle.width, obstacle.y + obstacle.height / 2) < playerRadius + 10) return true;
+        distance = pointToLineDistance(PLAYER_X, player.y, x1, y1, x2, y2);
+        if (distance < playerRadius + 10) {
+          if (hasShieldRef.current) {
+            hasShieldRef.current = false;
+            addShieldBreakParticles();
+            playShieldBreakSound();
+            return { hit: false, nearMiss: false };
+          }
+          return { hit: true, nearMiss: false };
+        }
+      } else if (obstacle.type === 'zapper_h' || obstacle.type === 'zapper_moving') {
+        distance = pointToLineDistance(PLAYER_X, player.y, obstacle.x, obstacle.y + obstacle.height / 2, obstacle.x + obstacle.width, obstacle.y + obstacle.height / 2);
+        if (distance < playerRadius + 10) {
+          if (hasShieldRef.current) {
+            hasShieldRef.current = false;
+            addShieldBreakParticles();
+            playShieldBreakSound();
+            return { hit: false, nearMiss: false };
+          }
+          return { hit: true, nearMiss: false };
+        }
       } else if (obstacle.type === 'zapper_v') {
-        if (pointToLineDistance(PLAYER_X, player.y, obstacle.x + obstacle.width / 2, obstacle.y, obstacle.x + obstacle.width / 2, obstacle.y + obstacle.height) < playerRadius + 10) return true;
+        distance = pointToLineDistance(PLAYER_X, player.y, obstacle.x + obstacle.width / 2, obstacle.y, obstacle.x + obstacle.width / 2, obstacle.y + obstacle.height);
+        if (distance < playerRadius + 10) {
+          if (hasShieldRef.current) {
+            hasShieldRef.current = false;
+            addShieldBreakParticles();
+            playShieldBreakSound();
+            return { hit: false, nearMiss: false };
+          }
+          return { hit: true, nearMiss: false };
+        }
+      } else if (obstacle.type === 'zapper_rotating' && obstacle.centerX !== undefined) {
+        const angleRad = ((obstacle.angle || 0) * Math.PI) / 180;
+        const halfLength = obstacle.width / 2;
+        const x1 = obstacle.centerX - halfLength * Math.cos(angleRad);
+        const y1 = obstacle.centerY! - halfLength * Math.sin(angleRad);
+        const x2 = obstacle.centerX + halfLength * Math.cos(angleRad);
+        const y2 = obstacle.centerY! + halfLength * Math.sin(angleRad);
+        distance = pointToLineDistance(PLAYER_X, player.y, x1, y1, x2, y2);
+        if (distance < playerRadius + 10) {
+          if (hasShieldRef.current) {
+            hasShieldRef.current = false;
+            addShieldBreakParticles();
+            playShieldBreakSound();
+            return { hit: false, nearMiss: false };
+          }
+          return { hit: true, nearMiss: false };
+        }
+      }
+      
+      // Near miss detection
+      if (distance < NEAR_MISS_DISTANCE && distance >= playerRadius + 10) {
+        nearMissDetected = true;
       }
     }
-    return false;
-  }, [pointToLineDistance]);
+    
+    return { hit: false, nearMiss: nearMissDetected };
+  }, [pointToLineDistance, isPowerUpActive, addShieldBreakParticles, playShieldBreakSound]);
 
   const checkCoins = useCallback(() => {
     const player = playerRef.current;
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF69B4', '#00CED1'];
+    const isMagnet = isPowerUpActive('magnet');
+    const isRocket = isPowerUpActive('rocket');
+    const now = Date.now();
+    
     coinsRef.current.forEach(coin => {
       if (coin.collected) return;
+      
+      // Magnet effect - pull coins toward player
+      if (isMagnet) {
+        const dx = PLAYER_X - coin.x;
+        const dy = player.y - coin.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 150 && dist > 0) {
+          const pull = 5 / dist;
+          coin.x += dx * pull;
+          coin.y += dy * pull;
+        }
+      }
+      
       const dx = PLAYER_X - coin.x;
       const dy = player.y - coin.y;
-      if (Math.sqrt(dx * dx + dy * dy) < PLAYER_SIZE / 2 + 12) {
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < PLAYER_SIZE / 2 + 12) {
         coin.collected = true;
-        coinsCollectedRef.current += 1;
-        playCollectSound();
+        
+        // Combo system
+        if (now - lastCoinTimeRef.current < COMBO_WINDOW) {
+          comboRef.current++;
+        } else {
+          comboRef.current = 1;
+        }
+        lastCoinTimeRef.current = now;
+        
+        // Calculate points with combo and rocket multiplier
+        const comboMultiplier = Math.min(comboRef.current, 10);
+        const rocketMultiplier = isRocket ? 2 : 1;
+        const points = 1 * comboMultiplier * rocketMultiplier;
+        
+        coinsCollectedRef.current += points;
+        setComboDisplay(comboRef.current);
+        
+        playCollectSound(comboRef.current);
         addCollectParticles(coin.x, coin.y, colors[Math.floor(coin.x / 40) % colors.length]);
       }
     });
-  }, [playCollectSound, addCollectParticles]);
+  }, [isPowerUpActive, playCollectSound, addCollectParticles]);
+
+  const checkPowerUps = useCallback(() => {
+    const player = playerRef.current;
+    
+    powerUpsRef.current.forEach(powerUp => {
+      if (powerUp.collected) return;
+      
+      const dx = PLAYER_X - powerUp.x;
+      const dy = player.y - powerUp.y;
+      if (Math.sqrt(dx * dx + dy * dy) < PLAYER_SIZE / 2 + 18) {
+        powerUp.collected = true;
+        activatePowerUp(powerUp.type);
+        
+        // Special particles for power-up
+        for (let i = 0; i < 12; i++) {
+          const angle = (i / 12) * Math.PI * 2;
+          particlesRef.current.push({
+            x: powerUp.x,
+            y: powerUp.y,
+            vx: Math.cos(angle) * 4,
+            vy: Math.sin(angle) * 4,
+            life: 30,
+            color: POWERUP_CONFIG[powerUp.type].color,
+            size: 6,
+          });
+        }
+      }
+    });
+  }, [activatePowerUp]);
+
+  // Update obstacles
+  const updateObstacles = useCallback((speed: number, delta: number) => {
+    obstaclesRef.current.forEach(obstacle => {
+      // Move horizontally
+      obstacle.x -= speed * delta;
+      
+      // Update special obstacles
+      if (obstacle.type === 'zapper_moving' && obstacle.baseY !== undefined) {
+        obstacle.movePhase = (obstacle.movePhase || 0) + (obstacle.moveSpeed || 0.03);
+        obstacle.y = obstacle.baseY + Math.sin(obstacle.movePhase) * (obstacle.moveRange || 50);
+      }
+      
+      if (obstacle.type === 'missile') {
+        // Track player with some lag
+        const dy = playerRef.current.y - obstacle.y;
+        obstacle.velocityY = (obstacle.velocityY || 0) + dy * 0.01;
+        obstacle.velocityY = Math.max(-3, Math.min(3, obstacle.velocityY));
+        obstacle.y += obstacle.velocityY;
+      }
+      
+      if (obstacle.type === 'laser') {
+        if (obstacle.warningTime && obstacle.warningTime > 0) {
+          obstacle.warningTime--;
+          if (obstacle.warningTime === 0) {
+            obstacle.active = true;
+          }
+        } else if (obstacle.active && obstacle.firingTime && obstacle.firingTime > 0) {
+          obstacle.firingTime--;
+          if (obstacle.firingTime === 0) {
+            obstacle.active = false;
+          }
+        }
+      }
+      
+      if (obstacle.type === 'zapper_rotating' && obstacle.centerX !== undefined) {
+        obstacle.centerX -= speed * delta;
+        obstacle.angle = ((obstacle.angle || 0) + (obstacle.rotationSpeed || 2)) % 360;
+      }
+    });
+  }, []);
 
   // Game loop
   const gameLoop = useCallback(() => {
@@ -1049,45 +1982,142 @@ export default function DonutDashPage() {
     lastFrameTimeRef.current = now;
     frameCountRef.current++;
     
-    ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
+    // Apply screen shake
+    let shakeX = 0, shakeY = 0;
+    const shake = screenShakeRef.current;
+    if (shake.duration > 0) {
+      const elapsed = now - shake.startTime;
+      if (elapsed < shake.duration) {
+        const intensity = shake.intensity * (1 - elapsed / shake.duration);
+        shakeX = (Math.random() - 0.5) * intensity * 2;
+        shakeY = (Math.random() - 0.5) * intensity * 2;
+      } else {
+        screenShakeRef.current.duration = 0;
+      }
+    }
+    
+    ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, shakeX * CANVAS_SCALE, shakeY * CANVAS_SCALE);
     
     const hasStarted = hasStartedFlyingRef.current;
-    if (hasStarted) speedRef.current = Math.min(speedRef.current + SPEED_INCREMENT * delta, MAX_SPEED);
-    const speed = hasStarted ? speedRef.current : 0;
     
+    // Speed affected by slow-mo
+    const isSlowMo = isPowerUpActive('slowmo');
+    const speedMultiplier = isSlowMo ? 0.5 : 1;
+    
+    if (hasStarted) speedRef.current = Math.min(speedRef.current + SPEED_INCREMENT * delta * speedMultiplier, MAX_SPEED);
+    const speed = hasStarted ? speedRef.current * speedMultiplier : 0;
+    
+    // Update score display
     setScore(coinsCollectedRef.current);
     
+    // Update zone based on score
+    const newZone = getCurrentZone(coinsCollectedRef.current);
+    if (newZone !== currentZoneRef.current) {
+      currentZoneRef.current = newZone;
+      setCurrentZone(newZone);
+      triggerScreenShake(5, 300);
+      addMilestoneParticles();
+      playMilestoneSound();
+    }
+    
+    // Check milestones
+    const currentScore = coinsCollectedRef.current;
+    for (const milestone of MILESTONES) {
+      if (currentScore >= milestone && lastMilestoneRef.current < milestone) {
+        lastMilestoneRef.current = milestone;
+        triggerScreenShake(8, 400);
+        addMilestoneParticles();
+        playMilestoneSound();
+      }
+    }
+    
+    // Update player physics
     const player = playerRef.current;
+    const isRocket = isPowerUpActive('rocket');
+    
     if (hasStarted) {
-      if (player.isThrusting) player.velocity += THRUST * delta;
-      else player.velocity += GRAVITY * delta;
+      if (isRocket) {
+        // Rocket gives controlled flight
+        if (player.isThrusting) player.velocity += THRUST * 1.5 * delta;
+        else player.velocity += GRAVITY * 0.5 * delta;
+      } else {
+        if (player.isThrusting) player.velocity += THRUST * delta;
+        else player.velocity += GRAVITY * delta;
+      }
       player.velocity = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, player.velocity));
       player.y += player.velocity * delta;
       player.y = Math.max(30 + PLAYER_SIZE / 2, Math.min(CANVAS_HEIGHT - 30 - PLAYER_SIZE / 2, player.y));
+      
+      // Record ghost frame
+      ghostRecordingRef.current.push({
+        y: player.y,
+        isThrusting: player.isThrusting,
+      });
     }
     
+    // Update obstacles
     if (hasStarted) {
-      obstaclesRef.current.forEach(o => { o.x -= speed * delta; });
-      obstaclesRef.current = obstaclesRef.current.filter(o => o.x + o.width > -50);
-      const lastObs = obstaclesRef.current[obstaclesRef.current.length - 1];
-      // Increase spawn rate by 25% after 150 points (spawn gap reduced to 75%)
-      const baseSpawnGap = 200 + Math.random() * 150;
-      const spawnGap = coinsCollectedRef.current >= 150 ? baseSpawnGap * 0.75 : baseSpawnGap;
-      if (!lastObs || lastObs.x < CANVAS_WIDTH - spawnGap) spawnObstacle();
+      updateObstacles(speed, delta);
+      obstaclesRef.current = obstaclesRef.current.filter(o => {
+        if (o.type === 'zapper_rotating') {
+          return (o.centerX || o.x) > -100;
+        }
+        return o.x + o.width > -50;
+      });
       
-      coinsRef.current.forEach(c => { c.x -= speed * delta; });
+      const lastObs = obstaclesRef.current[obstaclesRef.current.length - 1];
+      const baseSpawnGap = 200 + Math.random() * 150;
+      const spawnGap = currentScore >= 150 ? baseSpawnGap * 0.75 : baseSpawnGap;
+      if (!lastObs || (lastObs.type === 'zapper_rotating' ? (lastObs.centerX || lastObs.x) : lastObs.x) < CANVAS_WIDTH - spawnGap) {
+        spawnObstacle();
+      }
+      
+      // Update coins and add trails
+      coinsRef.current.forEach(c => {
+        // Add to trail
+        if (!c.collected) {
+          if (!c.trail) c.trail = [];
+          c.trail.unshift({ x: c.x, y: c.y, alpha: 0.5 });
+          if (c.trail.length > 5) c.trail.pop();
+          c.trail.forEach(t => t.alpha *= 0.8);
+        }
+        c.x -= speed * delta;
+      });
       coinsRef.current = coinsRef.current.filter(c => c.x > -50);
       if (coinsRef.current.length < 20 && Math.random() < 0.03) spawnCoins();
+      
+      // Update power-ups
+      powerUpsRef.current.forEach(p => { p.x -= speed * delta; });
+      powerUpsRef.current = powerUpsRef.current.filter(p => p.x > -50);
+      if (powerUpsRef.current.length < 2 && Math.random() < 0.005) spawnPowerUp();
+      
+      // Clean up expired power-ups
+      const nowMs = Date.now();
+      activePowerUpsRef.current = activePowerUpsRef.current.filter(p => p.endTime > nowMs);
+      setActivePowerUpsDisplay([...activePowerUpsRef.current]);
+      
+      // Decay combo if no coins collected recently
+      if (nowMs - lastCoinTimeRef.current > COMBO_WINDOW * 2) {
+        comboRef.current = Math.max(1, comboRef.current - 1);
+        setComboDisplay(comboRef.current);
+      }
     }
     
-    if (player.isThrusting && frameCountRef.current % 2 === 0) addThrustParticles();
+    // Thrust particles
+    if ((player.isThrusting || isRocket) && frameCountRef.current % 2 === 0) addThrustParticles();
     
+    // Draw everything
     drawBackground(ctx, hasStarted ? speed : 0.5);
+    drawGhost(ctx);
     drawParticles(ctx);
     drawCoins(ctx);
+    drawPowerUps(ctx);
     drawObstacles(ctx);
     drawPlayer(ctx);
+    drawCombo(ctx);
+    drawActivePowerUps(ctx);
     
+    // Start prompt
     if (!hasStarted) {
       const pulseScale = 1 + Math.sin(frameCountRef.current * 0.1) * 0.15;
       ctx.save();
@@ -1110,13 +2140,52 @@ export default function DonutDashPage() {
       ctx.restore();
     }
     
+    // Collision and pickup checks
     if (hasStarted) {
       checkCoins();
-      if (checkCollisions()) {
+      checkPowerUps();
+      
+      const collision = checkCollisions();
+      
+      // Near miss bonus
+      if (collision.nearMiss && !nearMissBonusRef.current) {
+        nearMissBonusRef.current = 1;
+        coinsCollectedRef.current += 2;
+        playNearMissSound();
+        triggerScreenShake(3, 100);
+        
+        // Show near miss text
+        particlesRef.current.push({
+          x: PLAYER_X + 30,
+          y: player.y,
+          vx: 1,
+          vy: -1,
+          life: 30,
+          color: '#FFD700',
+          size: 0, // Flag for text particle
+        });
+      } else if (!collision.nearMiss) {
+        nearMissBonusRef.current = 0;
+      }
+      
+      // Heartbeat when close to obstacles
+      if (collision.nearMiss && frameCountRef.current % 30 === 0) {
+        playHeartbeatSound();
+      }
+      
+      if (collision.hit) {
         const finalScore = coinsCollectedRef.current;
         playCrashSound();
         stopThrustSound();
         gameActiveRef.current = false;
+        triggerScreenShake(15, 500);
+        
+        // Save ghost if new best
+        if (finalScore > bestGhostScoreRef.current) {
+          bestGhostRef.current = [...ghostRecordingRef.current];
+          bestGhostScoreRef.current = finalScore;
+        }
+        
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
         setGameState("gameover");
         setHighScore(prev => Math.max(prev, finalScore));
@@ -1143,13 +2212,26 @@ export default function DonutDashPage() {
       }
     }
     
+    // HUD
     ctx.fillStyle = '#FFFFFF';
     ctx.font = 'bold 18px monospace';
     ctx.textAlign = 'left';
     ctx.fillText(`SCORE: ${coinsCollectedRef.current}`, 15, 58);
     
+    // Zone indicator
+    ctx.font = '10px monospace';
+    ctx.fillStyle = currentZoneRef.current.accent;
+    ctx.fillText(currentZoneRef.current.name.toUpperCase(), 15, 75);
+    
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawBackground, drawPlayer, drawObstacles, drawCoins, drawParticles, checkCollisions, checkCoins, spawnObstacle, spawnCoins, addThrustParticles, playCrashSound, stopThrustSound, submitScore, fetchLeaderboard, address, context]);
+  }, [
+    drawBackground, drawPlayer, drawObstacles, drawCoins, drawPowerUps, drawParticles, drawCombo, drawActivePowerUps, drawGhost,
+    checkCollisions, checkCoins, checkPowerUps, updateObstacles,
+    spawnObstacle, spawnCoins, spawnPowerUp, addThrustParticles, addMilestoneParticles,
+    playCrashSound, stopThrustSound, playMilestoneSound, playNearMissSound, playHeartbeatSound,
+    triggerScreenShake, getCurrentZone, isPowerUpActive,
+    submitScore, fetchLeaderboard, address, context
+  ]);
 
   const handleThrustStart = useCallback(() => {
     if (!gameActiveRef.current) return;
@@ -1170,12 +2252,25 @@ export default function DonutDashPage() {
     playerRef.current = { y: groundY, velocity: 0, isThrusting: false };
     obstaclesRef.current = [];
     coinsRef.current = [];
+    powerUpsRef.current = [];
+    activePowerUpsRef.current = [];
     particlesRef.current = [];
     speedRef.current = BASE_SPEED;
     coinsCollectedRef.current = 0;
     frameCountRef.current = 0;
     hasStartedFlyingRef.current = false;
+    comboRef.current = 0;
+    lastCoinTimeRef.current = 0;
+    nearMissBonusRef.current = 0;
+    lastMilestoneRef.current = 0;
+    currentZoneRef.current = ZONES[0];
+    ghostRecordingRef.current = [];
+    hasShieldRef.current = false;
+    screenShakeRef.current = { intensity: 0, duration: 0, startTime: 0 };
     setScore(0);
+    setCurrentZone(ZONES[0]);
+    setComboDisplay(0);
+    setActivePowerUpsDisplay([]);
     setGameState("playing");
     lastFrameTimeRef.current = performance.now();
     gameActiveRef.current = true;
@@ -1205,14 +2300,12 @@ export default function DonutDashPage() {
       const time = (performance.now() - startTime) / 1000;
       ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
       
-      // Dark gradient background (like Glaze Stack)
       const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
       bgGradient.addColorStop(0, "#1a1a1a");
       bgGradient.addColorStop(1, "#0d0d0d");
       ctx.fillStyle = bgGradient;
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       
-      // Subtle grid pattern
       ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
       ctx.lineWidth = 1;
       for (let i = 0; i < CANVAS_WIDTH; i += 40) {
@@ -1228,7 +2321,6 @@ export default function DonutDashPage() {
         ctx.stroke();
       }
       
-      // Hazard stripes
       ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(0, 0, CANVAS_WIDTH, 30);
       ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
@@ -1252,7 +2344,6 @@ export default function DonutDashPage() {
       ctx.translate(CANVAS_WIDTH / 2, donutY);
       
       if (pfpImageRef.current) {
-        // Draw circular profile picture
         const menuRadius = 30;
         ctx.save();
         ctx.beginPath();
@@ -1262,7 +2353,6 @@ export default function DonutDashPage() {
         ctx.drawImage(pfpImageRef.current, -menuRadius, -menuRadius, menuRadius * 2, menuRadius * 2);
         ctx.restore();
         
-        // Glowing border
         ctx.strokeStyle = '#FFFFFF';
         ctx.lineWidth = 3;
         ctx.shadowColor = '#FF69B4';
@@ -1272,7 +2362,6 @@ export default function DonutDashPage() {
         ctx.stroke();
         ctx.shadowBlur = 0;
       } else {
-        // Fallback donut
         ctx.shadowColor = donutColor; ctx.shadowBlur = 25;
         ctx.fillStyle = donutColor;
         ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI * 2); ctx.fill();
@@ -1289,9 +2378,21 @@ export default function DonutDashPage() {
         ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 295);
         ctx.fillStyle = '#888'; ctx.font = '12px monospace';
         ctx.fillText('sprinkles collected', CANVAS_WIDTH / 2, 318);
+        
+        // Show best ghost score
+        if (bestGhostScoreRef.current > 0) {
+          ctx.fillStyle = '#666';
+          ctx.font = '10px monospace';
+          ctx.fillText(`Best: ${bestGhostScoreRef.current}`, CANVAS_WIDTH / 2, 338);
+        }
       } else {
         ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '12px monospace';
         ctx.fillText('Hold to fly • Release to fall', CANVAS_WIDTH / 2, 290);
+        
+        // Show power-up icons
+        ctx.font = '10px monospace';
+        ctx.fillStyle = '#888';
+        ctx.fillText('Power-ups: 🧲 🛡️ ⏱️ 🚀 👻', CANVAS_WIDTH / 2, 310);
       }
       animationId = requestAnimationFrame(draw);
     };
@@ -1435,7 +2536,7 @@ export default function DonutDashPage() {
         </div>
         
         {(gameState === "menu" || gameState === "gameover") && (
-          <div className="py-4 flex items-center justify-center gap-2">
+          <div className="py-4 flex items-center justify-center gap-2 flex-wrap">
             <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
               <HelpCircle className="w-3 h-3 text-zinc-400" /><span className="text-xs whitespace-nowrap">How to Play</span>
             </button>
@@ -1443,11 +2544,15 @@ export default function DonutDashPage() {
               {isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-400" />}
               <span className="text-xs">{isMuted ? 'Muted' : 'Sound'}</span>
             </button>
+            <button onClick={() => setShowGhost(!showGhost)} className={`flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border rounded-full hover:border-zinc-500 ${showGhost ? 'border-purple-500/50' : 'border-zinc-700'}`}>
+              <Ghost className="w-3 h-3 text-purple-400" />
+              <span className="text-xs">{showGhost ? 'Ghost On' : 'Ghost Off'}</span>
+            </button>
           </div>
         )}
       </div>
       
-      {/* Modals - outside scrollable container */}
+      {/* Help Modal */}
       {showHelp && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4">
           <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
@@ -1461,20 +2566,30 @@ export default function DonutDashPage() {
                 <p className="text-xs text-zinc-400">Hold the screen to fly up with your jetpack. Release to fall. Navigate through the facility avoiding zappers and collecting sprinkles!</p>
               </div>
               <div>
-                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-green-400" />Weekly Prizes</h3>
-                <p className="text-xs text-zinc-400">This game is FREE TO PLAY! Top 10 players each week win USDC prizes distributed automatically every Friday at 6PM EST.</p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs">
-                  <div className="flex justify-between"><span className="text-green-400">🥇 1st</span><span className="text-white">40%</span></div>
-                  <div className="flex justify-between"><span className="text-zinc-300">🥈 2nd</span><span className="text-white">20%</span></div>
-                  <div className="flex justify-between"><span className="text-orange-400">🥉 3rd</span><span className="text-white">15%</span></div>
-                  <div className="flex justify-between"><span className="text-zinc-400">4th</span><span className="text-white">8%</span></div>
-                  <div className="flex justify-between"><span className="text-zinc-400">5th</span><span className="text-white">5%</span></div>
-                  <div className="flex justify-between"><span className="text-zinc-400">6th-10th</span><span className="text-white">12% split</span></div>
+                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-orange-400" />Power-Ups</h3>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-2"><span>🧲</span><span className="text-zinc-400">Magnet - Pulls coins</span></div>
+                  <div className="flex items-center gap-2"><span>🛡️</span><span className="text-zinc-400">Shield - Survive 1 hit</span></div>
+                  <div className="flex items-center gap-2"><span>⏱️</span><span className="text-zinc-400">Slow-Mo - Slows time</span></div>
+                  <div className="flex items-center gap-2"><span>🚀</span><span className="text-zinc-400">Rocket - 2x coins, invincible</span></div>
+                  <div className="flex items-center gap-2"><span>👻</span><span className="text-zinc-400">Ghost - Phase through</span></div>
                 </div>
               </div>
               <div>
-                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Clock className="w-4 h-4 text-zinc-400" />Weekly Reset</h3>
-                <p className="text-xs text-zinc-400">Leaderboards reset every Friday at 6PM EST. Your best score of the week counts!</p>
+                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4 text-blue-400" />Zones</h3>
+                <p className="text-xs text-zinc-400">Progress through 4 zones with unique visuals and new obstacles: Factory → Lava → Ice → Space</p>
+              </div>
+              <div>
+                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-green-400" />Combos & Near Misses</h3>
+                <p className="text-xs text-zinc-400">Chain coin pickups for combo multipliers (up to 10x)! Graze obstacles for +2 near-miss bonus points.</p>
+              </div>
+              <div>
+                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Ghost className="w-4 h-4 text-purple-400" />Ghost Mode</h3>
+                <p className="text-xs text-zinc-400">Race against your best run! Toggle ghost visibility in the menu.</p>
+              </div>
+              <div>
+                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-green-400" />Weekly Prizes</h3>
+                <p className="text-xs text-zinc-400">This game is FREE TO PLAY! Top 10 players each week win USDC prizes distributed automatically every Friday at 6PM EST.</p>
               </div>
             </div>
             <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
@@ -1484,6 +2599,7 @@ export default function DonutDashPage() {
         </div>
       )}
       
+      {/* Leaderboard Modal */}
       {showLeaderboard && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4">
           <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
