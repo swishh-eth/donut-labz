@@ -1752,12 +1752,12 @@ export default function DonutJumpPage() {
                     <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-green-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>
                       {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}
                     </span>
-                    {entry.pfpUrl ? <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center">🍩</div>}
+                    {entry.pfpUrl ? <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-zinc-700" />}
                     <div className="flex-1 min-w-0">
                       <span className="block truncate text-sm">{entry.displayName || entry.username || `fid:${entry.fid}`}</span>
                       {prize && <span className="text-xs text-green-400">+${prize.amount}</span>}
                     </div>
-                    <span className="font-bold text-sm">🍩 {entry.score}</span>
+                    <span className="font-bold text-sm">{entry.score}</span>
                   </div>
                 );
               })}
