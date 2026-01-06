@@ -1962,10 +1962,10 @@ export default function HomePage() {
                               ? "Reward sent to your wallet"
                               : !!(splitterBalance && splitterBalance > 0n)
                                 ? <span className="flex items-center gap-1">{formatTokenAmount(splitterBalance, 18, 0)} DONUT ready to split • Earn 10 <SprinklesCoin className="w-3 h-3 inline" /></span>
-                                : <span className="flex items-center gap-1">Split the Sprinkles App miner fee & earn</span>}
+                                : <span className="flex items-center gap-1">Split the Sprinkles App miner fee to earn</span>}
                           </div>
                           <div className="text-[8px] text-gray-500 mt-1">
-                            Free to split • Gas only
+                            Hold 10K Sprinkles • Gas cost only
                           </div>
                         </div>
                       </div>
