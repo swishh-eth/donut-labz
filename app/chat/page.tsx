@@ -379,39 +379,6 @@ export default function ChatPage() {
         const replyToHashToSave = pendingReplyToHashRef.current;
         const normalizedHash = hash.toLowerCase();
         
-        if (imageUrlToSave && imageUrlToSave.startsWith("http")) {
-          try {
-            const saveRes = await fetch("/api/chat/save-image", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                transactionHash: normalizedHash,
-                imageUrl: imageUrlToSave,
-              }),
-            });
-            if (!saveRes.ok) {
-              console.error("Failed to save image URL:", await saveRes.text());
-            }
-          } catch (e) {
-            console.error("Failed to save image URL:", e);
-          }
-        }
-        
-        if (replyToHashToSave) {
-          try {
-            await fetch("/api/chat/save-reply", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                transactionHash: normalizedHash,
-                replyToHash: replyToHashToSave,
-              }),
-            });
-          } catch (e) {
-            console.error("Failed to save reply:", e);
-          }
-        }
-        
         recordPoints();
         setMessage("");
         clearSelectedImage();
@@ -419,28 +386,76 @@ export default function ChatPage() {
         setCooldownRemaining(COOLDOWN_SECONDS);
         setPendingMessageConfirmed(true);
         
-        setPendingImageUrl(null);
-        pendingImageUrlRef.current = null;
-        pendingReplyToHashRef.current = null;
-        
+        // First sync - wait for message to appear in DB (3 seconds for blockchain propagation)
         setTimeout(async () => {
           await fetch("/api/chat/messages?sync=true");
+          
+          // Now save the image URL (message should exist in DB now)
+          if (imageUrlToSave && imageUrlToSave.startsWith("http")) {
+            try {
+              const saveRes = await fetch("/api/chat/save-image", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                  transactionHash: normalizedHash,
+                  imageUrl: imageUrlToSave,
+                }),
+              });
+              if (!saveRes.ok) {
+                console.error("Failed to save image URL:", await saveRes.text());
+              }
+            } catch (e) {
+              console.error("Failed to save image URL:", e);
+            }
+          }
+          
+          // Save reply relationship
+          if (replyToHashToSave) {
+            try {
+              await fetch("/api/chat/save-reply", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                  transactionHash: normalizedHash,
+                  replyToHash: replyToHashToSave,
+                }),
+              });
+            } catch (e) {
+              console.error("Failed to save reply:", e);
+            }
+          }
+          
+          // Clear refs after they've been used
+          setPendingImageUrl(null);
+          pendingImageUrlRef.current = null;
+          pendingReplyToHashRef.current = null;
+          
+          // Refetch to show message with image
           queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
           await refetchMessages();
           
+          // Second sync at 5 seconds
           setTimeout(async () => {
             await fetch("/api/chat/messages?sync=true");
             queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
             await refetchMessages();
+            
+            // Third sync at 8 seconds (final)
+            setTimeout(async () => {
+              await fetch("/api/chat/messages?sync=true");
+              queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
+              await refetchMessages();
+            }, 3000);
           }, 2000);
           
+          // Fade out pending message
           setPendingMessageFadingOut(true);
           setTimeout(() => {
             setPendingMessage("");
             setPendingMessageConfirmed(false);
             setPendingMessageFadingOut(false);
           }, 400);
-        }, 4000);
+        }, 3000);
       };
       completeMessage();
     }
@@ -562,8 +577,8 @@ export default function ChatPage() {
       return;
     }
     
-    if (file.size > 5 * 1024 * 1024) {
-      setEligibilityError(["Image must be less than 5MB"]);
+    if (file.size > 1 * 1024 * 1024) {
+      setEligibilityError(["Image must be less than 1MB"]);
       return;
     }
     
