@@ -14,8 +14,8 @@ const BASE_RPC_URL = "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as const;
 const FEE_SPLITTER_ADDRESS = "0xcB2604D87fe3e5b6fe33C5d5Ff05781602357D59" as const;
 
-// Reward amount: 100 SPRINKLES
-const SPLIT_REWARD = parseUnits("100", 18);
+// Reward amount: 10 SPRINKLES
+const SPLIT_REWARD = parseUnits("10", 18);
 
 const ERC20_ABI = [
   {
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     // Check if we already rewarded this tx (simple check - could use DB for production)
     // For now, we'll just proceed since double-claiming requires the same tx hash
 
-    console.log(`[Split Reward] Verified! Sending 100 SPRINKLES to ${address}`);
+    console.log(`[Split Reward] Verified! Sending 10 SPRINKLES to ${address}`);
 
     // Setup wallet for sending reward
     const botPrivateKey = process.env.BOT_PRIVATE_KEY;
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
       transport: http(BASE_RPC_URL),
     });
 
-    // Send 100 SPRINKLES reward
+    // Send 10 SPRINKLES reward
     const rewardHash = await walletClient.writeContract({
       address: SPRINKLES_ADDRESS,
       abi: ERC20_ABI,
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       rewardTxHash: rewardHash,
-      amount: "100",
+      amount: "10",
       token: "SPRINKLES",
     });
   } catch (error: any) {

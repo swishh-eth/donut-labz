@@ -1848,163 +1848,166 @@ export default function HomePage() {
                   </div>
                 </button>
               </div>
-
-              {/* Split to Earn Tile */}
-              <div 
-                className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '125ms', animationFillMode: 'forwards' } : {})}
-              >
-                <div
-                  className={cn(
-                    "relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300",
-                    splitResult === "rewarded"
-                      ? "border-green-500/50"
-                      : splitResult === "success"
-                        ? "border-green-500/50"
-                        : splitResult === "failure"
-                          ? "border-red-500/50"
-                          : splitterBalance && splitterBalance > 0n
-                            ? "border-pink-500/50 hover:border-pink-500/80"
-                            : "border-white/20 hover:border-white/30"
-                  )}
-                  style={{ 
-                    minHeight: '80px', 
-                    background: splitResult === "rewarded" || splitResult === "success"
-                      ? 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(22,163,74,0.1) 100%)'
-                      : splitResult === "failure"
-                        ? 'linear-gradient(135deg, rgba(239,68,68,0.15) 0%, rgba(220,38,38,0.1) 100%)'
-                        : splitterBalance && splitterBalance > 0n
-                          ? 'linear-gradient(135deg, rgba(244,114,182,0.15) 0%, rgba(219,39,119,0.1) 100%)'
-                          : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
-                  }}
-                >
-                  {/* Large background sprinkles icon */}
-                  <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <span className={cn(
-                      "w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50",
-                      splitResult === "rewarded" || splitResult === "success"
-                        ? "opacity-100"
-                        : splitResult === "failure"
-                          ? "opacity-20"
-                          : splitterBalance && splitterBalance > 0n
-                            ? "opacity-100"
-                            : "opacity-10"
-                    )}>
-                      <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
-                    </span>
-                  </div>
-                  
-                  {/* Main clickable area */}
-                  <button
-                    onClick={handleSplit}
-                    disabled={isSplitWriting || isSplitConfirming || splitResult !== null || showNothingToSplit || showMustHoldSprinkles}
-                    className="w-full h-full text-left active:scale-[0.98] transition-transform disabled:active:scale-100"
-                  >
-                    <div className="relative z-10 p-4 pr-16">
-                      <div className="text-left relative">
-                        {/* Nothing to Split Message */}
-                        <div className={cn(
-                          "absolute inset-0 flex items-center transition-opacity duration-300",
-                          showNothingToSplit ? "opacity-100" : "opacity-0 pointer-events-none"
-                        )}>
-                          <span className="font-bold text-base text-gray-400">NOTHING TO SPLIT</span>
-                        </div>
-                        
-                        {/* Normal Content */}
-                        <div className={cn(
-                          "transition-opacity duration-300",
-                          (showNothingToSplit || showMustHoldSprinkles) ? "opacity-0" : "opacity-100"
-                        )}>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={cn(
-                              "font-bold text-base",
-                              splitResult === "rewarded" || splitResult === "success"
-                                ? "text-green-400"
-                                : splitResult === "failure"
-                                  ? "text-red-400"
-                                  : splitterBalance && splitterBalance > 0n
-                                    ? "text-pink-400"
-                                    : "text-gray-500"
-                            )}>
-                              {splitResult === "rewarded" 
-                                ? <span className="flex items-center gap-1"><SprinklesCoin className="w-4 h-4" /> +100 SPRINKLES!</span>
-                                : splitResult === "success"
-                                  ? "Split Complete!"
-                                  : splitResult === "failure"
-                                    ? "Split Failed"
-                                    : isSplitWriting || isSplitConfirming
-                                      ? "Splitting..."
-                                      : "Split to Earn"}
-                            </span>
-                            {splitterBalance && splitterBalance > 0n && !splitResult && !isSplitWriting && !isSplitConfirming && (
-                              <span className="text-[9px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded font-bold">
-                                READY
-                              </span>
-                            )}
-                          </div>
-                          <div className={cn(
-                            "text-[10px]",
-                            splitResult === "rewarded" || splitResult === "success"
-                              ? "text-green-200/60"
-                              : splitResult === "failure"
-                                ? "text-red-200/60"
-                                : splitterBalance && splitterBalance > 0n
-                                  ? "text-pink-200/60"
-                                  : "text-gray-600"
-                          )}>
-                            {splitResult === "rewarded"
-                              ? "Reward sent to your wallet"
-                              : splitterBalance && splitterBalance > 0n
-                                ? <span className="flex items-center gap-1">{formatTokenAmount(splitterBalance, 18, 0)} DONUT ready to split • Earn 100 <SprinklesCoin className="w-3 h-3 inline" /></span>
-                                : timeSinceLastSplit 
-                                  ? `Last split ${timeSinceLastSplit}`
-                                  : "No splits yet"}
-                          </div>
-                          <div className="text-[8px] text-gray-500 mt-1">
-                            Free to split • Gas only
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                  
-                  {/* Must Hold SPRINKLES Message - Overlay that's always clickable */}
-                  <div className={cn(
-                    "absolute inset-0 flex items-center p-4 transition-opacity duration-300 z-20",
-                    showMustHoldSprinkles ? "opacity-100" : "opacity-0 pointer-events-none"
-                  )}>
-                    <button
-                      onClick={async (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        try {
-                          // Use experimental viewToken with CAIP-19 asset ID format
-                          const experimental = (sdk as any).experimental;
-                          if (experimental?.viewToken) {
-                            await experimental.viewToken({
-                              token: "eip155:8453/erc20:0xa890060BE1788a676dBC3894160f5dc5DeD2C98D"
-                            });
-                          } else {
-                            // Fallback - try actions.viewToken
-                            const actions = sdk.actions as any;
-                            if (actions.viewToken) {
-                              await actions.viewToken({
-                                token: "eip155:8453/erc20:0xa890060BE1788a676dBC3894160f5dc5DeD2C98D"
-                              });
-                            }
-                          }
-                        } catch (err) {
-                          console.error("viewToken failed:", err);
-                        }
-                      }}
-                      className="flex items-center gap-2 font-bold text-sm text-pink-400 hover:text-pink-300 active:scale-95 transition-all"
-                    >
-                      <span>HOLD 10,000 $SPRINKLES</span>
-                      <ExternalLink className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
+{/* Split to Earn Tile */}
+<div 
+  className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
+  style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '125ms', animationFillMode: 'forwards' } : {})}
+>
+  <div
+    className={cn(
+      "relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300",
+      splitResult === "rewarded"
+        ? "border-green-500/50"
+        : splitResult === "success"
+          ? "border-green-500/50"
+          : splitResult === "failure"
+            ? "border-red-500/50"
+            : splitterBalance && splitterBalance > 0n
+              ? "border-pink-500/50 hover:border-pink-500/80"
+              : "border-white/20 hover:border-white/30"
+    )}
+    style={{ 
+      minHeight: '80px', 
+      background: splitResult === "rewarded" || splitResult === "success"
+        ? 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(22,163,74,0.1) 100%)'
+        : splitResult === "failure"
+          ? 'linear-gradient(135deg, rgba(239,68,68,0.15) 0%, rgba(220,38,38,0.1) 100%)'
+          : splitterBalance && splitterBalance > 0n
+            ? 'linear-gradient(135deg, rgba(244,114,182,0.15) 0%, rgba(219,39,119,0.1) 100%)'
+            : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
+    }}
+  >
+    {/* Large background sprinkles icon */}
+    <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+      <span className={cn(
+        "w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50",
+        splitResult === "rewarded" || splitResult === "success"
+          ? "opacity-100"
+          : splitResult === "failure"
+            ? "opacity-20"
+            : splitterBalance && splitterBalance > 0n
+              ? "opacity-100"
+              : "opacity-10"
+      )}>
+        <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
+      </span>
+    </div>
+    
+    {/* Main clickable area */}
+    <button
+      onClick={handleSplit}
+      disabled={isSplitWriting || isSplitConfirming || splitResult !== null || showNothingToSplit || showMustHoldSprinkles}
+      className="w-full h-full text-left active:scale-[0.98] transition-transform disabled:active:scale-100"
+    >
+      <div className="relative z-10 p-4 pr-16">
+        <div className="text-left relative">
+          {/* Nothing to Split Message */}
+          <div className={cn(
+            "absolute inset-0 flex items-center transition-opacity duration-300",
+            showNothingToSplit ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}>
+            <span className="font-bold text-base text-gray-400">NOTHING TO SPLIT</span>
+          </div>
+          
+          {/* Normal Content */}
+          <div className={cn(
+            "transition-opacity duration-300",
+            (showNothingToSplit || showMustHoldSprinkles) ? "opacity-0" : "opacity-100"
+          )}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className={cn(
+                "font-bold text-base",
+                splitResult === "rewarded" || splitResult === "success"
+                  ? "text-green-400"
+                  : splitResult === "failure"
+                    ? "text-red-400"
+                    : splitterBalance && splitterBalance > 0n
+                      ? "text-pink-400"
+                      : "text-gray-500"
+              )}>
+                {splitResult === "rewarded" 
+                  ? <span className="flex items-center gap-1"><SprinklesCoin className="w-4 h-4" /> +10 SPRINKLES!</span>
+                  : splitResult === "success"
+                    ? "Split Complete!"
+                    : splitResult === "failure"
+                      ? "Split Failed"
+                      : isSplitWriting || isSplitConfirming
+                        ? "Splitting..."
+                        : "Split to Earn"}
+              </span>
+              {/* Last split time - shown beside title when not in result state */}
+              {!splitResult && !isSplitWriting && !isSplitConfirming && timeSinceLastSplit && (
+                <span className="text-[9px] text-gray-500">
+                  • {timeSinceLastSplit}
+                </span>
+              )}
+              {splitterBalance && splitterBalance > 0n && !splitResult && !isSplitWriting && !isSplitConfirming && (
+                <span className="text-[9px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded font-bold">
+                  READY
+                </span>
+              )}
+            </div>
+            <div className={cn(
+              "text-[10px]",
+              splitResult === "rewarded" || splitResult === "success"
+                ? "text-green-200/60"
+                : splitResult === "failure"
+                  ? "text-red-200/60"
+                  : splitterBalance && splitterBalance > 0n
+                    ? "text-pink-200/60"
+                    : "text-gray-600"
+            )}>
+              {splitResult === "rewarded"
+                ? "Reward sent to your wallet"
+                : splitterBalance && splitterBalance > 0n
+                  ? <span className="flex items-center gap-1">{formatTokenAmount(splitterBalance, 18, 0)} DONUT ready to split • Earn 10 <SprinklesCoin className="w-3 h-3 inline" /></span>
+                  : <span className="flex items-center gap-1">Split the Sprinkles App miner fee & earn <span className="opacity-50"><SprinklesCoin className="w-3 h-3" /></span></span>}
+            </div>
+            <div className="text-[8px] text-gray-500 mt-1">
+              Free to split • Gas only
+            </div>
+          </div>
+        </div>
+      </div>
+    </button>
+    
+    {/* Must Hold SPRINKLES Message - Overlay that's always clickable */}
+    <div className={cn(
+      "absolute inset-0 flex items-center p-4 transition-opacity duration-300 z-20",
+      showMustHoldSprinkles ? "opacity-100" : "opacity-0 pointer-events-none"
+    )}>
+      <button
+        onClick={async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          try {
+            // Use experimental viewToken with CAIP-19 asset ID format
+            const experimental = (sdk as any).experimental;
+            if (experimental?.viewToken) {
+              await experimental.viewToken({
+                token: "eip155:8453/erc20:0xa890060BE1788a676dBC3894160f5dc5DeD2C98D"
+              });
+            } else {
+              // Fallback - try actions.viewToken
+              const actions = sdk.actions as any;
+              if (actions.viewToken) {
+                await actions.viewToken({
+                  token: "eip155:8453/erc20:0xa890060BE1788a676dBC3894160f5dc5DeD2C98D"
+                });
+              }
+            }
+          } catch (err) {
+            console.error("viewToken failed:", err);
+          }
+        }}
+        className="flex items-center gap-2 font-bold text-sm text-pink-400 hover:text-pink-300 active:scale-95 transition-all"
+      >
+        <span>HOLD 10,000 $SPRINKLES</span>
+        <ExternalLink className="w-4 h-4" />
+      </button>
+    </div>
+  </div>
+</div>
 
               {/* Activate Auction Burn Tile */}
               <div 
