@@ -1456,7 +1456,7 @@ export default function DonutJumpPage() {
   
   const handleShare = useCallback(async () => {
     const miniappUrl = "https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles";
-    const castText = `🍩⬆️ I collected ${score} donuts in Donut Jump!`;
+    const castText = `🍩⬆️ I just scored ${score} points in $DONUT Jump in the Sprinkles App! Think you can beat it?`;
     try {
       await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(miniappUrl)}`);
     } catch {
