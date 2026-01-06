@@ -34,8 +34,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Score validation - height + coins*10, so can be quite high
-    if (score < 0 || score > 100000) {
+    // Score validation - donuts collected only
+    if (score < 0 || score > 10000) {
       return NextResponse.json({ success: false, error: "Invalid score" }, { status: 400 });
     }
 

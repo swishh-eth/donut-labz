@@ -22,7 +22,7 @@ const FREE_ARCADE_ABI = [
 
 // Game constants
 const CANVAS_WIDTH = 360;
-const CANVAS_HEIGHT = 560;
+const CANVAS_HEIGHT = 480;
 const CANVAS_SCALE = 2;
 const SCALED_WIDTH = CANVAS_WIDTH * CANVAS_SCALE;
 const SCALED_HEIGHT = CANVAS_HEIGHT * CANVAS_SCALE;
@@ -311,15 +311,21 @@ export default function DonutJumpPage() {
   
   const submitScore = useCallback(async (finalScore: number) => {
     const entryId = currentEntryIdRef.current;
-    if (!entryId || !context?.user?.fid) return;
+    console.log("[Donut Jump Client] Submitting score:", { entryId, finalScore, fid: context?.user?.fid });
+    if (!entryId || !context?.user?.fid) {
+      console.log("[Donut Jump Client] Missing entryId or fid, skipping submission");
+      return;
+    }
     try {
-      await fetch("/api/games/donut-jump/submit-score", {
+      const res = await fetch("/api/games/donut-jump/submit-score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entryId, score: finalScore, fid: context.user.fid }),
       });
+      const data = await res.json();
+      console.log("[Donut Jump Client] Submit response:", data);
     } catch (error) {
-      console.error("Failed to submit score:", error);
+      console.error("[Donut Jump Client] Failed to submit score:", error);
     }
   }, [context?.user?.fid]);
   
@@ -980,13 +986,13 @@ export default function DonutJumpPage() {
     ctx.textAlign = 'left';
     ctx.shadowColor = '#000';
     ctx.shadowBlur = 4;
-    ctx.fillText(`${Math.floor(maxHeightRef.current)}m`, 15, 40);
+    ctx.fillText(`🍩 ${coinsCollectedRef.current}`, 15, 40);
     ctx.shadowBlur = 0;
     
-    // Coins
-    ctx.font = '16px monospace';
-    ctx.fillStyle = '#FFD700';
-    ctx.fillText(`🍩 ${coinsCollectedRef.current}`, 15, 65);
+    // Height (secondary)
+    ctx.font = '14px monospace';
+    ctx.fillStyle = '#888888';
+    ctx.fillText(`${Math.floor(maxHeightRef.current)}m`, 15, 60);
     
     // Active power-ups
     const now = Date.now();
@@ -1342,7 +1348,7 @@ export default function DonutJumpPage() {
     // Draw HUD
     drawHUD(ctx);
     
-    setScore(Math.floor(maxHeightRef.current));
+    setScore(coinsCollectedRef.current);
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
   }, [
@@ -1357,7 +1363,8 @@ export default function DonutJumpPage() {
     playGameOverSound();
     triggerScreenShake(15, 500);
     
-    const finalScore = Math.floor(maxHeightRef.current) + coinsCollectedRef.current * 10;
+    const finalScore = coinsCollectedRef.current;
+    console.log("[Donut Jump Client] Game over - coins collected:", finalScore, "height:", maxHeightRef.current);
     setGameState("gameover");
     setHighScore(prev => Math.max(prev, finalScore));
     submitScore(finalScore);
@@ -1515,7 +1522,7 @@ export default function DonutJumpPage() {
   
   const handleShare = useCallback(async () => {
     const miniappUrl = "https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles";
-    const castText = `🍩⬆️ I reached ${score}m in Donut Jump and collected ${coinsCollectedRef.current} donuts!`;
+    const castText = `🍩⬆️ I collected ${score} donuts in Donut Jump!`;
     try {
       await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(miniappUrl)}`);
     } catch {
@@ -1546,7 +1553,7 @@ export default function DonutJumpPage() {
       
       // Floating platforms
       for (let i = 0; i < 5; i++) {
-        const y = 150 + i * 100 + Math.sin(time + i) * 10;
+        const y = 120 + i * 70 + Math.sin(time + i) * 10;
         const x = 50 + i * 60;
         ctx.fillStyle = '#4ade80';
         ctx.beginPath();
@@ -1556,7 +1563,7 @@ export default function DonutJumpPage() {
       
       // Bouncing character
       const bounceY = Math.abs(Math.sin(time * 3)) * 40;
-      const playerY = 250 - bounceY;
+      const playerY = 200 - bounceY;
       const playerX = CANVAS_WIDTH / 2;
       
       ctx.save();
@@ -1592,7 +1599,7 @@ export default function DonutJumpPage() {
       
       // Floating coins
       for (let i = 0; i < 3; i++) {
-        const coinY = 180 + i * 80 + Math.sin(time * 2 + i) * 5;
+        const coinY = 140 + i * 60 + Math.sin(time * 2 + i) * 5;
         const coinX = 280 + Math.sin(time + i * 2) * 20;
         ctx.fillStyle = '#FFD700';
         ctx.shadowColor = '#FFD700';
@@ -1615,20 +1622,20 @@ export default function DonutJumpPage() {
       if (gameState === "gameover") {
         ctx.fillStyle = '#FF6B6B';
         ctx.font = 'bold 28px monospace';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 350);
-        
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 24px monospace';
-        ctx.fillText(`${score}m`, CANVAS_WIDTH / 2, 390);
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 290);
         
         ctx.fillStyle = '#FFD700';
-        ctx.font = '16px monospace';
-        ctx.fillText(`🍩 ${coinsCollectedRef.current}`, CANVAS_WIDTH / 2, 420);
+        ctx.font = 'bold 32px monospace';
+        ctx.fillText(`🍩 ${score}`, CANVAS_WIDTH / 2, 335);
+        
+        ctx.fillStyle = '#888888';
+        ctx.font = '14px monospace';
+        ctx.fillText(`Height: ${Math.floor(maxHeightRef.current)}m`, CANVAS_WIDTH / 2, 360);
       } else {
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.font = '14px monospace';
-        ctx.fillText('Tap left/right to move', CANVAS_WIDTH / 2, 350);
-        ctx.fillText('Bounce on platforms to climb!', CANVAS_WIDTH / 2, 375);
+        ctx.fillText('Tap left/right to move', CANVAS_WIDTH / 2, 290);
+        ctx.fillText('Bounce on platforms to climb!', CANVAS_WIDTH / 2, 315);
       }
       
       animationId = requestAnimationFrame(draw);
@@ -1785,7 +1792,7 @@ export default function DonutJumpPage() {
               </div>
               <div>
                 <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-yellow-400" />Scoring</h3>
-                <p className="text-xs text-zinc-400">Height climbed + Donut coins collected (10pts each). Jump on monsters to defeat them!</p>
+                <p className="text-xs text-zinc-400">Collect donuts to score points! Jump on monsters to defeat them and bounce higher.</p>
               </div>
               <div>
                 <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-green-400" />Weekly Prizes</h3>
@@ -1831,7 +1838,7 @@ export default function DonutJumpPage() {
                       <span className="block truncate text-sm">{entry.displayName || entry.username || `fid:${entry.fid}`}</span>
                       {prize && <span className="text-xs text-green-400">+${prize.amount}</span>}
                     </div>
-                    <span className="font-bold text-sm">{entry.score}</span>
+                    <span className="font-bold text-sm">🍩 {entry.score}</span>
                   </div>
                 );
               })}
