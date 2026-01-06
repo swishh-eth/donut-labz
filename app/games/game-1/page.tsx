@@ -126,19 +126,6 @@ function getTimeUntilReset(): string {
   return `${minutes}m`;
 }
 
-function getTimeUntilCostReset(): string {
-  const now = new Date();
-  const utcNow = new Date(now.toUTCString());
-  const nextReset = new Date(utcNow);
-  nextReset.setUTCHours(23, 0, 0, 0);
-  if (utcNow.getUTCHours() >= 23) nextReset.setUTCDate(nextReset.getUTCDate() + 1);
-  const diff = nextReset.getTime() - utcNow.getTime();
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-}
-
 export default function FlappyDonutPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number | null>(null);
@@ -149,8 +136,7 @@ export default function FlappyDonutPage() {
   const [countdown, setCountdown] = useState(3);
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
-  const [attempts, setAttempts] = useState(0);
-  const [entryCost, setEntryCost] = useState(1);
+  const [entryCost] = useState(1); // Fixed at 1 DONUT
   const [paidCost, setPaidCost] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -160,7 +146,6 @@ export default function FlappyDonutPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [prizePool, setPrizePool] = useState<string>("0");
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
-  const [costResetCountdown, setCostResetCountdown] = useState<string>(getTimeUntilCostReset());
   const [pendingTxType, setPendingTxType] = useState<"approve" | "approved" | "pay" | null>(null);
   const [activePowerUpDisplay, setActivePowerUpDisplay] = useState<PowerUpType | null>(null);
   
@@ -436,8 +421,6 @@ export default function FlappyDonutPage() {
     if (!address) return;
     (async () => {
       try {
-        const attemptsRes = await fetch(`/api/games/flappy/attempts?address=${address}`);
-        if (attemptsRes.ok) { const data = await attemptsRes.json(); setAttempts(data.attempts); setEntryCost(data.nextCost); }
         const lbRes = await fetch('/api/games/flappy/leaderboard');
         if (lbRes.ok) { const data = await lbRes.json(); setLeaderboard(data.leaderboard || []); }
       } catch (e) { console.error("Failed to fetch data:", e); }
@@ -449,7 +432,6 @@ export default function FlappyDonutPage() {
   useEffect(() => {
     const updateCountdown = () => {
       setResetCountdown(getTimeUntilReset());
-      setCostResetCountdown(getTimeUntilCostReset());
     };
     updateCountdown();
     const interval = setInterval(updateCountdown, 60000);
@@ -1096,7 +1078,6 @@ export default function FlappyDonutPage() {
         })
           .then(r => r.json())
           .then(() => {
-            fetch(`/api/games/flappy/attempts?address=${address}`).then(r => r.json()).then(data => { setAttempts(data.attempts); setEntryCost(data.nextCost); });
             fetch('/api/games/flappy/leaderboard').then(r => r.json()).then(data => setLeaderboard(data.leaderboard || []));
           })
           .catch(console.error);
@@ -1427,7 +1408,6 @@ export default function FlappyDonutPage() {
                     {isPaying ? <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Processing...</span></> : <><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span></>}
                   </button>
                   {error && <p className="text-red-400 text-xs">{error}</p>}
-                  <p className="text-zinc-500 text-[10px]">Attempts today: {attempts} • Resets in {costResetCountdown}</p>
                 </div>
               </div>
             )}
@@ -1535,7 +1515,7 @@ export default function FlappyDonutPage() {
               
               <div>
                 <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Coins className="w-4 h-4 text-pink-400" />Entry Cost</h3>
-                <p className="text-xs text-zinc-400">Each game costs DONUT. Cost increases by 0.1 with each attempt and resets daily at 6PM EST.</p>
+                <p className="text-xs text-zinc-400">Each game costs 1 DONUT to play. 90% goes to the prize pool, 5% to LP rewards, 5% to treasury.</p>
               </div>
               
               <div>
