@@ -49,6 +49,9 @@ export default function AboutSprinklesPage() {
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [burnedBalance, setBurnedBalance] = useState<string>("0");
+  const [burnedBalanceRaw, setBurnedBalanceRaw] = useState<bigint>(BigInt(0));
+  const [totalEmitted, setTotalEmitted] = useState<string>("0");
+  const [totalEmittedRaw, setTotalEmittedRaw] = useState<bigint>(BigInt(0));
   const [donutBurnedInLP, setDonutBurnedInLP] = useState<string>("0");
   const [gDonutStaked, setGDonutStaked] = useState<string>("0");
   const [treasurySprinkles, setTreasurySprinkles] = useState<string>("0");
@@ -60,7 +63,7 @@ export default function AboutSprinklesPage() {
   // SPRINKLES token address
   const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D";
 
-  // Fetch burned balances
+  // Fetch burned balances and total supply
   useEffect(() => {
     const fetchBurnedBalance = async () => {
       try {
@@ -112,10 +115,42 @@ export default function AboutSprinklesPage() {
           totalBurned += BigInt(lpPoolData.result);
         }
         
+        setBurnedBalanceRaw(totalBurned);
         const formatted = Math.floor(Number(formatEther(totalBurned))).toLocaleString();
         setBurnedBalance(formatted);
       } catch (error) {
         console.error('Failed to fetch burned balance:', error);
+      }
+    };
+
+    const fetchTotalSupply = async () => {
+      try {
+        // Fetch totalSupply from SPRINKLES contract (0x18160ddd is totalSupply selector)
+        const response = await fetch('https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'eth_call',
+            params: [
+              {
+                to: '0xa890060BE1788a676dBC3894160f5dc5DeD2C98D',
+                data: '0x18160ddd'
+              },
+              'latest'
+            ]
+          })
+        });
+        const data = await response.json();
+        if (data.result) {
+          const totalSupplyBigInt = BigInt(data.result);
+          setTotalEmittedRaw(totalSupplyBigInt);
+          const formatted = Math.floor(Number(formatEther(totalSupplyBigInt))).toLocaleString();
+          setTotalEmitted(formatted);
+        }
+      } catch (error) {
+        console.error('Failed to fetch total supply:', error);
       }
     };
 
@@ -149,6 +184,7 @@ export default function AboutSprinklesPage() {
     };
 
     fetchBurnedBalance();
+    fetchTotalSupply();
     fetchDonutBurnedInLP();
     
     // Fetch gDONUT staked by treasury
@@ -216,6 +252,7 @@ export default function AboutSprinklesPage() {
     
     const interval = setInterval(() => {
       fetchBurnedBalance();
+      fetchTotalSupply();
       fetchDonutBurnedInLP();
       fetchGDonutStaked();
       fetchTreasurySprinkles();
@@ -268,8 +305,16 @@ export default function AboutSprinklesPage() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Calculate circulating supply
-  const circulatingSupply = (210000000 - parseInt(burnedBalance.replace(/,/g, '') || '0')).toLocaleString();
+  // Calculate "With Burned Tokens" = 210M max supply - burned
+  const MAX_SUPPLY = BigInt(210_000_000) * BigInt(10 ** 18);
+  const withBurnedTokens = burnedBalanceRaw > 0n
+    ? Math.floor(Number(formatEther(MAX_SUPPLY - burnedBalanceRaw))).toLocaleString()
+    : "210,000,000";
+
+  // Calculate circulating supply (total emitted - burned)
+  const circulatingSupply = totalEmittedRaw > 0n && burnedBalanceRaw >= 0n
+    ? Math.floor(Number(formatEther(totalEmittedRaw - burnedBalanceRaw))).toLocaleString()
+    : "0";
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -319,6 +364,10 @@ export default function AboutSprinklesPage() {
                     <span className="text-sm font-bold text-white">210,000,000</span>
                   </div>
                   <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">With Burned Tokens</span>
+                    <span className="text-sm font-bold text-white">{withBurnedTokens}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">Circulating</span>
                     <span className="text-sm font-bold text-green-400">{circulatingSupply}</span>
                   </div>
@@ -353,7 +402,7 @@ export default function AboutSprinklesPage() {
                     <span className="text-[10px] text-gray-400">Treasury SPRINKLES</span>
                   </div>
                   <span className="text-lg font-bold text-green-400">{treasurySprinkles}</span>
-                  <p className="text-[9px] text-gray-500 mt-0.5">Buybacks w/ Miner Rev</p>
+                  <p className="text-[9px] text-gray-500 mt-0.5">Buybacks w/ LSG Revenue</p>
                 </div>
                 <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl">
                   <div className="flex items-center gap-1.5 mb-1">
@@ -547,11 +596,11 @@ export default function AboutSprinklesPage() {
                 <p className="mt-2">Games come in two types:</p>
                 <div className="pl-2 border-l border-green-500/30 ml-1 space-y-1 mt-2">
                   <p>• <span className="text-green-400 font-semibold">Free to Play</span> — Compete for weekly USDC prizes</p>
-                  <p>• <span className="text-pink-400 font-semibold">Entry Fee</span> — Pay DONUT to compete for DONUT prizes</p>
+                  <p>• <span className="text-pink-400 font-semibold">Paid Game</span> — Pay DONUT to compete for DONUT prizes</p>
                 </div>
                 <p className="mt-3 text-white font-semibold text-[11px]">Current Games:</p>
                 <div className="pl-2 border-l border-green-500/30 ml-1 space-y-1 mt-1">
-                  <p>• <span className="text-white">Flappy Donut</span> — Tap to fly, dodge rolling pins <span className="text-pink-400 text-[9px]">(Entry Fee)</span></p>
+                  <p>• <span className="text-white">Flappy Donut</span> — Tap to fly, dodge rolling pins <span className="text-pink-400 text-[9px]">(Paid Game)</span></p>
                   <p>• <span className="text-white">Glaze Stack</span> — Stack boxes, don't let them fall <span className="text-green-400 text-[9px]">(Free)</span></p>
                   <p>• <span className="text-white">Donut Dash</span> — Jetpack through obstacles <span className="text-green-400 text-[9px]">(Free)</span></p>
                 </div>
