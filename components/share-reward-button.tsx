@@ -1,7 +1,7 @@
 // components/share-reward-button.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   useAccount,
   useReadContract,
@@ -81,6 +81,141 @@ const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   </span>
 );
 
+// Matrix-style single character component that transitions between characters
+function MatrixTransitionChar({ 
+  targetChar, 
+  delay = 0, 
+  isTransitioning 
+}: { 
+  targetChar: string; 
+  delay?: number; 
+  isTransitioning: boolean;
+}) {
+  const [displayChar, setDisplayChar] = useState(targetChar);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const animationRef = useRef<NodeJS.Timeout | null>(null);
+  
+  useEffect(() => {
+    // Clear any existing animation
+    if (animationRef.current) {
+      clearInterval(animationRef.current);
+      animationRef.current = null;
+    }
+    
+    // Don't animate spaces
+    if (targetChar === ' ') {
+      setDisplayChar(' ');
+      setIsAnimating(false);
+      return;
+    }
+    
+    // If not transitioning, just show the target char
+    if (!isTransitioning) {
+      setDisplayChar(targetChar);
+      setIsAnimating(false);
+      return;
+    }
+    
+    // Start animation after delay
+    const startTimeout = setTimeout(() => {
+      setIsAnimating(true);
+      
+      let cycleCount = 0;
+      const maxCycles = 6 + Math.floor(delay / 25); // More cycles for later chars
+      
+      animationRef.current = setInterval(() => {
+        if (cycleCount < maxCycles) {
+          setDisplayChar(chars[Math.floor(Math.random() * chars.length)]);
+          cycleCount++;
+        } else {
+          setDisplayChar(targetChar);
+          setIsAnimating(false);
+          if (animationRef.current) {
+            clearInterval(animationRef.current);
+            animationRef.current = null;
+          }
+        }
+      }, 40);
+    }, delay);
+    
+    return () => {
+      clearTimeout(startTimeout);
+      if (animationRef.current) {
+        clearInterval(animationRef.current);
+        animationRef.current = null;
+      }
+    };
+  }, [targetChar, delay, isTransitioning]);
+  
+  return (
+    <span className={`transition-colors duration-75 ${isAnimating ? 'text-green-400/80' : ''}`}>
+      {displayChar}
+    </span>
+  );
+}
+
+// Matrix-style text that transitions between different texts
+function MatrixTransitionText({ 
+  texts,
+  interval = 3000,
+  className = "",
+  iconAtEnd = false,
+}: { 
+  texts: string[];
+  interval?: number;
+  className?: string;
+  iconAtEnd?: boolean;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(true);
+  const [key, setKey] = useState(0);
+  
+  // Cycle through texts
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % texts.length);
+      setIsTransitioning(true);
+      setKey((prev) => prev + 1);
+    }, interval);
+    
+    return () => clearInterval(timer);
+  }, [texts.length, interval]);
+  
+  // Reset transition state after animation completes
+  useEffect(() => {
+    if (isTransitioning) {
+      const timeout = setTimeout(() => {
+        setIsTransitioning(false);
+      }, 600); // Animation duration
+      return () => clearTimeout(timeout);
+    }
+  }, [isTransitioning, key]);
+  
+  const currentText = texts[currentIndex];
+  const showIcon = currentIndex === 1 && iconAtEnd; // Show icon for "MUST HOLD 10K"
+  
+  // Pad text to consistent length to prevent layout shift
+  const maxLength = Math.max(...texts.map(t => t.length));
+  const paddedText = currentText.padEnd(maxLength, ' ');
+  
+  return (
+    <span className={`inline-flex items-center gap-1 ${className}`}>
+      <span key={key}>
+        {paddedText.split('').map((char, index) => (
+          <MatrixTransitionChar
+            key={`${key}-${index}`}
+            targetChar={char}
+            delay={index * 25}
+            isTransitioning={isTransitioning}
+          />
+        ))}
+      </span>
+      {showIcon && <SprinklesCoin className="w-3.5 h-3.5" />}
+    </span>
+  );
+}
+
 export function ShareRewardButton({ userFid, compact = false, tile = false }: ShareRewardButtonProps) {
   const { address } = useAccount();
   const [isVerifying, setIsVerifying] = useState(false);
@@ -101,7 +236,6 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   const [needsSprinkles, setNeedsSprinkles] = useState(false);
   const [showSprinklesActions, setShowSprinklesActions] = useState(false);
   const [sprinklesBalance, setSprinklesBalance] = useState<number>(0);
-  const [textPhase, setTextPhase] = useState<0 | 1 | 2>(0); // 0 = "SHARE TO CLAIM", 1 = "MUST HOLD 10K", 2 = "X CLAIMS LEFT"
 
   // Helper functions for token-specific styling
   const isDonutToken = tokenSymbol === "DONUT";
@@ -188,21 +322,6 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   const campaign = campaignInfo as CampaignInfo | undefined;
   const isActive = campaign?.[5] && campaign[2] > 0n;
   const claimsRemaining = campaign ? Number(campaign[3] - campaign[4]) : 0;
-
-  // Text cycle effect: "SHARE TO CLAIM" (3s) -> "MUST HOLD 10K" (3s) -> "X CLAIMS LEFT" (3s) -> repeat
-  useEffect(() => {
-    if (!isActive || hasClaimed || hasShared) return;
-    
-    const cycleText = () => {
-      setTextPhase((prev) => ((prev + 1) % 3) as 0 | 1 | 2);
-    };
-
-    const interval = setInterval(cycleText, 3000);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [isActive, hasClaimed, hasShared]);
 
   // Fetch token info when campaign is active
   useEffect(() => {
@@ -927,40 +1046,24 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
       );
     }
 
-    // State 1: Initial - Show token icon, tap to share with animated text cycle
+    // State 1: Initial - Show token icon, tap to share with matrix text cycle
     if (!hasShared) {
       return (
         <button
           onClick={handleShareToQualify}
           disabled={!userFid}
           className={cn(
-            "rounded-xl p-2 h-[36px] flex items-center justify-center transition-all relative overflow-hidden",
+            "rounded-xl p-2 h-[36px] flex items-center justify-center transition-all",
             !userFid && "opacity-50 cursor-not-allowed"
           )}
           style={getActiveGradient()}
         >
-          {/* Phase 0: SHARE TO CLAIM */}
-          <div
-            className="flex items-center transition-opacity duration-300 ease-in-out absolute inset-0 justify-center"
-            style={{ opacity: textPhase === 0 ? 1 : 0 }}
-          >
-            <span className={cn("font-semibold text-xs", getTextColor())}>SHARE TO CLAIM</span>
-          </div>
-          {/* Phase 1: MUST HOLD 10K [sprinkles icon] */}
-          <div
-            className="flex items-center gap-1 transition-opacity duration-300 ease-in-out absolute inset-0 justify-center"
-            style={{ opacity: textPhase === 1 ? 1 : 0 }}
-          >
-            <span className={cn("font-semibold text-xs", getTextColor())}>MUST HOLD 10K</span>
-            <SprinklesCoin className="w-3.5 h-3.5" />
-          </div>
-          {/* Phase 2: X CLAIMS LEFT */}
-          <div
-            className="flex items-center transition-opacity duration-300 ease-in-out absolute inset-0 justify-center"
-            style={{ opacity: textPhase === 2 ? 1 : 0 }}
-          >
-            <span className={cn("font-semibold text-xs", getTextColor())}>{claimsRemaining} CLAIMS LEFT</span>
-          </div>
+          <MatrixTransitionText
+            texts={["SHARE TO CLAIM", "MUST HOLD 10K", `${claimsRemaining} CLAIMS LEFT`]}
+            interval={3000}
+            className={cn("font-semibold text-xs", getTextColor())}
+            iconAtEnd={true}
+          />
         </button>
       );
     }
