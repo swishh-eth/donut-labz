@@ -829,15 +829,15 @@ export default function DonutJumpPage() {
     ctx.translate(coin.x, screenY + float);
     ctx.scale(pulse, pulse);
     
-    // Glow
-    ctx.shadowColor = '#FFD700';
+    // Pink glow
+    ctx.shadowColor = '#F472B6';
     ctx.shadowBlur = 15;
     
     if (donutImageRef.current && donutLoadedRef.current) {
       ctx.drawImage(donutImageRef.current, -COIN_SIZE / 2, -COIN_SIZE / 2, COIN_SIZE, COIN_SIZE);
     } else {
-      // Fallback coin
-      ctx.fillStyle = '#FFD700';
+      // Fallback coin - pink
+      ctx.fillStyle = '#F472B6';
       ctx.beginPath();
       ctx.arc(0, 0, COIN_SIZE / 2, 0, Math.PI * 2);
       ctx.fill();
@@ -933,11 +933,6 @@ export default function DonutJumpPage() {
     }
     ctx.shadowBlur = 0;
     
-    // Height (secondary)
-    ctx.font = '14px monospace';
-    ctx.fillStyle = '#888888';
-    ctx.fillText(`${Math.floor(maxHeightRef.current)}m`, 15, 60);
-    
     // Active power-ups
     const now = Date.now();
     const activePowerUps = activePowerUpsRef.current.filter(p => p.endTime > now);
@@ -982,6 +977,42 @@ export default function DonutJumpPage() {
       ctx.textBaseline = 'middle';
       ctx.fillText('🛡️', x, 40);
     }
+    
+    // Tap zone indicators at bottom
+    const zoneY = CANVAS_HEIGHT - 60;
+    const zoneHeight = 50;
+    const zoneWidth = CANVAS_WIDTH / 2 - 10;
+    
+    // Left tap zone
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeRect(5, zoneY, zoneWidth, zoneHeight);
+    ctx.setLineDash([]);
+    
+    // Left arrow
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.beginPath();
+    ctx.moveTo(zoneWidth / 2 + 5, zoneY + zoneHeight / 2 - 12);
+    ctx.lineTo(zoneWidth / 2 - 15, zoneY + zoneHeight / 2);
+    ctx.lineTo(zoneWidth / 2 + 5, zoneY + zoneHeight / 2 + 12);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Right tap zone
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.setLineDash([5, 5]);
+    ctx.strokeRect(CANVAS_WIDTH / 2 + 5, zoneY, zoneWidth, zoneHeight);
+    ctx.setLineDash([]);
+    
+    // Right arrow
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.beginPath();
+    ctx.moveTo(CANVAS_WIDTH / 2 + zoneWidth / 2 - 5, zoneY + zoneHeight / 2 - 12);
+    ctx.lineTo(CANVAS_WIDTH / 2 + zoneWidth / 2 + 15, zoneY + zoneHeight / 2);
+    ctx.lineTo(CANVAS_WIDTH / 2 + zoneWidth / 2 - 5, zoneY + zoneHeight / 2 + 12);
+    ctx.closePath();
+    ctx.fill();
   }, []);
   
   // Game loop
@@ -1173,7 +1204,7 @@ export default function DonutJumpPage() {
         coinsCollectedRef.current++;
         console.log("[Donut Jump Client] Coin collected! Total:", coinsCollectedRef.current);
         playCoinSound();
-        addParticles(coin.x, coin.y, '#FFD700', 8);
+        addParticles(coin.x, coin.y, '#F472B6', 8);
       }
     });
     
@@ -1195,9 +1226,19 @@ export default function DonutJumpPage() {
     activePowerUpsRef.current = activePowerUpsRef.current.filter(p => p.endTime > nowMs);
     
     // Check game over (fell below screen)
-    if (player.y > cameraYRef.current + CANVAS_HEIGHT + 100) {
-      endGame();
-      return;
+    if (player.y > cameraYRef.current + CANVAS_HEIGHT + 50) {
+      // Shield saves you by bouncing back up!
+      if (hasShieldRef.current) {
+        hasShieldRef.current = false;
+        player.vy = SUPER_JUMP_FORCE * 1.5; // Strong bounce back up
+        player.y = cameraYRef.current + CANVAS_HEIGHT - 50; // Reset position to bottom of screen
+        addParticles(player.x, player.y, '#00FFFF', 25);
+        triggerScreenShake(10, 300);
+        playSuperJumpSound();
+      } else {
+        endGame();
+        return;
+      }
     }
     
     // Draw everything
@@ -1479,55 +1520,6 @@ export default function DonutJumpPage() {
         ctx.stroke();
       }
       
-      // Floating platforms
-      for (let i = 0; i < 5; i++) {
-        const y = 120 + i * 70 + Math.sin(time + i) * 10;
-        const x = 50 + i * 60;
-        const platformGradient = ctx.createLinearGradient(x, y, x, y + 15);
-        platformGradient.addColorStop(0, '#4ade80');
-        platformGradient.addColorStop(1, '#22c55e');
-        ctx.fillStyle = platformGradient;
-        ctx.beginPath();
-        ctx.roundRect(x, y, 70, 15, 5);
-        ctx.fill();
-      }
-      
-      // Bouncing character
-      const bounceY = Math.abs(Math.sin(time * 3)) * 40;
-      const playerY = 200 - bounceY;
-      const playerX = CANVAS_WIDTH / 2;
-      
-      ctx.save();
-      ctx.translate(playerX, playerY);
-      
-      if (pfpImageRef.current && pfpLoadedRef.current) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(0, 0, 25, 0, Math.PI * 2);
-        ctx.closePath();
-        ctx.clip();
-        ctx.drawImage(pfpImageRef.current, -25, -25, 50, 50);
-        ctx.restore();
-        
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 3;
-        ctx.shadowColor = '#F472B6';
-        ctx.shadowBlur = 20;
-        ctx.beginPath();
-        ctx.arc(0, 0, 25, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-      } else {
-        ctx.fillStyle = '#F472B6';
-        ctx.shadowColor = '#F472B6';
-        ctx.shadowBlur = 20;
-        ctx.beginPath();
-        ctx.arc(0, 0, 25, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
-      ctx.restore();
-      
       // Title
       ctx.fillStyle = '#FFFFFF';
       ctx.font = 'bold 28px monospace';
@@ -1535,26 +1527,77 @@ export default function DonutJumpPage() {
       ctx.fillText('DONUT JUMP', CANVAS_WIDTH / 2, 60);
       
       if (gameState === "gameover") {
+        // Game over - show score prominently
         ctx.fillStyle = '#FF6B6B';
-        ctx.font = 'bold 24px monospace';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 290);
+        ctx.font = 'bold 28px monospace';
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 150);
         
-        ctx.shadowColor = '#FFD700';
-        ctx.shadowBlur = 15;
+        // Big score
+        ctx.shadowColor = '#F472B6';
+        ctx.shadowBlur = 20;
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 48px monospace';
-        ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 340);
+        ctx.font = 'bold 72px monospace';
+        ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 240);
         ctx.shadowBlur = 0;
         
-        // Draw donut image + text for "donuts collected"
+        // "donuts collected" label
         ctx.fillStyle = '#888888';
-        ctx.font = '14px monospace';
+        ctx.font = '16px monospace';
         if (donutImageRef.current && donutLoadedRef.current) {
-          ctx.drawImage(donutImageRef.current, CANVAS_WIDTH / 2 - 70, 352, 16, 16);
-          ctx.fillText('donuts collected', CANVAS_WIDTH / 2 + 10, 365);
+          ctx.drawImage(donutImageRef.current, CANVAS_WIDTH / 2 - 80, 262, 20, 20);
+          ctx.fillText('donuts collected', CANVAS_WIDTH / 2 + 15, 278);
         } else {
-          ctx.fillText('🍩 donuts collected', CANVAS_WIDTH / 2, 365);
+          ctx.fillText('donuts collected', CANVAS_WIDTH / 2, 278);
         }
+      } else {
+        // Menu state - show floating platforms and bouncing character
+        for (let i = 0; i < 5; i++) {
+          const y = 120 + i * 70 + Math.sin(time + i) * 10;
+          const x = 50 + i * 60;
+          const platformGradient = ctx.createLinearGradient(x, y, x, y + 15);
+          platformGradient.addColorStop(0, '#4ade80');
+          platformGradient.addColorStop(1, '#22c55e');
+          ctx.fillStyle = platformGradient;
+          ctx.beginPath();
+          ctx.roundRect(x, y, 70, 15, 5);
+          ctx.fill();
+        }
+        
+        // Bouncing character
+        const bounceY = Math.abs(Math.sin(time * 3)) * 40;
+        const playerY = 200 - bounceY;
+        const playerX = CANVAS_WIDTH / 2;
+        
+        ctx.save();
+        ctx.translate(playerX, playerY);
+        
+        if (pfpImageRef.current && pfpLoadedRef.current) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(0, 0, 25, 0, Math.PI * 2);
+          ctx.closePath();
+          ctx.clip();
+          ctx.drawImage(pfpImageRef.current, -25, -25, 50, 50);
+          ctx.restore();
+          
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 3;
+          ctx.shadowColor = '#F472B6';
+          ctx.shadowBlur = 20;
+          ctx.beginPath();
+          ctx.arc(0, 0, 25, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        } else {
+          ctx.fillStyle = '#F472B6';
+          ctx.shadowColor = '#F472B6';
+          ctx.shadowBlur = 20;
+          ctx.beginPath();
+          ctx.arc(0, 0, 25, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+        ctx.restore();
       }
       
       animationId = requestAnimationFrame(draw);
