@@ -34,25 +34,25 @@ const MAX_VELOCITY = 6;
 const PLAYER_X = 80;
 const PLAYER_SIZE = 32;
 
-// Game speed
-const BASE_SPEED = 4;
-const MAX_SPEED = 8;
-const SPEED_INCREMENT = 0.0005;
+// Game speed - slower progression
+const BASE_SPEED = 3.5;
+const MAX_SPEED = 7;
+const SPEED_INCREMENT = 0.0003; // Slower speed increase
 
 // Combo settings
-const COMBO_WINDOW = 500; // ms to chain coins
-const NEAR_MISS_DISTANCE = 25; // pixels for near-miss bonus
+const COMBO_WINDOW = 500;
+const NEAR_MISS_DISTANCE = 25;
 
-// Zone thresholds (by score) - spread out for better pacing
+// Zone thresholds - much more spread out for gradual difficulty
 const ZONES = [
   { name: 'Factory', threshold: 0, bg1: '#1a1a1a', bg2: '#0d0d0d', accent: '#FF6B00', gridColor: 'rgba(255, 255, 255, 0.02)' },
-  { name: 'Lava', threshold: 100, bg1: '#2a1a0a', bg2: '#1a0a00', accent: '#FF4400', gridColor: 'rgba(255, 100, 0, 0.03)' },
-  { name: 'Ice', threshold: 250, bg1: '#0a1a2a', bg2: '#001020', accent: '#00CCFF', gridColor: 'rgba(0, 200, 255, 0.03)' },
-  { name: 'Space', threshold: 400, bg1: '#0a0a1a', bg2: '#000010', accent: '#AA00FF', gridColor: 'rgba(150, 0, 255, 0.03)' },
+  { name: 'Lava', threshold: 200, bg1: '#2a1a0a', bg2: '#1a0a00', accent: '#FF4400', gridColor: 'rgba(255, 100, 0, 0.03)' },
+  { name: 'Ice', threshold: 500, bg1: '#0a1a2a', bg2: '#001020', accent: '#00CCFF', gridColor: 'rgba(0, 200, 255, 0.03)' },
+  { name: 'Space', threshold: 900, bg1: '#0a0a1a', bg2: '#000010', accent: '#AA00FF', gridColor: 'rgba(150, 0, 255, 0.03)' },
 ];
 
-// Milestone thresholds - spread out by 200 for better pacing
-const MILESTONES = [200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000];
+// Milestone thresholds - spread out more
+const MILESTONES = [250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2500, 3000];
 
 // Weekly USDC prize pool (fetched from API)
 interface PrizeInfo {
@@ -60,10 +60,8 @@ interface PrizeInfo {
   prizeStructure: { rank: number; percent: number; amount: string }[];
 }
 
-// Prize percentages (amounts calculated from totalPrize)
 const PRIZE_PERCENTAGES = [40, 20, 15, 8, 5, 4, 3, 2, 2, 1];
 
-// Calculate prize structure from total
 function calculatePrizeStructure(totalPrize: number) {
   return PRIZE_PERCENTAGES.map((percent, i) => ({
     rank: i + 1,
@@ -72,7 +70,6 @@ function calculatePrizeStructure(totalPrize: number) {
   }));
 }
 
-// Default values until API loads
 const DEFAULT_PRIZE_INFO: PrizeInfo = {
   totalPrize: 5,
   prizeStructure: calculatePrizeStructure(5),
@@ -80,7 +77,7 @@ const DEFAULT_PRIZE_INFO: PrizeInfo = {
 
 // Types
 type ObstacleType = 'zapper_h' | 'zapper_v' | 'zapper_diag' | 'zapper_moving' | 'missile' | 'laser' | 'zapper_rotating';
-type PowerUpType = 'magnet' | 'shield' | 'slowmo' | 'rocket' | 'ghost';
+type PowerUpType = 'magnet' | 'shield' | 'ghost';
 type PlayState = 'idle' | 'confirming' | 'recording' | 'error';
 
 interface Obstacle { 
@@ -90,19 +87,15 @@ interface Obstacle {
   width: number; 
   height: number; 
   angle?: number;
-  // For moving zappers
   baseY?: number;
   moveRange?: number;
   moveSpeed?: number;
   movePhase?: number;
-  // For missiles
   velocityY?: number;
   targetY?: number;
-  // For lasers
   warningTime?: number;
   firingTime?: number;
   active?: boolean;
-  // For rotating
   rotationSpeed?: number;
   centerX?: number;
   centerY?: number;
@@ -121,18 +114,23 @@ interface ActivePowerUp {
   endTime: number;
 }
 
-interface Coin { x: number; y: number; collected: boolean; trail?: { x: number; y: number; alpha: number }[]; }
-interface Particle { x: number; y: number; vx: number; vy: number; life: number; color: string; size: number; }
+interface Coin { 
+  x: number; 
+  y: number; 
+  collected: boolean; 
+  trail?: { x: number; y: number; alpha: number }[]; 
+  sparklePhase?: number;
+  color?: string;
+}
+interface Particle { x: number; y: number; vx: number; vy: number; life: number; color: string; size: number; type?: string; }
 interface LeaderboardEntry { rank: number; fid: number; username?: string; displayName?: string; pfpUrl?: string; score: number; }
 type MiniAppContext = { user?: { fid: number; username?: string; displayName?: string; pfpUrl?: string } };
 
-// Ghost run recording
 interface GhostFrame {
   y: number;
   isThrusting: boolean;
 }
 
-// Color conversion helpers for animations
 const hexToHsl = (hex: string): [number, number, number] => {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
   const g = parseInt(hex.slice(3, 5), 16) / 255;
@@ -163,7 +161,6 @@ const hslToHex = (h: number, s: number, l: number): string => {
   return `#${f(0)}${f(8)}${f(4)}`;
 };
 
-// Calculate time until next Friday 11PM UTC
 function getTimeUntilReset(): string {
   const now = new Date();
   const utcNow = new Date(now.toUTCString());
@@ -182,21 +179,32 @@ function getTimeUntilReset(): string {
   return `${hours}h ${minutes}m`;
 }
 
-// Power-up colors and icons
+// Power-up colors and icons - removed rocket and slowmo
 const POWERUP_CONFIG: Record<PowerUpType, { color: string; icon: string; duration: number }> = {
   magnet: { color: '#FF00FF', icon: '🧲', duration: 5000 },
-  shield: { color: '#00FFFF', icon: '🛡️', duration: 0 }, // One-time use
-  slowmo: { color: '#FFFF00', icon: '⏱️', duration: 3000 },
-  rocket: { color: '#FF6600', icon: '🚀', duration: 4000 },
+  shield: { color: '#00FFFF', icon: '🛡️', duration: 0 },
   ghost: { color: '#AAAAFF', icon: '👻', duration: 3000 },
 };
+
+// Sprinkle colors - vibrant candy colors
+const SPRINKLE_COLORS = [
+  '#FF6B6B', // Red
+  '#4ECDC4', // Teal
+  '#45B7D1', // Blue
+  '#96CEB4', // Green
+  '#FFEAA7', // Yellow
+  '#FF69B4', // Pink
+  '#DDA0DD', // Plum
+  '#98D8C8', // Mint
+  '#F7DC6F', // Gold
+  '#BB8FCE', // Purple
+];
 
 export default function DonutDashPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number | null>(null);
   const { address } = useAccount();
   
-  // Context and game state
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [gameState, setGameState] = useState<"menu" | "playing" | "gameover">("menu");
   const [score, setScore] = useState(0);
@@ -207,7 +215,6 @@ export default function DonutDashPage() {
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
   const [showGhost, setShowGhost] = useState(true);
   
-  // Play state (simplified - no payment, just gas tx)
   const [playState, setPlayState] = useState<PlayState>('idle');
   const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
   const currentEntryIdRef = useRef<string | null>(null);
@@ -215,20 +222,16 @@ export default function DonutDashPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [gamesPlayedThisWeek, setGamesPlayedThisWeek] = useState(0);
   
-  // Leaderboard
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [userRank, setUserRank] = useState<number | null>(null);
   const [userBestScore, setUserBestScore] = useState(0);
   
-  // Prize info (fetched from API)
   const [prizeInfo, setPrizeInfo] = useState<PrizeInfo>(DEFAULT_PRIZE_INFO);
   
-  // Display state for UI
   const [currentZone, setCurrentZone] = useState(ZONES[0]);
   const [comboDisplay, setComboDisplay] = useState(0);
   const [activePowerUpsDisplay, setActivePowerUpsDisplay] = useState<ActivePowerUp[]>([]);
   
-  // Game refs
   const playerRef = useRef({ y: CANVAS_HEIGHT / 2, velocity: 0, isThrusting: false });
   const obstaclesRef = useRef<Obstacle[]>([]);
   const coinsRef = useRef<Coin[]>([]);
@@ -243,51 +246,42 @@ export default function DonutDashPage() {
   const bgElementsRef = useRef<{ x: number; y: number; type: string; speed: number; height?: number }[]>([]);
   const hasStartedFlyingRef = useRef(false);
   
-  // Combo system refs
   const comboRef = useRef(0);
   const lastCoinTimeRef = useRef(0);
   const nearMissBonusRef = useRef(0);
   
-  // Screen shake refs
   const screenShakeRef = useRef({ intensity: 0, duration: 0, startTime: 0 });
   
-  // Milestone tracking
   const lastMilestoneRef = useRef(0);
   
-  // Zone tracking
   const currentZoneRef = useRef(ZONES[0]);
   
-  // Ghost run refs
   const ghostRecordingRef = useRef<GhostFrame[]>([]);
   const bestGhostRef = useRef<GhostFrame[]>([]);
   const bestGhostScoreRef = useRef(0);
   
-  // Shield hit tracking
   const hasShieldRef = useRef(false);
   
-  // Invincibility after shield break (in milliseconds)
   const invincibleUntilRef = useRef(0);
   
-  // Audio refs
   const audioContextRef = useRef<AudioContext | null>(null);
   const thrustOscRef = useRef<OscillatorNode | null>(null);
   const thrustGainRef = useRef<GainNode | null>(null);
   const baseMusicTempoRef = useRef(1);
   
-  // Profile picture image ref for player avatar
   const pfpImageRef = useRef<HTMLImageElement | null>(null);
   const pfpLoadedRef = useRef(false);
 
-  // Contract write for free play
+  // Background particles for ambiance
+  const bgParticlesRef = useRef<{ x: number; y: number; size: number; speed: number; alpha: number }[]>([]);
+
   const { writeContract, data: txHash, isPending, reset: resetWrite, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
-  // Donut is always white
   const getDonutColor = useCallback(() => {
     return '#FFFFFF';
   }, []);
 
-  // Update reset countdown every minute
   useEffect(() => {
     const updateCountdown = () => setResetCountdown(getTimeUntilReset());
     updateCountdown();
@@ -295,7 +289,6 @@ export default function DonutDashPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch prize info from API
   useEffect(() => {
     const fetchPrizeInfo = async () => {
       try {
@@ -314,7 +307,6 @@ export default function DonutDashPage() {
     fetchPrizeInfo();
   }, []);
 
-  // Fetch leaderboard
   const fetchLeaderboard = useCallback(async () => {
     try {
       const fid = context?.user?.fid;
@@ -335,7 +327,6 @@ export default function DonutDashPage() {
     }
   }, [context?.user?.fid]);
 
-  // Submit score to API
   const submitScore = useCallback(async (finalScore: number) => {
     const entryId = currentEntryIdRef.current;
     if (!entryId || !context?.user?.fid) {
@@ -358,7 +349,6 @@ export default function DonutDashPage() {
     }
   }, [context?.user?.fid]);
 
-  // Record entry to API and start game (after free tx confirms)
   const recordEntryAndStartGame = useCallback(async (hash: string) => {
     if (!context?.user) return;
     setPlayState('recording');
@@ -393,7 +383,6 @@ export default function DonutDashPage() {
     }
   }, [context?.user, address, resetWrite]);
 
-  // Handle play - just calls free play contract (gas only)
   const handlePlay = useCallback(async () => {
     if (!address || !context?.user?.fid) {
       setErrorMessage("Please connect your wallet");
@@ -411,14 +400,12 @@ export default function DonutDashPage() {
     });
   }, [address, context?.user?.fid, writeContract]);
 
-  // Handle transaction confirmation
   useEffect(() => {
     if (isConfirmed && txHash && playState === 'confirming') {
       recordEntryAndStartGame(txHash);
     }
   }, [isConfirmed, txHash, playState, recordEntryAndStartGame]);
 
-  // Handle write errors
   useEffect(() => {
     if (writeError) {
       console.error("Write error:", writeError);
@@ -427,7 +414,6 @@ export default function DonutDashPage() {
     }
   }, [writeError]);
 
-  // Initialize Farcaster SDK
   useEffect(() => {
     const init = async () => {
       try {
@@ -441,14 +427,12 @@ export default function DonutDashPage() {
     init();
   }, []);
 
-  // Fetch data on load
   useEffect(() => {
     if (context?.user?.fid) {
       fetchLeaderboard();
     }
   }, [context?.user?.fid, fetchLeaderboard]);
 
-  // Load profile picture for player avatar
   useEffect(() => {
     if (context?.user?.pfpUrl && !pfpLoadedRef.current) {
       const img = new Image();
@@ -465,7 +449,6 @@ export default function DonutDashPage() {
     }
   }, [context?.user?.pfpUrl]);
 
-  // Audio functions
   const initAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
       try {
@@ -475,7 +458,6 @@ export default function DonutDashPage() {
     }
   }, []);
 
-  // Pitch-shifted collect sound based on combo
   const playCollectSound = useCallback((combo: number = 1) => {
     if (isMuted || !audioContextRef.current) return;
     try {
@@ -484,7 +466,6 @@ export default function DonutDashPage() {
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
-      // Pitch increases with combo
       const baseFreq = 800 + Math.min(combo * 50, 400);
       osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, ctx.currentTime + 0.1);
@@ -518,8 +499,7 @@ export default function DonutDashPage() {
     if (isMuted || !audioContextRef.current) return;
     try {
       const ctx = audioContextRef.current;
-      // Play a triumphant chord
-      const frequencies = [523.25, 659.25, 783.99]; // C5, E5, G5
+      const frequencies = [523.25, 659.25, 783.99];
       frequencies.forEach((freq, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -593,7 +573,6 @@ export default function DonutDashPage() {
     if (isMuted || !audioContextRef.current) return;
     try {
       const ctx = audioContextRef.current;
-      // Shimmering break sound
       for (let i = 0; i < 5; i++) {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -694,7 +673,6 @@ export default function DonutDashPage() {
     } catch {}
   }, []);
 
-  // Screen shake helper
   const triggerScreenShake = useCallback((intensity: number, duration: number) => {
     screenShakeRef.current = {
       intensity,
@@ -703,13 +681,11 @@ export default function DonutDashPage() {
     };
   }, []);
 
-  // Check if power-up is active
   const isPowerUpActive = useCallback((type: PowerUpType): boolean => {
     const now = Date.now();
     return activePowerUpsRef.current.some(p => p.type === type && p.endTime > now);
   }, []);
 
-  // Add power-up
   const activatePowerUp = useCallback((type: PowerUpType) => {
     const config = POWERUP_CONFIG[type];
     const now = Date.now();
@@ -717,7 +693,6 @@ export default function DonutDashPage() {
     if (type === 'shield') {
       hasShieldRef.current = true;
     } else {
-      // Remove existing power-up of same type
       activePowerUpsRef.current = activePowerUpsRef.current.filter(p => p.type !== type);
       activePowerUpsRef.current.push({ type, endTime: now + config.duration });
     }
@@ -726,7 +701,6 @@ export default function DonutDashPage() {
     playPowerUpSound();
   }, [playPowerUpSound]);
 
-  // Initialize background
   const initBackground = useCallback(() => {
     bgElementsRef.current = [];
     const types = ['beaker', 'flask', 'tube', 'machine', 'tank'];
@@ -739,48 +713,73 @@ export default function DonutDashPage() {
         height: 50 + Math.random() * 60,
       });
     }
+    
+    // Initialize background particles
+    bgParticlesRef.current = [];
+    for (let i = 0; i < 30; i++) {
+      bgParticlesRef.current.push({
+        x: Math.random() * CANVAS_WIDTH,
+        y: Math.random() * CANVAS_HEIGHT,
+        size: 1 + Math.random() * 2,
+        speed: 0.2 + Math.random() * 0.5,
+        alpha: 0.1 + Math.random() * 0.3,
+      });
+    }
   }, []);
 
-  // Spawn functions
+  // Adjusted obstacle spawning - more gradual introduction
   const spawnObstacle = useCallback(() => {
     const currentScore = coinsCollectedRef.current;
     const zone = currentZoneRef.current;
     
-    // Available obstacle types based on zone
-    let types: ObstacleType[] = ['zapper_h', 'zapper_v', 'zapper_diag'];
+    // Start with just basic zappers, gradually add more
+    let types: ObstacleType[] = ['zapper_h', 'zapper_v'];
     
-    // Add more obstacle types as zones progress
-    if (zone.threshold >= 100) types.push('zapper_moving');
-    if (zone.threshold >= 250) types.push('missile', 'laser');
-    if (zone.threshold >= 400) types.push('zapper_rotating');
+    // Diagonal zappers after 100
+    if (currentScore >= 100) types.push('zapper_diag');
+    
+    // Moving zappers after 200 (Lava zone)
+    if (currentScore >= 200) types.push('zapper_moving');
+    
+    // Missiles after 400
+    if (currentScore >= 400) types.push('missile');
+    
+    // Lasers after 600
+    if (currentScore >= 600) types.push('laser');
+    
+    // Rotating zappers after 900 (Space zone)
+    if (currentScore >= 900) types.push('zapper_rotating');
     
     const type = types[Math.floor(Math.random() * types.length)];
     let obstacle: Obstacle;
     
     if (type === 'zapper_h') {
+      // Shorter zappers early game
+      const maxWidth = currentScore < 200 ? 60 : currentScore < 400 ? 80 : 100;
       obstacle = { 
         x: CANVAS_WIDTH + 20, 
         y: 60 + Math.random() * (CANVAS_HEIGHT - 180), 
         type, 
-        width: 80 + Math.random() * 40, 
+        width: 50 + Math.random() * (maxWidth - 50), 
         height: 12 
       };
     } else if (type === 'zapper_v') {
+      const maxHeight = currentScore < 200 ? 60 : currentScore < 400 ? 80 : 100;
       const fromTop = Math.random() > 0.5;
       obstacle = { 
         x: CANVAS_WIDTH + 20, 
-        y: fromTop ? 30 : CANVAS_HEIGHT - 30 - (60 + Math.random() * 80), 
+        y: fromTop ? 30 : CANVAS_HEIGHT - 30 - (40 + Math.random() * (maxHeight - 40)), 
         type, 
         width: 12, 
-        height: 60 + Math.random() * 80 
+        height: 40 + Math.random() * (maxHeight - 40)
       };
     } else if (type === 'zapper_diag') {
       obstacle = { 
         x: CANVAS_WIDTH + 20, 
         y: 60 + Math.random() * (CANVAS_HEIGHT - 200), 
         type, 
-        width: 100, 
-        height: 100, 
+        width: 80, 
+        height: 80, 
         angle: Math.random() > 0.5 ? 45 : -45 
       };
     } else if (type === 'zapper_moving') {
@@ -789,11 +788,11 @@ export default function DonutDashPage() {
         x: CANVAS_WIDTH + 20,
         y: baseY,
         type,
-        width: 70,
+        width: 60,
         height: 12,
         baseY,
-        moveRange: 60 + Math.random() * 40,
-        moveSpeed: 0.03 + Math.random() * 0.02,
+        moveRange: 40 + Math.random() * 30,
+        moveSpeed: 0.02 + Math.random() * 0.015,
         movePhase: Math.random() * Math.PI * 2,
       };
     } else if (type === 'missile') {
@@ -814,8 +813,8 @@ export default function DonutDashPage() {
         type,
         width: CANVAS_WIDTH,
         height: 8,
-        warningTime: 60, // frames of warning
-        firingTime: 30, // frames of firing
+        warningTime: 80, // More warning time
+        firingTime: 25,
         active: false,
       };
     } else if (type === 'zapper_rotating') {
@@ -825,13 +824,13 @@ export default function DonutDashPage() {
         x: centerX,
         y: centerY,
         type,
-        width: 60,
+        width: 50,
         height: 12,
         centerX,
         centerY,
-        orbitRadius: 40,
+        orbitRadius: 35,
         angle: Math.random() * 360,
-        rotationSpeed: 2 + Math.random() * 2,
+        rotationSpeed: 1.5 + Math.random() * 1.5,
       };
     } else {
       return;
@@ -841,15 +840,13 @@ export default function DonutDashPage() {
   }, []);
 
   const spawnPowerUp = useCallback(() => {
-    const types: PowerUpType[] = ['magnet', 'shield', 'slowmo', 'rocket', 'ghost'];
+    const types: PowerUpType[] = ['magnet', 'shield', 'ghost'];
     const type = types[Math.floor(Math.random() * types.length)];
     
-    // Find Y positions to avoid (active or upcoming lasers)
     const laserYPositions = obstaclesRef.current
       .filter(o => o.type === 'laser')
       .map(o => o.y);
     
-    // Try to find a safe Y position
     let y = 80 + Math.random() * (CANVAS_HEIGHT - 200);
     let attempts = 0;
     while (attempts < 10) {
@@ -872,7 +869,6 @@ export default function DonutDashPage() {
     const hasCoinsInSpawnZone = coinsRef.current.some(c => !c.collected && c.x > spawnZoneStart);
     if (hasCoinsInSpawnZone) return;
     
-    // Find Y positions to avoid (active or upcoming lasers)
     const laserYPositions = obstaclesRef.current
       .filter(o => o.type === 'laser')
       .map(o => o.y);
@@ -884,7 +880,6 @@ export default function DonutDashPage() {
     const minY = 80;
     const maxY = CANVAS_HEIGHT - 120;
     
-    // Try to find a safe center Y position
     let centerY = minY + Math.random() * (maxY - minY);
     let attempts = 0;
     while (attempts < 10) {
@@ -895,36 +890,72 @@ export default function DonutDashPage() {
     }
     
     const newCoins: Coin[] = [];
+    const baseColor = SPRINKLE_COLORS[Math.floor(Math.random() * SPRINKLE_COLORS.length)];
     
     if (pattern === 'line') {
       const count = 5 + Math.floor(Math.random() * 3);
       for (let i = 0; i < count; i++) {
-        newCoins.push({ x: startX + i * 28, y: centerY, collected: false, trail: [] });
+        newCoins.push({ 
+          x: startX + i * 28, 
+          y: centerY, 
+          collected: false, 
+          trail: [],
+          sparklePhase: Math.random() * Math.PI * 2,
+          color: SPRINKLE_COLORS[(Math.floor(Math.random() * SPRINKLE_COLORS.length))],
+        });
       }
     } else if (pattern === 'arc') {
       for (let i = 0; i < 7; i++) {
         const arcY = centerY + Math.sin((i / 6) * Math.PI) * 40;
         const clampedY = Math.max(50, Math.min(CANVAS_HEIGHT - 50, arcY));
-        newCoins.push({ x: startX + i * 24, y: clampedY, collected: false, trail: [] });
+        newCoins.push({ 
+          x: startX + i * 24, 
+          y: clampedY, 
+          collected: false, 
+          trail: [],
+          sparklePhase: Math.random() * Math.PI * 2,
+          color: SPRINKLE_COLORS[i % SPRINKLE_COLORS.length],
+        });
       }
     } else if (pattern === 'wave') {
       for (let i = 0; i < 7; i++) {
         const waveY = centerY + Math.sin(i * 0.9) * 30;
         const clampedY = Math.max(50, Math.min(CANVAS_HEIGHT - 50, waveY));
-        newCoins.push({ x: startX + i * 24, y: clampedY, collected: false, trail: [] });
+        newCoins.push({ 
+          x: startX + i * 24, 
+          y: clampedY, 
+          collected: false, 
+          trail: [],
+          sparklePhase: Math.random() * Math.PI * 2,
+          color: SPRINKLE_COLORS[i % SPRINKLE_COLORS.length],
+        });
       }
     } else if (pattern === 'diagonal') {
       const goingUp = Math.random() > 0.5;
       for (let i = 0; i < 5; i++) {
         const diagY = centerY + (goingUp ? -i * 18 : i * 18);
         const clampedY = Math.max(50, Math.min(CANVAS_HEIGHT - 50, diagY));
-        newCoins.push({ x: startX + i * 30, y: clampedY, collected: false, trail: [] });
+        newCoins.push({ 
+          x: startX + i * 30, 
+          y: clampedY, 
+          collected: false, 
+          trail: [],
+          sparklePhase: Math.random() * Math.PI * 2,
+          color: baseColor,
+        });
       }
     } else if (pattern === 'zigzag') {
       for (let i = 0; i < 6; i++) {
         const zigY = centerY + (i % 2 === 0 ? -25 : 25);
         const clampedY = Math.max(50, Math.min(CANVAS_HEIGHT - 50, zigY));
-        newCoins.push({ x: startX + i * 25, y: clampedY, collected: false, trail: [] });
+        newCoins.push({ 
+          x: startX + i * 25, 
+          y: clampedY, 
+          collected: false, 
+          trail: [],
+          sparklePhase: Math.random() * Math.PI * 2,
+          color: SPRINKLE_COLORS[i % SPRINKLE_COLORS.length],
+        });
       }
     }
     
@@ -935,33 +966,44 @@ export default function DonutDashPage() {
     const player = playerRef.current;
     if (!player.isThrusting) return;
     
-    // Rocket power-up has bigger flames
-    const isRocket = isPowerUpActive('rocket');
-    const particleCount = isRocket ? 4 : 2;
-    
-    for (let i = 0; i < particleCount; i++) {
+    for (let i = 0; i < 2; i++) {
       particlesRef.current.push({
         x: PLAYER_X - PLAYER_SIZE / 2,
         y: player.y + PLAYER_SIZE / 2 + Math.random() * 10,
-        vx: -3 - Math.random() * (isRocket ? 4 : 2),
+        vx: -3 - Math.random() * 2,
         vy: (Math.random() - 0.5) * 2,
         life: 20 + Math.random() * 10,
         color: Math.random() > 0.5 ? '#FF6B00' : '#FFD700',
-        size: (isRocket ? 5 : 3) + Math.random() * 4,
+        size: 3 + Math.random() * 4,
       });
     }
-  }, [isPowerUpActive]);
+  }, []);
 
   const addCollectParticles = useCallback((x: number, y: number, color: string) => {
-    for (let i = 0; i < 8; i++) {
-      const angle = (i / 8) * Math.PI * 2;
+    // Burst of sparkles
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
       particlesRef.current.push({
         x, y,
-        vx: Math.cos(angle) * 3 + (Math.random() - 0.5) * 2,
-        vy: Math.sin(angle) * 3 + (Math.random() - 0.5) * 2,
-        life: 20 + Math.random() * 10,
+        vx: Math.cos(angle) * 4 + (Math.random() - 0.5) * 2,
+        vy: Math.sin(angle) * 4 + (Math.random() - 0.5) * 2,
+        life: 25 + Math.random() * 10,
         color,
-        size: 4 + Math.random() * 3,
+        size: 3 + Math.random() * 3,
+        type: 'sparkle',
+      });
+    }
+    // Add some white sparkles
+    for (let i = 0; i < 4; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      particlesRef.current.push({
+        x, y,
+        vx: Math.cos(angle) * 3,
+        vy: Math.sin(angle) * 3,
+        life: 15,
+        color: '#FFFFFF',
+        size: 2,
+        type: 'sparkle',
       });
     }
   }, []);
@@ -982,7 +1024,6 @@ export default function DonutDashPage() {
   }, []);
 
   const addMilestoneParticles = useCallback(() => {
-    // Burst of golden particles
     for (let i = 0; i < 30; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 2 + Math.random() * 4;
@@ -998,7 +1039,6 @@ export default function DonutDashPage() {
     }
   }, []);
 
-  // Get current zone based on score
   const getCurrentZone = useCallback((score: number) => {
     for (let i = ZONES.length - 1; i >= 0; i--) {
       if (score >= ZONES[i].threshold) {
@@ -1008,7 +1048,6 @@ export default function DonutDashPage() {
     return ZONES[0];
   }, []);
 
-  // Draw functions
   const drawBackground = useCallback((ctx: CanvasRenderingContext2D, speed: number) => {
     const zone = currentZoneRef.current;
     
@@ -1018,6 +1057,19 @@ export default function DonutDashPage() {
     bgGradient.addColorStop(1, zone.bg2);
     ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    
+    // Animated background particles
+    bgParticlesRef.current.forEach(p => {
+      p.x -= speed * p.speed;
+      if (p.x < 0) {
+        p.x = CANVAS_WIDTH;
+        p.y = Math.random() * CANVAS_HEIGHT;
+      }
+      ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
     
     // Subtle grid pattern with zone color
     ctx.strokeStyle = zone.gridColor;
@@ -1037,38 +1089,42 @@ export default function DonutDashPage() {
     
     // Space zone: add stars
     if (zone.name === 'Space') {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-      for (let i = 0; i < 50; i++) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      for (let i = 0; i < 60; i++) {
         const x = (frameCountRef.current * 0.5 + i * 73) % CANVAS_WIDTH;
         const y = (i * 97) % CANVAS_HEIGHT;
         const size = (i % 3) + 1;
+        const twinkle = 0.5 + Math.sin(frameCountRef.current * 0.1 + i) * 0.5;
+        ctx.globalAlpha = twinkle;
         ctx.beginPath();
         ctx.arc(x, y, size, 0, Math.PI * 2);
         ctx.fill();
       }
+      ctx.globalAlpha = 1;
     }
     
     // Ice zone: add floating ice particles
     if (zone.name === 'Ice') {
-      ctx.fillStyle = 'rgba(200, 240, 255, 0.3)';
-      for (let i = 0; i < 20; i++) {
+      ctx.fillStyle = 'rgba(200, 240, 255, 0.4)';
+      for (let i = 0; i < 25; i++) {
         const x = (frameCountRef.current * 0.3 + i * 89) % CANVAS_WIDTH;
         const y = (i * 67 + frameCountRef.current * 0.1) % CANVAS_HEIGHT;
         ctx.beginPath();
-        ctx.arc(x, y, 2, 0, Math.PI * 2);
+        ctx.arc(x, y, 2 + Math.sin(frameCountRef.current * 0.05 + i) * 1, 0, Math.PI * 2);
         ctx.fill();
       }
     }
     
     // Lava zone: add embers rising
     if (zone.name === 'Lava') {
-      for (let i = 0; i < 15; i++) {
+      for (let i = 0; i < 20; i++) {
         const x = (i * 83) % CANVAS_WIDTH;
         const y = CANVAS_HEIGHT - ((frameCountRef.current * 0.5 + i * 47) % CANVAS_HEIGHT);
-        const alpha = 0.3 + Math.sin(frameCountRef.current * 0.1 + i) * 0.2;
-        ctx.fillStyle = `rgba(255, 100, 0, ${alpha})`;
+        const alpha = 0.4 + Math.sin(frameCountRef.current * 0.1 + i) * 0.3;
+        const size = 2 + Math.sin(frameCountRef.current * 0.2 + i) * 1.5;
+        ctx.fillStyle = `rgba(255, ${100 + Math.sin(frameCountRef.current * 0.15 + i) * 50}, 0, ${alpha})`;
         ctx.beginPath();
-        ctx.arc(x, y, 2 + Math.sin(frameCountRef.current * 0.2 + i) * 1, 0, Math.PI * 2);
+        ctx.arc(x, y, size, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -1089,7 +1145,7 @@ export default function DonutDashPage() {
       ctx.stroke();
     }
     
-    // Hazard stripes - use zone accent
+    // Hazard stripes
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, CANVAS_WIDTH, 30);
     ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
@@ -1107,24 +1163,26 @@ export default function DonutDashPage() {
   }, []);
 
   const drawGhost = useCallback((ctx: CanvasRenderingContext2D) => {
-    // Only draw ghost if enabled, has data, and player has started flying
     if (!showGhost || !hasStartedFlyingRef.current || bestGhostRef.current.length === 0) return;
     
-    const frameIndex = Math.min(frameCountRef.current, bestGhostRef.current.length - 1);
-    if (frameIndex < 0) return;
+    // Don't draw ghost if player has surpassed their best run
+    if (frameCountRef.current >= bestGhostRef.current.length) return;
     
-    const ghostFrame = bestGhostRef.current[frameIndex];
+    const ghostFrame = bestGhostRef.current[frameCountRef.current];
     if (!ghostFrame) return;
     
     ctx.save();
-    ctx.globalAlpha = 0.3;
+    ctx.globalAlpha = 0.25;
     ctx.translate(PLAYER_X - 20, ghostFrame.y);
     
-    // Ghost donut
+    // Ghost donut with subtle glow
+    ctx.shadowColor = '#FFFFFF';
+    ctx.shadowBlur = 8;
     ctx.fillStyle = '#FFFFFF';
     ctx.beginPath();
     ctx.arc(0, 0, PLAYER_SIZE / 2 - 2, 0, Math.PI * 2);
     ctx.fill();
+    ctx.shadowBlur = 0;
     ctx.fillStyle = currentZoneRef.current.bg1;
     ctx.beginPath();
     ctx.arc(0, 0, PLAYER_SIZE / 5, 0, Math.PI * 2);
@@ -1140,9 +1198,7 @@ export default function DonutDashPage() {
     const tilt = Math.max(-0.4, Math.min(0.4, player.velocity * 0.04));
     const donutColor = getDonutColor();
     
-    // Check for active power-ups
     const isGhost = isPowerUpActive('ghost');
-    const isRocket = isPowerUpActive('rocket');
     const hasShield = hasShieldRef.current;
     const isInvincible = Date.now() < invincibleUntilRef.current;
     
@@ -1150,17 +1206,15 @@ export default function DonutDashPage() {
     ctx.translate(x, y);
     ctx.rotate(tilt);
     
-    // Ghost effect
     if (isGhost) {
       ctx.globalAlpha = 0.5;
     }
     
-    // Invincibility flash effect (blink rapidly)
     if (isInvincible && Math.floor(frameCountRef.current / 4) % 2 === 0) {
       ctx.globalAlpha = 0.4;
     }
     
-    // Jetpack - improved metallic design
+    // Improved jetpack design
     const tankX = -PLAYER_SIZE / 2 - 18;
     const tankY = -14;
     
@@ -1209,18 +1263,18 @@ export default function DonutDashPage() {
     ctx.closePath();
     ctx.fill();
     
-    // Flames (bigger for rocket)
-    if (player.isThrusting || isRocket) {
+    // Flames when thrusting
+    if (player.isThrusting) {
       const time = frameCountRef.current * 0.15;
-      const baseFlameSize = isRocket ? 35 : 22;
+      const baseFlameSize = 22;
       const flameSize = baseFlameSize + Math.sin(time * 4) * 8;
-      const flameWidth = (isRocket ? 18 : 12) + Math.sin(time * 5) * 3;
+      const flameWidth = 12 + Math.sin(time * 5) * 3;
       
       // Outer flame
       const outerFlame = ctx.createLinearGradient(tankX + 8, tankY + 40, tankX + 8, tankY + 40 + flameSize);
-      outerFlame.addColorStop(0, isRocket ? '#00AAFF' : '#FF6B00');
-      outerFlame.addColorStop(0.3, isRocket ? '#0066FF' : '#FF4500');
-      outerFlame.addColorStop(0.6, isRocket ? '#0044AA' : '#FF2200');
+      outerFlame.addColorStop(0, '#FF6B00');
+      outerFlame.addColorStop(0.3, '#FF4500');
+      outerFlame.addColorStop(0.6, '#FF2200');
       outerFlame.addColorStop(1, 'transparent');
       ctx.fillStyle = outerFlame;
       ctx.beginPath();
@@ -1233,8 +1287,8 @@ export default function DonutDashPage() {
       const innerSize = flameSize * 0.6;
       const innerFlame = ctx.createLinearGradient(tankX + 8, tankY + 40, tankX + 8, tankY + 40 + innerSize);
       innerFlame.addColorStop(0, '#FFFFFF');
-      innerFlame.addColorStop(0.3, isRocket ? '#AADDFF' : '#FFFF00');
-      innerFlame.addColorStop(0.6, isRocket ? '#00AAFF' : '#FFA500');
+      innerFlame.addColorStop(0.3, '#FFFF00');
+      innerFlame.addColorStop(0.6, '#FFA500');
       innerFlame.addColorStop(1, 'transparent');
       ctx.fillStyle = innerFlame;
       ctx.beginPath();
@@ -1244,7 +1298,7 @@ export default function DonutDashPage() {
       ctx.fill();
     }
     
-    // Player avatar (pfp or fallback donut)
+    // Player avatar
     const radius = PLAYER_SIZE / 2;
     
     if (pfpImageRef.current) {
@@ -1256,6 +1310,7 @@ export default function DonutDashPage() {
       ctx.drawImage(pfpImageRef.current, -radius, -radius, PLAYER_SIZE, PLAYER_SIZE);
       ctx.restore();
       
+      // Glowing border
       ctx.lineWidth = player.isThrusting ? 3 : 2;
       ctx.strokeStyle = player.isThrusting ? '#FF6B00' : '#FFFFFF';
       ctx.shadowColor = player.isThrusting ? '#FF4500' : '#FFFFFF';
@@ -1293,7 +1348,7 @@ export default function DonutDashPage() {
       ctx.fill();
     }
     
-    // Shield effect
+    // Shield effect with animated particles
     if (hasShield) {
       ctx.strokeStyle = '#00FFFF';
       ctx.lineWidth = 3;
@@ -1303,7 +1358,6 @@ export default function DonutDashPage() {
       ctx.arc(0, 0, radius + 8, 0, Math.PI * 2);
       ctx.stroke();
       
-      // Animated shield particles
       const shieldTime = frameCountRef.current * 0.1;
       for (let i = 0; i < 6; i++) {
         const angle = shieldTime + (i / 6) * Math.PI * 2;
@@ -1327,20 +1381,22 @@ export default function DonutDashPage() {
     obstaclesRef.current.forEach(obstacle => {
       ctx.save();
       
-      // Handle special obstacle types
       if (obstacle.type === 'missile') {
-        // Draw missile
         const missileX = obstacle.x;
         const missileY = obstacle.y;
         
-        // Missile body
-        ctx.fillStyle = '#FF4444';
+        // Missile body with gradient
+        const missileGradient = ctx.createLinearGradient(missileX - 15, missileY, missileX + 15, missileY);
+        missileGradient.addColorStop(0, '#CC0000');
+        missileGradient.addColorStop(0.5, '#FF4444');
+        missileGradient.addColorStop(1, '#CC0000');
+        ctx.fillStyle = missileGradient;
         ctx.beginPath();
         ctx.ellipse(missileX, missileY, 15, 6, 0, 0, Math.PI * 2);
         ctx.fill();
         
         // Nose cone
-        ctx.fillStyle = '#AA0000';
+        ctx.fillStyle = '#880000';
         ctx.beginPath();
         ctx.moveTo(missileX - 15, missileY);
         ctx.lineTo(missileX - 25, missileY);
@@ -1350,7 +1406,7 @@ export default function DonutDashPage() {
         ctx.fill();
         
         // Fins
-        ctx.fillStyle = '#CC2222';
+        ctx.fillStyle = '#AA2222';
         ctx.beginPath();
         ctx.moveTo(missileX + 10, missileY - 6);
         ctx.lineTo(missileX + 18, missileY - 12);
@@ -1364,13 +1420,17 @@ export default function DonutDashPage() {
         ctx.closePath();
         ctx.fill();
         
-        // Exhaust
-        ctx.fillStyle = `rgba(255, 200, 0, ${0.5 + Math.sin(time * 5) * 0.3})`;
+        // Animated exhaust
+        const exhaustLength = 10 + Math.sin(time * 8) * 5;
+        const exhaustGradient = ctx.createLinearGradient(missileX + 15, missileY, missileX + 15 + exhaustLength, missileY);
+        exhaustGradient.addColorStop(0, '#FFFF00');
+        exhaustGradient.addColorStop(0.5, '#FF8800');
+        exhaustGradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = exhaustGradient;
         ctx.beginPath();
-        ctx.moveTo(missileX + 15, missileY);
-        ctx.lineTo(missileX + 25 + Math.sin(time * 8) * 5, missileY);
-        ctx.lineTo(missileX + 15, missileY + 4);
-        ctx.lineTo(missileX + 15, missileY - 4);
+        ctx.moveTo(missileX + 15, missileY - 3);
+        ctx.lineTo(missileX + 15 + exhaustLength, missileY);
+        ctx.lineTo(missileX + 15, missileY + 3);
         ctx.closePath();
         ctx.fill();
         
@@ -1385,11 +1445,9 @@ export default function DonutDashPage() {
       }
       
       if (obstacle.type === 'laser') {
-        const laserX = obstacle.x;
         const laserY = obstacle.y;
         
         if (obstacle.warningTime && obstacle.warningTime > 0) {
-          // Warning phase - flashing line
           const flash = Math.sin(time * 10) > 0;
           if (flash) {
             ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
@@ -1402,7 +1460,6 @@ export default function DonutDashPage() {
             ctx.setLineDash([]);
           }
           
-          // Warning markers on sides
           ctx.fillStyle = '#FF0000';
           ctx.font = 'bold 14px monospace';
           ctx.textAlign = 'left';
@@ -1410,11 +1467,9 @@ export default function DonutDashPage() {
           ctx.textAlign = 'right';
           ctx.fillText('⚡', CANVAS_WIDTH - 5, laserY + 5);
         } else if (obstacle.active) {
-          // Firing phase - full laser beam
           ctx.shadowColor = '#FF0000';
           ctx.shadowBlur = 20;
           
-          // Outer glow
           ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
           ctx.lineWidth = 20;
           ctx.beginPath();
@@ -1422,7 +1477,6 @@ export default function DonutDashPage() {
           ctx.lineTo(CANVAS_WIDTH, laserY);
           ctx.stroke();
           
-          // Main beam
           ctx.strokeStyle = 'rgba(255, 100, 100, 0.8)';
           ctx.lineWidth = 8;
           ctx.beginPath();
@@ -1430,7 +1484,6 @@ export default function DonutDashPage() {
           ctx.lineTo(CANVAS_WIDTH, laserY);
           ctx.stroke();
           
-          // Core
           ctx.strokeStyle = '#FFFFFF';
           ctx.lineWidth = 2;
           ctx.beginPath();
@@ -1483,10 +1536,15 @@ export default function DonutDashPage() {
         return;
       }
       
-      // Electrode nodes at ends
-      const nodeRadius = 6;
-      ctx.fillStyle = '#2a2a2a';
-      ctx.strokeStyle = '#444';
+      // Improved electrode nodes
+      const nodeRadius = 7;
+      
+      // Node glow
+      ctx.shadowColor = zone.accent;
+      ctx.shadowBlur = 15;
+      
+      ctx.fillStyle = '#1a1a1a';
+      ctx.strokeStyle = '#333';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(x1, y1, nodeRadius, 0, Math.PI * 2);
@@ -1497,60 +1555,60 @@ export default function DonutDashPage() {
       ctx.fill();
       ctx.stroke();
       
-      // Inner node glow - use zone accent
+      // Inner node glow
       ctx.fillStyle = zone.accent;
       ctx.beginPath();
-      ctx.arc(x1, y1, 3, 0, Math.PI * 2);
+      ctx.arc(x1, y1, 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
-      ctx.arc(x2, y2, 3, 0, Math.PI * 2);
+      ctx.arc(x2, y2, 4, 0, Math.PI * 2);
       ctx.fill();
       
       // Outer glow
       ctx.shadowColor = zone.accent;
-      ctx.shadowBlur = 20;
-      ctx.strokeStyle = zone.accent + '4D';
-      ctx.lineWidth = 12;
+      ctx.shadowBlur = 25;
+      ctx.strokeStyle = zone.accent + '40';
+      ctx.lineWidth = 14;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
       ctx.stroke();
       
       // Mid glow
-      ctx.shadowBlur = 15;
-      ctx.strokeStyle = zone.accent + '80';
-      ctx.lineWidth = 6;
+      ctx.shadowBlur = 18;
+      ctx.strokeStyle = zone.accent + '70';
+      ctx.lineWidth = 8;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
       ctx.stroke();
       
-      // Electric beam with flickering jagged effect
+      // Electric beam with improved jagged effect
       ctx.shadowColor = zone.accent;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       const flicker = 0.7 + Math.sin(time * 8 + obstacle.x) * 0.3;
       ctx.strokeStyle = `${zone.accent}${Math.floor(flicker * 255).toString(16).padStart(2, '0')}`;
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       
-      const segments = 8;
+      const segments = 10;
       const dx = (x2 - x1) / segments;
       const dy = (y2 - y1) / segments;
       const len = Math.sqrt(dx*dx + dy*dy);
-      const perpX = len > 0 ? -dy / len * 4 : 0;
-      const perpY = len > 0 ? dx / len * 4 : 0;
+      const perpX = len > 0 ? -dy / len * 5 : 0;
+      const perpY = len > 0 ? dx / len * 5 : 0;
       
       for (let i = 1; i < segments; i++) {
-        const jitter = Math.sin(time * 15 + i * 2 + obstacle.x * 0.1) * (i % 2 === 0 ? 1 : -1);
+        const jitter = Math.sin(time * 20 + i * 2.5 + obstacle.x * 0.1) * (i % 2 === 0 ? 1 : -1);
         ctx.lineTo(x1 + dx * i + perpX * jitter, y1 + dy * i + perpY * jitter);
       }
       ctx.lineTo(x2, y2);
       ctx.stroke();
       
       // Core white line
-      ctx.shadowBlur = 5;
-      ctx.strokeStyle = `rgba(255, 255, 255, ${flicker * 0.8})`;
+      ctx.shadowBlur = 6;
+      ctx.strokeStyle = `rgba(255, 255, 255, ${flicker * 0.9})`;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
@@ -1574,14 +1632,17 @@ export default function DonutDashPage() {
       ctx.translate(powerUp.x, powerUp.y + float);
       ctx.scale(pulse, pulse);
       
-      // Glow
+      // Outer glow
       ctx.shadowColor = config.color;
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 25;
       
-      // Background circle
-      ctx.fillStyle = config.color + '40';
+      // Background circle with gradient
+      const bgGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 20);
+      bgGradient.addColorStop(0, config.color + '60');
+      bgGradient.addColorStop(1, config.color + '20');
+      ctx.fillStyle = bgGradient;
       ctx.beginPath();
-      ctx.arc(0, 0, 18, 0, Math.PI * 2);
+      ctx.arc(0, 0, 20, 0, Math.PI * 2);
       ctx.fill();
       
       // Border
@@ -1589,6 +1650,14 @@ export default function DonutDashPage() {
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(0, 0, 18, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Spinning highlight
+      const highlightAngle = frameCountRef.current * 0.05;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 18, highlightAngle, highlightAngle + Math.PI * 0.5);
       ctx.stroke();
       
       // Icon
@@ -1602,21 +1671,23 @@ export default function DonutDashPage() {
     });
   }, []);
 
+  // Improved sprinkle/coin drawing
   const drawCoins = useCallback((ctx: CanvasRenderingContext2D) => {
-    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF69B4', '#00CED1'];
     const isMagnet = isPowerUpActive('magnet');
     
     coinsRef.current.forEach(coin => {
       if (coin.collected) return;
       
+      // Update sparkle phase
+      coin.sparklePhase = (coin.sparklePhase || 0) + 0.15;
+      
       // Draw trail
       if (coin.trail && coin.trail.length > 0) {
-        coin.trail.forEach((t, i) => {
+        coin.trail.forEach((t) => {
           ctx.globalAlpha = t.alpha;
-          const color = colors[Math.floor(coin.x / 40) % colors.length];
-          ctx.fillStyle = color;
+          ctx.fillStyle = coin.color || '#FF6B6B';
           ctx.beginPath();
-          ctx.arc(t.x, t.y, 4, 0, Math.PI * 2);
+          ctx.arc(t.x, t.y, 3, 0, Math.PI * 2);
           ctx.fill();
         });
         ctx.globalAlpha = 1;
@@ -1624,17 +1695,17 @@ export default function DonutDashPage() {
       
       ctx.save();
       ctx.translate(coin.x, coin.y);
-      const float = Math.sin(frameCountRef.current * 0.12 + coin.x * 0.05) * 4;
+      const float = Math.sin(frameCountRef.current * 0.12 + coin.x * 0.05) * 3;
       ctx.translate(0, float);
       
-      const color = colors[Math.floor(coin.x / 40) % colors.length];
+      const color = coin.color || '#FF6B6B';
       
       // Magnet attraction visual
       if (isMagnet) {
         const dx = PLAYER_X - coin.x;
         const dy = playerRef.current.y - coin.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 150) {
+        if (dist < 150 && dist > 0) {
           ctx.strokeStyle = '#FF00FF44';
           ctx.lineWidth = 1;
           ctx.beginPath();
@@ -1644,12 +1715,30 @@ export default function DonutDashPage() {
         }
       }
       
+      // Sprinkle glow
       ctx.shadowColor = color;
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 12;
+      
+      // Main sprinkle body - pill shape
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.roundRect(-9, -4, 18, 8, 4);
+      ctx.roundRect(-10, -4, 20, 8, 4);
       ctx.fill();
+      
+      // Highlight
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.beginPath();
+      ctx.roundRect(-8, -3, 8, 3, 2);
+      ctx.fill();
+      
+      // Sparkle effect
+      const sparkleAlpha = 0.3 + Math.sin(coin.sparklePhase || 0) * 0.3;
+      ctx.fillStyle = `rgba(255, 255, 255, ${sparkleAlpha})`;
+      const sparkleSize = 2 + Math.sin(coin.sparklePhase || 0) * 1;
+      ctx.beginPath();
+      ctx.arc(6, -2, sparkleSize, 0, Math.PI * 2);
+      ctx.fill();
+      
       ctx.shadowBlur = 0;
       ctx.restore();
     });
@@ -1661,11 +1750,34 @@ export default function DonutDashPage() {
       particle.y += particle.vy;
       particle.life--;
       if (particle.life <= 0) { particlesRef.current.splice(index, 1); return; }
-      ctx.globalAlpha = particle.life / 30;
-      ctx.fillStyle = particle.color;
-      ctx.beginPath();
-      ctx.arc(particle.x, particle.y, particle.size * (particle.life / 30), 0, Math.PI * 2);
-      ctx.fill();
+      
+      const alpha = particle.life / 30;
+      ctx.globalAlpha = alpha;
+      
+      if (particle.type === 'sparkle') {
+        // Star-shaped sparkle
+        ctx.fillStyle = particle.color;
+        ctx.shadowColor = particle.color;
+        ctx.shadowBlur = 5;
+        const size = particle.size * (particle.life / 30);
+        ctx.beginPath();
+        for (let i = 0; i < 4; i++) {
+          const angle = (i / 4) * Math.PI * 2;
+          const x = particle.x + Math.cos(angle) * size;
+          const y = particle.y + Math.sin(angle) * size;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.fillStyle = particle.color;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size * (particle.life / 30), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
       ctx.globalAlpha = 1;
     });
   }, []);
@@ -1680,11 +1792,13 @@ export default function DonutDashPage() {
     ctx.translate(CANVAS_WIDTH - 60, 70);
     ctx.scale(scale, scale);
     
+    // Combo glow
+    ctx.shadowColor = '#FFD700';
+    ctx.shadowBlur = 15;
+    
     ctx.fillStyle = '#FFD700';
     ctx.font = 'bold 24px monospace';
     ctx.textAlign = 'center';
-    ctx.shadowColor = '#FFD700';
-    ctx.shadowBlur = 10;
     ctx.fillText(`${combo}x`, 0, 0);
     
     ctx.font = '10px monospace';
@@ -1708,20 +1822,17 @@ export default function DonutDashPage() {
       ctx.save();
       ctx.translate(x, y);
       
-      // Background
       ctx.fillStyle = '#00000080';
       ctx.beginPath();
       ctx.arc(0, 0, 14, 0, Math.PI * 2);
       ctx.fill();
       
-      // Progress ring
       ctx.strokeStyle = config.color;
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(0, 0, 14, -Math.PI / 2, -Math.PI / 2 + remaining * Math.PI * 2);
       ctx.stroke();
       
-      // Icon
       ctx.font = '12px serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -1730,7 +1841,6 @@ export default function DonutDashPage() {
       ctx.restore();
     });
     
-    // Show shield separately
     if (hasShieldRef.current) {
       const x = 20 + activePowerUps.length * 35;
       ctx.save();
@@ -1752,7 +1862,6 @@ export default function DonutDashPage() {
     }
   }, []);
 
-  // Collision helpers
   const pointToLineDistance = useCallback((px: number, py: number, x1: number, y1: number, x2: number, y2: number): number => {
     const dx = x2 - x1;
     const dy = y2 - y1;
@@ -1769,27 +1878,22 @@ export default function DonutDashPage() {
     const player = playerRef.current;
     const playerRadius = PLAYER_SIZE / 2 - 5;
     const isGhost = isPowerUpActive('ghost');
-    const isRocket = isPowerUpActive('rocket');
     const now = Date.now();
     
-    // Ghost, rocket, or post-shield invincibility
-    if (isGhost || isRocket || now < invincibleUntilRef.current) {
+    if (isGhost || now < invincibleUntilRef.current) {
       return { hit: false, nearMiss: false };
     }
     
-    // Helper to break shield and grant invincibility
     const breakShield = () => {
       hasShieldRef.current = false;
-      invincibleUntilRef.current = now + 1000; // 1 second invincibility
+      invincibleUntilRef.current = now + 1000;
       addShieldBreakParticles();
       playShieldBreakSound();
     };
     
-    // Boundary check
     if (player.y - playerRadius < 30 || player.y + playerRadius > CANVAS_HEIGHT - 30) {
       if (hasShieldRef.current) {
         breakShield();
-        // Bounce player back
         player.y = player.y - playerRadius < 30 ? 30 + playerRadius + 5 : CANVAS_HEIGHT - 30 - playerRadius - 5;
         player.velocity = -player.velocity * 0.5;
         return { hit: false, nearMiss: false };
@@ -1809,7 +1913,6 @@ export default function DonutDashPage() {
         if (distance < playerRadius + 15) {
           if (hasShieldRef.current) {
             breakShield();
-            // Remove the missile
             obstaclesRef.current = obstaclesRef.current.filter(o => o !== obstacle);
             return { hit: false, nearMiss: false };
           }
@@ -1877,7 +1980,6 @@ export default function DonutDashPage() {
         }
       }
       
-      // Near miss detection
       if (distance < NEAR_MISS_DISTANCE && distance >= playerRadius + 10) {
         nearMissDetected = true;
       }
@@ -1888,15 +1990,12 @@ export default function DonutDashPage() {
 
   const checkCoins = useCallback(() => {
     const player = playerRef.current;
-    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF69B4', '#00CED1'];
     const isMagnet = isPowerUpActive('magnet');
-    const isRocket = isPowerUpActive('rocket');
     const now = Date.now();
     
     coinsRef.current.forEach(coin => {
       if (coin.collected) return;
       
-      // Magnet effect - pull coins toward player
       if (isMagnet) {
         const dx = PLAYER_X - coin.x;
         const dy = player.y - coin.y;
@@ -1915,7 +2014,6 @@ export default function DonutDashPage() {
       if (dist < PLAYER_SIZE / 2 + 12) {
         coin.collected = true;
         
-        // Combo system
         if (now - lastCoinTimeRef.current < COMBO_WINDOW) {
           comboRef.current++;
         } else {
@@ -1923,16 +2021,14 @@ export default function DonutDashPage() {
         }
         lastCoinTimeRef.current = now;
         
-        // Calculate points with combo and rocket multiplier
         const comboMultiplier = Math.min(comboRef.current, 10);
-        const rocketMultiplier = isRocket ? 2 : 1;
-        const points = 1 * comboMultiplier * rocketMultiplier;
+        const points = 1 * comboMultiplier;
         
         coinsCollectedRef.current += points;
         setComboDisplay(comboRef.current);
         
         playCollectSound(comboRef.current);
-        addCollectParticles(coin.x, coin.y, colors[Math.floor(coin.x / 40) % colors.length]);
+        addCollectParticles(coin.x, coin.y, coin.color || '#FF6B6B');
       }
     });
   }, [isPowerUpActive, playCollectSound, addCollectParticles]);
@@ -1949,7 +2045,6 @@ export default function DonutDashPage() {
         powerUp.collected = true;
         activatePowerUp(powerUp.type);
         
-        // Special particles for power-up
         for (let i = 0; i < 12; i++) {
           const angle = (i / 12) * Math.PI * 2;
           particlesRef.current.push({
@@ -1966,23 +2061,19 @@ export default function DonutDashPage() {
     });
   }, [activatePowerUp]);
 
-  // Update obstacles
   const updateObstacles = useCallback((speed: number, delta: number) => {
     obstaclesRef.current.forEach(obstacle => {
-      // Move horizontally
       obstacle.x -= speed * delta;
       
-      // Update special obstacles
       if (obstacle.type === 'zapper_moving' && obstacle.baseY !== undefined) {
         obstacle.movePhase = (obstacle.movePhase || 0) + (obstacle.moveSpeed || 0.03);
         obstacle.y = obstacle.baseY + Math.sin(obstacle.movePhase) * (obstacle.moveRange || 50);
       }
       
       if (obstacle.type === 'missile') {
-        // Track player with some lag
         const dy = playerRef.current.y - obstacle.y;
-        obstacle.velocityY = (obstacle.velocityY || 0) + dy * 0.01;
-        obstacle.velocityY = Math.max(-3, Math.min(3, obstacle.velocityY));
+        obstacle.velocityY = (obstacle.velocityY || 0) + dy * 0.008; // Slower tracking
+        obstacle.velocityY = Math.max(-2.5, Math.min(2.5, obstacle.velocityY)); // Lower max velocity
         obstacle.y += obstacle.velocityY;
       }
       
@@ -2007,7 +2098,6 @@ export default function DonutDashPage() {
     });
   }, []);
 
-  // Game loop
   const gameLoop = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -2018,7 +2108,6 @@ export default function DonutDashPage() {
     lastFrameTimeRef.current = now;
     frameCountRef.current++;
     
-    // Apply screen shake
     let shakeX = 0, shakeY = 0;
     const shake = screenShakeRef.current;
     if (shake.duration > 0) {
@@ -2036,17 +2125,11 @@ export default function DonutDashPage() {
     
     const hasStarted = hasStartedFlyingRef.current;
     
-    // Speed affected by slow-mo
-    const isSlowMo = isPowerUpActive('slowmo');
-    const speedMultiplier = isSlowMo ? 0.5 : 1;
+    if (hasStarted) speedRef.current = Math.min(speedRef.current + SPEED_INCREMENT * delta, MAX_SPEED);
+    const speed = hasStarted ? speedRef.current : 0;
     
-    if (hasStarted) speedRef.current = Math.min(speedRef.current + SPEED_INCREMENT * delta * speedMultiplier, MAX_SPEED);
-    const speed = hasStarted ? speedRef.current * speedMultiplier : 0;
-    
-    // Update score display
     setScore(coinsCollectedRef.current);
     
-    // Update zone based on score
     const newZone = getCurrentZone(coinsCollectedRef.current);
     if (newZone !== currentZoneRef.current) {
       currentZoneRef.current = newZone;
@@ -2056,7 +2139,6 @@ export default function DonutDashPage() {
       playMilestoneSound();
     }
     
-    // Check milestones
     const currentScore = coinsCollectedRef.current;
     for (const milestone of MILESTONES) {
       if (currentScore >= milestone && lastMilestoneRef.current < milestone) {
@@ -2067,31 +2149,21 @@ export default function DonutDashPage() {
       }
     }
     
-    // Update player physics
     const player = playerRef.current;
-    const isRocket = isPowerUpActive('rocket');
     
     if (hasStarted) {
-      if (isRocket) {
-        // Rocket gives controlled flight
-        if (player.isThrusting) player.velocity += THRUST * 1.5 * delta;
-        else player.velocity += GRAVITY * 0.5 * delta;
-      } else {
-        if (player.isThrusting) player.velocity += THRUST * delta;
-        else player.velocity += GRAVITY * delta;
-      }
+      if (player.isThrusting) player.velocity += THRUST * delta;
+      else player.velocity += GRAVITY * delta;
       player.velocity = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, player.velocity));
       player.y += player.velocity * delta;
       player.y = Math.max(30 + PLAYER_SIZE / 2, Math.min(CANVAS_HEIGHT - 30 - PLAYER_SIZE / 2, player.y));
       
-      // Record ghost frame
       ghostRecordingRef.current.push({
         y: player.y,
         isThrusting: player.isThrusting,
       });
     }
     
-    // Update obstacles
     if (hasStarted) {
       updateObstacles(speed, delta);
       obstaclesRef.current = obstaclesRef.current.filter(o => {
@@ -2102,15 +2174,18 @@ export default function DonutDashPage() {
       });
       
       const lastObs = obstaclesRef.current[obstaclesRef.current.length - 1];
-      const baseSpawnGap = 200 + Math.random() * 150;
-      const spawnGap = currentScore >= 300 ? baseSpawnGap * 0.75 : baseSpawnGap;
+      // More gradual spawn gap reduction - only at higher scores
+      const baseSpawnGap = 220 + Math.random() * 160;
+      let spawnGap = baseSpawnGap;
+      if (currentScore >= 600) spawnGap = baseSpawnGap * 0.85;
+      else if (currentScore >= 400) spawnGap = baseSpawnGap * 0.9;
+      else if (currentScore >= 200) spawnGap = baseSpawnGap * 0.95;
+      
       if (!lastObs || (lastObs.type === 'zapper_rotating' ? (lastObs.centerX || lastObs.x) : lastObs.x) < CANVAS_WIDTH - spawnGap) {
         spawnObstacle();
       }
       
-      // Update coins and add trails
       coinsRef.current.forEach(c => {
-        // Add to trail
         if (!c.collected) {
           if (!c.trail) c.trail = [];
           c.trail.unshift({ x: c.x, y: c.y, alpha: 0.5 });
@@ -2122,27 +2197,22 @@ export default function DonutDashPage() {
       coinsRef.current = coinsRef.current.filter(c => c.x > -50);
       if (coinsRef.current.length < 20 && Math.random() < 0.03) spawnCoins();
       
-      // Update power-ups
       powerUpsRef.current.forEach(p => { p.x -= speed * delta; });
       powerUpsRef.current = powerUpsRef.current.filter(p => p.x > -50);
-      if (powerUpsRef.current.length < 2 && Math.random() < 0.005) spawnPowerUp();
+      if (powerUpsRef.current.length < 2 && Math.random() < 0.006) spawnPowerUp(); // Slightly more frequent power-ups
       
-      // Clean up expired power-ups
       const nowMs = Date.now();
       activePowerUpsRef.current = activePowerUpsRef.current.filter(p => p.endTime > nowMs);
       setActivePowerUpsDisplay([...activePowerUpsRef.current]);
       
-      // Decay combo if no coins collected recently
       if (nowMs - lastCoinTimeRef.current > COMBO_WINDOW * 2) {
         comboRef.current = Math.max(1, comboRef.current - 1);
         setComboDisplay(comboRef.current);
       }
     }
     
-    // Thrust particles
-    if ((player.isThrusting || isRocket) && frameCountRef.current % 2 === 0) addThrustParticles();
+    if (player.isThrusting && frameCountRef.current % 2 === 0) addThrustParticles();
     
-    // Draw everything
     drawBackground(ctx, hasStarted ? speed : 0.5);
     drawGhost(ctx);
     drawParticles(ctx);
@@ -2153,7 +2223,6 @@ export default function DonutDashPage() {
     drawCombo(ctx);
     drawActivePowerUps(ctx);
     
-    // Start prompt - just text, no floating donut
     if (!hasStarted) {
       ctx.save();
       ctx.font = 'bold 16px monospace';
@@ -2168,21 +2237,18 @@ export default function DonutDashPage() {
       ctx.restore();
     }
     
-    // Collision and pickup checks
     if (hasStarted) {
       checkCoins();
       checkPowerUps();
       
       const collision = checkCollisions();
       
-      // Near miss bonus
       if (collision.nearMiss && !nearMissBonusRef.current) {
         nearMissBonusRef.current = 1;
         coinsCollectedRef.current += 2;
         playNearMissSound();
         triggerScreenShake(3, 100);
         
-        // Show near miss text
         particlesRef.current.push({
           x: PLAYER_X + 30,
           y: player.y,
@@ -2190,13 +2256,12 @@ export default function DonutDashPage() {
           vy: -1,
           life: 30,
           color: '#FFD700',
-          size: 0, // Flag for text particle
+          size: 0,
         });
       } else if (!collision.nearMiss) {
         nearMissBonusRef.current = 0;
       }
       
-      // Heartbeat when close to obstacles
       if (collision.nearMiss && frameCountRef.current % 30 === 0) {
         playHeartbeatSound();
       }
@@ -2208,7 +2273,6 @@ export default function DonutDashPage() {
         gameActiveRef.current = false;
         triggerScreenShake(15, 500);
         
-        // Save ghost if new best
         if (finalScore > bestGhostScoreRef.current) {
           bestGhostRef.current = [...ghostRecordingRef.current];
           bestGhostScoreRef.current = finalScore;
@@ -2246,7 +2310,6 @@ export default function DonutDashPage() {
     ctx.textAlign = 'left';
     ctx.fillText(`SCORE: ${coinsCollectedRef.current}`, 15, 58);
     
-    // Zone indicator
     ctx.font = '10px monospace';
     ctx.fillStyle = currentZoneRef.current.accent;
     ctx.fillText(currentZoneRef.current.name.toUpperCase(), 15, 75);
@@ -2335,6 +2398,16 @@ export default function DonutDashPage() {
       ctx.fillStyle = bgGradient;
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       
+      // Animated background particles on menu
+      for (let i = 0; i < 20; i++) {
+        const x = (time * 20 + i * 50) % CANVAS_WIDTH;
+        const y = (i * 67) % CANVAS_HEIGHT;
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.1 + Math.sin(time + i) * 0.05})`;
+        ctx.beginPath();
+        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
       ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
       ctx.lineWidth = 1;
       for (let i = 0; i < CANVAS_WIDTH; i += 40) {
@@ -2360,8 +2433,12 @@ export default function DonutDashPage() {
         ctx.beginPath(); ctx.moveTo(x, CANVAS_HEIGHT); ctx.lineTo(x + 15, CANVAS_HEIGHT); ctx.lineTo(x + 5, CANVAS_HEIGHT - 30); ctx.lineTo(x - 10, CANVAS_HEIGHT - 30); ctx.closePath(); ctx.fill();
       }
       
-      ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 36px monospace'; ctx.textAlign = 'center';
-      ctx.shadowColor = '#FF69B4'; ctx.shadowBlur = 15;
+      // Title with glow
+      ctx.fillStyle = '#FFFFFF'; 
+      ctx.font = 'bold 36px monospace'; 
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#FF69B4'; 
+      ctx.shadowBlur = 20;
       ctx.fillText('DONUT', CANVAS_WIDTH / 2, 90);
       ctx.fillText('DASH', CANVAS_WIDTH / 2, 130);
       ctx.shadowBlur = 0;
@@ -2408,7 +2485,6 @@ export default function DonutDashPage() {
         ctx.fillStyle = '#888'; ctx.font = '12px monospace';
         ctx.fillText('sprinkles collected', CANVAS_WIDTH / 2, 318);
         
-        // Show best ghost score
         if (bestGhostScoreRef.current > 0) {
           ctx.fillStyle = '#666';
           ctx.font = '10px monospace';
@@ -2418,10 +2494,9 @@ export default function DonutDashPage() {
         ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '12px monospace';
         ctx.fillText('Hold to fly • Release to fall', CANVAS_WIDTH / 2, 290);
         
-        // Show power-up icons
         ctx.font = '10px monospace';
         ctx.fillStyle = '#888';
-        ctx.fillText('Power-ups: 🧲 🛡️ ⏱️ 🚀 👻', CANVAS_WIDTH / 2, 310);
+        ctx.fillText('Power-ups: 🧲 🛡️ 👻', CANVAS_WIDTH / 2, 310);
       }
       animationId = requestAnimationFrame(draw);
     };
@@ -2599,8 +2674,6 @@ export default function DonutDashPage() {
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="flex items-center gap-2"><span>🧲</span><span className="text-zinc-400">Magnet - Pulls coins</span></div>
                   <div className="flex items-center gap-2"><span>🛡️</span><span className="text-zinc-400">Shield - Survive 1 hit</span></div>
-                  <div className="flex items-center gap-2"><span>⏱️</span><span className="text-zinc-400">Slow-Mo - Slows time</span></div>
-                  <div className="flex items-center gap-2"><span>🚀</span><span className="text-zinc-400">Rocket - 2x coins, invincible</span></div>
                   <div className="flex items-center gap-2"><span>👻</span><span className="text-zinc-400">Ghost - Phase through</span></div>
                 </div>
               </div>
