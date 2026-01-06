@@ -194,7 +194,7 @@ function DonutJumpTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer:
                 <span className="text-zinc-600">•</span>
                 <span className="text-zinc-400 flex items-center gap-1 whitespace-nowrap">
                   {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3 h-3 rounded-full flex-shrink-0" />}
-                  @{recentPlayer.username} 🍩{recentPlayer.score}
+                  @{recentPlayer.username} {recentPlayer.score}pts
                 </span>
               </>
             )}

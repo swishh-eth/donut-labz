@@ -205,9 +205,7 @@ export default function DonutJumpPage() {
   const screenShakeRef = useRef({ intensity: 0, duration: 0, startTime: 0 });
   
   // Background elements
-  const buildingsRef = useRef<{ x: number; width: number; height: number; shade: number; windows: number[] }[]>([]);
   const bgParticlesRef = useRef<{ x: number; y: number; size: number; speed: number; alpha: number }[]>([]);
-  const bgOffsetRef = useRef(0);
   
   // Audio
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -594,10 +592,7 @@ export default function DonutJumpPage() {
   
   // Drawing functions
   const drawBackground = useCallback((ctx: CanvasRenderingContext2D) => {
-    const GROUND_HEIGHT = 50;
-    const BUILDING_COLORS = ['#2a2a2a', '#3d3d3d', '#4a4a4a', '#5c5c5c', '#6e6e6e'];
-    
-    // Dark gradient background like Flappy Donut
+    // Dark gradient background
     const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
     bgGradient.addColorStop(0, "#1a1a1a");
     bgGradient.addColorStop(1, "#0d0d0d");
@@ -606,7 +601,7 @@ export default function DonutJumpPage() {
     
     // Initialize background particles if needed
     if (bgParticlesRef.current.length === 0) {
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < 40; i++) {
         bgParticlesRef.current.push({
           x: Math.random() * CANVAS_WIDTH,
           y: Math.random() * CANVAS_HEIGHT,
@@ -617,10 +612,10 @@ export default function DonutJumpPage() {
       }
     }
     
-    // Animated background particles
+    // Animated background particles - move DOWN as player goes UP
     bgParticlesRef.current.forEach(p => {
-      // Parallax with camera
-      const screenY = (p.y + cameraYRef.current * 0.1) % CANVAS_HEIGHT;
+      // Particles drift down relative to camera (creates falling effect as player climbs)
+      const screenY = ((p.y - cameraYRef.current * 0.15) % CANVAS_HEIGHT + CANVAS_HEIGHT) % CANVAS_HEIGHT;
       ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
       ctx.beginPath();
       ctx.arc(p.x, screenY, p.size, 0, Math.PI * 2);
@@ -642,69 +637,6 @@ export default function DonutJumpPage() {
       ctx.lineTo(CANVAS_WIDTH, i);
       ctx.stroke();
     }
-    
-    // Initialize buildings if needed
-    const generateWindows = (width: number, height: number): number[] => {
-      const windowRows = Math.floor(height / 15);
-      const windowCols = Math.floor(width / 12);
-      const windows: number[] = [];
-      for (let i = 0; i < windowRows * windowCols; i++) {
-        windows.push(Math.random() > 0.3 ? 0.1 + Math.random() * 0.2 : 0);
-      }
-      return windows;
-    };
-    
-    if (buildingsRef.current.length === 0) {
-      let x = 0;
-      while (x < CANVAS_WIDTH + 100) {
-        const width = 25 + Math.random() * 35;
-        const height = 40 + Math.random() * 80;
-        const shade = Math.floor(Math.random() * BUILDING_COLORS.length);
-        const windows = generateWindows(width, height);
-        buildingsRef.current.push({ x, width, height, shade, windows });
-        x += width + 5 + Math.random() * 15;
-      }
-    }
-    
-    // Ground area
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(0, CANVAS_HEIGHT - GROUND_HEIGHT, CANVAS_WIDTH, GROUND_HEIGHT);
-    
-    // Draw buildings at bottom (parallax)
-    const parallaxOffset = (cameraYRef.current * 0.02) % 60;
-    buildingsRef.current.forEach(building => {
-      const baseY = CANVAS_HEIGHT - GROUND_HEIGHT;
-      const adjustedX = building.x - parallaxOffset;
-      const wrappedX = ((adjustedX % (CANVAS_WIDTH + 100)) + CANVAS_WIDTH + 100) % (CANVAS_WIDTH + 100) - 50;
-      
-      ctx.fillStyle = BUILDING_COLORS[building.shade];
-      ctx.fillRect(wrappedX, baseY - building.height, building.width, building.height);
-      
-      // Building edge highlight
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
-      ctx.fillRect(wrappedX, baseY - building.height, 2, building.height);
-      
-      // Windows
-      const windowRows = Math.floor(building.height / 15);
-      const windowCols = Math.floor(building.width / 12);
-      let windowIdx = 0;
-      for (let row = 0; row < windowRows; row++) {
-        for (let col = 0; col < windowCols; col++) {
-          const brightness = building.windows[windowIdx] || 0;
-          ctx.fillStyle = brightness > 0 ? `rgba(255, 220, 150, ${brightness})` : 'rgba(50, 50, 50, 0.5)';
-          ctx.fillRect(wrappedX + 4 + col * 12, baseY - building.height + 8 + row * 15, 6, 8);
-          windowIdx++;
-        }
-      }
-    });
-    
-    // Ground line
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, CANVAS_HEIGHT - GROUND_HEIGHT);
-    ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_HEIGHT);
-    ctx.stroke();
   }, []);
   
   const drawPlatform = useCallback((ctx: CanvasRenderingContext2D, platform: Platform, screenY: number) => {
@@ -1354,7 +1286,6 @@ export default function DonutJumpPage() {
     powerUpsRef.current = [];
     activePowerUpsRef.current = [];
     particlesRef.current = [];
-    buildingsRef.current = [];
     bgParticlesRef.current = [];
     
     cameraYRef.current = 0;
@@ -1548,15 +1479,6 @@ export default function DonutJumpPage() {
         ctx.stroke();
       }
       
-      // Ground
-      ctx.fillStyle = '#0a0a0a';
-      ctx.fillRect(0, CANVAS_HEIGHT - 50, CANVAS_WIDTH, 50);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-      ctx.beginPath();
-      ctx.moveTo(0, CANVAS_HEIGHT - 50);
-      ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - 50);
-      ctx.stroke();
-      
       // Floating platforms
       for (let i = 0; i < 5; i++) {
         const y = 120 + i * 70 + Math.sin(time + i) * 10;
@@ -1606,19 +1528,6 @@ export default function DonutJumpPage() {
       }
       ctx.restore();
       
-      // Floating coins
-      for (let i = 0; i < 3; i++) {
-        const coinY = 140 + i * 60 + Math.sin(time * 2 + i) * 5;
-        const coinX = 280 + Math.sin(time + i * 2) * 20;
-        ctx.fillStyle = '#FFD700';
-        ctx.shadowColor = '#FFD700';
-        ctx.shadowBlur = 10;
-        ctx.beginPath();
-        ctx.arc(coinX, coinY, 12, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
-      
       // Title
       ctx.fillStyle = '#FFFFFF';
       ctx.font = 'bold 28px monospace';
@@ -1646,11 +1555,6 @@ export default function DonutJumpPage() {
         } else {
           ctx.fillText('🍩 donuts collected', CANVAS_WIDTH / 2, 365);
         }
-      } else {
-        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        ctx.font = '14px monospace';
-        ctx.fillText('Tap left/right to move', CANVAS_WIDTH / 2, 290);
-        ctx.fillText('Bounce on platforms to climb!', CANVAS_WIDTH / 2, 315);
       }
       
       animationId = requestAnimationFrame(draw);
