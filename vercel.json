@@ -9,6 +9,9 @@
     "app/api/cron/donut-dash-distribute/route.ts": {
       "maxDuration": 120
     },
+    "app/api/cron/donut-jump-distribute/route.ts": {
+      "maxDuration": 120
+    },
     "app/api/cron/miners-distribute/route.ts": {
       "maxDuration": 120
     },
@@ -22,11 +25,11 @@
       "schedule": "*/10 * * * *"
     },
     {
-      "path": "/api/cron/flappy-distribute",
+      "path": "/api/cron/miners-distribute",
       "schedule": "0 23 * * 5"
     },
     {
-      "path": "/api/cron/stack-tower-distribute",
+      "path": "/api/cron/flappy-distribute",
       "schedule": "1 23 * * 5"
     },
     {
@@ -34,7 +37,11 @@
       "schedule": "2 23 * * 5"
     },
     {
-      "path": "/api/cron/miners-distribute",
+      "path": "/api/cron/donut-jump-distribute",
+      "schedule": "3 23 * * 5"
+    },
+    {
+      "path": "/api/cron/stack-tower-distribute",
       "schedule": "5 23 * * 5"
     }
   ]

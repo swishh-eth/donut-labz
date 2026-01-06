@@ -163,6 +163,48 @@ function DonutDashTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer:
   );
 }
 
+// Donut Jump Tile
+function DonutJumpTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer: RecentPlayer | null; prizePool: number; weeklyPlays: number }) {
+  return (
+    <button
+      onClick={() => window.location.href = "/games/donut-jump"}
+      className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+    >
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Trophy className="w-24 h-24 text-zinc-800" />
+      </div>
+      
+      <div className="relative z-10 p-4 pr-20">
+        <div className="text-left">
+          <div className="flex items-center gap-2 mb-1">
+            <Trophy className="w-5 h-5 text-white" />
+            <span className="font-bold text-base text-white">Donut Jump</span>
+            <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
+          </div>
+          <div className="text-[10px] text-white/60 mb-2">Bounce up, collect donuts!</div>
+          
+          <div className="flex items-center gap-1.5 text-[9px]">
+            <UsdcCoin className="w-3 h-3" />
+            <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-500 whitespace-nowrap">{weeklyPlays.toLocaleString()} plays</span>
+            {recentPlayer && (
+              <>
+                <span className="text-zinc-600">•</span>
+                <span className="text-zinc-400 flex items-center gap-1 whitespace-nowrap">
+                  {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3 h-3 rounded-full flex-shrink-0" />}
+                  @{recentPlayer.username} {recentPlayer.score}pts
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 // Coming Soon Tile
 function ComingSoonTile() {
   return (
@@ -209,10 +251,14 @@ export default function GamesPage() {
   const [dashRecentPlayer, setDashRecentPlayer] = useState<RecentPlayer | null>(null);
   const [dashPrizePool, setDashPrizePool] = useState<number>(5);
   
+  const [jumpRecentPlayer, setJumpRecentPlayer] = useState<RecentPlayer | null>(null);
+  const [jumpPrizePool, setJumpPrizePool] = useState<number>(5);
+  
   const [totalGamesPlayed, setTotalGamesPlayed] = useState<number>(0);
   const [flappyWeeklyPlays, setFlappyWeeklyPlays] = useState<number>(0);
   const [stackWeeklyPlays, setStackWeeklyPlays] = useState<number>(0);
   const [dashWeeklyPlays, setDashWeeklyPlays] = useState<number>(0);
+  const [jumpWeeklyPlays, setJumpWeeklyPlays] = useState<number>(0);
   const [timeUntilReset, setTimeUntilReset] = useState<string>("");
   const [showUsdPrize, setShowUsdPrize] = useState(true);
   
@@ -366,6 +412,33 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch Donut Jump data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const prizeRes = await fetch('/api/cron/donut-jump-distribute');
+        if (prizeRes.ok) {
+          const prizeData = await prizeRes.json();
+          setJumpPrizePool(prizeData.totalPrize || 5);
+        }
+        
+        const recentRes = await fetch('/api/games/donut-jump/recent');
+        if (recentRes.ok) {
+          const recentData = await recentRes.json();
+          if (recentData.recentPlayer) setJumpRecentPlayer(recentData.recentPlayer);
+          if (recentData.gamesThisWeek !== undefined) {
+            setJumpWeeklyPlays(recentData.gamesThisWeek);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch Jump data:", e);
+      }
+    };
+    fetchData();
+    const interval = setInterval(fetchData, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Fetch total games played this week (fallback for individual game stats)
   useEffect(() => {
     const fetchGamesCount = async () => {
@@ -384,6 +457,9 @@ export default function GamesPage() {
           if (data.dashGamesThisWeek !== undefined && dashWeeklyPlays === 0) {
             setDashWeeklyPlays(data.dashGamesThisWeek);
           }
+          if (data.jumpGamesThisWeek !== undefined && jumpWeeklyPlays === 0) {
+            setJumpWeeklyPlays(data.jumpGamesThisWeek);
+          }
           setIsStatsLoaded(true);
         }
       } catch (e) {
@@ -394,7 +470,7 @@ export default function GamesPage() {
     fetchGamesCount();
     const interval = setInterval(fetchGamesCount, 60000);
     return () => clearInterval(interval);
-  }, [flappyWeeklyPlays, stackWeeklyPlays, dashWeeklyPlays]);
+  }, [flappyWeeklyPlays, stackWeeklyPlays, dashWeeklyPlays, jumpWeeklyPlays]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -412,7 +488,7 @@ export default function GamesPage() {
   }, []);
 
   // Calculate total USDC prizes for display
-  const totalUsdcPrizes = dashPrizePool + stackPrizePool;
+  const totalUsdcPrizes = dashPrizePool + stackPrizePool + jumpPrizePool;
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -550,21 +626,28 @@ export default function GamesPage() {
                     className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                     style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}
                   >
-                    <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} weeklyPlays={dashWeeklyPlays} />
+                    <DonutJumpTile recentPlayer={jumpRecentPlayer} prizePool={jumpPrizePool} weeklyPlays={jumpWeeklyPlays} />
                   </div>
                   
                   <div 
                     className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                     style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
                   >
+                    <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} weeklyPlays={dashWeeklyPlays} />
+                  </div>
+                  
+                  <div 
+                    className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                    style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
+                  >
                     <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} weeklyPlays={stackWeeklyPlays} />
                   </div>
                   
-                  {[...Array(3)].map((_, i) => (
+                  {[...Array(2)].map((_, i) => (
                     <div 
                       key={i}
                       className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                      style={!hasAnimatedIn ? { opacity: 0, animationDelay: `${150 + i * 50}ms`, animationFillMode: 'forwards' } : {}}
+                      style={!hasAnimatedIn ? { opacity: 0, animationDelay: `${200 + i * 50}ms`, animationFillMode: 'forwards' } : {}}
                     >
                       <ComingSoonTile />
                     </div>
@@ -617,6 +700,17 @@ export default function GamesPage() {
                   </h3>
                   <p className="text-gray-400 text-xs">
                     Hold to jetpack up, release to fall! Collect sprinkles and avoid obstacles. 
+                    Top 10 weekly scores split the USDC prize pool. FREE to play!
+                  </p>
+                </div>
+
+                <div className="bg-zinc-800/50 rounded-xl p-3">
+                  <h3 className="font-bold text-white mb-2 flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-white" />
+                    Donut Jump
+                  </h3>
+                  <p className="text-gray-400 text-xs">
+                    Tap left/right to move, bounce on platforms to climb! Collect donut coins and power-ups.
                     Top 10 weekly scores split the USDC prize pool. FREE to play!
                   </p>
                 </div>
