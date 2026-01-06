@@ -1768,10 +1768,22 @@ export default function HomePage() {
                   <button
                     onClick={() => {
                       const newExpanded = !isBurnExpanded;
-                      setIsBurnExpanded(newExpanded);
-                      // Scroll to top when collapsing to ensure smooth animation
                       if (!newExpanded && scrollContainerRef.current) {
-                        scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                        // Smooth scroll to top first, then collapse after scroll completes
+                        const scrollContainer = scrollContainerRef.current;
+                        const scrollTop = scrollContainer.scrollTop;
+                        
+                        if (scrollTop > 0) {
+                          scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+                          // Delay collapse until scroll animation completes (roughly 300ms)
+                          setTimeout(() => {
+                            setIsBurnExpanded(false);
+                          }, 300);
+                        } else {
+                          setIsBurnExpanded(false);
+                        }
+                      } else {
+                        setIsBurnExpanded(newExpanded);
                       }
                     }}
                     className="w-full text-left active:scale-[0.99] transition-transform"
