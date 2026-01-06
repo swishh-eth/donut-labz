@@ -1035,13 +1035,12 @@ export default function ChatPage() {
                         </Avatar>
                       </button>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                        <div className="flex items-center gap-2 mb-0.5">
                           <button onClick={() => openUserProfile(username)} disabled={!username} className={cn(
                             "font-semibold text-xs truncate",
                             hasBothAirdropAndTips ? "text-pink-400" : hasAirdrop ? "text-green-400" : "text-white",
                             username && "hover:text-gray-300"
                           )}>{displayName}</button>
-                          {username && <button onClick={() => openUserProfile(username)} className="text-[10px] text-gray-500 truncate hover:text-gray-300">{username}</button>}
                           {/* Inline airdrop indicator with sprinkles icon and amount */}
                           {hasAirdrop && (
                             <span className={cn(
