@@ -541,17 +541,31 @@ export default function DonutJumpPage() {
       type: 'normal',
     });
     
-    // Generate platforms upward
+    // Generate platforms upward with coins
     let y = CANVAS_HEIGHT - 100;
+    let coinsSpawned = 0;
     while (y > -CANVAS_HEIGHT) {
       y -= MIN_PLATFORM_GAP + Math.random() * (MAX_PLATFORM_GAP - MIN_PLATFORM_GAP);
-      platformsRef.current.push(generatePlatform(y, y > CANVAS_HEIGHT - 300));
+      const platform = generatePlatform(y, y > CANVAS_HEIGHT - 300);
+      platformsRef.current.push(platform);
+      
+      // Spawn coins on initial platforms (40% chance)
+      if (Math.random() < 0.4) {
+        coinsRef.current.push({
+          x: platform.x + platform.width / 2,
+          y: platform.y - 30,
+          collected: false,
+          sparklePhase: Math.random() * Math.PI * 2,
+        });
+        coinsSpawned++;
+      }
     }
+    console.log("[Donut Jump Client] Initial platforms generated:", platformsRef.current.length, "coins spawned:", coinsSpawned);
   }, [generatePlatform]);
   
   // Coin generation
   const maybeSpawnCoin = useCallback((platform: Platform) => {
-    if (Math.random() < 0.3) {
+    if (Math.random() < 0.4) {  // 40% chance for more coins
       coinsRef.current.push({
         x: platform.x + platform.width / 2,
         y: platform.y - 30,
@@ -1216,6 +1230,7 @@ export default function DonutJumpPage() {
       if (dist < PLAYER_WIDTH / 2 + COIN_SIZE / 2) {
         coin.collected = true;
         coinsCollectedRef.current++;
+        console.log("[Donut Jump Client] Coin collected! Total:", coinsCollectedRef.current);
         playCoinSound();
         addParticles(coin.x, coin.y, '#FFD700', 8);
       }
@@ -1297,7 +1312,9 @@ export default function DonutJumpPage() {
     triggerScreenShake(15, 500);
     
     const finalScore = coinsCollectedRef.current;
-    console.log("[Donut Jump Client] Game over - coins collected:", finalScore, "height:", maxHeightRef.current);
+    const totalCoins = coinsRef.current.length;
+    const collectedCoins = coinsRef.current.filter(c => c.collected).length;
+    console.log("[Donut Jump Client] Game over - finalScore:", finalScore, "totalCoins:", totalCoins, "collectedCoins:", collectedCoins, "height:", maxHeightRef.current);
     setGameState("gameover");
     setHighScore(prev => Math.max(prev, finalScore));
     submitScore(finalScore);
