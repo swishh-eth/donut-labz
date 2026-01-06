@@ -944,7 +944,7 @@ export default function ChatPage() {
                         className={cn(
                           "p-3 rounded-lg border text-sm font-semibold transition-all flex items-center justify-center gap-2",
                           tempTipSettings.token === "sprinkles"
-                            ? "border-green-500 bg-green-500/20 text-green-400"
+                            ? "border-white bg-white/10 text-white"
                             : "border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600"
                         )}
                       >
@@ -959,7 +959,7 @@ export default function ChatPage() {
                         className={cn(
                           "p-3 rounded-lg border text-sm font-semibold transition-all flex items-center justify-center gap-2",
                           tempTipSettings.token === "donut"
-                            ? "border-orange-500 bg-orange-500/20 text-orange-400"
+                            ? "border-white bg-white/10 text-white"
                             : "border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600"
                         )}
                       >
@@ -982,9 +982,7 @@ export default function ChatPage() {
                           className={cn(
                             "p-3 rounded-lg border text-sm font-semibold transition-all flex items-center justify-center gap-1",
                             tempTipSettings.amount === amt && !customAmount
-                              ? tempTipSettings.token === "donut" 
-                                ? "border-orange-500 bg-orange-500/20 text-orange-400"
-                                : "border-green-500 bg-green-500/20 text-green-400"
+                              ? "border-white bg-white/10 text-white"
                               : "border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600"
                           )}
                         >
@@ -1014,22 +1012,11 @@ export default function ChatPage() {
                     </div>
                   </div>
 
-                  <div className={cn(
-                    "border rounded-lg p-3 mb-4",
-                    tempTipSettings.token === "donut" 
-                      ? "bg-orange-500/10 border-orange-500/30"
-                      : "bg-green-500/10 border-green-500/30"
-                  )}>
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4">
                     <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Preview</div>
                     <div className="flex items-center gap-2">
-                      <Heart className={cn(
-                        "w-5 h-5 fill-current/50",
-                        tempTipSettings.token === "donut" ? "text-orange-400" : "text-green-400"
-                      )} />
-                      <span className={cn(
-                        "text-base font-bold flex items-center gap-1",
-                        tempTipSettings.token === "donut" ? "text-orange-400" : "text-green-400"
-                      )}>
+                      <Heart className="w-5 h-5 text-white fill-white/50" />
+                      <span className="text-base font-bold text-white flex items-center gap-1">
                         {customAmount || tempTipSettings.amount} 
                         {tempTipSettings.token === "donut" ? <DonutCoin className="w-4 h-4" /> : <SprinklesCoin className="w-4 h-4" />} 
                         {tempTipSettings.token === "donut" ? "DONUT" : "SPRINKLES"}
@@ -1039,12 +1026,7 @@ export default function ChatPage() {
 
                   <button 
                     onClick={saveTipSettings} 
-                    className={cn(
-                      "w-full rounded-xl py-2.5 text-sm font-bold transition-colors",
-                      tempTipSettings.token === "donut"
-                        ? "bg-orange-500 text-white hover:bg-orange-600"
-                        : "bg-green-500 text-white hover:bg-green-600"
-                    )}
+                    className="w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
                   >
                     Save Settings
                   </button>
@@ -1134,21 +1116,16 @@ export default function ChatPage() {
                             hasBothAirdropAndTips ? "text-pink-400" : hasAirdrop ? "text-green-400" : "text-white",
                             username && "hover:text-gray-300"
                           )}>{displayName}</button>
-                          {/* Inline sprinkles indicator (airdrop + tips combined) */}
+                          {/* Inline sprinkles indicator (airdrop + tips combined) - always green */}
                           {hasAnySprinkles && (
-                            <span className={cn(
-                              "text-[9px] px-1.5 py-0.5 rounded flex items-center gap-0.5 font-bold flex-shrink-0",
-                              hasBothAirdropAndTips 
-                                ? "text-pink-400 bg-pink-500/30" 
-                                : "text-green-400 bg-green-500/30"
-                            )}>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded flex items-center gap-0.5 font-bold flex-shrink-0 text-green-400 bg-green-500/30">
                               <SprinklesCoin className="w-3 h-3" />
                               +{totalSprinkles}
                             </span>
                           )}
-                          {/* Inline donut tips indicator */}
+                          {/* Inline donut tips indicator - pink */}
                           {hasDonutTips && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded flex items-center gap-0.5 font-bold flex-shrink-0 text-orange-400 bg-orange-500/30">
+                            <span className="text-[9px] px-1.5 py-0.5 rounded flex items-center gap-0.5 font-bold flex-shrink-0 text-pink-400 bg-pink-500/30">
                               <DonutCoin className="w-3 h-3" />
                               +{msgTipAmounts.donut}
                             </span>
@@ -1279,39 +1256,17 @@ export default function ChatPage() {
                     </div>
                   )}
                   {(isTipPending || isTipConfirming) && (
-                    <div className={cn(
-                      "mb-2 rounded-xl p-2 flex items-center justify-center gap-2 border",
-                      tipSettings.token === "donut" 
-                        ? "bg-orange-500/10 border-orange-500/30"
-                        : "bg-green-500/10 border-green-500/30"
-                    )}>
-                      <Heart className={cn(
-                        "w-4 h-4 animate-pulse",
-                        tipSettings.token === "donut" ? "text-orange-400" : "text-green-400"
-                      )} />
-                      <span className={cn(
-                        "text-xs flex items-center gap-1",
-                        tipSettings.token === "donut" ? "text-orange-400" : "text-green-400"
-                      )}>
+                    <div className="mb-2 bg-white/10 border border-white/30 rounded-xl p-2 flex items-center justify-center gap-2">
+                      <Heart className="w-4 h-4 text-white animate-pulse" />
+                      <span className="text-xs text-white flex items-center gap-1">
                         {isTipPending ? "Confirm tip in wallet..." : <>Sending {tipSettings.amount} {tipSettings.token === "donut" ? <><DonutCoin className="w-3 h-3" /> DONUT</> : <><SprinklesCoin className="w-3 h-3" /> SPRINKLES</>}...</>}
                       </span>
                     </div>
                   )}
                   {isTipSuccess && (
-                    <div className={cn(
-                      "mb-2 rounded-xl p-2 flex items-center justify-center gap-2 border",
-                      tipSettings.token === "donut" 
-                        ? "bg-orange-500/10 border-orange-500/30"
-                        : "bg-green-500/10 border-green-500/30"
-                    )}>
-                      <Heart className={cn(
-                        "w-4 h-4 fill-current",
-                        tipSettings.token === "donut" ? "text-orange-400" : "text-green-400"
-                      )} />
-                      <span className={cn(
-                        "text-xs flex items-center gap-1",
-                        tipSettings.token === "donut" ? "text-orange-400" : "text-green-400"
-                      )}>
+                    <div className="mb-2 bg-white/10 border border-white/30 rounded-xl p-2 flex items-center justify-center gap-2">
+                      <Heart className="w-4 h-4 text-white fill-white" />
+                      <span className="text-xs text-white flex items-center gap-1">
                         Tip sent! {tipSettings.token === "donut" ? <DonutCoin className="w-3 h-3" /> : <SprinklesCoin className="w-3 h-3" />}
                       </span>
                     </div>
