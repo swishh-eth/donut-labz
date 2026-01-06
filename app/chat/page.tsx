@@ -1009,7 +1009,7 @@ export default function ChatPage() {
                     <div 
                       key={`${msg.transactionHash}-${index}`} 
                       className={cn(
-                        "flex gap-2 p-2 rounded-lg relative",
+                        "flex gap-2 p-2 rounded-lg relative items-start",
                         hasBothAirdropAndTips
                           ? "bg-pink-500/20 border border-pink-500/50"
                           : hasAirdrop
