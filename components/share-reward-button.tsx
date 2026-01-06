@@ -508,7 +508,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
 
     // Needs SPRINKLES
     if (needsSprinkles) {
-      // First show "NOT ENOUGH SPRINKLES" message, then show action buttons on tap
+      // First show "HOLD 10K SPRINKLES TO CLAIM" message, then show action buttons on tap
       if (!showSprinklesActions) {
         return (
           <button
@@ -516,9 +516,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             className="h-24 rounded-xl p-2 flex flex-col items-center justify-center transition-all active:scale-[0.98]"
             style={sprinklesRequirementGradientStyle}
           >
-            <Coins className="w-6 h-6 text-green-400 mb-1" />
-            <div className="text-[10px] font-bold text-green-400">NOT ENOUGH SPRINKLES</div>
-            <div className="text-[9px] text-green-400/70">Need 10K (have {Math.floor(sprinklesBalance).toLocaleString()})</div>
+            <div className="text-[10px] font-bold text-green-400">HOLD 10K SPRINKLES TO CLAIM</div>
           </button>
         );
       }
@@ -843,16 +841,15 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     if (verifyError) {
       // Special styling for SPRINKLES requirement
       if (needsSprinkles) {
-        // First show "NOT ENOUGH SPRINKLES" message, then show action buttons on tap
+        // First show "HOLD 10K SPRINKLES TO CLAIM" message, then show action buttons on tap
         if (!showSprinklesActions) {
           return (
             <button
               onClick={() => setShowSprinklesActions(true)}
-              className="rounded-xl p-2 h-[36px] flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+              className="rounded-xl p-2 h-[36px] flex items-center justify-center transition-all active:scale-[0.98]"
               style={sprinklesRequirementGradientStyle}
             >
-              <Coins className="w-3.5 h-3.5 text-green-400" />
-              <span className="font-semibold text-[10px] text-green-400">NEED 10K SPRINKLES</span>
+              <span className="font-semibold text-[10px] text-green-400">HOLD 10K SPRINKLES TO CLAIM</span>
             </button>
           );
         }
