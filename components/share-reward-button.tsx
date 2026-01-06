@@ -107,7 +107,7 @@ const setCachedState = (state: Omit<CachedState, 'timestamp'>) => {
   sessionCache = { ...state, timestamp: Date.now() };
 };
 
-// Matrix-style text that transitions out then in between different texts
+// Matrix-style text that scrambles in, holds, scrambles out, then next text
 function MatrixTransitionText({ 
   texts,
   interval = 3000,
@@ -120,67 +120,109 @@ function MatrixTransitionText({
   const [displayText, setDisplayText] = useState(texts[0]);
   const [isAnimating, setIsAnimating] = useState(false);
   const currentIndexRef = useRef(0);
-  const animationRef = useRef<NodeJS.Timeout | null>(null);
+  const phaseRef = useRef<'idle' | 'out' | 'in'>('idle');
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   
-  // Cycle through texts
   useEffect(() => {
-    const cycleTimer = setInterval(() => {
-      // Start scramble animation
+    let mainTimer: NodeJS.Timeout;
+    let frameTimer: NodeJS.Timeout;
+    
+    const scrambleOut = (currentText: string, onComplete: () => void) => {
+      let frame = 0;
+      const totalFrames = 10;
+      phaseRef.current = 'out';
       setIsAnimating(true);
       
-      const nextIndex = (currentIndexRef.current + 1) % texts.length;
-      const targetText = texts[nextIndex];
-      let frame = 0;
-      const totalFrames = 12;
-      
-      // Clear any existing animation
-      if (animationRef.current) {
-        clearInterval(animationRef.current);
-      }
-      
-      // Scramble animation
-      animationRef.current = setInterval(() => {
+      frameTimer = setInterval(() => {
         frame++;
-        
         if (frame <= totalFrames) {
-          // Generate scrambled text that progressively reveals target
-          const revealedChars = Math.floor((frame / totalFrames) * targetText.length);
-          let scrambled = '';
-          for (let i = 0; i < targetText.length; i++) {
-            if (i < revealedChars) {
-              scrambled += targetText[i];
-            } else if (targetText[i] === ' ') {
-              scrambled += ' ';
+          // Progressively scramble from left to right
+          const scrambledCount = Math.floor((frame / totalFrames) * currentText.length);
+          let result = '';
+          for (let i = 0; i < currentText.length; i++) {
+            if (i < scrambledCount) {
+              result += currentText[i] === ' ' ? ' ' : chars[Math.floor(Math.random() * chars.length)];
             } else {
-              scrambled += chars[Math.floor(Math.random() * chars.length)];
+              result += currentText[i];
             }
           }
-          setDisplayText(scrambled);
+          setDisplayText(result);
         } else {
-          // Animation complete
+          clearInterval(frameTimer);
+          onComplete();
+        }
+      }, 50);
+    };
+    
+    const scrambleIn = (targetText: string, onComplete: () => void) => {
+      let frame = 0;
+      const totalFrames = 10;
+      phaseRef.current = 'in';
+      setIsAnimating(true);
+      
+      // Start with all scrambled
+      let scrambled = '';
+      for (let i = 0; i < targetText.length; i++) {
+        scrambled += targetText[i] === ' ' ? ' ' : chars[Math.floor(Math.random() * chars.length)];
+      }
+      setDisplayText(scrambled);
+      
+      frameTimer = setInterval(() => {
+        frame++;
+        if (frame <= totalFrames) {
+          // Progressively reveal from left to right
+          const revealedCount = Math.floor((frame / totalFrames) * targetText.length);
+          let result = '';
+          for (let i = 0; i < targetText.length; i++) {
+            if (i < revealedCount) {
+              result += targetText[i];
+            } else if (targetText[i] === ' ') {
+              result += ' ';
+            } else {
+              result += chars[Math.floor(Math.random() * chars.length)];
+            }
+          }
+          setDisplayText(result);
+        } else {
+          clearInterval(frameTimer);
           setDisplayText(targetText);
           setIsAnimating(false);
-          currentIndexRef.current = nextIndex;
-          if (animationRef.current) {
-            clearInterval(animationRef.current);
-            animationRef.current = null;
-          }
+          phaseRef.current = 'idle';
+          onComplete();
         }
-      }, 40);
+      }, 50);
+    };
+    
+    const runCycle = () => {
+      const currentText = texts[currentIndexRef.current];
       
-    }, interval);
+      // Scramble out current text
+      scrambleOut(currentText, () => {
+        // Move to next text
+        currentIndexRef.current = (currentIndexRef.current + 1) % texts.length;
+        const nextText = texts[currentIndexRef.current];
+        
+        // Small pause then scramble in
+        setTimeout(() => {
+          scrambleIn(nextText, () => {
+            // Schedule next cycle
+            mainTimer = setTimeout(runCycle, interval);
+          });
+        }, 100);
+      });
+    };
+    
+    // Start first cycle after initial display time
+    mainTimer = setTimeout(runCycle, interval);
     
     return () => {
-      clearInterval(cycleTimer);
-      if (animationRef.current) {
-        clearInterval(animationRef.current);
-      }
+      clearTimeout(mainTimer);
+      clearInterval(frameTimer);
     };
   }, [texts, interval]);
   
   return (
-    <span className={`${className} transition-colors duration-150 ${isAnimating ? 'text-green-400' : ''}`}>
+    <span className={`${className} transition-colors duration-100 ${isAnimating ? 'text-green-400' : ''}`}>
       {displayText}
     </span>
   );
