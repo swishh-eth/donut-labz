@@ -11,7 +11,7 @@ import { Header } from "@/components/header";
 import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
-import { Flame, Sparkles, Zap, ExternalLink, ChevronDown, AlertTriangle } from "lucide-react";
+import { Flame, Sparkles, Zap, ExternalLink, AlertTriangle } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
 import { cn } from "@/lib/utils";
@@ -1809,12 +1809,6 @@ export default function HomePage() {
                               PROFITABLE
                             </span>
                           )}
-                          <ChevronDown 
-                            className={cn(
-                              "w-4 h-4 transition-transform duration-300 ml-auto",
-                              isBurnExpanded ? "rotate-180 text-white" : "text-gray-500"
-                            )} 
-                          />
                         </div>
                         <div className={cn("text-[10px] mb-2", isBurnProfitable ? "text-green-200/60" : "text-gray-600")}>
                           Burn SPRINKLES LP to receive DONUT
