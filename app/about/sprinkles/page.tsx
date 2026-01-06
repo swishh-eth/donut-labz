@@ -29,98 +29,83 @@ const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   </span>
 );
 
-// Matrix-style single digit component
-function MatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: number; isReady: boolean }) {
-  const [displayChar, setDisplayChar] = useState(char === '.' || char === ',' || char === ' ' ? char : '0');
-  const [isAnimating, setIsAnimating] = useState(false);
-  const hasAnimatedRef = useRef(false);
+// Matrix-style number digit component
+function MatrixDigit({ digit, delay = 0 }: { digit: string; delay?: number }) {
+  const [displayDigit, setDisplayDigit] = useState('0');
+  const [isAnimating, setIsAnimating] = useState(true);
   
   useEffect(() => {
-    // Don't animate punctuation or spaces
-    if (char === '.' || char === ',' || char === ' ') {
-      setDisplayChar(char);
+    if (digit === ',' || digit === ' ') {
+      setDisplayDigit(digit);
       setIsAnimating(false);
       return;
     }
     
-    // If already animated, just show the char (live updates)
-    if (hasAnimatedRef.current) {
-      setDisplayChar(char);
-      setIsAnimating(false);
-      return;
-    }
-    
-    // Wait for ready signal
-    if (!isReady) return;
-    
-    hasAnimatedRef.current = true;
     setIsAnimating(true);
     
     // Random digits cycling effect
     let cycleCount = 0;
-    const maxCycles = 8 + Math.floor(delay / 30);
+    const maxCycles = 8 + Math.floor(delay / 50);
     
     const cycleInterval = setInterval(() => {
       if (cycleCount < maxCycles) {
-        setDisplayChar(Math.floor(Math.random() * 10).toString());
+        setDisplayDigit(Math.floor(Math.random() * 10).toString());
         cycleCount++;
       } else {
-        setDisplayChar(char);
+        setDisplayDigit(digit);
         setIsAnimating(false);
         clearInterval(cycleInterval);
       }
     }, 50);
     
-    return () => {
-      clearInterval(cycleInterval);
-      setIsAnimating(false);
-    };
-  }, [char, delay, isReady]);
+    return () => clearInterval(cycleInterval);
+  }, [digit, delay]);
   
   return (
-    <span className={`transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}>
-      {displayChar}
+    <span 
+      className={`inline-block transition-all duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}
+      style={{ 
+        minWidth: digit === ',' ? '0.3em' : '0.6em',
+        textAlign: 'center'
+      }}
+    >
+      {displayDigit}
     </span>
   );
 }
 
-// Matrix-style value animation for numbers
-function MatrixValue({ 
+// Matrix-style number display
+function MatrixNumber({ 
   value, 
-  isReady,
-  className = ""
+  isLoading,
+  className = "text-white"
 }: { 
   value: string; 
-  isReady: boolean;
+  isLoading: boolean;
   className?: string;
 }) {
   const [key, setKey] = useState(0);
-  const initializedRef = useRef(false);
+  const prevValueRef = useRef("");
   
-  // Trigger animation once when ready and value exists
+  // Re-trigger animation when value changes
   useEffect(() => {
-    if (!initializedRef.current && isReady && value && value !== "0") {
-      initializedRef.current = true;
-      setKey(1);
+    if (!isLoading && value && value !== "0" && value !== prevValueRef.current) {
+      setKey(prev => prev + 1);
+      prevValueRef.current = value;
     }
-  }, [isReady, value]);
+  }, [value, isLoading]);
   
-  // If not ready or no value, show placeholder
-  if (!value || !initializedRef.current) {
-    return <span className={`tabular-nums ${className}`}>—</span>;
+  // Show placeholder while loading or for empty/zero values
+  if (isLoading || !value || value === "0") {
+    return <span className={`${className} opacity-50`}>—</span>;
   }
   
-  const chars = value.split('');
+  const digits = value.split('');
   
   return (
     <span key={key} className={`tabular-nums ${className}`}>
-      {chars.map((char, index) => (
-        <MatrixDigit 
-          key={`${key}-${index}`} 
-          char={char} 
-          delay={index * 30} 
-          isReady={isReady}
-        />
+      {digits.map((digit, index) => (
+        <MatrixDigit key={`${key}-${index}`} digit={digit} delay={index * 30} />
       ))}
     </span>
   );
@@ -152,7 +137,7 @@ export default function AboutSprinklesPage() {
   const [donutBurnedInLP, setDonutBurnedInLP] = useState<string>("0");
   const [gDonutStaked, setGDonutStaked] = useState<string>("0");
   const [treasurySprinkles, setTreasurySprinkles] = useState<string>("0");
-  const [dataReady, setDataReady] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Treasury address
   const TREASURY_ADDRESS = "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d";
@@ -348,9 +333,6 @@ export default function AboutSprinklesPage() {
     fetchGDonutStaked();
     fetchTreasurySprinkles();
     
-    // Set dataReady after initial fetch
-    setTimeout(() => setDataReady(true), 500);
-    
     const interval = setInterval(() => {
       fetchBurnedBalance();
       fetchTotalSupply();
@@ -463,19 +445,19 @@ export default function AboutSprinklesPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">Max Supply</span>
                     <span className="text-sm font-bold text-white">
-                      <MatrixValue value="210,000,000" isReady={dataReady} />
+                      <MatrixNumber value="210,000,000" isLoading={isLoading} className="text-white" />
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">With Burned Tokens</span>
                     <span className="text-sm font-bold text-white">
-                      <MatrixValue value={withBurnedTokens} isReady={dataReady} />
+                      <MatrixNumber value={withBurnedTokens} isLoading={isLoading} className="text-white" />
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">Circulating</span>
                     <span className="text-sm font-bold text-green-400">
-                      <MatrixValue value={circulatingSupply} isReady={dataReady} />
+                      <MatrixNumber value={circulatingSupply} isLoading={isLoading} className="text-green-400" />
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -493,7 +475,7 @@ export default function AboutSprinklesPage() {
                     <span className="text-[10px] text-gray-400">SPRINKLES Burned</span>
                   </div>
                   <span className="text-lg font-bold text-green-400">
-                    <MatrixValue value={burnedBalance} isReady={dataReady} />
+                    <MatrixNumber value={burnedBalance} isLoading={isLoading} className="text-green-400" />
                   </span>
                   <p className="text-[9px] text-gray-500 mt-0.5">Togglable Burn Switch</p>
                 </div>
@@ -503,7 +485,7 @@ export default function AboutSprinklesPage() {
                     <span className="text-[10px] text-gray-400">DONUT Burned</span>
                   </div>
                   <span className="text-lg font-bold text-pink-400">
-                    <MatrixValue value={donutBurnedInLP} isReady={dataReady} />
+                    <MatrixNumber value={donutBurnedInLP} isLoading={isLoading} className="text-pink-400" />
                   </span>
                   <p className="text-[9px] text-gray-500 mt-0.5">LP Fee's In Dead Address</p>
                 </div>
@@ -513,7 +495,7 @@ export default function AboutSprinklesPage() {
                     <span className="text-[10px] text-gray-400">Treasury SPRINKLES</span>
                   </div>
                   <span className="text-lg font-bold text-green-400">
-                    <MatrixValue value={treasurySprinkles} isReady={dataReady} />
+                    <MatrixNumber value={treasurySprinkles} isLoading={isLoading} className="text-green-400" />
                   </span>
                   <p className="text-[9px] text-gray-500 mt-0.5">Buybacks w/ LSG Revenue</p>
                 </div>
@@ -523,7 +505,7 @@ export default function AboutSprinklesPage() {
                     <span className="text-[10px] text-gray-400">gDONUT Staked</span>
                   </div>
                   <span className="text-lg font-bold text-pink-400">
-                    <MatrixValue value={gDonutStaked} isReady={dataReady} />
+                    <MatrixNumber value={gDonutStaked} isLoading={isLoading} className="text-pink-400" />
                   </span>
                   <p className="text-[9px] text-gray-500 mt-0.5">Miner 15% Revenue Fee</p>
                 </div>
