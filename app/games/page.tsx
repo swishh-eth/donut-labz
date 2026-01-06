@@ -54,7 +54,7 @@ function FlappyDonutTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlaye
           <div className="flex items-center gap-2 mb-1">
             <Gamepad2 className="w-5 h-5 text-white" />
             <span className="font-bold text-base text-white">Flappy Donut</span>
-            <span className="text-[8px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded-full">ENTRY FEE</span>
+            <span className="text-[8px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded-full">PAID GAME</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Tap to fly, dodge rolling pins!</div>
           
@@ -519,10 +519,8 @@ export default function GamesPage() {
                 onClick={() => setShowHelpDialog(true)}
                 className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] hover:bg-zinc-800 transition-colors"
               >
-                <div className="flex items-center justify-center gap-2 h-full">
-                  <Gamepad2 className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                  <span className="text-xs font-semibold text-white">How to Play</span>
-                  <HelpCircle className="w-3 h-3 text-gray-400" />
+                <div className="flex items-center justify-center h-full">
+                  <span className="text-xs font-semibold text-white">HOW TO PLAY</span>
                 </div>
               </button>
 
