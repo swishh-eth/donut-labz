@@ -11,7 +11,7 @@ import { Header } from "@/components/header";
 import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
-import { Flame, Sparkles, X, Zap, ExternalLink } from "lucide-react";
+import { Flame, Sparkles, Zap, ExternalLink, ChevronDown } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
 import { cn } from "@/lib/utils";
@@ -537,18 +537,16 @@ function MinerTile({
   );
 }
 
-// Burn Modal Component
-function BurnModal({ 
-  isOpen, 
-  onClose, 
+// Expandable Burn Tile Content Component
+function BurnTileContent({ 
+  isExpanded,
   address,
   donutUsdPrice,
   sprinklesLpPrice,
   primaryConnector,
   connectAsync,
 }: { 
-  isOpen: boolean; 
-  onClose: () => void;
+  isExpanded: boolean;
   address: Address | undefined;
   donutUsdPrice: number;
   sprinklesLpPrice: number;
@@ -566,7 +564,7 @@ function BurnModal({
     functionName: "getAuctionState",
     args: [address ?? zeroAddress],
     chainId: base.id,
-    query: { refetchInterval: 15_000, enabled: isOpen },
+    query: { refetchInterval: 15_000, enabled: isExpanded },
   });
 
   const sprinklesAuctionState = useMemo(() => {
@@ -709,13 +707,13 @@ function BurnModal({
     };
   }, []);
 
-  // Reset state when modal closes
+  // Reset state when collapsed
   useEffect(() => {
-    if (!isOpen) {
+    if (!isExpanded) {
       resetSprinklesState();
       setSprinklesBurnResult(null);
     }
-  }, [isOpen, resetSprinklesState]);
+  }, [isExpanded, resetSprinklesState]);
 
   const handleExternalLink = useCallback(async (url: string) => {
     try {
@@ -763,108 +761,101 @@ function BurnModal({
     return { profitLoss, isProfitable: profitLoss > 0, lpValueUsd, rewardsValueUsd };
   }, [sprinklesAuctionState, displayPrice, sprinklesLpPrice, donutUsdPrice]);
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div 
-        className="w-full max-w-sm bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden shadow-2xl"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-          <div className="flex items-center gap-2">
-            <Flame className="w-5 h-5 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-            <span className="font-bold text-white">LP Burn Auction</span>
+    <div 
+      className="overflow-hidden transition-all duration-300 ease-out"
+      style={{ 
+        maxHeight: isExpanded ? '300px' : '0px',
+        opacity: isExpanded ? 1 : 0,
+      }}
+    >
+      <div className="px-4 pb-4 pt-2 border-t border-zinc-800/50">
+        {/* Pay / Get Row */}
+        <div className="flex items-center gap-2 mb-3">
+          <div className="flex-1 rounded-xl border border-pink-500/30 bg-zinc-900 px-3 py-2">
+            <div className="text-[9px] text-gray-400 uppercase">Pay</div>
+            <div className="text-base font-bold text-pink-400">{sprinklesPriceDisplay} LP</div>
+            <div className="text-[9px] text-gray-500 h-3">
+              {lpPayUsd ? `$${lpPayUsd}` : sprinklesLpPrice === 0 ? "loading..." : ""}
+            </div>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white p-1.5 rounded-full hover:bg-zinc-800 transition-colors">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="text-gray-600">→</div>
+          <div className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
+            <div className="text-[9px] text-gray-400 uppercase">Get</div>
+            <div className="text-base font-bold text-white flex items-center gap-1">
+              <img src="/coins/donut_logo.png" alt="DONUT" className="w-4 h-4 rounded-full" />
+              {sprinklesRewardsDisplay}
+            </div>
+            <div className="text-[9px] text-gray-500 h-3">
+              {donutGetUsd ? `$${donutGetUsd}` : donutUsdPrice === 0 ? "loading..." : ""}
+            </div>
+          </div>
         </div>
 
-        {/* Content */}
-        <div className="p-4">
-          {/* Pay / Get Row */}
-          <div className="flex items-center gap-2 mb-3">
-            <div className="flex-1 rounded-xl border border-pink-500/30 bg-zinc-900 px-3 py-2">
-              <div className="text-[9px] text-gray-400 uppercase">Pay</div>
-              <div className="text-base font-bold text-pink-400">{sprinklesPriceDisplay} LP</div>
-              <div className="text-[9px] text-gray-500 h-3">
-                {lpPayUsd ? `$${lpPayUsd}` : sprinklesLpPrice === 0 ? "loading..." : ""}
-              </div>
-            </div>
-            <div className="text-gray-600">→</div>
-            <div className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
-              <div className="text-[9px] text-gray-400 uppercase">Get</div>
-              <div className="text-base font-bold text-white flex items-center gap-1">
-                <img src="/coins/donut_logo.png" alt="DONUT" className="w-4 h-4 rounded-full" />
-                {sprinklesRewardsDisplay}
-              </div>
-              <div className="text-[9px] text-gray-500 h-3">
-                {donutGetUsd ? `$${donutGetUsd}` : donutUsdPrice === 0 ? "loading..." : ""}
-              </div>
-            </div>
+        {/* Profit/Loss */}
+        {sprinklesProfitLoss && (
+          <div className={cn(
+            "text-center text-[10px] font-semibold px-2 py-1 rounded-lg mb-3",
+            sprinklesProfitLoss.isProfitable ? "text-green-400 bg-green-500/10 border border-green-500/20" : "text-red-400 bg-red-500/10 border border-red-500/20"
+          )}>
+            {sprinklesProfitLoss.isProfitable ? "💰 +" : "⚠️ "}${Math.abs(sprinklesProfitLoss.profitLoss).toFixed(2)}
           </div>
+        )}
 
-          {/* Profit/Loss */}
-          {sprinklesProfitLoss && (
-            <div className={cn(
-              "text-center text-[10px] font-semibold px-2 py-1 rounded-lg mb-3",
-              sprinklesProfitLoss.isProfitable ? "text-green-400 bg-green-500/10 border border-green-500/20" : "text-red-400 bg-red-500/10 border border-red-500/20"
-            )}>
-              {sprinklesProfitLoss.isProfitable ? "💰 +" : "⚠️ "}${Math.abs(sprinklesProfitLoss.profitLoss).toFixed(2)}
-            </div>
-          )}
+        {/* Status Messages */}
+        {sprinklesPriceIsZero && (
+          <div className="text-center text-[9px] text-gray-400 mb-3">
+            Epoch ended - waiting for next auction
+          </div>
+        )}
+        
+        {hasInsufficientSprinklesLP && !sprinklesPriceIsZero && (
+          <div className="text-center text-[9px] text-green-400 mb-3 py-1 bg-green-500/10 rounded-lg border border-green-500/20">
+            Insufficient LP balance
+          </div>
+        )}
 
-          {/* Status Messages */}
-          {sprinklesPriceIsZero && (
-            <div className="text-center text-[9px] text-gray-400 mb-3">
-              Epoch ended - waiting for next auction
-            </div>
-          )}
-          
-          {hasInsufficientSprinklesLP && !sprinklesPriceIsZero && (
-            <div className="text-center text-[9px] text-green-400 mb-3 py-1 bg-green-500/10 rounded-lg border border-green-500/20">
-              Insufficient LP balance
-            </div>
-          )}
+        {hasNoSprinklesRewards && !sprinklesPriceIsZero && !hasInsufficientSprinklesLP && (
+          <div className="text-center text-[9px] text-gray-400 mb-3">
+            No rewards available
+          </div>
+        )}
 
-          {hasNoSprinklesRewards && !sprinklesPriceIsZero && !hasInsufficientSprinklesLP && (
-            <div className="text-center text-[9px] text-gray-400 mb-3">
-              No rewards available
-            </div>
+        {/* Burn Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleSprinklesBurn();
+          }}
+          disabled={isSprinklesBurnDisabled}
+          className={cn(
+            "w-full rounded-xl py-2.5 text-sm font-bold transition-all",
+            sprinklesBurnResult === "success"
+              ? "bg-green-500 text-white"
+              : sprinklesBurnResult === "failure"
+                ? "bg-red-500 text-white"
+                : isSprinklesBurnDisabled
+                  ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
+                  : "bg-white text-black hover:bg-gray-200 active:scale-[0.98]"
           )}
+        >
+          {sprinklesButtonLabel}
+        </button>
 
-          {/* Burn Button */}
+        {/* LP Balance & Get LP Link */}
+        <div className="flex items-center justify-between mt-3 text-[10px]">
+          <span className="text-gray-400">
+            Balance: <span className="text-white font-semibold">{sprinklesUserLPDisplay}</span> LP
+          </span>
           <button
-            onClick={handleSprinklesBurn}
-            disabled={isSprinklesBurnDisabled}
-            className={cn(
-              "w-full rounded-xl py-2.5 text-sm font-bold transition-all",
-              sprinklesBurnResult === "success"
-                ? "bg-green-500 text-white"
-                : sprinklesBurnResult === "failure"
-                  ? "bg-red-500 text-white"
-                  : isSprinklesBurnDisabled
-                    ? "bg-zinc-800 text-gray-500 cursor-not-allowed"
-                    : "bg-white text-black hover:bg-gray-200 active:scale-[0.98]"
-            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleExternalLink("https://aerodrome.finance/deposit?token0=0xa890060BE1788a676dBC3894160f5dc5DeD2C98D&token1=0xAE4a37d554C6D6F3E398546d8566B25052e0169C&type=-1");
+            }}
+            className="text-green-400 hover:text-green-300 font-semibold transition-colors"
           >
-            {sprinklesButtonLabel}
+            Get LP on Aerodrome →
           </button>
-
-          {/* LP Balance & Get LP Link */}
-          <div className="flex items-center justify-between mt-3 text-[10px]">
-            <span className="text-gray-400">
-              Balance: <span className="text-white font-semibold">{sprinklesUserLPDisplay}</span> LP
-            </span>
-            <button
-              onClick={() => handleExternalLink("https://aerodrome.finance/deposit?token0=0xa890060BE1788a676dBC3894160f5dc5DeD2C98D&token1=0xAE4a37d554C6D6F3E398546d8566B25052e0169C&type=-1")}
-              className="text-green-400 hover:text-green-300 font-semibold transition-colors"
-            >
-              Get LP on Aerodrome →
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -1010,7 +1001,7 @@ export default function HomePage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [selectedMiner, setSelectedMiner] = useState<"donut" | "sprinkles" | null>(null);
-  const [showBurnModal, setShowBurnModal] = useState(false);
+  const [isBurnExpanded, setIsBurnExpanded] = useState(false);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
   
@@ -1181,7 +1172,7 @@ export default function HomePage() {
     },
   });
 
-  // Prices for burn modal and tile
+  // Prices for burn tile
   const [donutUsdPrice, setDonutUsdPrice] = useState<number>(0);
   const [sprinklesLpPrice, setSprinklesLpPrice] = useState<number>(0);
 
@@ -1272,13 +1263,11 @@ export default function HomePage() {
     
     // Play haptic melody and sound on success/rewarded
     if (result === "success" || result === "rewarded") {
-      // Haptic feedback melody - fire multiple times
       const playHapticMelody = async () => {
         try {
           const actions = sdk.actions as any;
           const haptic = actions.hapticFeedback || actions.haptic;
           if (haptic) {
-            // Play a quick melody pattern
             await haptic({ impactStyle: "light" }).catch(() => {});
             await new Promise(r => setTimeout(r, 100));
             await haptic({ impactStyle: "medium" }).catch(() => {});
@@ -1288,17 +1277,13 @@ export default function HomePage() {
             await haptic({ impactStyle: "medium" }).catch(() => {});
           }
         } catch {
-          // Fallback to vibration API pattern
           if (navigator.vibrate) navigator.vibrate([30, 50, 50, 50, 80, 80, 50]);
         }
       };
       playHapticMelody();
       
-      // Play soothing success chime using Web Audio API
       try {
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        
-        // Create a pleasant ascending chime
         const playNote = (freq: number, startTime: number, duration: number, volume: number) => {
           const osc = audioCtx.createOscillator();
           const gain = audioCtx.createGain();
@@ -1312,12 +1297,10 @@ export default function HomePage() {
           osc.start(audioCtx.currentTime + startTime);
           osc.stop(audioCtx.currentTime + startTime + duration);
         };
-        
-        // Pleasant ascending chord: C5 -> E5 -> G5 -> C6
-        playNote(523.25, 0, 0.3, 0.15);      // C5
-        playNote(659.25, 0.08, 0.3, 0.12);   // E5
-        playNote(783.99, 0.16, 0.35, 0.1);   // G5
-        playNote(1046.5, 0.24, 0.5, 0.08);   // C6
+        playNote(523.25, 0, 0.3, 0.15);
+        playNote(659.25, 0.08, 0.3, 0.12);
+        playNote(783.99, 0.16, 0.35, 0.1);
+        playNote(1046.5, 0.24, 0.5, 0.08);
       } catch {}
     }
     
@@ -1328,10 +1311,8 @@ export default function HomePage() {
   }, []);
 
   const handleSplit = useCallback(async () => {
-    // Always refetch splitter first to get latest state
     const { data: latestBalance } = await refetchSplitter();
     
-    // If user is connected, check SPRINKLES balance
     if (address) {
       const { data: latestSprinklesBalance } = await refetchSprinklesBalance();
       const userHasEnough = latestSprinklesBalance ? latestSprinklesBalance >= SPRINKLES_MIN_BALANCE : false;
@@ -1342,12 +1323,10 @@ export default function HomePage() {
       }
     }
     
-    // Use the freshly fetched balance
     if (!latestBalance || latestBalance === 0n) {
       setShowNothingToSplit(true);
       setTimeout(() => {
         setShowNothingToSplit(false);
-        // Refetch again after message clears to show latest state
         refetchSplitter();
       }, 3000);
       return;
@@ -1360,7 +1339,6 @@ export default function HomePage() {
         const result = await connectAsync({ connector: primaryConnector, chainId: base.id });
         targetAddress = result.accounts[0];
         
-        // After connecting, check SPRINKLES balance
         const { data: newSprinklesBalance } = await refetchSprinklesBalance();
         const userHasEnough = newSprinklesBalance ? newSprinklesBalance >= SPRINKLES_MIN_BALANCE : false;
         if (!userHasEnough) {
@@ -1384,7 +1362,6 @@ export default function HomePage() {
     }
   }, [address, connectAsync, primaryConnector, writeSplitContract, showSplitResult, refetchSplitter, refetchSprinklesBalance]);
 
-  // Handle split write error
   useEffect(() => {
     if (splitWriteError) {
       const isUserRejection = splitWriteError.message?.includes("User rejected") || 
@@ -1397,7 +1374,6 @@ export default function HomePage() {
     }
   }, [splitWriteError, showSplitResult, resetSplitWrite]);
 
-  // Handle split receipt and claim reward
   useEffect(() => {
     if (!splitReceipt || !splitTxHash) return;
     
@@ -1407,7 +1383,6 @@ export default function HomePage() {
       return;
     }
 
-    // Split succeeded - now claim the reward
     const claimReward = async () => {
       try {
         const res = await fetch("/api/split-reward", {
@@ -1422,7 +1397,6 @@ export default function HomePage() {
         if (res.ok) {
           showSplitResult("rewarded");
         } else {
-          // Split worked but reward failed - still show success
           showSplitResult("success");
         }
       } catch {
@@ -1430,8 +1404,6 @@ export default function HomePage() {
       }
       
       resetSplitWrite();
-      
-      // Refetch immediately and then again after delays to ensure UI updates
       refetchSplitter();
       setTimeout(() => refetchSplitter(), 2000);
       setTimeout(() => refetchSplitter(), 5000);
@@ -1440,7 +1412,6 @@ export default function HomePage() {
     claimReward();
   }, [splitReceipt, splitTxHash, showSplitResult, resetSplitWrite, refetchSplitter]);
 
-  // Cleanup split result timeout
   useEffect(() => {
     return () => {
       if (splitResultTimeoutRef.current) clearTimeout(splitResultTimeoutRef.current);
@@ -1453,12 +1424,8 @@ export default function HomePage() {
         const res = await fetch("/api/prices");
         if (res.ok) {
           const data = await res.json();
-          if (data.donutPrice) {
-            setDonutUsdPrice(data.donutPrice);
-          }
-          if (data.sprinklesLpPrice) {
-            setSprinklesLpPrice(data.sprinklesLpPrice);
-          }
+          if (data.donutPrice) setDonutUsdPrice(data.donutPrice);
+          if (data.sprinklesLpPrice) setSprinklesLpPrice(data.sprinklesLpPrice);
         }
       } catch (error) {
         console.error("Failed to fetch prices:", error);
@@ -1493,7 +1460,6 @@ export default function HomePage() {
           const data = await res.json();
           const profiles = data.profiles || {};
           
-          // Set donut miner
           if (donutMinerAddress && donutMinerAddress !== zeroAddress) {
             const profile = profiles[donutMinerAddress.toLowerCase()];
             setRecentDonutMiner({
@@ -1504,7 +1470,6 @@ export default function HomePage() {
             setRecentDonutMiner(null);
           }
           
-          // Set sprinkles miner
           if (sprinklesMinerAddress && sprinklesMinerAddress !== zeroAddress) {
             const profile = profiles[sprinklesMinerAddress.toLowerCase()];
             setRecentSprinklesMiner({
@@ -1564,12 +1529,10 @@ export default function HomePage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Check if all data is ready for animation
   useEffect(() => {
     const pricesReady = donutPrice !== undefined && sprinklesPriceValue !== undefined;
     
     if (pricesReady && !dataReady) {
-      // Small delay to let layout settle
       const timeout = setTimeout(() => {
         setDataReady(true);
       }, 100);
@@ -1577,7 +1540,6 @@ export default function HomePage() {
     }
   }, [donutPrice, sprinklesPriceValue, dataReady]);
 
-  // Mark animation as complete after data is ready
   useEffect(() => {
     if (dataReady && !hasAnimatedIn) {
       const timeout = setTimeout(() => {
@@ -1587,7 +1549,6 @@ export default function HomePage() {
     }
   }, [dataReady, hasAnimatedIn]);
 
-  // Handle scroll fade
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -1722,17 +1683,6 @@ export default function HomePage() {
       `}</style>
       
       <AddToFarcasterDialog showOnFirstVisit={true} />
-      
-      {/* Burn Modal */}
-      <BurnModal
-        isOpen={showBurnModal}
-        onClose={() => setShowBurnModal(false)}
-        address={address}
-        donutUsdPrice={donutUsdPrice}
-        sprinklesLpPrice={sprinklesLpPrice}
-        primaryConnector={primaryConnector}
-        connectAsync={connectAsync}
-      />
 
       <div
         className="relative flex h-full w-full max-w-[520px] flex-1 flex-col overflow-hidden bg-black px-2 pb-4"
@@ -1757,7 +1707,7 @@ export default function HomePage() {
             }}
           >
             <div className="space-y-3 pb-4">
-              {/* Miner Tiles - Hidden until data ready, then animate */}
+              {/* Miner Tiles */}
               <div 
                 className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '0ms', animationFillMode: 'forwards' } : {})}
@@ -1790,63 +1740,83 @@ export default function HomePage() {
                 />
               </div>
 
-              {/* Burn Tile */}
+              {/* Expandable Burn Tile */}
               <div 
                 className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
                 style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {})}
               >
-                <button
-                  onClick={() => setShowBurnModal(true)}
+                <div
                   className={cn(
-                    "relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300 active:scale-[0.98]",
-                    isBurnProfitable
-                      ? "border-green-500/50 hover:border-green-500/80 animate-profitablePulse"
-                      : "border-white/20 hover:border-white/40"
+                    "relative w-full rounded-2xl border-2 overflow-hidden transition-all duration-300",
+                    isBurnExpanded
+                      ? "border-white/40"
+                      : isBurnProfitable
+                        ? "border-green-500/50 hover:border-green-500/80 animate-profitablePulse"
+                        : "border-white/20 hover:border-white/40"
                   )}
                   style={{ 
-                    minHeight: '100px', 
-                    background: isBurnProfitable 
+                    background: isBurnProfitable && !isBurnExpanded
                       ? 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(22,163,74,0.1) 100%)'
                       : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
                   }}
                 >
-                  {/* Stacked background icons - sprinkles and donut inline */}
-                  <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none flex items-center">
-                    {/* Sprinkles icon - left/behind */}
-                    <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 -mr-6 relative z-0">
-                      <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
-                    </span>
-                    {/* Donut icon - right/front */}
-                    <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 relative z-10">
-                      <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover" />
-                    </span>
-                  </div>
-                  
-                  <div className="relative z-10 p-4 pr-20">
-                    <div className="text-left">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={cn("font-bold text-base", isBurnProfitable ? "text-green-400" : "text-gray-500")}>
-                          LP Burn Auction
-                        </span>
-                        {isBurnProfitable && (
-                          <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-bold">
-                            PROFITABLE
+                  {/* Header/Toggle Button */}
+                  <button
+                    onClick={() => setIsBurnExpanded(!isBurnExpanded)}
+                    className="w-full text-left active:scale-[0.99] transition-transform"
+                  >
+                    {/* Stacked background icons */}
+                    <div className="absolute -right-2 top-[50px] -translate-y-1/2 pointer-events-none flex items-center">
+                      <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 -mr-6 relative z-0">
+                        <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
+                      </span>
+                      <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 relative z-10">
+                        <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover" />
+                      </span>
+                    </div>
+                    
+                    <div className="relative z-10 p-4 pr-20">
+                      <div className="text-left">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={cn("font-bold text-base", isBurnProfitable ? "text-green-400" : "text-gray-500")}>
+                            LP Burn Auction
                           </span>
-                        )}
-                      </div>
-                      <div className={cn("text-[10px] mb-2", isBurnProfitable ? "text-green-200/60" : "text-gray-600")}>
-                        Burn SPRINKLES LP to receive DONUT
-                      </div>
-                      <div className={cn("text-[9px] flex items-center gap-1", isBurnProfitable ? "text-green-400" : "text-gray-600")}>
-                        {isBurnProfitable 
-                          ? <span className="flex items-center gap-1">Earn ${burnPoolUsd} in <DonutCoin className="w-3 h-3" /> DONUT</span>
-                          : parseFloat(burnPoolUsd) > 0 
-                            ? `$${burnPoolUsd} in rewards available` 
-                            : "No rewards available"}
+                          {isBurnProfitable && !isBurnExpanded && (
+                            <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-bold">
+                              PROFITABLE
+                            </span>
+                          )}
+                          <ChevronDown 
+                            className={cn(
+                              "w-4 h-4 transition-transform duration-300 ml-auto",
+                              isBurnExpanded ? "rotate-180 text-white" : "text-gray-500"
+                            )} 
+                          />
+                        </div>
+                        <div className={cn("text-[10px] mb-2", isBurnProfitable ? "text-green-200/60" : "text-gray-600")}>
+                          Burn SPRINKLES LP to receive DONUT
+                        </div>
+                        <div className={cn("text-[9px] flex items-center gap-1", isBurnProfitable ? "text-green-400" : "text-gray-600")}>
+                          {isBurnProfitable 
+                            ? <span className="flex items-center gap-1">Earn ${burnPoolUsd} in <DonutCoin className="w-3 h-3" /> DONUT</span>
+                            : parseFloat(burnPoolUsd) > 0 
+                              ? `$${burnPoolUsd} in rewards available` 
+                              : "No rewards available"}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
+
+                  {/* Expandable Content */}
+                  <BurnTileContent
+                    isExpanded={isBurnExpanded}
+                    address={address}
+                    donutUsdPrice={donutUsdPrice}
+                    sprinklesLpPrice={sprinklesLpPrice}
+                    primaryConnector={primaryConnector}
+                    connectAsync={connectAsync}
+                  />
+                </div>
               </div>
 
               {/* Split to Earn Tile */}
@@ -1936,7 +1906,6 @@ export default function HomePage() {
                                       ? "Splitting..."
                                       : "Split to Earn"}
                             </span>
-                            {/* Last split time - shown beside title when not in result state */}
                             {!splitResult && !isSplitWriting && !isSplitConfirming && timeSinceLastSplit && (
                               <span className="text-[9px] text-gray-500">
                                 • {timeSinceLastSplit}
@@ -1972,7 +1941,7 @@ export default function HomePage() {
                     </div>
                   </button>
                   
-                  {/* Must Hold SPRINKLES Message - Overlay that's always clickable */}
+                  {/* Must Hold SPRINKLES Message */}
                   <div className={cn(
                     "absolute inset-0 flex items-center p-4 transition-opacity duration-300 z-20",
                     showMustHoldSprinkles ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -1982,14 +1951,12 @@ export default function HomePage() {
                         e.preventDefault();
                         e.stopPropagation();
                         try {
-                          // Use experimental viewToken with CAIP-19 asset ID format
                           const experimental = (sdk as any).experimental;
                           if (experimental?.viewToken) {
                             await experimental.viewToken({
                               token: "eip155:8453/erc20:0xa890060BE1788a676dBC3894160f5dc5DeD2C98D"
                             });
                           } else {
-                            // Fallback - try actions.viewToken
                             const actions = sdk.actions as any;
                             if (actions.viewToken) {
                               await actions.viewToken({
@@ -2019,7 +1986,6 @@ export default function HomePage() {
                   className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden cursor-not-allowed opacity-60"
                   style={{ height: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
                 >
-                  {/* Large background sprinkles icon - greyed out */}
                   <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
                     <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 opacity-10">
                       <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
