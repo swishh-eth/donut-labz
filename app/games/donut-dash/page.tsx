@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Play, Share2, X, HelpCircle, Volume2, VolumeX, Trophy, ChevronRight, Clock, Sparkles, Ghost, Zap } from "lucide-react";
+import { Play, Share2, X, HelpCircle, Volume2, VolumeX, Trophy, ChevronRight, Clock, Ghost } from "lucide-react";
 
 // Free Arcade Contract
 const FREE_ARCADE_CONTRACT = "0x9726D22F49274b575b1cd899868Aa10523A3E895" as const;
@@ -2783,44 +2783,66 @@ export default function DonutDashPage() {
       
       {/* Help Modal */}
       {showHelp && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4">
-          <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-              <div className="flex items-center gap-2"><HelpCircle className="w-5 h-5 text-zinc-400" /><span className="font-bold">How to Play</span></div>
-              <button onClick={() => setShowHelp(false)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
-              <div>
-                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4 text-yellow-400" />Gameplay</h3>
-                <p className="text-xs text-zinc-400">Hold the screen to fly up with your jetpack. Release to fall. Navigate through the facility avoiding zappers and collecting sprinkles!</p>
-              </div>
-              <div>
-                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-orange-400" />Power-Ups</h3>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center gap-2"><span>🧲</span><span className="text-zinc-400">Magnet - Pulls coins</span></div>
-                  <div className="flex items-center gap-2"><span>🛡️</span><span className="text-zinc-400">Shield - Survive 1 hit</span></div>
-                  <div className="flex items-center gap-2"><span>👻</span><span className="text-zinc-400">Ghost - Phase through</span></div>
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHelp(false)} />
+          <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+            <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl flex flex-col" style={{ maxHeight: 'calc(100vh - 160px)' }}>
+              <button onClick={() => setShowHelp(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white z-10">
+                <X className="h-4 w-4" />
+              </button>
+              <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2 flex-shrink-0">
+                <HelpCircle className="w-4 h-4 text-white" />
+                How to Play
+              </h2>
+              <div className="space-y-3 overflow-y-auto flex-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">1</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Gameplay</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">Hold the screen to fly up with your jetpack. Release to fall. Navigate through the facility avoiding zappers and collecting sprinkles!</div>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Power-Ups</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5 grid grid-cols-2 gap-x-4 gap-y-1">
+                      <div className="flex items-center gap-1.5">🧲 Magnet - Pulls coins</div>
+                      <div className="flex items-center gap-1.5">🛡️ Shield - Survive 1 hit</div>
+                      <div className="flex items-center gap-1.5">👻 Ghost - Phase through</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">3</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Zones</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">Progress through 4 zones with unique visuals and new obstacles: Factory → Lava → Ice → Space</div>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">4</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Combos & Near Misses</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">Chain coin pickups for combo multipliers (up to 10x)! Graze obstacles for +2 near-miss bonus points.</div>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">5</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Ghost Mode</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">Race against your best run! Toggle ghost visibility in the menu.</div>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">6</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Weekly Prizes</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">FREE TO PLAY! Top 10 players each week win USDC prizes distributed every Friday at 6PM EST.</div>
+                  </div>
                 </div>
               </div>
-              <div>
-                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4 text-blue-400" />Zones</h3>
-                <p className="text-xs text-zinc-400">Progress through 4 zones with unique visuals and new obstacles: Factory → Lava → Ice → Space</p>
-              </div>
-              <div>
-                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-green-400" />Combos & Near Misses</h3>
-                <p className="text-xs text-zinc-400">Chain coin pickups for combo multipliers (up to 10x)! Graze obstacles for +2 near-miss bonus points.</p>
-              </div>
-              <div>
-                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Ghost className="w-4 h-4 text-purple-400" />Ghost Mode</h3>
-                <p className="text-xs text-zinc-400">Race against your best run! Toggle ghost visibility in the menu.</p>
-              </div>
-              <div>
-                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-green-400" />Weekly Prizes</h3>
-                <p className="text-xs text-zinc-400">This game is FREE TO PLAY! Top 10 players each week win USDC prizes distributed automatically every Friday at 6PM EST.</p>
-              </div>
-            </div>
-            <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
-              <button onClick={() => setShowHelp(false)} className="w-full py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200">Got it!</button>
+              <button onClick={() => setShowHelp(false)} className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors flex-shrink-0">Got it</button>
             </div>
           </div>
         </div>
@@ -2828,41 +2850,49 @@ export default function DonutDashPage() {
       
       {/* Leaderboard Modal */}
       {showLeaderboard && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4">
-          <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-              <div className="flex items-center gap-2"><Trophy className="w-5 h-5 text-green-400" /><span className="font-bold">Weekly Leaderboard</span></div>
-              <button onClick={() => setShowLeaderboard(false)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="px-4 py-2 bg-zinc-800/50 border-b border-zinc-800">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-400">Prize Pool</span>
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowLeaderboard(false)} />
+          <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+            <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+              <button onClick={() => setShowLeaderboard(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white z-10">
+                <X className="h-4 w-4" />
+              </button>
+              <div className="p-4 pb-2 flex-shrink-0">
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-white" />
+                  Weekly Leaderboard
+                </h2>
+              </div>
+              <div className="px-4 py-2 flex items-center justify-between border-b border-zinc-800 flex-shrink-0">
+                <span className="text-xs text-gray-400">Prize Pool</span>
                 <span className="text-sm font-bold text-green-400">${prizeInfo.totalPrize} USDC</span>
               </div>
-            </div>
-            <div className="max-h-[50vh] overflow-y-auto">
-              {leaderboard.length === 0 ? (
-                <div className="py-8 text-center">
-                  <p className="text-zinc-500">No scores yet!</p>
-                  <p className="text-zinc-600 text-xs mt-1">Be the first to play this week</p>
-                </div>
-              ) : leaderboard.map((entry) => {
-                const prize = prizeInfo.prizeStructure.find(p => p.rank === entry.rank);
-                return (
-                  <div key={entry.fid} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${entry.rank <= 3 ? "bg-green-500/10" : ""}`}>
-                    <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-green-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>{entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}</span>
-                    {entry.pfpUrl ? <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center">🍩</div>}
-                    <div className="flex-1 min-w-0">
-                      <span className="block truncate text-sm">{entry.displayName || entry.username || `fid:${entry.fid}`}</span>
-                      {prize && <span className="text-xs text-green-400">+${prize.amount}</span>}
-                    </div>
-                    <span className="font-bold text-sm">{entry.score}</span>
+              <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', maxHeight: '50vh' }}>
+                {leaderboard.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <p className="text-zinc-500">No scores yet!</p>
+                    <p className="text-zinc-600 text-xs mt-1">Be the first to play this week</p>
                   </div>
-                );
-              })}
-            </div>
-            <div className="px-4 py-2 bg-zinc-800/50 border-t border-zinc-800">
-              <p className="text-[10px] text-zinc-500 text-center">Prizes distributed every Friday in USDC</p>
+                ) : leaderboard.map((entry) => {
+                  const prize = prizeInfo.prizeStructure.find(p => p.rank === entry.rank);
+                  return (
+                    <div key={entry.fid} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${entry.rank <= 3 ? "bg-green-500/10" : ""}`}>
+                      <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-green-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>
+                        {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}
+                      </span>
+                      {entry.pfpUrl ? <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-zinc-700" />}
+                      <div className="flex-1 min-w-0">
+                        <span className="block truncate text-sm text-white">{entry.displayName || entry.username || `fid:${entry.fid}`}</span>
+                        {prize && <span className="text-xs text-green-400">+${prize.amount}</span>}
+                      </div>
+                      <span className="font-bold text-sm text-white">{entry.score}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="px-4 py-3 border-t border-zinc-800 flex-shrink-0">
+                <p className="text-[10px] text-zinc-500 text-center">Prizes distributed every Friday in USDC</p>
+              </div>
             </div>
           </div>
         </div>
