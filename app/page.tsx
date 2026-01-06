@@ -11,7 +11,7 @@ import { Header } from "@/components/header";
 import { AddToFarcasterDialog } from "@/components/add-to-farcaster-dialog";
 import DonutMiner from "@/components/donut-miner";
 import SprinklesMiner from "@/components/sprinkles-miner";
-import { Flame, Sparkles, Zap, ExternalLink, ChevronDown } from "lucide-react";
+import { Flame, Sparkles, Zap, ExternalLink, ChevronDown, AlertTriangle } from "lucide-react";
 import { CONTRACT_ADDRESSES, MULTICALL_ABI } from "@/lib/contracts";
 import { SPRINKLES_MINER_ADDRESS, SPRINKLES_MINER_ABI } from "@/lib/contracts/sprinkles";
 import { cn } from "@/lib/utils";
@@ -795,10 +795,14 @@ function BurnTileContent({
         {/* Profit/Loss */}
         {sprinklesProfitLoss && (
           <div className={cn(
-            "text-center text-[10px] font-semibold px-2 py-1 rounded-lg mb-3",
+            "text-center text-[10px] font-semibold px-2 py-1 rounded-lg mb-3 flex items-center justify-center gap-0.5",
             sprinklesProfitLoss.isProfitable ? "text-green-400 bg-green-500/10 border border-green-500/20" : "text-red-400 bg-red-500/10 border border-red-500/20"
           )}>
-            {sprinklesProfitLoss.isProfitable ? "💰 +" : "⚠️ "}${Math.abs(sprinklesProfitLoss.profitLoss).toFixed(2)}
+            {sprinklesProfitLoss.isProfitable ? (
+              <>💰 +${Math.abs(sprinklesProfitLoss.profitLoss).toFixed(2)}</>
+            ) : (
+              <><AlertTriangle className="w-3 h-3" /> -${Math.abs(sprinklesProfitLoss.profitLoss).toFixed(2)}</>
+            )}
           </div>
         )}
 
@@ -810,7 +814,7 @@ function BurnTileContent({
         )}
         
         {hasInsufficientSprinklesLP && !sprinklesPriceIsZero && (
-          <div className="text-center text-[9px] text-green-400 mb-3 py-1 bg-green-500/10 rounded-lg border border-green-500/20">
+          <div className="text-center text-[9px] text-white mb-3 py-1 bg-pink-500/20 rounded-lg border border-pink-500/30">
             Insufficient LP balance
           </div>
         )}
@@ -852,7 +856,7 @@ function BurnTileContent({
               e.stopPropagation();
               handleExternalLink("https://aerodrome.finance/deposit?token0=0xa890060BE1788a676dBC3894160f5dc5DeD2C98D&token1=0xAE4a37d554C6D6F3E398546d8566B25052e0169C&type=-1");
             }}
-            className="text-green-400 hover:text-green-300 font-semibold transition-colors"
+            className="text-white hover:text-gray-300 font-semibold transition-colors"
           >
             Get LP on Aerodrome →
           </button>
