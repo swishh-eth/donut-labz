@@ -29,6 +29,103 @@ const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   </span>
 );
 
+// Matrix-style single digit component
+function MatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: number; isReady: boolean }) {
+  const [displayChar, setDisplayChar] = useState(char === '.' || char === ',' || char === ' ' ? char : '0');
+  const [isAnimating, setIsAnimating] = useState(false);
+  const hasAnimatedRef = useRef(false);
+  
+  useEffect(() => {
+    // Don't animate punctuation or spaces
+    if (char === '.' || char === ',' || char === ' ') {
+      setDisplayChar(char);
+      setIsAnimating(false);
+      return;
+    }
+    
+    // If already animated, just show the char (live updates)
+    if (hasAnimatedRef.current) {
+      setDisplayChar(char);
+      setIsAnimating(false);
+      return;
+    }
+    
+    // Wait for ready signal
+    if (!isReady) return;
+    
+    hasAnimatedRef.current = true;
+    setIsAnimating(true);
+    
+    // Random digits cycling effect
+    let cycleCount = 0;
+    const maxCycles = 8 + Math.floor(delay / 30);
+    
+    const cycleInterval = setInterval(() => {
+      if (cycleCount < maxCycles) {
+        setDisplayChar(Math.floor(Math.random() * 10).toString());
+        cycleCount++;
+      } else {
+        setDisplayChar(char);
+        setIsAnimating(false);
+        clearInterval(cycleInterval);
+      }
+    }, 50);
+    
+    return () => {
+      clearInterval(cycleInterval);
+      setIsAnimating(false);
+    };
+  }, [char, delay, isReady]);
+  
+  return (
+    <span className={`transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}>
+      {displayChar}
+    </span>
+  );
+}
+
+// Matrix-style value animation for numbers
+function MatrixValue({ 
+  value, 
+  isReady,
+  className = ""
+}: { 
+  value: string; 
+  isReady: boolean;
+  className?: string;
+}) {
+  const [key, setKey] = useState(0);
+  const initializedRef = useRef(false);
+  
+  // Trigger animation once when ready and value exists
+  useEffect(() => {
+    if (!initializedRef.current && isReady && value && value !== "0") {
+      initializedRef.current = true;
+      setKey(1);
+    }
+  }, [isReady, value]);
+  
+  // If not ready or no value, show placeholder
+  if (!value || !initializedRef.current) {
+    return <span className={`tabular-nums ${className}`}>—</span>;
+  }
+  
+  const chars = value.split('');
+  
+  return (
+    <span key={key} className={`tabular-nums ${className}`}>
+      {chars.map((char, index) => (
+        <MatrixDigit 
+          key={`${key}-${index}`} 
+          char={char} 
+          delay={index * 30} 
+          isReady={isReady}
+        />
+      ))}
+    </span>
+  );
+}
+
 const Section = ({ icon, title, children }: SectionProps) => {
   return (
     <div className="rounded-xl p-3 bg-zinc-900 border border-zinc-800">
@@ -55,6 +152,7 @@ export default function AboutSprinklesPage() {
   const [donutBurnedInLP, setDonutBurnedInLP] = useState<string>("0");
   const [gDonutStaked, setGDonutStaked] = useState<string>("0");
   const [treasurySprinkles, setTreasurySprinkles] = useState<string>("0");
+  const [dataReady, setDataReady] = useState(false);
 
   // Treasury address
   const TREASURY_ADDRESS = "0x4c1599CB84AC2CceDfBC9d9C2Cb14fcaA5613A9d";
@@ -250,6 +348,9 @@ export default function AboutSprinklesPage() {
     fetchGDonutStaked();
     fetchTreasurySprinkles();
     
+    // Set dataReady after initial fetch
+    setTimeout(() => setDataReady(true), 500);
+    
     const interval = setInterval(() => {
       fetchBurnedBalance();
       fetchTotalSupply();
@@ -361,15 +462,21 @@ export default function AboutSprinklesPage() {
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">Max Supply</span>
-                    <span className="text-sm font-bold text-white">210,000,000</span>
+                    <span className="text-sm font-bold text-white">
+                      <MatrixValue value="210,000,000" isReady={dataReady} />
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">With Burned Tokens</span>
-                    <span className="text-sm font-bold text-white">{withBurnedTokens}</span>
+                    <span className="text-sm font-bold text-white">
+                      <MatrixValue value={withBurnedTokens} isReady={dataReady} />
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">Circulating</span>
-                    <span className="text-sm font-bold text-green-400">{circulatingSupply}</span>
+                    <span className="text-sm font-bold text-green-400">
+                      <MatrixValue value={circulatingSupply} isReady={dataReady} />
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">Initial LP</span>
@@ -385,7 +492,9 @@ export default function AboutSprinklesPage() {
                     <Flame className="w-3 h-3 text-green-400" />
                     <span className="text-[10px] text-gray-400">SPRINKLES Burned</span>
                   </div>
-                  <span className="text-lg font-bold text-green-400">{burnedBalance}</span>
+                  <span className="text-lg font-bold text-green-400">
+                    <MatrixValue value={burnedBalance} isReady={dataReady} />
+                  </span>
                   <p className="text-[9px] text-gray-500 mt-0.5">Togglable Burn Switch</p>
                 </div>
                 <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl">
@@ -393,7 +502,9 @@ export default function AboutSprinklesPage() {
                     <Flame className="w-3 h-3 text-pink-400" />
                     <span className="text-[10px] text-gray-400">DONUT Burned</span>
                   </div>
-                  <span className="text-lg font-bold text-pink-400">{donutBurnedInLP}</span>
+                  <span className="text-lg font-bold text-pink-400">
+                    <MatrixValue value={donutBurnedInLP} isReady={dataReady} />
+                  </span>
                   <p className="text-[9px] text-gray-500 mt-0.5">LP Fee's In Dead Address</p>
                 </div>
                 <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
@@ -401,7 +512,9 @@ export default function AboutSprinklesPage() {
                     <Coins className="w-3 h-3 text-green-400" />
                     <span className="text-[10px] text-gray-400">Treasury SPRINKLES</span>
                   </div>
-                  <span className="text-lg font-bold text-green-400">{treasurySprinkles}</span>
+                  <span className="text-lg font-bold text-green-400">
+                    <MatrixValue value={treasurySprinkles} isReady={dataReady} />
+                  </span>
                   <p className="text-[9px] text-gray-500 mt-0.5">Buybacks w/ LSG Revenue</p>
                 </div>
                 <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl">
@@ -409,7 +522,9 @@ export default function AboutSprinklesPage() {
                     <Building className="w-3 h-3 text-pink-400" />
                     <span className="text-[10px] text-gray-400">gDONUT Staked</span>
                   </div>
-                  <span className="text-lg font-bold text-pink-400">{gDonutStaked}</span>
+                  <span className="text-lg font-bold text-pink-400">
+                    <MatrixValue value={gDonutStaked} isReady={dataReady} />
+                  </span>
                   <p className="text-[9px] text-gray-500 mt-0.5">Miner 15% Revenue Fee</p>
                 </div>
               </div>
