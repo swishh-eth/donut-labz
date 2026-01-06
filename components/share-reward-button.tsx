@@ -107,82 +107,6 @@ const setCachedState = (state: Omit<CachedState, 'timestamp'>) => {
   sessionCache = { ...state, timestamp: Date.now() };
 };
 
-// Matrix-style single character component that transitions between characters
-function MatrixTransitionChar({ 
-  targetChar, 
-  delay = 0, 
-  phase // 'in' | 'out' | 'idle'
-}: { 
-  targetChar: string; 
-  delay?: number; 
-  phase: 'in' | 'out' | 'idle';
-}) {
-  const [displayChar, setDisplayChar] = useState(targetChar);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  const animationRef = useRef<NodeJS.Timeout | null>(null);
-  
-  useEffect(() => {
-    // Clear any existing animation
-    if (animationRef.current) {
-      clearInterval(animationRef.current);
-      animationRef.current = null;
-    }
-    
-    // Don't animate spaces
-    if (targetChar === ' ') {
-      setDisplayChar(' ');
-      setIsAnimating(false);
-      return;
-    }
-    
-    // If idle, just show the target char
-    if (phase === 'idle') {
-      setDisplayChar(targetChar);
-      setIsAnimating(false);
-      return;
-    }
-    
-    // Start animation after delay
-    const startTimeout = setTimeout(() => {
-      setIsAnimating(true);
-      
-      let cycleCount = 0;
-      const maxCycles = phase === 'out' ? 4 + Math.floor(delay / 30) : 6 + Math.floor(delay / 25);
-      
-      animationRef.current = setInterval(() => {
-        if (cycleCount < maxCycles) {
-          setDisplayChar(chars[Math.floor(Math.random() * chars.length)]);
-          cycleCount++;
-        } else {
-          // On 'out' phase, end with random char (it will be replaced)
-          // On 'in' phase, end with target char
-          setDisplayChar(phase === 'out' ? chars[Math.floor(Math.random() * chars.length)] : targetChar);
-          setIsAnimating(false);
-          if (animationRef.current) {
-            clearInterval(animationRef.current);
-            animationRef.current = null;
-          }
-        }
-      }, 35);
-    }, delay);
-    
-    return () => {
-      clearTimeout(startTimeout);
-      if (animationRef.current) {
-        clearInterval(animationRef.current);
-        animationRef.current = null;
-      }
-    };
-  }, [targetChar, delay, phase]);
-  
-  return (
-    <span className={`transition-colors duration-75 ${isAnimating ? 'text-green-400/80' : ''}`}>
-      {displayChar}
-    </span>
-  );
-}
-
 // Matrix-style text that transitions out then in between different texts
 function MatrixTransitionText({ 
   texts,
@@ -193,61 +117,71 @@ function MatrixTransitionText({
   interval?: number;
   className?: string;
 }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [nextIndex, setNextIndex] = useState(0);
-  const [phase, setPhase] = useState<'in' | 'out' | 'idle'>('in');
-  const [key, setKey] = useState(0);
+  const [displayText, setDisplayText] = useState(texts[0]);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const currentIndexRef = useRef(0);
+  const animationRef = useRef<NodeJS.Timeout | null>(null);
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   
-  // Cycle through texts with out->in transition
+  // Cycle through texts
   useEffect(() => {
-    const timer = setInterval(() => {
-      // Start transition out
-      setPhase('out');
+    const cycleTimer = setInterval(() => {
+      // Start scramble animation
+      setIsAnimating(true);
       
-      // After out animation, switch to next text and animate in
-      setTimeout(() => {
-        setCurrentIndex((prev) => {
-          const next = (prev + 1) % texts.length;
-          setNextIndex(next);
-          return next;
-        });
-        setKey((prev) => prev + 1);
-        setPhase('in');
-      }, 350); // Duration of out animation
+      const nextIndex = (currentIndexRef.current + 1) % texts.length;
+      const targetText = texts[nextIndex];
+      let frame = 0;
+      const totalFrames = 12;
+      
+      // Clear any existing animation
+      if (animationRef.current) {
+        clearInterval(animationRef.current);
+      }
+      
+      // Scramble animation
+      animationRef.current = setInterval(() => {
+        frame++;
+        
+        if (frame <= totalFrames) {
+          // Generate scrambled text that progressively reveals target
+          const revealedChars = Math.floor((frame / totalFrames) * targetText.length);
+          let scrambled = '';
+          for (let i = 0; i < targetText.length; i++) {
+            if (i < revealedChars) {
+              scrambled += targetText[i];
+            } else if (targetText[i] === ' ') {
+              scrambled += ' ';
+            } else {
+              scrambled += chars[Math.floor(Math.random() * chars.length)];
+            }
+          }
+          setDisplayText(scrambled);
+        } else {
+          // Animation complete
+          setDisplayText(targetText);
+          setIsAnimating(false);
+          currentIndexRef.current = nextIndex;
+          if (animationRef.current) {
+            clearInterval(animationRef.current);
+            animationRef.current = null;
+          }
+        }
+      }, 40);
       
     }, interval);
     
-    return () => clearInterval(timer);
-  }, [texts.length, interval]);
-  
-  // Reset to idle after in animation completes
-  useEffect(() => {
-    if (phase === 'in') {
-      const timeout = setTimeout(() => {
-        setPhase('idle');
-      }, 500); // Duration of in animation
-      return () => clearTimeout(timeout);
-    }
-  }, [phase, key]);
-  
-  const currentText = texts[currentIndex];
-  
-  // Pad text to consistent length to prevent layout shift
-  const maxLength = Math.max(...texts.map(t => t.length));
-  const paddedText = currentText.padEnd(maxLength, ' ');
+    return () => {
+      clearInterval(cycleTimer);
+      if (animationRef.current) {
+        clearInterval(animationRef.current);
+      }
+    };
+  }, [texts, interval]);
   
   return (
-    <span className={`inline-flex items-center justify-center ${className}`}>
-      <span key={key} className="whitespace-pre">
-        {paddedText.split('').map((char, index) => (
-          <MatrixTransitionChar
-            key={`${key}-${index}`}
-            targetChar={char}
-            delay={index * 20}
-            phase={phase}
-          />
-        ))}
-      </span>
+    <span className={`${className} transition-colors duration-150 ${isAnimating ? 'text-green-400' : ''}`}>
+      {displayText}
     </span>
   );
 }
@@ -1169,7 +1103,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             onClick={handleShareToQualify}
             disabled={!userFid}
             className={cn(
-              "rounded-xl p-2 h-[36px] flex items-center justify-center transition-all",
+              "w-full rounded-xl p-2 h-[36px] flex items-center justify-center transition-all",
               !userFid && "opacity-50 cursor-not-allowed"
             )}
             style={getActiveGradient()}
@@ -1177,7 +1111,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             <MatrixTransitionText
               texts={["SHARE TO CLAIM", "HOLD 10K SPRINKLES", `${claimsRemaining} CLAIMS LEFT`]}
               interval={3000}
-              className={cn("font-semibold text-xs", getTextColor())}
+              className={cn("font-semibold text-xs text-center", getTextColor())}
             />
           </button>
         </CompactWrapper>
