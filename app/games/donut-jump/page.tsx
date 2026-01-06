@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Play, Share2, X, HelpCircle, Volume2, VolumeX, Trophy, ChevronRight, Clock, Sparkles, Zap, Rocket } from "lucide-react";
+import { Play, Share2, X, HelpCircle, Volume2, VolumeX, Trophy, ChevronRight, Clock } from "lucide-react";
 
 // Free Arcade Contract
 const FREE_ARCADE_CONTRACT = "0x80D28cB05A6636a80980AA75172C469F789CfAe7" as const;
@@ -1723,46 +1723,65 @@ export default function DonutJumpPage() {
       
       {/* Help Modal */}
       {showHelp && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4">
-          <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-              <div className="flex items-center gap-2"><HelpCircle className="w-5 h-5 text-zinc-400" /><span className="font-bold">How to Play</span></div>
-              <button onClick={() => setShowHelp(false)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
-              <div>
-                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4 text-green-400" />Gameplay</h3>
-                <p className="text-xs text-zinc-400">Tap left or right side of the screen to move. Your character bounces automatically on platforms. Climb as high as you can!</p>
-              </div>
-              <div>
-                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-blue-400" />Platforms</h3>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center gap-2"><span className="w-3 h-3 bg-green-500 rounded"></span><span className="text-zinc-400">Normal</span></div>
-                  <div className="flex items-center gap-2"><span className="w-3 h-3 bg-blue-500 rounded"></span><span className="text-zinc-400">Moving</span></div>
-                  <div className="flex items-center gap-2"><span className="w-3 h-3 bg-purple-500 rounded"></span><span className="text-zinc-400">Breakable</span></div>
-                  <div className="flex items-center gap-2"><span className="w-3 h-3 bg-yellow-500 rounded"></span><span className="text-zinc-400">Disappearing</span></div>
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowHelp(false)} />
+          <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+            <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl flex flex-col" style={{ maxHeight: 'calc(100vh - 160px)' }}>
+              <button onClick={() => setShowHelp(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white z-10">
+                <X className="h-4 w-4" />
+              </button>
+              <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2 flex-shrink-0">
+                <HelpCircle className="w-4 h-4 text-white" />
+                How to Play
+              </h2>
+              <div className="space-y-3 overflow-y-auto flex-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">1</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Gameplay</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">Tap left or right side of the screen to move. Your character bounces automatically on platforms. Climb as high as you can!</div>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">2</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Platforms</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5 grid grid-cols-2 gap-x-4 gap-y-1">
+                      <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-green-500 rounded"></span>Normal</div>
+                      <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-blue-500 rounded"></span>Moving</div>
+                      <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-purple-500 rounded"></span>Breakable</div>
+                      <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-yellow-500 rounded"></span>Disappearing</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">3</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Power-Ups</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5 grid grid-cols-2 gap-x-4 gap-y-1">
+                      <div className="flex items-center gap-1.5">🚀 Jetpack - Fly up!</div>
+                      <div className="flex items-center gap-1.5">👟 Spring Shoes</div>
+                      <div className="flex items-center gap-1.5">🛡️ Shield - Save from fall</div>
+                      <div className="flex items-center gap-1.5">🧲 Magnet - Pull coins</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">4</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Scoring</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">Collect donuts to score points! The higher you climb, the more donuts appear.</div>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">5</div>
+                  <div>
+                    <div className="font-semibold text-white text-xs">Weekly Prizes</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">FREE TO PLAY! Top 10 players each week win USDC prizes distributed every Friday at 6PM EST.</div>
+                  </div>
                 </div>
               </div>
-              <div>
-                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Rocket className="w-4 h-4 text-orange-400" />Power-Ups</h3>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center gap-2"><span>🚀</span><span className="text-zinc-400">Jetpack - Fly up!</span></div>
-                  <div className="flex items-center gap-2"><span>👟</span><span className="text-zinc-400">Spring Shoes</span></div>
-                  <div className="flex items-center gap-2"><span>🛡️</span><span className="text-zinc-400">Shield - 1 hit</span></div>
-                  <div className="flex items-center gap-2"><span>🧲</span><span className="text-zinc-400">Magnet - Pull coins</span></div>
-                </div>
-              </div>
-              <div>
-                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-yellow-400" />Scoring</h3>
-                <p className="text-xs text-zinc-400">Collect donuts to score points! The higher you climb, the more donuts appear.</p>
-              </div>
-              <div>
-                <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-green-400" />Weekly Prizes</h3>
-                <p className="text-xs text-zinc-400">FREE TO PLAY! Top 10 players each week win USDC prizes distributed every Friday at 6PM EST.</p>
-              </div>
-            </div>
-            <div className="p-4 border-t border-zinc-800 bg-zinc-800/50">
-              <button onClick={() => setShowHelp(false)} className="w-full py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200">Got it!</button>
+              <button onClick={() => setShowHelp(false)} className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors flex-shrink-0">Got it</button>
             </div>
           </div>
         </div>
@@ -1770,43 +1789,49 @@ export default function DonutJumpPage() {
       
       {/* Leaderboard Modal */}
       {showLeaderboard && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4">
-          <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-              <div className="flex items-center gap-2"><Trophy className="w-5 h-5 text-green-400" /><span className="font-bold">Weekly Leaderboard</span></div>
-              <button onClick={() => setShowLeaderboard(false)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="px-4 py-2 bg-zinc-800/50 border-b border-zinc-800">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-400">Prize Pool</span>
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowLeaderboard(false)} />
+          <div className="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+            <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+              <button onClick={() => setShowLeaderboard(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-zinc-800 hover:text-white z-10">
+                <X className="h-4 w-4" />
+              </button>
+              <div className="p-4 pb-2 flex-shrink-0">
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-white" />
+                  Weekly Leaderboard
+                </h2>
+              </div>
+              <div className="px-4 py-2 flex items-center justify-between border-b border-zinc-800 flex-shrink-0">
+                <span className="text-xs text-gray-400">Prize Pool</span>
                 <span className="text-sm font-bold text-green-400">${prizeInfo.totalPrize} USDC</span>
               </div>
-            </div>
-            <div className="max-h-[50vh] overflow-y-auto">
-              {leaderboard.length === 0 ? (
-                <div className="py-8 text-center">
-                  <p className="text-zinc-500">No scores yet!</p>
-                  <p className="text-zinc-600 text-xs mt-1">Be the first to play this week</p>
-                </div>
-              ) : leaderboard.map((entry) => {
-                const prize = prizeInfo.prizeStructure.find(p => p.rank === entry.rank);
-                return (
-                  <div key={entry.fid} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${entry.rank <= 3 ? "bg-green-500/10" : ""}`}>
-                    <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-green-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>
-                      {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}
-                    </span>
-                    {entry.pfpUrl ? <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-zinc-700" />}
-                    <div className="flex-1 min-w-0">
-                      <span className="block truncate text-sm">{entry.displayName || entry.username || `fid:${entry.fid}`}</span>
-                      {prize && <span className="text-xs text-green-400">+${prize.amount}</span>}
-                    </div>
-                    <span className="font-bold text-sm">{entry.score}</span>
+              <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', maxHeight: '50vh' }}>
+                {leaderboard.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <p className="text-zinc-500">No scores yet!</p>
+                    <p className="text-zinc-600 text-xs mt-1">Be the first to play this week</p>
                   </div>
-                );
-              })}
-            </div>
-            <div className="px-4 py-2 bg-zinc-800/50 border-t border-zinc-800">
-              <p className="text-[10px] text-zinc-500 text-center">Prizes distributed every Friday in USDC</p>
+                ) : leaderboard.map((entry) => {
+                  const prize = prizeInfo.prizeStructure.find(p => p.rank === entry.rank);
+                  return (
+                    <div key={entry.fid} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${entry.rank <= 3 ? "bg-green-500/10" : ""}`}>
+                      <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-green-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>
+                        {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}
+                      </span>
+                      {entry.pfpUrl ? <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-zinc-700" />}
+                      <div className="flex-1 min-w-0">
+                        <span className="block truncate text-sm text-white">{entry.displayName || entry.username || `fid:${entry.fid}`}</span>
+                        {prize && <span className="text-xs text-green-400">+${prize.amount}</span>}
+                      </div>
+                      <span className="font-bold text-sm text-white">{entry.score}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="px-4 py-3 border-t border-zinc-800 flex-shrink-0">
+                <p className="text-[10px] text-zinc-500 text-center">Prizes distributed every Friday in USDC</p>
+              </div>
             </div>
           </div>
         </div>
