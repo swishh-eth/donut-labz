@@ -1,11 +1,10 @@
 // app/api/chat/distribute-image-tips/route.ts
-// Distributes 1 SPRINKLES each to the last 10 UNIQUE chatters when an image is uploaded
-// FIXED: Now finds 10 unique addresses even if we need to look further back in history
-// FIXED: Now updates airdrop_amount on the recipient's chat message for UI display
+// Distributes 1 SPRINKLES each to the last 10 chatters when an image is uploaded
+// NOT unique - same person can receive multiple if they sent multiple recent messages
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createWalletClient, createPublicClient, http, parseUnits } from 'viem';
+import { createWalletClient, http, parseUnits } from 'viem';
 import { base } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -16,7 +15,7 @@ const supabase = createClient(
 
 const SPRINKLES_ADDRESS = '0xa890060BE1788a676dBC3894160f5dc5DeD2C98D';
 const AMOUNT_PER_CHATTER = parseUnits('1', 18); // 1 SPRINKLES each
-const TARGET_UNIQUE_CHATTERS = 10;
+const TARGET_CHATTERS = 10;
 
 const ERC20_ABI = [
   {
@@ -68,64 +67,56 @@ export async function POST(request: NextRequest) {
       transport: http('https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g'),
     });
 
-    // Find 10 UNIQUE chatters by fetching in batches until we have enough
+    // Get the last 10 messages (excluding the image uploader)
+    // NOT unique - same person can receive multiple airdrops
     const senderLower = senderAddress?.toLowerCase();
-    const uniqueChatters: { address: string; messageHash: string }[] = [];
-    const seen = new Set<string>();
     
-    let offset = 0;
-    const batchSize = 50;
-    const maxIterations = 20; // Safety limit: max 1000 messages to scan
-    
-    for (let i = 0; i < maxIterations && uniqueChatters.length < TARGET_UNIQUE_CHATTERS; i++) {
-      const { data: messages, error: msgError } = await supabase
-        .from('chat_messages')
-        .select('sender, transaction_hash')
-        .order('timestamp', { ascending: false })
-        .range(offset, offset + batchSize - 1);
+    const { data: messages, error: msgError } = await supabase
+      .from('chat_messages')
+      .select('sender, transaction_hash')
+      .order('timestamp', { ascending: false })
+      .limit(50); // Fetch more to filter out the sender
 
-      if (msgError) {
-        console.error('[distribute-image-tips] Failed to fetch messages:', msgError);
-        break;
-      }
-
-      if (!messages || messages.length === 0) {
-        console.log(`[distribute-image-tips] No more messages to scan at offset ${offset}`);
-        break;
-      }
-
-      for (const msg of messages) {
-        const sender = msg.sender.toLowerCase();
-        
-        // Skip if it's the image uploader or already seen
-        if (sender === senderLower || seen.has(sender)) {
-          continue;
-        }
-        
-        seen.add(sender);
-        uniqueChatters.push({
-          address: sender,
-          messageHash: msg.transaction_hash,
-        });
-        
-        if (uniqueChatters.length >= TARGET_UNIQUE_CHATTERS) {
-          break;
-        }
-      }
-
-      offset += batchSize;
+    if (msgError) {
+      console.error('[distribute-image-tips] Failed to fetch messages:', msgError);
+      return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
     }
 
-    console.log(`[distribute-image-tips] Found ${uniqueChatters.length} unique chatters to tip (scanned ${offset} messages)`);
+    if (!messages || messages.length === 0) {
+      return NextResponse.json({ success: true, distributed: 0, message: 'No chatters to tip' });
+    }
 
-    if (uniqueChatters.length === 0) {
+    // Filter out the image uploader and take first 10
+    const chattersToTip: { address: string; messageHash: string }[] = [];
+    
+    for (const msg of messages) {
+      const sender = msg.sender.toLowerCase();
+      
+      // Skip if it's the image uploader
+      if (sender === senderLower) {
+        continue;
+      }
+      
+      chattersToTip.push({
+        address: sender,
+        messageHash: msg.transaction_hash,
+      });
+      
+      if (chattersToTip.length >= TARGET_CHATTERS) {
+        break;
+      }
+    }
+
+    console.log(`[distribute-image-tips] Found ${chattersToTip.length} chatters to tip`);
+
+    if (chattersToTip.length === 0) {
       return NextResponse.json({ success: true, distributed: 0, message: 'No chatters to tip' });
     }
 
     // Send 1 SPRINKLES to each chatter
     const results: { address: string; txHash: string | null; success: boolean }[] = [];
     
-    for (const chatter of uniqueChatters) {
+    for (const chatter of chattersToTip) {
       try {
         const hash = await walletClient.writeContract({
           address: SPRINKLES_ADDRESS,
@@ -148,16 +139,25 @@ export async function POST(request: NextRequest) {
             created_at: new Date().toISOString(),
           });
 
-        // UPDATE: Also set airdrop_amount on the chat message so UI can display it
+        // Update airdrop_amount on the chat message so UI can display it
+        // First get current amount, then increment
+        const { data: currentMsg } = await supabase
+          .from('chat_messages')
+          .select('airdrop_amount')
+          .eq('transaction_hash', chatter.messageHash)
+          .single();
+
+        const currentAmount = currentMsg?.airdrop_amount || 0;
+        
         const { error: updateError } = await supabase
           .from('chat_messages')
-          .update({ airdrop_amount: 1 })
+          .update({ airdrop_amount: currentAmount + 1 })
           .eq('transaction_hash', chatter.messageHash);
 
         if (updateError) {
           console.error(`[distribute-image-tips] Failed to update airdrop_amount for message ${chatter.messageHash}:`, updateError);
         } else {
-          console.log(`[distribute-image-tips] Updated airdrop_amount for message ${chatter.messageHash}`);
+          console.log(`[distribute-image-tips] Updated airdrop_amount to ${currentAmount + 1} for message ${chatter.messageHash}`);
         }
 
         results.push({ address: chatter.address, txHash: hash, success: true });
@@ -171,12 +171,12 @@ export async function POST(request: NextRequest) {
     }
 
     const successCount = results.filter(r => r.success).length;
-    console.log(`[distribute-image-tips] Distributed to ${successCount}/${uniqueChatters.length} chatters`);
+    console.log(`[distribute-image-tips] Distributed to ${successCount}/${chattersToTip.length} chatters`);
 
     return NextResponse.json({ 
       success: true, 
       distributed: successCount,
-      total: uniqueChatters.length,
+      total: chattersToTip.length,
       results 
     });
 

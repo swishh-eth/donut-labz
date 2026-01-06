@@ -6,7 +6,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Send, MessageCircle, X, Timer, Heart, Image as ImageIcon, User, Reply, CornerDownRight, Gift } from "lucide-react";
+import { Send, MessageCircle, X, Timer, Heart, Image as ImageIcon, User, Reply, CornerDownRight } from "lucide-react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseUnits } from "viem";
 import { GLAZERY_CHAT_ADDRESS, GLAZERY_CHAT_ABI } from "@/lib/contracts/glazery-chat";
@@ -53,8 +53,8 @@ type TipSettings = {
 };
 
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as `0x${string}`;
-const IMAGE_DISTRIBUTION_WALLET = "0x322BcC769f879549E0c20daFf3e1cbD64A1cf0f1" as `0x${string}`; // Bot wallet for distributing to chatters
-const IMAGE_UPLOAD_COST = 10n * 10n ** 18n; // 10 SPRINKLES (1 each to last 10 chatters)
+const IMAGE_DISTRIBUTION_WALLET = "0x322BcC769f879549E0c20daFf3e1cbD64A1cf0f1" as `0x${string}`;
+const IMAGE_UPLOAD_COST = 10n * 10n ** 18n;
 
 const ERC20_ABI = [
   {
@@ -69,18 +69,15 @@ const ERC20_ABI = [
   },
 ] as const;
 
-const CHAT_REWARDS_START_TIME = 1765159200; // December 8th, 2025 2:00 AM UTC (aligned with SPRINKLES miner halving)
+const CHAT_REWARDS_START_TIME = 1765159200;
 const HALVING_PERIOD = 30 * 24 * 60 * 60;
 const MULTIPLIER_SCHEDULE = [2, 1, 0.5, 0.25, 0];
-const MIN_SPRINKLES_FOR_REWARDS = 100000; // 100,000 SPRINKLES to earn
+const MIN_SPRINKLES_FOR_REWARDS = 100000;
 
 const getCurrentMultiplier = () => {
   const now = Math.floor(Date.now() / 1000);
   const elapsed = now - CHAT_REWARDS_START_TIME;
-  
-  // If rewards haven't started yet, return the initial multiplier
   if (elapsed < 0) return MULTIPLIER_SCHEDULE[0];
-  
   const halvings = Math.floor(elapsed / HALVING_PERIOD);
   if (halvings >= MULTIPLIER_SCHEDULE.length) return 0;
   return MULTIPLIER_SCHEDULE[halvings];
@@ -89,8 +86,6 @@ const getCurrentMultiplier = () => {
 const getTimeUntilNextHalving = () => {
   const now = Math.floor(Date.now() / 1000);
   const elapsed = now - CHAT_REWARDS_START_TIME;
-  
-  // If rewards haven't started yet, show time until start
   if (elapsed < 0) {
     const secondsRemaining = CHAT_REWARDS_START_TIME - now;
     const days = Math.floor(secondsRemaining / 86400);
@@ -100,7 +95,6 @@ const getTimeUntilNextHalving = () => {
     if (hours > 0) return `Starts in ${hours}h ${minutes}m`;
     return `Starts in ${minutes}m`;
   }
-  
   const currentPeriod = Math.floor(elapsed / HALVING_PERIOD);
   if (currentPeriod >= MULTIPLIER_SCHEDULE.length - 1) return null;
   const nextHalvingTime = CHAT_REWARDS_START_TIME + ((currentPeriod + 1) * HALVING_PERIOD);
@@ -168,7 +162,6 @@ export default function ChatPage() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  // Reply state
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
   const pendingReplyToHashRef = useRef<string | null>(null);
 
@@ -200,7 +193,6 @@ export default function ChatPage() {
   const { data: tipHash, writeContract: writeTip, isPending: isTipPending, reset: resetTip } = useWriteContract();
   const { isLoading: isTipConfirming, isSuccess: isTipSuccess } = useWaitForTransactionReceipt({ hash: tipHash });
 
-  // For burning SPRINKLES when uploading images
   const { data: burnHash, writeContract: writeBurn, isPending: isBurnPending, reset: resetBurn } = useWriteContract();
   const { isLoading: isBurnConfirming, isSuccess: isBurnSuccess } = useWaitForTransactionReceipt({ hash: burnHash });
 
@@ -380,11 +372,9 @@ export default function ChatPage() {
   useEffect(() => {
     if (isSuccess && hash) {
       const completeMessage = async () => {
-        // If we uploaded an image, save the image URL to the message
-        // Use ref for reliable access (state might not be updated yet due to React batching)
         const imageUrlToSave = pendingImageUrlRef.current;
         const replyToHashToSave = pendingReplyToHashRef.current;
-        const normalizedHash = hash.toLowerCase(); // Ensure consistent case
+        const normalizedHash = hash.toLowerCase();
         
         if (imageUrlToSave && imageUrlToSave.startsWith("http")) {
           try {
@@ -404,7 +394,6 @@ export default function ChatPage() {
           }
         }
         
-        // Save reply relationship
         if (replyToHashToSave) {
           try {
             await fetch("/api/chat/save-reply", {
@@ -427,19 +416,15 @@ export default function ChatPage() {
         setCooldownRemaining(COOLDOWN_SECONDS);
         setPendingMessageConfirmed(true);
         
-        // Clear image and reply state AFTER save calls complete
         setPendingImageUrl(null);
         pendingImageUrlRef.current = null;
         pendingReplyToHashRef.current = null;
         
-        // Wait longer for blockchain to propagate, then sync and invalidate cache
         setTimeout(async () => {
           await fetch("/api/chat/messages?sync=true");
-          // Invalidate cache to force fresh fetch
           queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
           await refetchMessages();
           
-          // Second sync attempt after another delay to catch any stragglers
           setTimeout(async () => {
             await fetch("/api/chat/messages?sync=true");
             queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
@@ -495,14 +480,12 @@ export default function ChatPage() {
       setPendingMessage(message.trim() || (selectedImage ? "📷" : ""));
       setIsVerifying(false);
       
-      // Store reply hash in ref for reliable access
       if (replyingTo) {
         pendingReplyToHashRef.current = replyingTo.transactionHash;
       }
       
-      // If there's an image, burn SPRINKLES first
       if (selectedImage) {
-        setPendingImageUrl(imagePreview); // Show preview while uploading
+        setPendingImageUrl(imagePreview);
         writeBurn({
           address: SPRINKLES_ADDRESS,
           abi: ERC20_ABI,
@@ -510,7 +493,6 @@ export default function ChatPage() {
           args: [IMAGE_DISTRIBUTION_WALLET, IMAGE_UPLOAD_COST],
         });
       } else {
-        // No image, send message directly
         writeContract({
           address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
           abi: GLAZERY_CHAT_ABI,
@@ -572,13 +554,11 @@ export default function ChatPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       setEligibilityError(["Please select an image file"]);
       return;
     }
     
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setEligibilityError(["Image must be less than 5MB"]);
       return;
@@ -623,7 +603,6 @@ export default function ChatPage() {
     }
   };
 
-  // Handle burn success - upload image and send message
   useEffect(() => {
     if (isBurnSuccess && burnHash && selectedImage && pendingMessage !== undefined) {
       const completeImageUpload = async () => {
@@ -632,9 +611,8 @@ export default function ChatPage() {
           const imageUrl = await uploadImageToSupabase(selectedImage);
           if (imageUrl) {
             setPendingImageUrl(imageUrl);
-            pendingImageUrlRef.current = imageUrl; // Store in ref for reliable access
+            pendingImageUrlRef.current = imageUrl;
             
-            // Trigger the distribution to last 10 chatters (fire and forget)
             fetch('/api/chat/distribute-image-tips', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -644,7 +622,6 @@ export default function ChatPage() {
               }),
             }).catch(e => console.error('Distribution trigger failed:', e));
             
-            // Now send the actual chat message
             writeContract({
               address: GLAZERY_CHAT_ADDRESS as `0x${string}`,
               abi: GLAZERY_CHAT_ABI,
@@ -666,13 +643,11 @@ export default function ChatPage() {
     }
   }, [isBurnSuccess, selectedImage]);
 
-  // Messages are displayed oldest first, scroll to bottom on load
   const hasInitialScrolledRef = useRef(false);
   const prevMessagesLengthRef = useRef(0);
   
   useEffect(() => {
     if (!hasInitialScrolledRef.current && messages && messages.length > 0 && !messagesLoading) {
-      // Small delay to ensure messages render with opacity: 0 first
       requestAnimationFrame(() => {
         setReadyToAnimate(true);
         requestAnimationFrame(() => {
@@ -682,14 +657,12 @@ export default function ChatPage() {
             hasInitialScrolledRef.current = true;
             prevMessagesLengthRef.current = messages.length;
           }
-          // Mark animation as complete after all messages have animated
           setTimeout(() => setHasAnimatedIn(true), messages.length * 30 + 300);
         });
       });
     }
   }, [messages, messagesLoading]);
   
-  // Scroll to bottom when new messages arrive (but not on initial load)
   useEffect(() => {
     if (hasInitialScrolledRef.current && messages && messages.length > prevMessagesLengthRef.current) {
       prevMessagesLengthRef.current = messages.length;
@@ -702,7 +675,6 @@ export default function ChatPage() {
     }
   }, [messages?.length]);
 
-  // Scroll to bottom when pendingMessage is set (to show spinner)
   useEffect(() => {
     if (pendingMessage && !pendingMessageConfirmed) {
       const container = messagesContainerRef.current;
@@ -741,7 +713,6 @@ export default function ChatPage() {
 
   const rewardsEnded = currentMultiplier === 0;
 
-  // Helper to find the message being replied to
   const getReplyMessage = (replyToHash: string | undefined) => {
     if (!replyToHash || !messages) return null;
     return messages.find(m => m.transactionHash.toLowerCase() === replyToHash.toLowerCase());
@@ -782,20 +753,6 @@ export default function ChatPage() {
         }
         .stagger-1 { animation-delay: 0.1s; }
         .stagger-2 { animation-delay: 0.2s; }
-        @keyframes airdropGlow {
-          0%, 100% { box-shadow: 0 0 8px rgba(74, 222, 128, 0.4); }
-          50% { box-shadow: 0 0 16px rgba(74, 222, 128, 0.7); }
-        }
-        .airdrop-glow {
-          animation: airdropGlow 2s ease-in-out infinite;
-        }
-        @keyframes coinBounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-2px); }
-        }
-        .coin-bounce {
-          animation: coinBounce 1s ease-in-out infinite;
-        }
       `}</style>
 
       <div 
@@ -811,7 +768,6 @@ export default function ChatPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-2 mb-3 flex-shrink-0">
-            {/* Your Sprinkles Tile */}
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]">
               <div className="flex items-center gap-1">
                 <User className="w-3.5 h-3.5 text-white" />
@@ -1014,7 +970,7 @@ export default function ChatPage() {
           {/* Messages container */}
           <div 
             ref={messagesContainerRef} 
-            className="flex-1 overflow-y-auto space-y-2 min-h-0 chat-scroll pb-14"
+            className="flex-1 overflow-y-auto overflow-x-hidden space-y-2 min-h-0 chat-scroll pb-14"
             style={{
               WebkitMaskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
               maskImage: `linear-gradient(to bottom, ${scrollFade.top > 0.1 ? 'transparent' : 'black'} 0%, black ${scrollFade.top * 8}%, black ${100 - scrollFade.bottom * 8}%, ${scrollFade.bottom > 0.1 ? 'transparent' : 'black'} 100%)`,
@@ -1040,8 +996,11 @@ export default function ChatPage() {
                   const isTipping = tippingMessageHash === msg.transactionHash;
                   const tipCount = tipCounts[msg.transactionHash] || 0;
                   const hasAirdrop = (msg.airdropAmount ?? 0) > 0;
+                  const hasTips = tipCount > 0;
                   
-                  // Get replied message info
+                  // Determine tile background color: pink if both airdrop AND tips, green if just airdrop
+                  const hasBothAirdropAndTips = hasAirdrop && hasTips;
+                  
                   const repliedMsg = getReplyMessage(msg.replyToHash);
                   const repliedProfile = repliedMsg ? profiles?.[repliedMsg.sender.toLowerCase()] : null;
                   const repliedDisplayName = repliedProfile?.displayName || (repliedMsg ? formatAddress(repliedMsg.sender) : null);
@@ -1051,8 +1010,13 @@ export default function ChatPage() {
                       key={`${msg.transactionHash}-${index}`} 
                       className={cn(
                         "flex gap-2 p-2 rounded-lg relative",
-                        isOwnMessage ? "bg-zinc-800 border border-zinc-700" : "bg-zinc-900 border border-zinc-800",
-                        hasAirdrop && "border-green-500/50 airdrop-glow",
+                        hasBothAirdropAndTips
+                          ? "bg-pink-500/20 border border-pink-500/50"
+                          : hasAirdrop
+                            ? "bg-green-500/20 border border-green-500/50"
+                            : isOwnMessage 
+                              ? "bg-zinc-800 border border-zinc-700" 
+                              : "bg-zinc-900 border border-zinc-800",
                         !hasAnimatedIn && "animate-messagePopIn"
                       )}
                       style={!hasAnimatedIn ? {
@@ -1061,44 +1025,37 @@ export default function ChatPage() {
                         animationFillMode: 'forwards',
                       } : undefined}
                     >
-                      {/* Airdrop indicator - floating badge on message */}
-                      {hasAirdrop && (
-                        <div className="absolute -top-2 -right-2 z-10">
-                          <div className="flex items-center gap-0.5 bg-green-500 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-lg">
-                            <SprinklesCoin className="w-3 h-3 coin-bounce" />
-                            <span>+{msg.airdropAmount}</span>
-                          </div>
-                        </div>
-                      )}
-                      
                       <button onClick={() => openUserProfile(username)} disabled={!username} className={`flex-shrink-0 ${username ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}>
-                        <div className="relative">
-                          <Avatar className={cn("h-8 w-8 border", hasAirdrop ? "border-green-500" : "border-zinc-700")}>
-                            <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
-                            <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(displayName)}</AvatarFallback>
-                          </Avatar>
-                          {/* Small sprinkles indicator on avatar for airdrop recipients */}
-                          {hasAirdrop && (
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center border-2 border-zinc-900">
-                              <Gift className="w-2.5 h-2.5 text-black" />
-                            </div>
-                          )}
-                        </div>
+                        <Avatar className={cn(
+                          "h-8 w-8 border",
+                          hasBothAirdropAndTips ? "border-pink-500" : hasAirdrop ? "border-green-500" : "border-zinc-700"
+                        )}>
+                          <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+                          <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(displayName)}</AvatarFallback>
+                        </Avatar>
                       </button>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <button onClick={() => openUserProfile(username)} disabled={!username} className={cn("font-semibold text-xs truncate", hasAirdrop ? "text-green-400" : "text-white", username && "hover:text-gray-300")}>{displayName}</button>
+                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                          <button onClick={() => openUserProfile(username)} disabled={!username} className={cn(
+                            "font-semibold text-xs truncate",
+                            hasBothAirdropAndTips ? "text-pink-400" : hasAirdrop ? "text-green-400" : "text-white",
+                            username && "hover:text-gray-300"
+                          )}>{displayName}</button>
                           {username && <button onClick={() => openUserProfile(username)} className="text-[10px] text-gray-500 truncate hover:text-gray-300">{username}</button>}
-                          {/* Inline airdrop label */}
+                          {/* Inline airdrop indicator with sprinkles icon and amount */}
                           {hasAirdrop && (
-                            <span className="text-[9px] text-green-400 bg-green-500/20 px-1 py-0.5 rounded flex items-center gap-0.5">
-                              <Gift className="w-2.5 h-2.5" />
-                              airdrop
+                            <span className={cn(
+                              "text-[9px] px-1.5 py-0.5 rounded flex items-center gap-0.5 font-bold flex-shrink-0",
+                              hasBothAirdropAndTips 
+                                ? "text-pink-400 bg-pink-500/30" 
+                                : "text-green-400 bg-green-500/30"
+                            )}>
+                              <SprinklesCoin className="w-3 h-3" />
+                              +{msg.airdropAmount}
                             </span>
                           )}
                         </div>
                         
-                        {/* Reply indicator - show original message being replied to */}
                         {repliedMsg && (
                           <div className="flex items-start gap-1 mb-1 pl-1 border-l-2 border-zinc-600">
                             <CornerDownRight className="w-3 h-3 text-zinc-500 flex-shrink-0 mt-0.5" />
@@ -1112,7 +1069,10 @@ export default function ChatPage() {
                           <img 
                             src={msg.imageUrl} 
                             alt="Chat image" 
-                            className={cn("max-w-full max-h-[400px] rounded-lg border mb-1 object-contain", hasAirdrop ? "border-green-500/50" : "border-zinc-700")}
+                            className={cn(
+                              "max-w-full max-h-[400px] rounded-lg border mb-1 object-contain",
+                              hasBothAirdropAndTips ? "border-pink-500/50" : hasAirdrop ? "border-green-500/50" : "border-zinc-700"
+                            )}
                           />
                         )}
                         {msg.message && msg.message !== "📷" && (
@@ -1122,7 +1082,6 @@ export default function ChatPage() {
                       {/* Time and action buttons in a row */}
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <span className="text-[10px] text-gray-600">{timeAgo(msg.timestamp)}</span>
-                        {/* Reply button */}
                         <button 
                           onClick={() => handleReply(msg)} 
                           disabled={!isConnected}
@@ -1131,7 +1090,6 @@ export default function ChatPage() {
                         >
                           <Reply className="w-3.5 h-3.5 text-gray-500 hover:text-white transition-colors" />
                         </button>
-                        {/* Tip button */}
                         <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={!isConnected || isOwnMessage || isTipPending || isTipConfirming} className={`flex flex-col items-center justify-center w-[28px] h-[28px] rounded-lg transition-all ${isTipping ? "bg-white/20" : tipCount > 0 ? "bg-white/10" : (!isConnected || isOwnMessage) ? "" : "hover:bg-white/10"}`} title={!isConnected ? "Connect wallet to tip" : isOwnMessage ? "Can't tip yourself" : `Tip ${tipSettings.amount} SPRINKLES`}>
                           <Heart className={`w-3.5 h-3.5 transition-colors ${isTipping ? "text-white animate-pulse fill-white" : tipCount > 0 ? "text-white fill-white/50" : "text-gray-500"}`} />
                           {tipCount > 0 && <span className="text-[7px] font-bold text-white -mt-0.5">{tipCount}</span>}
@@ -1169,7 +1127,6 @@ export default function ChatPage() {
                         }`}>{pendingMessage}</p>
                       )}
                     </div>
-                    {/* Loading spinner */}
                     {!pendingMessageConfirmed && (
                       <div className="flex items-center flex-shrink-0">
                         <svg className="w-5 h-5 animate-spin text-white" viewBox="0 0 24 24" fill="none">
@@ -1239,7 +1196,6 @@ export default function ChatPage() {
                     </div>
                   )}
                   
-                  {/* Reply preview - shown above input when replying */}
                   {replyingTo && (
                     <div className="mb-2 bg-zinc-900 border border-zinc-700 rounded-xl p-2 flex items-center gap-2">
                       <CornerDownRight className="w-4 h-4 text-zinc-400 flex-shrink-0" />
@@ -1253,7 +1209,6 @@ export default function ChatPage() {
                     </div>
                   )}
                   
-                  {/* Image preview - shown above input when image selected */}
                   {imagePreview && (
                     <div className="mb-2 relative inline-block">
                       <img 
