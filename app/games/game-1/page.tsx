@@ -919,8 +919,8 @@ export default function FlappyDonutPage() {
         oscAmount,
       });
       
-      // Spawn power-up occasionally (every 8-15 pipes, after score 5)
-      if (scoreRef.current >= 5 && Math.random() < 0.12) {
+      // Spawn power-up rarely (after score 5)
+      if (scoreRef.current >= 5 && Math.random() < 0.04) {
         const types: PowerUpType[] = ['shield', 'widegap', 'tiny'];
         const type = types[Math.floor(Math.random() * types.length)];
         const puY = topHeight + currentGap / 2;
@@ -949,6 +949,11 @@ export default function FlappyDonutPage() {
         if (dist < donutRef.current.size / 2 + 18) {
           pu.collected = true;
           playPowerUpSound();
+          
+          // Reset any existing power-up effects before applying new one
+          if (activePowerUpRef.current?.type === 'tiny') {
+            donutRef.current.size = PLAYER_SIZE;
+          }
           
           const color = pu.type === 'shield' ? '#64C8FF' : pu.type === 'widegap' ? '#FF69B4' : '#22C55E';
           spawnPowerUpParticles(pu.x, pu.y, color);
