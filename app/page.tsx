@@ -1942,7 +1942,7 @@ export default function HomePage() {
                                 • {timeSinceLastSplit}
                               </span>
                             )}
-                            {splitterBalance && splitterBalance > 0n && !splitResult && !isSplitWriting && !isSplitConfirming && (
+                            {!!(splitterBalance && splitterBalance > 0n) && !splitResult && !isSplitWriting && !isSplitConfirming && (
                               <span className="text-[9px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded font-bold">
                                 READY
                               </span>
@@ -1960,7 +1960,7 @@ export default function HomePage() {
                           )}>
                             {splitResult === "rewarded"
                               ? "Reward sent to your wallet"
-                              : splitterBalance && splitterBalance > 0n
+                              : !!(splitterBalance && splitterBalance > 0n)
                                 ? <span className="flex items-center gap-1">{formatTokenAmount(splitterBalance, 18, 0)} DONUT ready to split • Earn 10 <SprinklesCoin className="w-3 h-3 inline" /></span>
                                 : <span className="flex items-center gap-1">Split the Sprinkles App miner fee & earn</span>}
                           </div>
