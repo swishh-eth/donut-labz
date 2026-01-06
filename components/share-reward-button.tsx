@@ -1,7 +1,7 @@
 // components/share-reward-button.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   useAccount,
   useReadContract,
@@ -117,8 +117,15 @@ function FadingText({
   interval?: number;
   className?: string;
 }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [displayIndex, setDisplayIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
+  const indexRef = useRef(0);
+  const textsRef = useRef(texts);
+  
+  // Update texts ref when texts change
+  useEffect(() => {
+    textsRef.current = texts;
+  }, [texts]);
   
   useEffect(() => {
     const cycleTimer = setInterval(() => {
@@ -127,21 +134,45 @@ function FadingText({
       
       // After fade out, change text and fade in
       setTimeout(() => {
-        setCurrentIndex((prev) => (prev + 1) % texts.length);
+        indexRef.current = (indexRef.current + 1) % textsRef.current.length;
+        setDisplayIndex(indexRef.current);
         setIsVisible(true);
       }, 300);
     }, interval);
     
     return () => clearInterval(cycleTimer);
-  }, [texts.length, interval]);
+  }, [interval]); // Only depend on interval, not texts
   
   return (
     <span 
       className={`${className} transition-opacity duration-300`}
       style={{ opacity: isVisible ? 1 : 0 }}
     >
-      {texts[currentIndex]}
+      {texts[displayIndex] || texts[0]}
     </span>
+  );
+}
+
+// Fade-in wrapper for compact mode - defined outside to prevent remounts
+function CompactWrapper({ children, shouldAnimate }: { children: React.ReactNode; shouldAnimate: boolean }) {
+  if (!shouldAnimate) {
+    return <>{children}</>;
+  }
+  return (
+    <div 
+      className="animate-fadeIn"
+      style={{
+        animation: 'fadeIn 0.3s ease-out forwards',
+      }}
+    >
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.98); }
+          to { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
+      {children}
+    </div>
   );
 }
 
@@ -729,35 +760,14 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     );
   }
 
-  // Fade-in wrapper for compact mode (only applies on first load)
-  const CompactWrapper = ({ children }: { children: React.ReactNode }) => {
-    // If we loaded from cache, no need to animate
-    if (cachedState) {
-      return <>{children}</>;
-    }
-    return (
-      <div 
-        className="animate-fadeIn"
-        style={{
-          animation: 'fadeIn 0.3s ease-out forwards',
-        }}
-      >
-        <style>{`
-          @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.98); }
-            to { opacity: 1; transform: scale(1); }
-          }
-        `}</style>
-        {children}
-      </div>
-    );
-  };
+  // Determine if we should animate (only on first load, not from cache)
+  const shouldAnimate = !cachedState;
 
   // Just claimed success - show claimed state (disabled)
   if (showClaimSuccess && claimedAmount) {
     if (compact) {
       return (
-        <CompactWrapper>
+        <CompactWrapper shouldAnimate={shouldAnimate}>
           <div 
             className="rounded-xl p-2 flex items-center justify-center"
             style={getGradient()}
@@ -800,7 +810,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
   if (hasClaimed && isActive) {
     if (compact) {
       return (
-        <CompactWrapper>
+        <CompactWrapper shouldAnimate={shouldAnimate}>
           <div 
             className="rounded-xl p-2 h-[36px] flex items-center justify-center"
             style={getGradient()}
@@ -827,7 +837,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
   if (!isActive) {
     if (compact) {
       return (
-        <CompactWrapper>
+        <CompactWrapper shouldAnimate={shouldAnimate}>
           <div 
             className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] flex items-center justify-center opacity-60"
           >
@@ -856,7 +866,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
   if (claimData) {
     if (compact) {
       return (
-        <CompactWrapper>
+        <CompactWrapper shouldAnimate={shouldAnimate}>
           <button
             onClick={handleClaim}
             disabled={isWriting || isConfirming}
@@ -1057,7 +1067,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     // State 1: Initial - Show token icon, tap to share with matrix text cycle
     if (!hasShared) {
       return (
-        <CompactWrapper>
+        <CompactWrapper shouldAnimate={shouldAnimate}>
           <button
             onClick={handleShareToQualify}
             disabled={!userFid}
@@ -1080,7 +1090,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     // State 2: Needs to follow @swishh.eth
     if (needsFollow) {
       return (
-        <CompactWrapper>
+        <CompactWrapper shouldAnimate={shouldAnimate}>
           <div className="flex gap-1.5 h-[36px]">
             <button
               onClick={handleFollow}
@@ -1118,7 +1128,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
 
     // State 3: Shared - Show verify button
     return (
-      <CompactWrapper>
+      <CompactWrapper shouldAnimate={shouldAnimate}>
         <button
           onClick={handleVerifyAndClaim}
           disabled={isVerifying || !userFid}
