@@ -6,7 +6,7 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { formatUnits, parseUnits } from "viem";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Trophy, Play, Coins, Zap, Share2, X, HelpCircle, Volume2, VolumeX, ChevronRight, Clock, Shield, Gauge, Minimize2 } from "lucide-react";
+import { Trophy, Play, Coins, Zap, Share2, X, HelpCircle, Volume2, VolumeX, ChevronRight, Clock, Shield, Minimize2 } from "lucide-react";
 
 // Contract addresses
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
@@ -55,7 +55,7 @@ const PLAYER_SIZE = 36;
 const PLAYER_X = 80;
 
 // Power-up types
-type PowerUpType = 'shield' | 'slow' | 'tiny';
+type PowerUpType = 'shield' | 'widegap' | 'tiny';
 
 interface PowerUp {
   type: PowerUpType;
@@ -736,7 +736,7 @@ export default function FlappyDonutPage() {
     ctx.scale(pulse, pulse);
     
     // Glow
-    const color = powerUp.type === 'shield' ? '#64C8FF' : powerUp.type === 'slow' ? '#FFD700' : '#22C55E';
+    const color = powerUp.type === 'shield' ? '#64C8FF' : powerUp.type === 'widegap' ? '#FF69B4' : '#22C55E';
     ctx.shadowColor = color;
     ctx.shadowBlur = 20;
     
@@ -752,7 +752,7 @@ export default function FlappyDonutPage() {
     ctx.font = 'bold 16px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(powerUp.type === 'shield' ? '🛡️' : powerUp.type === 'slow' ? '⏱' : '•', 0, 0);
+    ctx.fillText(powerUp.type === 'shield' ? '🛡️' : powerUp.type === 'widegap' ? '↕' : '•', 0, 0);
     
     ctx.restore();
   }, []);
@@ -819,18 +819,21 @@ export default function FlappyDonutPage() {
     lastFrameTimeRef.current = now;
     const deltaTime = Math.min(rawDelta / 16.667, 2);
     
+    // Use fixed step for pipes (ignores frame timing for consistent movement)
+    const FIXED_PIPE_STEP = 1.0;
+    
     ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
     frameCountRef.current++;
     
     const difficulty = getDifficulty(scoreRef.current);
     
-    // Apply slow-mo power-up
-    let effectiveSpeed = difficulty.pipeSpeed;
-    let effectiveGravity = GRAVITY;
-    if (activePowerUpRef.current?.type === 'slow') {
-      effectiveSpeed *= 0.5;
-      effectiveGravity *= 0.6;
+    // Apply wide gap power-up
+    let effectiveGap = difficulty.pipeGap;
+    if (activePowerUpRef.current?.type === 'widegap') {
+      effectiveGap += 50; // Add 50px to gap
     }
+    
+    const effectiveSpeed = difficulty.pipeSpeed;
     
     // Check power-up expiration
     if (activePowerUpRef.current?.endTime && now > activePowerUpRef.current.endTime) {
@@ -853,12 +856,12 @@ export default function FlappyDonutPage() {
     ctx.save();
     ctx.translate(shakeX, shakeY);
     
-    drawBackground(ctx, effectiveSpeed);
-    drawCityscape(ctx, effectiveSpeed);
+    drawBackground(ctx, effectiveSpeed * FIXED_PIPE_STEP);
+    drawCityscape(ctx, effectiveSpeed * FIXED_PIPE_STEP);
     
     // Physics
     if (hasFlappedRef.current) {
-      donutRef.current.velocity += effectiveGravity * deltaTime;
+      donutRef.current.velocity += GRAVITY * deltaTime;
       donutRef.current.velocity = Math.min(donutRef.current.velocity, MAX_FALL_SPEED);
       donutRef.current.y += donutRef.current.velocity * deltaTime;
     }
@@ -868,8 +871,8 @@ export default function FlappyDonutPage() {
       spawnTrailParticle(PLAYER_X, donutRef.current.y, 'rgba(244, 114, 182, 0.6)');
     }
     
-    // Move pipes
-    const pipeMovement = effectiveSpeed * deltaTime;
+    // Move pipes with fixed step for consistent movement (no jerkiness)
+    const pipeMovement = effectiveSpeed * FIXED_PIPE_STEP;
     pipesRef.current.forEach((pipe, index) => {
       pipe.x -= pipeMovement;
       
@@ -884,9 +887,7 @@ export default function FlappyDonutPage() {
         scoreRef.current++;
         setScore(scoreRef.current);
         playPointSound();
-        triggerHaptic(true);
-        spawnScoreParticles(PLAYER_X + 30, donutRef.current.y);
-        addFloatingText(PLAYER_X + 40, donutRef.current.y - 30, '+1', '#FFD700');
+        addFloatingText(PLAYER_X + 40, donutRef.current.y - 20, '+1', '#FFD700');
         lastPipePassedRef.current = scoreRef.current;
       }
       
@@ -896,7 +897,7 @@ export default function FlappyDonutPage() {
     // Spawn new pipes
     const lastPipe = pipesRef.current[pipesRef.current.length - 1];
     if (!lastPipe || lastPipe.x < CANVAS_WIDTH - PIPE_SPAWN_DISTANCE) {
-      const currentGap = difficulty.pipeGap;
+      const currentGap = effectiveGap;
       const topHeight = Math.random() * (CANVAS_HEIGHT - currentGap - 120) + 60;
       const phase = Math.random() * Math.PI * 2;
       
@@ -920,7 +921,7 @@ export default function FlappyDonutPage() {
       
       // Spawn power-up occasionally (every 8-15 pipes, after score 5)
       if (scoreRef.current >= 5 && Math.random() < 0.12) {
-        const types: PowerUpType[] = ['shield', 'slow', 'tiny'];
+        const types: PowerUpType[] = ['shield', 'widegap', 'tiny'];
         const type = types[Math.floor(Math.random() * types.length)];
         const puY = topHeight + currentGap / 2;
         powerUpsRef.current.push({
@@ -949,17 +950,17 @@ export default function FlappyDonutPage() {
           pu.collected = true;
           playPowerUpSound();
           
-          const color = pu.type === 'shield' ? '#64C8FF' : pu.type === 'slow' ? '#FFD700' : '#22C55E';
+          const color = pu.type === 'shield' ? '#64C8FF' : pu.type === 'widegap' ? '#FF69B4' : '#22C55E';
           spawnPowerUpParticles(pu.x, pu.y, color);
           
           if (pu.type === 'shield') {
             activePowerUpRef.current = { type: 'shield' };
             setActivePowerUpDisplay('shield');
             addFloatingText(pu.x, pu.y - 20, 'SHIELD!', color);
-          } else if (pu.type === 'slow') {
-            activePowerUpRef.current = { type: 'slow', endTime: now + 5000 };
-            setActivePowerUpDisplay('slow');
-            addFloatingText(pu.x, pu.y - 20, 'SLOW-MO!', color);
+          } else if (pu.type === 'widegap') {
+            activePowerUpRef.current = { type: 'widegap', endTime: now + 8000 };
+            setActivePowerUpDisplay('widegap');
+            addFloatingText(pu.x, pu.y - 20, 'WIDE GAP!', color);
           } else if (pu.type === 'tiny') {
             donutRef.current.size = PLAYER_SIZE * 0.6;
             activePowerUpRef.current = { type: 'tiny', endTime: now + 6000 };
@@ -1011,11 +1012,11 @@ export default function FlappyDonutPage() {
     // Active power-up indicator
     if (activePowerUpRef.current) {
       const pu = activePowerUpRef.current;
-      const color = pu.type === 'shield' ? '#64C8FF' : pu.type === 'slow' ? '#FFD700' : '#22C55E';
+      const color = pu.type === 'shield' ? '#64C8FF' : pu.type === 'widegap' ? '#FF69B4' : '#22C55E';
       ctx.fillStyle = color;
       ctx.font = 'bold 12px monospace';
       ctx.textAlign = 'left';
-      const icon = pu.type === 'shield' ? '🛡️ SHIELD' : pu.type === 'slow' ? '⏱ SLOW' : '• TINY';
+      const icon = pu.type === 'shield' ? '🛡️ SHIELD' : pu.type === 'widegap' ? '↕ WIDE GAP' : '• TINY';
       ctx.fillText(icon, 15, 50);
       
       if (pu.endTime) {
@@ -1102,7 +1103,7 @@ export default function FlappyDonutPage() {
     }
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawBackground, drawCityscape, drawPlayer, drawPipe, drawPowerUp, drawParticles, drawFloatingTexts, address, context, playPointSound, playPowerUpSound, playHitSound, triggerHaptic, spawnScoreParticles, spawnTrailParticle, spawnPowerUpParticles, spawnDeathParticles, addFloatingText]);
+  }, [drawBackground, drawCityscape, drawPlayer, drawPipe, drawPowerUp, drawParticles, drawFloatingTexts, address, context, playPointSound, playPowerUpSound, playHitSound, spawnTrailParticle, spawnPowerUpParticles, spawnDeathParticles, addFloatingText]);
   
   const handleFlap = useCallback(() => {
     if (gameState === "playing" && gameActiveRef.current) {
@@ -1488,8 +1489,8 @@ export default function FlappyDonutPage() {
                     <span>Shield - Blocks one hit</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-yellow-400">⏱</span>
-                    <span>Slow-Mo - Slows game for 5 seconds</span>
+                    <span className="text-pink-400">↕</span>
+                    <span>Wide Gap - Wider pipes for 8 seconds</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-green-400">•</span>
