@@ -81,15 +81,41 @@ const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   </span>
 );
 
+// Session cache for button state - persists while app is open
+type CachedState = {
+  hasClaimed: boolean;
+  isActive: boolean;
+  tokenSymbol: string;
+  claimsRemaining: number;
+  timestamp: number;
+};
+
+let sessionCache: CachedState | null = null;
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+
+const getCachedState = (): CachedState | null => {
+  if (!sessionCache) return null;
+  // Check if cache is still valid (within 1 hour)
+  if (Date.now() - sessionCache.timestamp > CACHE_DURATION) {
+    sessionCache = null;
+    return null;
+  }
+  return sessionCache;
+};
+
+const setCachedState = (state: Omit<CachedState, 'timestamp'>) => {
+  sessionCache = { ...state, timestamp: Date.now() };
+};
+
 // Matrix-style single character component that transitions between characters
 function MatrixTransitionChar({ 
   targetChar, 
   delay = 0, 
-  isTransitioning 
+  phase // 'in' | 'out' | 'idle'
 }: { 
   targetChar: string; 
   delay?: number; 
-  isTransitioning: boolean;
+  phase: 'in' | 'out' | 'idle';
 }) {
   const [displayChar, setDisplayChar] = useState(targetChar);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -110,8 +136,8 @@ function MatrixTransitionChar({
       return;
     }
     
-    // If not transitioning, just show the target char
-    if (!isTransitioning) {
+    // If idle, just show the target char
+    if (phase === 'idle') {
       setDisplayChar(targetChar);
       setIsAnimating(false);
       return;
@@ -122,21 +148,23 @@ function MatrixTransitionChar({
       setIsAnimating(true);
       
       let cycleCount = 0;
-      const maxCycles = 6 + Math.floor(delay / 25); // More cycles for later chars
+      const maxCycles = phase === 'out' ? 4 + Math.floor(delay / 30) : 6 + Math.floor(delay / 25);
       
       animationRef.current = setInterval(() => {
         if (cycleCount < maxCycles) {
           setDisplayChar(chars[Math.floor(Math.random() * chars.length)]);
           cycleCount++;
         } else {
-          setDisplayChar(targetChar);
+          // On 'out' phase, end with random char (it will be replaced)
+          // On 'in' phase, end with target char
+          setDisplayChar(phase === 'out' ? chars[Math.floor(Math.random() * chars.length)] : targetChar);
           setIsAnimating(false);
           if (animationRef.current) {
             clearInterval(animationRef.current);
             animationRef.current = null;
           }
         }
-      }, 40);
+      }, 35);
     }, delay);
     
     return () => {
@@ -146,7 +174,7 @@ function MatrixTransitionChar({
         animationRef.current = null;
       }
     };
-  }, [targetChar, delay, isTransitioning]);
+  }, [targetChar, delay, phase]);
   
   return (
     <span className={`transition-colors duration-75 ${isAnimating ? 'text-green-400/80' : ''}`}>
@@ -155,63 +183,71 @@ function MatrixTransitionChar({
   );
 }
 
-// Matrix-style text that transitions between different texts
+// Matrix-style text that transitions out then in between different texts
 function MatrixTransitionText({ 
   texts,
   interval = 3000,
   className = "",
-  iconAtEnd = false,
 }: { 
   texts: string[];
   interval?: number;
   className?: string;
-  iconAtEnd?: boolean;
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isTransitioning, setIsTransitioning] = useState(true);
+  const [nextIndex, setNextIndex] = useState(0);
+  const [phase, setPhase] = useState<'in' | 'out' | 'idle'>('in');
   const [key, setKey] = useState(0);
   
-  // Cycle through texts
+  // Cycle through texts with out->in transition
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % texts.length);
-      setIsTransitioning(true);
-      setKey((prev) => prev + 1);
+      // Start transition out
+      setPhase('out');
+      
+      // After out animation, switch to next text and animate in
+      setTimeout(() => {
+        setCurrentIndex((prev) => {
+          const next = (prev + 1) % texts.length;
+          setNextIndex(next);
+          return next;
+        });
+        setKey((prev) => prev + 1);
+        setPhase('in');
+      }, 350); // Duration of out animation
+      
     }, interval);
     
     return () => clearInterval(timer);
   }, [texts.length, interval]);
   
-  // Reset transition state after animation completes
+  // Reset to idle after in animation completes
   useEffect(() => {
-    if (isTransitioning) {
+    if (phase === 'in') {
       const timeout = setTimeout(() => {
-        setIsTransitioning(false);
-      }, 600); // Animation duration
+        setPhase('idle');
+      }, 500); // Duration of in animation
       return () => clearTimeout(timeout);
     }
-  }, [isTransitioning, key]);
+  }, [phase, key]);
   
   const currentText = texts[currentIndex];
-  const showIcon = currentIndex === 1 && iconAtEnd; // Show icon for "MUST HOLD 10K"
   
   // Pad text to consistent length to prevent layout shift
   const maxLength = Math.max(...texts.map(t => t.length));
   const paddedText = currentText.padEnd(maxLength, ' ');
   
   return (
-    <span className={`inline-flex items-center gap-1 ${className}`}>
-      <span key={key}>
+    <span className={`inline-flex items-center justify-center ${className}`}>
+      <span key={key} className="whitespace-pre">
         {paddedText.split('').map((char, index) => (
           <MatrixTransitionChar
             key={`${key}-${index}`}
             targetChar={char}
-            delay={index * 25}
-            isTransitioning={isTransitioning}
+            delay={index * 20}
+            phase={phase}
           />
         ))}
       </span>
-      {showIcon && <SprinklesCoin className="w-3.5 h-3.5" />}
     </span>
   );
 }
@@ -236,6 +272,11 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   const [needsSprinkles, setNeedsSprinkles] = useState(false);
   const [showSprinklesActions, setShowSprinklesActions] = useState(false);
   const [sprinklesBalance, setSprinklesBalance] = useState<number>(0);
+  
+  // Check if we have cached state from this session
+  const cachedState = getCachedState();
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(!!cachedState);
+  const [componentReady, setComponentReady] = useState(!!cachedState);
 
   // Helper functions for token-specific styling
   const isDonutToken = tokenSymbol === "DONUT";
@@ -348,6 +389,37 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
       setTokenLoading(false);
     }
   }, [campaign, isNativeETH]);
+
+  // Set component ready after initial load and cache the state
+  useEffect(() => {
+    if (!tokenLoading && !hasLoadedOnce) {
+      // Cache the state for this session
+      setCachedState({
+        hasClaimed: !!hasClaimed,
+        isActive: !!isActive,
+        tokenSymbol,
+        claimsRemaining,
+      });
+      
+      const timeout = setTimeout(() => {
+        setComponentReady(true);
+        setHasLoadedOnce(true);
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [tokenLoading, hasLoadedOnce, hasClaimed, isActive, tokenSymbol, claimsRemaining]);
+
+  // Update cache when claim status changes (e.g., user just claimed)
+  useEffect(() => {
+    if (hasLoadedOnce && !tokenLoading) {
+      setCachedState({
+        hasClaimed: !!hasClaimed,
+        isActive: !!isActive,
+        tokenSymbol,
+        claimsRemaining,
+      });
+    }
+  }, [hasClaimed, isActive, tokenSymbol, claimsRemaining, hasLoadedOnce, tokenLoading]);
 
   // Write contract for claiming
   const {
@@ -753,19 +825,56 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
   }
 
   // ============== COMPACT MODE (for games page) ==============
+  // Loading state - show spinner in dark zinc style (only on first load of session)
+  if (compact && !componentReady) {
+    return (
+      <div 
+        className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] flex items-center justify-center"
+      >
+        <Loader2 className="w-4 h-4 text-gray-500 animate-spin" />
+      </div>
+    );
+  }
+
+  // Fade-in wrapper for compact mode (only applies on first load)
+  const CompactWrapper = ({ children }: { children: React.ReactNode }) => {
+    // If we loaded from cache, no need to animate
+    if (cachedState) {
+      return <>{children}</>;
+    }
+    return (
+      <div 
+        className="animate-fadeIn"
+        style={{
+          animation: 'fadeIn 0.3s ease-out forwards',
+        }}
+      >
+        <style>{`
+          @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+          }
+        `}</style>
+        {children}
+      </div>
+    );
+  };
+
   // Just claimed success - show claimed state (disabled)
   if (showClaimSuccess && claimedAmount) {
     if (compact) {
       return (
-        <div 
-          className="rounded-xl p-2 flex items-center justify-center"
-          style={getGradient()}
-        >
-          <div className={cn("flex items-center gap-1.5", getTextColor())}>
-            <CheckCircle className="w-3.5 h-3.5" />
-            <span className="font-semibold text-xs">Claimed!</span>
+        <CompactWrapper>
+          <div 
+            className="rounded-xl p-2 flex items-center justify-center"
+            style={getGradient()}
+          >
+            <div className={cn("flex items-center gap-1.5", getTextColor())}>
+              <CheckCircle className="w-3.5 h-3.5" />
+              <span className="font-semibold text-xs">Claimed!</span>
+            </div>
           </div>
-        </div>
+        </CompactWrapper>
       );
     }
     return (
@@ -798,15 +907,17 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
   if (hasClaimed && isActive) {
     if (compact) {
       return (
-        <div 
-          className="rounded-xl p-2 h-[36px] flex items-center justify-center"
-          style={getGradient()}
-        >
-          <div className={cn("flex items-center gap-1.5", getTextColor())}>
-            <CheckCircle className="w-3.5 h-3.5" />
-            <span className="font-semibold text-xs">Claimed!</span>
+        <CompactWrapper>
+          <div 
+            className="rounded-xl p-2 h-[36px] flex items-center justify-center"
+            style={getGradient()}
+          >
+            <div className={cn("flex items-center gap-1.5", getTextColor())}>
+              <CheckCircle className="w-3.5 h-3.5" />
+              <span className="font-semibold text-xs">Claimed!</span>
+            </div>
           </div>
-        </div>
+        </CompactWrapper>
       );
     }
     return (
@@ -823,14 +934,16 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
   if (!isActive) {
     if (compact) {
       return (
-        <div 
-          className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] flex items-center justify-center opacity-60"
-        >
-          <div className="flex items-center gap-1.5 text-gray-400">
-            <Gift className="w-3.5 h-3.5" />
-            <span className="font-semibold text-xs">No Campaign</span>
+        <CompactWrapper>
+          <div 
+            className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] flex items-center justify-center opacity-60"
+          >
+            <div className="flex items-center gap-1.5 text-gray-400">
+              <Gift className="w-3.5 h-3.5" />
+              <span className="font-semibold text-xs">No Campaign</span>
+            </div>
           </div>
-        </div>
+        </CompactWrapper>
       );
     }
     return (
@@ -850,24 +963,26 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
   if (claimData) {
     if (compact) {
       return (
-        <button
-          onClick={handleClaim}
-          disabled={isWriting || isConfirming}
-          className={cn(
-            "rounded-xl p-2 h-[36px] flex items-center justify-center gap-1.5 transition-all",
-            (isWriting || isConfirming) && "opacity-50 cursor-not-allowed"
-          )}
-          style={getActiveGradient()}
-        >
-          {isWriting || isConfirming ? (
-            <Loader2 className={cn("w-3.5 h-3.5 animate-spin", getTextColor())} />
-          ) : (
-            <Gift className={cn("w-3.5 h-3.5", getTextColor())} />
-          )}
-          <span className={cn("font-semibold text-xs", getTextColor())}>
-            {isWriting ? "Approve..." : isConfirming ? "Claiming..." : `Claim ${tokenSymbol}`}
-          </span>
-        </button>
+        <CompactWrapper>
+          <button
+            onClick={handleClaim}
+            disabled={isWriting || isConfirming}
+            className={cn(
+              "rounded-xl p-2 h-[36px] flex items-center justify-center gap-1.5 transition-all",
+              (isWriting || isConfirming) && "opacity-50 cursor-not-allowed"
+            )}
+            style={getActiveGradient()}
+          >
+            {isWriting || isConfirming ? (
+              <Loader2 className={cn("w-3.5 h-3.5 animate-spin", getTextColor())} />
+            ) : (
+              <Gift className={cn("w-3.5 h-3.5", getTextColor())} />
+            )}
+            <span className={cn("font-semibold text-xs", getTextColor())}>
+              {isWriting ? "Approve..." : isConfirming ? "Claiming..." : `Claim ${tokenSymbol}`}
+            </span>
+          </button>
+        </CompactWrapper>
       );
     }
     return (
@@ -1049,82 +1164,87 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     // State 1: Initial - Show token icon, tap to share with matrix text cycle
     if (!hasShared) {
       return (
-        <button
-          onClick={handleShareToQualify}
-          disabled={!userFid}
-          className={cn(
-            "rounded-xl p-2 h-[36px] flex items-center justify-center transition-all",
-            !userFid && "opacity-50 cursor-not-allowed"
-          )}
-          style={getActiveGradient()}
-        >
-          <MatrixTransitionText
-            texts={["SHARE TO CLAIM", "MUST HOLD 10K", `${claimsRemaining} CLAIMS LEFT`]}
-            interval={3000}
-            className={cn("font-semibold text-xs", getTextColor())}
-            iconAtEnd={true}
-          />
-        </button>
+        <CompactWrapper>
+          <button
+            onClick={handleShareToQualify}
+            disabled={!userFid}
+            className={cn(
+              "rounded-xl p-2 h-[36px] flex items-center justify-center transition-all",
+              !userFid && "opacity-50 cursor-not-allowed"
+            )}
+            style={getActiveGradient()}
+          >
+            <MatrixTransitionText
+              texts={["SHARE TO CLAIM", "HOLD 10K SPRINKLES", `${claimsRemaining} CLAIMS LEFT`]}
+              interval={3000}
+              className={cn("font-semibold text-xs", getTextColor())}
+            />
+          </button>
+        </CompactWrapper>
       );
     }
 
     // State 2: Needs to follow @swishh.eth
     if (needsFollow) {
       return (
-        <div className="flex gap-1.5 h-[36px]">
-          <button
-            onClick={handleFollow}
-            className="flex-1 rounded-xl p-2 flex items-center justify-center gap-1 transition-all"
-            style={{ 
-              background: 'linear-gradient(135deg, rgba(147,51,234,0.25) 0%, rgba(126,34,206,0.15) 100%)',
-              border: '1px solid rgba(147,51,234,0.5)'
-            }}
-          >
-            <UserPlus className="w-3.5 h-3.5 text-purple-400" />
-            <span className="font-semibold text-[10px] text-purple-400">Follow</span>
-          </button>
-          <button
-            onClick={handleVerifyAndClaim}
-            disabled={isVerifying}
-            className={cn(
-              "flex-1 rounded-xl p-2 flex items-center justify-center gap-1 transition-all",
-              isVerifying && "opacity-50 cursor-not-allowed"
-            )}
-            style={getGradient()}
-          >
-            {isVerifying ? (
-              <Loader2 className={cn("w-3.5 h-3.5 animate-spin", getTextColor())} />
-            ) : (
-              <CheckCircle className={cn("w-3.5 h-3.5", getTextColor())} />
-            )}
-            <span className={cn("font-semibold text-[10px]", getTextColor())}>
-              {isVerifying ? "..." : "Verify"}
-            </span>
-          </button>
-        </div>
+        <CompactWrapper>
+          <div className="flex gap-1.5 h-[36px]">
+            <button
+              onClick={handleFollow}
+              className="flex-1 rounded-xl p-2 flex items-center justify-center gap-1 transition-all"
+              style={{ 
+                background: 'linear-gradient(135deg, rgba(147,51,234,0.25) 0%, rgba(126,34,206,0.15) 100%)',
+                border: '1px solid rgba(147,51,234,0.5)'
+              }}
+            >
+              <UserPlus className="w-3.5 h-3.5 text-purple-400" />
+              <span className="font-semibold text-[10px] text-purple-400">Follow</span>
+            </button>
+            <button
+              onClick={handleVerifyAndClaim}
+              disabled={isVerifying}
+              className={cn(
+                "flex-1 rounded-xl p-2 flex items-center justify-center gap-1 transition-all",
+                isVerifying && "opacity-50 cursor-not-allowed"
+              )}
+              style={getGradient()}
+            >
+              {isVerifying ? (
+                <Loader2 className={cn("w-3.5 h-3.5 animate-spin", getTextColor())} />
+              ) : (
+                <CheckCircle className={cn("w-3.5 h-3.5", getTextColor())} />
+              )}
+              <span className={cn("font-semibold text-[10px]", getTextColor())}>
+                {isVerifying ? "..." : "Verify"}
+              </span>
+            </button>
+          </div>
+        </CompactWrapper>
       );
     }
 
     // State 3: Shared - Show verify button
     return (
-      <button
-        onClick={handleVerifyAndClaim}
-        disabled={isVerifying || !userFid}
-        className={cn(
-          "rounded-xl p-2 h-[36px] flex items-center justify-center gap-1.5 transition-all",
-          (isVerifying || !userFid) && "opacity-50 cursor-not-allowed"
-        )}
-        style={getActiveGradient()}
-      >
-        {isVerifying ? (
-          <Loader2 className={cn("w-3.5 h-3.5 animate-spin", getTextColor())} />
-        ) : (
-          <CheckCircle className={cn("w-3.5 h-3.5", getTextColor())} />
-        )}
-        <span className="font-semibold text-xs text-white">
-          {isVerifying ? "Checking..." : "Verify"}
-        </span>
-      </button>
+      <CompactWrapper>
+        <button
+          onClick={handleVerifyAndClaim}
+          disabled={isVerifying || !userFid}
+          className={cn(
+            "rounded-xl p-2 h-[36px] flex items-center justify-center gap-1.5 transition-all",
+            (isVerifying || !userFid) && "opacity-50 cursor-not-allowed"
+          )}
+          style={getActiveGradient()}
+        >
+          {isVerifying ? (
+            <Loader2 className={cn("w-3.5 h-3.5 animate-spin", getTextColor())} />
+          ) : (
+            <CheckCircle className={cn("w-3.5 h-3.5", getTextColor())} />
+          )}
+          <span className="font-semibold text-xs text-white">
+            {isVerifying ? "Checking..." : "Verify"}
+          </span>
+        </button>
+      </CompactWrapper>
     );
   }
 
