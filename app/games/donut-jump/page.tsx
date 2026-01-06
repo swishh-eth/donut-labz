@@ -53,7 +53,6 @@ const COIN_SIZE = 24;
 // Types
 type PlatformType = 'normal' | 'moving' | 'breakable' | 'spring' | 'disappearing';
 type PowerUpType = 'jetpack' | 'spring_shoes' | 'shield' | 'magnet';
-type MonsterType = 'blob' | 'ufo';
 type PlayState = 'idle' | 'confirming' | 'recording' | 'error';
 
 interface Platform {
@@ -86,16 +85,6 @@ interface PowerUp {
 interface ActivePowerUp {
   type: PowerUpType;
   endTime: number;
-}
-
-interface Monster {
-  x: number;
-  y: number;
-  type: MonsterType;
-  width: number;
-  height: number;
-  moveDir?: number;
-  defeated?: boolean;
 }
 
 interface Particle {
@@ -197,7 +186,6 @@ export default function DonutJumpPage() {
   const coinsRef = useRef<Coin[]>([]);
   const powerUpsRef = useRef<PowerUp[]>([]);
   const activePowerUpsRef = useRef<ActivePowerUp[]>([]);
-  const monstersRef = useRef<Monster[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   
   const cameraYRef = useRef(0);
@@ -214,6 +202,11 @@ export default function DonutJumpPage() {
   const moveRightRef = useRef(false);
   
   const screenShakeRef = useRef({ intensity: 0, duration: 0, startTime: 0 });
+  
+  // Background elements
+  const buildingsRef = useRef<{ x: number; width: number; height: number; shade: number; windows: number[] }[]>([]);
+  const bgParticlesRef = useRef<{ x: number; y: number; size: number; speed: number; alpha: number }[]>([]);
+  const bgOffsetRef = useRef(0);
   
   // Audio
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -583,74 +576,119 @@ export default function DonutJumpPage() {
     }
   }, []);
   
-  // Monster generation
-  const maybeSpawnMonster = useCallback((platform: Platform) => {
-    const height = maxHeightRef.current;
-    if (height > 1500 && Math.random() < 0.05 && platform.type === 'normal') {
-      const type: MonsterType = Math.random() > 0.7 ? 'ufo' : 'blob';
-      monstersRef.current.push({
-        x: platform.x + platform.width / 2 - 15,
-        y: platform.y - 35,
-        type,
-        width: 30,
-        height: 30,
-        moveDir: Math.random() > 0.5 ? 1 : -1,
-        defeated: false,
-      });
-    }
-  }, []);
-  
   // Drawing functions
   const drawBackground = useCallback((ctx: CanvasRenderingContext2D) => {
-    const height = maxHeightRef.current;
+    const GROUND_HEIGHT = 50;
+    const BUILDING_COLORS = ['#2a2a2a', '#3d3d3d', '#4a4a4a', '#5c5c5c', '#6e6e6e'];
     
-    // Dynamic background based on height
-    let bg1 = '#1a1a2e';
-    let bg2 = '#16213e';
-    
-    if (height > 5000) {
-      bg1 = '#0a0a1a';
-      bg2 = '#000010';
-    } else if (height > 3000) {
-      bg1 = '#1a0a2a';
-      bg2 = '#0a0020';
-    } else if (height > 1500) {
-      bg1 = '#0a1a2a';
-      bg2 = '#001020';
-    }
-    
-    const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-    gradient.addColorStop(0, bg1);
-    gradient.addColorStop(1, bg2);
-    ctx.fillStyle = gradient;
+    // Dark gradient background like Flappy Donut
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+    bgGradient.addColorStop(0, "#1a1a1a");
+    bgGradient.addColorStop(1, "#0d0d0d");
+    ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
-    // Stars at higher altitudes
-    if (height > 2000) {
-      const starCount = Math.min(50, Math.floor((height - 2000) / 100));
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      for (let i = 0; i < starCount; i++) {
-        const x = (i * 73 + frameCountRef.current * 0.1) % CANVAS_WIDTH;
-        const y = (i * 97 + cameraYRef.current * 0.05) % CANVAS_HEIGHT;
-        const size = 1 + (i % 3);
-        const twinkle = 0.5 + Math.sin(frameCountRef.current * 0.05 + i) * 0.5;
-        ctx.globalAlpha = twinkle;
-        ctx.beginPath();
-        ctx.arc(x, y, size, 0, Math.PI * 2);
-        ctx.fill();
+    // Initialize background particles if needed
+    if (bgParticlesRef.current.length === 0) {
+      for (let i = 0; i < 30; i++) {
+        bgParticlesRef.current.push({
+          x: Math.random() * CANVAS_WIDTH,
+          y: Math.random() * CANVAS_HEIGHT,
+          size: 1 + Math.random() * 2,
+          speed: 0.3 + Math.random() * 0.5,
+          alpha: 0.05 + Math.random() * 0.15,
+        });
       }
-      ctx.globalAlpha = 1;
     }
     
-    // Clouds/background elements
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
-    for (let i = 0; i < 5; i++) {
-      const x = ((i * 120 + cameraYRef.current * 0.1) % (CANVAS_WIDTH + 100)) - 50;
-      const y = ((i * 150 + cameraYRef.current * 0.2) % CANVAS_HEIGHT);
+    // Animated background particles
+    bgParticlesRef.current.forEach(p => {
+      // Parallax with camera
+      const screenY = (p.y + cameraYRef.current * 0.1) % CANVAS_HEIGHT;
+      ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
       ctx.beginPath();
-      ctx.ellipse(x, y, 60 + i * 10, 20 + i * 5, 0, 0, Math.PI * 2);
+      ctx.arc(p.x, screenY, p.size, 0, Math.PI * 2);
       ctx.fill();
+    });
+    
+    // Grid lines
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < CANVAS_WIDTH; i += 40) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, CANVAS_HEIGHT);
+      ctx.stroke();
     }
+    for (let i = 0; i < CANVAS_HEIGHT; i += 40) {
+      ctx.beginPath();
+      ctx.moveTo(0, i);
+      ctx.lineTo(CANVAS_WIDTH, i);
+      ctx.stroke();
+    }
+    
+    // Initialize buildings if needed
+    const generateWindows = (width: number, height: number): number[] => {
+      const windowRows = Math.floor(height / 15);
+      const windowCols = Math.floor(width / 12);
+      const windows: number[] = [];
+      for (let i = 0; i < windowRows * windowCols; i++) {
+        windows.push(Math.random() > 0.3 ? 0.1 + Math.random() * 0.2 : 0);
+      }
+      return windows;
+    };
+    
+    if (buildingsRef.current.length === 0) {
+      let x = 0;
+      while (x < CANVAS_WIDTH + 100) {
+        const width = 25 + Math.random() * 35;
+        const height = 40 + Math.random() * 80;
+        const shade = Math.floor(Math.random() * BUILDING_COLORS.length);
+        const windows = generateWindows(width, height);
+        buildingsRef.current.push({ x, width, height, shade, windows });
+        x += width + 5 + Math.random() * 15;
+      }
+    }
+    
+    // Ground area
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, CANVAS_HEIGHT - GROUND_HEIGHT, CANVAS_WIDTH, GROUND_HEIGHT);
+    
+    // Draw buildings at bottom (parallax)
+    const parallaxOffset = (cameraYRef.current * 0.02) % 60;
+    buildingsRef.current.forEach(building => {
+      const baseY = CANVAS_HEIGHT - GROUND_HEIGHT;
+      const adjustedX = building.x - parallaxOffset;
+      const wrappedX = ((adjustedX % (CANVAS_WIDTH + 100)) + CANVAS_WIDTH + 100) % (CANVAS_WIDTH + 100) - 50;
+      
+      ctx.fillStyle = BUILDING_COLORS[building.shade];
+      ctx.fillRect(wrappedX, baseY - building.height, building.width, building.height);
+      
+      // Building edge highlight
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+      ctx.fillRect(wrappedX, baseY - building.height, 2, building.height);
+      
+      // Windows
+      const windowRows = Math.floor(building.height / 15);
+      const windowCols = Math.floor(building.width / 12);
+      let windowIdx = 0;
+      for (let row = 0; row < windowRows; row++) {
+        for (let col = 0; col < windowCols; col++) {
+          const brightness = building.windows[windowIdx] || 0;
+          ctx.fillStyle = brightness > 0 ? `rgba(255, 220, 150, ${brightness})` : 'rgba(50, 50, 50, 0.5)';
+          ctx.fillRect(wrappedX + 4 + col * 12, baseY - building.height + 8 + row * 15, 6, 8);
+          windowIdx++;
+        }
+      }
+    });
+    
+    // Ground line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, CANVAS_HEIGHT - GROUND_HEIGHT);
+    ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_HEIGHT);
+    ctx.stroke();
   }, []);
   
   const drawPlatform = useCallback((ctx: CanvasRenderingContext2D, platform: Platform, screenY: number) => {
@@ -906,55 +944,6 @@ export default function DonutJumpPage() {
     ctx.restore();
   }, []);
   
-  const drawMonster = useCallback((ctx: CanvasRenderingContext2D, monster: Monster, screenY: number) => {
-    if (monster.defeated) return;
-    
-    ctx.save();
-    ctx.translate(monster.x + monster.width / 2, screenY + monster.height / 2);
-    
-    const wobble = Math.sin(frameCountRef.current * 0.15) * 0.1;
-    ctx.rotate(wobble);
-    
-    if (monster.type === 'blob') {
-      // Blob monster
-      ctx.fillStyle = '#FF4444';
-      ctx.shadowColor = '#FF0000';
-      ctx.shadowBlur = 10;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, monster.width / 2, monster.height / 2.5, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      
-      // Eyes
-      ctx.fillStyle = '#FFFFFF';
-      ctx.beginPath();
-      ctx.arc(-6, -3, 5, 0, Math.PI * 2);
-      ctx.arc(6, -3, 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#000';
-      ctx.beginPath();
-      ctx.arc(-5, -2, 3, 0, Math.PI * 2);
-      ctx.arc(7, -2, 3, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (monster.type === 'ufo') {
-      // UFO
-      ctx.fillStyle = '#888';
-      ctx.beginPath();
-      ctx.ellipse(0, 0, monster.width / 2, 8, 0, 0, Math.PI * 2);
-      ctx.fill();
-      
-      ctx.fillStyle = '#00FF00';
-      ctx.shadowColor = '#00FF00';
-      ctx.shadowBlur = 10;
-      ctx.beginPath();
-      ctx.ellipse(0, -5, 10, 8, 0, Math.PI, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-    
-    ctx.restore();
-  }, []);
-  
   const drawParticles = useCallback((ctx: CanvasRenderingContext2D) => {
     particlesRef.current.forEach((p, i) => {
       p.x += p.vx;
@@ -1187,14 +1176,12 @@ export default function DonutJumpPage() {
       platformsRef.current.push(newPlatform);
       maybeSpawnCoin(newPlatform);
       maybeSpawnPowerUp(newPlatform);
-      maybeSpawnMonster(newPlatform);
     }
     
     // Remove platforms below screen
     platformsRef.current = platformsRef.current.filter(p => p.y < cameraYRef.current + CANVAS_HEIGHT + 100);
     coinsRef.current = coinsRef.current.filter(c => c.y < cameraYRef.current + CANVAS_HEIGHT + 100);
     powerUpsRef.current = powerUpsRef.current.filter(p => p.y < cameraYRef.current + CANVAS_HEIGHT + 100);
-    monstersRef.current = monstersRef.current.filter(m => m.y < cameraYRef.current + CANVAS_HEIGHT + 100);
     
     // Update moving platforms
     platformsRef.current.forEach(platform => {
@@ -1202,17 +1189,6 @@ export default function DonutJumpPage() {
         platform.x += platform.moveDir * (platform.moveSpeed || 2) * delta;
         if (platform.x <= 0 || platform.x >= CANVAS_WIDTH - platform.width) {
           platform.moveDir *= -1;
-        }
-      }
-    });
-    
-    // Update monsters
-    monstersRef.current.forEach(monster => {
-      if (monster.defeated) return;
-      if (monster.type === 'ufo' && monster.moveDir !== undefined) {
-        monster.x += monster.moveDir * 1.5 * delta;
-        if (monster.x <= 0 || monster.x >= CANVAS_WIDTH - monster.width) {
-          monster.moveDir *= -1;
         }
       }
     });
@@ -1259,41 +1235,6 @@ export default function DonutJumpPage() {
       }
     });
     
-    // Monster collision
-    monstersRef.current.forEach(monster => {
-      if (monster.defeated) return;
-      
-      const monsterCenterX = monster.x + monster.width / 2;
-      const monsterCenterY = monster.y + monster.height / 2;
-      
-      const dx = player.x - monsterCenterX;
-      const dy = player.y - monsterCenterY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      
-      if (dist < PLAYER_WIDTH / 2 + monster.width / 2) {
-        // Check if jumping on top
-        if (player.vy > 0 && player.y < monster.y) {
-          monster.defeated = true;
-          player.vy = JUMP_FORCE;
-          addParticles(monsterCenterX, monsterCenterY, '#FF4444', 15);
-          playBreakSound();
-          triggerScreenShake(5, 200);
-        } else if (nowMs > invincibleUntilRef.current) {
-          // Hit by monster
-          if (hasShieldRef.current) {
-            hasShieldRef.current = false;
-            invincibleUntilRef.current = nowMs + 1000;
-            addParticles(player.x, player.y, '#00FFFF', 20);
-            triggerScreenShake(8, 300);
-          } else {
-            // Game over
-            endGame();
-            return;
-          }
-        }
-      }
-    });
-    
     // Clean up expired power-ups
     activePowerUpsRef.current = activePowerUpsRef.current.filter(p => p.endTime > nowMs);
     
@@ -1330,14 +1271,6 @@ export default function DonutJumpPage() {
       }
     });
     
-    // Draw monsters
-    monstersRef.current.forEach(monster => {
-      const screenY = monster.y - cameraYRef.current;
-      if (screenY > -50 && screenY < CANVAS_HEIGHT + 50) {
-        drawMonster(ctx, monster, screenY);
-      }
-    });
-    
     // Draw particles
     drawParticles(ctx);
     
@@ -1352,8 +1285,8 @@ export default function DonutJumpPage() {
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
   }, [
-    isPowerUpActive, activatePowerUp, generatePlatform, maybeSpawnCoin, maybeSpawnPowerUp, maybeSpawnMonster,
-    drawBackground, drawPlatform, drawPlayer, drawCoin, drawPowerUp, drawMonster, drawParticles, drawHUD,
+    isPowerUpActive, activatePowerUp, generatePlatform, maybeSpawnCoin, maybeSpawnPowerUp,
+    drawBackground, drawPlatform, drawPlayer, drawCoin, drawPowerUp, drawParticles, drawHUD,
     playJumpSound, playSuperJumpSound, playCoinSound, playBreakSound, addParticles, addJumpParticles, triggerScreenShake
   ]);
   
@@ -1394,8 +1327,9 @@ export default function DonutJumpPage() {
     coinsRef.current = [];
     powerUpsRef.current = [];
     activePowerUpsRef.current = [];
-    monstersRef.current = [];
     particlesRef.current = [];
+    buildingsRef.current = [];
+    bgParticlesRef.current = [];
     
     cameraYRef.current = 0;
     maxHeightRef.current = 0;
@@ -1540,22 +1474,69 @@ export default function DonutJumpPage() {
     let animationId: number;
     const startTime = performance.now();
     
+    // Initialize menu bg particles
+    const menuParticles: { x: number; y: number; size: number; alpha: number }[] = [];
+    for (let i = 0; i < 30; i++) {
+      menuParticles.push({
+        x: Math.random() * CANVAS_WIDTH,
+        y: Math.random() * CANVAS_HEIGHT,
+        size: 1 + Math.random() * 2,
+        alpha: 0.05 + Math.random() * 0.15,
+      });
+    }
+    
     const draw = () => {
       const time = (performance.now() - startTime) / 1000;
       ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
       
-      // Background
+      // Dark gradient background like Flappy Donut
       const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-      gradient.addColorStop(0, '#1a1a2e');
-      gradient.addColorStop(1, '#16213e');
+      gradient.addColorStop(0, '#1a1a1a');
+      gradient.addColorStop(1, '#0d0d0d');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      
+      // Background particles
+      menuParticles.forEach(p => {
+        ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      
+      // Grid lines
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
+      ctx.lineWidth = 1;
+      for (let i = 0; i < CANVAS_WIDTH; i += 40) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, CANVAS_HEIGHT);
+        ctx.stroke();
+      }
+      for (let i = 0; i < CANVAS_HEIGHT; i += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(CANVAS_WIDTH, i);
+        ctx.stroke();
+      }
+      
+      // Ground
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, CANVAS_HEIGHT - 50, CANVAS_WIDTH, 50);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.beginPath();
+      ctx.moveTo(0, CANVAS_HEIGHT - 50);
+      ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - 50);
+      ctx.stroke();
       
       // Floating platforms
       for (let i = 0; i < 5; i++) {
         const y = 120 + i * 70 + Math.sin(time + i) * 10;
         const x = 50 + i * 60;
-        ctx.fillStyle = '#4ade80';
+        const platformGradient = ctx.createLinearGradient(x, y, x, y + 15);
+        platformGradient.addColorStop(0, '#4ade80');
+        platformGradient.addColorStop(1, '#22c55e');
+        ctx.fillStyle = platformGradient;
         ctx.beginPath();
         ctx.roundRect(x, y, 70, 15, 5);
         ctx.fill();
@@ -1612,25 +1593,25 @@ export default function DonutJumpPage() {
       
       // Title
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 36px monospace';
+      ctx.font = 'bold 28px monospace';
       ctx.textAlign = 'center';
-      ctx.shadowColor = '#F472B6';
-      ctx.shadowBlur = 20;
-      ctx.fillText('DONUT JUMP', CANVAS_WIDTH / 2, 80);
-      ctx.shadowBlur = 0;
+      ctx.fillText('DONUT JUMP', CANVAS_WIDTH / 2, 60);
       
       if (gameState === "gameover") {
         ctx.fillStyle = '#FF6B6B';
-        ctx.font = 'bold 28px monospace';
+        ctx.font = 'bold 24px monospace';
         ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 290);
         
-        ctx.fillStyle = '#FFD700';
-        ctx.font = 'bold 32px monospace';
-        ctx.fillText(`🍩 ${score}`, CANVAS_WIDTH / 2, 335);
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 48px monospace';
+        ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 340);
+        ctx.shadowBlur = 0;
         
         ctx.fillStyle = '#888888';
         ctx.font = '14px monospace';
-        ctx.fillText(`Height: ${Math.floor(maxHeightRef.current)}m`, CANVAS_WIDTH / 2, 360);
+        ctx.fillText(`🍩 donuts collected`, CANVAS_WIDTH / 2, 365);
       } else {
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.font = '14px monospace';
@@ -1792,7 +1773,7 @@ export default function DonutJumpPage() {
               </div>
               <div>
                 <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-yellow-400" />Scoring</h3>
-                <p className="text-xs text-zinc-400">Collect donuts to score points! Jump on monsters to defeat them and bounce higher.</p>
+                <p className="text-xs text-zinc-400">Collect donuts to score points! The higher you climb, the more donuts appear.</p>
               </div>
               <div>
                 <h3 className="font-bold text-sm mb-2 flex items-center gap-2"><Trophy className="w-4 h-4 text-green-400" />Weekly Prizes</h3>
