@@ -180,6 +180,7 @@ export default function FlappyDonutPage() {
   const powerUpsRef = useRef<PowerUp[]>([]);
   const activePowerUpRef = useRef<ActivePowerUp | null>(null);
   const hasShieldRef = useRef(false); // Shield is separate from timed power-ups
+  const invincibleUntilRef = useRef(0); // Brief invincibility after shield blocks
   const bgParticlesRef = useRef<{ x: number; y: number; size: number; speed: number; alpha: number }[]>([]);
   
   const bgOffsetRef = useRef(0);
@@ -1003,9 +1004,14 @@ export default function FlappyDonutPage() {
     drawParticles(ctx);
     drawFloatingTexts(ctx);
     
-    // Draw player
+    // Draw player (flash when invincible)
     const hasShield = hasShieldRef.current;
-    drawPlayer(ctx, donutRef.current.y, donutRef.current.velocity, donutRef.current.size, hasShield);
+    const isInvincible = now < invincibleUntilRef.current;
+    
+    // Skip drawing every other frame when invincible for flash effect
+    if (!isInvincible || Math.floor(now / 50) % 2 === 0) {
+      drawPlayer(ctx, donutRef.current.y, donutRef.current.velocity, donutRef.current.size, hasShield);
+    }
     
     ctx.restore();
     
@@ -1050,13 +1056,22 @@ export default function FlappyDonutPage() {
     const hitboxRadius = donutRef.current.size / 2 - 6;
     
     const endGameInline = (hitPipe: boolean = false) => {
-      if (hitPipe && hasShieldRef.current) {
-        // Shield blocks one hit
-        hasShieldRef.current = false;
-        screenShakeRef.current = 0.5;
-        spawnPowerUpParticles(PLAYER_X, donutRef.current.y, '#64C8FF');
-        addFloatingText(PLAYER_X, donutRef.current.y - 30, 'BLOCKED!', '#64C8FF');
-        return false;
+      // Only pipe hits can be blocked by shield/invincibility
+      if (hitPipe) {
+        // Check invincibility first
+        if (now < invincibleUntilRef.current) {
+          return false;
+        }
+        
+        if (hasShieldRef.current) {
+          // Shield blocks one hit - give brief invincibility to escape pipe
+          hasShieldRef.current = false;
+          invincibleUntilRef.current = now + 500; // 500ms invincibility
+          screenShakeRef.current = 0.5;
+          spawnPowerUpParticles(PLAYER_X, donutRef.current.y, '#64C8FF');
+          addFloatingText(PLAYER_X, donutRef.current.y - 30, 'BLOCKED!', '#64C8FF');
+          return false;
+        }
       }
       
       gameActiveRef.current = false;
@@ -1142,6 +1157,7 @@ export default function FlappyDonutPage() {
     powerUpsRef.current = [];
     activePowerUpRef.current = null;
     hasShieldRef.current = false;
+    invincibleUntilRef.current = 0;
     bgOffsetRef.current = 0;
     lastFrameTimeRef.current = performance.now();
     scoreRef.current = 0;
