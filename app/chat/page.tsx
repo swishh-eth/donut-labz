@@ -1073,8 +1073,9 @@ export default function ChatPage() {
                   const totalSprinkles = (msg.airdropAmount ?? 0) + msgTipAmounts.sprinkles;
                   const hasAnySprinkles = totalSprinkles > 0;
                   
-                  // Determine tile background color: pink if has tips, green if just airdrop
-                  const hasBothAirdropAndTips = hasAirdrop && hasTips;
+                  // Tile color: pink if donut tips (overrides everything), green if sprinkles/airdrop, normal otherwise
+                  const isPinkTile = hasDonutTips;
+                  const isGreenTile = !isPinkTile && hasAnySprinkles;
                   
                   const repliedMsg = getReplyMessage(msg.replyToHash);
                   const repliedProfile = repliedMsg ? profiles?.[repliedMsg.sender.toLowerCase()] : null;
@@ -1085,9 +1086,9 @@ export default function ChatPage() {
                       key={`${msg.transactionHash}-${index}`} 
                       className={cn(
                         "flex gap-2 p-2 rounded-lg relative items-start",
-                        hasBothAirdropAndTips
+                        isPinkTile
                           ? "bg-pink-500/20 border border-pink-500/50"
-                          : hasAirdrop
+                          : isGreenTile
                             ? "bg-green-500/20 border border-green-500/50"
                             : isOwnMessage 
                               ? "bg-zinc-800 border border-zinc-700" 
@@ -1103,7 +1104,7 @@ export default function ChatPage() {
                       <button onClick={() => openUserProfile(username)} disabled={!username} className={`flex-shrink-0 ${username ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}>
                         <Avatar className={cn(
                           "h-8 w-8 border",
-                          hasBothAirdropAndTips ? "border-pink-500" : hasAirdrop ? "border-green-500" : "border-zinc-700"
+                          isPinkTile ? "border-pink-500" : isGreenTile ? "border-green-500" : "border-zinc-700"
                         )}>
                           <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
                           <AvatarFallback className="bg-zinc-800 text-white text-xs">{initialsFrom(displayName)}</AvatarFallback>
@@ -1113,7 +1114,7 @@ export default function ChatPage() {
                         <div className="flex items-center gap-2 mb-0.5">
                           <button onClick={() => openUserProfile(username)} disabled={!username} className={cn(
                             "font-semibold text-xs truncate",
-                            hasBothAirdropAndTips ? "text-pink-400" : hasAirdrop ? "text-green-400" : "text-white",
+                            isPinkTile ? "text-pink-400" : isGreenTile ? "text-green-400" : "text-white",
                             username && "hover:text-gray-300"
                           )}>{displayName}</button>
                           {/* Inline sprinkles indicator (airdrop + tips combined) - always green */}
@@ -1147,7 +1148,7 @@ export default function ChatPage() {
                             alt="Chat image" 
                             className={cn(
                               "max-w-full max-h-[400px] rounded-lg border mb-1 object-contain",
-                              hasBothAirdropAndTips ? "border-pink-500/50" : hasAirdrop ? "border-green-500/50" : "border-zinc-700"
+                              isPinkTile ? "border-pink-500/50" : isGreenTile ? "border-green-500/50" : "border-zinc-700"
                             )}
                           />
                         )}
