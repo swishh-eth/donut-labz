@@ -174,6 +174,7 @@ export default function DonutJumpPage() {
   const [playState, setPlayState] = useState<PlayState>('idle');
   const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
   const currentEntryIdRef = useRef<string | null>(null);
+  const currentFidRef = useRef<number | null>(null);  // Store fid at game start
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [gamesPlayedThisWeek, setGamesPlayedThisWeek] = useState(0);
   
@@ -304,8 +305,9 @@ export default function DonutJumpPage() {
   
   const submitScore = useCallback(async (finalScore: number) => {
     const entryId = currentEntryIdRef.current;
-    console.log("[Donut Jump Client] Submitting score:", { entryId, finalScore, fid: context?.user?.fid });
-    if (!entryId || !context?.user?.fid) {
+    const fid = currentFidRef.current;
+    console.log("[Donut Jump Client] Submitting score:", { entryId, finalScore, fid });
+    if (!entryId || !fid) {
       console.log("[Donut Jump Client] Missing entryId or fid, skipping submission");
       return;
     }
@@ -313,14 +315,14 @@ export default function DonutJumpPage() {
       const res = await fetch("/api/games/donut-jump/submit-score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entryId, score: finalScore, fid: context.user.fid }),
+        body: JSON.stringify({ entryId, score: finalScore, fid }),
       });
       const data = await res.json();
       console.log("[Donut Jump Client] Submit response:", data);
     } catch (error) {
       console.error("[Donut Jump Client] Failed to submit score:", error);
     }
-  }, [context?.user?.fid]);
+  }, []);
   
   // Audio
   const initAudioContext = useCallback(() => {
@@ -983,13 +985,20 @@ export default function DonutJumpPage() {
   }, []);
   
   const drawHUD = useCallback((ctx: CanvasRenderingContext2D) => {
-    // Score
+    // Score with donut coin image
     ctx.fillStyle = '#FFFFFF';
     ctx.font = 'bold 24px monospace';
     ctx.textAlign = 'left';
     ctx.shadowColor = '#000';
     ctx.shadowBlur = 4;
-    ctx.fillText(`🍩 ${coinsCollectedRef.current}`, 15, 40);
+    
+    // Draw donut coin image
+    if (donutImageRef.current && donutLoadedRef.current) {
+      ctx.drawImage(donutImageRef.current, 12, 22, 22, 22);
+      ctx.fillText(`${coinsCollectedRef.current}`, 40, 40);
+    } else {
+      ctx.fillText(`🍩 ${coinsCollectedRef.current}`, 15, 40);
+    }
     ctx.shadowBlur = 0;
     
     // Height (secondary)
@@ -1388,6 +1397,8 @@ export default function DonutJumpPage() {
       if (data.success) {
         setCurrentEntryId(data.entryId);
         currentEntryIdRef.current = data.entryId;
+        currentFidRef.current = context.user.fid;  // Store fid for score submission
+        console.log("[Donut Jump Client] Entry recorded, fid stored:", context.user.fid);
         setPlayState('idle');
         resetWrite();
         startGame();
@@ -1626,9 +1637,15 @@ export default function DonutJumpPage() {
         ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 340);
         ctx.shadowBlur = 0;
         
+        // Draw donut image + text for "donuts collected"
         ctx.fillStyle = '#888888';
         ctx.font = '14px monospace';
-        ctx.fillText(`🍩 donuts collected`, CANVAS_WIDTH / 2, 365);
+        if (donutImageRef.current && donutLoadedRef.current) {
+          ctx.drawImage(donutImageRef.current, CANVAS_WIDTH / 2 - 70, 352, 16, 16);
+          ctx.fillText('donuts collected', CANVAS_WIDTH / 2 + 10, 365);
+        } else {
+          ctx.fillText('🍩 donuts collected', CANVAS_WIDTH / 2, 365);
+        }
       } else {
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.font = '14px monospace';
