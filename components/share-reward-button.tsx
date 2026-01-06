@@ -74,6 +74,13 @@ const sprinklesRequirementGradientStyle = {
   border: '1px solid rgba(34,197,94,0.5)'
 };
 
+// Sprinkles coin component for inline display
+const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-full h-full object-cover" />
+  </span>
+);
+
 export function ShareRewardButton({ userFid, compact = false, tile = false }: ShareRewardButtonProps) {
   const { address } = useAccount();
   const [isVerifying, setIsVerifying] = useState(false);
@@ -94,7 +101,7 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   const [needsSprinkles, setNeedsSprinkles] = useState(false);
   const [showSprinklesActions, setShowSprinklesActions] = useState(false);
   const [sprinklesBalance, setSprinklesBalance] = useState<number>(0);
-  const [showClaimsLeft, setShowClaimsLeft] = useState(false);
+  const [textPhase, setTextPhase] = useState<0 | 1 | 2>(0); // 0 = "SHARE TO CLAIM", 1 = "MUST HOLD 10K", 2 = "X CLAIMS LEFT"
 
   // Helper functions for token-specific styling
   const isDonutToken = tokenSymbol === "DONUT";
@@ -182,27 +189,17 @@ export function ShareRewardButton({ userFid, compact = false, tile = false }: Sh
   const isActive = campaign?.[5] && campaign[2] > 0n;
   const claimsRemaining = campaign ? Number(campaign[3] - campaign[4]) : 0;
 
-  // Text toggle effect: "Share to Claim" (8s) -> fade to "X claims left" (4s) -> fade back -> repeat
+  // Text cycle effect: "SHARE TO CLAIM" (3s) -> "MUST HOLD 10K" (3s) -> "X CLAIMS LEFT" (3s) -> repeat
   useEffect(() => {
     if (!isActive || hasClaimed || hasShared) return;
     
-    const toggleText = () => {
-      // Fade in "claims left"
-      setShowClaimsLeft(true);
-      // Show "X claims left" for 4 seconds, then fade back
-      setTimeout(() => {
-        setShowClaimsLeft(false);
-      }, 4000);
+    const cycleText = () => {
+      setTextPhase((prev) => ((prev + 1) % 3) as 0 | 1 | 2);
     };
 
-    // Start with "Share to Claim", then toggle after 8 seconds
-    const initialTimeout = setTimeout(toggleText, 8000);
-    
-    // Set up interval: 8s (Share to Claim) + 4s (claims left) = 12s cycle
-    const interval = setInterval(toggleText, 12000);
+    const interval = setInterval(cycleText, 3000);
 
     return () => {
-      clearTimeout(initialTimeout);
       clearInterval(interval);
     };
   }, [isActive, hasClaimed, hasShared]);
@@ -930,7 +927,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
       );
     }
 
-    // State 1: Initial - Show token icon, tap to share with animated text toggle
+    // State 1: Initial - Show token icon, tap to share with animated text cycle
     if (!hasShared) {
       return (
         <button
@@ -942,17 +939,25 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
           )}
           style={getActiveGradient()}
         >
-          {/* Share to Claim state */}
+          {/* Phase 0: SHARE TO CLAIM */}
           <div
             className="flex items-center transition-opacity duration-300 ease-in-out absolute inset-0 justify-center"
-            style={{ opacity: showClaimsLeft ? 0 : 1 }}
+            style={{ opacity: textPhase === 0 ? 1 : 0 }}
           >
             <span className={cn("font-semibold text-xs", getTextColor())}>SHARE TO CLAIM</span>
           </div>
-          {/* Claims left state */}
+          {/* Phase 1: MUST HOLD 10K [sprinkles icon] */}
+          <div
+            className="flex items-center gap-1 transition-opacity duration-300 ease-in-out absolute inset-0 justify-center"
+            style={{ opacity: textPhase === 1 ? 1 : 0 }}
+          >
+            <span className={cn("font-semibold text-xs", getTextColor())}>MUST HOLD 10K</span>
+            <SprinklesCoin className="w-3.5 h-3.5" />
+          </div>
+          {/* Phase 2: X CLAIMS LEFT */}
           <div
             className="flex items-center transition-opacity duration-300 ease-in-out absolute inset-0 justify-center"
-            style={{ opacity: showClaimsLeft ? 1 : 0 }}
+            style={{ opacity: textPhase === 2 ? 1 : 0 }}
           >
             <span className={cn("font-semibold text-xs", getTextColor())}>{claimsRemaining} CLAIMS LEFT</span>
           </div>
