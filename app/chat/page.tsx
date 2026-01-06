@@ -20,6 +20,12 @@ const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   </span>
 );
 
+const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
+    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover" />
+  </span>
+);
+
 type MiniAppContext = {
   user?: {
     fid: number;
@@ -49,10 +55,12 @@ type FarcasterProfile = {
 };
 
 type TipSettings = {
+  token: "sprinkles" | "donut";
   amount: string;
 };
 
 const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as `0x${string}`;
+const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as `0x${string}`;
 const IMAGE_DISTRIBUTION_WALLET = "0x322BcC769f879549E0c20daFf3e1cbD64A1cf0f1" as `0x${string}`;
 const IMAGE_UPLOAD_COST = 10n * 10n ** 18n;
 
@@ -126,10 +134,12 @@ const timeAgo = (timestamp: bigint) => {
 };
 
 const DEFAULT_TIP_SETTINGS: TipSettings = {
+  token: "sprinkles",
   amount: "1",
 };
 
-const PRESET_AMOUNTS = ["1", "10", "100"];
+const SPRINKLES_PRESET_AMOUNTS = ["1", "10", "100"];
+const DONUT_PRESET_AMOUNTS = ["0.1", "0.5", "1"];
 
 export default function ChatPage() {
   const readyRef = useRef(false);
@@ -313,12 +323,15 @@ export default function ChatPage() {
   });
 
   const messageHashes = messages?.map(m => m.transactionHash) || [];
-  const { data: tipCountsData, refetch: refetchTipCounts } = useQuery<{ tips: Record<string, number> }>({
+  const { data: tipCountsData, refetch: refetchTipCounts } = useQuery<{ 
+    tips: Record<string, number>;
+    tipAmounts?: Record<string, { sprinkles: number; donut: number }>;
+  }>({
     queryKey: ["chat-tips", messageHashes.join(",")],
     queryFn: async () => {
-      if (messageHashes.length === 0) return { tips: {} };
+      if (messageHashes.length === 0) return { tips: {}, tipAmounts: {} };
       const res = await fetch(`/api/chat/tips?hashes=${encodeURIComponent(messageHashes.join(","))}`);
-      if (!res.ok) return { tips: {} };
+      if (!res.ok) return { tips: {}, tipAmounts: {} };
       return res.json();
     },
     enabled: messageHashes.length > 0,
@@ -327,6 +340,7 @@ export default function ChatPage() {
   });
 
   const tipCounts = tipCountsData?.tips || {};
+  const tipAmounts = tipCountsData?.tipAmounts || {};
   const profiles = profilesData?.profiles || {};
 
   useEffect(() => {
@@ -343,7 +357,7 @@ export default function ChatPage() {
                 fromAddress: address,
                 toAddress: msg.sender,
                 amount: tipSettings.amount,
-                token: "sprinkles",
+                token: tipSettings.token,
               }),
             });
             refetchTipCounts();
@@ -536,10 +550,11 @@ export default function ChatPage() {
     } catch {}
     
     const amount = parseUnits(tipSettings.amount, 18);
+    const tokenAddress = tipSettings.token === "donut" ? DONUT_ADDRESS : SPRINKLES_ADDRESS;
     
     setTippingMessageHash(messageHash);
     writeTip({
-      address: SPRINKLES_ADDRESS,
+      address: tokenAddress,
       abi: ERC20_ABI,
       functionName: "transfer",
       args: [recipientAddress as `0x${string}`, amount],
@@ -725,7 +740,7 @@ export default function ChatPage() {
     if (isNaN(parsed) || parsed <= 0) {
       return;
     }
-    setTipSettings({ amount: finalAmount });
+    setTipSettings({ token: tempTipSettings.token, amount: finalAmount });
     setShowTipSettings(false);
   };
 
@@ -806,7 +821,7 @@ export default function ChatPage() {
               <div className="flex items-center justify-center gap-2 h-full">
                 <span className="text-xs font-bold text-white">TIP SETTINGS</span>
                 <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
-                  <SprinklesCoin className="w-3 h-3" />
+                  {tipSettings.token === "donut" ? <DonutCoin className="w-3 h-3" /> : <SprinklesCoin className="w-3 h-3" />}
                   {tipSettings.amount}
                 </span>
               </div>
@@ -913,32 +928,67 @@ export default function ChatPage() {
                     <X className="h-4 w-4" />
                   </button>
                   <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-                    <SprinklesCoin className="w-4 h-4" />
+                    <Heart className="w-4 h-4" />
                     Tip Settings
                   </h2>
                   
-                  <div className="mb-4 text-xs text-gray-400">
-                    Set how much SPRINKLES to send when tipping messages.
+                  {/* Token Selection Tabs */}
+                  <div className="mb-4">
+                    <label className="text-xs text-gray-400 uppercase tracking-wider mb-2 block">Token</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => {
+                          setTempTipSettings({ token: "sprinkles", amount: "1" });
+                          setCustomAmount("");
+                        }}
+                        className={cn(
+                          "p-3 rounded-lg border text-sm font-semibold transition-all flex items-center justify-center gap-2",
+                          tempTipSettings.token === "sprinkles"
+                            ? "border-green-500 bg-green-500/20 text-green-400"
+                            : "border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600"
+                        )}
+                      >
+                        <SprinklesCoin className="w-4 h-4" />
+                        SPRINKLES
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTempTipSettings({ token: "donut", amount: "0.1" });
+                          setCustomAmount("");
+                        }}
+                        className={cn(
+                          "p-3 rounded-lg border text-sm font-semibold transition-all flex items-center justify-center gap-2",
+                          tempTipSettings.token === "donut"
+                            ? "border-orange-500 bg-orange-500/20 text-orange-400"
+                            : "border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600"
+                        )}
+                      >
+                        <DonutCoin className="w-4 h-4" />
+                        DONUT
+                      </button>
+                    </div>
                   </div>
 
                   <div className="mb-4">
                     <label className="text-xs text-gray-400 uppercase tracking-wider mb-2 block">Amount</label>
                     <div className="grid grid-cols-3 gap-2 mb-2">
-                      {PRESET_AMOUNTS.map((amt) => (
+                      {(tempTipSettings.token === "donut" ? DONUT_PRESET_AMOUNTS : SPRINKLES_PRESET_AMOUNTS).map((amt) => (
                         <button
                           key={amt}
                           onClick={() => {
-                            setTempTipSettings({ amount: amt });
+                            setTempTipSettings({ ...tempTipSettings, amount: amt });
                             setCustomAmount("");
                           }}
                           className={cn(
                             "p-3 rounded-lg border text-sm font-semibold transition-all flex items-center justify-center gap-1",
                             tempTipSettings.amount === amt && !customAmount
-                              ? "border-white bg-white/10 text-white"
+                              ? tempTipSettings.token === "donut" 
+                                ? "border-orange-500 bg-orange-500/20 text-orange-400"
+                                : "border-green-500 bg-green-500/20 text-green-400"
                               : "border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600"
                           )}
                         >
-                          <SprinklesCoin className="w-3 h-3" />
+                          {tempTipSettings.token === "donut" ? <DonutCoin className="w-3 h-3" /> : <SprinklesCoin className="w-3 h-3" />}
                           {amt}
                         </button>
                       ))}
@@ -964,19 +1014,37 @@ export default function ChatPage() {
                     </div>
                   </div>
 
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-4">
+                  <div className={cn(
+                    "border rounded-lg p-3 mb-4",
+                    tempTipSettings.token === "donut" 
+                      ? "bg-orange-500/10 border-orange-500/30"
+                      : "bg-green-500/10 border-green-500/30"
+                  )}>
                     <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Preview</div>
                     <div className="flex items-center gap-2">
-                      <Heart className="w-5 h-5 text-white fill-white/50" />
-                      <span className="text-base font-bold text-white flex items-center gap-1">
-                        {customAmount || tempTipSettings.amount} <SprinklesCoin className="w-4 h-4" /> SPRINKLES
+                      <Heart className={cn(
+                        "w-5 h-5 fill-current/50",
+                        tempTipSettings.token === "donut" ? "text-orange-400" : "text-green-400"
+                      )} />
+                      <span className={cn(
+                        "text-base font-bold flex items-center gap-1",
+                        tempTipSettings.token === "donut" ? "text-orange-400" : "text-green-400"
+                      )}>
+                        {customAmount || tempTipSettings.amount} 
+                        {tempTipSettings.token === "donut" ? <DonutCoin className="w-4 h-4" /> : <SprinklesCoin className="w-4 h-4" />} 
+                        {tempTipSettings.token === "donut" ? "DONUT" : "SPRINKLES"}
                       </span>
                     </div>
                   </div>
 
                   <button 
                     onClick={saveTipSettings} 
-                    className="w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
+                    className={cn(
+                      "w-full rounded-xl py-2.5 text-sm font-bold transition-colors",
+                      tempTipSettings.token === "donut"
+                        ? "bg-orange-500 text-white hover:bg-orange-600"
+                        : "bg-green-500 text-white hover:bg-green-600"
+                    )}
                   >
                     Save Settings
                   </button>
@@ -1013,10 +1081,17 @@ export default function ChatPage() {
                   const isOwnMessage = address?.toLowerCase() === msg.sender.toLowerCase();
                   const isTipping = tippingMessageHash === msg.transactionHash;
                   const tipCount = tipCounts[msg.transactionHash] || 0;
+                  const msgTipAmounts = tipAmounts[msg.transactionHash] || { sprinkles: 0, donut: 0 };
                   const hasAirdrop = (msg.airdropAmount ?? 0) > 0;
+                  const hasSprinklesTips = msgTipAmounts.sprinkles > 0;
+                  const hasDonutTips = msgTipAmounts.donut > 0;
                   const hasTips = tipCount > 0;
                   
-                  // Determine tile background color: pink if both airdrop AND tips, green if just airdrop
+                  // Total sprinkles received = airdrop + sprinkles tips
+                  const totalSprinkles = (msg.airdropAmount ?? 0) + msgTipAmounts.sprinkles;
+                  const hasAnySprinkles = totalSprinkles > 0;
+                  
+                  // Determine tile background color: pink if has tips, green if just airdrop
                   const hasBothAirdropAndTips = hasAirdrop && hasTips;
                   
                   const repliedMsg = getReplyMessage(msg.replyToHash);
@@ -1059,8 +1134,8 @@ export default function ChatPage() {
                             hasBothAirdropAndTips ? "text-pink-400" : hasAirdrop ? "text-green-400" : "text-white",
                             username && "hover:text-gray-300"
                           )}>{displayName}</button>
-                          {/* Inline airdrop indicator with sprinkles icon and amount */}
-                          {hasAirdrop && (
+                          {/* Inline sprinkles indicator (airdrop + tips combined) */}
+                          {hasAnySprinkles && (
                             <span className={cn(
                               "text-[9px] px-1.5 py-0.5 rounded flex items-center gap-0.5 font-bold flex-shrink-0",
                               hasBothAirdropAndTips 
@@ -1068,7 +1143,14 @@ export default function ChatPage() {
                                 : "text-green-400 bg-green-500/30"
                             )}>
                               <SprinklesCoin className="w-3 h-3" />
-                              +{msg.airdropAmount}
+                              +{totalSprinkles}
+                            </span>
+                          )}
+                          {/* Inline donut tips indicator */}
+                          {hasDonutTips && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded flex items-center gap-0.5 font-bold flex-shrink-0 text-orange-400 bg-orange-500/30">
+                              <DonutCoin className="w-3 h-3" />
+                              +{msgTipAmounts.donut}
                             </span>
                           )}
                         </div>
@@ -1107,7 +1189,7 @@ export default function ChatPage() {
                         >
                           <Reply className="w-3.5 h-3.5 text-gray-500 hover:text-white transition-colors" />
                         </button>
-                        <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={!isConnected || isOwnMessage || isTipPending || isTipConfirming} className={`flex flex-col items-center justify-center w-[28px] h-[28px] rounded-lg transition-all ${isTipping ? "bg-white/20" : tipCount > 0 ? "bg-white/10" : (!isConnected || isOwnMessage) ? "" : "hover:bg-white/10"}`} title={!isConnected ? "Connect wallet to tip" : isOwnMessage ? "Can't tip yourself" : `Tip ${tipSettings.amount} SPRINKLES`}>
+                        <button onClick={() => handleTip(msg.sender, msg.transactionHash)} disabled={!isConnected || isOwnMessage || isTipPending || isTipConfirming} className={`flex flex-col items-center justify-center w-[28px] h-[28px] rounded-lg transition-all ${isTipping ? "bg-white/20" : tipCount > 0 ? "bg-white/10" : (!isConnected || isOwnMessage) ? "" : "hover:bg-white/10"}`} title={!isConnected ? "Connect wallet to tip" : isOwnMessage ? "Can't tip yourself" : `Tip ${tipSettings.amount} ${tipSettings.token === "donut" ? "DONUT" : "SPRINKLES"}`}>
                           <Heart className={`w-3.5 h-3.5 transition-colors ${isTipping ? "text-white animate-pulse fill-white" : tipCount > 0 ? "text-white fill-white/50" : "text-gray-500"}`} />
                           {tipCount > 0 && <span className="text-[7px] font-bold text-white -mt-0.5">{tipCount}</span>}
                         </button>
@@ -1197,18 +1279,40 @@ export default function ChatPage() {
                     </div>
                   )}
                   {(isTipPending || isTipConfirming) && (
-                    <div className="mb-2 bg-white/10 border border-white/30 rounded-xl p-2 flex items-center justify-center gap-2">
-                      <Heart className="w-4 h-4 text-white animate-pulse" />
-                      <span className="text-xs text-white flex items-center gap-1">
-                        {isTipPending ? "Confirm tip in wallet..." : <>Sending {tipSettings.amount} <SprinklesCoin className="w-3 h-3" /> SPRINKLES...</>}
+                    <div className={cn(
+                      "mb-2 rounded-xl p-2 flex items-center justify-center gap-2 border",
+                      tipSettings.token === "donut" 
+                        ? "bg-orange-500/10 border-orange-500/30"
+                        : "bg-green-500/10 border-green-500/30"
+                    )}>
+                      <Heart className={cn(
+                        "w-4 h-4 animate-pulse",
+                        tipSettings.token === "donut" ? "text-orange-400" : "text-green-400"
+                      )} />
+                      <span className={cn(
+                        "text-xs flex items-center gap-1",
+                        tipSettings.token === "donut" ? "text-orange-400" : "text-green-400"
+                      )}>
+                        {isTipPending ? "Confirm tip in wallet..." : <>Sending {tipSettings.amount} {tipSettings.token === "donut" ? <><DonutCoin className="w-3 h-3" /> DONUT</> : <><SprinklesCoin className="w-3 h-3" /> SPRINKLES</>}...</>}
                       </span>
                     </div>
                   )}
                   {isTipSuccess && (
-                    <div className="mb-2 bg-white/10 border border-white/30 rounded-xl p-2 flex items-center justify-center gap-2">
-                      <Heart className="w-4 h-4 text-white fill-white" />
-                      <span className="text-xs text-white flex items-center gap-1">
-                        Tip sent! <SprinklesCoin className="w-3 h-3" />
+                    <div className={cn(
+                      "mb-2 rounded-xl p-2 flex items-center justify-center gap-2 border",
+                      tipSettings.token === "donut" 
+                        ? "bg-orange-500/10 border-orange-500/30"
+                        : "bg-green-500/10 border-green-500/30"
+                    )}>
+                      <Heart className={cn(
+                        "w-4 h-4 fill-current",
+                        tipSettings.token === "donut" ? "text-orange-400" : "text-green-400"
+                      )} />
+                      <span className={cn(
+                        "text-xs flex items-center gap-1",
+                        tipSettings.token === "donut" ? "text-orange-400" : "text-green-400"
+                      )}>
+                        Tip sent! {tipSettings.token === "donut" ? <DonutCoin className="w-3 h-3" /> : <SprinklesCoin className="w-3 h-3" />}
                       </span>
                     </div>
                   )}
