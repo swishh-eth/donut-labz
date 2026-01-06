@@ -1762,7 +1762,14 @@ export default function HomePage() {
                 >
                   {/* Header/Toggle Button */}
                   <button
-                    onClick={() => setIsBurnExpanded(!isBurnExpanded)}
+                    onClick={() => {
+                      const newExpanded = !isBurnExpanded;
+                      setIsBurnExpanded(newExpanded);
+                      // Scroll to top when collapsing to ensure smooth animation
+                      if (!newExpanded && scrollContainerRef.current) {
+                        scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                      }
+                    }}
                     className="w-full text-left active:scale-[0.99] transition-transform"
                   >
                     {/* Stacked background icons */}
