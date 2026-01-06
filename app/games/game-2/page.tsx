@@ -211,6 +211,10 @@ export default function StackGamePage() {
   const autoStackingRef = useRef(false);
   const autoStackCountRef = useRef(0);
   const pointMultiplierRef = useRef(1);
+  
+  // Readjustment period after slow ends
+  const readjustingRef = useRef(false);
+  const readjustCountdownRef = useRef(0);
 
   // Update reset countdown
   useEffect(() => {
@@ -886,7 +890,7 @@ export default function StackGamePage() {
   }, [playGameOverSound, triggerHaptic, submitScore, fetchLeaderboard]);
   
   const placeBlock = useCallback(() => {
-    if (!gameActiveRef.current || !currentBlockRef.current || autoStackingRef.current) return;
+    if (!gameActiveRef.current || !currentBlockRef.current || autoStackingRef.current || readjustingRef.current) return;
     
     const current = currentBlockRef.current;
     const blocks = blocksRef.current;
@@ -1205,6 +1209,21 @@ export default function StackGamePage() {
     if (activePowerUpRef.current && activePowerUpRef.current.endTime && now > activePowerUpRef.current.endTime) {
       if (activePowerUpRef.current.type === 'slow') {
         speedRef.current = baseSpeedRef.current;
+        // Start readjustment period
+        readjustingRef.current = true;
+        readjustCountdownRef.current = 3;
+        addFloatingText(CANVAS_WIDTH / 2, blocksRef.current[blocksRef.current.length - 1]?.y || 300, 'GET READY!', '#3B82F6');
+        
+        // Countdown timer
+        let count = 3;
+        const countdownInterval = setInterval(() => {
+          count--;
+          readjustCountdownRef.current = count;
+          if (count <= 0) {
+            clearInterval(countdownInterval);
+            readjustingRef.current = false;
+          }
+        }, 1000);
       }
       if (activePowerUpRef.current.type === 'double') {
         pointMultiplierRef.current = 1;
@@ -1277,8 +1296,34 @@ export default function StackGamePage() {
       ctx.fillText(`AUTO +${autoStackCountRef.current}`, CANVAS_WIDTH / 2, 130);
     }
     
+    // Readjustment countdown after slow ends
+    if (readjustingRef.current && readjustCountdownRef.current > 0) {
+      // Darken overlay
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      
+      // Pulsing countdown
+      const pulse = 1 + Math.sin(now / 80) * 0.15;
+      ctx.save();
+      ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
+      ctx.scale(pulse, pulse);
+      ctx.shadowColor = '#3B82F6';
+      ctx.shadowBlur = 30;
+      ctx.fillStyle = '#3B82F6';
+      ctx.font = 'bold 72px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(readjustCountdownRef.current.toString(), 0, 0);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+      
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('FULL SPEED!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+    }
+    
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawBackground, drawBlock, drawFallingPiece, drawParticles, drawFloatingTexts]);
+  }, [drawBackground, drawBlock, drawFallingPiece, drawParticles, drawFloatingTexts, addFloatingText]);
   
   const startGame = useCallback(() => {
     initAudioContext();
@@ -1305,6 +1350,8 @@ export default function StackGamePage() {
     autoStackingRef.current = false;
     autoStackCountRef.current = 0;
     pointMultiplierRef.current = 1;
+    readjustingRef.current = false;
+    readjustCountdownRef.current = 0;
     
     setScore(0);
     setCombo(0);
@@ -1348,7 +1395,7 @@ export default function StackGamePage() {
   }, [gameLoop, initAudioContext, initBgParticles, playCountdownSound, spawnNewBlock]);
   
   const handleTap = useCallback(() => {
-    if (gameState === "playing" && gameActiveRef.current && !autoStackingRef.current) {
+    if (gameState === "playing" && gameActiveRef.current && !autoStackingRef.current && !readjustingRef.current) {
       placeBlock();
     }
   }, [gameState, placeBlock]);
@@ -1749,7 +1796,7 @@ export default function StackGamePage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-blue-400">⏱</span>
-                    <span>Slow - Slows block movement</span>
+                    <span>Slow - Slows blocks, then 3s to readjust</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-yellow-400">2X</span>
