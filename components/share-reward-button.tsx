@@ -1,7 +1,7 @@
 // components/share-reward-button.tsx
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   useAccount,
   useReadContract,
@@ -107,8 +107,8 @@ const setCachedState = (state: Omit<CachedState, 'timestamp'>) => {
   sessionCache = { ...state, timestamp: Date.now() };
 };
 
-// Matrix-style text that scrambles in, holds, scrambles out, then next text
-function MatrixTransitionText({ 
+// Simple fading text that cycles through different texts
+function FadingText({ 
   texts,
   interval = 3000,
   className = "",
@@ -117,113 +117,30 @@ function MatrixTransitionText({
   interval?: number;
   className?: string;
 }) {
-  const [displayText, setDisplayText] = useState(texts[0]);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const currentIndexRef = useRef(0);
-  const phaseRef = useRef<'idle' | 'out' | 'in'>('idle');
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isVisible, setIsVisible] = useState(true);
   
   useEffect(() => {
-    let mainTimer: NodeJS.Timeout;
-    let frameTimer: NodeJS.Timeout;
-    
-    const scrambleOut = (currentText: string, onComplete: () => void) => {
-      let frame = 0;
-      const totalFrames = 10;
-      phaseRef.current = 'out';
-      setIsAnimating(true);
+    const cycleTimer = setInterval(() => {
+      // Fade out
+      setIsVisible(false);
       
-      frameTimer = setInterval(() => {
-        frame++;
-        if (frame <= totalFrames) {
-          // Progressively scramble from left to right
-          const scrambledCount = Math.floor((frame / totalFrames) * currentText.length);
-          let result = '';
-          for (let i = 0; i < currentText.length; i++) {
-            if (i < scrambledCount) {
-              result += currentText[i] === ' ' ? ' ' : chars[Math.floor(Math.random() * chars.length)];
-            } else {
-              result += currentText[i];
-            }
-          }
-          setDisplayText(result);
-        } else {
-          clearInterval(frameTimer);
-          onComplete();
-        }
-      }, 50);
-    };
+      // After fade out, change text and fade in
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % texts.length);
+        setIsVisible(true);
+      }, 300);
+    }, interval);
     
-    const scrambleIn = (targetText: string, onComplete: () => void) => {
-      let frame = 0;
-      const totalFrames = 10;
-      phaseRef.current = 'in';
-      setIsAnimating(true);
-      
-      // Start with all scrambled
-      let scrambled = '';
-      for (let i = 0; i < targetText.length; i++) {
-        scrambled += targetText[i] === ' ' ? ' ' : chars[Math.floor(Math.random() * chars.length)];
-      }
-      setDisplayText(scrambled);
-      
-      frameTimer = setInterval(() => {
-        frame++;
-        if (frame <= totalFrames) {
-          // Progressively reveal from left to right
-          const revealedCount = Math.floor((frame / totalFrames) * targetText.length);
-          let result = '';
-          for (let i = 0; i < targetText.length; i++) {
-            if (i < revealedCount) {
-              result += targetText[i];
-            } else if (targetText[i] === ' ') {
-              result += ' ';
-            } else {
-              result += chars[Math.floor(Math.random() * chars.length)];
-            }
-          }
-          setDisplayText(result);
-        } else {
-          clearInterval(frameTimer);
-          setDisplayText(targetText);
-          setIsAnimating(false);
-          phaseRef.current = 'idle';
-          onComplete();
-        }
-      }, 50);
-    };
-    
-    const runCycle = () => {
-      const currentText = texts[currentIndexRef.current];
-      
-      // Scramble out current text
-      scrambleOut(currentText, () => {
-        // Move to next text
-        currentIndexRef.current = (currentIndexRef.current + 1) % texts.length;
-        const nextText = texts[currentIndexRef.current];
-        
-        // Small pause then scramble in
-        setTimeout(() => {
-          scrambleIn(nextText, () => {
-            // Schedule next cycle
-            mainTimer = setTimeout(runCycle, interval);
-          });
-        }, 100);
-      });
-    };
-    
-    // Start first cycle after initial display time
-    mainTimer = setTimeout(runCycle, interval);
-    
-    return () => {
-      clearTimeout(mainTimer);
-      clearInterval(frameTimer);
-    };
-  }, [texts, interval]);
+    return () => clearInterval(cycleTimer);
+  }, [texts.length, interval]);
   
   return (
-    <span className={`${className} transition-colors duration-100 ${isAnimating ? 'text-green-400' : ''}`}>
-      {displayText}
+    <span 
+      className={`${className} transition-opacity duration-300`}
+      style={{ opacity: isVisible ? 1 : 0 }}
+    >
+      {texts[currentIndex]}
     </span>
   );
 }
@@ -1150,7 +1067,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
             )}
             style={getActiveGradient()}
           >
-            <MatrixTransitionText
+            <FadingText
               texts={["SHARE TO CLAIM", "HOLD 10K SPRINKLES", `${claimsRemaining} CLAIMS LEFT`]}
               interval={3000}
               className={cn("font-semibold text-xs text-center", getTextColor())}
