@@ -179,6 +179,7 @@ export default function FlappyDonutPage() {
   const floatingTextsRef = useRef<FloatingText[]>([]);
   const powerUpsRef = useRef<PowerUp[]>([]);
   const activePowerUpRef = useRef<ActivePowerUp | null>(null);
+  const hasShieldRef = useRef(false); // Shield is separate from timed power-ups
   const bgParticlesRef = useRef<{ x: number; y: number; size: number; speed: number; alpha: number }[]>([]);
   
   const bgOffsetRef = useRef(0);
@@ -950,23 +951,26 @@ export default function FlappyDonutPage() {
           pu.collected = true;
           playPowerUpSound();
           
-          // Reset any existing power-up effects before applying new one
-          if (activePowerUpRef.current?.type === 'tiny') {
-            donutRef.current.size = PLAYER_SIZE;
-          }
-          
           const color = pu.type === 'shield' ? '#64C8FF' : pu.type === 'widegap' ? '#FF69B4' : '#22C55E';
           spawnPowerUpParticles(pu.x, pu.y, color);
           
           if (pu.type === 'shield') {
-            activePowerUpRef.current = { type: 'shield' };
-            setActivePowerUpDisplay('shield');
+            // Shield is separate - doesn't replace timed power-ups
+            hasShieldRef.current = true;
             addFloatingText(pu.x, pu.y - 20, 'SHIELD!', color);
           } else if (pu.type === 'widegap') {
+            // Reset tiny if active before applying new timed power-up
+            if (activePowerUpRef.current?.type === 'tiny') {
+              donutRef.current.size = PLAYER_SIZE;
+            }
             activePowerUpRef.current = { type: 'widegap', endTime: now + 8000 };
             setActivePowerUpDisplay('widegap');
             addFloatingText(pu.x, pu.y - 20, 'WIDE GAP!', color);
           } else if (pu.type === 'tiny') {
+            // Reset any timed power-up effects
+            if (activePowerUpRef.current?.type === 'tiny') {
+              donutRef.current.size = PLAYER_SIZE;
+            }
             donutRef.current.size = PLAYER_SIZE * 0.6;
             activePowerUpRef.current = { type: 'tiny', endTime: now + 6000 };
             setActivePowerUpDisplay('tiny');
@@ -1000,7 +1004,7 @@ export default function FlappyDonutPage() {
     drawFloatingTexts(ctx);
     
     // Draw player
-    const hasShield = activePowerUpRef.current?.type === 'shield';
+    const hasShield = hasShieldRef.current;
     drawPlayer(ctx, donutRef.current.y, donutRef.current.velocity, donutRef.current.size, hasShield);
     
     ctx.restore();
@@ -1014,21 +1018,30 @@ export default function FlappyDonutPage() {
     ctx.fillText(scoreRef.current.toString(), CANVAS_WIDTH / 2, 70);
     ctx.shadowBlur = 0;
     
-    // Active power-up indicator
+    // Shield indicator (separate from timed power-ups)
+    if (hasShieldRef.current) {
+      ctx.fillStyle = '#64C8FF';
+      ctx.font = 'bold 12px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('🛡️ SHIELD', 15, 50);
+    }
+    
+    // Active timed power-up indicator
     if (activePowerUpRef.current) {
       const pu = activePowerUpRef.current;
-      const color = pu.type === 'shield' ? '#64C8FF' : pu.type === 'widegap' ? '#FF69B4' : '#22C55E';
+      const color = pu.type === 'widegap' ? '#FF69B4' : '#22C55E';
       ctx.fillStyle = color;
       ctx.font = 'bold 12px monospace';
       ctx.textAlign = 'left';
-      const icon = pu.type === 'shield' ? '🛡️ SHIELD' : pu.type === 'widegap' ? '↕ WIDE GAP' : '• TINY';
-      ctx.fillText(icon, 15, 50);
+      const icon = pu.type === 'widegap' ? '↕ WIDE GAP' : '• TINY';
+      const yPos = hasShieldRef.current ? 70 : 50; // Stack below shield if both active
+      ctx.fillText(icon, 15, yPos);
       
       if (pu.endTime) {
         const remaining = Math.max(0, (pu.endTime - now) / 1000);
         ctx.fillStyle = '#888';
         ctx.font = '10px monospace';
-        ctx.fillText(`${remaining.toFixed(1)}s`, 15, 65);
+        ctx.fillText(`${remaining.toFixed(1)}s`, 15, yPos + 15);
       }
     }
     
@@ -1037,10 +1050,9 @@ export default function FlappyDonutPage() {
     const hitboxRadius = donutRef.current.size / 2 - 6;
     
     const endGameInline = (hitPipe: boolean = false) => {
-      if (hitPipe && activePowerUpRef.current?.type === 'shield') {
+      if (hitPipe && hasShieldRef.current) {
         // Shield blocks one hit
-        activePowerUpRef.current = null;
-        setActivePowerUpDisplay(null);
+        hasShieldRef.current = false;
         screenShakeRef.current = 0.5;
         spawnPowerUpParticles(PLAYER_X, donutRef.current.y, '#64C8FF');
         addFloatingText(PLAYER_X, donutRef.current.y - 30, 'BLOCKED!', '#64C8FF');
@@ -1129,6 +1141,7 @@ export default function FlappyDonutPage() {
     floatingTextsRef.current = [];
     powerUpsRef.current = [];
     activePowerUpRef.current = null;
+    hasShieldRef.current = false;
     bgOffsetRef.current = 0;
     lastFrameTimeRef.current = performance.now();
     scoreRef.current = 0;
@@ -1491,7 +1504,7 @@ export default function FlappyDonutPage() {
                 <div className="space-y-2 text-xs text-zinc-400">
                   <div className="flex items-center gap-2">
                     <span className="text-cyan-400">🛡️</span>
-                    <span>Shield - Blocks one hit</span>
+                    <span>Shield - Blocks one hit (stacks with others)</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-pink-400">↕</span>
