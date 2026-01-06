@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Trophy, Play, Zap, Share2, X, HelpCircle, Volume2, VolumeX, ChevronRight, Clock, Layers, Sparkles, Gift } from "lucide-react";
+import { Trophy, Play, Zap, Share2, X, HelpCircle, Volume2, VolumeX, ChevronRight, Clock, Layers, Gift } from "lucide-react";
 
 // Free Arcade Contract (gas-only, no token payment)
 const FREE_ARCADE_CONTRACT = "0xca9f8dce3be5ee0e1d0eb327be8143e2f688fc91" as const;
@@ -40,7 +40,7 @@ const BRAND_GREEN = '#22C55E';
 const BRAND_COLORS = [BRAND_PINK, BRAND_GREEN];
 
 // Power-up types
-type PowerUpType = 'widen' | 'slow' | 'ghost';
+type PowerUpType = 'auto3' | 'slow' | 'double';
 
 interface PowerUp {
   type: PowerUpType;
@@ -208,7 +208,9 @@ export default function StackGamePage() {
   
   // Power-up refs
   const activePowerUpRef = useRef<PowerUp | null>(null);
-  const ghostUsedRef = useRef(false);
+  const autoStackingRef = useRef(false);
+  const autoStackCountRef = useRef(0);
+  const pointMultiplierRef = useRef(1);
 
   // Update reset countdown
   useEffect(() => {
@@ -519,7 +521,6 @@ export default function StackGamePage() {
   }, []);
   
   const spawnPerfectParticles = useCallback((x: number, y: number, width: number, color: string) => {
-    // Burst particles in the block's color
     for (let i = 0; i < 24; i++) {
       const angle = (i / 24) * Math.PI * 2;
       const speed = 3 + Math.random() * 4;
@@ -535,7 +536,6 @@ export default function StackGamePage() {
         type: 'burst',
       });
     }
-    // Sparkle particles
     for (let i = 0; i < 10; i++) {
       particlesRef.current.push({
         x: x + Math.random() * width,
@@ -569,14 +569,7 @@ export default function StackGamePage() {
   }, []);
   
   const addFloatingText = useCallback((x: number, y: number, text: string, color: string) => {
-    floatingTextsRef.current.push({
-      x,
-      y,
-      text,
-      color,
-      life: 1,
-      vy: -2,
-    });
+    floatingTextsRef.current.push({ x, y, text, color, life: 1, vy: -2 });
   }, []);
   
   const drawBlock = useCallback((ctx: CanvasRenderingContext2D, block: Block, cameraY: number, time: number) => {
@@ -596,7 +589,6 @@ export default function StackGamePage() {
     const drawY = screenY - bounceOffset;
     const color = block.color;
     
-    // Right face (darker)
     ctx.fillStyle = shadeColor(color, -25);
     ctx.beginPath();
     ctx.moveTo(block.x + block.width, drawY);
@@ -606,7 +598,6 @@ export default function StackGamePage() {
     ctx.closePath();
     ctx.fill();
     
-    // Top face (lighter)
     ctx.fillStyle = shadeColor(color, 15);
     ctx.beginPath();
     ctx.moveTo(block.x, drawY);
@@ -616,7 +607,6 @@ export default function StackGamePage() {
     ctx.closePath();
     ctx.fill();
     
-    // Front face with gradient
     const gradient = ctx.createLinearGradient(block.x, drawY, block.x, drawY + BLOCK_HEIGHT);
     gradient.addColorStop(0, shadeColor(color, 10));
     gradient.addColorStop(0.5, color);
@@ -624,15 +614,12 @@ export default function StackGamePage() {
     ctx.fillStyle = gradient;
     ctx.fillRect(block.x, drawY, block.width, BLOCK_HEIGHT);
     
-    // Shine effect
     ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
     ctx.fillRect(block.x + 4, drawY + 3, block.width - 8, 4);
     
-    // Bottom edge highlight
     ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
     ctx.fillRect(block.x, drawY + BLOCK_HEIGHT - 3, block.width, 3);
     
-    // Power-up indicator
     if (block.hasPowerUp && !block.settled) {
       const iconY = drawY + BLOCK_HEIGHT / 2;
       const iconX = block.x + block.width / 2;
@@ -642,7 +629,6 @@ export default function StackGamePage() {
       ctx.translate(iconX, iconY);
       ctx.scale(pulse, pulse);
       
-      // Glow
       ctx.shadowColor = '#FFD700';
       ctx.shadowBlur = 15;
       ctx.fillStyle = '#FFD700';
@@ -650,13 +636,12 @@ export default function StackGamePage() {
       ctx.arc(0, 0, 10, 0, Math.PI * 2);
       ctx.fill();
       
-      // Icon
       ctx.shadowBlur = 0;
       ctx.fillStyle = '#000';
       ctx.font = 'bold 12px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(block.hasPowerUp === 'widen' ? '↔' : block.hasPowerUp === 'slow' ? '⏱' : '👻', 0, 0);
+      ctx.fillText(block.hasPowerUp === 'auto3' ? '+3' : block.hasPowerUp === 'slow' ? '⏱' : '2X', 0, 0);
       
       ctx.restore();
     }
@@ -670,7 +655,6 @@ export default function StackGamePage() {
     ctx.translate(piece.x + piece.width / 2, screenY + BLOCK_HEIGHT / 2);
     ctx.rotate(piece.rotation);
     
-    // Simple colored block
     const gradient = ctx.createLinearGradient(-piece.width / 2, -BLOCK_HEIGHT / 2, -piece.width / 2, BLOCK_HEIGHT / 2);
     gradient.addColorStop(0, shadeColor(piece.color, 10));
     gradient.addColorStop(1, shadeColor(piece.color, -15));
@@ -686,7 +670,6 @@ export default function StackGamePage() {
       ctx.globalAlpha = p.life;
       
       if (p.type === 'sparkle') {
-        // Star shape
         ctx.fillStyle = p.color;
         ctx.shadowColor = p.color;
         ctx.shadowBlur = 8;
@@ -728,14 +711,12 @@ export default function StackGamePage() {
   }, []);
   
   const drawBackground = useCallback((ctx: CanvasRenderingContext2D) => {
-    // Gradient background
     const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
     bgGradient.addColorStop(0, "#1a1a1a");
     bgGradient.addColorStop(1, "#0d0d0d");
     ctx.fillStyle = bgGradient;
     ctx.fillRect(-10, -10, CANVAS_WIDTH + 20, CANVAS_HEIGHT + 20);
     
-    // Animated background particles
     bgParticlesRef.current.forEach(p => {
       p.y -= p.speed;
       if (p.y < 0) {
@@ -748,7 +729,6 @@ export default function StackGamePage() {
       ctx.fill();
     });
     
-    // Subtle grid
     ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
     ctx.lineWidth = 1;
     for (let i = 0; i < CANVAS_WIDTH; i += 40) {
@@ -765,151 +745,133 @@ export default function StackGamePage() {
     }
   }, []);
   
-  const gameLoop = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx || !gameActiveRef.current) return;
+  const spawnNewBlock = useCallback(() => {
+    const blocks = blocksRef.current;
+    const lastBlock = blocks[blocks.length - 1];
+    const newY = lastBlock ? lastBlock.y - BLOCK_HEIGHT : CANVAS_HEIGHT - BLOCK_HEIGHT - 50;
+    const newWidth = lastBlock ? lastBlock.width : INITIAL_BLOCK_WIDTH;
     
-    const now = performance.now();
-    const rawDelta = now - lastFrameTimeRef.current;
-    lastFrameTimeRef.current = now;
-    const deltaTime = Math.min(rawDelta / 16.667, 2);
-    frameCountRef.current++;
+    const newX = directionRef.current === 1 ? -newWidth : CANVAS_WIDTH;
+    const newColor = getBlockColor(blocks.length);
     
-    ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
-    
-    // Screen shake
-    let shakeX = 0, shakeY = 0;
-    if (screenShakeRef.current > 0) {
-      shakeX = (Math.random() - 0.5) * screenShakeRef.current * 10;
-      shakeY = (Math.random() - 0.5) * screenShakeRef.current * 10;
-      screenShakeRef.current -= 0.08 * deltaTime;
-      if (screenShakeRef.current < 0) screenShakeRef.current = 0;
+    let powerUp: PowerUpType | undefined;
+    if (blocks.length > 0 && blocks.length % (8 + Math.floor(Math.random() * 5)) === 0) {
+      const types: PowerUpType[] = ['auto3', 'slow', 'double'];
+      powerUp = types[Math.floor(Math.random() * types.length)];
     }
     
-    ctx.save();
-    ctx.translate(shakeX, shakeY);
+    currentBlockRef.current = {
+      x: newX,
+      y: newY,
+      width: newWidth,
+      color: newColor,
+      settled: false,
+      hasPowerUp: powerUp,
+    };
+  }, []);
+  
+  const spawnAutoBlock = useCallback(() => {
+    const blocks = blocksRef.current;
+    const lastBlock = blocks[blocks.length - 1];
+    if (!lastBlock) return;
     
-    drawBackground(ctx);
+    const newY = lastBlock.y - BLOCK_HEIGHT;
+    const newWidth = lastBlock.width;
+    const newX = lastBlock.x;
+    const newColor = getBlockColor(blocks.length);
     
-    // Perfect pulse effect
-    if (perfectPulseRef.current > 0) {
-      ctx.fillStyle = `rgba(255, 215, 0, ${perfectPulseRef.current * 0.12})`;
-      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-      perfectPulseRef.current -= 0.04 * deltaTime;
-      if (perfectPulseRef.current < 0) perfectPulseRef.current = 0;
+    currentBlockRef.current = {
+      x: newX,
+      y: newY,
+      width: newWidth,
+      color: newColor,
+      settled: false,
+    };
+  }, []);
+  
+  const autoStackOneBlock = useCallback(() => {
+    if (!gameActiveRef.current || !currentBlockRef.current) return;
+    
+    const current = currentBlockRef.current;
+    const blocks = blocksRef.current;
+    const lastBlock = blocks[blocks.length - 1];
+    
+    if (!lastBlock) return;
+    
+    current.x = lastBlock.x;
+    current.width = lastBlock.width;
+    current.settled = true;
+    current.landTime = performance.now();
+    blocksRef.current.push({ ...current });
+    
+    const points = 1 * pointMultiplierRef.current;
+    scoreRef.current += points;
+    setScore(scoreRef.current);
+    
+    comboRef.current++;
+    setCombo(comboRef.current);
+    playPlaceSound(true, comboRef.current);
+    triggerHaptic(true);
+    spawnPerfectParticles(current.x, current.y, current.width, current.color);
+    perfectPulseRef.current = 1;
+    screenShakeRef.current = 0.25;
+    
+    const desiredScreenY = 200;
+    const topBlockY = current.y - BLOCK_HEIGHT;
+    const newCameraTarget = topBlockY - desiredScreenY;
+    if (newCameraTarget < targetCameraYRef.current) {
+      targetCameraYRef.current = newCameraTarget;
     }
     
-    // Smooth camera
-    cameraYRef.current += (targetCameraYRef.current - cameraYRef.current) * 0.1 * deltaTime;
-    
-    // Draw settled blocks
-    blocksRef.current.forEach(block => {
-      drawBlock(ctx, block, cameraYRef.current, now);
-    });
-    
-    // Update and draw particles
-    particlesRef.current = particlesRef.current.filter(p => {
-      p.x += p.vx * deltaTime;
-      p.y += p.vy * deltaTime;
-      p.vy += 0.25 * deltaTime;
-      p.life -= 0.025 * deltaTime;
-      return p.life > 0;
-    });
-    drawParticles(ctx, cameraYRef.current);
-    
-    // Update and draw floating texts
-    floatingTextsRef.current = floatingTextsRef.current.filter(ft => {
-      ft.y += ft.vy * deltaTime;
-      ft.life -= 0.02 * deltaTime;
-      return ft.life > 0;
-    });
-    drawFloatingTexts(ctx, cameraYRef.current);
-    
-    // Update and draw falling pieces
-    fallingPiecesRef.current = fallingPiecesRef.current.filter(piece => {
-      piece.y += piece.velocityY * deltaTime;
-      piece.x += piece.velocityX * deltaTime;
-      piece.velocityY += 0.6 * deltaTime;
-      piece.rotation += piece.rotationSpeed * deltaTime;
-      piece.opacity -= 0.02 * deltaTime;
-      if (piece.opacity > 0 && piece.y - cameraYRef.current < CANVAS_HEIGHT + 100) {
-        drawFallingPiece(ctx, piece, cameraYRef.current);
-        return true;
-      }
-      return false;
-    });
-    
-    // Check power-up expiration
-    if (activePowerUpRef.current && activePowerUpRef.current.endTime && now > activePowerUpRef.current.endTime) {
-      if (activePowerUpRef.current.type === 'slow') {
-        speedRef.current = baseSpeedRef.current;
-      }
-      activePowerUpRef.current = null;
-      setActivePowerUp(null);
+    baseSpeedRef.current = Math.min(BASE_SPEED + scoreRef.current * SPEED_INCREMENT, MAX_SPEED);
+    if (!activePowerUpRef.current || activePowerUpRef.current.type !== 'slow') {
+      speedRef.current = baseSpeedRef.current;
     }
+  }, [playPlaceSound, triggerHaptic, spawnPerfectParticles]);
+  
+  const activatePowerUp = useCallback((type: PowerUpType) => {
+    playPowerUpSound();
     
-    // Update current block
-    if (currentBlockRef.current && !currentBlockRef.current.settled) {
-      const block = currentBlockRef.current;
-      block.x += speedRef.current * directionRef.current * deltaTime;
+    if (type === 'auto3') {
+      autoStackingRef.current = true;
+      autoStackCountRef.current = 3;
+      addFloatingText(CANVAS_WIDTH / 2, blocksRef.current[blocksRef.current.length - 1]?.y || 300, '+3 AUTO!', '#22C55E');
+      spawnPowerUpParticles(CANVAS_WIDTH / 2, blocksRef.current[blocksRef.current.length - 1]?.y || 300, '#22C55E');
       
-      if (block.x + block.width >= CANVAS_WIDTH) {
-        block.x = CANVAS_WIDTH - block.width;
-        directionRef.current = -1;
-      } else if (block.x <= 0) {
-        block.x = 0;
-        directionRef.current = 1;
-      }
+      let stackCount = 0;
+      const doAutoStack = () => {
+        if (stackCount >= 3 || !gameActiveRef.current) {
+          autoStackingRef.current = false;
+          autoStackCountRef.current = 0;
+          spawnNewBlock();
+          return;
+        }
+        
+        spawnAutoBlock();
+        setTimeout(() => {
+          autoStackOneBlock();
+          stackCount++;
+          autoStackCountRef.current = 3 - stackCount;
+          setTimeout(doAutoStack, 200);
+        }, 150);
+      };
       
-      drawBlock(ctx, block, cameraYRef.current, now);
-    }
-    
-    ctx.restore();
-    
-    // HUD
-    ctx.shadowColor = "#FFFFFF";
-    ctx.shadowBlur = 20;
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = "bold 48px monospace";
-    ctx.textAlign = "center";
-    ctx.fillText(scoreRef.current.toString(), CANVAS_WIDTH / 2, 70);
-    ctx.shadowBlur = 0;
-    
-    // Combo display
-    if (comboRef.current >= 2) {
-      const comboPulse = 1 + Math.sin(now / 100) * 0.1;
-      ctx.save();
-      ctx.translate(CANVAS_WIDTH / 2, 100);
-      ctx.scale(comboPulse, comboPulse);
-      ctx.shadowColor = "#FFD700";
-      ctx.shadowBlur = 15;
-      ctx.fillStyle = "#FFD700";
-      ctx.font = "bold 20px monospace";
-      ctx.fillText(`${comboRef.current}x PERFECT!`, 0, 0);
-      ctx.shadowBlur = 0;
-      ctx.restore();
-    }
-    
-    // Active power-up indicator
-    if (activePowerUpRef.current) {
-      const pu = activePowerUpRef.current;
-      ctx.fillStyle = pu.type === 'widen' ? '#22C55E' : pu.type === 'slow' ? '#3B82F6' : '#A855F7';
-      ctx.font = 'bold 12px monospace';
-      ctx.textAlign = 'left';
-      const icon = pu.type === 'widen' ? '↔ WIDER' : pu.type === 'slow' ? '⏱ SLOW' : '👻 GHOST';
-      ctx.fillText(icon, 15, 50);
+      doAutoStack();
       
-      if (pu.endTime) {
-        const remaining = Math.max(0, (pu.endTime - now) / 1000);
-        ctx.fillStyle = '#888';
-        ctx.font = '10px monospace';
-        ctx.fillText(`${remaining.toFixed(1)}s`, 15, 65);
-      }
+    } else if (type === 'slow') {
+      speedRef.current = baseSpeedRef.current * 0.5;
+      activePowerUpRef.current = { type, active: true, endTime: performance.now() + 5000 };
+      setActivePowerUp(type);
+      addFloatingText(CANVAS_WIDTH / 2, blocksRef.current[blocksRef.current.length - 1]?.y || 300, 'SLOW!', '#3B82F6');
+      spawnPowerUpParticles(CANVAS_WIDTH / 2, blocksRef.current[blocksRef.current.length - 1]?.y || 300, '#3B82F6');
+    } else if (type === 'double') {
+      pointMultiplierRef.current = 2;
+      activePowerUpRef.current = { type, active: true, endTime: performance.now() + 10000 };
+      setActivePowerUp(type);
+      addFloatingText(CANVAS_WIDTH / 2, blocksRef.current[blocksRef.current.length - 1]?.y || 300, '2X POINTS!', '#FFD700');
+      spawnPowerUpParticles(CANVAS_WIDTH / 2, blocksRef.current[blocksRef.current.length - 1]?.y || 300, '#FFD700');
     }
-    
-    gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawBackground, drawBlock, drawFallingPiece, drawParticles, drawFloatingTexts]);
+  }, [playPowerUpSound, addFloatingText, spawnPowerUpParticles, autoStackOneBlock, spawnAutoBlock, spawnNewBlock]);
   
   const endGame = useCallback((finalScore: number) => {
     gameActiveRef.current = false;
@@ -923,53 +885,139 @@ export default function StackGamePage() {
     fetchLeaderboard();
   }, [playGameOverSound, triggerHaptic, submitScore, fetchLeaderboard]);
   
-  const activatePowerUp = useCallback((type: PowerUpType) => {
-    playPowerUpSound();
-    
-    if (type === 'widen') {
-      // Widen current and next block
-      if (currentBlockRef.current) {
-        currentBlockRef.current.width = Math.min(currentBlockRef.current.width + 30, INITIAL_BLOCK_WIDTH);
-      }
-      activePowerUpRef.current = { type, active: true, endTime: performance.now() + 5000 };
-      setActivePowerUp(type);
-      addFloatingText(CANVAS_WIDTH / 2, blocksRef.current[blocksRef.current.length - 1]?.y || 300, '+WIDTH!', '#22C55E');
-    } else if (type === 'slow') {
-      // Slow down block movement
-      speedRef.current = baseSpeedRef.current * 0.5;
-      activePowerUpRef.current = { type, active: true, endTime: performance.now() + 5000 };
-      setActivePowerUp(type);
-      addFloatingText(CANVAS_WIDTH / 2, blocksRef.current[blocksRef.current.length - 1]?.y || 300, 'SLOW!', '#3B82F6');
-    } else if (type === 'ghost') {
-      // Second chance - used automatically on miss
-      activePowerUpRef.current = { type, active: true };
-      setActivePowerUp(type);
-      addFloatingText(CANVAS_WIDTH / 2, blocksRef.current[blocksRef.current.length - 1]?.y || 300, 'GHOST!', '#A855F7');
-    }
-    
-    spawnPowerUpParticles(CANVAS_WIDTH / 2, blocksRef.current[blocksRef.current.length - 1]?.y || 300, 
-      type === 'widen' ? '#22C55E' : type === 'slow' ? '#3B82F6' : '#A855F7');
-  }, [playPowerUpSound, addFloatingText, spawnPowerUpParticles]);
-  
   const placeBlock = useCallback(() => {
-    if (!gameActiveRef.current || !currentBlockRef.current) return;
+    if (!gameActiveRef.current || !currentBlockRef.current || autoStackingRef.current) return;
     
     const current = currentBlockRef.current;
     const blocks = blocksRef.current;
     const lastBlock = blocks[blocks.length - 1];
     
-    // Check for power-up collection
     if (current.hasPowerUp) {
-      activatePowerUp(current.hasPowerUp);
+      const powerUpType = current.hasPowerUp;
       current.hasPowerUp = undefined;
+      
+      if (powerUpType === 'auto3') {
+        if (!lastBlock) {
+          current.settled = true;
+          current.landTime = performance.now();
+          blocksRef.current.push({ ...current });
+          const points = 1 * pointMultiplierRef.current;
+          scoreRef.current += points;
+          setScore(scoreRef.current);
+          playPlaceSound(true, 1);
+          triggerHaptic(true);
+          setLastPlacement("perfect");
+          spawnPerfectParticles(current.x, current.y, current.width, current.color);
+          perfectPulseRef.current = 1;
+          screenShakeRef.current = 0.3;
+          setTimeout(() => setLastPlacement(null), 500);
+          activatePowerUp('auto3');
+          return;
+        }
+        
+        const currentLeft = current.x;
+        const currentRight = current.x + current.width;
+        const lastLeft = lastBlock.x;
+        const lastRight = lastBlock.x + lastBlock.width;
+        const overlapLeft = Math.max(currentLeft, lastLeft);
+        const overlapRight = Math.min(currentRight, lastRight);
+        const overlapWidth = overlapRight - overlapLeft;
+        
+        if (overlapWidth <= 0) {
+          blocksRef.current.forEach((block, i) => {
+            setTimeout(() => {
+              fallingPiecesRef.current.push({
+                x: block.x, y: block.y, width: block.width, color: block.color,
+                velocityY: -2 - Math.random() * 3, velocityX: (Math.random() - 0.5) * 4,
+                rotation: 0, rotationSpeed: (Math.random() - 0.5) * 0.2, opacity: 1,
+              });
+            }, i * 50);
+          });
+          endGame(scoreRef.current);
+          return;
+        }
+        
+        const isPerfect = Math.abs(current.x - lastBlock.x) <= PERFECT_THRESHOLD;
+        
+        if (isPerfect) {
+          current.x = lastBlock.x;
+          current.width = lastBlock.width;
+          comboRef.current++;
+          setCombo(comboRef.current);
+          playPlaceSound(true, comboRef.current);
+          triggerHaptic(true);
+          setLastPlacement("perfect");
+          spawnPerfectParticles(current.x, current.y, current.width, current.color);
+          perfectPulseRef.current = 1;
+          screenShakeRef.current = 0.25;
+        } else {
+          const cutOffLeft = currentLeft < lastLeft ? lastLeft - currentLeft : 0;
+          const cutOffRight = currentRight > lastRight ? currentRight - lastRight : 0;
+          
+          if (cutOffLeft > 0) {
+            fallingPiecesRef.current.push({
+              x: currentLeft, y: current.y, width: cutOffLeft, color: current.color,
+              velocityY: 0, velocityX: -2 - Math.random() * 2, rotation: 0,
+              rotationSpeed: -0.1 - Math.random() * 0.1, opacity: 1,
+            });
+          }
+          if (cutOffRight > 0) {
+            fallingPiecesRef.current.push({
+              x: overlapRight, y: current.y, width: cutOffRight, color: current.color,
+              velocityY: 0, velocityX: 2 + Math.random() * 2, rotation: 0,
+              rotationSpeed: 0.1 + Math.random() * 0.1, opacity: 1,
+            });
+          }
+          
+          current.x = overlapLeft;
+          current.width = overlapWidth;
+          comboRef.current = 0;
+          setCombo(0);
+          playPlaceSound(false, 0);
+          triggerHaptic(false);
+          screenShakeRef.current = 0.15;
+          setLastPlacement(overlapWidth > lastBlock.width * 0.8 ? "good" : "ok");
+        }
+        
+        setTimeout(() => setLastPlacement(null), 500);
+        
+        if (current.width < 15) {
+          endGame(scoreRef.current);
+          return;
+        }
+        
+        current.settled = true;
+        current.landTime = performance.now();
+        blocksRef.current.push({ ...current });
+        const points = 1 * pointMultiplierRef.current;
+        scoreRef.current += points;
+        setScore(scoreRef.current);
+        
+        const desiredScreenY = 200;
+        const topBlockY = current.y - BLOCK_HEIGHT;
+        const newCameraTarget = topBlockY - desiredScreenY;
+        if (newCameraTarget < targetCameraYRef.current) {
+          targetCameraYRef.current = newCameraTarget;
+        }
+        
+        baseSpeedRef.current = Math.min(BASE_SPEED + scoreRef.current * SPEED_INCREMENT, MAX_SPEED);
+        if (!activePowerUpRef.current || activePowerUpRef.current.type !== 'slow') {
+          speedRef.current = baseSpeedRef.current;
+        }
+        
+        activatePowerUp('auto3');
+        return;
+      } else {
+        activatePowerUp(powerUpType);
+      }
     }
     
     if (!lastBlock) {
-      // First block placement
       current.settled = true;
       current.landTime = performance.now();
       blocksRef.current.push({ ...current });
-      scoreRef.current++;
+      const points = 1 * pointMultiplierRef.current;
+      scoreRef.current += points;
       setScore(scoreRef.current);
       playPlaceSound(true, 1);
       triggerHaptic(true);
@@ -991,31 +1039,12 @@ export default function StackGamePage() {
     const overlapWidth = overlapRight - overlapLeft;
     
     if (overlapWidth <= 0) {
-      // Complete miss - check for ghost power-up
-      if (activePowerUpRef.current?.type === 'ghost' && !ghostUsedRef.current) {
-        ghostUsedRef.current = true;
-        activePowerUpRef.current = null;
-        setActivePowerUp(null);
-        addFloatingText(CANVAS_WIDTH / 2, current.y, 'SAVED!', '#A855F7');
-        spawnPowerUpParticles(current.x + current.width / 2, current.y, '#A855F7');
-        // Reset block position
-        current.x = directionRef.current === 1 ? -current.width : CANVAS_WIDTH;
-        return;
-      }
-      
-      // Tower collapse animation
       blocksRef.current.forEach((block, i) => {
         setTimeout(() => {
           fallingPiecesRef.current.push({
-            x: block.x,
-            y: block.y,
-            width: block.width,
-            color: block.color,
-            velocityY: -2 - Math.random() * 3,
-            velocityX: (Math.random() - 0.5) * 4,
-            rotation: 0,
-            rotationSpeed: (Math.random() - 0.5) * 0.2,
-            opacity: 1,
+            x: block.x, y: block.y, width: block.width, color: block.color,
+            velocityY: -2 - Math.random() * 3, velocityX: (Math.random() - 0.5) * 4,
+            rotation: 0, rotationSpeed: (Math.random() - 0.5) * 0.2, opacity: 1,
           });
         }, i * 50);
       });
@@ -1026,7 +1055,6 @@ export default function StackGamePage() {
     const isPerfect = Math.abs(current.x - lastBlock.x) <= PERFECT_THRESHOLD;
     
     if (isPerfect) {
-      // Perfect placement - keep same width
       current.x = lastBlock.x;
       current.width = lastBlock.width;
       comboRef.current++;
@@ -1038,41 +1066,27 @@ export default function StackGamePage() {
       perfectPulseRef.current = 1;
       screenShakeRef.current = 0.25;
       
-      // Bonus points for high combos
       if (comboRef.current >= 5) {
-        const bonus = Math.floor(comboRef.current / 5);
+        const bonus = Math.floor(comboRef.current / 5) * pointMultiplierRef.current;
         scoreRef.current += bonus;
         addFloatingText(CANVAS_WIDTH / 2, current.y - 20, `+${bonus} BONUS!`, '#FFD700');
       }
     } else {
-      // Partial overlap - cut off overhanging portions
       const cutOffLeft = currentLeft < lastLeft ? lastLeft - currentLeft : 0;
       const cutOffRight = currentRight > lastRight ? currentRight - lastRight : 0;
       
       if (cutOffLeft > 0) {
         fallingPiecesRef.current.push({
-          x: currentLeft,
-          y: current.y,
-          width: cutOffLeft,
-          color: current.color,
-          velocityY: 0,
-          velocityX: -2 - Math.random() * 2,
-          rotation: 0,
-          rotationSpeed: -0.1 - Math.random() * 0.1,
-          opacity: 1,
+          x: currentLeft, y: current.y, width: cutOffLeft, color: current.color,
+          velocityY: 0, velocityX: -2 - Math.random() * 2, rotation: 0,
+          rotationSpeed: -0.1 - Math.random() * 0.1, opacity: 1,
         });
       }
       if (cutOffRight > 0) {
         fallingPiecesRef.current.push({
-          x: overlapRight,
-          y: current.y,
-          width: cutOffRight,
-          color: current.color,
-          velocityY: 0,
-          velocityX: 2 + Math.random() * 2,
-          rotation: 0,
-          rotationSpeed: 0.1 + Math.random() * 0.1,
-          opacity: 1,
+          x: overlapRight, y: current.y, width: cutOffRight, color: current.color,
+          velocityY: 0, velocityX: 2 + Math.random() * 2, rotation: 0,
+          rotationSpeed: 0.1 + Math.random() * 0.1, opacity: 1,
         });
       }
       
@@ -1084,16 +1098,11 @@ export default function StackGamePage() {
       triggerHaptic(false);
       screenShakeRef.current = 0.15;
       
-      if (overlapWidth > lastBlock.width * 0.8) {
-        setLastPlacement("good");
-      } else {
-        setLastPlacement("ok");
-      }
+      setLastPlacement(overlapWidth > lastBlock.width * 0.8 ? "good" : "ok");
     }
     
     setTimeout(() => setLastPlacement(null), 500);
     
-    // Check if block is too narrow
     if (current.width < 15) {
       endGame(scoreRef.current);
       return;
@@ -1102,10 +1111,14 @@ export default function StackGamePage() {
     current.settled = true;
     current.landTime = performance.now();
     blocksRef.current.push({ ...current });
-    scoreRef.current++;
+    const points = 1 * pointMultiplierRef.current;
+    scoreRef.current += points;
     setScore(scoreRef.current);
     
-    // Update camera
+    if (pointMultiplierRef.current > 1) {
+      addFloatingText(CANVAS_WIDTH / 2, current.y - 10, `+${points}`, '#FFD700');
+    }
+    
     const desiredScreenY = 200;
     const topBlockY = current.y - BLOCK_HEIGHT;
     const newCameraTarget = topBlockY - desiredScreenY;
@@ -1113,45 +1126,159 @@ export default function StackGamePage() {
       targetCameraYRef.current = newCameraTarget;
     }
     
-    // Update speed (more gradual)
     baseSpeedRef.current = Math.min(BASE_SPEED + scoreRef.current * SPEED_INCREMENT, MAX_SPEED);
     if (!activePowerUpRef.current || activePowerUpRef.current.type !== 'slow') {
       speedRef.current = baseSpeedRef.current;
     }
     
     spawnNewBlock();
-  }, [playPlaceSound, triggerHaptic, spawnPerfectParticles, endGame, activatePowerUp, addFloatingText, spawnPowerUpParticles]);
+  }, [playPlaceSound, triggerHaptic, spawnPerfectParticles, endGame, activatePowerUp, addFloatingText, spawnNewBlock]);
   
-  const spawnNewBlock = useCallback(() => {
-    const blocks = blocksRef.current;
-    const lastBlock = blocks[blocks.length - 1];
-    const newY = lastBlock ? lastBlock.y - BLOCK_HEIGHT : CANVAS_HEIGHT - BLOCK_HEIGHT - 50;
-    let newWidth = lastBlock ? lastBlock.width : INITIAL_BLOCK_WIDTH;
+  const gameLoop = useCallback(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx || !gameActiveRef.current) return;
     
-    // Apply widen power-up
-    if (activePowerUpRef.current?.type === 'widen') {
-      newWidth = Math.min(newWidth + 20, INITIAL_BLOCK_WIDTH);
+    const now = performance.now();
+    const rawDelta = now - lastFrameTimeRef.current;
+    lastFrameTimeRef.current = now;
+    const deltaTime = Math.min(rawDelta / 16.667, 2);
+    frameCountRef.current++;
+    
+    ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
+    
+    let shakeX = 0, shakeY = 0;
+    if (screenShakeRef.current > 0) {
+      shakeX = (Math.random() - 0.5) * screenShakeRef.current * 10;
+      shakeY = (Math.random() - 0.5) * screenShakeRef.current * 10;
+      screenShakeRef.current -= 0.08 * deltaTime;
+      if (screenShakeRef.current < 0) screenShakeRef.current = 0;
     }
     
-    const newX = directionRef.current === 1 ? -newWidth : CANVAS_WIDTH;
-    const newColor = getBlockColor(blocks.length);
+    ctx.save();
+    ctx.translate(shakeX, shakeY);
     
-    // Chance to spawn power-up on block (every 8-12 blocks)
-    let powerUp: PowerUpType | undefined;
-    if (blocks.length > 0 && blocks.length % (8 + Math.floor(Math.random() * 5)) === 0) {
-      const types: PowerUpType[] = ['widen', 'slow', 'ghost'];
-      powerUp = types[Math.floor(Math.random() * types.length)];
+    drawBackground(ctx);
+    
+    if (perfectPulseRef.current > 0) {
+      ctx.fillStyle = `rgba(255, 215, 0, ${perfectPulseRef.current * 0.12})`;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      perfectPulseRef.current -= 0.04 * deltaTime;
+      if (perfectPulseRef.current < 0) perfectPulseRef.current = 0;
     }
     
-    currentBlockRef.current = {
-      x: newX,
-      y: newY,
-      width: newWidth,
-      color: newColor,
-      settled: false,
-      hasPowerUp: powerUp,
-    };
-  }, []);
+    cameraYRef.current += (targetCameraYRef.current - cameraYRef.current) * 0.1 * deltaTime;
+    
+    blocksRef.current.forEach(block => {
+      drawBlock(ctx, block, cameraYRef.current, now);
+    });
+    
+    particlesRef.current = particlesRef.current.filter(p => {
+      p.x += p.vx * deltaTime;
+      p.y += p.vy * deltaTime;
+      p.vy += 0.25 * deltaTime;
+      p.life -= 0.025 * deltaTime;
+      return p.life > 0;
+    });
+    drawParticles(ctx, cameraYRef.current);
+    
+    floatingTextsRef.current = floatingTextsRef.current.filter(ft => {
+      ft.y += ft.vy * deltaTime;
+      ft.life -= 0.02 * deltaTime;
+      return ft.life > 0;
+    });
+    drawFloatingTexts(ctx, cameraYRef.current);
+    
+    fallingPiecesRef.current = fallingPiecesRef.current.filter(piece => {
+      piece.y += piece.velocityY * deltaTime;
+      piece.x += piece.velocityX * deltaTime;
+      piece.velocityY += 0.6 * deltaTime;
+      piece.rotation += piece.rotationSpeed * deltaTime;
+      piece.opacity -= 0.02 * deltaTime;
+      if (piece.opacity > 0 && piece.y - cameraYRef.current < CANVAS_HEIGHT + 100) {
+        drawFallingPiece(ctx, piece, cameraYRef.current);
+        return true;
+      }
+      return false;
+    });
+    
+    if (activePowerUpRef.current && activePowerUpRef.current.endTime && now > activePowerUpRef.current.endTime) {
+      if (activePowerUpRef.current.type === 'slow') {
+        speedRef.current = baseSpeedRef.current;
+      }
+      if (activePowerUpRef.current.type === 'double') {
+        pointMultiplierRef.current = 1;
+      }
+      activePowerUpRef.current = null;
+      setActivePowerUp(null);
+    }
+    
+    if (currentBlockRef.current && !currentBlockRef.current.settled && !autoStackingRef.current) {
+      const block = currentBlockRef.current;
+      block.x += speedRef.current * directionRef.current * deltaTime;
+      
+      if (block.x + block.width >= CANVAS_WIDTH) {
+        block.x = CANVAS_WIDTH - block.width;
+        directionRef.current = -1;
+      } else if (block.x <= 0) {
+        block.x = 0;
+        directionRef.current = 1;
+      }
+      
+      drawBlock(ctx, block, cameraYRef.current, now);
+    } else if (currentBlockRef.current && !currentBlockRef.current.settled && autoStackingRef.current) {
+      drawBlock(ctx, currentBlockRef.current, cameraYRef.current, now);
+    }
+    
+    ctx.restore();
+    
+    ctx.shadowColor = "#FFFFFF";
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 48px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(scoreRef.current.toString(), CANVAS_WIDTH / 2, 70);
+    ctx.shadowBlur = 0;
+    
+    if (comboRef.current >= 2) {
+      const comboPulse = 1 + Math.sin(now / 100) * 0.1;
+      ctx.save();
+      ctx.translate(CANVAS_WIDTH / 2, 100);
+      ctx.scale(comboPulse, comboPulse);
+      ctx.shadowColor = "#FFD700";
+      ctx.shadowBlur = 15;
+      ctx.fillStyle = "#FFD700";
+      ctx.font = "bold 20px monospace";
+      ctx.fillText(`${comboRef.current}x PERFECT!`, 0, 0);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+    
+    if (activePowerUpRef.current) {
+      const pu = activePowerUpRef.current;
+      ctx.fillStyle = pu.type === 'auto3' ? '#22C55E' : pu.type === 'slow' ? '#3B82F6' : '#FFD700';
+      ctx.font = 'bold 12px monospace';
+      ctx.textAlign = 'left';
+      const icon = pu.type === 'auto3' ? '+3 AUTO' : pu.type === 'slow' ? '⏱ SLOW' : '2X POINTS';
+      ctx.fillText(icon, 15, 50);
+      
+      if (pu.endTime) {
+        const remaining = Math.max(0, (pu.endTime - now) / 1000);
+        ctx.fillStyle = '#888';
+        ctx.font = '10px monospace';
+        ctx.fillText(`${remaining.toFixed(1)}s`, 15, 65);
+      }
+    }
+    
+    if (autoStackingRef.current) {
+      ctx.fillStyle = '#22C55E';
+      ctx.font = 'bold 16px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`AUTO +${autoStackCountRef.current}`, CANVAS_WIDTH / 2, 130);
+    }
+    
+    gameLoopRef.current = requestAnimationFrame(gameLoop);
+  }, [drawBackground, drawBlock, drawFallingPiece, drawParticles, drawFloatingTexts]);
   
   const startGame = useCallback(() => {
     initAudioContext();
@@ -1175,7 +1302,9 @@ export default function StackGamePage() {
     perfectPulseRef.current = 0;
     frameCountRef.current = 0;
     activePowerUpRef.current = null;
-    ghostUsedRef.current = false;
+    autoStackingRef.current = false;
+    autoStackCountRef.current = 0;
+    pointMultiplierRef.current = 1;
     
     setScore(0);
     setCombo(0);
@@ -1185,7 +1314,6 @@ export default function StackGamePage() {
     setLastPlacement(null);
     setActivePowerUp(null);
     
-    // Place foundation block
     const baseY = CANVAS_HEIGHT - BLOCK_HEIGHT - 50;
     blocksRef.current.push({
       x: (CANVAS_WIDTH - INITIAL_BLOCK_WIDTH) / 2,
@@ -1220,7 +1348,7 @@ export default function StackGamePage() {
   }, [gameLoop, initAudioContext, initBgParticles, playCountdownSound, spawnNewBlock]);
   
   const handleTap = useCallback(() => {
-    if (gameState === "playing" && gameActiveRef.current) {
+    if (gameState === "playing" && gameActiveRef.current && !autoStackingRef.current) {
       placeBlock();
     }
   }, [gameState, placeBlock]);
@@ -1238,7 +1366,6 @@ export default function StackGamePage() {
     }
   }, [score]);
   
-  // Menu/gameover animation
   useEffect(() => {
     if (gameState === "playing") return;
     
@@ -1246,7 +1373,6 @@ export default function StackGamePage() {
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
     
-    // Initialize bg particles for menu
     if (bgParticlesRef.current.length === 0) {
       for (let i = 0; i < 40; i++) {
         bgParticlesRef.current.push({
@@ -1262,14 +1388,12 @@ export default function StackGamePage() {
     const draw = () => {
       ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
       
-      // Background
       const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
       bgGradient.addColorStop(0, "#1a1a1a");
       bgGradient.addColorStop(1, "#0d0d0d");
       ctx.fillStyle = bgGradient;
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       
-      // Animated particles
       bgParticlesRef.current.forEach(p => {
         p.y -= p.speed;
         if (p.y < 0) {
@@ -1282,7 +1406,6 @@ export default function StackGamePage() {
         ctx.fill();
       });
       
-      // Grid
       ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
       ctx.lineWidth = 1;
       for (let i = 0; i < CANVAS_WIDTH; i += 40) {
@@ -1298,7 +1421,6 @@ export default function StackGamePage() {
         ctx.stroke();
       }
       
-      // Preview stack
       const previewColors = [BRAND_PINK, BRAND_GREEN, BRAND_PINK, BRAND_GREEN, BRAND_PINK];
       const baseY = CANVAS_HEIGHT - 70;
       const floatOffset = Math.sin(Date.now() / 500) * 4;
@@ -1309,7 +1431,6 @@ export default function StackGamePage() {
         const x = (CANVAS_WIDTH - width) / 2;
         const y = baseY - i * (BLOCK_HEIGHT - 2) + floatOffset;
         
-        // Right face
         ctx.fillStyle = shadeColor(color, -25);
         ctx.beginPath();
         ctx.moveTo(x + width, y);
@@ -1319,7 +1440,6 @@ export default function StackGamePage() {
         ctx.closePath();
         ctx.fill();
         
-        // Top face
         ctx.fillStyle = shadeColor(color, 15);
         ctx.beginPath();
         ctx.moveTo(x, y);
@@ -1329,7 +1449,6 @@ export default function StackGamePage() {
         ctx.closePath();
         ctx.fill();
         
-        // Front face
         const gradient = ctx.createLinearGradient(x, y, x, y + BLOCK_HEIGHT);
         gradient.addColorStop(0, shadeColor(color, 10));
         gradient.addColorStop(0.5, color);
@@ -1337,12 +1456,10 @@ export default function StackGamePage() {
         ctx.fillStyle = gradient;
         ctx.fillRect(x, y, width, BLOCK_HEIGHT);
         
-        // Shine
         ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
         ctx.fillRect(x + 4, y + 3, width - 8, 4);
       });
       
-      // Title
       ctx.fillStyle = BRAND_PINK;
       ctx.font = "bold 28px monospace";
       ctx.textAlign = "center";
@@ -1427,7 +1544,6 @@ export default function StackGamePage() {
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
         <Header title="GLAZE STACK" user={context?.user} />
         
-        {/* Prize Pool Button */}
         <button
           onClick={() => { fetchLeaderboard(); setShowLeaderboard(true); }}
           className="relative w-full mb-3 px-4 py-3 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/50 rounded-xl transition-all active:scale-[0.98] hover:border-zinc-600 group"
@@ -1454,7 +1570,6 @@ export default function StackGamePage() {
           </div>
         </button>
         
-        {/* Game Canvas */}
         <div className="flex flex-col items-center">
           <div className="relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
             {gameState === "playing" && (
@@ -1472,7 +1587,6 @@ export default function StackGamePage() {
               style={{ touchAction: "none" }}
             />
             
-            {/* Placement indicator */}
             {lastPlacement && gameState === "playing" && (
               <div className="absolute top-24 left-0 right-0 flex justify-center pointer-events-none z-20">
                 <span className={`placement-indicator font-bold text-lg ${
@@ -1484,7 +1598,6 @@ export default function StackGamePage() {
               </div>
             )}
             
-            {/* Menu/Gameover UI */}
             {(gameState === "menu" || gameState === "gameover") && (
               <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-2 pointer-events-none z-20">
                 <div className="pointer-events-auto flex flex-col items-center gap-2">
@@ -1527,7 +1640,6 @@ export default function StackGamePage() {
           </div>
         </div>
         
-        {/* Menu Buttons */}
         {(gameState === "menu" || gameState === "gameover") && (
           <div className="py-3 flex items-center justify-center gap-2">
             <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
@@ -1542,7 +1654,6 @@ export default function StackGamePage() {
         )}
       </div>
       
-      {/* Leaderboard Modal */}
       {showLeaderboard && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4">
           <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
@@ -1595,7 +1706,6 @@ export default function StackGamePage() {
         </div>
       )}
       
-      {/* Help Modal */}
       {showHelp && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4">
           <div className="w-full max-w-sm bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
@@ -1634,16 +1744,16 @@ export default function StackGamePage() {
                 </h3>
                 <div className="space-y-2 text-xs text-zinc-400">
                   <div className="flex items-center gap-2">
-                    <span className="text-green-400">↔</span>
-                    <span>Widen - Makes blocks wider</span>
+                    <span className="text-green-400">+3</span>
+                    <span>Auto Stack - Stacks 3 perfect blocks for you</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-blue-400">⏱</span>
                     <span>Slow - Slows block movement</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-purple-400">👻</span>
-                    <span>Ghost - Second chance on miss</span>
+                    <span className="text-yellow-400">2X</span>
+                    <span>Double Points - 2x points for 10 seconds</span>
                   </div>
                 </div>
               </div>

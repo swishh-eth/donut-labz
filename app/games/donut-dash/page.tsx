@@ -45,7 +45,7 @@ const NEAR_MISS_DISTANCE = 25;
 
 // Zone thresholds - much more spread out for gradual difficulty
 const ZONES = [
-  { name: 'Factory', threshold: 0, bg1: '#1a1a1a', bg2: '#0d0d0d', accent: '#FF6B00', gridColor: 'rgba(255, 255, 255, 0.02)' },
+  { name: 'Factory', threshold: 0, bg1: '#1a1a1a', bg2: '#0d0d0d', accent: '#FFFFFF', gridColor: 'rgba(255, 255, 255, 0.02)' },
   { name: 'Lava', threshold: 200, bg1: '#2a1a0a', bg2: '#1a0a00', accent: '#FF4400', gridColor: 'rgba(255, 100, 0, 0.03)' },
   { name: 'Ice', threshold: 500, bg1: '#0a1a2a', bg2: '#001020', accent: '#00CCFF', gridColor: 'rgba(0, 200, 255, 0.03)' },
   { name: 'Space', threshold: 900, bg1: '#0a0a1a', bg2: '#000010', accent: '#AA00FF', gridColor: 'rgba(150, 0, 255, 0.03)' },
@@ -2388,6 +2388,19 @@ export default function DonutDashPage() {
     if (!canvas || !ctx) return;
     let animationId: number;
     const startTime = performance.now();
+    
+    // Initialize menu particles
+    const menuParticles: { x: number; y: number; size: number; speed: number; alpha: number }[] = [];
+    for (let i = 0; i < 40; i++) {
+      menuParticles.push({
+        x: Math.random() * CANVAS_WIDTH,
+        y: Math.random() * CANVAS_HEIGHT,
+        size: 1 + Math.random() * 2,
+        speed: 0.2 + Math.random() * 0.5,
+        alpha: 0.1 + Math.random() * 0.3,
+      });
+    }
+    
     const draw = () => {
       const time = (performance.now() - startTime) / 1000;
       ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
@@ -2398,16 +2411,20 @@ export default function DonutDashPage() {
       ctx.fillStyle = bgGradient;
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       
-      // Animated background particles on menu
-      for (let i = 0; i < 20; i++) {
-        const x = (time * 20 + i * 50) % CANVAS_WIDTH;
-        const y = (i * 67) % CANVAS_HEIGHT;
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.1 + Math.sin(time + i) * 0.05})`;
+      // Animated background particles (like in-game)
+      menuParticles.forEach(p => {
+        p.x -= p.speed;
+        if (p.x < 0) {
+          p.x = CANVAS_WIDTH;
+          p.y = Math.random() * CANVAS_HEIGHT;
+        }
+        ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
         ctx.beginPath();
-        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
-      }
+      });
       
+      // Grid
       ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
       ctx.lineWidth = 1;
       for (let i = 0; i < CANVAS_WIDTH; i += 40) {
@@ -2423,6 +2440,7 @@ export default function DonutDashPage() {
         ctx.stroke();
       }
       
+      // Hazard stripes (white/black like Factory zone)
       ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(0, 0, CANVAS_WIDTH, 30);
       ctx.fillRect(0, CANVAS_HEIGHT - 30, CANVAS_WIDTH, 30);
@@ -2433,24 +2451,115 @@ export default function DonutDashPage() {
         ctx.beginPath(); ctx.moveTo(x, CANVAS_HEIGHT); ctx.lineTo(x + 15, CANVAS_HEIGHT); ctx.lineTo(x + 5, CANVAS_HEIGHT - 30); ctx.lineTo(x - 10, CANVAS_HEIGHT - 30); ctx.closePath(); ctx.fill();
       }
       
-      // Title with glow
+      // Title with glow - single line
       ctx.fillStyle = '#FFFFFF'; 
-      ctx.font = 'bold 36px monospace'; 
+      ctx.font = 'bold 32px monospace'; 
       ctx.textAlign = 'center';
       ctx.shadowColor = '#FF69B4'; 
       ctx.shadowBlur = 20;
-      ctx.fillText('DONUT', CANVAS_WIDTH / 2, 90);
-      ctx.fillText('DASH', CANVAS_WIDTH / 2, 130);
+      ctx.fillText('DONUT DASH', CANVAS_WIDTH / 2, 100);
       ctx.shadowBlur = 0;
       
-      const bounceY = Math.sin(time * 3) * 10;
-      const donutY = (gameState === "gameover" ? 180 : 210) + bounceY;
-      const donutColor = getDonutColor();
-      ctx.save();
-      ctx.translate(CANVAS_WIDTH / 2, donutY);
+      // Floating player with jetpack
+      const bounceY = Math.sin(time * 2) * 15;
+      const playerY = (gameState === "gameover" ? 180 : 220) + bounceY;
+      const playerX = CANVAS_WIDTH / 2;
+      const menuRadius = 30;
+      const isThrusting = Math.sin(time * 2) > -0.3; // Thrust most of the time during float
       
+      ctx.save();
+      ctx.translate(playerX, playerY);
+      
+      // Slight tilt based on movement
+      const tilt = Math.cos(time * 2) * 0.1;
+      ctx.rotate(tilt);
+      
+      // Draw jetpack
+      const tankX = -menuRadius - 18;
+      const tankY = -14;
+      
+      // Main tank body with metallic gradient
+      const tankGradient = ctx.createLinearGradient(tankX, tankY, tankX + 16, tankY);
+      tankGradient.addColorStop(0, '#3a3a3a');
+      tankGradient.addColorStop(0.3, '#6a6a6a');
+      tankGradient.addColorStop(0.5, '#888888');
+      tankGradient.addColorStop(0.7, '#6a6a6a');
+      tankGradient.addColorStop(1, '#4a4a4a');
+      ctx.fillStyle = tankGradient;
+      ctx.beginPath();
+      ctx.roundRect(tankX, tankY, 16, 32, 4);
+      ctx.fill();
+      
+      // Tank highlight
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.beginPath();
+      ctx.roundRect(tankX + 2, tankY + 2, 4, 28, 2);
+      ctx.fill();
+      
+      // Tank bands
+      ctx.fillStyle = '#2a2a2a';
+      ctx.fillRect(tankX + 1, tankY + 8, 14, 3);
+      ctx.fillRect(tankX + 1, tankY + 20, 14, 3);
+      
+      // Connector to player
+      ctx.fillStyle = '#555';
+      ctx.fillRect(tankX + 14, tankY + 10, 8, 6);
+      ctx.fillStyle = '#333';
+      ctx.beginPath();
+      ctx.arc(tankX + 20, tankY + 13, 3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Nozzle
+      const nozzleGradient = ctx.createLinearGradient(tankX + 2, tankY + 32, tankX + 14, tankY + 32);
+      nozzleGradient.addColorStop(0, '#2a2a2a');
+      nozzleGradient.addColorStop(0.5, '#4a4a4a');
+      nozzleGradient.addColorStop(1, '#2a2a2a');
+      ctx.fillStyle = nozzleGradient;
+      ctx.beginPath();
+      ctx.moveTo(tankX + 3, tankY + 32);
+      ctx.lineTo(tankX + 0, tankY + 40);
+      ctx.lineTo(tankX + 16, tankY + 40);
+      ctx.lineTo(tankX + 13, tankY + 32);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Flames when thrusting
+      if (isThrusting) {
+        const flameTime = time * 15;
+        const baseFlameSize = 22;
+        const flameSize = baseFlameSize + Math.sin(flameTime * 4) * 8;
+        const flameWidth = 12 + Math.sin(flameTime * 5) * 3;
+        
+        // Outer flame
+        const outerFlame = ctx.createLinearGradient(tankX + 8, tankY + 40, tankX + 8, tankY + 40 + flameSize);
+        outerFlame.addColorStop(0, '#FF6B00');
+        outerFlame.addColorStop(0.3, '#FF4500');
+        outerFlame.addColorStop(0.6, '#FF2200');
+        outerFlame.addColorStop(1, 'transparent');
+        ctx.fillStyle = outerFlame;
+        ctx.beginPath();
+        ctx.moveTo(tankX + 8 - flameWidth/2, tankY + 40);
+        ctx.quadraticCurveTo(tankX + 8 - flameWidth/3, tankY + 40 + flameSize * 0.6, tankX + 8, tankY + 40 + flameSize);
+        ctx.quadraticCurveTo(tankX + 8 + flameWidth/3, tankY + 40 + flameSize * 0.6, tankX + 8 + flameWidth/2, tankY + 40);
+        ctx.fill();
+        
+        // Inner flame
+        const innerSize = flameSize * 0.6;
+        const innerFlame = ctx.createLinearGradient(tankX + 8, tankY + 40, tankX + 8, tankY + 40 + innerSize);
+        innerFlame.addColorStop(0, '#FFFFFF');
+        innerFlame.addColorStop(0.3, '#FFFF00');
+        innerFlame.addColorStop(0.6, '#FFA500');
+        innerFlame.addColorStop(1, 'transparent');
+        ctx.fillStyle = innerFlame;
+        ctx.beginPath();
+        ctx.moveTo(tankX + 8 - flameWidth/4, tankY + 40);
+        ctx.quadraticCurveTo(tankX + 8 - flameWidth/6, tankY + 40 + innerSize * 0.5, tankX + 8, tankY + 40 + innerSize);
+        ctx.quadraticCurveTo(tankX + 8 + flameWidth/6, tankY + 40 + innerSize * 0.5, tankX + 8 + flameWidth/4, tankY + 40);
+        ctx.fill();
+      }
+      
+      // Draw player avatar
       if (pfpImageRef.current) {
-        const menuRadius = 30;
         ctx.save();
         ctx.beginPath();
         ctx.arc(0, 0, menuRadius, 0, Math.PI * 2);
@@ -2459,44 +2568,60 @@ export default function DonutDashPage() {
         ctx.drawImage(pfpImageRef.current, -menuRadius, -menuRadius, menuRadius * 2, menuRadius * 2);
         ctx.restore();
         
-        ctx.strokeStyle = '#FFFFFF';
+        // Glowing border
+        ctx.strokeStyle = isThrusting ? '#FF6B00' : '#FFFFFF';
         ctx.lineWidth = 3;
-        ctx.shadowColor = '#FF69B4';
-        ctx.shadowBlur = 25;
+        ctx.shadowColor = isThrusting ? '#FF4500' : '#FF69B4';
+        ctx.shadowBlur = isThrusting ? 30 : 25;
         ctx.beginPath();
         ctx.arc(0, 0, menuRadius, 0, Math.PI * 2);
         ctx.stroke();
+        
+        if (isThrusting) {
+          ctx.strokeStyle = 'rgba(255, 100, 0, 0.5)';
+          ctx.lineWidth = 6;
+          ctx.shadowBlur = 20;
+          ctx.beginPath();
+          ctx.arc(0, 0, menuRadius + 2, 0, Math.PI * 2);
+          ctx.stroke();
+        }
         ctx.shadowBlur = 0;
       } else {
-        ctx.shadowColor = donutColor; ctx.shadowBlur = 25;
+        const donutColor = getDonutColor();
+        ctx.shadowColor = donutColor;
+        ctx.shadowBlur = 25;
         ctx.fillStyle = donutColor;
-        ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0, 0, menuRadius, 0, Math.PI * 2);
+        ctx.fill();
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#0a0a0a';
-        ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0, 0, 10, 0, Math.PI * 2);
+        ctx.fill();
       }
       ctx.restore();
       
       if (gameState === "gameover") {
         ctx.fillStyle = '#FF6B6B'; ctx.font = 'bold 24px monospace';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 260);
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 280);
         ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 32px monospace';
-        ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 295);
+        ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 315);
         ctx.fillStyle = '#888'; ctx.font = '12px monospace';
-        ctx.fillText('sprinkles collected', CANVAS_WIDTH / 2, 318);
+        ctx.fillText('sprinkles collected', CANVAS_WIDTH / 2, 338);
         
         if (bestGhostScoreRef.current > 0) {
           ctx.fillStyle = '#666';
           ctx.font = '10px monospace';
-          ctx.fillText(`Best: ${bestGhostScoreRef.current}`, CANVAS_WIDTH / 2, 338);
+          ctx.fillText(`Best: ${bestGhostScoreRef.current}`, CANVAS_WIDTH / 2, 358);
         }
       } else {
         ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '12px monospace';
-        ctx.fillText('Hold to fly • Release to fall', CANVAS_WIDTH / 2, 290);
+        ctx.fillText('Hold to fly • Release to fall', CANVAS_WIDTH / 2, 310);
         
         ctx.font = '10px monospace';
         ctx.fillStyle = '#888';
-        ctx.fillText('Power-ups: 🧲 🛡️ 👻', CANVAS_WIDTH / 2, 310);
+        ctx.fillText('Power-ups: 🧲 🛡️ 👻', CANVAS_WIDTH / 2, 330);
       }
       animationId = requestAnimationFrame(draw);
     };
