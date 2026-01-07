@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { X, Plus, Check, AlertCircle, Bell, BellOff } from "lucide-react";
+import { X, Plus, Check, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -17,10 +17,8 @@ export function AddToFarcasterDialog({
 }: AddToFarcasterDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [addStatus, setAddStatus] = useState<"idle" | "adding" | "success" | "error">("idle");
-  const [notifStatus, setNotifStatus] = useState<"idle" | "enabling" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [isAppAdded, setIsAppAdded] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   // Check if we should show the dialog on mount
   useEffect(() => {
@@ -36,22 +34,16 @@ export function AddToFarcasterDialog({
           setIsAppAdded(true);
           setAddStatus("success");
         }
-        if (context?.client?.notificationDetails) {
-          setNotificationsEnabled(true);
-          setNotifStatus("success");
-        }
         
-        // If already added with notifications, don't show the dialog
-        // TEMP: Bypassed for testing - remove "false &&" after testing
-        if (false && context?.client?.added && context?.client?.notificationDetails) {
-          console.log("App already added with notifications, skipping prompt");
+        // If already added, don't show the dialog
+        if (context?.client?.added) {
+          console.log("App already added, skipping prompt");
           return;
         }
 
         // Check localStorage to avoid showing repeatedly in same session
-        // TEMP: Bypassed for testing - remove "false &&" after testing
         const hasSeenPrompt = localStorage.getItem(storageKey);
-        if (false && hasSeenPrompt) {
+        if (hasSeenPrompt) {
           return;
         }
 
@@ -77,10 +69,6 @@ export function AddToFarcasterDialog({
       if (ctx?.client?.added) {
         setIsAppAdded(true);
         setAddStatus("success");
-      }
-      if (ctx?.client?.notificationDetails) {
-        setNotificationsEnabled(true);
-        setNotifStatus("success");
       }
       return ctx;
     } catch (e) {
@@ -125,72 +113,25 @@ export function AddToFarcasterDialog({
     }
   }, [isAppAdded, refreshStateFromContext]);
 
-  const handleEnableNotifications = useCallback(async () => {
-    if (notificationsEnabled) {
-      setNotifStatus("success");
-      return;
-    }
-    
-    setNotifStatus("enabling");
-    setErrorMessage("");
-    
-    try {
-      // Try to add/enable - this bundles notifications with adding
-      const result = await sdk.actions.addMiniApp();
-      console.log("[EnableNotifications] addMiniApp result:", JSON.stringify(result));
-      
-      // Check the result directly - if it has notificationDetails, we're good
-      const resultAny = result as any;
-      if (resultAny?.notificationDetails) {
-        console.log("[EnableNotifications] Got notificationDetails from result");
-        setNotificationsEnabled(true);
-        setNotifStatus("success");
-        setIsAppAdded(true);
-        return;
-      }
-      
-      // If added is true, app was added (might not have notifications)
-      if (resultAny?.added) {
-        setIsAppAdded(true);
-      }
-    } catch (e) {
-      console.log("[EnableNotifications] Action error:", e);
-    }
-    
-    // Small delay to let SDK context update
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Check context after action
-    const finalCtx = await refreshStateFromContext();
-    console.log("[EnableNotifications] Context after delay:", JSON.stringify(finalCtx?.client));
-    
-    // If notifications still not enabled after checking context, reset to idle
-    if (!finalCtx?.client?.notificationDetails) {
-      console.log("[EnableNotifications] No notificationDetails in context, resetting to idle");
-      setNotifStatus("idle");
-    }
-  }, [notificationsEnabled, refreshStateFromContext]);
-
   const handleClose = useCallback(() => {
-    if (addStatus === "adding" || notifStatus === "enabling") return;
+    if (addStatus === "adding") return;
     setIsOpen(false);
     setAddStatus("idle");
-    setNotifStatus("idle");
     setErrorMessage("");
     // Mark as shown when they dismiss
     localStorage.setItem(storageKey, "true");
-  }, [addStatus, notifStatus, storageKey]);
+  }, [addStatus, storageKey]);
 
-  // Auto-close after both are successful
+  // Auto-close after successful add
   useEffect(() => {
-    if (isAppAdded && notificationsEnabled) {
+    if (isAppAdded) {
       localStorage.setItem(storageKey, "true");
       const timer = setTimeout(() => {
         setIsOpen(false);
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [isAppAdded, notificationsEnabled, storageKey]);
+  }, [isAppAdded, storageKey]);
 
   if (!isOpen) return null;
 
@@ -208,7 +149,7 @@ export function AddToFarcasterDialog({
           {/* Close button */}
           <button
             onClick={handleClose}
-            disabled={addStatus === "adding" || notifStatus === "enabling"}
+            disabled={addStatus === "adding"}
             className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 transition-colors hover:bg-zinc-800 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Close"
           >
@@ -265,7 +206,7 @@ export function AddToFarcasterDialog({
               {isAppAdded && (
                 <>
                   <Check className="h-5 w-5" />
-                  <span>App Added!</span>
+                  <span>Added Successfully!</span>
                 </>
               )}
               {addStatus === "error" && !isAppAdded && (
@@ -282,46 +223,9 @@ export function AddToFarcasterDialog({
               )}
             </Button>
 
-            {/* Enable Notifications Button */}
-            <Button
-              onClick={handleEnableNotifications}
-              disabled={notifStatus === "enabling" || notificationsEnabled}
-              className={cn(
-                "w-full gap-2 rounded-xl py-6 text-base font-bold transition-all",
-                !notificationsEnabled && notifStatus === "idle" && "bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700",
-                notificationsEnabled && "bg-green-600 hover:bg-green-600 text-white",
-                notifStatus === "error" && "bg-red-600 hover:bg-red-600 text-white"
-              )}
-            >
-              {notifStatus === "enabling" && (
-                <>
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  <span>Enabling Notifications...</span>
-                </>
-              )}
-              {notificationsEnabled && (
-                <>
-                  <Bell className="h-5 w-5" />
-                  <span>Notifications Enabled!</span>
-                </>
-              )}
-              {notifStatus === "error" && !notificationsEnabled && (
-                <>
-                  <AlertCircle className="h-5 w-5" />
-                  <span>Try Again</span>
-                </>
-              )}
-              {notifStatus === "idle" && !notificationsEnabled && (
-                <>
-                  <BellOff className="h-5 w-5" />
-                  <span>Enable Notifications</span>
-                </>
-              )}
-            </Button>
-
             <Button
               onClick={handleClose}
-              disabled={addStatus === "adding" || notifStatus === "enabling"}
+              disabled={addStatus === "adding"}
               variant="ghost"
               className="w-full text-gray-400 hover:text-white hover:bg-zinc-800"
             >
@@ -341,7 +245,7 @@ export function AddToFarcasterDialog({
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <div className="h-1.5 w-1.5 rounded-full bg-white" />
-              <span>Get notified about prize distributions, tips, and more!</span>
+              <span>Chat with fellow $Donut ecosystem enjoyers and earn rewards!</span>
             </div>
           </div>
         </div>
