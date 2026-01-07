@@ -382,9 +382,9 @@ function GDonutStakedTile({
       {/* Extended Falling Donuts */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {[...Array(12)].map((_, i) => (
-          <span
+          <div
             key={i}
-            className="absolute text-lg animate-fall"
+            className="absolute w-5 h-5 animate-fall"
             style={{
               left: `${8 + (i * 8)}%`,
               top: '-20px',
@@ -393,8 +393,8 @@ function GDonutStakedTile({
               opacity: 0,
             }}
           >
-            🍩
-          </span>
+            <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover" />
+          </div>
         ))}
       </div>
       
