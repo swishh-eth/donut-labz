@@ -11,13 +11,6 @@ type AddToFarcasterDialogProps = {
   storageKey?: string;
 };
 
-// Type for addFrame result
-type AddFrameResult = {
-  added?: boolean;
-  notificationDetails?: { url: string; token: string };
-  reason?: string;
-};
-
 export function AddToFarcasterDialog({
   showOnFirstVisit = true,
   storageKey = "sprinkles-add-miniapp-prompt-shown",
@@ -38,18 +31,20 @@ export function AddToFarcasterDialog({
         // First check if app is already added via SDK
         const context = await sdk.context;
         
+        // Set initial state based on context
+        if (context?.client?.added) {
+          setIsAppAdded(true);
+          setAddStatus("success");
+        }
+        if (context?.client?.notificationDetails) {
+          setNotificationsEnabled(true);
+          setNotifStatus("success");
+        }
+        
         // If already added with notifications, don't show the dialog
         if (context?.client?.added && context?.client?.notificationDetails) {
           console.log("App already added with notifications, skipping prompt");
           return;
-        }
-
-        // Set initial state based on context
-        if (context?.client?.added) {
-          setIsAppAdded(true);
-        }
-        if (context?.client?.notificationDetails) {
-          setNotificationsEnabled(true);
         }
 
         // Check localStorage to avoid showing repeatedly in same session
@@ -72,88 +67,92 @@ export function AddToFarcasterDialog({
     checkAndShowDialog();
   }, [showOnFirstVisit, storageKey]);
 
-  const handleAddToFarcaster = useCallback(async () => {
+  // Refresh state from context
+  const refreshStateFromContext = useCallback(async () => {
     try {
-      setAddStatus("adding");
-      setErrorMessage("");
-
-      const result = await sdk.actions.addFrame() as AddFrameResult;
-
-      if (result?.added) {
-        setAddStatus("success");
+      const ctx = await sdk.context;
+      console.log("[Dialog RefreshContext]", ctx?.client);
+      if (ctx?.client?.added) {
         setIsAppAdded(true);
-        
-        // If notifications were enabled during add
-        if (result.notificationDetails) {
-          setNotificationsEnabled(true);
-          setNotifStatus("success");
-        }
-      } else {
-        const errorReason = result?.reason || "";
-        if (errorReason === "rejected_by_user") {
-          setAddStatus("idle");
-          return;
-        }
-        setAddStatus("error");
-        setErrorMessage("Unable to add app. Please try again.");
+        setAddStatus("success");
       }
-    } catch (error) {
-      console.error("Failed to add Mini App:", error);
-      setAddStatus("error");
-
-      const errorName = error instanceof Error ? error.name : "";
-      const errorMsg = error instanceof Error ? error.message : "Failed to add app";
-
-      if (errorName === "AddMiniApp.RejectedByUser") {
-        setAddStatus("idle");
-        return;
+      if (ctx?.client?.notificationDetails) {
+        setNotificationsEnabled(true);
+        setNotifStatus("success");
       }
-
-      if (errorName === "AddMiniApp.InvalidDomainManifest" || errorMsg.includes("domain")) {
-        setErrorMessage("App must be on production domain with valid manifest");
-      } else if (errorMsg.includes("not supported")) {
-        setErrorMessage("This feature is not available in your current environment");
-      } else {
-        setErrorMessage("Unable to add app. Please try again.");
-      }
-
-      setTimeout(() => {
-        setAddStatus("idle");
-        setErrorMessage("");
-      }, 5000);
+      return ctx;
+    } catch (e) {
+      console.error("[Dialog RefreshContext] Error:", e);
+      return null;
     }
   }, []);
 
-  const handleEnableNotifications = useCallback(async () => {
+  const handleAddToFarcaster = useCallback(async () => {
+    if (isAppAdded) {
+      setAddStatus("success");
+      return;
+    }
+    
+    setAddStatus("adding");
+    setErrorMessage("");
+    
     try {
-      setNotifStatus("enabling");
-      setErrorMessage("");
-
-      // addFrame also handles enabling notifications
-      const result = await sdk.actions.addFrame() as AddFrameResult;
-
-      if (result?.added && result.notificationDetails) {
-        setNotifStatus("success");
-        setNotificationsEnabled(true);
-        setIsAppAdded(true);
-      } else if (result?.added) {
-        // App added but no notification details - user may have declined notifications
-        setNotifStatus("idle");
-        setIsAppAdded(true);
-      } else {
-        setNotifStatus("idle");
+      // Check if already added first
+      const ctx = await refreshStateFromContext();
+      if (ctx?.client?.added) {
+        return;
       }
-    } catch (error) {
-      console.error("Failed to enable notifications:", error);
-      setNotifStatus("error");
-      setErrorMessage("Unable to enable notifications. Please try again.");
       
+      // Try to add
+      await sdk.actions.addMiniApp();
+    } catch (e) {
+      console.log("[AddToFarcaster] Action error (expected if already added):", e);
+    }
+    
+    // Always check context after action to get true state
+    const finalCtx = await refreshStateFromContext();
+    
+    // If still not added after checking context, show error briefly then reset
+    if (!finalCtx?.client?.added) {
+      setAddStatus("error");
+      setErrorMessage("Unable to add app. Please try again.");
       setTimeout(() => {
-        setNotifStatus("idle");
+        setAddStatus("idle");
         setErrorMessage("");
       }, 3000);
     }
-  }, []);
+  }, [isAppAdded, refreshStateFromContext]);
+
+  const handleEnableNotifications = useCallback(async () => {
+    if (notificationsEnabled) {
+      setNotifStatus("success");
+      return;
+    }
+    
+    setNotifStatus("enabling");
+    setErrorMessage("");
+    
+    try {
+      // Check if already enabled first
+      const ctx = await refreshStateFromContext();
+      if (ctx?.client?.notificationDetails) {
+        return;
+      }
+      
+      // Try to add/enable - this bundles notifications with adding
+      await sdk.actions.addMiniApp();
+    } catch (e) {
+      console.log("[EnableNotifications] Action error (expected if already added):", e);
+    }
+    
+    // Always check context after action to get true state
+    const finalCtx = await refreshStateFromContext();
+    
+    // If notifications still not enabled, reset to idle (user may have declined)
+    if (!finalCtx?.client?.notificationDetails) {
+      setNotifStatus("idle");
+    }
+  }, [notificationsEnabled, refreshStateFromContext]);
 
   const handleClose = useCallback(() => {
     if (addStatus === "adding" || notifStatus === "enabling") return;

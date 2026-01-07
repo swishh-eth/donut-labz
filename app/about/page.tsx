@@ -797,40 +797,70 @@ export default function AboutPage() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Refresh state from context
+  const refreshStateFromContext = async () => {
+    try {
+      const ctx = await sdk.context as MiniAppContext;
+      console.log("[RefreshContext]", ctx?.client);
+      if (ctx?.client?.added) {
+        setIsAppAdded(true);
+      }
+      if (ctx?.client?.notificationDetails) {
+        setNotificationsEnabled(true);
+      }
+      return ctx;
+    } catch (e) {
+      console.error("[RefreshContext] Error:", e);
+      return null;
+    }
+  };
+
   // Handle add app
   const handleAddApp = async () => {
-    if (isAddingApp) return;
+    if (isAddingApp || isAppAdded) return;
     setIsAddingApp(true);
+    
     try {
-      const result = await sdk.actions.addFrame() as { added?: boolean; notificationDetails?: { url: string; token: string } };
-      if (result?.added) {
-        setIsAppAdded(true);
-        if (result.notificationDetails) {
-          setNotificationsEnabled(true);
-        }
+      // Check if already added first
+      const ctx = await refreshStateFromContext();
+      if (ctx?.client?.added) {
+        setIsAddingApp(false);
+        return;
       }
+      
+      // Try to add
+      await sdk.actions.addMiniApp();
     } catch (e) {
-      console.error("Failed to add app:", e);
-    } finally {
-      setIsAddingApp(false);
+      console.log("[AddApp] Action error (expected if already added):", e);
     }
+    
+    // Always check context after action to get true state
+    await refreshStateFromContext();
+    setIsAddingApp(false);
   };
 
   // Handle enable notifications
   const handleEnableNotifications = async () => {
-    if (isEnablingNotifications) return;
+    if (isEnablingNotifications || notificationsEnabled) return;
     setIsEnablingNotifications(true);
+    
     try {
-      const result = await sdk.actions.addFrame() as { added?: boolean; notificationDetails?: { url: string; token: string } };
-      if (result?.added && result.notificationDetails) {
-        setNotificationsEnabled(true);
-        setIsAppAdded(true);
+      // Check if already enabled first
+      const ctx = await refreshStateFromContext();
+      if (ctx?.client?.notificationDetails) {
+        setIsEnablingNotifications(false);
+        return;
       }
+      
+      // Try to add/enable - this bundles notifications with adding
+      await sdk.actions.addMiniApp();
     } catch (e) {
-      console.error("Failed to enable notifications:", e);
-    } finally {
-      setIsEnablingNotifications(false);
+      console.log("[EnableNotifications] Action error (expected if already added):", e);
     }
+    
+    // Always check context after action to get true state
+    await refreshStateFromContext();
+    setIsEnablingNotifications(false);
   };
 
   return (
