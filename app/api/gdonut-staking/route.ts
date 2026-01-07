@@ -176,10 +176,22 @@ export async function GET() {
     // Calculate treasury's share of weekly revenue
     const treasuryWeeklyRevenueUsd = revenueData.totalWeeklyRevenueUsd * (treasurySharePercent / 100);
     
+    // Calculate treasury's share of each revenue stream
+    // DONUT stream = donut buybacks + LP rewards
+    // USDC stream = usdc rewards + qr rewards
+    const treasuryDonutWeeklyUsd = (revenueData.breakdown.donut + revenueData.breakdown.donutEthLp) * (treasurySharePercent / 100);
+    const treasuryUsdcWeeklyUsd = (revenueData.breakdown.usdc + revenueData.breakdown.qr) * (treasurySharePercent / 100);
+    
     // Calculate APR: (yearly revenue / staked value) * 100
     const treasuryStakedUsd = treasuryBalanceNum * donutPriceUsd;
     const yearlyRevenueUsd = treasuryWeeklyRevenueUsd * 52;
     const apr = treasuryStakedUsd > 0 ? (yearlyRevenueUsd / treasuryStakedUsd) * 100 : 0;
+    
+    // Calculate separate APRs for DONUT and USDC streams
+    const donutYearlyUsd = treasuryDonutWeeklyUsd * 52;
+    const usdcYearlyUsd = treasuryUsdcWeeklyUsd * 52;
+    const donutApr = treasuryStakedUsd > 0 ? (donutYearlyUsd / treasuryStakedUsd) * 100 : 0;
+    const usdcApr = treasuryStakedUsd > 0 ? (usdcYearlyUsd / treasuryStakedUsd) * 100 : 0;
 
     const result = {
       // Treasury staking info
@@ -190,12 +202,18 @@ export async function GET() {
       // Revenue earnings
       weeklyRevenueUsd: treasuryWeeklyRevenueUsd,
       
+      // Separate revenue streams for treasury
+      donutWeeklyUsd: treasuryDonutWeeklyUsd,
+      usdcWeeklyUsd: treasuryUsdcWeeklyUsd,
+      
       // Protocol total weekly revenue
       totalWeeklyRevenueUsd: revenueData.totalWeeklyRevenueUsd,
       revenueBreakdown: revenueData.breakdown,
       
-      // APR estimate
+      // APR estimates
       apr,
+      donutApr,
+      usdcApr,
       
       // Global stats
       totalStaked: totalSupplyNum,
@@ -226,6 +244,10 @@ export async function GET() {
         weeklyRevenueUsd: 0,
         totalWeeklyRevenueUsd: 0,
         apr: 0,
+        donutApr: 0,
+        usdcApr: 0,
+        donutWeeklyUsd: 0,
+        usdcWeeklyUsd: 0,
       },
       { status: 500 }
     );

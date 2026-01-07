@@ -351,6 +351,10 @@ function GDonutStakedTile({
     weeklyRevenueUsd: number;
     totalWeeklyRevenueUsd: number;
     apr: number;
+    donutApr?: number;
+    usdcApr?: number;
+    donutWeeklyUsd?: number;
+    usdcWeeklyUsd?: number;
   } | null;
   isStakingLoading: boolean;
 }) {
@@ -373,6 +377,11 @@ function GDonutStakedTile({
   const formatUsdFull = (num: number) => {
     return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
+
+  // Calculate combined weekly USD from both sources
+  const totalWeeklyUsd = stakingData 
+    ? (stakingData.donutWeeklyUsd || 0) + (stakingData.usdcWeeklyUsd || 0)
+    : 0;
 
   return (
     <div
@@ -412,15 +421,14 @@ function GDonutStakedTile({
           </div>
         </div>
         
-        {/* TODO: Re-enable staking revenue section once data source is fixed
         <div className="border-t border-white/10 my-2" />
         
         <div className="text-left">
-          <div className="flex items-center gap-2 mb-1.5">
+          <div className="flex items-center justify-between mb-1.5">
             <span className="font-bold text-xs text-pink-400">STAKING REVENUE</span>
-            {stakingData && stakingData.apr > 1 && (
+            {stakingData && totalWeeklyUsd > 0 && (
               <span className="text-[10px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded-full font-semibold">
-                ~{stakingData.apr.toFixed(0)}% APR
+                {formatUsd(totalWeeklyUsd)}/week
               </span>
             )}
           </div>
@@ -433,20 +441,40 @@ function GDonutStakedTile({
           ) : (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-white/50">Protocol Weekly:</span>
-                <span className="font-mono text-sm font-bold text-white">
-                  {formatUsd(stakingData.totalWeeklyRevenueUsd)}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <img src="/coins/donut_logo.png" alt="" className="w-3.5 h-3.5 rounded-full" />
+                  <span className="text-[10px] text-white/50">DONUT Buybacks:</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-xs font-bold text-pink-400">
+                    {stakingData.donutApr?.toFixed(1) || '0'}%
+                  </span>
+                  {stakingData.donutWeeklyUsd !== undefined && stakingData.donutWeeklyUsd > 0 && (
+                    <span className="text-[9px] text-white/40">
+                      ({formatUsd(stakingData.donutWeeklyUsd)})
+                    </span>
+                  )}
+                </div>
               </div>
               
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-white/50">Treasury Share ({stakingData.treasurySharePercent.toFixed(2)}%):</span>
-                <span className="font-mono text-sm font-bold text-pink-400">
-                  {formatUsd(stakingData.weeklyRevenueUsd)}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3.5 h-3.5 rounded-full bg-blue-500 flex items-center justify-center text-[8px] font-bold text-white">$</div>
+                  <span className="text-[10px] text-white/50">USDC Rewards:</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-xs font-bold text-blue-400">
+                    {stakingData.usdcApr?.toFixed(1) || '0'}%
+                  </span>
+                  {stakingData.usdcWeeklyUsd !== undefined && stakingData.usdcWeeklyUsd > 0 && (
+                    <span className="text-[9px] text-white/40">
+                      ({formatUsd(stakingData.usdcWeeklyUsd)})
+                    </span>
+                  )}
+                </div>
               </div>
               
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between pt-1 border-t border-white/5">
                 <span className="text-[10px] text-white/50">Staked Value:</span>
                 <span className="font-mono text-xs text-white/70">
                   {formatUsdFull(stakingData.treasuryStakedUsd)}
@@ -455,7 +483,6 @@ function GDonutStakedTile({
             </div>
           )}
         </div>
-        */}
       </div>
     </div>
   );
@@ -783,6 +810,10 @@ export default function AboutPage() {
     weeklyRevenueUsd: number;
     totalWeeklyRevenueUsd: number;
     apr: number;
+    donutApr?: number;
+    usdcApr?: number;
+    donutWeeklyUsd?: number;
+    usdcWeeklyUsd?: number;
   } | null>(null);
   const [isStakingLoading, setIsStakingLoading] = useState(true);
   
@@ -849,6 +880,10 @@ export default function AboutPage() {
             weeklyRevenueUsd: data.weeklyRevenueUsd || 0,
             totalWeeklyRevenueUsd: data.totalWeeklyRevenueUsd || 0,
             apr: data.apr || 0,
+            donutApr: data.donutApr,
+            usdcApr: data.usdcApr,
+            donutWeeklyUsd: data.donutWeeklyUsd,
+            usdcWeeklyUsd: data.usdcWeeklyUsd,
           });
         }
       } catch (e) {
