@@ -470,7 +470,7 @@ function GDonutStakedTile({
     : '0';
   const donutWeeklyUsdStr = stakingData?.donutWeeklyUsd ? formatUsd(stakingData.donutWeeklyUsd) : '$0';
   const usdcWeeklyUsdStr = stakingData?.usdcWeeklyUsd ? formatUsd(stakingData.usdcWeeklyUsd) : '$0';
-  const totalWeeklyStr = formatUsd(totalWeeklyUsd);
+  const totalWeeklyStr = formatUsdFull(totalWeeklyUsd);
   const stakedValueStr = stakingData ? formatUsdFull(stakingData.treasuryStakedUsd) : '$0.00';
 
   return (
@@ -484,8 +484,15 @@ function GDonutStakedTile({
           <div className="flex items-center gap-2 mb-0.5">
             <span className="font-bold text-xs text-pink-400">SPRINKLES TREASURY gDONUT</span>
           </div>
-          <div className="font-mono text-2xl font-bold">
-            <MatrixNumber value={displayAmount} isLoading={isLoading} className="text-pink-400" />
+          <div className="flex items-baseline gap-2">
+            <div className="font-mono text-2xl font-bold">
+              <MatrixNumber value={displayAmount} isLoading={isLoading} className="text-pink-400" />
+            </div>
+            {dataReady && (
+              <span className="text-sm text-white/50 font-mono animate-fadeIn">
+                <MatrixStakingValue value={stakedValueStr} isReady={dataReady} />
+              </span>
+            )}
           </div>
           <div className="text-[9px] text-white/40 mt-0.5">
             Miner 15% revenue fee • Liquid Staked Governance
@@ -497,9 +504,6 @@ function GDonutStakedTile({
         <div className="text-left">
           <div className="flex items-center justify-between mb-1.5">
             <span className="font-bold text-xs text-pink-400">STAKING REVENUE</span>
-            <span className="text-[10px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded-full font-semibold font-mono">
-              <MatrixStakingValue value={`${totalWeeklyStr}/week`} isReady={dataReady} />
-            </span>
           </div>
           
           <div className="space-y-1.5">
@@ -538,9 +542,9 @@ function GDonutStakedTile({
             </div>
             
             <div className="flex items-center justify-between pt-1 border-t border-white/5">
-              <span className="text-[10px] text-white/50">Staked Value:</span>
-              <span className="font-mono text-xs text-white/70">
-                <MatrixStakingValue value={stakedValueStr} isReady={dataReady} />
+              <span className="text-[10px] text-white/50">Weekly Revenue Total:</span>
+              <span className="font-mono text-xs font-bold text-pink-400">
+                <MatrixStakingValue value={totalWeeklyStr} isReady={dataReady} />
               </span>
             </div>
           </div>
