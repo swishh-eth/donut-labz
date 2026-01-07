@@ -388,25 +388,6 @@ function GDonutStakedTile({
       className="gdonut-staked-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Extended Falling Donuts */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {[...Array(12)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-5 h-5 animate-fall"
-            style={{
-              left: `${8 + (i * 8)}%`,
-              top: '-20px',
-              animationDuration: `${3 + (i % 3)}s`,
-              animationDelay: `${i * 0.3}s`,
-              opacity: 0,
-            }}
-          >
-            <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover" />
-          </div>
-        ))}
-      </div>
-      
       <div className="relative z-10 p-4 h-full flex flex-col justify-center">
         {/* Top Section - gDONUT Staked */}
         <div className="text-left">
@@ -443,7 +424,7 @@ function GDonutStakedTile({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <img src="/coins/donut_logo.png" alt="" className="w-3.5 h-3.5 rounded-full" />
-                  <span className="text-[10px] text-white/50">DONUT Buybacks:</span>
+                  <span className="text-[10px] text-white/50">DONUT EARNINGS (50%):</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-xs font-bold text-pink-400">
@@ -459,11 +440,11 @@ function GDonutStakedTile({
               
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3.5 h-3.5 rounded-full bg-blue-500 flex items-center justify-center text-[8px] font-bold text-white">$</div>
-                  <span className="text-[10px] text-white/50">USDC Rewards:</span>
+                  <img src="/coins/usdc_logo.png" alt="" className="w-3.5 h-3.5 rounded-full" />
+                  <span className="text-[10px] text-white/50">USDC EARNINGS (50%):</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-xs font-bold text-blue-400">
+                  <span className="font-mono text-xs font-bold text-pink-400">
                     {stakingData.usdcApr?.toFixed(1) || '0'}%
                   </span>
                   {stakingData.usdcWeeklyUsd !== undefined && stakingData.usdcWeeklyUsd > 0 && (
@@ -823,7 +804,7 @@ export default function AboutPage() {
   const [isAddingApp, setIsAddingApp] = useState(false);
   const [isEnablingNotifications, setIsEnablingNotifications] = useState(false);
 
-  // Fetch burned amounts
+  // Fetch burned amounts (once on mount)
   useEffect(() => {
     const fetchBurned = async () => {
       setIsBurnLoading(true);
@@ -841,11 +822,9 @@ export default function AboutPage() {
     };
     
     fetchBurned();
-    const interval = setInterval(fetchBurned, 5 * 60 * 1000);
-    return () => clearInterval(interval);
   }, []);
 
-  // Fetch gDONUT staked
+  // Fetch gDONUT staked (once on mount)
   useEffect(() => {
     const fetchGDonut = async () => {
       setIsGDonutLoading(true);
@@ -859,11 +838,9 @@ export default function AboutPage() {
     };
     
     fetchGDonut();
-    const interval = setInterval(fetchGDonut, 5 * 60 * 1000);
-    return () => clearInterval(interval);
   }, []);
 
-  // Fetch staking earnings data
+  // Fetch staking earnings data (once on mount)
   useEffect(() => {
     const fetchStakingData = async () => {
       setIsStakingLoading(true);
@@ -893,8 +870,6 @@ export default function AboutPage() {
     };
     
     fetchStakingData();
-    const interval = setInterval(fetchStakingData, 60 * 1000); // Refresh every minute
-    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
