@@ -845,21 +845,34 @@ export default function AboutPage() {
     setIsEnablingNotifications(true);
     
     try {
-      // Check if already enabled first
-      const ctx = await refreshStateFromContext();
-      if (ctx?.client?.notificationDetails) {
+      // Try to add/enable - this bundles notifications with adding
+      const result = await sdk.actions.addMiniApp();
+      console.log("[About EnableNotifications] addMiniApp result:", JSON.stringify(result));
+      
+      // Check the result directly
+      const resultAny = result as any;
+      if (resultAny?.notificationDetails) {
+        console.log("[About EnableNotifications] Got notificationDetails from result");
+        setNotificationsEnabled(true);
+        setIsAppAdded(true);
         setIsEnablingNotifications(false);
         return;
       }
       
-      // Try to add/enable - this bundles notifications with adding
-      await sdk.actions.addMiniApp();
+      if (resultAny?.added) {
+        setIsAppAdded(true);
+      }
     } catch (e) {
-      console.log("[EnableNotifications] Action error (expected if already added):", e);
+      console.log("[About EnableNotifications] Action error:", e);
     }
     
-    // Always check context after action to get true state
+    // Small delay to let SDK context update
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Check context after action
     await refreshStateFromContext();
+    console.log("[About EnableNotifications] State after refresh - notifications:", notificationsEnabled);
+    
     setIsEnablingNotifications(false);
   };
 

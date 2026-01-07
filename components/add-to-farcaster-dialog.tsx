@@ -135,23 +135,38 @@ export function AddToFarcasterDialog({
     setErrorMessage("");
     
     try {
-      // Check if already enabled first
-      const ctx = await refreshStateFromContext();
-      if (ctx?.client?.notificationDetails) {
+      // Try to add/enable - this bundles notifications with adding
+      const result = await sdk.actions.addMiniApp();
+      console.log("[EnableNotifications] addMiniApp result:", JSON.stringify(result));
+      
+      // Check the result directly - if it has notificationDetails, we're good
+      const resultAny = result as any;
+      if (resultAny?.notificationDetails) {
+        console.log("[EnableNotifications] Got notificationDetails from result");
+        setNotificationsEnabled(true);
+        setNotifStatus("success");
+        setIsAppAdded(true);
         return;
       }
       
-      // Try to add/enable - this bundles notifications with adding
-      await sdk.actions.addMiniApp();
+      // If added is true, app was added (might not have notifications)
+      if (resultAny?.added) {
+        setIsAppAdded(true);
+      }
     } catch (e) {
-      console.log("[EnableNotifications] Action error (expected if already added):", e);
+      console.log("[EnableNotifications] Action error:", e);
     }
     
-    // Always check context after action to get true state
-    const finalCtx = await refreshStateFromContext();
+    // Small delay to let SDK context update
+    await new Promise(resolve => setTimeout(resolve, 500));
     
-    // If notifications still not enabled, reset to idle (user may have declined)
+    // Check context after action
+    const finalCtx = await refreshStateFromContext();
+    console.log("[EnableNotifications] Context after delay:", JSON.stringify(finalCtx?.client));
+    
+    // If notifications still not enabled after checking context, reset to idle
     if (!finalCtx?.client?.notificationDetails) {
+      console.log("[EnableNotifications] No notificationDetails in context, resetting to idle");
       setNotifStatus("idle");
     }
   }, [notificationsEnabled, refreshStateFromContext]);
