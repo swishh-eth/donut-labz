@@ -104,8 +104,6 @@ function MatrixDigit({ digit, delay = 0 }: { digit: string; delay?: number }) {
     digit === ',' ? ',' : String(Math.floor(Math.random() * 10))
   );
   const [isAnimating, setIsAnimating] = useState(digit !== ',');
-  const hasLandedRef = useRef(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
     if (digit === ',') {
@@ -114,49 +112,22 @@ function MatrixDigit({ digit, delay = 0 }: { digit: string; delay?: number }) {
       return;
     }
     
-    // If already landed, just update for live changes
-    if (hasLandedRef.current) {
-      setDisplayDigit(digit);
-      return;
-    }
+    // Start with random digit, cycle a few times based on delay, then land
+    let cycleCount = 0;
+    const maxCycles = 6 + Math.floor(delay / 40);
     
-    // Start cycling animation immediately
-    if (!intervalRef.current) {
-      intervalRef.current = setInterval(() => {
+    const cycleInterval = setInterval(() => {
+      if (cycleCount < maxCycles) {
         setDisplayDigit(String(Math.floor(Math.random() * 10)));
-      }, 50);
-    }
-    
-    // Landing sequence with delay based on position
-    const landingDelay = setTimeout(() => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+        cycleCount++;
+      } else {
+        setDisplayDigit(digit);
+        setIsAnimating(false);
+        clearInterval(cycleInterval);
       }
-      
-      let cycleCount = 0;
-      const maxCycles = 4 + Math.floor(delay / 50);
-      
-      const landingInterval = setInterval(() => {
-        if (cycleCount < maxCycles) {
-          setDisplayDigit(String(Math.floor(Math.random() * 10)));
-          cycleCount++;
-        } else {
-          setDisplayDigit(digit);
-          setIsAnimating(false);
-          hasLandedRef.current = true;
-          clearInterval(landingInterval);
-        }
-      }, 50);
-    }, delay);
+    }, 50);
     
-    return () => {
-      clearTimeout(landingDelay);
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
+    return () => clearInterval(cycleInterval);
   }, [digit, delay]);
   
   return (
@@ -173,71 +144,37 @@ function MatrixDigit({ digit, delay = 0 }: { digit: string; delay?: number }) {
 }
 
 // Matrix-style single digit component for staking values
-function MatrixStakingDigit({ char, delay = 0, isReady }: { char: string; delay?: number; isReady: boolean }) {
+function MatrixStakingDigit({ char, delay = 0 }: { char: string; delay?: number }) {
+  const isPunctuation = char === '.' || char === ',' || char === '$' || char === '%' || char === '/' || char === '(' || char === ')' || char === ' ' || char === '-';
   const [displayChar, setDisplayChar] = useState(() => 
-    char === '.' || char === ',' || char === '$' || char === '%' || char === '/' || char === '(' || char === ')' || char === ' ' || char === '-' 
-      ? char 
-      : String(Math.floor(Math.random() * 10))
+    isPunctuation ? char : String(Math.floor(Math.random() * 10))
   );
-  const [isAnimating, setIsAnimating] = useState(true);
-  const hasLandedRef = useRef(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [isAnimating, setIsAnimating] = useState(!isPunctuation);
   
   useEffect(() => {
-    // Don't animate punctuation/symbols - just show them
-    if (char === '.' || char === ',' || char === '$' || char === '%' || char === '/' || char === '(' || char === ')' || char === ' ' || char === '-') {
+    if (isPunctuation) {
       setDisplayChar(char);
       setIsAnimating(false);
       return;
     }
     
-    // If already landed on final value, just update for live changes
-    if (hasLandedRef.current) {
-      setDisplayChar(char);
-      return;
-    }
+    // Start with random digit, cycle a few times based on delay, then land
+    let cycleCount = 0;
+    const maxCycles = 6 + Math.floor(delay / 30);
     
-    // Start cycling animation immediately
-    if (!intervalRef.current) {
-      intervalRef.current = setInterval(() => {
+    const cycleInterval = setInterval(() => {
+      if (cycleCount < maxCycles) {
         setDisplayChar(String(Math.floor(Math.random() * 10)));
-      }, 50);
-    }
-    
-    // When data is ready, do the landing sequence
-    if (isReady) {
-      // Clear the infinite cycling
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+        cycleCount++;
+      } else {
+        setDisplayChar(char);
+        setIsAnimating(false);
+        clearInterval(cycleInterval);
       }
-      
-      // Do a few more cycles based on delay, then land
-      let cycleCount = 0;
-      const maxCycles = 4 + Math.floor(delay / 30);
-      
-      const landingInterval = setInterval(() => {
-        if (cycleCount < maxCycles) {
-          setDisplayChar(String(Math.floor(Math.random() * 10)));
-          cycleCount++;
-        } else {
-          setDisplayChar(char);
-          setIsAnimating(false);
-          hasLandedRef.current = true;
-          clearInterval(landingInterval);
-        }
-      }, 50);
-      
-      return () => clearInterval(landingInterval);
-    }
+    }, 50);
     
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [char, delay, isReady]);
+    return () => clearInterval(cycleInterval);
+  }, [char, delay, isPunctuation]);
   
   return (
     <span className={`transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}>
@@ -256,16 +193,20 @@ function MatrixStakingValue({
   isReady: boolean;
   className?: string;
 }) {
+  // Don't render anything until data is ready
+  if (!isReady) {
+    return null;
+  }
+  
   const chars = value.split('');
   
   return (
-    <span className={`tabular-nums ${className}`}>
+    <span className={`tabular-nums ${className} animate-fadeIn`}>
       {chars.map((char, index) => (
         <MatrixStakingDigit 
           key={index} 
           char={char} 
           delay={index * 25} 
-          isReady={isReady}
         />
       ))}
     </span>
@@ -298,44 +239,20 @@ function MatrixNumber({
     }
   }, [value, isLoading]);
   
-  // During loading, show cycling placeholder that matches expected width
+  // Hide completely while loading
   if (isLoading || value === 0) {
-    return (
-      <span className={`tabular-nums ${className} text-green-400/70`}>
-        <LoadingDigits />
-      </span>
-    );
+    return null;
   }
   
   const formattedValue = value.toLocaleString('en-US');
   const digits = formattedValue.split('');
   
   return (
-    <span key={key} className={`tabular-nums ${className}`}>
+    <span key={key} className={`tabular-nums ${className} animate-fadeIn`}>
       {digits.map((digit, index) => (
         <MatrixDigit key={`${key}-${index}`} digit={digit} delay={index * 30} />
       ))}
     </span>
-  );
-}
-
-// Cycling loading digits component
-function LoadingDigits() {
-  const [digits, setDigits] = useState(() => 
-    Array.from({ length: 7 }, () => String(Math.floor(Math.random() * 10)))
-  );
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setDigits(Array.from({ length: 7 }, () => String(Math.floor(Math.random() * 10))));
-    }, 50);
-    return () => clearInterval(interval);
-  }, []);
-  
-  return (
-    <>
-      {digits.slice(0, 2).join('')},{digits.slice(2, 5).join('')},{digits.slice(5, 7).join('')}0
-    </>
   );
 }
 
@@ -634,60 +551,36 @@ function GDonutStakedTile({
 }
 
 // Matrix digit for halving countdown
-function HalvingMatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: number; isReady: boolean }) {
+function HalvingMatrixDigit({ char, delay = 0 }: { char: string; delay?: number }) {
   const [displayChar, setDisplayChar] = useState(() => String(Math.floor(Math.random() * 10)));
   const [isAnimating, setIsAnimating] = useState(true);
   const hasLandedRef = useRef(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
-    // If already landed on final value, just update for live countdown changes
+    // If already landed, just update for live countdown changes
     if (hasLandedRef.current) {
       setDisplayChar(char);
       return;
     }
     
-    // Start cycling animation immediately
-    if (!intervalRef.current) {
-      intervalRef.current = setInterval(() => {
+    // Start with random digit, cycle a few times based on delay, then land
+    let cycleCount = 0;
+    const maxCycles = 6 + Math.floor(delay / 30);
+    
+    const cycleInterval = setInterval(() => {
+      if (cycleCount < maxCycles) {
         setDisplayChar(String(Math.floor(Math.random() * 10)));
-      }, 50);
-    }
-    
-    // When data is ready, do the landing sequence
-    if (isReady) {
-      // Clear the infinite cycling
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+        cycleCount++;
+      } else {
+        setDisplayChar(char);
+        setIsAnimating(false);
+        hasLandedRef.current = true;
+        clearInterval(cycleInterval);
       }
-      
-      // Do a few more cycles based on delay, then land
-      let cycleCount = 0;
-      const maxCycles = 4 + Math.floor(delay / 30);
-      
-      const landingInterval = setInterval(() => {
-        if (cycleCount < maxCycles) {
-          setDisplayChar(String(Math.floor(Math.random() * 10)));
-          cycleCount++;
-        } else {
-          setDisplayChar(char);
-          setIsAnimating(false);
-          hasLandedRef.current = true;
-          clearInterval(landingInterval);
-        }
-      }, 50);
-      
-      return () => clearInterval(landingInterval);
-    }
+    }, 50);
     
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [char, delay, isReady]);
+    return () => clearInterval(cycleInterval);
+  }, [char, delay]);
   
   return (
     <span className={`transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}>
@@ -711,6 +604,7 @@ function HalvingCountdownTile() {
       
       if (diff <= 0) {
         setIsComplete(true);
+        setIsReady(true);
         return;
       }
       
@@ -727,7 +621,7 @@ function HalvingCountdownTile() {
     return () => clearInterval(interval);
   }, []);
 
-  // Trigger animation after initial data
+  // Trigger ready after initial calculation
   useEffect(() => {
     if (!isReady && (timeLeft.days > 0 || timeLeft.hours > 0 || timeLeft.minutes > 0 || timeLeft.seconds > 0)) {
       const timeout = setTimeout(() => setIsReady(true), 100);
@@ -761,12 +655,15 @@ function HalvingCountdownTile() {
           <div className="font-mono text-lg font-bold text-white">
             Halving Complete!
           </div>
+        ) : !isReady ? (
+          // Hidden until ready - placeholder to maintain height
+          <div className="h-[28px]" />
         ) : (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 animate-fadeIn">
             <div className="text-center">
               <div className="font-mono text-lg font-bold text-white tabular-nums">
                 {daysStr.split('').map((char, i) => (
-                  <HalvingMatrixDigit key={`days-${i}`} char={char} delay={i * 30} isReady={isReady} />
+                  <HalvingMatrixDigit key={`days-${i}`} char={char} delay={i * 30} />
                 ))}
               </div>
               <div className="text-[7px] text-white/60">DAYS</div>
@@ -775,7 +672,7 @@ function HalvingCountdownTile() {
             <div className="text-center">
               <div className="font-mono text-lg font-bold text-white tabular-nums">
                 {hoursStr.split('').map((char, i) => (
-                  <HalvingMatrixDigit key={`hours-${i}`} char={char} delay={(daysStr.length + i) * 30} isReady={isReady} />
+                  <HalvingMatrixDigit key={`hours-${i}`} char={char} delay={(daysStr.length + i) * 30} />
                 ))}
               </div>
               <div className="text-[7px] text-white/60">HRS</div>
@@ -784,7 +681,7 @@ function HalvingCountdownTile() {
             <div className="text-center">
               <div className="font-mono text-lg font-bold text-white tabular-nums">
                 {minutesStr.split('').map((char, i) => (
-                  <HalvingMatrixDigit key={`mins-${i}`} char={char} delay={(daysStr.length + 2 + i) * 30} isReady={isReady} />
+                  <HalvingMatrixDigit key={`mins-${i}`} char={char} delay={(daysStr.length + 2 + i) * 30} />
                 ))}
               </div>
               <div className="text-[7px] text-white/60">MIN</div>
@@ -793,7 +690,7 @@ function HalvingCountdownTile() {
             <div className="text-center">
               <div className="font-mono text-lg font-bold text-white tabular-nums">
                 {secondsStr.split('').map((char, i) => (
-                  <HalvingMatrixDigit key={`secs-${i}`} char={char} delay={(daysStr.length + 4 + i) * 30} isReady={isReady} />
+                  <HalvingMatrixDigit key={`secs-${i}`} char={char} delay={(daysStr.length + 4 + i) * 30} />
                 ))}
               </div>
               <div className="text-[7px] text-white/60">SEC</div>
@@ -1248,6 +1145,13 @@ export default function AboutPage() {
         }
         .animate-tilePopIn {
           animation: tilePopIn 0.3s ease-out forwards;
+        }
+        @keyframes fadeIn {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out forwards;
         }
         @keyframes fadeScaleIn {
           0% { opacity: 0; transform: scale(0.7); }
