@@ -31,6 +31,7 @@
     ],
     "actions": [
       "viewProfile"
-    ]
+    ],
+    "canonicalDomain": "sprinkles.wtf"
   }
 }
