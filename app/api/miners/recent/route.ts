@@ -16,7 +16,7 @@ async function getProfile(address: string): Promise<{
 } | null> {
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL || 'https://donutlabs.vercel.app'}/api/profiles?addresses=${encodeURIComponent(address)}`,
+      `${process.env.NEXT_PUBLIC_APP_URL || 'https://sprinkles.wtf'}/api/profiles?addresses=${encodeURIComponent(address)}`,
       { cache: 'no-store' }
     );
     if (!res.ok) return null;

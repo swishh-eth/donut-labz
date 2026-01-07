@@ -1003,19 +1003,19 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       const { sdk } = await import("@farcaster/miniapp-sdk");
       await sdk.actions.composeCast({
         text,
-        embeds: ["https://donutlabs.vercel.app"],
+        embeds: ["https://sprinkles.wtf"],
       });
     } catch (e) {
       try {
         const { sdk } = await import("@farcaster/miniapp-sdk");
         const encodedText = encodeURIComponent(text);
         await sdk.actions.openUrl({
-          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
+          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://sprinkles.wtf`,
         });
       } catch {
         const encodedText = encodeURIComponent(text);
         window.open(
-          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
+          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://sprinkles.wtf`,
           "_blank"
         );
       }

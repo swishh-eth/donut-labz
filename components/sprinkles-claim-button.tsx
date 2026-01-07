@@ -286,20 +286,20 @@ export function SprinklesClaimButton({ userFid, compact = false, hideClaimAmount
     try {
       await sdk.actions.composeCast({
         text: shareText,
-        embeds: ["https://donutlabs.vercel.app"],
+        embeds: ["https://sprinkles.wtf"],
       });
       setHasShared(true);
     } catch (e) {
       try {
         const encodedText = encodeURIComponent(shareText);
         await sdk.actions.openUrl({
-          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
+          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://sprinkles.wtf`,
         });
         setHasShared(true);
       } catch {
         const encodedText = encodeURIComponent(shareText);
         window.open(
-          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://donutlabs.vercel.app`,
+          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://sprinkles.wtf`,
           "_blank"
         );
         setHasShared(true);

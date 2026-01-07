@@ -2,21 +2,18 @@ import "@/app/globals.css";
 import type { Metadata } from "next";
 import { Providers } from "@/components/providers";
 
-const cacheVersion = "2";
-const appDomain = "https://donutlabs.vercel.app";
-const heroImageUrl = `${appDomain}/media/hero.png?v=${cacheVersion}`;
-const splashImageUrl = `${appDomain}/media/loading.png?v=${cacheVersion}`;
+const appDomain = "https://sprinkles.wtf";
 
 const miniAppEmbed = {
   version: "1",
-  imageUrl: heroImageUrl,
+  imageUrl: `${appDomain}/media/hero.png`,
   button: {
     title: "SPRINKLE SPRINKLE",
     action: {
       type: "launch_miniapp" as const,
       name: "Sprinkles",
       url: appDomain,
-      splashImageUrl,
+      splashImageUrl: `${appDomain}/media/loading.png`,
       splashBackgroundColor: "#000000",
     },
   },
@@ -31,7 +28,7 @@ export const metadata: Metadata = {
     url: appDomain,
     images: [
       {
-        url: heroImageUrl,
+        url: `${appDomain}/media/hero.png`,
       },
     ],
   },
