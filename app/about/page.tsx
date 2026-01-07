@@ -592,7 +592,7 @@ function HalvingCountdownTile() {
   const [hasAnimated, setHasAnimated] = useState(false);
   const [displayValues, setDisplayValues] = useState({ days: '0', hours: '00', minutes: '00', seconds: '00' });
   
-  const HALVING_DATE = new Date('2026-01-07T14:05:00Z').getTime();
+  const HALVING_DATE = new Date('2026-02-06T14:05:00Z').getTime();
   
   useEffect(() => {
     const calculateTimeLeft = () => {
@@ -703,7 +703,7 @@ function HalvingCountdownTile() {
         )}
         
         <div className="text-[8px] text-white/40 mt-0.5">
-          Mining rewards halve • Jan 7th 9:05 AM EST
+          Mining rewards halve • Feb 6th 9:05 AM EST
         </div>
       </div>
     </div>
