@@ -373,6 +373,102 @@ function GDonutStakedTile({
   );
 }
 
+// Staking Earnings Tile Component
+function StakingEarningsTile({ 
+  stakingData, 
+  isLoading 
+}: { 
+  stakingData: {
+    treasurySharePercent: number;
+    treasuryStakedUsd: number;
+    totalStaked: number;
+    totalStakedUsd: number;
+    donutPriceUsd: number;
+    weeklyRevenue: number;
+    weeklyRevenueUsd: number;
+    apr: number;
+  } | null;
+  isLoading: boolean;
+}) {
+  const formatUsd = (num: number) => {
+    if (num < 0.01) return '<$0.01';
+    return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatNumber = (num: number, decimals = 2) => {
+    if (num >= 1000) {
+      return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    }
+    return num.toFixed(decimals);
+  };
+
+  return (
+    <div
+      className="staking-earnings-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden"
+      style={{ minHeight: '120px', background: 'linear-gradient(135deg, rgba(34,197,94,0.1) 0%, rgba(34,197,94,0.02) 100%)' }}
+    >
+      {/* Decorative chart icon */}
+      <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-10">
+        <svg className="w-28 h-28 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M3 3v18h18" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M7 14l4-4 4 4 5-5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+      
+      <div className="relative z-10 p-4 h-full">
+        <div className="text-left">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="font-bold text-xs text-green-400">STAKING REVENUE</span>
+            {stakingData && stakingData.apr > 0 && (
+              <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full font-semibold">
+                ~{stakingData.apr.toFixed(1)}% APR
+              </span>
+            )}
+          </div>
+          
+          {isLoading || !stakingData ? (
+            <div className="space-y-2">
+              <div className="h-6 w-32 bg-white/10 rounded animate-pulse" />
+              <div className="h-4 w-24 bg-white/10 rounded animate-pulse" />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {/* Weekly Revenue */}
+              <div>
+                <div className="text-[10px] text-white/50 uppercase tracking-wide">Est. Weekly Revenue</div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-xl font-bold text-green-400">
+                    {formatUsd(stakingData.weeklyRevenueUsd)}
+                  </span>
+                  <span className="text-[10px] text-white/40">
+                    ~{formatNumber(stakingData.weeklyRevenue, 4)} DONUT
+                  </span>
+                </div>
+              </div>
+              
+              {/* Stats row */}
+              <div className="flex items-center gap-4 text-[10px]">
+                <div>
+                  <span className="text-white/50">Share: </span>
+                  <span className="text-white/80 font-medium">{stakingData.treasurySharePercent.toFixed(2)}%</span>
+                </div>
+                <div>
+                  <span className="text-white/50">Staked: </span>
+                  <span className="text-white/80 font-medium">{formatUsd(stakingData.treasuryStakedUsd)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <div className="text-[9px] text-white/40 mt-2">
+          From gDONUT governance • 15% miner fee
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Halving Countdown Tile Component
 function HalvingCountdownTile() {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
@@ -685,6 +781,19 @@ export default function AboutPage() {
   const [isBurnLoading, setIsBurnLoading] = useState(true);
   const [isGDonutLoading, setIsGDonutLoading] = useState(true);
   
+  // Staking earnings state
+  const [stakingData, setStakingData] = useState<{
+    treasurySharePercent: number;
+    treasuryStakedUsd: number;
+    totalStaked: number;
+    totalStakedUsd: number;
+    donutPriceUsd: number;
+    weeklyRevenue: number;
+    weeklyRevenueUsd: number;
+    apr: number;
+  } | null>(null);
+  const [isStakingLoading, setIsStakingLoading] = useState(true);
+  
   // App & notification state
   const [isAppAdded, setIsAppAdded] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -728,6 +837,36 @@ export default function AboutPage() {
     
     fetchGDonut();
     const interval = setInterval(fetchGDonut, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch staking earnings data
+  useEffect(() => {
+    const fetchStakingData = async () => {
+      setIsStakingLoading(true);
+      try {
+        const res = await fetch("/api/gdonut-staking");
+        if (res.ok) {
+          const data = await res.json();
+          setStakingData({
+            treasurySharePercent: data.treasurySharePercent || 0,
+            treasuryStakedUsd: data.treasuryStakedUsd || 0,
+            totalStaked: data.totalStaked || 0,
+            totalStakedUsd: data.totalStakedUsd || 0,
+            donutPriceUsd: data.donutPriceUsd || 0,
+            weeklyRevenue: data.weeklyRevenue || 0,
+            weeklyRevenueUsd: data.weeklyRevenueUsd || 0,
+            apr: data.apr || 0,
+          });
+        }
+      } catch (e) {
+        console.error("Failed to fetch staking data:", e);
+      }
+      setIsStakingLoading(false);
+    };
+    
+    fetchStakingData();
+    const interval = setInterval(fetchStakingData, 60 * 1000); // Refresh every minute
     return () => clearInterval(interval);
   }, []);
 
@@ -1056,23 +1195,27 @@ export default function AboutPage() {
                 <GDonutStakedTile gDonutStaked={gDonutStaked} isLoading={isGDonutLoading} />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '75ms', animationFillMode: 'forwards' } : {}}>
+                <StakingEarningsTile stakingData={stakingData} isLoading={isStakingLoading} />
+              </div>
+
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '125ms', animationFillMode: 'forwards' } : {}}>
                 <HalvingCountdownTile />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '175ms', animationFillMode: 'forwards' } : {}}>
                 <DonutInfoTile onClick={() => window.location.href = "/about/donut"} />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '225ms', animationFillMode: 'forwards' } : {}}>
                 <SprinklesInfoTile onClick={() => window.location.href = "/about/sprinkles"} />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '250ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '275ms', animationFillMode: 'forwards' } : {}}>
                 <LinksContractsTile onClick={() => window.location.href = "/about/links-contracts"} />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '300ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '325ms', animationFillMode: 'forwards' } : {}}>
                 <DonutDashboardTile onClick={async () => {
                   try {
                     await sdk.actions.openUrl({ url: "https://dune.com/xyk/donut-company" });
@@ -1082,7 +1225,7 @@ export default function AboutPage() {
                 }} />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '350ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '375ms', animationFillMode: 'forwards' } : {}}>
                 <SprinklesDashboardTile 
                   showComingSoon={showComingSoon}
                   onClick={() => {
