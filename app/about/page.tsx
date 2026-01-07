@@ -144,6 +144,102 @@ function MatrixDigit({ digit, delay = 0 }: { digit: string; delay?: number }) {
   );
 }
 
+// Matrix-style single digit component for staking values
+function MatrixStakingDigit({ char, delay = 0, isReady }: { char: string; delay?: number; isReady: boolean }) {
+  const [displayChar, setDisplayChar] = useState(char === '.' || char === ',' || char === '$' || char === '%' || char === '/' || char === '(' || char === ')' || char === ' ' ? char : '0');
+  const [isAnimating, setIsAnimating] = useState(false);
+  const hasAnimatedRef = useRef(false);
+  
+  useEffect(() => {
+    // Don't animate punctuation/symbols
+    if (char === '.' || char === ',' || char === '$' || char === '%' || char === '/' || char === '(' || char === ')' || char === ' ') {
+      setDisplayChar(char);
+      setIsAnimating(false);
+      return;
+    }
+    
+    // If already animated, just show the char (live updates)
+    if (hasAnimatedRef.current) {
+      setDisplayChar(char);
+      setIsAnimating(false);
+      return;
+    }
+    
+    // Wait for ready signal
+    if (!isReady) return;
+    
+    hasAnimatedRef.current = true;
+    setIsAnimating(true);
+    
+    // Random digits cycling effect
+    let cycleCount = 0;
+    const maxCycles = 8 + Math.floor(delay / 30);
+    
+    const cycleInterval = setInterval(() => {
+      if (cycleCount < maxCycles) {
+        setDisplayChar(Math.floor(Math.random() * 10).toString());
+        cycleCount++;
+      } else {
+        setDisplayChar(char);
+        setIsAnimating(false);
+        clearInterval(cycleInterval);
+      }
+    }, 50);
+    
+    return () => {
+      clearInterval(cycleInterval);
+      setIsAnimating(false);
+    };
+  }, [char, delay, isReady]);
+  
+  return (
+    <span className={`transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}>
+      {displayChar}
+    </span>
+  );
+}
+
+// Matrix-style value animation for staking section
+function MatrixStakingValue({ 
+  value, 
+  isReady,
+  className = ""
+}: { 
+  value: string; 
+  isReady: boolean;
+  className?: string;
+}) {
+  const [key, setKey] = useState(0);
+  const initializedRef = useRef(false);
+  
+  // Trigger animation once when ready
+  useEffect(() => {
+    if (!initializedRef.current && isReady && value) {
+      initializedRef.current = true;
+      setKey(1);
+    }
+  }, [isReady, value]);
+  
+  if (!value || !initializedRef.current) {
+    return <span className={`tabular-nums ${className}`}>—</span>;
+  }
+  
+  const chars = value.split('');
+  
+  return (
+    <span key={key} className={`tabular-nums ${className}`}>
+      {chars.map((char, index) => (
+        <MatrixStakingDigit 
+          key={`${key}-${index}`} 
+          char={char} 
+          delay={index * 25} 
+          isReady={isReady}
+        />
+      ))}
+    </span>
+  );
+}
+
 // Matrix-style number display
 function MatrixNumber({ 
   value, 
@@ -359,12 +455,21 @@ function GDonutStakedTile({
   isStakingLoading: boolean;
 }) {
   const [displayAmount, setDisplayAmount] = useState(0);
+  const [dataReady, setDataReady] = useState(false);
   
   useEffect(() => {
     if (isLoading || gDonutStaked === 0n) return;
     const realAmount = Number(gDonutStaked) / 1e18;
     setDisplayAmount(Math.floor(realAmount));
   }, [gDonutStaked, isLoading]);
+
+  // Set data ready when staking data loads
+  useEffect(() => {
+    if (!isStakingLoading && stakingData && !dataReady) {
+      const timeout = setTimeout(() => setDataReady(true), 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [isStakingLoading, stakingData, dataReady]);
 
   const formatUsd = (num: number) => {
     if (num >= 1000) {
@@ -382,6 +487,17 @@ function GDonutStakedTile({
   const totalWeeklyUsd = stakingData 
     ? (stakingData.donutWeeklyUsd || 0) + (stakingData.usdcWeeklyUsd || 0)
     : 0;
+
+  // Pre-calculate formatted values for matrix animation
+  const donutAprStr = stakingData?.donutApr?.toFixed(1) || '0';
+  const usdcAprStr = stakingData?.usdcApr?.toFixed(1) || '0';
+  const donutWeeklyDonutAmount = stakingData?.donutWeeklyUsd && stakingData?.donutPriceUsd > 0
+    ? Math.floor(stakingData.donutWeeklyUsd / stakingData.donutPriceUsd).toLocaleString()
+    : '0';
+  const donutWeeklyUsdStr = stakingData?.donutWeeklyUsd ? formatUsd(stakingData.donutWeeklyUsd) : '$0';
+  const usdcWeeklyUsdStr = stakingData?.usdcWeeklyUsd ? formatUsd(stakingData.usdcWeeklyUsd) : '$0';
+  const totalWeeklyStr = formatUsd(totalWeeklyUsd);
+  const stakedValueStr = stakingData ? formatUsdFull(stakingData.treasuryStakedUsd) : '$0.00';
 
   return (
     <div
@@ -408,8 +524,8 @@ function GDonutStakedTile({
           <div className="flex items-center justify-between mb-1.5">
             <span className="font-bold text-xs text-pink-400">STAKING REVENUE</span>
             {stakingData && totalWeeklyUsd > 0 && (
-              <span className="text-[10px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded-full font-semibold">
-                {formatUsd(totalWeeklyUsd)}/week
+              <span className="text-[10px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded-full font-semibold font-mono">
+                <MatrixStakingValue value={`${totalWeeklyStr}/week`} isReady={dataReady} />
               </span>
             )}
           </div>
@@ -428,11 +544,11 @@ function GDonutStakedTile({
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-xs font-bold text-pink-400">
-                    {stakingData.donutApr?.toFixed(1) || '0'}%
+                    <MatrixStakingValue value={`${donutAprStr}%`} isReady={dataReady} />
                   </span>
                   {stakingData.donutWeeklyUsd !== undefined && stakingData.donutWeeklyUsd > 0 && stakingData.donutPriceUsd > 0 && (
-                    <span className="text-[9px] text-white/40">
-                      ({Math.floor(stakingData.donutWeeklyUsd / stakingData.donutPriceUsd).toLocaleString()} / {formatUsd(stakingData.donutWeeklyUsd)})
+                    <span className="text-[9px] text-white/40 font-mono">
+                      (<MatrixStakingValue value={donutWeeklyDonutAmount} isReady={dataReady} /> / <MatrixStakingValue value={donutWeeklyUsdStr} isReady={dataReady} />)
                     </span>
                   )}
                 </div>
@@ -445,11 +561,11 @@ function GDonutStakedTile({
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-xs font-bold text-pink-400">
-                    {stakingData.usdcApr?.toFixed(1) || '0'}%
+                    <MatrixStakingValue value={`${usdcAprStr}%`} isReady={dataReady} />
                   </span>
                   {stakingData.usdcWeeklyUsd !== undefined && stakingData.usdcWeeklyUsd > 0 && (
-                    <span className="text-[9px] text-white/40">
-                      ({formatUsd(stakingData.usdcWeeklyUsd)})
+                    <span className="text-[9px] text-white/40 font-mono">
+                      (<MatrixStakingValue value={usdcWeeklyUsdStr} isReady={dataReady} />)
                     </span>
                   )}
                 </div>
@@ -458,7 +574,7 @@ function GDonutStakedTile({
               <div className="flex items-center justify-between pt-1 border-t border-white/5">
                 <span className="text-[10px] text-white/50">Staked Value:</span>
                 <span className="font-mono text-xs text-white/70">
-                  {formatUsdFull(stakingData.treasuryStakedUsd)}
+                  <MatrixStakingValue value={stakedValueStr} isReady={dataReady} />
                 </span>
               </div>
             </div>
