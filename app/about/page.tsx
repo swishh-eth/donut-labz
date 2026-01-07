@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Sparkles, ArrowRight, Dices, TrendingUp, Link2, Coins, Bell, BellOff, Check } from "lucide-react";
+import { ArrowRight, Link2 } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -988,49 +988,32 @@ export default function AboutPage() {
               <button
                 onClick={handleAddApp}
                 disabled={isAddingApp || isAppAdded}
-                className={`rounded-xl p-2 h-[36px] transition-colors ${
-                  isAppAdded 
-                    ? 'bg-green-500/20 border border-green-500/30' 
-                    : 'bg-zinc-900/50 border border-zinc-800 hover:bg-zinc-800'
-                }`}
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] hover:bg-zinc-800 transition-colors"
               >
-                <div className="flex items-center justify-center gap-2 h-full">
+                <div className="flex items-center justify-center h-full">
                   {isAddingApp ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : isAppAdded ? (
-                    <Check className="h-4 w-4 text-green-400" />
                   ) : (
-                    <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="12" y1="5" x2="12" y2="19" />
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
+                    <span className="text-xs font-semibold text-white">
+                      {isAppAdded ? 'APP ADDED' : 'ADD SPRINKLES'}
+                    </span>
                   )}
-                  <span className={`text-xs font-semibold ${isAppAdded ? 'text-green-400' : 'text-white'}`}>
-                    {isAppAdded ? 'App Added' : 'Add App'}
-                  </span>
                 </div>
               </button>
 
               <button
                 onClick={handleEnableNotifications}
                 disabled={isEnablingNotifications || notificationsEnabled}
-                className={`rounded-xl p-2 h-[36px] transition-colors ${
-                  notificationsEnabled 
-                    ? 'bg-green-500/20 border border-green-500/30' 
-                    : 'bg-zinc-900/50 border border-zinc-800 hover:bg-zinc-800'
-                }`}
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] hover:bg-zinc-800 transition-colors"
               >
-                <div className="flex items-center justify-center gap-2 h-full">
+                <div className="flex items-center justify-center h-full">
                   {isEnablingNotifications ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : notificationsEnabled ? (
-                    <Bell className="h-4 w-4 text-green-400" />
                   ) : (
-                    <BellOff className="h-4 w-4 text-white" />
+                    <span className="text-xs font-semibold text-white">
+                      {notificationsEnabled ? 'NOTIFICATIONS ON' : 'NOTIFICATIONS OFF'}
+                    </span>
                   )}
-                  <span className={`text-xs font-semibold ${notificationsEnabled ? 'text-green-400' : 'text-white'}`}>
-                    {notificationsEnabled ? 'Notifications On' : 'Enable Notifications'}
-                  </span>
                 </div>
               </button>
             </div>
