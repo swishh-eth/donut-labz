@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { X, Plus, Check, AlertCircle } from "lucide-react";
+import { X, Plus, Check, AlertCircle, Bell, BellOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -11,13 +11,23 @@ type AddToFarcasterDialogProps = {
   storageKey?: string;
 };
 
+// Type for addFrame result
+type AddFrameResult = {
+  added?: boolean;
+  notificationDetails?: { url: string; token: string };
+  reason?: string;
+};
+
 export function AddToFarcasterDialog({
   showOnFirstVisit = true,
   storageKey = "sprinkles-add-miniapp-prompt-shown",
 }: AddToFarcasterDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [status, setStatus] = useState<"idle" | "adding" | "success" | "error">("idle");
+  const [addStatus, setAddStatus] = useState<"idle" | "adding" | "success" | "error">("idle");
+  const [notifStatus, setNotifStatus] = useState<"idle" | "enabling" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [isAppAdded, setIsAppAdded] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   // Check if we should show the dialog on mount
   useEffect(() => {
@@ -28,10 +38,18 @@ export function AddToFarcasterDialog({
         // First check if app is already added via SDK
         const context = await sdk.context;
         
-        // If already added, don't show the dialog
-        if (context?.client?.added) {
-          console.log("App already added, skipping prompt");
+        // If already added with notifications, don't show the dialog
+        if (context?.client?.added && context?.client?.notificationDetails) {
+          console.log("App already added with notifications, skipping prompt");
           return;
+        }
+
+        // Set initial state based on context
+        if (context?.client?.added) {
+          setIsAppAdded(true);
+        }
+        if (context?.client?.notificationDetails) {
+          setNotificationsEnabled(true);
         }
 
         // Check localStorage to avoid showing repeatedly in same session
@@ -56,34 +74,40 @@ export function AddToFarcasterDialog({
 
   const handleAddToFarcaster = useCallback(async () => {
     try {
-      setStatus("adding");
+      setAddStatus("adding");
       setErrorMessage("");
 
-      await sdk.actions.addMiniApp();
+      const result = await sdk.actions.addFrame() as AddFrameResult;
 
-      setStatus("success");
-      // Mark as shown so we don't prompt again
-      localStorage.setItem(storageKey, "true");
-      
-      setTimeout(() => {
-        setIsOpen(false);
-        setStatus("idle");
-      }, 2000);
+      if (result?.added) {
+        setAddStatus("success");
+        setIsAppAdded(true);
+        
+        // If notifications were enabled during add
+        if (result.notificationDetails) {
+          setNotificationsEnabled(true);
+          setNotifStatus("success");
+        }
+      } else {
+        const errorReason = result?.reason || "";
+        if (errorReason === "rejected_by_user") {
+          setAddStatus("idle");
+          return;
+        }
+        setAddStatus("error");
+        setErrorMessage("Unable to add app. Please try again.");
+      }
     } catch (error) {
       console.error("Failed to add Mini App:", error);
+      setAddStatus("error");
 
       const errorName = error instanceof Error ? error.name : "";
+      const errorMsg = error instanceof Error ? error.message : "Failed to add app";
+
       if (errorName === "AddMiniApp.RejectedByUser") {
-        setStatus("idle");
-        // Still mark as shown so we don't nag them
-        localStorage.setItem(storageKey, "true");
-        setIsOpen(false);
+        setAddStatus("idle");
         return;
       }
-
-      setStatus("error");
-
-      const errorMsg = error instanceof Error ? error.message : "Failed to add app";
 
       if (errorName === "AddMiniApp.InvalidDomainManifest" || errorMsg.includes("domain")) {
         setErrorMessage("App must be on production domain with valid manifest");
@@ -94,20 +118,63 @@ export function AddToFarcasterDialog({
       }
 
       setTimeout(() => {
-        setStatus("idle");
+        setAddStatus("idle");
         setErrorMessage("");
       }, 5000);
     }
-  }, [storageKey]);
+  }, []);
+
+  const handleEnableNotifications = useCallback(async () => {
+    try {
+      setNotifStatus("enabling");
+      setErrorMessage("");
+
+      // addFrame also handles enabling notifications
+      const result = await sdk.actions.addFrame() as AddFrameResult;
+
+      if (result?.added && result.notificationDetails) {
+        setNotifStatus("success");
+        setNotificationsEnabled(true);
+        setIsAppAdded(true);
+      } else if (result?.added) {
+        // App added but no notification details - user may have declined notifications
+        setNotifStatus("idle");
+        setIsAppAdded(true);
+      } else {
+        setNotifStatus("idle");
+      }
+    } catch (error) {
+      console.error("Failed to enable notifications:", error);
+      setNotifStatus("error");
+      setErrorMessage("Unable to enable notifications. Please try again.");
+      
+      setTimeout(() => {
+        setNotifStatus("idle");
+        setErrorMessage("");
+      }, 3000);
+    }
+  }, []);
 
   const handleClose = useCallback(() => {
-    if (status === "adding") return;
+    if (addStatus === "adding" || notifStatus === "enabling") return;
     setIsOpen(false);
-    setStatus("idle");
+    setAddStatus("idle");
+    setNotifStatus("idle");
     setErrorMessage("");
     // Mark as shown when they dismiss
     localStorage.setItem(storageKey, "true");
-  }, [status, storageKey]);
+  }, [addStatus, notifStatus, storageKey]);
+
+  // Auto-close after both are successful
+  useEffect(() => {
+    if (isAppAdded && notificationsEnabled) {
+      localStorage.setItem(storageKey, "true");
+      const timer = setTimeout(() => {
+        setIsOpen(false);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isAppAdded, notificationsEnabled, storageKey]);
 
   if (!isOpen) return null;
 
@@ -125,7 +192,7 @@ export function AddToFarcasterDialog({
           {/* Close button */}
           <button
             onClick={handleClose}
-            disabled={status === "adding"}
+            disabled={addStatus === "adding" || notifStatus === "enabling"}
             className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 transition-colors hover:bg-zinc-800 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Close"
           >
@@ -154,7 +221,7 @@ export function AddToFarcasterDialog({
           </div>
 
           {/* Error message */}
-          {status === "error" && errorMessage && (
+          {errorMessage && (
             <div className="mb-4 rounded-lg border border-red-800 bg-red-950/50 p-3 text-center">
               <p className="text-sm text-red-400">{errorMessage}</p>
             </div>
@@ -162,35 +229,36 @@ export function AddToFarcasterDialog({
 
           {/* Actions */}
           <div className="flex flex-col gap-2">
+            {/* Add to Farcaster Button */}
             <Button
               onClick={handleAddToFarcaster}
-              disabled={status === "adding" || status === "success"}
+              disabled={addStatus === "adding" || isAppAdded}
               className={cn(
                 "w-full gap-2 rounded-xl py-6 text-base font-bold transition-all",
-                status === "idle" && "bg-white hover:bg-gray-200 text-black",
-                status === "success" && "bg-green-600 hover:bg-green-600 text-white",
-                status === "error" && "bg-red-600 hover:bg-red-600 text-white"
+                !isAppAdded && addStatus === "idle" && "bg-white hover:bg-gray-200 text-black",
+                isAppAdded && "bg-green-600 hover:bg-green-600 text-white",
+                addStatus === "error" && "bg-red-600 hover:bg-red-600 text-white"
               )}
             >
-              {status === "adding" && (
+              {addStatus === "adding" && (
                 <>
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                   <span>Adding to Farcaster...</span>
                 </>
               )}
-              {status === "success" && (
+              {isAppAdded && (
                 <>
                   <Check className="h-5 w-5" />
-                  <span>Added Successfully!</span>
+                  <span>App Added!</span>
                 </>
               )}
-              {status === "error" && (
+              {addStatus === "error" && !isAppAdded && (
                 <>
                   <AlertCircle className="h-5 w-5" />
                   <span>Try Again</span>
                 </>
               )}
-              {status === "idle" && (
+              {addStatus === "idle" && !isAppAdded && (
                 <>
                   <Plus className="h-5 w-5" />
                   <span>Add to Farcaster</span>
@@ -198,9 +266,46 @@ export function AddToFarcasterDialog({
               )}
             </Button>
 
+            {/* Enable Notifications Button */}
+            <Button
+              onClick={handleEnableNotifications}
+              disabled={notifStatus === "enabling" || notificationsEnabled}
+              className={cn(
+                "w-full gap-2 rounded-xl py-6 text-base font-bold transition-all",
+                !notificationsEnabled && notifStatus === "idle" && "bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700",
+                notificationsEnabled && "bg-green-600 hover:bg-green-600 text-white",
+                notifStatus === "error" && "bg-red-600 hover:bg-red-600 text-white"
+              )}
+            >
+              {notifStatus === "enabling" && (
+                <>
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  <span>Enabling Notifications...</span>
+                </>
+              )}
+              {notificationsEnabled && (
+                <>
+                  <Bell className="h-5 w-5" />
+                  <span>Notifications Enabled!</span>
+                </>
+              )}
+              {notifStatus === "error" && !notificationsEnabled && (
+                <>
+                  <AlertCircle className="h-5 w-5" />
+                  <span>Try Again</span>
+                </>
+              )}
+              {notifStatus === "idle" && !notificationsEnabled && (
+                <>
+                  <BellOff className="h-5 w-5" />
+                  <span>Enable Notifications</span>
+                </>
+              )}
+            </Button>
+
             <Button
               onClick={handleClose}
-              disabled={status === "adding"}
+              disabled={addStatus === "adding" || notifStatus === "enabling"}
               variant="ghost"
               className="w-full text-gray-400 hover:text-white hover:bg-zinc-800"
             >
@@ -220,7 +325,7 @@ export function AddToFarcasterDialog({
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <div className="h-1.5 w-1.5 rounded-full bg-white" />
-              <span>Talk with fellow $Donut ecosystem enjoyers in the onchain chat. Earn Sprinkles & claim weekly every friday!</span>
+              <span>Get notified about prize distributions, tips, and more!</span>
             </div>
           </div>
         </div>

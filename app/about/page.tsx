@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Sparkles, ArrowRight, Dices, TrendingUp, Link2, Coins } from "lucide-react";
+import { Sparkles, ArrowRight, Dices, TrendingUp, Link2, Coins, Bell, BellOff, Check } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -12,6 +12,13 @@ type MiniAppContext = {
     username?: string;
     displayName?: string;
     pfpUrl?: string;
+  };
+  client?: {
+    added?: boolean;
+    notificationDetails?: {
+      url: string;
+      token: string;
+    };
   };
 };
 
@@ -265,29 +272,6 @@ function FallingDonuts() {
   );
 }
 
-// Get milliseconds until/since 6PM EST today
-function getTimeSince6pmEST(): { msSince: number; msInDay: number } {
-  const now = new Date();
-  // EST is UTC-5 (ignoring DST for simplicity, or UTC-4 for EDT)
-  const estOffset = -5 * 60; // minutes
-  const utcNow = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
-  const estNow = new Date(utcNow + estOffset * 60 * 1000);
-  
-  // Get 6PM EST today
-  const today6pm = new Date(estNow);
-  today6pm.setHours(18, 0, 0, 0);
-  
-  // If we're before 6PM, use yesterday's 6PM
-  if (estNow < today6pm) {
-    today6pm.setDate(today6pm.getDate() - 1);
-  }
-  
-  const msSince = estNow.getTime() - today6pm.getTime();
-  const msInDay = 24 * 60 * 60 * 1000;
-  
-  return { msSince, msInDay };
-}
-
 // Burn Counter Tile Component
 function BurnCounterTile({ 
   sprinklesBurned, 
@@ -301,7 +285,6 @@ function BurnCounterTile({
   const [displaySprinkles, setDisplaySprinkles] = useState(0);
   const [displayDonut, setDisplayDonut] = useState(0);
   
-  // Calculate display amounts - just show live balance
   useEffect(() => {
     if (isLoading || sprinklesBurned === 0n) return;
     const realAmount = Number(sprinklesBurned) / 1e18;
@@ -319,28 +302,23 @@ function BurnCounterTile({
       className="burn-counter-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden"
       style={{ height: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Falling coins background */}
       <FallingCoins />
       
       <div className="relative z-10 p-4 h-full flex flex-col justify-center">
         <div className="flex items-start gap-4">
-          {/* SPRINKLES BURNED - Left side */}
           <div className="text-left flex-1">
             <div className="flex items-center gap-1 mb-0.5">
               <span className="font-bold text-[10px] text-white whitespace-nowrap">SPRINKLES BURNED</span>
             </div>
-            
             <div className="font-mono text-lg font-bold">
               <MatrixNumber value={displaySprinkles} isLoading={isLoading} className="text-white" />
             </div>
           </div>
           
-          {/* DONUT BURNED - Right side */}
           <div className="text-left flex-1">
             <div className="flex items-center gap-1 mb-0.5">
               <span className="font-bold text-[10px] text-pink-400 whitespace-nowrap">DONUT BURNED</span>
             </div>
-            
             <div className="font-mono text-lg font-bold">
               <MatrixNumber value={displayDonut} isLoading={isLoading} className="text-pink-400" />
             </div>
@@ -365,7 +343,6 @@ function GDonutStakedTile({
 }) {
   const [displayAmount, setDisplayAmount] = useState(0);
   
-  // Calculate display amount - just show live balance
   useEffect(() => {
     if (isLoading || gDonutStaked === 0n) return;
     const realAmount = Number(gDonutStaked) / 1e18;
@@ -377,7 +354,6 @@ function GDonutStakedTile({
       className="gdonut-staked-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden"
       style={{ height: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Falling donuts background */}
       <FallingDonuts />
       
       <div className="relative z-10 p-4 h-full flex flex-col justify-center">
@@ -385,12 +361,10 @@ function GDonutStakedTile({
           <div className="flex items-center gap-2 mb-0.5">
             <span className="font-bold text-xs text-pink-400">SPRINKLES TREASURY gDONUT</span>
           </div>
-          
           <div className="font-mono text-2xl font-bold">
             <MatrixNumber value={displayAmount} isLoading={isLoading} className="text-pink-400" />
           </div>
         </div>
-        
         <div className="text-[9px] text-white/40 mt-1">
           Miner 15% revenue fee • Liquid Staked Governance
         </div>
@@ -406,7 +380,6 @@ function HalvingCountdownTile() {
   const [hasAnimated, setHasAnimated] = useState(false);
   const [displayValues, setDisplayValues] = useState({ days: '0', hours: '00', minutes: '00', seconds: '00' });
   
-  // Next halving: January 7th, 2026 9:05 AM EST (14:05 UTC)
   const HALVING_DATE = new Date('2026-01-07T14:05:00Z').getTime();
   
   useEffect(() => {
@@ -432,7 +405,6 @@ function HalvingCountdownTile() {
     return () => clearInterval(interval);
   }, []);
 
-  // Matrix animation on initial load
   useEffect(() => {
     if (hasAnimated || timeLeft.days === 0 && timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0) return;
     
@@ -463,7 +435,6 @@ function HalvingCountdownTile() {
     return () => clearInterval(animationInterval);
   }, [timeLeft, hasAnimated]);
 
-  // Update display values after animation is done
   useEffect(() => {
     if (hasAnimated) {
       setDisplayValues({
@@ -480,7 +451,6 @@ function HalvingCountdownTile() {
       className="halving-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden"
       style={{ height: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Background sprinkles logo */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
           <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
@@ -528,27 +498,6 @@ function HalvingCountdownTile() {
   );
 }
 
-// Coin image component for DONUT
-const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover" />
-  </span>
-);
-
-// Coin image component for PEEPLES
-const PeeplesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/peeples_logo.png" alt="PEEPLES" className="w-full h-full object-cover" />
-  </span>
-);
-
-// Coin image component for ECO
-const EcoCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/franchiser_logo.png" alt="ECO" className="w-full h-full object-cover" />
-  </span>
-);
-
 // Donut Info Tile Component
 function DonutInfoTile({ onClick }: { onClick: () => void }) {
   return (
@@ -557,7 +506,6 @@ function DonutInfoTile({ onClick }: { onClick: () => void }) {
       className="donut-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Large background donut coin logo */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
           <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover" />
@@ -592,7 +540,6 @@ function SprinklesInfoTile({ onClick }: { onClick: () => void }) {
       className="sprinkles-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Large background sprinkles coin logo */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
           <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
@@ -627,7 +574,6 @@ function LinksContractsTile({ onClick }: { onClick: () => void }) {
       className="links-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Large background chain symbol */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <Link2 className="w-24 h-24 text-zinc-800" />
       </div>
@@ -660,7 +606,6 @@ function DonutDashboardTile({ onClick }: { onClick: () => void }) {
       className="donut-dashboard-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Large background donut coin logo */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50">
           <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover" />
@@ -695,7 +640,6 @@ function SprinklesDashboardTile({ showComingSoon, onClick }: { showComingSoon: b
       className="sprinkles-dashboard-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] opacity-60"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      {/* Large background sprinkles coin logo - faded */}
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <span className="w-24 h-24 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 opacity-30">
           <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
@@ -704,12 +648,10 @@ function SprinklesDashboardTile({ showComingSoon, onClick }: { showComingSoon: b
       
       <div className="relative z-10 p-4 pr-16">
         <div className="text-left relative">
-          {/* Coming Soon Message */}
           <div className={`absolute inset-0 flex items-center transition-opacity duration-300 ${showComingSoon ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
             <span className="font-bold text-base text-gray-400">COMING SOON</span>
           </div>
           
-          {/* Normal Content */}
           <div className={`transition-opacity duration-300 ${showComingSoon ? "opacity-0" : "opacity-100"}`}>
             <div className="flex items-center gap-2 mb-1">
               <span className="font-bold text-base text-gray-500">Sprinkles Dashboard</span>
@@ -742,8 +684,14 @@ export default function AboutPage() {
   const [gDonutStaked, setGDonutStaked] = useState<bigint>(0n);
   const [isBurnLoading, setIsBurnLoading] = useState(true);
   const [isGDonutLoading, setIsGDonutLoading] = useState(true);
+  
+  // App & notification state
+  const [isAppAdded, setIsAppAdded] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [isAddingApp, setIsAddingApp] = useState(false);
+  const [isEnablingNotifications, setIsEnablingNotifications] = useState(false);
 
-  // Fetch burned amounts for both tokens
+  // Fetch burned amounts
   useEffect(() => {
     const fetchBurned = async () => {
       setIsBurnLoading(true);
@@ -761,7 +709,6 @@ export default function AboutPage() {
     };
     
     fetchBurned();
-    // Refresh every 5 minutes
     const interval = setInterval(fetchBurned, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
@@ -793,6 +740,13 @@ export default function AboutPage() {
         }).context) as MiniAppContext;
         if (!cancelled) {
           setContext(ctx);
+          // Check if app is added and notifications are enabled
+          if (ctx?.client?.added) {
+            setIsAppAdded(true);
+          }
+          if (ctx?.client?.notificationDetails) {
+            setNotificationsEnabled(true);
+          }
         }
       } catch {
         if (!cancelled) setContext(null);
@@ -814,7 +768,6 @@ export default function AboutPage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Mark animation as complete
   useEffect(() => {
     if (!hasAnimatedIn) {
       const timeout = setTimeout(() => {
@@ -824,7 +777,6 @@ export default function AboutPage() {
     }
   }, [hasAnimatedIn]);
 
-  // Handle scroll fade
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -845,6 +797,42 @@ export default function AboutPage() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Handle add app
+  const handleAddApp = async () => {
+    if (isAddingApp) return;
+    setIsAddingApp(true);
+    try {
+      const result = await sdk.actions.addFrame() as { added?: boolean; notificationDetails?: { url: string; token: string } };
+      if (result?.added) {
+        setIsAppAdded(true);
+        if (result.notificationDetails) {
+          setNotificationsEnabled(true);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to add app:", e);
+    } finally {
+      setIsAddingApp(false);
+    }
+  };
+
+  // Handle enable notifications
+  const handleEnableNotifications = async () => {
+    if (isEnablingNotifications) return;
+    setIsEnablingNotifications(true);
+    try {
+      const result = await sdk.actions.addFrame() as { added?: boolean; notificationDetails?: { url: string; token: string } };
+      if (result?.added && result.notificationDetails) {
+        setNotificationsEnabled(true);
+        setIsAppAdded(true);
+      }
+    } catch (e) {
+      console.error("Failed to enable notifications:", e);
+    } finally {
+      setIsEnablingNotifications(false);
+    }
+  };
+
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style>{`
@@ -856,43 +844,21 @@ export default function AboutPage() {
           display: none;
         }
         @keyframes tilePopIn {
-          0% {
-            opacity: 0;
-            transform: translateY(8px) scale(0.97);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
+          0% { opacity: 0; transform: translateY(8px) scale(0.97); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
         }
         .animate-tilePopIn {
           animation: tilePopIn 0.3s ease-out forwards;
         }
         @keyframes fadeScaleIn {
-          0% {
-            opacity: 0;
-            transform: scale(0.7);
-          }
-          100% {
-            opacity: 1;
-            transform: scale(1);
-          }
+          0% { opacity: 0; transform: scale(0.7); }
+          100% { opacity: 1; transform: scale(1); }
         }
         @keyframes fall {
-          0% {
-            transform: translateY(0) rotate(0deg);
-            opacity: 0;
-          }
-          5% {
-            opacity: 0.6;
-          }
-          90% {
-            opacity: 0.6;
-          }
-          100% {
-            transform: translateY(180px) rotate(180deg);
-            opacity: 0;
-          }
+          0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+          5% { opacity: 0.6; }
+          90% { opacity: 0.6; }
+          100% { transform: translateY(180px) rotate(180deg); opacity: 0; }
         }
         .animate-fall {
           animation: fall linear infinite;
@@ -911,9 +877,8 @@ export default function AboutPage() {
           <div className="flex-shrink-0">
             <Header title="INFO" user={context?.user} />
 
-            {/* Top Stats Tiles - Matching Games page style */}
+            {/* Top Stats Tiles */}
             <div className="grid grid-cols-3 gap-2 mb-3">
-              {/* Stake Donut Tile */}
               <button
                 onClick={async () => {
                   try {
@@ -924,11 +889,8 @@ export default function AboutPage() {
                 }}
                 className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex items-center justify-center text-center h-[80px] relative overflow-hidden hover:bg-zinc-800 transition-colors active:scale-[0.98]"
               >
-                {/* Background coin with ring */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span 
-                    className="w-14 h-14 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 animate-[fadeScaleIn_0.4s_ease-out_0.1s_forwards] opacity-0"
-                  >
+                  <span className="w-14 h-14 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 animate-[fadeScaleIn_0.4s_ease-out_0.1s_forwards] opacity-0">
                     <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover" />
                   </span>
                 </div>
@@ -937,7 +899,6 @@ export default function AboutPage() {
                 </div>
               </button>
 
-              {/* Pool To Mine Tile */}
               <button
                 onClick={async () => {
                   try {
@@ -948,11 +909,8 @@ export default function AboutPage() {
                 }}
                 className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex items-center justify-center text-center h-[80px] relative overflow-hidden hover:bg-zinc-800 transition-colors active:scale-[0.98]"
               >
-                {/* Background coin with ring */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span 
-                    className="w-14 h-14 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 animate-[fadeScaleIn_0.4s_ease-out_0.2s_forwards] opacity-0"
-                  >
+                  <span className="w-14 h-14 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 animate-[fadeScaleIn_0.4s_ease-out_0.2s_forwards] opacity-0">
                     <img src="/coins/peeples_logo.png" alt="" className="w-full h-full object-cover" />
                   </span>
                 </div>
@@ -961,7 +919,6 @@ export default function AboutPage() {
                 </div>
               </button>
 
-              {/* Eco Tokens Tile */}
               <button
                 onClick={async () => {
                   try {
@@ -972,11 +929,8 @@ export default function AboutPage() {
                 }}
                 className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex items-center justify-center text-center h-[80px] relative overflow-hidden hover:bg-zinc-800 transition-colors active:scale-[0.98]"
               >
-                {/* Background coin with ring */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span 
-                    className="w-14 h-14 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 animate-[fadeScaleIn_0.4s_ease-out_0.3s_forwards] opacity-0"
-                  >
+                  <span className="w-14 h-14 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 animate-[fadeScaleIn_0.4s_ease-out_0.3s_forwards] opacity-0">
                     <img src="/coins/franchiser_logo.png" alt="" className="w-full h-full object-cover" />
                   </span>
                 </div>
@@ -986,39 +940,54 @@ export default function AboutPage() {
               </button>
             </div>
 
-            {/* Split Buttons */}
+            {/* Split Buttons - Add App & Notifications */}
             <div className="grid grid-cols-2 gap-2 mb-3">
               <button
-                onClick={async () => {
-                  try {
-                    await sdk.actions.addMiniApp();
-                  } catch (e) {
-                    console.error("Failed to add mini app:", e);
-                  }
-                }}
-                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] hover:bg-zinc-800 transition-colors"
+                onClick={handleAddApp}
+                disabled={isAddingApp || isAppAdded}
+                className={`rounded-xl p-2 h-[36px] transition-colors ${
+                  isAppAdded 
+                    ? 'bg-green-500/20 border border-green-500/30' 
+                    : 'bg-zinc-900/50 border border-zinc-800 hover:bg-zinc-800'
+                }`}
               >
                 <div className="flex items-center justify-center gap-2 h-full">
-                  <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  <span className="text-xs font-semibold text-white">App Added</span>
+                  {isAddingApp ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : isAppAdded ? (
+                    <Check className="h-4 w-4 text-green-400" />
+                  ) : (
+                    <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                  )}
+                  <span className={`text-xs font-semibold ${isAppAdded ? 'text-green-400' : 'text-white'}`}>
+                    {isAppAdded ? 'App Added' : 'Add App'}
+                  </span>
                 </div>
               </button>
 
               <button
-                onClick={async () => {
-                  // TODO: Implement notifications
-                  console.log("Enable notifications clicked");
-                }}
-                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 h-[36px] hover:bg-zinc-800 transition-colors"
+                onClick={handleEnableNotifications}
+                disabled={isEnablingNotifications || notificationsEnabled}
+                className={`rounded-xl p-2 h-[36px] transition-colors ${
+                  notificationsEnabled 
+                    ? 'bg-green-500/20 border border-green-500/30' 
+                    : 'bg-zinc-900/50 border border-zinc-800 hover:bg-zinc-800'
+                }`}
               >
                 <div className="flex items-center justify-center gap-2 h-full">
-                  <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                  </svg>
-                  <span className="text-xs font-semibold text-white">Notifications</span>
+                  {isEnablingNotifications ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : notificationsEnabled ? (
+                    <Bell className="h-4 w-4 text-green-400" />
+                  ) : (
+                    <BellOff className="h-4 w-4 text-white" />
+                  )}
+                  <span className={`text-xs font-semibold ${notificationsEnabled ? 'text-green-400' : 'text-white'}`}>
+                    {notificationsEnabled ? 'Notifications On' : 'Enable Notifications'}
+                  </span>
                 </div>
               </button>
             </div>
@@ -1035,59 +1004,31 @@ export default function AboutPage() {
             }}
           >
             <div className="space-y-3 pb-4">
-              {/* Burn Counter Tile */}
-              <div 
-                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '0ms', animationFillMode: 'forwards' } : {}}
-              >
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '0ms', animationFillMode: 'forwards' } : {}}>
                 <BurnCounterTile sprinklesBurned={sprinklesBurned} donutBurned={donutBurned} isLoading={isBurnLoading} />
               </div>
 
-              {/* Treasury gDONUT Staked Tile */}
-              <div 
-                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}
-              >
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}>
                 <GDonutStakedTile gDonutStaked={gDonutStaked} isLoading={isGDonutLoading} />
               </div>
 
-              {/* Halving Countdown Tile */}
-              <div 
-                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
-              >
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}>
                 <HalvingCountdownTile />
               </div>
 
-              {/* What is $DONUT Tile */}
-              <div 
-                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
-              >
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}>
                 <DonutInfoTile onClick={() => window.location.href = "/about/donut"} />
               </div>
 
-              {/* What is $SPRINKLES Tile */}
-              <div 
-                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}
-              >
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}>
                 <SprinklesInfoTile onClick={() => window.location.href = "/about/sprinkles"} />
               </div>
 
-              {/* Links & Contracts Tile */}
-              <div 
-                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '250ms', animationFillMode: 'forwards' } : {}}
-              >
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '250ms', animationFillMode: 'forwards' } : {}}>
                 <LinksContractsTile onClick={() => window.location.href = "/about/links-contracts"} />
               </div>
 
-              {/* Donut Dashboard Tile */}
-              <div 
-                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '300ms', animationFillMode: 'forwards' } : {}}
-              >
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '300ms', animationFillMode: 'forwards' } : {}}>
                 <DonutDashboardTile onClick={async () => {
                   try {
                     await sdk.actions.openUrl({ url: "https://dune.com/xyk/donut-company" });
@@ -1097,11 +1038,7 @@ export default function AboutPage() {
                 }} />
               </div>
 
-              {/* Sprinkles Dashboard Tile */}
-              <div 
-                className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!hasAnimatedIn ? { opacity: 0, animationDelay: '350ms', animationFillMode: 'forwards' } : {}}
-              >
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '350ms', animationFillMode: 'forwards' } : {}}>
                 <SprinklesDashboardTile 
                   showComingSoon={showComingSoon}
                   onClick={() => {
