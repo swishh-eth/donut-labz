@@ -377,7 +377,7 @@ function GDonutStakedTile({
   return (
     <div
       className="gdonut-staked-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden"
-      style={{ minHeight: '180px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
       {/* Extended Falling Donuts */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -398,9 +398,9 @@ function GDonutStakedTile({
         ))}
       </div>
       
-      <div className="relative z-10 p-4 h-full flex flex-col">
+      <div className="relative z-10 p-4 h-full flex flex-col justify-center">
         {/* Top Section - gDONUT Staked */}
-        <div className="text-left mb-3">
+        <div className="text-left">
           <div className="flex items-center gap-2 mb-0.5">
             <span className="font-bold text-xs text-pink-400">SPRINKLES TREASURY gDONUT</span>
           </div>
@@ -412,10 +412,9 @@ function GDonutStakedTile({
           </div>
         </div>
         
-        {/* Divider */}
+        {/* TODO: Re-enable staking revenue section once data source is fixed
         <div className="border-t border-white/10 my-2" />
         
-        {/* Bottom Section - Staking Revenue */}
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1.5">
             <span className="font-bold text-xs text-pink-400">STAKING REVENUE</span>
@@ -433,7 +432,6 @@ function GDonutStakedTile({
             </div>
           ) : (
             <div className="space-y-1.5">
-              {/* Protocol Weekly Revenue */}
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-white/50">Protocol Weekly:</span>
                 <span className="font-mono text-sm font-bold text-white">
@@ -441,7 +439,6 @@ function GDonutStakedTile({
                 </span>
               </div>
               
-              {/* Treasury Share */}
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-white/50">Treasury Share ({stakingData.treasurySharePercent.toFixed(2)}%):</span>
                 <span className="font-mono text-sm font-bold text-pink-400">
@@ -449,7 +446,6 @@ function GDonutStakedTile({
                 </span>
               </div>
               
-              {/* Staked Value */}
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-white/50">Staked Value:</span>
                 <span className="font-mono text-xs text-white/70">
@@ -459,6 +455,7 @@ function GDonutStakedTile({
             </div>
           )}
         </div>
+        */}
       </div>
     </div>
   );
