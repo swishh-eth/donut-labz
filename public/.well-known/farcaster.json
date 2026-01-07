@@ -15,7 +15,7 @@
     "splashBackgroundColor": "#000000",
     "heroImageUrl": "https://sprinkles.wtf/media/hero.png",
     "buttonTitle": "Get Some Sprinkles",
-    "ogTitle": "Earn and Burn Sprinkles on Base",
+    "ogTitle": "The Earn & Burn Arcade",
     "ogDescription": "Play Games to earn Donut, Sprinkles, and USDC rewards on base!",
     "ogImageUrl": "https://sprinkles.wtf/media/hero.png",
     "requiredChains": [
@@ -27,7 +27,6 @@
       "social",
       "rewards",
       "donut",
-      "donut labs",
       "earn"
     ],
     "actions": [
