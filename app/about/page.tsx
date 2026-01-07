@@ -100,8 +100,12 @@ function formatBurnedAmount(amount: bigint): string {
 
 // Matrix-style number digit component
 function MatrixDigit({ digit, delay = 0 }: { digit: string; delay?: number }) {
-  const [displayDigit, setDisplayDigit] = useState('0');
-  const [isAnimating, setIsAnimating] = useState(true);
+  const [displayDigit, setDisplayDigit] = useState(() => 
+    digit === ',' ? ',' : String(Math.floor(Math.random() * 10))
+  );
+  const [isAnimating, setIsAnimating] = useState(digit !== ',');
+  const hasLandedRef = useRef(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
     if (digit === ',') {
@@ -110,25 +114,49 @@ function MatrixDigit({ digit, delay = 0 }: { digit: string; delay?: number }) {
       return;
     }
     
-    setIsAnimating(true);
-    const targetNum = parseInt(digit) || 0;
+    // If already landed, just update for live changes
+    if (hasLandedRef.current) {
+      setDisplayDigit(digit);
+      return;
+    }
     
-    // Random digits cycling effect
-    let cycleCount = 0;
-    const maxCycles = 8 + Math.floor(delay / 50); // More cycles for later digits
+    // Start cycling animation immediately
+    if (!intervalRef.current) {
+      intervalRef.current = setInterval(() => {
+        setDisplayDigit(String(Math.floor(Math.random() * 10)));
+      }, 50);
+    }
     
-    const cycleInterval = setInterval(() => {
-      if (cycleCount < maxCycles) {
-        setDisplayDigit(Math.floor(Math.random() * 10).toString());
-        cycleCount++;
-      } else {
-        setDisplayDigit(digit);
-        setIsAnimating(false);
-        clearInterval(cycleInterval);
+    // Landing sequence with delay based on position
+    const landingDelay = setTimeout(() => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
-    }, 50);
+      
+      let cycleCount = 0;
+      const maxCycles = 4 + Math.floor(delay / 50);
+      
+      const landingInterval = setInterval(() => {
+        if (cycleCount < maxCycles) {
+          setDisplayDigit(String(Math.floor(Math.random() * 10)));
+          cycleCount++;
+        } else {
+          setDisplayDigit(digit);
+          setIsAnimating(false);
+          hasLandedRef.current = true;
+          clearInterval(landingInterval);
+        }
+      }, 50);
+    }, delay);
     
-    return () => clearInterval(cycleInterval);
+    return () => {
+      clearTimeout(landingDelay);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, [digit, delay]);
   
   return (
@@ -146,53 +174,68 @@ function MatrixDigit({ digit, delay = 0 }: { digit: string; delay?: number }) {
 
 // Matrix-style single digit component for staking values
 function MatrixStakingDigit({ char, delay = 0, isReady }: { char: string; delay?: number; isReady: boolean }) {
-  const [displayChar, setDisplayChar] = useState(char === '.' || char === ',' || char === '$' || char === '%' || char === '/' || char === '(' || char === ')' || char === ' ' ? char : '0');
-  const [isAnimating, setIsAnimating] = useState(false);
-  const hasAnimatedRef = useRef(false);
+  const [displayChar, setDisplayChar] = useState(() => 
+    char === '.' || char === ',' || char === '$' || char === '%' || char === '/' || char === '(' || char === ')' || char === ' ' || char === '-' 
+      ? char 
+      : String(Math.floor(Math.random() * 10))
+  );
+  const [isAnimating, setIsAnimating] = useState(true);
+  const hasLandedRef = useRef(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
     // Don't animate punctuation/symbols - just show them
-    if (char === '.' || char === ',' || char === '$' || char === '%' || char === '/' || char === '(' || char === ')' || char === ' ') {
+    if (char === '.' || char === ',' || char === '$' || char === '%' || char === '/' || char === '(' || char === ')' || char === ' ' || char === '-') {
       setDisplayChar(char);
       setIsAnimating(false);
       return;
     }
     
-    // If already animated, just show the char (live updates)
-    if (hasAnimatedRef.current) {
+    // If already landed on final value, just update for live changes
+    if (hasLandedRef.current) {
       setDisplayChar(char);
-      setIsAnimating(false);
       return;
     }
     
-    // Wait for ready signal
-    if (!isReady) {
-      // Show 0 while waiting
-      setDisplayChar('0');
-      return;
+    // Start cycling animation immediately
+    if (!intervalRef.current) {
+      intervalRef.current = setInterval(() => {
+        setDisplayChar(String(Math.floor(Math.random() * 10)));
+      }, 50);
     }
     
-    hasAnimatedRef.current = true;
-    setIsAnimating(true);
-    
-    // Random digits cycling effect
-    let cycleCount = 0;
-    const maxCycles = 8 + Math.floor(delay / 30);
-    
-    const cycleInterval = setInterval(() => {
-      if (cycleCount < maxCycles) {
-        setDisplayChar(Math.floor(Math.random() * 10).toString());
-        cycleCount++;
-      } else {
-        setDisplayChar(char);
-        setIsAnimating(false);
-        clearInterval(cycleInterval);
+    // When data is ready, do the landing sequence
+    if (isReady) {
+      // Clear the infinite cycling
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
-    }, 50);
+      
+      // Do a few more cycles based on delay, then land
+      let cycleCount = 0;
+      const maxCycles = 4 + Math.floor(delay / 30);
+      
+      const landingInterval = setInterval(() => {
+        if (cycleCount < maxCycles) {
+          setDisplayChar(String(Math.floor(Math.random() * 10)));
+          cycleCount++;
+        } else {
+          setDisplayChar(char);
+          setIsAnimating(false);
+          hasLandedRef.current = true;
+          clearInterval(landingInterval);
+        }
+      }, 50);
+      
+      return () => clearInterval(landingInterval);
+    }
     
     return () => {
-      clearInterval(cycleInterval);
-      setIsAnimating(false);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
   }, [char, delay, isReady]);
   
@@ -213,7 +256,6 @@ function MatrixStakingValue({
   isReady: boolean;
   className?: string;
 }) {
-  // Always render the characters, animation triggers when isReady becomes true
   const chars = value.split('');
   
   return (
@@ -256,8 +298,13 @@ function MatrixNumber({
     }
   }, [value, isLoading]);
   
-  if (isLoading) {
-    return <span className={`${className} opacity-50`}>Loading...</span>;
+  // During loading, show cycling placeholder that matches expected width
+  if (isLoading || value === 0) {
+    return (
+      <span className={`tabular-nums ${className} text-green-400/70`}>
+        <LoadingDigits />
+      </span>
+    );
   }
   
   const formattedValue = value.toLocaleString('en-US');
@@ -269,6 +316,26 @@ function MatrixNumber({
         <MatrixDigit key={`${key}-${index}`} digit={digit} delay={index * 30} />
       ))}
     </span>
+  );
+}
+
+// Cycling loading digits component
+function LoadingDigits() {
+  const [digits, setDigits] = useState(() => 
+    Array.from({ length: 7 }, () => String(Math.floor(Math.random() * 10)))
+  );
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDigits(Array.from({ length: 7 }, () => String(Math.floor(Math.random() * 10))));
+    }, 50);
+    return () => clearInterval(interval);
+  }, []);
+  
+  return (
+    <>
+      {digits.slice(0, 2).join('')},{digits.slice(2, 5).join('')},{digits.slice(5, 7).join('')}0
+    </>
   );
 }
 
@@ -568,42 +635,57 @@ function GDonutStakedTile({
 
 // Matrix digit for halving countdown
 function HalvingMatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: number; isReady: boolean }) {
-  const [displayChar, setDisplayChar] = useState('0');
-  const [isAnimating, setIsAnimating] = useState(false);
-  const hasAnimatedRef = useRef(false);
+  const [displayChar, setDisplayChar] = useState(() => String(Math.floor(Math.random() * 10)));
+  const [isAnimating, setIsAnimating] = useState(true);
+  const hasLandedRef = useRef(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
-    // If already animated, just update the char (for live countdown updates)
-    if (hasAnimatedRef.current) {
+    // If already landed on final value, just update for live countdown changes
+    if (hasLandedRef.current) {
       setDisplayChar(char);
-      setIsAnimating(false);
       return;
     }
     
-    // Wait for ready signal
-    if (!isReady) return;
+    // Start cycling animation immediately
+    if (!intervalRef.current) {
+      intervalRef.current = setInterval(() => {
+        setDisplayChar(String(Math.floor(Math.random() * 10)));
+      }, 50);
+    }
     
-    hasAnimatedRef.current = true;
-    setIsAnimating(true);
-    
-    // Random digits cycling effect
-    let cycleCount = 0;
-    const maxCycles = 8 + Math.floor(delay / 30);
-    
-    const cycleInterval = setInterval(() => {
-      if (cycleCount < maxCycles) {
-        setDisplayChar(Math.floor(Math.random() * 10).toString());
-        cycleCount++;
-      } else {
-        setDisplayChar(char);
-        setIsAnimating(false);
-        clearInterval(cycleInterval);
+    // When data is ready, do the landing sequence
+    if (isReady) {
+      // Clear the infinite cycling
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
-    }, 50);
+      
+      // Do a few more cycles based on delay, then land
+      let cycleCount = 0;
+      const maxCycles = 4 + Math.floor(delay / 30);
+      
+      const landingInterval = setInterval(() => {
+        if (cycleCount < maxCycles) {
+          setDisplayChar(String(Math.floor(Math.random() * 10)));
+          cycleCount++;
+        } else {
+          setDisplayChar(char);
+          setIsAnimating(false);
+          hasLandedRef.current = true;
+          clearInterval(landingInterval);
+        }
+      }, 50);
+      
+      return () => clearInterval(landingInterval);
+    }
     
     return () => {
-      clearInterval(cycleInterval);
-      setIsAnimating(false);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
   }, [char, delay, isReady]);
   
