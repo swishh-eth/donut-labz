@@ -97,12 +97,12 @@ const AUCTION_DURATION = 3600;
 const MIN_PRICE = 100000000000000n;
 
 const DEFAULT_MESSAGES = [
-  "Every donut needs sprinkles - Donut Labs",
-  "Sprinkling magic on Base - Donut Labs",
-  "Powered by Chromium Donut Tech - Donut Labs",
-  "Stay glazed, stay based - Donut Labs",
-  "The donut shop never closes - Donut Labs",
-  "More sprinkles, more fun - Donut Labs",
+  "Every donut needs sprinkles!",
+  "Sprinkling magic on Base!",
+  "Powered by Chromium Donut Tech.",
+  "Stay glazed, stay based!",
+  "The donut shop never closes...",
+  "More sprinkles, more fun!",
 ];
 
 const getRandomDefaultMessage = () => {
@@ -701,7 +701,7 @@ export default function DonutMiner({ context }: DonutMinerProps) {
 
   const scrollMessage = minerState?.uri && minerState.uri.trim() !== ""
     ? minerState.uri
-    : "We Glaze The World - Donut Labs";
+    : "We Glaze The World - Sprinkles App";
 
   const buttonLabel = useMemo(() => {
     if (!minerState) return "Loading…";

@@ -159,7 +159,7 @@ export async function POST(request: Request) {
         if (providerAddress !== YOUR_PROVIDER_ADDRESS) {
           console.log('Wrong provider:', providerAddress, 'expected:', YOUR_PROVIDER_ADDRESS);
           return NextResponse.json(
-            { success: false, error: 'Glaze did not use Donut Labs provider' },
+            { success: false, error: 'Glaze did not use Sprinkles App provider' },
             { status: 400 }
           );
         }

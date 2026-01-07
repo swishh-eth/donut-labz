@@ -21,10 +21,10 @@
     "requiredChains": [
       "eip155:8453"
     ],
-    "primaryCategory": "gaming",
+    "primaryCategory": "games",
     "tags": [
       "finance",
-      "base",
+      "social",
       "rewards",
       "donut",
       "donut labs",

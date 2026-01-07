@@ -424,7 +424,7 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
 
   // Share after claiming (brag about it!)
   const handleShareSuccess = useCallback(async () => {
-    const shareText = `I just got free glaze from Donut Labs! by @swishh.eth 🧪\n\n${claimedAmount} $${tokenSymbol} claimed! 🎉\n\nJoin the lab, compete in leaderboards 👇`;
+    const shareText = `I just got free glaze on the Sprinkles App! by @swishh.eth \n\n${claimedAmount} $${tokenSymbol} claimed! 🎉\n\nJoin the lab, compete in leaderboards 👇`;
 
     try {
       await sdk.actions.composeCast({

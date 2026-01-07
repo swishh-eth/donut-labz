@@ -107,12 +107,12 @@ const MIN_PRICE = 1n * 10n ** 18n;
 const SPRINKLES_DONUT_PAIR = "0x47E8b03017d8b8d058bA5926838cA4dD4531e668";
 
 const DEFAULT_MESSAGES = [
-  "Every donut needs sprinkles - Donut Labs",
-  "Sprinkling magic on Base - Donut Labs",
-  "Powered by Chromium Donut Tech - Donut Labs",
-  "Stay glazed, stay based - Donut Labs",
-  "The donut shop never closes - Donut Labs",
-  "More sprinkles, more fun - Donut Labs",
+  "Every donut needs sprinkles!",
+  "Sprinkling magic on Base!",
+  "Powered by Chromium Donut Tech.",
+  "Stay glazed, stay based.",
+  "The donut shop never closes...",
+  "More sprinkles, more fun!",
 ];
 
 const getRandomDefaultMessage = () => {
@@ -959,7 +959,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
 
   const scrollMessage = slot0?.uri && slot0.uri.trim() !== ""
     ? slot0.uri
-    : "Every donut needs sprinkles - Donut Labs";
+    : "Every donut needs sprinkles!";
 
   const buttonLabel = useMemo(() => {
     if (!slot0 || price === undefined) return "Loading…";
