@@ -22,6 +22,11 @@ const miniAppEmbed = {
 export const metadata: Metadata = {
   title: "Sprinkles",
   description: "Play Games to earn Donut, Sprinkles, and USDC rewards on base!",
+  icons: {
+    icon: "/media/loading.png",
+    shortcut: "/media/loading.png",
+    apple: "/media/loading.png",
+  },
   openGraph: {
     title: "Sprinkles",
     description: "Play Games to earn Donut, Sprinkles, and USDC rewards on base!",
