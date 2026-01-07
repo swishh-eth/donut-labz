@@ -42,7 +42,8 @@ export function AddToFarcasterDialog({
         }
         
         // If already added with notifications, don't show the dialog
-        if (context?.client?.added && context?.client?.notificationDetails) {
+        // TEMP: Bypassed for testing - remove "false &&" after testing
+        if (false && context?.client?.added && context?.client?.notificationDetails) {
           console.log("App already added with notifications, skipping prompt");
           return;
         }
