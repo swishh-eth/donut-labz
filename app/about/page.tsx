@@ -145,14 +145,16 @@ function MatrixDigit({ digit, delay = 0 }: { digit: string; delay?: number }) {
 
 // Matrix-style single digit component for staking values
 function MatrixStakingDigit({ char, delay = 0 }: { char: string; delay?: number }) {
-  const isPunctuation = char === '.' || char === ',' || char === '$' || char === '%' || char === '/' || char === '(' || char === ')' || char === ' ' || char === '-';
+  // Check if character is a digit (0-9) - only digits should animate
+  const isDigit = /^[0-9]$/.test(char);
   const [displayChar, setDisplayChar] = useState(() => 
-    isPunctuation ? char : String(Math.floor(Math.random() * 10))
+    isDigit ? String(Math.floor(Math.random() * 10)) : char
   );
-  const [isAnimating, setIsAnimating] = useState(!isPunctuation);
+  const [isAnimating, setIsAnimating] = useState(isDigit);
   
   useEffect(() => {
-    if (isPunctuation) {
+    // Non-digits (letters, punctuation, symbols) - just show them
+    if (!isDigit) {
       setDisplayChar(char);
       setIsAnimating(false);
       return;
@@ -174,7 +176,7 @@ function MatrixStakingDigit({ char, delay = 0 }: { char: string; delay?: number 
     }, 50);
     
     return () => clearInterval(cycleInterval);
-  }, [char, delay, isPunctuation]);
+  }, [char, delay, isDigit]);
   
   return (
     <span className={`transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}>
@@ -547,7 +549,7 @@ function GDonutStakedTile({
                 </span>
                 {dataReady && stakingData?.donutWeeklyUsd !== undefined && stakingData.donutWeeklyUsd > 0 && (
                   <span className="text-[9px] text-white/40 font-mono">
-                    ({displayDonutUsd})
+                    (<MatrixStakingValue value={displayDonutUsd} isReady={dataReady} />)
                   </span>
                 )}
               </div>
@@ -564,7 +566,7 @@ function GDonutStakedTile({
                 </span>
                 {dataReady && stakingData?.usdcWeeklyUsd !== undefined && stakingData.usdcWeeklyUsd > 0 && (
                   <span className="text-[9px] text-white/40 font-mono">
-                    ({displayUsdcUsd})
+                    (<MatrixStakingValue value={displayUsdcUsd} isReady={dataReady} />)
                   </span>
                 )}
               </div>
@@ -573,7 +575,7 @@ function GDonutStakedTile({
             <div className="flex items-center justify-between pt-1 border-t border-white/5">
               <span className="text-[10px] text-white/50">{periodLabel} Revenue Total:</span>
               <span className="font-mono text-xs font-bold text-pink-400">
-                {dataReady ? displayTotalUsd : <MatrixStakingValue value={displayTotalUsd} isReady={dataReady} />}
+                <MatrixStakingValue value={displayTotalUsd} isReady={dataReady} />
               </span>
             </div>
           </div>
