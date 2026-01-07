@@ -523,17 +523,41 @@ function GDonutStakedTile({
         <div className="text-left">
           <div className="flex items-center justify-between mb-1.5">
             <span className="font-bold text-xs text-pink-400">STAKING REVENUE</span>
-            {stakingData && totalWeeklyUsd > 0 && (
-              <span className="text-[10px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded-full font-semibold font-mono">
+            <span className="text-[10px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded-full font-semibold font-mono">
+              {stakingData && totalWeeklyUsd > 0 ? (
                 <MatrixStakingValue value={`${totalWeeklyStr}/week`} isReady={dataReady} />
-              </span>
-            )}
+              ) : (
+                <span>—/week</span>
+              )}
+            </span>
           </div>
           
           {isStakingLoading || !stakingData ? (
             <div className="space-y-1.5">
-              <div className="h-5 w-28 bg-white/10 rounded animate-pulse" />
-              <div className="h-4 w-20 bg-white/10 rounded animate-pulse" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <img src="/coins/donut_logo.png" alt="" className="w-3.5 h-3.5 rounded-full" />
+                  <span className="text-[10px] text-white/50">DONUT EARNINGS (50%):</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-xs font-bold text-pink-400">—</span>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <img src="/coins/USDC_LOGO.png" alt="" className="w-3.5 h-3.5 rounded-full" />
+                  <span className="text-[10px] text-white/50">USDC EARNINGS (50%):</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-xs font-bold text-pink-400">—</span>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                <span className="text-[10px] text-white/50">Staked Value:</span>
+                <span className="font-mono text-xs text-white/70">—</span>
+              </div>
             </div>
           ) : (
             <div className="space-y-1.5">
