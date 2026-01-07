@@ -543,11 +543,11 @@ function GDonutStakedTile({
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="font-mono text-xs font-bold text-pink-400">
-                  <MatrixStakingValue value={`${donutAprStr}%`} isReady={dataReady} />
+                  <MatrixStakingValue value={`APR: ${donutAprStr}%`} isReady={dataReady} />
                 </span>
-                {dataReady && stakingData?.donutWeeklyUsd !== undefined && stakingData.donutWeeklyUsd > 0 && stakingData.donutPriceUsd > 0 && (
+                {dataReady && stakingData?.donutWeeklyUsd !== undefined && stakingData.donutWeeklyUsd > 0 && (
                   <span className="text-[9px] text-white/40 font-mono">
-                    ({displayDonutAmount} / {displayDonutUsd})
+                    ({displayDonutUsd})
                   </span>
                 )}
               </div>
@@ -560,7 +560,7 @@ function GDonutStakedTile({
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="font-mono text-xs font-bold text-pink-400">
-                  <MatrixStakingValue value={`${usdcAprStr}%`} isReady={dataReady} />
+                  <MatrixStakingValue value={`APR: ${usdcAprStr}%`} isReady={dataReady} />
                 </span>
                 {dataReady && stakingData?.usdcWeeklyUsd !== undefined && stakingData.usdcWeeklyUsd > 0 && (
                   <span className="text-[9px] text-white/40 font-mono">
