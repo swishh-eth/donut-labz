@@ -5,7 +5,7 @@
     "signature": "QOOntjforRYpPPXl+gXgCGLqJPcAkAKxkp99XxD9VwR9Dw2IojDRUECMuhc/DmP9drdPFKU92yRRu75jNyBptBw="
   },
   "miniapp": {
-    "version": "1.1",
+    "version": "2",
     "name": "Sprinkles",
     "tagline": "Earn and Burn on Base",
     "description": "Play Games to earn Donut, Sprinkles, and USDC rewards on base",
@@ -15,7 +15,7 @@
     "splashBackgroundColor": "#000000",
     "heroImageUrl": "https://sprinkles.wtf/media/hero.png",
     "buttonTitle": "Get Some Sprinkles",
-    "ogTitle": "The Earn & Burn Arcade",
+    "ogTitle": "The Earn and Burn Arcade",
     "ogDescription": "Play Games to earn Donut, Sprinkles, and USDC rewards on base",
     "ogImageUrl": "https://sprinkles.wtf/media/hero.png",
     "requiredChains": [
