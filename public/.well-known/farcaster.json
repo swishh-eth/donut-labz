@@ -32,6 +32,7 @@
     "actions": [
       "viewProfile"
     ],
-    "canonicalDomain": "sprinkles.wtf"
+    "canonicalDomain": "sprinkles.wtf",
+    "webhookUrl": "https://api.neynar.com/f/app/9135ff5f-8864-4ffb-af7e-0fac38330ab0/event"
   }
 }
