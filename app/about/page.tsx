@@ -151,7 +151,7 @@ function MatrixStakingDigit({ char, delay = 0, isReady }: { char: string; delay?
   const hasAnimatedRef = useRef(false);
   
   useEffect(() => {
-    // Don't animate punctuation/symbols
+    // Don't animate punctuation/symbols - just show them
     if (char === '.' || char === ',' || char === '$' || char === '%' || char === '/' || char === '(' || char === ')' || char === ' ') {
       setDisplayChar(char);
       setIsAnimating(false);
@@ -166,7 +166,11 @@ function MatrixStakingDigit({ char, delay = 0, isReady }: { char: string; delay?
     }
     
     // Wait for ready signal
-    if (!isReady) return;
+    if (!isReady) {
+      // Show 0 while waiting
+      setDisplayChar('0');
+      return;
+    }
     
     hasAnimatedRef.current = true;
     setIsAnimating(true);
@@ -209,28 +213,14 @@ function MatrixStakingValue({
   isReady: boolean;
   className?: string;
 }) {
-  const [key, setKey] = useState(0);
-  const initializedRef = useRef(false);
-  
-  // Trigger animation once when ready
-  useEffect(() => {
-    if (!initializedRef.current && isReady && value) {
-      initializedRef.current = true;
-      setKey(1);
-    }
-  }, [isReady, value]);
-  
-  if (!value || !initializedRef.current) {
-    return <span className={`tabular-nums ${className}`}>—</span>;
-  }
-  
+  // Always render the characters, animation triggers when isReady becomes true
   const chars = value.split('');
   
   return (
-    <span key={key} className={`tabular-nums ${className}`}>
+    <span className={`tabular-nums ${className}`}>
       {chars.map((char, index) => (
         <MatrixStakingDigit 
-          key={`${key}-${index}`} 
+          key={index} 
           char={char} 
           delay={index * 25} 
           isReady={isReady}
@@ -524,88 +514,103 @@ function GDonutStakedTile({
           <div className="flex items-center justify-between mb-1.5">
             <span className="font-bold text-xs text-pink-400">STAKING REVENUE</span>
             <span className="text-[10px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded-full font-semibold font-mono">
-              {stakingData && totalWeeklyUsd > 0 ? (
-                <MatrixStakingValue value={`${totalWeeklyStr}/week`} isReady={dataReady} />
-              ) : (
-                <span>—/week</span>
-              )}
+              <MatrixStakingValue value={`${totalWeeklyStr}/week`} isReady={dataReady} />
             </span>
           </div>
           
-          {isStakingLoading || !stakingData ? (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <img src="/coins/donut_logo.png" alt="" className="w-3.5 h-3.5 rounded-full" />
-                  <span className="text-[10px] text-white/50">DONUT EARNINGS (50%):</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-xs font-bold text-pink-400">—</span>
-                </div>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <img src="/coins/donut_logo.png" alt="" className="w-3.5 h-3.5 rounded-full" />
+                <span className="text-[10px] text-white/50">DONUT EARNINGS (50%):</span>
               </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <img src="/coins/USDC_LOGO.png" alt="" className="w-3.5 h-3.5 rounded-full" />
-                  <span className="text-[10px] text-white/50">USDC EARNINGS (50%):</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-xs font-bold text-pink-400">—</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between pt-1 border-t border-white/5">
-                <span className="text-[10px] text-white/50">Staked Value:</span>
-                <span className="font-mono text-xs text-white/70">—</span>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <img src="/coins/donut_logo.png" alt="" className="w-3.5 h-3.5 rounded-full" />
-                  <span className="text-[10px] text-white/50">DONUT EARNINGS (50%):</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-xs font-bold text-pink-400">
-                    <MatrixStakingValue value={`${donutAprStr}%`} isReady={dataReady} />
-                  </span>
-                  {stakingData.donutWeeklyUsd !== undefined && stakingData.donutWeeklyUsd > 0 && stakingData.donutPriceUsd > 0 && (
-                    <span className="text-[9px] text-white/40 font-mono">
-                      (<MatrixStakingValue value={donutWeeklyDonutAmount} isReady={dataReady} /> / <MatrixStakingValue value={donutWeeklyUsdStr} isReady={dataReady} />)
-                    </span>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <img src="/coins/USDC_LOGO.png" alt="" className="w-3.5 h-3.5 rounded-full" />
-                  <span className="text-[10px] text-white/50">USDC EARNINGS (50%):</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-xs font-bold text-pink-400">
-                    <MatrixStakingValue value={`${usdcAprStr}%`} isReady={dataReady} />
-                  </span>
-                  {stakingData.usdcWeeklyUsd !== undefined && stakingData.usdcWeeklyUsd > 0 && (
-                    <span className="text-[9px] text-white/40 font-mono">
-                      (<MatrixStakingValue value={usdcWeeklyUsdStr} isReady={dataReady} />)
-                    </span>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between pt-1 border-t border-white/5">
-                <span className="text-[10px] text-white/50">Staked Value:</span>
-                <span className="font-mono text-xs text-white/70">
-                  <MatrixStakingValue value={stakedValueStr} isReady={dataReady} />
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-xs font-bold text-pink-400">
+                  <MatrixStakingValue value={`${donutAprStr}%`} isReady={dataReady} />
                 </span>
+                {dataReady && stakingData?.donutWeeklyUsd !== undefined && stakingData.donutWeeklyUsd > 0 && stakingData.donutPriceUsd > 0 && (
+                  <span className="text-[9px] text-white/40 font-mono">
+                    (<MatrixStakingValue value={donutWeeklyDonutAmount} isReady={dataReady} /> / <MatrixStakingValue value={donutWeeklyUsdStr} isReady={dataReady} />)
+                  </span>
+                )}
               </div>
             </div>
-          )}
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <img src="/coins/USDC_LOGO.png" alt="" className="w-3.5 h-3.5 rounded-full" />
+                <span className="text-[10px] text-white/50">USDC EARNINGS (50%):</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-xs font-bold text-pink-400">
+                  <MatrixStakingValue value={`${usdcAprStr}%`} isReady={dataReady} />
+                </span>
+                {dataReady && stakingData?.usdcWeeklyUsd !== undefined && stakingData.usdcWeeklyUsd > 0 && (
+                  <span className="text-[9px] text-white/40 font-mono">
+                    (<MatrixStakingValue value={usdcWeeklyUsdStr} isReady={dataReady} />)
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between pt-1 border-t border-white/5">
+              <span className="text-[10px] text-white/50">Staked Value:</span>
+              <span className="font-mono text-xs text-white/70">
+                <MatrixStakingValue value={stakedValueStr} isReady={dataReady} />
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// Matrix digit for halving countdown
+function HalvingMatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: number; isReady: boolean }) {
+  const [displayChar, setDisplayChar] = useState('0');
+  const [isAnimating, setIsAnimating] = useState(false);
+  const hasAnimatedRef = useRef(false);
+  
+  useEffect(() => {
+    // If already animated, just update the char (for live countdown updates)
+    if (hasAnimatedRef.current) {
+      setDisplayChar(char);
+      setIsAnimating(false);
+      return;
+    }
+    
+    // Wait for ready signal
+    if (!isReady) return;
+    
+    hasAnimatedRef.current = true;
+    setIsAnimating(true);
+    
+    // Random digits cycling effect
+    let cycleCount = 0;
+    const maxCycles = 8 + Math.floor(delay / 30);
+    
+    const cycleInterval = setInterval(() => {
+      if (cycleCount < maxCycles) {
+        setDisplayChar(Math.floor(Math.random() * 10).toString());
+        cycleCount++;
+      } else {
+        setDisplayChar(char);
+        setIsAnimating(false);
+        clearInterval(cycleInterval);
+      }
+    }, 50);
+    
+    return () => {
+      clearInterval(cycleInterval);
+      setIsAnimating(false);
+    };
+  }, [char, delay, isReady]);
+  
+  return (
+    <span className={`transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}>
+      {displayChar}
+    </span>
   );
 }
 
@@ -613,8 +618,7 @@ function GDonutStakedTile({
 function HalvingCountdownTile() {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isComplete, setIsComplete] = useState(false);
-  const [hasAnimated, setHasAnimated] = useState(false);
-  const [displayValues, setDisplayValues] = useState({ days: '0', hours: '00', minutes: '00', seconds: '00' });
+  const [isReady, setIsReady] = useState(false);
   
   const HALVING_DATE = new Date('2026-02-06T14:05:00Z').getTime();
   
@@ -641,46 +645,19 @@ function HalvingCountdownTile() {
     return () => clearInterval(interval);
   }, []);
 
+  // Trigger animation after initial data
   useEffect(() => {
-    if (hasAnimated || timeLeft.days === 0 && timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0) return;
-    
-    let cycleCount = 0;
-    const maxCycles = 12;
-    
-    const animationInterval = setInterval(() => {
-      if (cycleCount < maxCycles) {
-        setDisplayValues({
-          days: String(Math.floor(Math.random() * 10)),
-          hours: String(Math.floor(Math.random() * 100)).padStart(2, '0'),
-          minutes: String(Math.floor(Math.random() * 100)).padStart(2, '0'),
-          seconds: String(Math.floor(Math.random() * 100)).padStart(2, '0'),
-        });
-        cycleCount++;
-      } else {
-        setDisplayValues({
-          days: String(timeLeft.days),
-          hours: String(timeLeft.hours).padStart(2, '0'),
-          minutes: String(timeLeft.minutes).padStart(2, '0'),
-          seconds: String(timeLeft.seconds).padStart(2, '0'),
-        });
-        setHasAnimated(true);
-        clearInterval(animationInterval);
-      }
-    }, 50);
-    
-    return () => clearInterval(animationInterval);
-  }, [timeLeft, hasAnimated]);
-
-  useEffect(() => {
-    if (hasAnimated) {
-      setDisplayValues({
-        days: String(timeLeft.days),
-        hours: String(timeLeft.hours).padStart(2, '0'),
-        minutes: String(timeLeft.minutes).padStart(2, '0'),
-        seconds: String(timeLeft.seconds).padStart(2, '0'),
-      });
+    if (!isReady && (timeLeft.days > 0 || timeLeft.hours > 0 || timeLeft.minutes > 0 || timeLeft.seconds > 0)) {
+      const timeout = setTimeout(() => setIsReady(true), 100);
+      return () => clearTimeout(timeout);
     }
-  }, [timeLeft, hasAnimated]);
+  }, [timeLeft, isReady]);
+
+  // Format values for display
+  const daysStr = String(timeLeft.days);
+  const hoursStr = String(timeLeft.hours).padStart(2, '0');
+  const minutesStr = String(timeLeft.minutes).padStart(2, '0');
+  const secondsStr = String(timeLeft.seconds).padStart(2, '0');
 
   return (
     <div
@@ -705,22 +682,38 @@ function HalvingCountdownTile() {
         ) : (
           <div className="flex items-center gap-1.5">
             <div className="text-center">
-              <div className={`font-mono text-lg font-bold text-white tabular-nums ${!hasAnimated ? 'text-green-400/70' : ''}`}>{displayValues.days}</div>
+              <div className="font-mono text-lg font-bold text-white tabular-nums">
+                {daysStr.split('').map((char, i) => (
+                  <HalvingMatrixDigit key={`days-${i}`} char={char} delay={i * 30} isReady={isReady} />
+                ))}
+              </div>
               <div className="text-[7px] text-white/60">DAYS</div>
             </div>
             <span className="text-white/30 text-sm font-bold">:</span>
             <div className="text-center">
-              <div className={`font-mono text-lg font-bold text-white tabular-nums ${!hasAnimated ? 'text-green-400/70' : ''}`}>{displayValues.hours}</div>
+              <div className="font-mono text-lg font-bold text-white tabular-nums">
+                {hoursStr.split('').map((char, i) => (
+                  <HalvingMatrixDigit key={`hours-${i}`} char={char} delay={(daysStr.length + i) * 30} isReady={isReady} />
+                ))}
+              </div>
               <div className="text-[7px] text-white/60">HRS</div>
             </div>
             <span className="text-white/30 text-sm font-bold">:</span>
             <div className="text-center">
-              <div className={`font-mono text-lg font-bold text-white tabular-nums ${!hasAnimated ? 'text-green-400/70' : ''}`}>{displayValues.minutes}</div>
+              <div className="font-mono text-lg font-bold text-white tabular-nums">
+                {minutesStr.split('').map((char, i) => (
+                  <HalvingMatrixDigit key={`mins-${i}`} char={char} delay={(daysStr.length + 2 + i) * 30} isReady={isReady} />
+                ))}
+              </div>
               <div className="text-[7px] text-white/60">MIN</div>
             </div>
             <span className="text-white/30 text-sm font-bold">:</span>
             <div className="text-center">
-              <div className={`font-mono text-lg font-bold text-white tabular-nums ${!hasAnimated ? 'text-green-400/70' : ''}`}>{displayValues.seconds}</div>
+              <div className="font-mono text-lg font-bold text-white tabular-nums">
+                {secondsStr.split('').map((char, i) => (
+                  <HalvingMatrixDigit key={`secs-${i}`} char={char} delay={(daysStr.length + 4 + i) * 30} isReady={isReady} />
+                ))}
+              </div>
               <div className="text-[7px] text-white/60">SEC</div>
             </div>
           </div>
