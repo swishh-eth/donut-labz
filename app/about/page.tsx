@@ -430,6 +430,7 @@ function GDonutStakedTile({
 }) {
   const [displayAmount, setDisplayAmount] = useState(0);
   const [dataReady, setDataReady] = useState(false);
+  const [showDaily, setShowDaily] = useState(false);
   
   useEffect(() => {
     if (isLoading || gDonutStaked === 0n) return;
@@ -461,22 +462,47 @@ function GDonutStakedTile({
   const totalWeeklyUsd = stakingData 
     ? (stakingData.donutWeeklyUsd || 0) + (stakingData.usdcWeeklyUsd || 0)
     : 0;
+  
+  // Daily values (weekly / 7)
+  const totalDailyUsd = totalWeeklyUsd / 7;
+  const donutDailyUsd = (stakingData?.donutWeeklyUsd || 0) / 7;
+  const usdcDailyUsd = (stakingData?.usdcWeeklyUsd || 0) / 7;
+  const donutDailyAmount = stakingData?.donutWeeklyUsd && stakingData?.donutPriceUsd > 0
+    ? Math.floor((stakingData.donutWeeklyUsd / 7) / stakingData.donutPriceUsd)
+    : 0;
 
   // Pre-calculate formatted values for matrix animation
   const donutAprStr = stakingData?.donutApr?.toFixed(1) || '0';
   const usdcAprStr = stakingData?.usdcApr?.toFixed(1) || '0';
+  
+  // Weekly values
   const donutWeeklyDonutAmount = stakingData?.donutWeeklyUsd && stakingData?.donutPriceUsd > 0
     ? Math.floor(stakingData.donutWeeklyUsd / stakingData.donutPriceUsd).toLocaleString()
     : '0';
   const donutWeeklyUsdStr = stakingData?.donutWeeklyUsd ? formatUsd(stakingData.donutWeeklyUsd) : '$0';
   const usdcWeeklyUsdStr = stakingData?.usdcWeeklyUsd ? formatUsd(stakingData.usdcWeeklyUsd) : '$0';
   const totalWeeklyStr = formatUsdFull(totalWeeklyUsd);
+  
+  // Daily values
+  const donutDailyDonutAmount = donutDailyAmount.toLocaleString();
+  const donutDailyUsdStr = formatUsd(donutDailyUsd);
+  const usdcDailyUsdStr = formatUsd(usdcDailyUsd);
+  const totalDailyStr = formatUsdFull(totalDailyUsd);
+  
   const stakedValueStr = stakingData ? formatUsdFull(stakingData.treasuryStakedUsd) : '$0.00';
+
+  // Use daily or weekly based on toggle
+  const displayDonutAmount = showDaily ? donutDailyDonutAmount : donutWeeklyDonutAmount;
+  const displayDonutUsd = showDaily ? donutDailyUsdStr : donutWeeklyUsdStr;
+  const displayUsdcUsd = showDaily ? usdcDailyUsdStr : usdcWeeklyUsdStr;
+  const displayTotalUsd = showDaily ? totalDailyStr : totalWeeklyStr;
+  const periodLabel = showDaily ? 'Daily' : 'Weekly';
 
   return (
     <div
-      className="gdonut-staked-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden"
+      className="gdonut-staked-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden cursor-pointer active:scale-[0.99] transition-transform"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+      onClick={() => setShowDaily(!showDaily)}
     >
       <div className="relative z-10 p-4 h-full flex flex-col justify-center">
         {/* Top Section - gDONUT Staked */}
@@ -504,6 +530,9 @@ function GDonutStakedTile({
         <div className="text-left">
           <div className="flex items-center justify-between mb-1.5">
             <span className="font-bold text-xs text-pink-400">STAKING REVENUE</span>
+            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold transition-colors ${showDaily ? 'bg-pink-500/30 text-pink-300' : 'bg-white/10 text-white/50'}`}>
+              {showDaily ? 'DAILY' : 'WEEKLY'}
+            </span>
           </div>
           
           <div className="space-y-1.5">
@@ -518,7 +547,7 @@ function GDonutStakedTile({
                 </span>
                 {dataReady && stakingData?.donutWeeklyUsd !== undefined && stakingData.donutWeeklyUsd > 0 && stakingData.donutPriceUsd > 0 && (
                   <span className="text-[9px] text-white/40 font-mono">
-                    (<MatrixStakingValue value={donutWeeklyDonutAmount} isReady={dataReady} /> / <MatrixStakingValue value={donutWeeklyUsdStr} isReady={dataReady} />)
+                    ({displayDonutAmount} / {displayDonutUsd})
                   </span>
                 )}
               </div>
@@ -535,16 +564,16 @@ function GDonutStakedTile({
                 </span>
                 {dataReady && stakingData?.usdcWeeklyUsd !== undefined && stakingData.usdcWeeklyUsd > 0 && (
                   <span className="text-[9px] text-white/40 font-mono">
-                    (<MatrixStakingValue value={usdcWeeklyUsdStr} isReady={dataReady} />)
+                    ({displayUsdcUsd})
                   </span>
                 )}
               </div>
             </div>
             
             <div className="flex items-center justify-between pt-1 border-t border-white/5">
-              <span className="text-[10px] text-white/50">Weekly Revenue Total:</span>
+              <span className="text-[10px] text-white/50">{periodLabel} Revenue Total:</span>
               <span className="font-mono text-xs font-bold text-pink-400">
-                <MatrixStakingValue value={totalWeeklyStr} isReady={dataReady} />
+                {dataReady ? displayTotalUsd : <MatrixStakingValue value={displayTotalUsd} isReady={dataReady} />}
               </span>
             </div>
           </div>
