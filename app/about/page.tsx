@@ -906,6 +906,18 @@ export default function AboutPage() {
         .animate-fall {
           animation: fall linear infinite;
         }
+        @keyframes spinCoin1 {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes spinCoin2 {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(-360deg); }
+        }
+        @keyframes spinCoin3 {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
       `}</style>
 
       <div
@@ -934,11 +946,13 @@ export default function AboutPage() {
               >
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <span className="w-14 h-14 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 animate-[fadeScaleIn_0.4s_ease-out_0.1s_forwards] opacity-0">
-                    <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover" />
+                    <img src="/coins/donut_logo.png" alt="" className="w-full h-full object-cover animate-[spinCoin1_8s_linear_1s_infinite]" />
                   </span>
                 </div>
+                {/* Dark overlay for text readability */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20 pointer-events-none" />
                 <div className="relative z-10">
-                  <span className="text-xs text-white font-bold whitespace-nowrap">Stake Donut</span>
+                  <span className="text-xs text-white font-bold whitespace-nowrap drop-shadow-lg">Stake Donut</span>
                 </div>
               </button>
 
@@ -954,11 +968,13 @@ export default function AboutPage() {
               >
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <span className="w-14 h-14 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 animate-[fadeScaleIn_0.4s_ease-out_0.2s_forwards] opacity-0">
-                    <img src="/coins/peeples_logo.png" alt="" className="w-full h-full object-cover" />
+                    <img src="/coins/peeples_logo.png" alt="" className="w-full h-full object-cover animate-[spinCoin2_6s_linear_1.2s_infinite]" />
                   </span>
                 </div>
+                {/* Dark overlay for text readability */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20 pointer-events-none" />
                 <div className="relative z-10">
-                  <span className="text-xs text-white font-bold whitespace-nowrap">Pool To Mine</span>
+                  <span className="text-xs text-white font-bold whitespace-nowrap drop-shadow-lg">Pool To Mine</span>
                 </div>
               </button>
 
@@ -974,11 +990,13 @@ export default function AboutPage() {
               >
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <span className="w-14 h-14 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 animate-[fadeScaleIn_0.4s_ease-out_0.3s_forwards] opacity-0">
-                    <img src="/coins/franchiser_logo.png" alt="" className="w-full h-full object-cover" />
+                    <img src="/coins/franchiser_logo.png" alt="" className="w-full h-full object-cover animate-[spinCoin3_7s_linear_1.4s_infinite]" />
                   </span>
                 </div>
+                {/* Dark overlay for text readability */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20 pointer-events-none" />
                 <div className="relative z-10">
-                  <span className="text-xs text-white font-bold whitespace-nowrap">Eco Tokens</span>
+                  <span className="text-xs text-white font-bold whitespace-nowrap drop-shadow-lg">Eco Tokens</span>
                 </div>
               </button>
             </div>
