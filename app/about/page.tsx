@@ -430,9 +430,9 @@ function GDonutStakedTile({
                   <span className="font-mono text-xs font-bold text-pink-400">
                     {stakingData.donutApr?.toFixed(1) || '0'}%
                   </span>
-                  {stakingData.donutWeeklyUsd !== undefined && stakingData.donutWeeklyUsd > 0 && (
+                  {stakingData.donutWeeklyUsd !== undefined && stakingData.donutWeeklyUsd > 0 && stakingData.donutPriceUsd > 0 && (
                     <span className="text-[9px] text-white/40">
-                      ({formatUsd(stakingData.donutWeeklyUsd)})
+                      ({Math.floor(stakingData.donutWeeklyUsd / stakingData.donutPriceUsd).toLocaleString()} / {formatUsd(stakingData.donutWeeklyUsd)})
                     </span>
                   )}
                 </div>
