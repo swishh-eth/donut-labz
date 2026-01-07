@@ -440,7 +440,7 @@ function GDonutStakedTile({
               
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <img src="/coins/usdc_logo.png" alt="" className="w-3.5 h-3.5 rounded-full" />
+                  <img src="/coins/USDC_LOGO.png" alt="" className="w-3.5 h-3.5 rounded-full" />
                   <span className="text-[10px] text-white/50">USDC EARNINGS (50%):</span>
                 </div>
                 <div className="flex items-center gap-1.5">
