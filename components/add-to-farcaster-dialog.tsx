@@ -49,8 +49,9 @@ export function AddToFarcasterDialog({
         }
 
         // Check localStorage to avoid showing repeatedly in same session
+        // TEMP: Bypassed for testing - remove "false &&" after testing
         const hasSeenPrompt = localStorage.getItem(storageKey);
-        if (hasSeenPrompt) {
+        if (false && hasSeenPrompt) {
           return;
         }
 
