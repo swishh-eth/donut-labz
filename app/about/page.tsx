@@ -390,6 +390,7 @@ function BurnCounterTile({
           <div className="text-left flex-1">
             <div className="flex items-center gap-1 mb-0.5">
               <span className="font-bold text-[10px] text-pink-400 whitespace-nowrap">DONUT BURNED</span>
+              <span className="text-[8px] text-white/40">(Dead LP Fees)</span>
             </div>
             <div className="font-mono text-lg font-bold">
               <MatrixNumber value={displayDonut} isLoading={isLoading} className="text-pink-400" />
