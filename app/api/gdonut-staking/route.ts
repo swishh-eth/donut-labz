@@ -248,21 +248,24 @@ export async function GET() {
     // Calculate treasury's share of weekly revenue
     const treasuryWeeklyRevenueUsd = revenueData.totalWeeklyRevenueUsd * (treasurySharePercent / 100);
     
-    // Calculate treasury's share of each revenue stream
-    // DONUT stream = donut buybacks + LP rewards
-    // USDC stream = usdc rewards + qr rewards
-    const treasuryDonutWeeklyUsd = (revenueData.breakdown.donut + revenueData.breakdown.donutEthLp) * (treasurySharePercent / 100);
-    const treasuryUsdcWeeklyUsd = (revenueData.breakdown.usdc + revenueData.breakdown.qr) * (treasurySharePercent / 100);
-    
     // Calculate APR: (yearly revenue / staked value) * 100
     const treasuryStakedUsd = treasuryBalanceNum * donutPriceUsd;
-    const yearlyRevenueUsd = treasuryWeeklyRevenueUsd * 52;
-    const apr = treasuryStakedUsd > 0 ? (yearlyRevenueUsd / treasuryStakedUsd) * 100 : 0;
     
-    // Use the actual strategy APRs from GlazeCorp (not calculated)
-    // Treasury is 50% DONUT, 50% USDC allocation
+    // Use the actual strategy APRs from GlazeCorp
     const donutApr = strategyAprs.donutApr;
     const usdcApr = strategyAprs.usdcApr;
+    
+    // Treasury stake is split 50/50 between DONUT and USDC strategies
+    // So each strategy only earns on HALF the staked value
+    const halfStakedUsd = treasuryStakedUsd / 2;
+    
+    // Calculate weekly USD earnings for each strategy
+    // Formula: (staked * APR / 100) / 52 weeks
+    const treasuryDonutWeeklyUsd = (halfStakedUsd * donutApr / 100) / 52;
+    const treasuryUsdcWeeklyUsd = (halfStakedUsd * usdcApr / 100) / 52;
+    
+    // Combined APR is the weighted average (which is just the average since 50/50)
+    const apr = (donutApr + usdcApr) / 2;
 
     const result = {
       // Treasury staking info
