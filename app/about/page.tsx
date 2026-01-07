@@ -333,13 +333,26 @@ function BurnCounterTile({
   );
 }
 
-// Treasury gDONUT Staked Tile Component
+// Treasury gDONUT Staked Tile Component (Combined with Staking Revenue)
 function GDonutStakedTile({ 
   gDonutStaked, 
-  isLoading 
+  isLoading,
+  stakingData,
+  isStakingLoading,
 }: { 
   gDonutStaked: bigint; 
   isLoading: boolean;
+  stakingData: {
+    treasurySharePercent: number;
+    treasuryStakedUsd: number;
+    totalStaked: number;
+    totalStakedUsd: number;
+    donutPriceUsd: number;
+    weeklyRevenueUsd: number;
+    totalWeeklyRevenueUsd: number;
+    apr: number;
+  } | null;
+  isStakingLoading: boolean;
 }) {
   const [displayAmount, setDisplayAmount] = useState(0);
   
@@ -349,120 +362,102 @@ function GDonutStakedTile({
     setDisplayAmount(Math.floor(realAmount));
   }, [gDonutStaked, isLoading]);
 
+  const formatUsd = (num: number) => {
+    if (num >= 1000) {
+      return `$${(num / 1000).toFixed(1)}k`;
+    }
+    if (num < 0.01) return '<$0.01';
+    return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatUsdFull = (num: number) => {
+    return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   return (
     <div
       className="gdonut-staked-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden"
-      style={{ height: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+      style={{ minHeight: '180px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
     >
-      <FallingDonuts />
+      {/* Extended Falling Donuts */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {[...Array(12)].map((_, i) => (
+          <span
+            key={i}
+            className="absolute text-lg animate-fall"
+            style={{
+              left: `${8 + (i * 8)}%`,
+              top: '-20px',
+              animationDuration: `${3 + (i % 3)}s`,
+              animationDelay: `${i * 0.3}s`,
+              opacity: 0,
+            }}
+          >
+            🍩
+          </span>
+        ))}
+      </div>
       
-      <div className="relative z-10 p-4 h-full flex flex-col justify-center">
-        <div className="text-left">
+      <div className="relative z-10 p-4 h-full flex flex-col">
+        {/* Top Section - gDONUT Staked */}
+        <div className="text-left mb-3">
           <div className="flex items-center gap-2 mb-0.5">
             <span className="font-bold text-xs text-pink-400">SPRINKLES TREASURY gDONUT</span>
           </div>
           <div className="font-mono text-2xl font-bold">
             <MatrixNumber value={displayAmount} isLoading={isLoading} className="text-pink-400" />
           </div>
+          <div className="text-[9px] text-white/40 mt-0.5">
+            Miner 15% revenue fee • Liquid Staked Governance
+          </div>
         </div>
-        <div className="text-[9px] text-white/40 mt-1">
-          Miner 15% revenue fee • Liquid Staked Governance
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Staking Earnings Tile Component
-function StakingEarningsTile({ 
-  stakingData, 
-  isLoading 
-}: { 
-  stakingData: {
-    treasurySharePercent: number;
-    treasuryStakedUsd: number;
-    totalStaked: number;
-    totalStakedUsd: number;
-    donutPriceUsd: number;
-    weeklyRevenue: number;
-    weeklyRevenueUsd: number;
-    apr: number;
-  } | null;
-  isLoading: boolean;
-}) {
-  const formatUsd = (num: number) => {
-    if (num < 0.01) return '<$0.01';
-    return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-
-  const formatNumber = (num: number, decimals = 2) => {
-    if (num >= 1000) {
-      return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
-    }
-    return num.toFixed(decimals);
-  };
-
-  return (
-    <div
-      className="staking-earnings-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden"
-      style={{ minHeight: '120px', background: 'linear-gradient(135deg, rgba(34,197,94,0.1) 0%, rgba(34,197,94,0.02) 100%)' }}
-    >
-      {/* Decorative chart icon */}
-      <div className="absolute -right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-10">
-        <svg className="w-28 h-28 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M3 3v18h18" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M7 14l4-4 4 4 5-5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </div>
-      
-      <div className="relative z-10 p-4 h-full">
+        
+        {/* Divider */}
+        <div className="border-t border-white/10 my-2" />
+        
+        {/* Bottom Section - Staking Revenue */}
         <div className="text-left">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="font-bold text-xs text-green-400">STAKING REVENUE</span>
-            {stakingData && stakingData.apr > 0 && (
-              <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full font-semibold">
-                ~{stakingData.apr.toFixed(1)}% APR
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="font-bold text-xs text-pink-400">STAKING REVENUE</span>
+            {stakingData && stakingData.apr > 1 && (
+              <span className="text-[10px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded-full font-semibold">
+                ~{stakingData.apr.toFixed(0)}% APR
               </span>
             )}
           </div>
           
-          {isLoading || !stakingData ? (
-            <div className="space-y-2">
-              <div className="h-6 w-32 bg-white/10 rounded animate-pulse" />
-              <div className="h-4 w-24 bg-white/10 rounded animate-pulse" />
+          {isStakingLoading || !stakingData ? (
+            <div className="space-y-1.5">
+              <div className="h-5 w-28 bg-white/10 rounded animate-pulse" />
+              <div className="h-4 w-20 bg-white/10 rounded animate-pulse" />
             </div>
           ) : (
-            <div className="space-y-2">
-              {/* Weekly Revenue */}
-              <div>
-                <div className="text-[10px] text-white/50 uppercase tracking-wide">Est. Weekly Revenue</div>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-mono text-xl font-bold text-green-400">
-                    {formatUsd(stakingData.weeklyRevenueUsd)}
-                  </span>
-                  <span className="text-[10px] text-white/40">
-                    ~{formatNumber(stakingData.weeklyRevenue, 4)} DONUT
-                  </span>
-                </div>
+            <div className="space-y-1.5">
+              {/* Protocol Weekly Revenue */}
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-white/50">Protocol Weekly:</span>
+                <span className="font-mono text-sm font-bold text-white">
+                  {formatUsd(stakingData.totalWeeklyRevenueUsd)}
+                </span>
               </div>
               
-              {/* Stats row */}
-              <div className="flex items-center gap-4 text-[10px]">
-                <div>
-                  <span className="text-white/50">Share: </span>
-                  <span className="text-white/80 font-medium">{stakingData.treasurySharePercent.toFixed(2)}%</span>
-                </div>
-                <div>
-                  <span className="text-white/50">Staked: </span>
-                  <span className="text-white/80 font-medium">{formatUsd(stakingData.treasuryStakedUsd)}</span>
-                </div>
+              {/* Treasury Share */}
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-white/50">Treasury Share ({stakingData.treasurySharePercent.toFixed(2)}%):</span>
+                <span className="font-mono text-sm font-bold text-pink-400">
+                  {formatUsd(stakingData.weeklyRevenueUsd)}
+                </span>
+              </div>
+              
+              {/* Staked Value */}
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-white/50">Staked Value:</span>
+                <span className="font-mono text-xs text-white/70">
+                  {formatUsdFull(stakingData.treasuryStakedUsd)}
+                </span>
               </div>
             </div>
           )}
-        </div>
-        
-        <div className="text-[9px] text-white/40 mt-2">
-          From gDONUT governance • 15% miner fee
         </div>
       </div>
     </div>
@@ -788,8 +783,8 @@ export default function AboutPage() {
     totalStaked: number;
     totalStakedUsd: number;
     donutPriceUsd: number;
-    weeklyRevenue: number;
     weeklyRevenueUsd: number;
+    totalWeeklyRevenueUsd: number;
     apr: number;
   } | null>(null);
   const [isStakingLoading, setIsStakingLoading] = useState(true);
@@ -854,8 +849,8 @@ export default function AboutPage() {
             totalStaked: data.totalStaked || 0,
             totalStakedUsd: data.totalStakedUsd || 0,
             donutPriceUsd: data.donutPriceUsd || 0,
-            weeklyRevenue: data.weeklyRevenue || 0,
             weeklyRevenueUsd: data.weeklyRevenueUsd || 0,
+            totalWeeklyRevenueUsd: data.totalWeeklyRevenueUsd || 0,
             apr: data.apr || 0,
           });
         }
@@ -1192,30 +1187,31 @@ export default function AboutPage() {
               </div>
 
               <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}>
-                <GDonutStakedTile gDonutStaked={gDonutStaked} isLoading={isGDonutLoading} />
+                <GDonutStakedTile 
+                  gDonutStaked={gDonutStaked} 
+                  isLoading={isGDonutLoading} 
+                  stakingData={stakingData}
+                  isStakingLoading={isStakingLoading}
+                />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '75ms', animationFillMode: 'forwards' } : {}}>
-                <StakingEarningsTile stakingData={stakingData} isLoading={isStakingLoading} />
-              </div>
-
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '125ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}>
                 <HalvingCountdownTile />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '175ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}>
                 <DonutInfoTile onClick={() => window.location.href = "/about/donut"} />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '225ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}>
                 <SprinklesInfoTile onClick={() => window.location.href = "/about/sprinkles"} />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '275ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '250ms', animationFillMode: 'forwards' } : {}}>
                 <LinksContractsTile onClick={() => window.location.href = "/about/links-contracts"} />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '325ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '300ms', animationFillMode: 'forwards' } : {}}>
                 <DonutDashboardTile onClick={async () => {
                   try {
                     await sdk.actions.openUrl({ url: "https://dune.com/xyk/donut-company" });
@@ -1225,7 +1221,7 @@ export default function AboutPage() {
                 }} />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '375ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '350ms', animationFillMode: 'forwards' } : {}}>
                 <SprinklesDashboardTile 
                   showComingSoon={showComingSoon}
                   onClick={() => {
