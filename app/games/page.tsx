@@ -52,7 +52,6 @@ function FlappyDonutTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlaye
       <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Gamepad2 className="w-5 h-5 text-white" />
             <span className="font-bold text-base text-white">Flappy Donut</span>
             <span className="text-[8px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded-full">PAID GAME</span>
           </div>
@@ -94,7 +93,6 @@ function GlazeStackTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer
       <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Layers className="w-5 h-5 text-white" />
             <span className="font-bold text-base text-white">Glaze Stack</span>
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
           </div>
@@ -136,7 +134,6 @@ function DonutDashTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer:
       <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Rocket className="w-5 h-5 text-white" />
             <span className="font-bold text-base text-white">Donut Dash</span>
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
           </div>
@@ -178,7 +175,6 @@ function DonutJumpTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer:
       <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Trophy className="w-5 h-5 text-white" />
             <span className="font-bold text-base text-white">Donut Jump</span>
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
           </div>
@@ -218,7 +214,6 @@ function ComingSoonTile() {
       <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
-            <Settings className="w-5 h-5 text-zinc-600" />
             <span className="font-bold text-base text-zinc-600">Coming Soon</span>
           </div>
           <div className="text-[10px] text-zinc-700 mb-2">New game in development</div>
@@ -683,10 +678,7 @@ export default function GamesPage() {
 
               <div className="space-y-4 text-sm">
                 <div className="bg-zinc-800/50 rounded-xl p-3">
-                  <h3 className="font-bold text-white mb-2 flex items-center gap-2">
-                    <Gamepad2 className="w-4 h-4 text-white" />
-                    Flappy Donut
-                  </h3>
+                  <h3 className="font-bold text-white mb-2">Flappy Donut</h3>
                   <p className="text-gray-400 text-xs">
                     Tap to fly your donut through the rolling pins! Each gap passed = 1 point. 
                     Top 10 weekly scores split the <DonutCoin className="w-3 h-3 inline-block align-middle mx-0.5" /> DONUT prize pool.
@@ -694,10 +686,7 @@ export default function GamesPage() {
                 </div>
 
                 <div className="bg-zinc-800/50 rounded-xl p-3">
-                  <h3 className="font-bold text-white mb-2 flex items-center gap-2">
-                    <Rocket className="w-4 h-4 text-white" />
-                    Donut Dash
-                  </h3>
+                  <h3 className="font-bold text-white mb-2">Donut Dash</h3>
                   <p className="text-gray-400 text-xs">
                     Hold to jetpack up, release to fall! Collect sprinkles and avoid obstacles. 
                     Top 10 weekly scores split the USDC prize pool. FREE to play!
@@ -705,10 +694,7 @@ export default function GamesPage() {
                 </div>
 
                 <div className="bg-zinc-800/50 rounded-xl p-3">
-                  <h3 className="font-bold text-white mb-2 flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-white" />
-                    Donut Jump
-                  </h3>
+                  <h3 className="font-bold text-white mb-2">Donut Jump</h3>
                   <p className="text-gray-400 text-xs">
                     Tap left/right to move, bounce on platforms to climb! Collect donut coins and power-ups.
                     Top 10 weekly scores split the USDC prize pool. FREE to play!
@@ -716,10 +702,7 @@ export default function GamesPage() {
                 </div>
 
                 <div className="bg-zinc-800/50 rounded-xl p-3">
-                  <h3 className="font-bold text-white mb-2 flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-white" />
-                    Glaze Stack
-                  </h3>
+                  <h3 className="font-bold text-white mb-2">Glaze Stack</h3>
                   <p className="text-gray-400 text-xs">
                     Tap to drop blocks and stack them perfectly! Overhanging parts fall off. 
                     Top 10 weekly scores split the USDC prize pool. FREE to play!
