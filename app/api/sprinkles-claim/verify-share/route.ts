@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
     const casts = data.casts || [];
 
-    // Look for a cast that mentions SPRINKLES claim and has the donutlabs link
+    // Look for a cast that mentions SPRINKLES claim and has the sprinkles link
     const validCast = casts.find((cast: any) => {
       const text = cast.text?.toLowerCase() || "";
       const hasKeywords = 
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       
       // Check for embed
       const hasEmbed = cast.embeds?.some((embed: any) => 
-        embed.url?.includes("donutlabs")
+        embed.url?.includes("sprinkles.wtf")
       );
 
       // Cast must be recent (within last hour)
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     if (!validCast) {
       return NextResponse.json(
-        { error: "No valid share cast found. Make sure to include 'SPRINKLES', 'claim', and the donutlabs link." },
+        { error: "No valid share cast found. Make sure to include 'SPRINKLES', 'claim', and the sprinkles.wtf link." },
         { status: 400 }
       );
     }

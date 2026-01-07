@@ -13,7 +13,7 @@ type AddToFarcasterDialogProps = {
 
 export function AddToFarcasterDialog({
   showOnFirstVisit = true,
-  storageKey = "donutlabs-add-miniapp-prompt-shown",
+  storageKey = "sprinkles-add-miniapp-prompt-shown",
 }: AddToFarcasterDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<"idle" | "adding" | "success" | "error">("idle");
@@ -137,7 +137,7 @@ export function AddToFarcasterDialog({
             <div className="rounded-2xl bg-gradient-to-br from-zinc-700 to-zinc-800 p-4">
               <img
                 src="/media/icon.png"
-                alt="DonutLabs"
+                alt="Sprinkles"
                 className="h-16 w-16"
               />
             </div>

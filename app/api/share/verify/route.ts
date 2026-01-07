@@ -23,12 +23,12 @@ const SWISHH_FID = 209951;
 
 // The URLs/text that indicate a valid share
 const REQUIRED_EMBED_URLS = [
-  "donutlabs.vercel.app",
+  "sprinkles.wtf",
   "farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles",
   "farcaster.xyz/miniapps/5argX24fr_Tq",
   "5argX24fr_Tq", // miniapp ID
-  "warpcast.com/miniapps/donutlabs",
-  "warpcast.com/~/miniapps/donutlabs",
+  "warpcast.com/miniapps/sprinkles",
+  "warpcast.com/~/miniapps/sprinkles",
 ];
 
 // Helper to check if a string contains any of our required URLs
