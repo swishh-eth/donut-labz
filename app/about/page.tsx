@@ -147,14 +147,22 @@ function MatrixDigit({ digit, delay = 0 }: { digit: string; delay?: number }) {
 function MatrixStakingDigit({ char, delay = 0 }: { char: string; delay?: number }) {
   // Check if character is a digit (0-9) - only digits should animate
   const isDigit = /^[0-9]$/.test(char);
+  const hasAnimatedRef = useRef(false);
   const [displayChar, setDisplayChar] = useState(() => 
     isDigit ? String(Math.floor(Math.random() * 10)) : char
   );
-  const [isAnimating, setIsAnimating] = useState(isDigit);
+  const [isAnimating, setIsAnimating] = useState(isDigit && !hasAnimatedRef.current);
   
   useEffect(() => {
     // Non-digits (letters, punctuation, symbols) - just show them
     if (!isDigit) {
+      setDisplayChar(char);
+      setIsAnimating(false);
+      return;
+    }
+    
+    // If already animated once, just update the value without animation
+    if (hasAnimatedRef.current) {
       setDisplayChar(char);
       setIsAnimating(false);
       return;
@@ -171,6 +179,7 @@ function MatrixStakingDigit({ char, delay = 0 }: { char: string; delay?: number 
       } else {
         setDisplayChar(char);
         setIsAnimating(false);
+        hasAnimatedRef.current = true;
         clearInterval(cycleInterval);
       }
     }, 50);
@@ -410,6 +419,8 @@ function BurnCounterTile({
 function MinerRevenueTile({ 
   minerRevenue,
   isLoading,
+  showDaily,
+  onToggle,
 }: { 
   minerRevenue: {
     weeklyDonut: number;
@@ -424,9 +435,10 @@ function MinerRevenueTile({
     dailyMineCount: number;
   } | null;
   isLoading: boolean;
+  showDaily: boolean;
+  onToggle: () => void;
 }) {
   const [dataReady, setDataReady] = useState(false);
-  const [showDaily, setShowDaily] = useState(false);
   
   // Set data ready when miner data loads
   useEffect(() => {
@@ -470,9 +482,8 @@ function MinerRevenueTile({
     <div
       className="miner-revenue-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden cursor-pointer active:scale-[0.99] transition-transform"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
-      onClick={() => setShowDaily(!showDaily)}
+      onClick={onToggle}
     >
-      <FallingCoins />
       <div className="relative z-10 p-4 h-full flex flex-col justify-center">
         <div className="text-left">
           <div className="flex items-center justify-between mb-1">
@@ -536,6 +547,8 @@ function GDonutStakedTile({
   isLoading,
   stakingData,
   isStakingLoading,
+  showDaily,
+  onToggle,
 }: { 
   gDonutStaked: bigint; 
   isLoading: boolean;
@@ -554,10 +567,11 @@ function GDonutStakedTile({
     usdcWeeklyUsd?: number;
   } | null;
   isStakingLoading: boolean;
+  showDaily: boolean;
+  onToggle: () => void;
 }) {
   const [displayAmount, setDisplayAmount] = useState(0);
   const [dataReady, setDataReady] = useState(false);
-  const [showDaily, setShowDaily] = useState(false);
   
   useEffect(() => {
     if (isLoading || gDonutStaked === 0n) return;
@@ -629,7 +643,7 @@ function GDonutStakedTile({
     <div
       className="gdonut-staked-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden cursor-pointer active:scale-[0.99] transition-transform"
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
-      onClick={() => setShowDaily(!showDaily)}
+      onClick={onToggle}
     >
       <div className="relative z-10 p-4 h-full flex flex-col justify-center">
         {/* Top Section - gDONUT Staked */}
@@ -1085,6 +1099,9 @@ export default function AboutPage() {
   } | null>(null);
   const [isMinerRevenueLoading, setIsMinerRevenueLoading] = useState(true);
   
+  // Shared daily/weekly toggle state for revenue tiles
+  const [showDailyRevenue, setShowDailyRevenue] = useState(false);
+  
   // App & notification state
   const [isAppAdded, setIsAppAdded] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -1521,6 +1538,8 @@ export default function AboutPage() {
                 <MinerRevenueTile 
                   minerRevenue={minerRevenue}
                   isLoading={isMinerRevenueLoading}
+                  showDaily={showDailyRevenue}
+                  onToggle={() => setShowDailyRevenue(!showDailyRevenue)}
                 />
               </div>
 
@@ -1530,6 +1549,8 @@ export default function AboutPage() {
                   isLoading={isGDonutLoading} 
                   stakingData={stakingData}
                   isStakingLoading={isStakingLoading}
+                  showDaily={showDailyRevenue}
+                  onToggle={() => setShowDailyRevenue(!showDailyRevenue)}
                 />
               </div>
 
