@@ -147,22 +147,14 @@ function MatrixDigit({ digit, delay = 0 }: { digit: string; delay?: number }) {
 function MatrixStakingDigit({ char, delay = 0 }: { char: string; delay?: number }) {
   // Check if character is a digit (0-9) - only digits should animate
   const isDigit = /^[0-9]$/.test(char);
-  const hasAnimatedRef = useRef(false);
   const [displayChar, setDisplayChar] = useState(() => 
     isDigit ? String(Math.floor(Math.random() * 10)) : char
   );
-  const [isAnimating, setIsAnimating] = useState(isDigit && !hasAnimatedRef.current);
+  const [isAnimating, setIsAnimating] = useState(isDigit);
   
   useEffect(() => {
     // Non-digits (letters, punctuation, symbols) - just show them
     if (!isDigit) {
-      setDisplayChar(char);
-      setIsAnimating(false);
-      return;
-    }
-    
-    // If already animated once, just update the value without animation
-    if (hasAnimatedRef.current) {
       setDisplayChar(char);
       setIsAnimating(false);
       return;
@@ -179,7 +171,6 @@ function MatrixStakingDigit({ char, delay = 0 }: { char: string; delay?: number 
       } else {
         setDisplayChar(char);
         setIsAnimating(false);
-        hasAnimatedRef.current = true;
         clearInterval(cycleInterval);
       }
     }, 50);
@@ -484,6 +475,7 @@ function MinerRevenueTile({
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
       onClick={onToggle}
     >
+      <FallingCoins />
       <div className="relative z-10 p-4 h-full flex flex-col justify-center">
         <div className="text-left">
           <div className="flex items-center justify-between mb-1">
@@ -651,15 +643,15 @@ function GDonutStakedTile({
           <div className="flex items-center gap-2 mb-0.5">
             <span className="font-bold text-xs text-pink-400">SPRINKLES TREASURY gDONUT</span>
           </div>
-          <div className="flex items-baseline gap-2">
+          {/* Fixed height container to prevent pop */}
+          <div className="flex items-baseline gap-2 min-h-[32px]">
             <div className="font-mono text-2xl font-bold">
               <MatrixNumber value={displayAmount} isLoading={isLoading} className="text-pink-400" />
             </div>
-            {dataReady && (
-              <span className="text-sm text-white/50 font-mono animate-fadeIn">
-                <MatrixStakingValue value={stakedValueStr} isReady={dataReady} />
-              </span>
-            )}
+            {/* Always render but control visibility with opacity for smooth transition */}
+            <span className={`text-sm text-white/50 font-mono transition-opacity duration-300 ${dataReady ? 'opacity-100' : 'opacity-0'}`}>
+              {dataReady ? <MatrixStakingValue value={stakedValueStr} isReady={dataReady} /> : '\u00A0'}
+            </span>
           </div>
           <div className="text-[9px] text-white/40 mt-0.5">
             Miner 15% revenue fee • Liquid Staked Governance
@@ -677,7 +669,8 @@ function GDonutStakedTile({
           </div>
           
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
+            {/* Fixed height rows to prevent pop */}
+            <div className="flex items-center justify-between min-h-[18px]">
               <div className="flex items-center gap-1.5">
                 <img src="/coins/donut_logo.png" alt="" className="w-3.5 h-3.5 rounded-full" />
                 <span className="text-[10px] text-white/50">DONUT EARNINGS (50%):</span>
@@ -686,15 +679,15 @@ function GDonutStakedTile({
                 <span className="font-mono text-xs font-bold text-pink-400">
                   <MatrixStakingValue value={`APR: ${donutAprStr}%`} isReady={dataReady} />
                 </span>
-                {dataReady && stakingData?.donutWeeklyUsd !== undefined && stakingData.donutWeeklyUsd > 0 && (
-                  <span className="text-[9px] text-white/40 font-mono">
-                    (<MatrixStakingValue value={displayDonutUsd} isReady={dataReady} />)
-                  </span>
-                )}
+                <span className={`text-[9px] text-white/40 font-mono transition-opacity duration-300 ${dataReady && stakingData?.donutWeeklyUsd !== undefined && stakingData.donutWeeklyUsd > 0 ? 'opacity-100' : 'opacity-0'}`}>
+                  {dataReady && stakingData?.donutWeeklyUsd !== undefined && stakingData.donutWeeklyUsd > 0 ? (
+                    <>(<MatrixStakingValue value={displayDonutUsd} isReady={dataReady} />)</>
+                  ) : '\u00A0'}
+                </span>
               </div>
             </div>
             
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between min-h-[18px]">
               <div className="flex items-center gap-1.5">
                 <img src="/coins/USDC_LOGO.png" alt="" className="w-3.5 h-3.5 rounded-full" />
                 <span className="text-[10px] text-white/50">USDC EARNINGS (50%):</span>
@@ -703,15 +696,15 @@ function GDonutStakedTile({
                 <span className="font-mono text-xs font-bold text-pink-400">
                   <MatrixStakingValue value={`APR: ${usdcAprStr}%`} isReady={dataReady} />
                 </span>
-                {dataReady && stakingData?.usdcWeeklyUsd !== undefined && stakingData.usdcWeeklyUsd > 0 && (
-                  <span className="text-[9px] text-white/40 font-mono">
-                    (<MatrixStakingValue value={displayUsdcUsd} isReady={dataReady} />)
-                  </span>
-                )}
+                <span className={`text-[9px] text-white/40 font-mono transition-opacity duration-300 ${dataReady && stakingData?.usdcWeeklyUsd !== undefined && stakingData.usdcWeeklyUsd > 0 ? 'opacity-100' : 'opacity-0'}`}>
+                  {dataReady && stakingData?.usdcWeeklyUsd !== undefined && stakingData.usdcWeeklyUsd > 0 ? (
+                    <>(<MatrixStakingValue value={displayUsdcUsd} isReady={dataReady} />)</>
+                  ) : '\u00A0'}
+                </span>
               </div>
             </div>
             
-            <div className="flex items-center justify-between pt-1 border-t border-white/5">
+            <div className="flex items-center justify-between pt-1 border-t border-white/5 min-h-[22px]">
               <span className="text-[10px] text-white/50">{periodLabel} Revenue Total:</span>
               <span className="font-mono text-xs font-bold text-pink-400">
                 <MatrixStakingValue value={displayTotalUsd} isReady={dataReady} />
@@ -1351,6 +1344,11 @@ export default function AboutPage() {
     setIsEnablingNotifications(false);
   };
 
+  // Toggle handler for revenue tiles
+  const handleToggleRevenue = () => {
+    setShowDailyRevenue(!showDailyRevenue);
+  };
+
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
       <style>{`
@@ -1539,7 +1537,7 @@ export default function AboutPage() {
                   minerRevenue={minerRevenue}
                   isLoading={isMinerRevenueLoading}
                   showDaily={showDailyRevenue}
-                  onToggle={() => setShowDailyRevenue(!showDailyRevenue)}
+                  onToggle={handleToggleRevenue}
                 />
               </div>
 
@@ -1550,7 +1548,7 @@ export default function AboutPage() {
                   stakingData={stakingData}
                   isStakingLoading={isStakingLoading}
                   showDaily={showDailyRevenue}
-                  onToggle={() => setShowDailyRevenue(!showDailyRevenue)}
+                  onToggle={handleToggleRevenue}
                 />
               </div>
 
