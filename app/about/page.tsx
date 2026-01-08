@@ -406,6 +406,130 @@ function BurnCounterTile({
   );
 }
 
+// Miner Revenue Tile Component
+function MinerRevenueTile({ 
+  minerRevenue,
+  isLoading,
+}: { 
+  minerRevenue: {
+    weeklyDonut: number;
+    dailyDonut: number;
+    weeklyUsd: number;
+    dailyUsd: number;
+    weeklyVolumeDonut: number;
+    dailyVolumeDonut: number;
+    weeklyVolumeUsd: number;
+    dailyVolumeUsd: number;
+    weeklyMineCount: number;
+    dailyMineCount: number;
+  } | null;
+  isLoading: boolean;
+}) {
+  const [dataReady, setDataReady] = useState(false);
+  const [showDaily, setShowDaily] = useState(false);
+  
+  // Set data ready when miner data loads
+  useEffect(() => {
+    if (!isLoading && minerRevenue && !dataReady) {
+      const timeout = setTimeout(() => setDataReady(true), 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [isLoading, minerRevenue, dataReady]);
+
+  const formatUsd = (num: number) => {
+    if (num >= 1000) {
+      return `$${(num / 1000).toFixed(1)}k`;
+    }
+    if (num < 0.01 && num > 0) return '<$0.01';
+    return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatDonut = (num: number) => {
+    return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  };
+
+  // Values based on toggle
+  const displayRevenueUsd = showDaily 
+    ? formatUsd(minerRevenue?.dailyUsd || 0) 
+    : formatUsd(minerRevenue?.weeklyUsd || 0);
+  const displayRevenueDonut = showDaily 
+    ? formatDonut(minerRevenue?.dailyDonut || 0) 
+    : formatDonut(minerRevenue?.weeklyDonut || 0);
+  const displayVolumeUsd = showDaily 
+    ? formatUsd(minerRevenue?.dailyVolumeUsd || 0) 
+    : formatUsd(minerRevenue?.weeklyVolumeUsd || 0);
+  const displayVolumeDonut = showDaily 
+    ? formatDonut(minerRevenue?.dailyVolumeDonut || 0) 
+    : formatDonut(minerRevenue?.weeklyVolumeDonut || 0);
+  const displayMineCount = showDaily 
+    ? (minerRevenue?.dailyMineCount || 0).toLocaleString() 
+    : (minerRevenue?.weeklyMineCount || 0).toLocaleString();
+  const periodLabel = showDaily ? 'Daily' : 'Weekly';
+
+  return (
+    <div
+      className="miner-revenue-tile relative w-full rounded-2xl border-2 border-white/20 overflow-hidden cursor-pointer active:scale-[0.99] transition-transform"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+      onClick={() => setShowDaily(!showDaily)}
+    >
+      <FallingCoins />
+      <div className="relative z-10 p-4 h-full flex flex-col justify-center">
+        <div className="text-left">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-xs text-white">MINER REVENUE</span>
+              <span className="text-[8px] text-white/40">(15% Treasury Fee)</span>
+            </div>
+            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold transition-colors ${showDaily ? 'bg-green-500/30 text-green-300' : 'bg-white/10 text-white/50'}`}>
+              {showDaily ? 'DAILY' : 'WEEKLY'}
+            </span>
+          </div>
+          
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <img src="/coins/donut_logo.png" alt="" className="w-3.5 h-3.5 rounded-full" />
+                <span className="text-[10px] text-white/50">Treasury Earnings:</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-xs font-bold text-green-400">
+                  <MatrixStakingValue value={displayRevenueUsd} isReady={dataReady} />
+                </span>
+                {dataReady && minerRevenue && (minerRevenue.weeklyDonut > 0 || minerRevenue.dailyDonut > 0) && (
+                  <span className="text-[9px] text-white/40 font-mono">
+                    (<MatrixStakingValue value={`${displayRevenueDonut} DONUT`} isReady={dataReady} />)
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-white/50">Miner Volume:</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-xs text-white/70">
+                  <MatrixStakingValue value={displayVolumeUsd} isReady={dataReady} />
+                </span>
+                {dataReady && minerRevenue && (minerRevenue.weeklyVolumeDonut > 0 || minerRevenue.dailyVolumeDonut > 0) && (
+                  <span className="text-[9px] text-white/40 font-mono">
+                    (<MatrixStakingValue value={`${displayVolumeDonut} DONUT`} isReady={dataReady} />)
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between pt-1 border-t border-white/5">
+              <span className="text-[10px] text-white/50">{periodLabel} Mines:</span>
+              <span className="font-mono text-xs text-white/70">
+                <MatrixStakingValue value={displayMineCount} isReady={dataReady} />
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Treasury gDONUT Staked Tile Component (Combined with Staking Revenue)
 function GDonutStakedTile({ 
   gDonutStaked, 
@@ -945,6 +1069,21 @@ export default function AboutPage() {
     usdcWeeklyUsd?: number;
   } | null>(null);
   const [isStakingLoading, setIsStakingLoading] = useState(true);
+
+  // Miner revenue state
+  const [minerRevenue, setMinerRevenue] = useState<{
+    weeklyDonut: number;
+    dailyDonut: number;
+    weeklyUsd: number;
+    dailyUsd: number;
+    weeklyVolumeDonut: number;
+    dailyVolumeDonut: number;
+    weeklyVolumeUsd: number;
+    dailyVolumeUsd: number;
+    weeklyMineCount: number;
+    dailyMineCount: number;
+  } | null>(null);
+  const [isMinerRevenueLoading, setIsMinerRevenueLoading] = useState(true);
   
   // App & notification state
   const [isAppAdded, setIsAppAdded] = useState(false);
@@ -1018,6 +1157,36 @@ export default function AboutPage() {
     };
     
     fetchStakingData();
+  }, []);
+
+  // Fetch miner revenue data (once on mount)
+  useEffect(() => {
+    const fetchMinerRevenue = async () => {
+      setIsMinerRevenueLoading(true);
+      try {
+        const res = await fetch("/api/miner-revenue");
+        if (res.ok) {
+          const data = await res.json();
+          setMinerRevenue({
+            weeklyDonut: data.weeklyDonut || 0,
+            dailyDonut: data.dailyDonut || 0,
+            weeklyUsd: data.weeklyUsd || 0,
+            dailyUsd: data.dailyUsd || 0,
+            weeklyVolumeDonut: data.weeklyVolumeDonut || 0,
+            dailyVolumeDonut: data.dailyVolumeDonut || 0,
+            weeklyVolumeUsd: data.weeklyVolumeUsd || 0,
+            dailyVolumeUsd: data.dailyVolumeUsd || 0,
+            weeklyMineCount: data.weeklyMineCount || 0,
+            dailyMineCount: data.dailyMineCount || 0,
+          });
+        }
+      } catch (e) {
+        console.error("Failed to fetch miner revenue:", e);
+      }
+      setIsMinerRevenueLoading(false);
+    };
+    
+    fetchMinerRevenue();
   }, []);
 
   useEffect(() => {
@@ -1349,6 +1518,13 @@ export default function AboutPage() {
               </div>
 
               <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}>
+                <MinerRevenueTile 
+                  minerRevenue={minerRevenue}
+                  isLoading={isMinerRevenueLoading}
+                />
+              </div>
+
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}>
                 <GDonutStakedTile 
                   gDonutStaked={gDonutStaked} 
                   isLoading={isGDonutLoading} 
@@ -1357,23 +1533,23 @@ export default function AboutPage() {
                 />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}>
                 <HalvingCountdownTile />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}>
                 <DonutInfoTile onClick={() => window.location.href = "/about/donut"} />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '250ms', animationFillMode: 'forwards' } : {}}>
                 <SprinklesInfoTile onClick={() => window.location.href = "/about/sprinkles"} />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '250ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '300ms', animationFillMode: 'forwards' } : {}}>
                 <LinksContractsTile onClick={() => window.location.href = "/about/links-contracts"} />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '300ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '350ms', animationFillMode: 'forwards' } : {}}>
                 <DonutDashboardTile onClick={async () => {
                   try {
                     await sdk.actions.openUrl({ url: "https://dune.com/xyk/donut-company" });
@@ -1383,7 +1559,7 @@ export default function AboutPage() {
                 }} />
               </div>
 
-              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '350ms', animationFillMode: 'forwards' } : {}}>
+              <div className={!hasAnimatedIn ? 'animate-tilePopIn' : ''} style={!hasAnimatedIn ? { opacity: 0, animationDelay: '400ms', animationFillMode: 'forwards' } : {}}>
                 <SprinklesDashboardTile 
                   showComingSoon={showComingSoon}
                   onClick={() => {
