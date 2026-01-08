@@ -179,7 +179,10 @@ function MatrixStakingDigit({ char, delay = 0 }: { char: string; delay?: number 
   }, [char, delay, isDigit]);
   
   return (
-    <span className={`transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}>
+    <span 
+      className="transition-colors duration-100"
+      style={isAnimating ? { color: 'rgb(74, 222, 128)' } : undefined}
+    >
       {displayChar}
     </span>
   );
@@ -475,7 +478,6 @@ function MinerRevenueTile({
       style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
       onClick={onToggle}
     >
-      <FallingCoins />
       <div className="relative z-10 p-4 h-full flex flex-col justify-center">
         <div className="text-left">
           <div className="flex items-center justify-between mb-1">
@@ -705,7 +707,7 @@ function GDonutStakedTile({
             </div>
             
             <div className="flex items-center justify-between pt-1 border-t border-white/5 min-h-[22px]">
-              <span className="text-[10px] text-white/50">{periodLabel} Revenue Total:</span>
+              <span className="text-[10px] text-white/50">Revenue Total:</span>
               <span className="font-mono text-xs font-bold text-pink-400">
                 <MatrixStakingValue value={displayTotalUsd} isReady={dataReady} />
               </span>
