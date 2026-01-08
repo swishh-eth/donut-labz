@@ -76,16 +76,36 @@ async function getLogs(fromBlock: number, toBlock: number): Promise<any[]> {
   }
 }
 
+// DONUT token address on Base
+const DONUT_TOKEN = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C";
+
 async function getDonutPrice(): Promise<number> {
   try {
+    // Use DexScreener API for accurate DONUT price
     const response = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=donut&vs_currencies=usd",
+      `https://api.dexscreener.com/latest/dex/tokens/${DONUT_TOKEN}`,
       { next: { revalidate: 300 } }
     );
     const data = await response.json();
-    return data.donut?.usd || 0.088;
-  } catch {
-    return 0.088;
+    
+    // Find the pair with highest liquidity
+    if (data.pairs && data.pairs.length > 0) {
+      // Sort by liquidity and get the best price
+      const sortedPairs = data.pairs.sort((a: any, b: any) => 
+        (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
+      );
+      const price = parseFloat(sortedPairs[0].priceUsd);
+      if (!isNaN(price) && price > 0) {
+        console.log("[miner-revenue] DONUT price from DexScreener:", price);
+        return price;
+      }
+    }
+    
+    console.log("[miner-revenue] DexScreener failed, using fallback price");
+    return 0.087; // Fallback ~$0.087
+  } catch (e) {
+    console.error("[miner-revenue] Price fetch error:", e);
+    return 0.087;
   }
 }
 
