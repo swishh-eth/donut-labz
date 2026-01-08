@@ -4,8 +4,8 @@ import { NextResponse } from "next/server";
 const MINER_CONTRACT = "0x924b2d4a89b84A37510950031DCDb6552Dc97bcC";
 
 // Mined(address indexed sender, address indexed miner, uint256 price, string uri)
-// keccak256("Mined(address,address,uint256,string)")
-const MINED_TOPIC = "0x4e06b4e7000e659094299b3533b47b6aa8ad048e95e872d23d1f4ee55af89cfe";
+// Topic hash from basescan logs
+const MINED_TOPIC = "0xfe3b8c42ad23215a4897b79a6f46cb13a5fd3ec59180693586a33f89c250edae";
 
 const BASE_RPC = "https://mainnet.base.org";
 
@@ -13,7 +13,7 @@ const BASE_RPC = "https://mainnet.base.org";
 const BLOCKS_PER_DAY = 43200;
 const BLOCKS_PER_WEEK = BLOCKS_PER_DAY * 7;
 
-// Treasury takes 15% of all miner revenue (5% provider fee + 10% burn fee when burn disabled)
+// Treasury takes 15% of all miner revenue (5% provider fee + 10% burn fee)
 const TREASURY_FEE_PERCENT = 0.15;
 
 async function getBlockNumber(): Promise<number> {
@@ -48,6 +48,15 @@ async function getLogs(fromBlock: number, toBlock: number): Promise<any[]> {
     }),
   });
   const data = await response.json();
+  
+  // Debug logging
+  console.log("[miner-revenue] Topic used:", MINED_TOPIC);
+  console.log("[miner-revenue] Block range:", fromBlock, "-", toBlock);
+  console.log("[miner-revenue] Logs found:", data.result?.length || 0);
+  if (data.error) {
+    console.log("[miner-revenue] RPC error:", data.error);
+  }
+  
   return data.result || [];
 }
 
@@ -70,6 +79,8 @@ export async function GET() {
     const weekAgoBlock = currentBlock - BLOCKS_PER_WEEK;
     const dayAgoBlock = currentBlock - BLOCKS_PER_DAY;
     
+    console.log("[miner-revenue] Current block:", currentBlock);
+    
     // Fetch Mined events for the past week
     const minedLogs = await getLogs(weekAgoBlock, currentBlock);
     
@@ -82,7 +93,7 @@ export async function GET() {
     let dailyMineCount = 0;
     
     for (const log of minedLogs) {
-      // Price is in the first 32 bytes of data
+      // Price is in the first 32 bytes of data (64 hex chars after 0x)
       const priceHex = log.data.slice(0, 66); // 0x + 64 chars
       const price = BigInt(priceHex);
       const blockNumber = parseInt(log.blockNumber, 16);
@@ -113,6 +124,10 @@ export async function GET() {
     const weeklyVolumeUsd = weeklyVolumeDonut * donutPrice;
     const dailyVolumeUsd = dailyVolumeDonut * donutPrice;
     
+    console.log("[miner-revenue] Weekly mines:", weeklyMineCount);
+    console.log("[miner-revenue] Weekly volume:", weeklyVolumeDonut, "DONUT");
+    console.log("[miner-revenue] Weekly treasury:", weeklyTreasuryDonut, "DONUT");
+    
     return NextResponse.json({
       // Treasury revenue (15% cut)
       weeklyDonut: weeklyTreasuryDonut,
@@ -128,13 +143,20 @@ export async function GET() {
       weeklyMineCount,
       dailyMineCount,
       donutPrice,
+      // Debug info
+      debug: {
+        topic: MINED_TOPIC,
+        currentBlock,
+        weekAgoBlock,
+      },
       timestamp: Date.now(),
     });
   } catch (error) {
-    console.error("Error fetching miner revenue:", error);
+    console.error("[miner-revenue] Error:", error);
     return NextResponse.json(
       { 
         error: "Failed to fetch miner revenue",
+        message: error instanceof Error ? error.message : "Unknown error",
         weeklyDonut: 0,
         dailyDonut: 0,
         weeklyUsd: 0,
