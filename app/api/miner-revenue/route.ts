@@ -7,7 +7,12 @@ const MINER_CONTRACT = "0x924b2d4a89b84A37510950031DCDb6552Dc97bcC";
 // Topic hash from basescan logs
 const MINED_TOPIC = "0xfe3b8c42ad23215a4897b79a6f46cb13a5fd3ec59180693586a33f89c250edae";
 
-const BASE_RPC = "https://mainnet.base.org";
+const BASE_RPCS = [
+  "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g",
+  "https://mainnet.base.org",
+  "https://base.llamarpc.com",
+  "https://base.drpc.org",
+];
 
 // Blocks per day on Base (~2 second block time)
 const BLOCKS_PER_DAY = 43200;
@@ -16,26 +21,39 @@ const BLOCKS_PER_WEEK = BLOCKS_PER_DAY * 7;
 // Treasury takes 15% of all miner revenue (5% provider fee + 10% burn fee)
 const TREASURY_FEE_PERCENT = 0.15;
 
+async function fetchWithFallback(payload: object): Promise<any> {
+  for (const rpc of BASE_RPCS) {
+    try {
+      const response = await fetch(rpc, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (data.result !== undefined && !data.error) {
+        return data;
+      }
+      console.log(`[miner-revenue] RPC ${rpc} error:`, data.error);
+    } catch (e) {
+      console.log(`[miner-revenue] RPC ${rpc} failed:`, e);
+    }
+  }
+  throw new Error("All RPCs failed");
+}
+
 async function getBlockNumber(): Promise<number> {
-  const response = await fetch(BASE_RPC, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      method: "eth_blockNumber",
-      params: [],
-      id: 1,
-    }),
+  const data = await fetchWithFallback({
+    jsonrpc: "2.0",
+    method: "eth_blockNumber",
+    params: [],
+    id: 1,
   });
-  const data = await response.json();
   return parseInt(data.result, 16);
 }
 
 async function getLogs(fromBlock: number, toBlock: number): Promise<any[]> {
-  const response = await fetch(BASE_RPC, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  try {
+    const data = await fetchWithFallback({
       jsonrpc: "2.0",
       method: "eth_getLogs",
       params: [{
@@ -45,19 +63,17 @@ async function getLogs(fromBlock: number, toBlock: number): Promise<any[]> {
         topics: [[MINED_TOPIC]],
       }],
       id: 1,
-    }),
-  });
-  const data = await response.json();
-  
-  // Debug logging
-  console.log("[miner-revenue] Topic used:", MINED_TOPIC);
-  console.log("[miner-revenue] Block range:", fromBlock, "-", toBlock);
-  console.log("[miner-revenue] Logs found:", data.result?.length || 0);
-  if (data.error) {
-    console.log("[miner-revenue] RPC error:", data.error);
+    });
+    
+    console.log("[miner-revenue] Topic used:", MINED_TOPIC);
+    console.log("[miner-revenue] Block range:", fromBlock, "-", toBlock);
+    console.log("[miner-revenue] Logs found:", data.result?.length || 0);
+    
+    return data.result || [];
+  } catch (e) {
+    console.error("[miner-revenue] getLogs failed:", e);
+    return [];
   }
-  
-  return data.result || [];
 }
 
 async function getDonutPrice(): Promise<number> {
