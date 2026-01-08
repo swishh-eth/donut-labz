@@ -491,7 +491,7 @@ function MinerRevenueTile({
           </div>
           
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between min-h-[18px]">
               <div className="flex items-center gap-1.5">
                 <img src="/coins/donut_logo.png" alt="" className="w-3.5 h-3.5 rounded-full" />
                 <span className="text-[10px] text-white/50">Treasury Earnings:</span>
@@ -500,29 +500,29 @@ function MinerRevenueTile({
                 <span className="font-mono text-xs font-bold text-green-400">
                   <MatrixStakingValue value={displayRevenueUsd} isReady={dataReady} />
                 </span>
-                {dataReady && minerRevenue && (minerRevenue.weeklyDonut > 0 || minerRevenue.dailyDonut > 0) && (
-                  <span className="text-[9px] text-white/40 font-mono">
-                    (<MatrixStakingValue value={`${displayRevenueDonut} DONUT`} isReady={dataReady} />)
-                  </span>
-                )}
+                <span className={`text-[9px] text-white/40 font-mono transition-opacity duration-300 ${dataReady && minerRevenue && (minerRevenue.weeklyDonut > 0 || minerRevenue.dailyDonut > 0) ? 'opacity-100' : 'opacity-0'}`}>
+                  {dataReady && minerRevenue && (minerRevenue.weeklyDonut > 0 || minerRevenue.dailyDonut > 0) ? (
+                    <>(<MatrixStakingValue value={`${displayRevenueDonut} DONUT`} isReady={dataReady} />)</>
+                  ) : '\u00A0'}
+                </span>
               </div>
             </div>
             
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between min-h-[18px]">
               <span className="text-[10px] text-white/50">Miner Volume:</span>
               <div className="flex items-center gap-1.5">
                 <span className="font-mono text-xs text-white/70">
                   <MatrixStakingValue value={displayVolumeUsd} isReady={dataReady} />
                 </span>
-                {dataReady && minerRevenue && (minerRevenue.weeklyVolumeDonut > 0 || minerRevenue.dailyVolumeDonut > 0) && (
-                  <span className="text-[9px] text-white/40 font-mono">
-                    (<MatrixStakingValue value={`${displayVolumeDonut} DONUT`} isReady={dataReady} />)
-                  </span>
-                )}
+                <span className={`text-[9px] text-white/40 font-mono transition-opacity duration-300 ${dataReady && minerRevenue && (minerRevenue.weeklyVolumeDonut > 0 || minerRevenue.dailyVolumeDonut > 0) ? 'opacity-100' : 'opacity-0'}`}>
+                  {dataReady && minerRevenue && (minerRevenue.weeklyVolumeDonut > 0 || minerRevenue.dailyVolumeDonut > 0) ? (
+                    <>(<MatrixStakingValue value={`${displayVolumeDonut} DONUT`} isReady={dataReady} />)</>
+                  ) : '\u00A0'}
+                </span>
               </div>
             </div>
             
-            <div className="flex items-center justify-between pt-1 border-t border-white/5">
+            <div className="flex items-center justify-between pt-1 border-t border-white/5 min-h-[22px]">
               <span className="text-[10px] text-white/50">{periodLabel} Mines:</span>
               <span className="font-mono text-xs text-white/70">
                 <MatrixStakingValue value={displayMineCount} isReady={dataReady} />
