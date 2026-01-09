@@ -74,9 +74,10 @@ const ERC20_ABI = [
 ] as const;
 
 // Get current week number (weeks start on Friday 11PM UTC / 6PM EST)
+// Epoch: Friday Dec 5, 2025 23:00 UTC (6PM EST)
+// This matches how glaze_transactions stores week_number
 function getCurrentWeek(): number {
   const now = new Date();
-  // Epoch: Friday Dec 5, 2025 23:00 UTC (6PM EST)
   const epoch = new Date(Date.UTC(2025, 11, 5, 23, 0, 0));
   const msPerWeek = 7 * 24 * 60 * 60 * 1000;
 
@@ -87,8 +88,9 @@ function getCurrentWeek(): number {
 }
 
 // Get the week that just ended (for distribution)
+// FIXED: Now returns previous week, not current week
 function getWeekToDistribute(): number {
-  return Math.max(1, getCurrentWeek());
+  return Math.max(1, getCurrentWeek() - 1);
 }
 
 // Calculate prize amount for a given rank
@@ -447,6 +449,7 @@ export async function GET(request: NextRequest) {
   const week = searchParams.get("week");
 
   const currentWeek = getCurrentWeek();
+  const weekToDistribute = getWeekToDistribute();
 
   // Setup public client
   const publicClient = createPublicClient({
@@ -488,6 +491,7 @@ export async function GET(request: NextRequest) {
   if (!week) {
     return NextResponse.json({
       currentWeek,
+      weekToDistribute,
       // configuredDistribution shows what WILL be distributed
       // DONUT = full wallet balance (dynamic), USDC & SPRINKLES = fixed
       configuredDistribution: {
@@ -517,6 +521,7 @@ export async function GET(request: NextRequest) {
     distributed: !!data,
     distribution: data || null,
     currentWeek,
+    weekToDistribute,
     configuredDistribution: {
       USDC: WEEKLY_DISTRIBUTION.USDC,
       DONUT: walletDonutBalance,
