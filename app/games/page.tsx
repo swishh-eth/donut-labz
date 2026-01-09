@@ -218,7 +218,7 @@ function DonutSurvivorsTile({ recentPlayer, prizePool, weeklyPlays }: { recentPl
           <div className="flex items-center gap-2 mb-1">
             <span className="font-bold text-base text-white">Donut Survivors</span>
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
-            <span className="text-[8px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">NEW</span>
+            <span className="text-[8px] bg-white/20 text-white px-1.5 py-0.5 rounded-full">TESTING</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Survive waves of candy enemies!</div>
           
@@ -558,8 +558,8 @@ export default function GamesPage() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Calculate total USDC prizes for display
-  const totalUsdcPrizes = dashPrizePool + stackPrizePool + jumpPrizePool + survivorsPrizePool;
+  // Calculate total USDC prizes for display (excluding survivors since it's in testing)
+  const totalUsdcPrizes = dashPrizePool + stackPrizePool + jumpPrizePool;
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
