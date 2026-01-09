@@ -83,19 +83,8 @@ const GADGET_CONFIG: Record<GadgetType, GadgetConfig> = {
   candy_rush: { name: 'Candy Rush', icon: '🍭', color: '#FF69B4', description: '-10% Weapon Cooldowns', effect: 'cooldown' },
 };
 
-// Games required to unlock each starter gadget
-const GADGET_UNLOCK_REQUIREMENTS: Record<GadgetType, number> = {
-  sugar_rush: 0,         // Always unlocked
-  thicc_glaze: 10,       // 10 games
-  sprinkle_magnet: 50,   // 50 games
-  donut_armor: 100,      // 100 games
-  hyper_icing: 200,      // 200 games
-  golden_sprinkles: 300, // 300 games
-  choco_shield: 400,     // 400 games
-  candy_rush: 500,       // 500 games
-};
-
-const STARTER_GADGET_ORDER: GadgetType[] = ['sugar_rush', 'thicc_glaze', 'sprinkle_magnet', 'donut_armor', 'hyper_icing', 'golden_sprinkles', 'choco_shield', 'candy_rush'];
+// Gadgets are all available in-game (no unlock requirements)
+const GADGET_ORDER: GadgetType[] = ['sugar_rush', 'thicc_glaze', 'sprinkle_magnet', 'donut_armor', 'hyper_icing', 'golden_sprinkles', 'choco_shield', 'candy_rush'];
 
 const MAX_GADGETS = 4;
 
@@ -128,13 +117,13 @@ export default function DonutSurvivorsPage() {
   const [userFid, setUserFid] = useState<number | null>(null);
   const [gamesPlayed, setGamesPlayed] = useState(500); // Set to 500 for testing, 0 for prod
   const [selectedStarterWeapon, setSelectedStarterWeapon] = useState<WeaponType>('sprinkle_shot');
-  const [selectedStarterGadget, setSelectedStarterGadget] = useState<GadgetType>('sugar_rush');
   const [isLoadingStats, setIsLoadingStats] = useState(false); // false for testing
   const [showWeaponMenu, setShowWeaponMenu] = useState(false);
-  const [showGadgetMenu, setShowGadgetMenu] = useState(false);
-  const [rerollsLeft, setRerollsLeft] = useState(1);
+  const [showGadgetInfo, setShowGadgetInfo] = useState(false);
+  const [rerollsLeft, setRerollsLeft] = useState(2);
   const [bansLeft, setBansLeft] = useState(1);
   const [bannedUpgrades, setBannedUpgrades] = useState<string[]>([]);
+  const [banMode, setBanMode] = useState(false);
   
   const playerRef = useRef({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 70, xpMultiplier: 1, facingAngle: 0, defense: 0, invincibilityBonus: 0, cooldownReduction: 0 });
   const cameraRef = useRef({ x: 0, y: 0 });
@@ -491,6 +480,7 @@ export default function DonutSurvivorsPage() {
     }
     
     isPausedRef.current = false;
+    setBanMode(false);
     setGameState("playing");
   }, []);
 
@@ -818,35 +808,23 @@ export default function DonutSurvivorsPage() {
     cameraRef.current = { x: 0, y: 0 }; 
     // Use selected starter weapon
     weaponsRef.current = [{ type: selectedStarterWeapon, level: 1, lastFired: 0, angle: 0 }];
-    // Use selected starter gadget
-    gadgetsRef.current = [{ type: selectedStarterGadget, stacks: 1 }];
-    // Apply starter gadget effect
-    const gadgetConfig = GADGET_CONFIG[selectedStarterGadget];
-    const p = playerRef.current;
-    switch (gadgetConfig.effect) {
-      case 'speed': p.speed *= 1.20; break;
-      case 'max_hp': p.maxHp += 30; p.hp = p.maxHp; break;
-      case 'magnet': p.magnetRange *= 1.40; break;
-      case 'defense': p.defense = 0.15; break;
-      case 'damage': p.damage *= 1.15; break;
-      case 'xp_gain': p.xpMultiplier *= 1.25; break;
-      case 'invincibility': p.invincibilityBonus = 500; break;
-      case 'cooldown': p.cooldownReduction = 0.10; break;
-    }
+    // No starter gadget - must earn them through level ups
+    gadgetsRef.current = [];
     enemiesRef.current = []; projectilesRef.current = []; xpOrbsRef.current = []; particlesRef.current = []; damageNumbersRef.current = []; trailPointsRef.current = [];
     frameCountRef.current = 0; gameStartTimeRef.current = performance.now(); lastSpawnTimeRef.current = performance.now(); invincibleUntilRef.current = 0;
     screenShakeRef.current = { intensity: 0, duration: 0, startTime: 0 }; enemiesKilledRef.current = 0; moveInputRef.current = { x: 0, y: 0 }; joystickRef.current = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 };
     isPausedRef.current = false;
     // Reset rerolls, bans, and banned upgrades
-    setRerollsLeft(1);
+    setRerollsLeft(2);
     setBansLeft(1);
     setBannedUpgrades([]);
+    setBanMode(false);
     setScore(0); setPlayerLevel(1); setSurvivalTime(0); setKillCount(0); setGameState("playing");
-    setShowWeaponMenu(false); setShowGadgetMenu(false);
+    setShowWeaponMenu(false); setShowGadgetInfo(false);
     lastFrameTimeRef.current = performance.now(); gameActiveRef.current = true;
     if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [initAudioContext, gameLoop, selectedStarterWeapon, selectedStarterGadget]);
+  }, [initAudioContext, gameLoop, selectedStarterWeapon]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (gameState !== "playing") return;
@@ -976,14 +954,31 @@ export default function DonutSurvivorsPage() {
           {gameState === "levelup" && (
             <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center p-4 z-30 rounded-2xl">
               <h2 className="text-2xl font-bold text-yellow-400 mb-2">LEVEL UP!</h2>
-              <p className="text-sm text-zinc-400 mb-3">Level {playerLevel} - Choose an upgrade</p>
+              <p className="text-sm text-zinc-400 mb-3">
+                {banMode ? 'Select an upgrade to BAN' : `Level ${playerLevel} - Choose an upgrade`}
+              </p>
               <div className="flex flex-col gap-2 w-full max-w-[280px]">
                 {upgradeOptions.map((opt, i) => (
                   <button 
                     key={i} 
-                    onClick={() => applyUpgrade(opt)} 
-                    className={`flex items-center gap-3 p-3 bg-zinc-900 border rounded-xl hover:bg-zinc-800 transition-all active:scale-95 ${
-                      opt.type === 'weapon' ? 'border-pink-500/50 hover:border-pink-500' : 'border-blue-500/50 hover:border-blue-500'
+                    onClick={() => {
+                      if (banMode) {
+                        // Ban this upgrade
+                        const banKey = opt.type === 'weapon' ? `weapon:${opt.weaponType}` : `gadget:${opt.gadgetType}`;
+                        setBansLeft(b => b - 1);
+                        setBannedUpgrades(prev => [...prev, banKey]);
+                        setBanMode(false);
+                        generateUpgradeOptions();
+                      } else {
+                        applyUpgrade(opt);
+                      }
+                    }} 
+                    className={`flex items-center gap-3 p-3 bg-zinc-900 border rounded-xl transition-all active:scale-95 ${
+                      banMode 
+                        ? 'border-red-500 hover:bg-red-500/20 hover:border-red-400' 
+                        : opt.type === 'weapon' 
+                          ? 'border-pink-500/50 hover:border-pink-500 hover:bg-zinc-800' 
+                          : 'border-blue-500/50 hover:border-blue-500 hover:bg-zinc-800'
                     }`}
                   >
                     <span className="text-2xl">{opt.icon}</span>
@@ -991,9 +986,13 @@ export default function DonutSurvivorsPage() {
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-white text-sm">{opt.title}</span>
                         <span className={`text-[9px] px-1.5 py-0.5 rounded ${
-                          opt.type === 'weapon' ? 'bg-pink-500/20 text-pink-400' : 'bg-blue-500/20 text-blue-400'
+                          banMode 
+                            ? 'bg-red-500/20 text-red-400'
+                            : opt.type === 'weapon' 
+                              ? 'bg-pink-500/20 text-pink-400' 
+                              : 'bg-blue-500/20 text-blue-400'
                         }`}>
-                          {opt.type === 'weapon' ? 'WEAPON' : 'GADGET'}
+                          {banMode ? 'CLICK TO BAN' : opt.type === 'weapon' ? 'WEAPON' : 'GADGET'}
                         </span>
                       </div>
                       <div className="text-xs text-zinc-400">{opt.description}</div>
@@ -1004,9 +1003,9 @@ export default function DonutSurvivorsPage() {
               <div className="mt-3 flex gap-2">
                 <button 
                   onClick={() => { if (rerollsLeft > 0) { setRerollsLeft(r => r - 1); generateUpgradeOptions(); } }}
-                  disabled={rerollsLeft <= 0}
+                  disabled={rerollsLeft <= 0 || banMode}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    rerollsLeft > 0 
+                    rerollsLeft > 0 && !banMode
                       ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 hover:bg-yellow-500/30' 
                       : 'bg-zinc-800 text-zinc-600 border border-zinc-700 cursor-not-allowed'
                   }`}
@@ -1015,23 +1014,22 @@ export default function DonutSurvivorsPage() {
                 </button>
                 <button 
                   onClick={() => {
-                    if (bansLeft > 0 && upgradeOptions.length > 0) {
-                      // Ban the first option shown
-                      const opt = upgradeOptions[0];
-                      const banKey = opt.type === 'weapon' ? `weapon:${opt.weaponType}` : `gadget:${opt.gadgetType}`;
-                      setBansLeft(b => b - 1);
-                      setBannedUpgrades(prev => [...prev, banKey]);
-                      generateUpgradeOptions();
+                    if (banMode) {
+                      setBanMode(false);
+                    } else if (bansLeft > 0) {
+                      setBanMode(true);
                     }
                   }}
-                  disabled={bansLeft <= 0}
+                  disabled={bansLeft <= 0 && !banMode}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    bansLeft > 0 
-                      ? 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30' 
-                      : 'bg-zinc-800 text-zinc-600 border border-zinc-700 cursor-not-allowed'
+                    banMode
+                      ? 'bg-red-500 text-white border border-red-400 hover:bg-red-600'
+                      : bansLeft > 0 
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30' 
+                        : 'bg-zinc-800 text-zinc-600 border border-zinc-700 cursor-not-allowed'
                   }`}
                 >
-                  🚫 Ban Top ({bansLeft})
+                  {banMode ? '✕ Cancel' : `🚫 Ban (${bansLeft})`}
                 </button>
               </div>
               <div className="mt-2 text-[10px] text-zinc-500">
@@ -1044,7 +1042,7 @@ export default function DonutSurvivorsPage() {
               {/* Loadout Buttons */}
               <div className="pointer-events-auto flex gap-2">
                 <button 
-                  onClick={() => { setShowWeaponMenu(true); setShowGadgetMenu(false); }}
+                  onClick={() => { setShowWeaponMenu(true); setShowGadgetInfo(false); }}
                   className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-pink-500/50 rounded-lg hover:bg-pink-500/10"
                 >
                   <span className="text-lg">{WEAPON_CONFIG[selectedStarterWeapon].icon}</span>
@@ -1054,13 +1052,13 @@ export default function DonutSurvivorsPage() {
                   </div>
                 </button>
                 <button 
-                  onClick={() => { setShowGadgetMenu(true); setShowWeaponMenu(false); }}
+                  onClick={() => { setShowGadgetInfo(true); setShowWeaponMenu(false); }}
                   className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-blue-500/50 rounded-lg hover:bg-blue-500/10"
                 >
-                  <span className="text-lg">{GADGET_CONFIG[selectedStarterGadget].icon}</span>
+                  <span className="text-lg">📦</span>
                   <div className="text-left">
-                    <div className="text-[9px] text-blue-400">GADGET</div>
-                    <div className="text-xs font-medium">{GADGET_CONFIG[selectedStarterGadget].name}</div>
+                    <div className="text-[9px] text-blue-400">GADGETS</div>
+                    <div className="text-xs font-medium">View All</div>
                   </div>
                 </button>
               </div>
@@ -1075,12 +1073,7 @@ export default function DonutSurvivorsPage() {
                     // Random weapon from unlocked
                     const unlockedWeapons = STARTER_WEAPON_ORDER.filter(w => gamesPlayed >= WEAPON_UNLOCK_REQUIREMENTS[w]);
                     const randomWeapon = unlockedWeapons[Math.floor(Math.random() * unlockedWeapons.length)];
-                    // Random gadget from unlocked
-                    const unlockedGadgets = STARTER_GADGET_ORDER.filter(g => gamesPlayed >= GADGET_UNLOCK_REQUIREMENTS[g]);
-                    const randomGadget = unlockedGadgets[Math.floor(Math.random() * unlockedGadgets.length)];
-                    // Set selections and start
                     setSelectedStarterWeapon(randomWeapon);
-                    setSelectedStarterGadget(randomGadget);
                   }}
                   className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white font-bold rounded-full hover:bg-purple-400 active:scale-95"
                 >
@@ -1140,50 +1133,37 @@ export default function DonutSurvivorsPage() {
             </div>
           )}
           
-          {/* Gadget Selection Menu */}
-          {showGadgetMenu && (
+          {/* Gadget Info Popup */}
+          {showGadgetInfo && (
             <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-4 z-40 rounded-2xl">
-              <h2 className="text-xl font-bold text-blue-400 mb-1">Select Gadget</h2>
-              <p className="text-xs text-zinc-400 mb-4">{gamesPlayed} games played</p>
-              <div className="grid grid-cols-4 gap-2 max-w-[280px]">
-                {STARTER_GADGET_ORDER.map((gadgetType) => {
+              <h2 className="text-xl font-bold text-blue-400 mb-1">Gadgets</h2>
+              <p className="text-xs text-zinc-400 mb-4">Earn these through level ups!</p>
+              <div className="flex flex-col gap-2 w-full max-w-[280px] max-h-[300px] overflow-y-auto">
+                {GADGET_ORDER.map((gadgetType) => {
                   const config = GADGET_CONFIG[gadgetType];
-                  const required = GADGET_UNLOCK_REQUIREMENTS[gadgetType];
-                  const isUnlocked = gamesPlayed >= required;
-                  const isSelected = selectedStarterGadget === gadgetType;
                   
                   return (
-                    <button
+                    <div
                       key={gadgetType}
-                      onClick={() => isUnlocked && setSelectedStarterGadget(gadgetType)}
-                      disabled={!isUnlocked}
-                      className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-lg border-2 transition-all ${
-                        isSelected 
-                          ? 'border-blue-500 bg-blue-500/20' 
-                          : isUnlocked 
-                            ? 'border-zinc-700 bg-zinc-900 hover:border-zinc-500' 
-                            : 'border-zinc-800 bg-zinc-900/50 opacity-50'
-                      }`}
+                      className="flex items-center gap-3 p-2 bg-zinc-900 border border-zinc-700 rounded-lg"
                     >
                       <span className="text-xl">{config.icon}</span>
-                      {!isUnlocked && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/70 rounded-lg">
-                          <span className="text-[8px] text-zinc-400">🔒{required}</span>
-                        </div>
-                      )}
-                    </button>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-white">{config.name}</div>
+                        <div className="text-xs text-zinc-400">{config.description}</div>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
-              <div className="mt-3 text-center">
-                <div className="text-sm font-bold text-white">{GADGET_CONFIG[selectedStarterGadget].name}</div>
-                <div className="text-xs text-zinc-400">{GADGET_CONFIG[selectedStarterGadget].description}</div>
-              </div>
+              <p className="mt-3 text-[10px] text-zinc-500 text-center">
+                Max 4 gadgets • Stack up to 5× each
+              </p>
               <button 
-                onClick={() => setShowGadgetMenu(false)}
-                className="mt-4 px-6 py-2 bg-zinc-800 text-white rounded-full hover:bg-zinc-700"
+                onClick={() => setShowGadgetInfo(false)}
+                className="mt-3 px-6 py-2 bg-zinc-800 text-white rounded-full hover:bg-zinc-700"
               >
-                Done
+                Got it
               </button>
             </div>
           )}
