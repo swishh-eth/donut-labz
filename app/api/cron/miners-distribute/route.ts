@@ -91,7 +91,6 @@ function getCurrentWeek(): number {
 }
 
 // Get the week that just ended (for distribution)
-// FIXED: Now returns previous week, not current week
 function getWeekToDistribute(): number {
   return Math.max(1, getCurrentWeek() - 1);
 }
@@ -101,6 +100,329 @@ function getPrizeForRank(rank: number, totalAmount: number): number {
   const prizeInfo = PRIZE_PERCENTAGES.find((p) => p.rank === rank);
   if (!prizeInfo) return 0;
   return (totalAmount * prizeInfo.percent) / 100;
+}
+
+// Main distribution logic
+async function runDistribution(weekNumber: number, dryRun: boolean) {
+  console.log(`[Miners Distribution] Starting for week ${weekNumber}, dryRun: ${dryRun}`);
+
+  // Check if already distributed for this week
+  const { data: existingDistribution } = await supabase
+    .from("weekly_winners")
+    .select("id")
+    .eq("week_number", weekNumber)
+    .single();
+
+  if (existingDistribution) {
+    return {
+      success: false,
+      error: "Prizes already distributed for this week",
+      weekNumber,
+    };
+  }
+
+  // Aggregate leaderboard from glaze_transactions for this week
+  const { data: leaderboardData, error: leaderboardError } = await supabase
+    .from("glaze_transactions")
+    .select("address, points")
+    .eq("week_number", weekNumber);
+
+  if (leaderboardError) {
+    console.error("Error fetching glaze_transactions:", leaderboardError);
+    return { error: "Failed to fetch leaderboard data" };
+  }
+
+  if (!leaderboardData || leaderboardData.length === 0) {
+    return {
+      success: false,
+      error: "No mining activity found for this week",
+      weekNumber,
+    };
+  }
+
+  // Aggregate points by address
+  const pointsByAddress: Record<string, number> = {};
+  for (const tx of leaderboardData) {
+    const addr = tx.address.toLowerCase();
+    pointsByAddress[addr] = (pointsByAddress[addr] || 0) + (tx.points || 0);
+  }
+
+  // Sort by points descending and take top 10
+  const sortedLeaderboard = Object.entries(pointsByAddress)
+    .map(([address, total_points]) => ({ address, total_points }))
+    .sort((a, b) => b.total_points - a.total_points)
+    .slice(0, 10);
+
+  if (sortedLeaderboard.length === 0) {
+    return {
+      success: false,
+      error: "No valid entries found for distribution",
+      weekNumber,
+    };
+  }
+
+  console.log(`[Miners Distribution] Found ${sortedLeaderboard.length} winners`);
+
+  // Setup public client to check balances (using Alchemy)
+  const publicClient = createPublicClient({
+    chain: base,
+    transport: http(ALCHEMY_RPC_URL),
+  });
+
+  // Get bot wallet balances
+  const [usdcBalance, donutBalance, sprinklesBalance] = await Promise.all([
+    publicClient.readContract({
+      address: USDC_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [BOT_WALLET],
+    }),
+    publicClient.readContract({
+      address: DONUT_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [BOT_WALLET],
+    }),
+    publicClient.readContract({
+      address: SPRINKLES_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [BOT_WALLET],
+    }),
+  ]);
+
+  const walletUsdcBalance = parseFloat(formatUnits(usdcBalance, USDC_DECIMALS));
+  const walletDonutBalance = parseFloat(formatUnits(donutBalance, DONUT_DECIMALS));
+  const walletSprinklesBalance = parseFloat(formatUnits(sprinklesBalance, SPRINKLES_DECIMALS));
+
+  // DONUT distribution = ENTIRE wallet balance (accumulated from 0.5% miner fee)
+  const donutToDistribute = walletDonutBalance;
+
+  console.log(`[Miners Distribution] Wallet balances - USDC: ${walletUsdcBalance}, DONUT: ${walletDonutBalance}, SPRINKLES: ${walletSprinklesBalance}`);
+  console.log(`[Miners Distribution] Will distribute - USDC: ${WEEKLY_DISTRIBUTION.USDC} (fixed), DONUT: ${donutToDistribute} (full balance), SPRINKLES: ${WEEKLY_DISTRIBUTION.SPRINKLES} (fixed)`);
+
+  // Check sufficient balances for FIXED amounts (USDC and SPRINKLES)
+  const insufficientFunds: string[] = [];
+  if (walletUsdcBalance < WEEKLY_DISTRIBUTION.USDC) {
+    insufficientFunds.push(`USDC (need ${WEEKLY_DISTRIBUTION.USDC}, have ${walletUsdcBalance})`);
+  }
+  if (walletSprinklesBalance < WEEKLY_DISTRIBUTION.SPRINKLES) {
+    insufficientFunds.push(`SPRINKLES (need ${WEEKLY_DISTRIBUTION.SPRINKLES}, have ${walletSprinklesBalance})`);
+  }
+  // DONUT: just warn if zero, but don't fail - it's variable
+  if (donutToDistribute <= 0) {
+    console.warn("[Miners Distribution] Warning: No DONUT to distribute");
+  }
+
+  if (insufficientFunds.length > 0) {
+    return {
+      success: false,
+      error: `Insufficient funds: ${insufficientFunds.join(", ")}`,
+      weekNumber,
+      walletBalances: {
+        usdc: walletUsdcBalance,
+        donut: walletDonutBalance,
+        sprinkles: walletSprinklesBalance,
+      },
+      requiredAmounts: {
+        usdc: WEEKLY_DISTRIBUTION.USDC,
+        donut: "full balance",
+        sprinkles: WEEKLY_DISTRIBUTION.SPRINKLES,
+      },
+    };
+  }
+
+  // Calculate prize amounts for each winner
+  type Distribution = {
+    rank: number;
+    address: string;
+    points: number;
+    usdcAmount: string;
+    donutAmount: string;
+    sprinklesAmount: string;
+    txHashes: string[];
+  };
+
+  const distributions: Distribution[] = [];
+
+  for (let i = 0; i < sortedLeaderboard.length; i++) {
+    const rank = i + 1;
+    const entry = sortedLeaderboard[i];
+
+    // Calculate prizes:
+    // - USDC: fixed configured amount
+    // - DONUT: full wallet balance distributed across percentages
+    // - SPRINKLES: fixed configured amount
+    const usdcAmount = getPrizeForRank(rank, WEEKLY_DISTRIBUTION.USDC).toFixed(USDC_DECIMALS);
+    const donutAmount = getPrizeForRank(rank, donutToDistribute).toFixed(4);
+    const sprinklesAmount = getPrizeForRank(rank, WEEKLY_DISTRIBUTION.SPRINKLES).toFixed(4);
+
+    distributions.push({
+      rank,
+      address: entry.address,
+      points: entry.total_points,
+      usdcAmount,
+      donutAmount,
+      sprinklesAmount,
+      txHashes: [],
+    });
+  }
+
+  // If dry run, return what would be distributed
+  if (dryRun) {
+    return {
+      success: true,
+      dryRun: true,
+      weekNumber,
+      configuredDistribution: {
+        USDC: WEEKLY_DISTRIBUTION.USDC,
+        DONUT: donutToDistribute,
+        SPRINKLES: WEEKLY_DISTRIBUTION.SPRINKLES,
+      },
+      walletBalances: {
+        usdc: walletUsdcBalance,
+        donut: walletDonutBalance,
+        sprinkles: walletSprinklesBalance,
+      },
+      distributions,
+      totals: {
+        usdc: distributions.reduce((sum, d) => sum + parseFloat(d.usdcAmount), 0).toFixed(2),
+        donut: distributions.reduce((sum, d) => sum + parseFloat(d.donutAmount), 0).toFixed(4),
+        sprinkles: distributions.reduce((sum, d) => sum + parseFloat(d.sprinklesAmount), 0).toFixed(4),
+      },
+    };
+  }
+
+  // Setup wallet for sending
+  const botPrivateKey = process.env.BOT_PRIVATE_KEY;
+  if (!botPrivateKey) {
+    return { error: "Bot wallet not configured" };
+  }
+
+  const account = privateKeyToAccount(botPrivateKey as `0x${string}`);
+  const walletClient = createWalletClient({
+    account,
+    chain: base,
+    transport: http(ALCHEMY_RPC_URL),
+  });
+
+  // Send prizes
+  const errors: { rank: number; token: string; error: string }[] = [];
+
+  for (const dist of distributions) {
+    // Send USDC
+    if (parseFloat(dist.usdcAmount) > 0) {
+      try {
+        const hash = await walletClient.writeContract({
+          address: USDC_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: "transfer",
+          args: [
+            dist.address as `0x${string}`,
+            parseUnits(dist.usdcAmount, USDC_DECIMALS),
+          ],
+        });
+        dist.txHashes.push(hash);
+        console.log(`[Miners Distribution] Sent ${dist.usdcAmount} USDC to rank ${dist.rank}: ${hash}`);
+        await new Promise((r) => setTimeout(r, 500));
+      } catch (err: any) {
+        console.error(`Failed to send USDC to rank ${dist.rank}:`, err);
+        errors.push({ rank: dist.rank, token: "USDC", error: err.message });
+      }
+    }
+
+    // Send DONUT (full balance distributed)
+    if (parseFloat(dist.donutAmount) > 0) {
+      try {
+        const hash = await walletClient.writeContract({
+          address: DONUT_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: "transfer",
+          args: [
+            dist.address as `0x${string}`,
+            parseUnits(dist.donutAmount, DONUT_DECIMALS),
+          ],
+        });
+        dist.txHashes.push(hash);
+        console.log(`[Miners Distribution] Sent ${dist.donutAmount} DONUT to rank ${dist.rank}: ${hash}`);
+        await new Promise((r) => setTimeout(r, 500));
+      } catch (err: any) {
+        console.error(`Failed to send DONUT to rank ${dist.rank}:`, err);
+        errors.push({ rank: dist.rank, token: "DONUT", error: err.message });
+      }
+    }
+
+    // Send SPRINKLES
+    if (parseFloat(dist.sprinklesAmount) > 0) {
+      try {
+        const hash = await walletClient.writeContract({
+          address: SPRINKLES_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: "transfer",
+          args: [
+            dist.address as `0x${string}`,
+            parseUnits(dist.sprinklesAmount, SPRINKLES_DECIMALS),
+          ],
+        });
+        dist.txHashes.push(hash);
+        console.log(`[Miners Distribution] Sent ${dist.sprinklesAmount} SPRINKLES to rank ${dist.rank}: ${hash}`);
+        await new Promise((r) => setTimeout(r, 500));
+      } catch (err: any) {
+        console.error(`Failed to send SPRINKLES to rank ${dist.rank}:`, err);
+        errors.push({ rank: dist.rank, token: "SPRINKLES", error: err.message });
+      }
+    }
+  }
+
+  // Get first place tx hash for record (or first successful tx)
+  const primaryTxHash =
+    distributions[0]?.txHashes[0] ||
+    distributions.find((d) => d.txHashes.length > 0)?.txHashes[0] ||
+    "";
+
+  // Record to weekly_winners table
+  const first = distributions[0];
+  const second = distributions[1];
+  const third = distributions[2];
+
+  const { error: insertError } = await supabase.from("weekly_winners").insert({
+    week_number: weekNumber,
+    first_place: first?.address || null,
+    second_place: second?.address || null,
+    third_place: third?.address || null,
+    first_amount: first?.usdcAmount || "0",
+    second_amount: second?.usdcAmount || "0",
+    third_amount: third?.usdcAmount || "0",
+    first_donut_amount: first?.donutAmount || "0",
+    second_donut_amount: second?.donutAmount || "0",
+    third_donut_amount: third?.donutAmount || "0",
+    first_sprinkles_amount: first?.sprinklesAmount || "0",
+    second_sprinkles_amount: second?.sprinklesAmount || "0",
+    third_sprinkles_amount: third?.sprinklesAmount || "0",
+    tx_hash: primaryTxHash,
+    created_at: new Date().toISOString(),
+  });
+
+  if (insertError) {
+    console.error("Failed to record to weekly_winners:", insertError);
+  }
+
+  return {
+    success: true,
+    weekNumber,
+    configuredDistribution: {
+      USDC: WEEKLY_DISTRIBUTION.USDC,
+      DONUT: donutToDistribute,
+      SPRINKLES: WEEKLY_DISTRIBUTION.SPRINKLES,
+    },
+    distributions,
+    errors: errors.length > 0 ? errors : undefined,
+    totals: {
+      usdc: distributions.reduce((sum, d) => sum + parseFloat(d.usdcAmount), 0).toFixed(2),
+      donut: distributions.reduce((sum, d) => sum + parseFloat(d.donutAmount), 0).toFixed(4),
+      sprinkles: distributions.reduce((sum, d) => sum + parseFloat(d.sprinklesAmount), 0).toFixed(4),
+    },
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -115,342 +437,43 @@ export async function POST(request: NextRequest) {
     const weekNumber = body.week || getWeekToDistribute();
     const dryRun = body.dryRun === true;
 
-    console.log(`[Miners Distribution] Starting for week ${weekNumber}, dryRun: ${dryRun}`);
-
-    // Check if already distributed for this week
-    const { data: existingDistribution } = await supabase
-      .from("weekly_winners")
-      .select("id")
-      .eq("week_number", weekNumber)
-      .single();
-
-    if (existingDistribution) {
-      return NextResponse.json({
-        success: false,
-        error: "Prizes already distributed for this week",
-        weekNumber,
-      });
+    const result = await runDistribution(weekNumber, dryRun);
+    
+    if (result.error && !result.success) {
+      return NextResponse.json(result, { status: 500 });
     }
-
-    // Aggregate leaderboard from glaze_transactions for this week
-    const { data: leaderboardData, error: leaderboardError } = await supabase
-      .from("glaze_transactions")
-      .select("address, points")
-      .eq("week_number", weekNumber);
-
-    if (leaderboardError) {
-      console.error("Error fetching glaze_transactions:", leaderboardError);
-      return NextResponse.json(
-        { error: "Failed to fetch leaderboard data" },
-        { status: 500 }
-      );
-    }
-
-    if (!leaderboardData || leaderboardData.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: "No mining activity found for this week",
-        weekNumber,
-      });
-    }
-
-    // Aggregate points by address
-    const pointsByAddress: Record<string, number> = {};
-    for (const tx of leaderboardData) {
-      const addr = tx.address.toLowerCase();
-      pointsByAddress[addr] = (pointsByAddress[addr] || 0) + (tx.points || 0);
-    }
-
-    // Sort by points descending and take top 10
-    const sortedLeaderboard = Object.entries(pointsByAddress)
-      .map(([address, total_points]) => ({ address, total_points }))
-      .sort((a, b) => b.total_points - a.total_points)
-      .slice(0, 10);
-
-    if (sortedLeaderboard.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: "No valid entries found for distribution",
-        weekNumber,
-      });
-    }
-
-    console.log(`[Miners Distribution] Found ${sortedLeaderboard.length} winners`);
-
-    // Setup public client to check balances (using Alchemy)
-    const publicClient = createPublicClient({
-      chain: base,
-      transport: http(ALCHEMY_RPC_URL),
-    });
-
-    // Get bot wallet balances
-    const [usdcBalance, donutBalance, sprinklesBalance] = await Promise.all([
-      publicClient.readContract({
-        address: USDC_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "balanceOf",
-        args: [BOT_WALLET],
-      }),
-      publicClient.readContract({
-        address: DONUT_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "balanceOf",
-        args: [BOT_WALLET],
-      }),
-      publicClient.readContract({
-        address: SPRINKLES_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "balanceOf",
-        args: [BOT_WALLET],
-      }),
-    ]);
-
-    const walletUsdcBalance = parseFloat(formatUnits(usdcBalance, USDC_DECIMALS));
-    const walletDonutBalance = parseFloat(formatUnits(donutBalance, DONUT_DECIMALS));
-    const walletSprinklesBalance = parseFloat(formatUnits(sprinklesBalance, SPRINKLES_DECIMALS));
-
-    // DONUT distribution = ENTIRE wallet balance (accumulated from 0.5% miner fee)
-    const donutToDistribute = walletDonutBalance;
-
-    console.log(`[Miners Distribution] Wallet balances - USDC: ${walletUsdcBalance}, DONUT: ${walletDonutBalance}, SPRINKLES: ${walletSprinklesBalance}`);
-    console.log(`[Miners Distribution] Will distribute - USDC: ${WEEKLY_DISTRIBUTION.USDC} (fixed), DONUT: ${donutToDistribute} (full balance), SPRINKLES: ${WEEKLY_DISTRIBUTION.SPRINKLES} (fixed)`);
-
-    // Check sufficient balances for FIXED amounts (USDC and SPRINKLES)
-    const insufficientFunds: string[] = [];
-    if (walletUsdcBalance < WEEKLY_DISTRIBUTION.USDC) {
-      insufficientFunds.push(`USDC (need ${WEEKLY_DISTRIBUTION.USDC}, have ${walletUsdcBalance})`);
-    }
-    if (walletSprinklesBalance < WEEKLY_DISTRIBUTION.SPRINKLES) {
-      insufficientFunds.push(`SPRINKLES (need ${WEEKLY_DISTRIBUTION.SPRINKLES}, have ${walletSprinklesBalance})`);
-    }
-    // DONUT: just warn if zero, but don't fail - it's variable
-    if (donutToDistribute <= 0) {
-      console.warn("[Miners Distribution] Warning: No DONUT to distribute");
-    }
-
-    if (insufficientFunds.length > 0) {
-      return NextResponse.json({
-        success: false,
-        error: `Insufficient funds: ${insufficientFunds.join(", ")}`,
-        weekNumber,
-        walletBalances: {
-          usdc: walletUsdcBalance,
-          donut: walletDonutBalance,
-          sprinkles: walletSprinklesBalance,
-        },
-        requiredAmounts: {
-          usdc: WEEKLY_DISTRIBUTION.USDC,
-          donut: "full balance",
-          sprinkles: WEEKLY_DISTRIBUTION.SPRINKLES,
-        },
-      });
-    }
-
-    // Calculate prize amounts for each winner
-    type Distribution = {
-      rank: number;
-      address: string;
-      points: number;
-      usdcAmount: string;
-      donutAmount: string;
-      sprinklesAmount: string;
-      txHashes: string[];
-    };
-
-    const distributions: Distribution[] = [];
-
-    for (let i = 0; i < sortedLeaderboard.length; i++) {
-      const rank = i + 1;
-      const entry = sortedLeaderboard[i];
-
-      // Calculate prizes:
-      // - USDC: fixed configured amount
-      // - DONUT: full wallet balance distributed across percentages
-      // - SPRINKLES: fixed configured amount
-      const usdcAmount = getPrizeForRank(rank, WEEKLY_DISTRIBUTION.USDC).toFixed(USDC_DECIMALS);
-      const donutAmount = getPrizeForRank(rank, donutToDistribute).toFixed(4);
-      const sprinklesAmount = getPrizeForRank(rank, WEEKLY_DISTRIBUTION.SPRINKLES).toFixed(4);
-
-      distributions.push({
-        rank,
-        address: entry.address,
-        points: entry.total_points,
-        usdcAmount,
-        donutAmount,
-        sprinklesAmount,
-        txHashes: [],
-      });
-    }
-
-    // If dry run, return what would be distributed
-    if (dryRun) {
-      return NextResponse.json({
-        success: true,
-        dryRun: true,
-        weekNumber,
-        configuredDistribution: {
-          USDC: WEEKLY_DISTRIBUTION.USDC,
-          DONUT: donutToDistribute, // Show actual amount to distribute
-          SPRINKLES: WEEKLY_DISTRIBUTION.SPRINKLES,
-        },
-        walletBalances: {
-          usdc: walletUsdcBalance,
-          donut: walletDonutBalance,
-          sprinkles: walletSprinklesBalance,
-        },
-        distributions,
-        totals: {
-          usdc: distributions.reduce((sum, d) => sum + parseFloat(d.usdcAmount), 0).toFixed(2),
-          donut: distributions.reduce((sum, d) => sum + parseFloat(d.donutAmount), 0).toFixed(4),
-          sprinkles: distributions.reduce((sum, d) => sum + parseFloat(d.sprinklesAmount), 0).toFixed(4),
-        },
-      });
-    }
-
-    // Setup wallet for sending
-    const botPrivateKey = process.env.BOT_PRIVATE_KEY;
-    if (!botPrivateKey) {
-      return NextResponse.json(
-        { error: "Bot wallet not configured" },
-        { status: 500 }
-      );
-    }
-
-    const account = privateKeyToAccount(botPrivateKey as `0x${string}`);
-    const walletClient = createWalletClient({
-      account,
-      chain: base,
-      transport: http(ALCHEMY_RPC_URL),
-    });
-
-    // Send prizes
-    const errors: { rank: number; token: string; error: string }[] = [];
-
-    for (const dist of distributions) {
-      // Send USDC
-      if (parseFloat(dist.usdcAmount) > 0) {
-        try {
-          const hash = await walletClient.writeContract({
-            address: USDC_ADDRESS,
-            abi: ERC20_ABI,
-            functionName: "transfer",
-            args: [
-              dist.address as `0x${string}`,
-              parseUnits(dist.usdcAmount, USDC_DECIMALS),
-            ],
-          });
-          dist.txHashes.push(hash);
-          console.log(`[Miners Distribution] Sent ${dist.usdcAmount} USDC to rank ${dist.rank}: ${hash}`);
-          await new Promise((r) => setTimeout(r, 500));
-        } catch (err: any) {
-          console.error(`Failed to send USDC to rank ${dist.rank}:`, err);
-          errors.push({ rank: dist.rank, token: "USDC", error: err.message });
-        }
-      }
-
-      // Send DONUT (full balance distributed)
-      if (parseFloat(dist.donutAmount) > 0) {
-        try {
-          const hash = await walletClient.writeContract({
-            address: DONUT_ADDRESS,
-            abi: ERC20_ABI,
-            functionName: "transfer",
-            args: [
-              dist.address as `0x${string}`,
-              parseUnits(dist.donutAmount, DONUT_DECIMALS),
-            ],
-          });
-          dist.txHashes.push(hash);
-          console.log(`[Miners Distribution] Sent ${dist.donutAmount} DONUT to rank ${dist.rank}: ${hash}`);
-          await new Promise((r) => setTimeout(r, 500));
-        } catch (err: any) {
-          console.error(`Failed to send DONUT to rank ${dist.rank}:`, err);
-          errors.push({ rank: dist.rank, token: "DONUT", error: err.message });
-        }
-      }
-
-      // Send SPRINKLES
-      if (parseFloat(dist.sprinklesAmount) > 0) {
-        try {
-          const hash = await walletClient.writeContract({
-            address: SPRINKLES_ADDRESS,
-            abi: ERC20_ABI,
-            functionName: "transfer",
-            args: [
-              dist.address as `0x${string}`,
-              parseUnits(dist.sprinklesAmount, SPRINKLES_DECIMALS),
-            ],
-          });
-          dist.txHashes.push(hash);
-          console.log(`[Miners Distribution] Sent ${dist.sprinklesAmount} SPRINKLES to rank ${dist.rank}: ${hash}`);
-          await new Promise((r) => setTimeout(r, 500));
-        } catch (err: any) {
-          console.error(`Failed to send SPRINKLES to rank ${dist.rank}:`, err);
-          errors.push({ rank: dist.rank, token: "SPRINKLES", error: err.message });
-        }
-      }
-    }
-
-    // Get first place tx hash for record (or first successful tx)
-    const primaryTxHash =
-      distributions[0]?.txHashes[0] ||
-      distributions.find((d) => d.txHashes.length > 0)?.txHashes[0] ||
-      "";
-
-    // Record to weekly_winners table
-    const first = distributions[0];
-    const second = distributions[1];
-    const third = distributions[2];
-
-    const { error: insertError } = await supabase.from("weekly_winners").insert({
-      week_number: weekNumber,
-      first_place: first?.address || null,
-      second_place: second?.address || null,
-      third_place: third?.address || null,
-      first_amount: first?.usdcAmount || "0",
-      second_amount: second?.usdcAmount || "0",
-      third_amount: third?.usdcAmount || "0",
-      first_donut_amount: first?.donutAmount || "0",
-      second_donut_amount: second?.donutAmount || "0",
-      third_donut_amount: third?.donutAmount || "0",
-      first_sprinkles_amount: first?.sprinklesAmount || "0",
-      second_sprinkles_amount: second?.sprinklesAmount || "0",
-      third_sprinkles_amount: third?.sprinklesAmount || "0",
-      tx_hash: primaryTxHash,
-      created_at: new Date().toISOString(),
-    });
-
-    if (insertError) {
-      console.error("Failed to record to weekly_winners:", insertError);
-    }
-
-    return NextResponse.json({
-      success: true,
-      weekNumber,
-      configuredDistribution: {
-        USDC: WEEKLY_DISTRIBUTION.USDC,
-        DONUT: donutToDistribute,
-        SPRINKLES: WEEKLY_DISTRIBUTION.SPRINKLES,
-      },
-      distributions,
-      errors: errors.length > 0 ? errors : undefined,
-      totals: {
-        usdc: distributions.reduce((sum, d) => sum + parseFloat(d.usdcAmount), 0).toFixed(2),
-        donut: distributions.reduce((sum, d) => sum + parseFloat(d.donutAmount), 0).toFixed(4),
-        sprinkles: distributions.reduce((sum, d) => sum + parseFloat(d.sprinklesAmount), 0).toFixed(4),
-      },
-    });
+    
+    return NextResponse.json(result);
   } catch (error: any) {
     console.error("[Miners Distribution] Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// GET endpoint to check distribution status and config
+// GET endpoint - Vercel crons use GET requests
 export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get("authorization");
   const { searchParams } = new URL(request.url);
   const week = searchParams.get("week");
 
+  // If authorized (cron job), run distribution
+  if (authHeader === `Bearer ${process.env.CRON_SECRET}`) {
+    try {
+      const weekNumber = week ? parseInt(week) : getWeekToDistribute();
+      const result = await runDistribution(weekNumber, false);
+      
+      if (result.error && !result.success) {
+        return NextResponse.json(result, { status: 500 });
+      }
+      
+      return NextResponse.json(result);
+    } catch (error: any) {
+      console.error("[Miners Distribution] Cron error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+  }
+
+  // Otherwise return status info (no auth required for status check)
   const currentWeek = getCurrentWeek();
   const weekToDistribute = getWeekToDistribute();
 
@@ -490,39 +513,35 @@ export async function GET(request: NextRequest) {
     sprinkles: formatUnits(sprinklesBalance, SPRINKLES_DECIMALS),
   };
 
-  // If no week specified, return current config
-  if (!week) {
+  // If specific week requested, check if distributed
+  if (week) {
+    const { data, error } = await supabase
+      .from("weekly_winners")
+      .select("*")
+      .eq("week_number", parseInt(week))
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
     return NextResponse.json({
+      week: parseInt(week),
+      distributed: !!data,
+      distribution: data || null,
       currentWeek,
       weekToDistribute,
-      // configuredDistribution shows what WILL be distributed
-      // DONUT = full wallet balance (dynamic), USDC & SPRINKLES = fixed
       configuredDistribution: {
         USDC: WEEKLY_DISTRIBUTION.USDC,
-        DONUT: walletDonutBalance, // Current balance - this grows throughout the week
+        DONUT: walletDonutBalance,
         SPRINKLES: WEEKLY_DISTRIBUTION.SPRINKLES,
       },
       walletBalances,
-      prizePercentages: PRIZE_PERCENTAGES,
-      note: "DONUT distribution uses full wallet balance (accumulates from 0.5% SPRINKLES miner fee). USDC and SPRINKLES are fixed amounts.",
     });
   }
 
-  // Check if week was distributed
-  const { data, error } = await supabase
-    .from("weekly_winners")
-    .select("*")
-    .eq("week_number", parseInt(week))
-    .single();
-
-  if (error && error.code !== "PGRST116") {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
+  // Default: return current config
   return NextResponse.json({
-    week: parseInt(week),
-    distributed: !!data,
-    distribution: data || null,
     currentWeek,
     weekToDistribute,
     configuredDistribution: {
@@ -531,5 +550,7 @@ export async function GET(request: NextRequest) {
       SPRINKLES: WEEKLY_DISTRIBUTION.SPRINKLES,
     },
     walletBalances,
+    prizePercentages: PRIZE_PERCENTAGES,
+    note: "DONUT distribution uses full wallet balance (accumulates from 0.5% SPRINKLES miner fee). USDC and SPRINKLES are fixed amounts.",
   });
 }
