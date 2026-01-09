@@ -2043,7 +2043,7 @@ export default function DonutJumpPage() {
                   {errorMessage && <p className="text-red-400 text-xs">{errorMessage}</p>}
                   
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 rounded-full border border-zinc-700">
-                    <span className="text-xs text-zinc-400">Free to play (gas only ~$0.001)</span>
+                    <span className="text-xs text-zinc-400">Only gas cost ~$0.001</span>
                   </div>
                   
                   <button
