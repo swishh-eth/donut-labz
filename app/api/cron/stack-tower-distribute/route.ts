@@ -91,6 +91,188 @@ async function withRetry<T>(
   throw new Error("Max retries exceeded");
 }
 
+// Main distribution logic
+async function runDistribution(week: number, dryRun: boolean) {
+  console.log(`[Glaze Stack Distribution] Starting for week ${week}, dryRun: ${dryRun}`);
+  console.log(`[Glaze Stack Distribution] Current week: ${getCurrentWeek()}, distributing week: ${week}`);
+
+  // Check if already distributed for this week
+  const { data: existingDistribution } = await supabase
+    .from("stack_tower_prize_distributions")
+    .select("id")
+    .eq("week", week)
+    .single();
+
+  if (existingDistribution) {
+    return {
+      success: false,
+      error: "Prizes already distributed for this week",
+      week,
+    };
+  }
+
+  // Get all games for the week to find best score per player
+  const { data: allGames, error: gamesError } = await supabase
+    .from("stack_tower_games")
+    .select("fid, wallet_address, score, username, pfp_url")
+    .eq("week_number", week)
+    .gt("score", 0)
+    .order("score", { ascending: false });
+
+  if (gamesError) {
+    console.error("Error fetching games:", gamesError);
+    return { error: "Failed to fetch games" };
+  }
+
+  if (!allGames || allGames.length === 0) {
+    return {
+      success: false,
+      error: "No games found for this week",
+      week,
+    };
+  }
+
+  // Build leaderboard with best score per player (by wallet address)
+  const playerBests = new Map<string, {
+    fid: number;
+    walletAddress: string;
+    username: string;
+    score: number;
+  }>();
+
+  allGames.forEach((game) => {
+    if (!game.wallet_address) return;
+    const key = game.wallet_address.toLowerCase();
+    const existing = playerBests.get(key);
+    if (!existing || game.score > existing.score) {
+      playerBests.set(key, {
+        fid: game.fid,
+        walletAddress: game.wallet_address.toLowerCase(),
+        username: game.username || `fid:${game.fid}`,
+        score: game.score,
+      });
+    }
+  });
+
+  // Sort by score and get top 10
+  const topScores = Array.from(playerBests.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+
+  if (topScores.length === 0) {
+    return {
+      success: false,
+      error: "No valid wallet addresses found for winners",
+      week,
+    };
+  }
+
+  // Prepare distribution list
+  const distributions: {
+    rank: number;
+    address: string;
+    amount: string;
+    score: number;
+    username?: string;
+    txHash?: string;
+  }[] = [];
+
+  const prizeDistribution = getPrizeDistribution();
+
+  for (let i = 0; i < Math.min(topScores.length, prizeDistribution.length); i++) {
+    const winner = topScores[i];
+    const prize = prizeDistribution[i];
+
+    distributions.push({
+      rank: prize.rank,
+      address: winner.walletAddress,
+      amount: prize.amount,
+      score: winner.score,
+      username: winner.username,
+    });
+  }
+
+  console.log(`[Glaze Stack Distribution] Found ${distributions.length} winners`);
+
+  // If dry run, just return what would be distributed
+  if (dryRun) {
+    return {
+      success: true,
+      dryRun: true,
+      week,
+      currentWeek: getCurrentWeek(),
+      distributions,
+      totalPrize: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0).toFixed(2),
+    };
+  }
+
+  // Setup wallet client for sending
+  const botPrivateKey = process.env.BOT_PRIVATE_KEY;
+  if (!botPrivateKey) {
+    return { error: "Bot wallet not configured" };
+  }
+
+  const account = privateKeyToAccount(botPrivateKey as `0x${string}`);
+  
+  const publicClient = createPublicClient({
+    chain: base,
+    transport: http(ALCHEMY_RPC_URL),
+  });
+
+  const walletClient = createWalletClient({
+    account,
+    chain: base,
+    transport: http(ALCHEMY_RPC_URL),
+  });
+
+  // Send prizes - wait for each tx to confirm before sending next
+  const results: { rank: number; txHash: string; error?: string }[] = [];
+
+  for (const dist of distributions) {
+    try {
+      const amountInUnits = parseUnits(dist.amount, USDC_DECIMALS);
+
+      const hash = await withRetry(() => walletClient.writeContract({
+        address: USDC_ADDRESS,
+        abi: ERC20_TRANSFER_ABI,
+        functionName: "transfer",
+        args: [dist.address as `0x${string}`, amountInUnits],
+      }));
+
+      dist.txHash = hash;
+      results.push({ rank: dist.rank, txHash: hash });
+      console.log(`[Glaze Stack Distribution] Sent $${dist.amount} USDC to rank ${dist.rank}: ${hash}`);
+
+      // Wait for confirmation before next tx
+      await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+    } catch (err: any) {
+      console.error(`Failed to send prize to rank ${dist.rank}:`, err);
+      results.push({ rank: dist.rank, txHash: "", error: err.message });
+    }
+  }
+
+  // Record distribution in database
+  const { error: insertError } = await supabase.from("stack_tower_prize_distributions").insert({
+    week,
+    total_prize_usd: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0),
+    distributions: distributions,
+    results: results,
+    distributed_at: new Date().toISOString(),
+  });
+
+  if (insertError) {
+    console.error("Failed to record distribution:", insertError);
+  }
+
+  return {
+    success: true,
+    week,
+    distributions,
+    results,
+    totalPrize: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0).toFixed(2),
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Verify cron secret
@@ -100,198 +282,46 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const week = body.week || getPreviousWeek(); // Default to previous week
-    const dryRun = body.dryRun === true; // For testing without sending
+    const week = body.week || getPreviousWeek();
+    const dryRun = body.dryRun === true;
 
-    console.log(`[Glaze Stack Distribution] Starting for week ${week}, dryRun: ${dryRun}`);
-    console.log(`[Glaze Stack Distribution] Current week: ${getCurrentWeek()}, distributing week: ${week}`);
-
-    // Check if already distributed for this week
-    const { data: existingDistribution } = await supabase
-      .from("stack_tower_prize_distributions")
-      .select("id")
-      .eq("week", week)
-      .single();
-
-    if (existingDistribution) {
-      return NextResponse.json({
-        success: false,
-        error: "Prizes already distributed for this week",
-        week,
-      });
-    }
-
-    // Get all games for the week to find best score per player
-    const { data: allGames, error: gamesError } = await supabase
-      .from("stack_tower_games")
-      .select("fid, wallet_address, score, username, pfp_url")
-      .eq("week_number", week)
-      .gt("score", 0)
-      .order("score", { ascending: false });
-
-    if (gamesError) {
-      console.error("Error fetching games:", gamesError);
-      return NextResponse.json({ error: "Failed to fetch games" }, { status: 500 });
-    }
-
-    if (!allGames || allGames.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: "No games found for this week",
-        week,
-      });
-    }
-
-    // Build leaderboard with best score per player (by wallet address)
-    const playerBests = new Map<string, {
-      fid: number;
-      walletAddress: string;
-      username: string;
-      score: number;
-    }>();
-
-    allGames.forEach((game) => {
-      if (!game.wallet_address) return;
-      const key = game.wallet_address.toLowerCase();
-      const existing = playerBests.get(key);
-      if (!existing || game.score > existing.score) {
-        playerBests.set(key, {
-          fid: game.fid,
-          walletAddress: game.wallet_address.toLowerCase(),
-          username: game.username || `fid:${game.fid}`,
-          score: game.score,
-        });
-      }
-    });
-
-    // Sort by score and get top 10
-    const topScores = Array.from(playerBests.values())
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
-
-    if (topScores.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: "No valid wallet addresses found for winners",
-        week,
-      });
-    }
-
-    // Prepare distribution list
-    const distributions: {
-      rank: number;
-      address: string;
-      amount: string;
-      score: number;
-      username?: string;
-      txHash?: string;
-    }[] = [];
-
-    const prizeDistribution = getPrizeDistribution();
-
-    for (let i = 0; i < Math.min(topScores.length, prizeDistribution.length); i++) {
-      const winner = topScores[i];
-      const prize = prizeDistribution[i];
-
-      distributions.push({
-        rank: prize.rank,
-        address: winner.walletAddress,
-        amount: prize.amount,
-        score: winner.score,
-        username: winner.username,
-      });
-    }
-
-    console.log(`[Glaze Stack Distribution] Found ${distributions.length} winners`);
-
-    // If dry run, just return what would be distributed
-    if (dryRun) {
-      return NextResponse.json({
-        success: true,
-        dryRun: true,
-        week,
-        currentWeek: getCurrentWeek(),
-        distributions,
-        totalPrize: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0).toFixed(2),
-      });
-    }
-
-    // Setup wallet client for sending
-    const botPrivateKey = process.env.BOT_PRIVATE_KEY;
-    if (!botPrivateKey) {
-      return NextResponse.json({ error: "Bot wallet not configured" }, { status: 500 });
-    }
-
-    const account = privateKeyToAccount(botPrivateKey as `0x${string}`);
+    const result = await runDistribution(week, dryRun);
     
-    const publicClient = createPublicClient({
-      chain: base,
-      transport: http(ALCHEMY_RPC_URL),
-    });
-
-    const walletClient = createWalletClient({
-      account,
-      chain: base,
-      transport: http(ALCHEMY_RPC_URL),
-    });
-
-    // Send prizes - wait for each tx to confirm before sending next
-    const results: { rank: number; txHash: string; error?: string }[] = [];
-
-    for (const dist of distributions) {
-      try {
-        const amountInUnits = parseUnits(dist.amount, USDC_DECIMALS);
-
-        const hash = await withRetry(() => walletClient.writeContract({
-          address: USDC_ADDRESS,
-          abi: ERC20_TRANSFER_ABI,
-          functionName: "transfer",
-          args: [dist.address as `0x${string}`, amountInUnits],
-        }));
-
-        dist.txHash = hash;
-        results.push({ rank: dist.rank, txHash: hash });
-        console.log(`[Glaze Stack Distribution] Sent $${dist.amount} USDC to rank ${dist.rank}: ${hash}`);
-
-        // Wait for confirmation before next tx
-        await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
-      } catch (err: any) {
-        console.error(`Failed to send prize to rank ${dist.rank}:`, err);
-        results.push({ rank: dist.rank, txHash: "", error: err.message });
-      }
+    if (result.error && !result.success) {
+      return NextResponse.json(result, { status: 500 });
     }
-
-    // Record distribution in database
-    const { error: insertError } = await supabase.from("stack_tower_prize_distributions").insert({
-      week,
-      total_prize_usd: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0),
-      distributions: distributions,
-      results: results,
-      distributed_at: new Date().toISOString(),
-    });
-
-    if (insertError) {
-      console.error("Failed to record distribution:", insertError);
-    }
-
-    return NextResponse.json({
-      success: true,
-      week,
-      distributions,
-      results,
-      totalPrize: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0).toFixed(2),
-    });
+    
+    return NextResponse.json(result);
   } catch (error: any) {
     console.error("Prize distribution error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// GET endpoint to check distribution status and prize info
+// GET endpoint - Vercel crons use GET requests
 export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get("authorization");
   const { searchParams } = new URL(request.url);
   const week = searchParams.get("week");
 
+  // If authorized (cron job), run distribution
+  if (authHeader === `Bearer ${process.env.CRON_SECRET}`) {
+    try {
+      const weekNumber = week ? parseInt(week) : getPreviousWeek();
+      const result = await runDistribution(weekNumber, false);
+      
+      if (result.error && !result.success) {
+        return NextResponse.json(result, { status: 500 });
+      }
+      
+      return NextResponse.json(result);
+    } catch (error: any) {
+      console.error("[Glaze Stack Distribution] Cron error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+  }
+
+  // Otherwise return status info (no auth required for status check)
   const currentWeek = getCurrentWeek();
   const previousWeek = getPreviousWeek();
 
@@ -305,6 +335,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Check if specific week was distributed
   const { data, error } = await supabase
     .from("stack_tower_prize_distributions")
     .select("*")
