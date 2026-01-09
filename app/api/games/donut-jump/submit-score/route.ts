@@ -31,35 +31,49 @@ function validateChecksum(score: number, metrics: GameMetrics, entryId: string):
 function detectCheating(score: number, metrics: GameMetrics): { isSuspicious: boolean; reasons: string[] } {
   const reasons: string[] = [];
   
-  // Game too short for the score
-  if (metrics.gameDurationMs < 15000 && score > 5) {
+  // Game too short for the score - only flag extreme cases
+  // 10 seconds with 20+ coins is suspicious, but quick deaths with few coins are normal
+  if (metrics.gameDurationMs < 10000 && score > 20) {
     reasons.push(`Game too short: ${metrics.gameDurationMs}ms with score ${score}`);
   }
   
-  // Impossibly fast coin collection (more than 5 per second sustained)
-  if (metrics.coinsPerSecondPeak > 6) {
+  // Impossibly fast coin collection (more than 8 per second peak is basically impossible)
+  // Magnet power-up can get you ~4-5/sec legitimately
+  if (metrics.coinsPerSecondPeak > 8) {
     reasons.push(`Impossible collection rate: ${metrics.coinsPerSecondPeak} coins/sec`);
   }
   
-  // No jumps but has score
-  if (metrics.jumpCount === 0 && score > 0) {
+  // No jumps but has significant score (jetpack still requires initial jump)
+  if (metrics.jumpCount === 0 && score > 3) {
     reasons.push(`No jumps recorded but score is ${score}`);
   }
   
-  // Score higher than platforms landed (impossible without cheating)
-  if (score > metrics.platformsLanded * 3 && metrics.platformsLanded > 0) {
+  // Score massively higher than platforms landed
+  // With magnet you could maybe get 2 coins per platform on average
+  if (score > metrics.platformsLanded * 4 && metrics.platformsLanded > 5 && score > 20) {
     reasons.push(`Score ${score} too high for ${metrics.platformsLanded} platforms`);
   }
   
-  // Coins per minute way too high (legit max is around 30-35)
-  if (metrics.coinsPerMinute > 50) {
+  // Coins per minute way too high - only flag extreme values
+  // Legit good runs can hit 40-45, flag at 60+
+  if (metrics.coinsPerMinute > 60) {
     reasons.push(`Coins per minute too high: ${metrics.coinsPerMinute}`);
   }
   
-  // Height per jump impossibly high (physics max is around 80)
-  if (metrics.heightPerJump > 120 && metrics.jumpCount > 5) {
-    reasons.push(`Height per jump impossible: ${metrics.heightPerJump}`);
+  // Height per jump - REMOVED this check
+  // Jetpacks and springs make this metric unreliable
+  // A single jetpack can give 2000+ height with 0 additional jumps
+  
+  // NEW: Check for impossible height in very short time without power-ups
+  // Max climb speed without jetpack is roughly 300 units/sec
+  const maxPossibleHeight = (metrics.gameDurationMs / 1000) * 400; // generous 400/sec
+  if (metrics.maxHeight > maxPossibleHeight && metrics.powerUpsCollected === 0 && metrics.springBounces === 0) {
+    reasons.push(`Height ${metrics.maxHeight} impossible in ${metrics.gameDurationMs}ms without power-ups`);
   }
+  
+  // NEW: Suspicious if very high score but 0 power-ups collected in long game
+  // (not necessarily cheating, just unusual - for manual review)
+  // Actually removing this - it's not cheating, just skill
   
   return {
     isSuspicious: reasons.length > 0,

@@ -50,12 +50,12 @@ const MAX_PLATFORM_GAP = 120;
 // Donut coin
 const COIN_SIZE = 24;
 
-// Height zones for visual progression
+// Height zones for visual progression - spread out for gradual progression
 const HEIGHT_ZONES = [
   { threshold: 0, name: 'Ground', bg1: '#1a1a1a', bg2: '#0d0d0d', accent: '#4ade80' },
-  { threshold: 1000, name: 'Sky', bg1: '#1a1a2e', bg2: '#0d0d1a', accent: '#60a5fa' },
-  { threshold: 3000, name: 'Clouds', bg1: '#2a1a3a', bg2: '#1a0d2a', accent: '#a78bfa' },
-  { threshold: 6000, name: 'Space', bg1: '#0a0a1a', bg2: '#000008', accent: '#f472b6' },
+  { threshold: 5000, name: 'Sky', bg1: '#1a1a2e', bg2: '#0d0d1a', accent: '#60a5fa' },
+  { threshold: 15000, name: 'Clouds', bg1: '#2a1a3a', bg2: '#1a0d2a', accent: '#a78bfa' },
+  { threshold: 30000, name: 'Space', bg1: '#0a0a1a', bg2: '#000008', accent: '#f472b6' },
 ];
 
 // Types
@@ -722,9 +722,9 @@ export default function DonutJumpPage() {
     ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
-    // Draw stars in higher zones
-    if (maxHeightRef.current > 3000) {
-      const starAlpha = Math.min((maxHeightRef.current - 3000) / 3000, 1);
+    // Draw stars in higher zones (approaching Space)
+    if (maxHeightRef.current > 15000) {
+      const starAlpha = Math.min((maxHeightRef.current - 15000) / 15000, 1);
       starsRef.current.forEach(star => {
         star.twinklePhase += 0.02;
         const twinkle = 0.3 + Math.sin(star.twinklePhase) * 0.7;
@@ -761,7 +761,7 @@ export default function DonutJumpPage() {
     }
     
     // Speed lines effect based on height
-    const intensity = Math.min(maxHeightRef.current / 5000, 1);
+    const intensity = Math.min(maxHeightRef.current / 20000, 1);
     if (intensity > 0.1) {
       const lineCount = Math.floor(3 + intensity * 10);
       for (let i = 0; i < lineCount; i++) {
@@ -1150,9 +1150,7 @@ export default function DonutJumpPage() {
   }, []);
   
   const drawHUD = useCallback((ctx: CanvasRenderingContext2D) => {
-    const zone = currentZoneRef.current;
-    
-    // Score with donut coin image and glow
+    // Score with donut coin image and glow - only show donuts collected
     ctx.shadowColor = '#F472B6';
     ctx.shadowBlur = 10;
     ctx.fillStyle = '#FFFFFF';
@@ -1166,15 +1164,6 @@ export default function DonutJumpPage() {
       ctx.fillText(`🍩 ${coinsCollectedRef.current}`, 15, 40);
     }
     ctx.shadowBlur = 0;
-    
-    // Zone indicator
-    ctx.font = '10px monospace';
-    ctx.fillStyle = zone.accent;
-    ctx.fillText(zone.name.toUpperCase(), 15, 55);
-    
-    // Height indicator
-    ctx.fillStyle = '#666';
-    ctx.fillText(`${Math.floor(maxHeightRef.current)}m`, 15, 68);
     
     // Active power-ups with progress rings
     const now = Date.now();
@@ -1901,11 +1890,6 @@ export default function DonutJumpPage() {
         } else {
           ctx.fillText('donuts collected', CANVAS_WIDTH / 2, 278);
         }
-        
-        // Height
-        ctx.fillStyle = '#666';
-        ctx.font = '12px monospace';
-        ctx.fillText(`Max height: ${Math.floor(maxHeightRef.current)}m`, CANVAS_WIDTH / 2, 300);
       } else {
         // Menu animation - floating platforms and bouncing character
         for (let i = 0; i < 5; i++) {
