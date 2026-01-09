@@ -731,91 +731,6 @@ export default function DonutSurvivorsPage() {
           <div className="relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
             <canvas ref={canvasRef} width={SCALED_WIDTH} height={SCALED_HEIGHT} className="rounded-2xl border border-zinc-800 w-full h-full" style={{ touchAction: "none" }} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={e => e.preventDefault()} />
             
-            {/* Equipment Viewer - Fixed with proper scrolling */}
-            {gameState === "equipment" && equipmentData && (
-              <div className="absolute inset-0 bg-black/95 backdrop-blur-sm flex flex-col z-40 rounded-2xl overflow-hidden">
-                {/* Fixed Header */}
-                <div className="flex-shrink-0 p-3 border-b border-zinc-800">
-                  <div className="text-[10px] text-zinc-500 uppercase tracking-widest text-center">Game Paused</div>
-                  <h2 className="text-lg font-bold text-white text-center">Equipment</h2>
-                </div>
-                
-                {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                  {/* Weapons */}
-                  <div>
-                    <div className="text-xs text-pink-400 uppercase tracking-wider mb-2">Weapons {equipmentData.weapons.length}/{MAX_WEAPONS}</div>
-                    <div className="space-y-2">
-                      {equipmentData.weapons.map((w, i) => {
-                        const cfg = WEAPON_CONFIG[w.type], stats = WEAPON_STATS[w.type];
-                        const dmg = cfg.baseDamage * (1 + (w.level - 1) * 0.3) * equipmentData.player.damage;
-                        const cdRed = 1 - (equipmentData.player.cooldownReduction || 0);
-                        const cd = cfg.baseCooldown * Math.pow(0.9, w.level - 1) * cdRed;
-                        return (
-                          <div key={i} className="bg-zinc-900/80 border border-zinc-800 rounded-lg p-2">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xl" style={{ color: cfg.color }}>{cfg.icon}</span>
-                              <span className="font-medium text-white text-sm flex-1">{cfg.name}</span>
-                              <span className="text-[10px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded">LV {w.level}</span>
-                            </div>
-                            <div className="grid grid-cols-3 gap-1 text-[9px]">
-                              <div><span className="text-zinc-500">DMG:</span> <span className="text-zinc-300">{Math.floor(dmg)}</span></div>
-                              <div><span className="text-zinc-500">CD:</span> <span className="text-zinc-300">{Math.floor(cd)}ms</span></div>
-                              <div><span className="text-zinc-500">{stats.stat}:</span> <span className="text-zinc-300 text-[8px]">{stats.perLevel}</span></div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {equipmentData.weapons.length === 0 && <div className="text-zinc-600 text-xs text-center py-2">No weapons</div>}
-                    </div>
-                  </div>
-                  
-                  {/* Gadgets */}
-                  <div>
-                    <div className="text-xs text-blue-400 uppercase tracking-wider mb-2">Gadgets {equipmentData.gadgets.length}/{MAX_GADGETS}</div>
-                    <div className="space-y-2">
-                      {equipmentData.gadgets.map((g, i) => {
-                        const cfg = GADGET_CONFIG[g.type];
-                        return (
-                          <div key={i} className="bg-zinc-900/80 border border-zinc-800 rounded-lg p-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xl" style={{ color: cfg.color }}>{cfg.icon}</span>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium text-white text-sm">{cfg.name}</span>
-                                  <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">×{g.stacks}</span>
-                                </div>
-                                <div className="text-[9px] text-green-400">{getGadgetBonus(g.type, g.stacks)}</div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {equipmentData.gadgets.length === 0 && <div className="text-zinc-600 text-xs text-center py-2">No gadgets</div>}
-                    </div>
-                  </div>
-                  
-                  {/* Stats */}
-                  <div>
-                    <div className="text-xs text-zinc-400 uppercase tracking-wider mb-2">Stats</div>
-                    <div className="bg-zinc-900/80 border border-zinc-800 rounded-lg p-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[9px]">
-                      <div><span className="text-zinc-500">Max HP:</span> <span className="text-zinc-300">{equipmentData.player.maxHp}</span></div>
-                      <div><span className="text-zinc-500">Speed:</span> <span className="text-zinc-300">{equipmentData.player.speed.toFixed(2)}</span></div>
-                      <div><span className="text-zinc-500">Damage:</span> <span className="text-zinc-300">×{equipmentData.player.damage.toFixed(2)}</span></div>
-                      <div><span className="text-zinc-500">XP:</span> <span className="text-zinc-300">×{equipmentData.player.xpMultiplier.toFixed(2)}</span></div>
-                      <div><span className="text-zinc-500">Pickup:</span> <span className="text-zinc-300">{Math.floor(equipmentData.player.magnetRange)}px</span></div>
-                      <div><span className="text-zinc-500">Defense:</span> <span className="text-zinc-300">{Math.floor((equipmentData.player.defense || 0) * 100)}%</span></div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Fixed Footer */}
-                <div className="flex-shrink-0 p-3 border-t border-zinc-800">
-                  <button onClick={closeEquip} className="w-full px-6 py-2.5 bg-pink-500 text-white text-sm font-bold rounded-lg hover:bg-pink-400 transition-all active:scale-[0.98]">Resume Game</button>
-                </div>
-              </div>
-            )}
-            
             {/* Level Up Screen */}
             {gameState === "levelup" && (
               <div className="absolute inset-0 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-30 rounded-2xl">
@@ -920,6 +835,83 @@ export default function DonutSurvivorsPage() {
                 {[['1', 'Movement', 'Drag anywhere to move. WASD/Arrow keys also work!'], ['2', 'Auto-Attack', 'Your weapons fire automatically at nearby enemies!'], ['3', 'Collect XP', 'Kill enemies to drop pink donuts. Walk over them to level up!'], ['4', 'Weapons', 'Collect up to 4 weapons. Each can be leveled up to 8!'], ['5', 'Gadgets', 'Passive boosts (max 4). Stack them up to 5 times each!'], ['6', 'Equipment', 'Tap items in top-right or press E to view your gear!']].map(([n, t, d]) => (<div key={n} className="flex gap-2.5"><div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold">{n}</div><div><div className="font-semibold text-white text-xs">{t}</div><div className="text-[11px] text-gray-400">{d}</div></div></div>))}
               </div>
               <button onClick={() => setShowHelp(false)} className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200">Got it</button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Equipment Viewer Modal */}
+      {gameState === "equipment" && equipmentData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) closeEquip(); }}>
+          <div className="w-full max-w-[360px] bg-black/98 backdrop-blur-sm flex flex-col rounded-2xl overflow-hidden border border-zinc-700" style={{ maxHeight: '80vh' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex-shrink-0 p-3 border-b border-zinc-800">
+              <div className="text-[10px] text-zinc-500 uppercase tracking-widest text-center">Game Paused</div>
+              <h2 className="text-lg font-bold text-white text-center">Equipment</h2>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <div>
+                <div className="text-xs text-pink-400 uppercase tracking-wider mb-2">Weapons {equipmentData.weapons.length}/{MAX_WEAPONS}</div>
+                <div className="space-y-2">
+                  {equipmentData.weapons.map((w, i) => {
+                    const cfg = WEAPON_CONFIG[w.type], stats = WEAPON_STATS[w.type];
+                    const dmg = cfg.baseDamage * (1 + (w.level - 1) * 0.3) * equipmentData.player.damage;
+                    const cdRed = 1 - (equipmentData.player.cooldownReduction || 0);
+                    const cd = cfg.baseCooldown * Math.pow(0.9, w.level - 1) * cdRed;
+                    return (
+                      <div key={i} className="bg-zinc-900/80 border border-zinc-800 rounded-lg p-2">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xl" style={{ color: cfg.color }}>{cfg.icon}</span>
+                          <span className="font-medium text-white text-sm flex-1">{cfg.name}</span>
+                          <span className="text-[10px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded">LV {w.level}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1 text-[9px]">
+                          <div><span className="text-zinc-500">DMG:</span> <span className="text-zinc-300">{Math.floor(dmg)}</span></div>
+                          <div><span className="text-zinc-500">CD:</span> <span className="text-zinc-300">{Math.floor(cd)}ms</span></div>
+                          <div><span className="text-zinc-500">{stats.stat}:</span> <span className="text-zinc-300 text-[8px]">{stats.perLevel}</span></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {equipmentData.weapons.length === 0 && <div className="text-zinc-600 text-xs text-center py-2">No weapons</div>}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-blue-400 uppercase tracking-wider mb-2">Gadgets {equipmentData.gadgets.length}/{MAX_GADGETS}</div>
+                <div className="space-y-2">
+                  {equipmentData.gadgets.map((g, i) => {
+                    const cfg = GADGET_CONFIG[g.type];
+                    return (
+                      <div key={i} className="bg-zinc-900/80 border border-zinc-800 rounded-lg p-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl" style={{ color: cfg.color }}>{cfg.icon}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-white text-sm">{cfg.name}</span>
+                              <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">×{g.stacks}</span>
+                            </div>
+                            <div className="text-[9px] text-green-400">{getGadgetBonus(g.type, g.stacks)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {equipmentData.gadgets.length === 0 && <div className="text-zinc-600 text-xs text-center py-2">No gadgets</div>}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-zinc-400 uppercase tracking-wider mb-2">Stats</div>
+                <div className="bg-zinc-900/80 border border-zinc-800 rounded-lg p-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[9px]">
+                  <div><span className="text-zinc-500">Max HP:</span> <span className="text-zinc-300">{equipmentData.player.maxHp}</span></div>
+                  <div><span className="text-zinc-500">Speed:</span> <span className="text-zinc-300">{equipmentData.player.speed.toFixed(2)}</span></div>
+                  <div><span className="text-zinc-500">Damage:</span> <span className="text-zinc-300">×{equipmentData.player.damage.toFixed(2)}</span></div>
+                  <div><span className="text-zinc-500">XP:</span> <span className="text-zinc-300">×{equipmentData.player.xpMultiplier.toFixed(2)}</span></div>
+                  <div><span className="text-zinc-500">Pickup:</span> <span className="text-zinc-300">{Math.floor(equipmentData.player.magnetRange)}px</span></div>
+                  <div><span className="text-zinc-500">Defense:</span> <span className="text-zinc-300">{Math.floor((equipmentData.player.defense || 0) * 100)}%</span></div>
+                </div>
+              </div>
+            </div>
+            <div className="flex-shrink-0 p-3 border-t border-zinc-800">
+              <button onClick={() => closeEquip()} className="w-full px-6 py-3 bg-pink-500 text-white text-sm font-bold rounded-lg hover:bg-pink-400 transition-all active:scale-[0.98]">Resume Game</button>
             </div>
           </div>
         </div>
