@@ -22,7 +22,7 @@ const BASE_XP_TO_LEVEL = 15;
 const XP_SCALE = 1.25;
 
 type WeaponType = 'sprinkle_shot' | 'frosting_ring' | 'glaze_wave' | 'sugar_stars' | 'orbiting_donuts' | 'cinnamon_trail' | 'candy_cannon' | 'mint_missiles';
-type EnemyType = 'sprinkle' | 'gummy' | 'candy_corn' | 'chocolate_chunk';
+type EnemyType = 'sprinkle' | 'gummy' | 'candy_corn' | 'chocolate_chunk' | 'boss' | 'final_boss';
 type UpgradeType = 'weapon' | 'gadget';
 
 interface Weapon { type: WeaponType; level: number; lastFired: number; angle?: number; }
@@ -42,7 +42,7 @@ const WEAPON_CONFIG: Record<WeaponType, WeaponConfig> = {
   orbiting_donuts: { name: 'Orbiting Donuts', icon: '◉', color: '#F472B6', baseDamage: 12, baseCooldown: 50, description: 'Donuts orbit around you' },
   cinnamon_trail: { name: 'Cinnamon Trail', icon: '▬', color: '#F97316', baseDamage: 5, baseCooldown: 100, description: 'Leave a burning trail that damages enemies' },
   candy_cannon: { name: 'Candy Cannon', icon: '●', color: '#A78BFA', baseDamage: 25, baseCooldown: 1500, description: 'Explosive candy balls' },
-  mint_missiles: { name: 'Mint Missiles', icon: '▲', color: '#4ADE80', baseDamage: 8, baseCooldown: 600, description: 'Homing missiles with small explosions' },
+  mint_missiles: { name: 'Mint Missiles', icon: '▲', color: '#4ADE80', baseDamage: 8, baseCooldown: 1000, description: 'Homing missiles with small explosions' },
 };
 
 // Games required to unlock each starter weapon
@@ -98,6 +98,8 @@ const ENEMY_CONFIG: Record<EnemyType, { hp: number; speed: number; size: number;
   gummy: { hp: 30, speed: 1.2, size: 20, xpValue: 4, damage: 6, color: '#4ADE80', spawnWeight: 30 },
   candy_corn: { hp: 10, speed: 2.0, size: 12, xpValue: 2, damage: 3, color: '#FBBF24', spawnWeight: 15 },
   chocolate_chunk: { hp: 100, speed: 0.5, size: 32, xpValue: 15, damage: 12, color: '#A78BFA', spawnWeight: 5 },
+  boss: { hp: 2000, speed: 0.6, size: 60, xpValue: 200, damage: 25, color: '#FF1744', spawnWeight: 0 },
+  final_boss: { hp: 999999, speed: 1.2, size: 100, xpValue: 0, damage: 9999, color: '#000000', spawnWeight: 0 },
 };
 
 export default function DonutSurvivorsPage() {
@@ -147,6 +149,10 @@ export default function DonutSurvivorsPage() {
   const joystickRef = useRef({ active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 });
   const moveInputRef = useRef({ x: 0, y: 0 });
   const enemiesKilledRef = useRef(0);
+  const bossSpawnedRef = useRef(false);
+  const bossWarningRef = useRef(false);
+  const finalBossSpawnedRef = useRef(false);
+  const finalBossWarningRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const donutImageRef = useRef<HTMLImageElement | null>(null);
   const donutLoadedRef = useRef(false);
@@ -348,7 +354,7 @@ export default function DonutSurvivorsPage() {
         }
       } else if (weapon.type === 'mint_missiles') {
         // Homing missiles that track enemies with small explosions
-        const missileCount = 2 + Math.floor(weapon.level / 2);
+        const missileCount = 1 + Math.floor(weapon.level / 3);
         const targets = enemiesRef.current.slice().sort((a, b) => 
           Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y)
         ).slice(0, missileCount);
@@ -356,7 +362,7 @@ export default function DonutSurvivorsPage() {
           const angle = Math.atan2(target.y - player.y, target.x - player.x);
           // Spread missiles slightly
           const spreadAngle = angle + (i - (targets.length - 1) / 2) * 0.15;
-          projectilesRef.current.push({ x: player.x, y: player.y, vx: Math.cos(spreadAngle) * 6, vy: Math.sin(spreadAngle) * 6, damage, size: 8, color: config.color, piercing: 0, lifetime: 100, weaponType: weapon.type });
+          projectilesRef.current.push({ x: player.x, y: player.y, vx: Math.cos(spreadAngle) * 5, vy: Math.sin(spreadAngle) * 5, damage, size: 8, color: config.color, piercing: 0, lifetime: 120, weaponType: weapon.type });
         });
       }
     });
@@ -522,14 +528,126 @@ export default function DonutSurvivorsPage() {
     const cam = cameraRef.current;
     enemiesRef.current.forEach(e => {
       const sx = e.x - cam.x, sy = e.y - cam.y;
-      if (sx < -50 || sx > CANVAS_WIDTH + 50 || sy < -50 || sy > CANVAS_HEIGHT + 50) return;
+      if (sx < -80 || sx > CANVAS_WIDTH + 80 || sy < -80 || sy > CANVAS_HEIGHT + 80) return;
       ctx.save(); ctx.translate(sx, sy);
       ctx.fillStyle = e.hitFlash > 0 ? '#FFF' : e.color;
       if (e.type === 'sprinkle') { ctx.beginPath(); ctx.roundRect(-e.size / 2, -e.size / 4, e.size, e.size / 2, e.size / 4); ctx.fill(); }
       else if (e.type === 'gummy') { ctx.beginPath(); ctx.arc(0, 0, e.size / 2, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(-e.size / 3, -e.size / 2, e.size / 4, 0, Math.PI * 2); ctx.arc(e.size / 3, -e.size / 2, e.size / 4, 0, Math.PI * 2); ctx.fill(); }
       else if (e.type === 'candy_corn') { ctx.beginPath(); ctx.moveTo(0, -e.size / 2); ctx.lineTo(-e.size / 2, e.size / 2); ctx.lineTo(e.size / 2, e.size / 2); ctx.closePath(); ctx.fill(); }
       else if (e.type === 'chocolate_chunk') { ctx.beginPath(); ctx.roundRect(-e.size / 2, -e.size / 2, e.size, e.size, 5); ctx.fill(); ctx.fillStyle = e.hitFlash > 0 ? '#FFF' : '#000'; ctx.beginPath(); ctx.arc(-e.size / 5, -e.size / 8, 3, 0, Math.PI * 2); ctx.arc(e.size / 5, -e.size / 8, 3, 0, Math.PI * 2); ctx.fill(); }
-      if (e.maxHp > 20) { const bw = e.size * 1.2, hp = e.hp / e.maxHp; ctx.fillStyle = '#333'; ctx.fillRect(-bw / 2, -e.size / 2 - 10, bw, 4); ctx.fillStyle = hp > 0.5 ? '#4ADE80' : hp > 0.25 ? '#FBBF24' : '#FF6B6B'; ctx.fillRect(-bw / 2, -e.size / 2 - 10, bw * hp, 4); }
+      else if (e.type === 'boss') {
+        // Boss - large donut with menacing features
+        ctx.shadowColor = '#FF1744';
+        ctx.shadowBlur = 30;
+        // Outer ring
+        ctx.beginPath();
+        ctx.arc(0, 0, e.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        // Inner hole
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#0a0a0a';
+        ctx.beginPath();
+        ctx.arc(0, 0, e.size / 5, 0, Math.PI * 2);
+        ctx.fill();
+        // Eyes
+        ctx.fillStyle = e.hitFlash > 0 ? '#FFF' : '#000';
+        ctx.beginPath();
+        ctx.arc(-e.size / 4, -e.size / 6, 6, 0, Math.PI * 2);
+        ctx.arc(e.size / 4, -e.size / 6, 6, 0, Math.PI * 2);
+        ctx.fill();
+        // Angry eyebrows
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-e.size / 3 - 5, -e.size / 3);
+        ctx.lineTo(-e.size / 6, -e.size / 4);
+        ctx.moveTo(e.size / 3 + 5, -e.size / 3);
+        ctx.lineTo(e.size / 6, -e.size / 4);
+        ctx.stroke();
+        // Crown spikes
+        ctx.fillStyle = '#FFD700';
+        for (let i = 0; i < 5; i++) {
+          const a = -Math.PI / 2 + (i - 2) * 0.35;
+          const cx = Math.cos(a) * (e.size / 2 + 8);
+          const cy = Math.sin(a) * (e.size / 2 + 8);
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + Math.cos(a - 0.3) * 10, cy + Math.sin(a - 0.3) * 10);
+          ctx.lineTo(cx + Math.cos(a) * 15, cy + Math.sin(a) * 15);
+          ctx.lineTo(cx + Math.cos(a + 0.3) * 10, cy + Math.sin(a + 0.3) * 10);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+      else if (e.type === 'final_boss') {
+        // THE VOID - unkillable death entity
+        const pulse = Math.sin(Date.now() / 150) * 0.3 + 0.7;
+        const t = Date.now() / 1000;
+        
+        // Dark aura rings
+        for (let r = 3; r >= 1; r--) {
+          ctx.fillStyle = `rgba(0, 0, 0, ${0.3 / r})`;
+          ctx.beginPath();
+          ctx.arc(0, 0, e.size / 2 + r * 15 + Math.sin(t * 2 + r) * 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        
+        // Main body - dark void
+        ctx.shadowColor = '#8B0000';
+        ctx.shadowBlur = 50 * pulse;
+        ctx.fillStyle = '#0a0a0a';
+        ctx.beginPath();
+        ctx.arc(0, 0, e.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Glowing red cracks
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = `rgba(255, 0, 0, ${pulse})`;
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 + t * 0.5;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * 10, Math.sin(a) * 10);
+          ctx.lineTo(Math.cos(a) * (e.size / 2 - 5), Math.sin(a) * (e.size / 2 - 5));
+          ctx.stroke();
+        }
+        
+        // Central eye
+        ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`;
+        ctx.shadowColor = '#FF0000';
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.arc(0, 0, 15, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Eye slit
+        ctx.fillStyle = '#000';
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 3, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Floating particles around it
+        for (let i = 0; i < 6; i++) {
+          const pa = t * 1.5 + (i / 6) * Math.PI * 2;
+          const pr = e.size / 2 + 25 + Math.sin(t * 3 + i) * 10;
+          const px = Math.cos(pa) * pr;
+          const py = Math.sin(pa) * pr;
+          ctx.fillStyle = `rgba(139, 0, 0, ${0.5 + Math.sin(t + i) * 0.3})`;
+          ctx.beginPath();
+          ctx.arc(px, py, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      // Health bar for strong enemies (not for final boss)
+      if (e.maxHp > 20 && e.type !== 'final_boss') { 
+        const bw = e.type === 'boss' ? e.size * 1.5 : e.size * 1.2;
+        const hp = e.hp / e.maxHp; 
+        ctx.fillStyle = '#333'; 
+        ctx.fillRect(-bw / 2, -e.size / 2 - 12, bw, e.type === 'boss' ? 6 : 4); 
+        ctx.fillStyle = hp > 0.5 ? '#4ADE80' : hp > 0.25 ? '#FBBF24' : '#FF6B6B'; 
+        ctx.fillRect(-bw / 2, -e.size / 2 - 12, bw * hp, e.type === 'boss' ? 6 : 4); 
+      }
       ctx.restore();
     });
   }, []);
@@ -688,6 +806,70 @@ export default function DonutSurvivorsPage() {
       ctx.fillStyle = '#888'; 
       ctx.fillText('×' + g.stacks.toString(), CANVAS_WIDTH - 10 - i * 24, 65); 
     });
+    
+    // Final boss warning (takes priority)
+    if (finalBossWarningRef.current && !finalBossSpawnedRef.current) {
+      const pulse = Math.sin(Date.now() / 80) * 0.4 + 0.6;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 18px monospace';
+      ctx.fillStyle = `rgba(139, 0, 0, ${pulse})`;
+      ctx.shadowColor = '#8B0000';
+      ctx.shadowBlur = 30;
+      ctx.fillText('◆ THE VOID APPROACHES ◆', CANVAS_WIDTH / 2, 80);
+      ctx.font = '10px monospace';
+      ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`;
+      ctx.fillText('THERE IS NO ESCAPE', CANVAS_WIDTH / 2, 98);
+      ctx.restore();
+    }
+    // Final boss active indicator
+    else if (enemiesRef.current.find(e => e.type === 'final_boss')) {
+      const pulse = Math.sin(Date.now() / 100) * 0.3 + 0.7;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 14px monospace';
+      ctx.fillStyle = `rgba(139, 0, 0, ${pulse})`;
+      ctx.shadowColor = '#8B0000';
+      ctx.shadowBlur = 20;
+      ctx.fillText('◆ THE VOID ◆', CANVAS_WIDTH / 2, 80);
+      ctx.font = '9px monospace';
+      ctx.fillStyle = '#666';
+      ctx.shadowBlur = 0;
+      ctx.fillText('UNKILLABLE', CANVAS_WIDTH / 2, 95);
+      ctx.restore();
+    }
+    // Boss warning
+    else if (bossWarningRef.current && !bossSpawnedRef.current) {
+      const pulse = Math.sin(Date.now() / 100) * 0.3 + 0.7;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 16px monospace';
+      ctx.fillStyle = `rgba(255, 23, 68, ${pulse})`;
+      ctx.shadowColor = '#FF1744';
+      ctx.shadowBlur = 20;
+      ctx.fillText('◆ BOSS INCOMING ◆', CANVAS_WIDTH / 2, 80);
+      ctx.restore();
+    }
+    // Boss active indicator
+    else {
+      const bossEnemy = enemiesRef.current.find(e => e.type === 'boss');
+      if (bossEnemy) {
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillStyle = '#FF1744';
+        ctx.shadowColor = '#FF1744';
+        ctx.shadowBlur = 10;
+        ctx.fillText('◆ DONUT KING ◆', CANVAS_WIDTH / 2, 80);
+        // Boss HP text
+        const bossHpPercent = Math.ceil((bossEnemy.hp / bossEnemy.maxHp) * 100);
+        ctx.font = '10px monospace';
+        ctx.fillStyle = '#FFF';
+        ctx.shadowBlur = 0;
+        ctx.fillText(`${bossHpPercent}%`, CANVAS_WIDTH / 2, 95);
+        ctx.restore();
+      }
+    }
   }, []);
 
   const drawJoystick = useCallback((ctx: CanvasRenderingContext2D) => {
@@ -741,6 +923,50 @@ export default function DonutSurvivorsPage() {
       const spawnCount = 1 + Math.floor(gt / 60000);
       for (let i = 0; i < spawnCount; i++) spawnEnemy(); 
       lastSpawnTimeRef.current = now; 
+    }
+    
+    // Boss spawn at 10 minutes
+    const gameSeconds = gt / 1000;
+    if (gameSeconds >= 590 && !bossWarningRef.current) {
+      bossWarningRef.current = true;
+    }
+    if (gameSeconds >= 600 && !bossSpawnedRef.current) {
+      bossSpawnedRef.current = true;
+      // Spawn boss from edge
+      const angle = Math.random() * Math.PI * 2;
+      const spawnDist = Math.max(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.6;
+      const bx = p.x + Math.cos(angle) * spawnDist;
+      const by = p.y + Math.sin(angle) * spawnDist;
+      const config = ENEMY_CONFIG['boss'];
+      enemiesRef.current.push({
+        x: bx, y: by, type: 'boss',
+        hp: config.hp, maxHp: config.hp,
+        speed: config.speed, size: config.size,
+        xpValue: config.xpValue, damage: config.damage,
+        color: config.color, hitFlash: 0
+      });
+      triggerScreenShake(20, 500);
+    }
+    
+    // Final boss spawn at 20 minutes - THE VOID - unkillable, ends the game
+    if (gameSeconds >= 1190 && !finalBossWarningRef.current) {
+      finalBossWarningRef.current = true;
+    }
+    if (gameSeconds >= 1200 && !finalBossSpawnedRef.current) {
+      finalBossSpawnedRef.current = true;
+      const angle = Math.random() * Math.PI * 2;
+      const spawnDist = Math.max(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.7;
+      const bx = p.x + Math.cos(angle) * spawnDist;
+      const by = p.y + Math.sin(angle) * spawnDist;
+      const config = ENEMY_CONFIG['final_boss'];
+      enemiesRef.current.push({
+        x: bx, y: by, type: 'final_boss',
+        hp: config.hp, maxHp: config.hp,
+        speed: config.speed, size: config.size,
+        xpValue: config.xpValue, damage: config.damage,
+        color: config.color, hitFlash: 0
+      });
+      triggerScreenShake(40, 1000);
     }
 
     fireWeapons(); updateOrbitingWeapons(delta);
@@ -808,8 +1034,24 @@ export default function DonutSurvivorsPage() {
 
     enemiesRef.current = enemiesRef.current.filter(e => {
       e.hitFlash = Math.max(0, e.hitFlash - 1);
+      
+      // Final boss is unkillable - regenerate HP
+      if (e.type === 'final_boss') {
+        e.hp = e.maxHp;
+      }
+      
       const dx = p.x - e.x, dy = p.y - e.y, dist = Math.hypot(dx, dy);
       if (dist > 0) { e.x += (dx / dist) * e.speed * delta; e.y += (dy / dist) * e.speed * delta; }
+      
+      // Final boss contact = instant death
+      if (e.type === 'final_boss' && dist < e.size + PLAYER_SIZE / 2) {
+        p.hp = 0;
+        triggerScreenShake(50, 1000);
+        addParticles(p.x, p.y, '#8B0000', 30, 6);
+        endGame();
+        return false;
+      }
+      
       if (dist < e.size + PLAYER_SIZE / 2 && Date.now() > invincibleUntilRef.current) { 
         // Apply defense reduction
         const damageReduction = Math.min(p.defense || 0, 0.75); // Cap at 75% reduction
@@ -821,7 +1063,26 @@ export default function DonutSurvivorsPage() {
         playHurtSound(); triggerScreenShake(10, 200); addParticles(p.x, p.y, '#FF6B6B', 10, 4); 
         if (p.hp <= 0) { endGame(); return false; } 
       }
-      if (e.hp <= 0) { for (let i = 0; i < (e.type === 'chocolate_chunk' ? 5 : 1); i++) xpOrbsRef.current.push({ x: e.x + (Math.random() - 0.5) * 20, y: e.y + (Math.random() - 0.5) * 20, value: e.xpValue, size: 6 + e.xpValue }); playKillSound(); addParticles(e.x, e.y, e.color, 12, 4); enemiesKilledRef.current++; setKillCount(enemiesKilledRef.current); return false; }
+      if (e.hp <= 0) { 
+        // XP orbs - more for boss
+        const orbCount = e.type === 'boss' ? 20 : e.type === 'chocolate_chunk' ? 5 : 1;
+        for (let i = 0; i < orbCount; i++) {
+          xpOrbsRef.current.push({ 
+            x: e.x + (Math.random() - 0.5) * (e.type === 'boss' ? 80 : 20), 
+            y: e.y + (Math.random() - 0.5) * (e.type === 'boss' ? 80 : 20), 
+            value: e.type === 'boss' ? 10 : e.xpValue, 
+            size: 6 + (e.type === 'boss' ? 10 : e.xpValue) 
+          });
+        }
+        playKillSound(); 
+        addParticles(e.x, e.y, e.color, e.type === 'boss' ? 40 : 12, e.type === 'boss' ? 8 : 4); 
+        if (e.type === 'boss') {
+          triggerScreenShake(30, 800);
+        }
+        enemiesKilledRef.current++; 
+        setKillCount(enemiesKilledRef.current); 
+        return false; 
+      }
       return true;
     });
 
@@ -833,7 +1094,23 @@ export default function DonutSurvivorsPage() {
     });
 
     checkLevelUp();
-    drawBackground(ctx); drawTrail(ctx); drawXPOrbs(ctx); drawEnemies(ctx); drawProjectiles(ctx); drawOrbitingWeapons(ctx); drawPlayer(ctx); drawParticles(ctx); drawDamageNumbers(ctx); drawHUD(ctx); drawJoystick(ctx);
+    drawBackground(ctx); drawTrail(ctx); drawXPOrbs(ctx); drawEnemies(ctx); drawProjectiles(ctx); drawOrbitingWeapons(ctx); drawPlayer(ctx); drawParticles(ctx); drawDamageNumbers(ctx);
+    
+    // Vignette effect when final boss warning or present
+    if (finalBossWarningRef.current || finalBossSpawnedRef.current) {
+      const intensity = finalBossSpawnedRef.current ? 0.3 : 0.15;
+      const pulse = Math.sin(Date.now() / 500) * 0.1 + intensity;
+      const gradient = ctx.createRadialGradient(
+        CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.3,
+        CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.8
+      );
+      gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      gradient.addColorStop(1, `rgba(20, 0, 0, ${pulse})`);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+    
+    drawHUD(ctx); drawJoystick(ctx);
     gameLoopRef.current = requestAnimationFrame(gameLoop);
   }, [spawnEnemy, fireWeapons, updateOrbitingWeapons, checkLevelUp, endGame, drawBackground, drawTrail, drawXPOrbs, drawEnemies, drawProjectiles, drawOrbitingWeapons, drawPlayer, drawParticles, drawDamageNumbers, drawHUD, drawJoystick, addDamageNumber, addParticles, playHitSound, playKillSound, playXPSound, playHurtSound, triggerScreenShake]);
 
@@ -849,6 +1126,10 @@ export default function DonutSurvivorsPage() {
     frameCountRef.current = 0; gameStartTimeRef.current = performance.now(); lastSpawnTimeRef.current = performance.now(); invincibleUntilRef.current = 0;
     screenShakeRef.current = { intensity: 0, duration: 0, startTime: 0 }; enemiesKilledRef.current = 0; moveInputRef.current = { x: 0, y: 0 }; joystickRef.current = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 };
     isPausedRef.current = false;
+    bossSpawnedRef.current = false;
+    bossWarningRef.current = false;
+    finalBossSpawnedRef.current = false;
+    finalBossWarningRef.current = false;
     // Reset rerolls, bans, and banned upgrades
     setRerollsLeft(2);
     setBansLeft(1);
