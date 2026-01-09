@@ -15,11 +15,11 @@ const WORLD_WIDTH = 2000;
 const WORLD_HEIGHT = 2000;
 
 const PLAYER_SIZE = 36;
-const PLAYER_SPEED = 2.5;
-const PLAYER_MAX_HP = 100;
+const PLAYER_SPEED = 2.8;
+const PLAYER_MAX_HP = 120;
 
-const BASE_XP_TO_LEVEL = 10;
-const XP_SCALE = 1.3;
+const BASE_XP_TO_LEVEL = 15;
+const XP_SCALE = 1.25;
 
 type WeaponType = 'sprinkle_shot' | 'frosting_ring' | 'glaze_wave' | 'sugar_stars' | 'orbiting_donuts' | 'cinnamon_trail';
 type EnemyType = 'sprinkle' | 'gummy' | 'candy_corn' | 'chocolate_chunk';
@@ -85,10 +85,10 @@ interface Gadget {
 }
 
 const ENEMY_CONFIG: Record<EnemyType, { hp: number; speed: number; size: number; xpValue: number; damage: number; color: string; spawnWeight: number }> = {
-  sprinkle: { hp: 15, speed: 1.0, size: 16, xpValue: 1, damage: 5, color: '#FF6B6B', spawnWeight: 50 },
-  gummy: { hp: 30, speed: 1.3, size: 20, xpValue: 2, damage: 8, color: '#4ADE80', spawnWeight: 30 },
-  candy_corn: { hp: 10, speed: 2.2, size: 12, xpValue: 1, damage: 3, color: '#FBBF24', spawnWeight: 15 },
-  chocolate_chunk: { hp: 100, speed: 0.6, size: 32, xpValue: 10, damage: 15, color: '#A78BFA', spawnWeight: 5 },
+  sprinkle: { hp: 15, speed: 1.0, size: 16, xpValue: 2, damage: 4, color: '#FF6B6B', spawnWeight: 50 },
+  gummy: { hp: 30, speed: 1.2, size: 20, xpValue: 4, damage: 6, color: '#4ADE80', spawnWeight: 30 },
+  candy_corn: { hp: 10, speed: 2.0, size: 12, xpValue: 2, damage: 3, color: '#FBBF24', spawnWeight: 15 },
+  chocolate_chunk: { hp: 100, speed: 0.5, size: 32, xpValue: 15, damage: 12, color: '#A78BFA', spawnWeight: 5 },
 };
 
 export default function DonutSurvivorsPage() {
@@ -110,7 +110,7 @@ export default function DonutSurvivorsPage() {
   const [selectedStarterWeapon, setSelectedStarterWeapon] = useState<WeaponType>('sprinkle_shot');
   const [isLoadingStats, setIsLoadingStats] = useState(false); // false for testing
   
-  const playerRef = useRef({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 50, xpMultiplier: 1, facingAngle: 0, defense: 0, invincibilityBonus: 0, cooldownReduction: 0 });
+  const playerRef = useRef({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 70, xpMultiplier: 1, facingAngle: 0, defense: 0, invincibilityBonus: 0, cooldownReduction: 0 });
   const cameraRef = useRef({ x: 0, y: 0 });
   const weaponsRef = useRef<Weapon[]>([]);
   const gadgetsRef = useRef<Gadget[]>([]);
@@ -261,9 +261,9 @@ export default function DonutSurvivorsPage() {
     
     // Slower enemy type unlocks
     let types: EnemyType[] = ['sprinkle'];
-    if (gameTime > 45) types.push('gummy');      // was 30
-    if (gameTime > 90) types.push('candy_corn'); // was 60
-    if (gameTime > 180) types.push('chocolate_chunk'); // was 120
+    if (gameTime > 60) types.push('gummy');       // 1 min
+    if (gameTime > 120) types.push('candy_corn'); // 2 min
+    if (gameTime > 240) types.push('chocolate_chunk'); // 4 min
     
     const weights = types.map(t => ENEMY_CONFIG[t].spawnWeight);
     const totalWeight = weights.reduce((a, b) => a + b, 0);
@@ -272,9 +272,9 @@ export default function DonutSurvivorsPage() {
     for (let i = 0; i < types.length; i++) { random -= weights[i]; if (random <= 0) { selectedType = types[i]; break; } }
     
     const config = ENEMY_CONFIG[selectedType];
-    // Slower scaling: was gameTime/120 for HP, gameTime/300 for speed
-    const timeScale = 1 + gameTime / 180; // HP scales slower
-    const speedScale = 1 + gameTime / 450; // Speed scales slower
+    // Slower scaling
+    const timeScale = 1 + gameTime / 240;  // HP scales very slowly
+    const speedScale = 1 + gameTime / 600; // Speed scales even slower
     
     enemiesRef.current.push({ x, y, type: selectedType, hp: Math.floor(config.hp * timeScale), maxHp: Math.floor(config.hp * timeScale), speed: config.speed * speedScale, size: config.size, xpValue: config.xpValue, damage: config.damage, color: config.color, hitFlash: 0 });
   }, []);
@@ -671,11 +671,11 @@ export default function DonutSurvivorsPage() {
     p.y = Math.max(PLAYER_SIZE / 2, Math.min(WORLD_HEIGHT - PLAYER_SIZE / 2, p.y));
     cameraRef.current = { x: p.x - CANVAS_WIDTH / 2, y: p.y - CANVAS_HEIGHT / 2 };
 
-    // Slower spawn rate: starts at 1500ms, decreases to 300ms minimum (was 1000ms to 200ms)
-    const gt = now - gameStartTimeRef.current, sr = Math.max(300, 1500 - gt / 150);
+    // Spawn rate: starts at 2000ms, decreases to 400ms minimum over time
+    const gt = now - gameStartTimeRef.current, sr = Math.max(400, 2000 - gt / 200);
     if (now - lastSpawnTimeRef.current > sr) { 
-      // Slower spawn count increase: every 45 seconds instead of 30 (was gt/30000)
-      const spawnCount = 1 + Math.floor(gt / 45000);
+      // Spawn count increases every 60 seconds
+      const spawnCount = 1 + Math.floor(gt / 60000);
       for (let i = 0; i < spawnCount; i++) spawnEnemy(); 
       lastSpawnTimeRef.current = now; 
     }
@@ -698,7 +698,7 @@ export default function DonutSurvivorsPage() {
         const actualDamage = Math.floor(e.damage * (1 - damageReduction));
         p.hp -= actualDamage; 
         // Apply invincibility bonus from gadgets
-        const invincibilityTime = 500 + (p.invincibilityBonus || 0);
+        const invincibilityTime = 750 + (p.invincibilityBonus || 0);  // was 500
         invincibleUntilRef.current = Date.now() + invincibilityTime; 
         playHurtSound(); triggerScreenShake(10, 200); addParticles(p.x, p.y, '#FF6B6B', 10, 4); 
         if (p.hp <= 0) { endGame(); return false; } 
@@ -721,7 +721,7 @@ export default function DonutSurvivorsPage() {
 
   const startGame = useCallback(() => {
     initAudioContext();
-    playerRef.current = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 50, xpMultiplier: 1, facingAngle: 0, defense: 0, invincibilityBonus: 0, cooldownReduction: 0 };
+    playerRef.current = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 70, xpMultiplier: 1, facingAngle: 0, defense: 0, invincibilityBonus: 0, cooldownReduction: 0 };
     cameraRef.current = { x: 0, y: 0 }; 
     // Use selected starter weapon
     weaponsRef.current = [{ type: selectedStarterWeapon, level: 1, lastFired: 0, angle: 0 }];
