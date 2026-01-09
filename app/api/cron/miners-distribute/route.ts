@@ -15,6 +15,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Use Alchemy RPC for reliability (public RPC has strict rate limits)
+const ALCHEMY_RPC_URL = "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g";
+
 // Token addresses on Base
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
@@ -174,10 +177,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Miners Distribution] Found ${sortedLeaderboard.length} winners`);
 
-    // Setup public client to check balances
+    // Setup public client to check balances (using Alchemy)
     const publicClient = createPublicClient({
       chain: base,
-      transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org"),
+      transport: http(ALCHEMY_RPC_URL),
     });
 
     // Get bot wallet balances
@@ -317,7 +320,7 @@ export async function POST(request: NextRequest) {
     const walletClient = createWalletClient({
       account,
       chain: base,
-      transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org"),
+      transport: http(ALCHEMY_RPC_URL),
     });
 
     // Send prizes
@@ -451,10 +454,10 @@ export async function GET(request: NextRequest) {
   const currentWeek = getCurrentWeek();
   const weekToDistribute = getWeekToDistribute();
 
-  // Setup public client
+  // Setup public client (using Alchemy)
   const publicClient = createPublicClient({
     chain: base,
-    transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org"),
+    transport: http(ALCHEMY_RPC_URL),
   });
 
   // Get wallet balances
