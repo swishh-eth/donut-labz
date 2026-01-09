@@ -76,6 +76,7 @@ export default function DonutSurvivorsPage() {
   const trailPointsRef = useRef<{ x: number; y: number; life: number }[]>([]);
   
   const gameActiveRef = useRef(false);
+  const isPausedRef = useRef(false);
   const frameCountRef = useRef(0);
   const lastFrameTimeRef = useRef(performance.now());
   const gameStartTimeRef = useRef(0);
@@ -317,7 +318,9 @@ export default function DonutSurvivorsPage() {
     if (p.xp >= p.xpToLevel) {
       p.xp -= p.xpToLevel; p.level++; p.xpToLevel = Math.floor(BASE_XP_TO_LEVEL * Math.pow(XP_SCALE, p.level - 1));
       setPlayerLevel(p.level); playLevelUpSound(); triggerScreenShake(8, 300); addParticles(p.x, p.y, '#FFD700', 30, 6);
-      generateUpgradeOptions(); setGameState("levelup");
+      generateUpgradeOptions();
+      isPausedRef.current = true;
+      setGameState("levelup");
     }
   }, [playLevelUpSound, triggerScreenShake, addParticles, generateUpgradeOptions]);
 
@@ -331,6 +334,7 @@ export default function DonutSurvivorsPage() {
     else if (opt.type === 'max_hp') { p.maxHp += 20; p.hp = Math.min(p.hp + 20, p.maxHp); }
     else if (opt.type === 'magnet') p.magnetRange *= 1.25;
     else if (opt.type === 'xp_gain') p.xpMultiplier *= 1.1;
+    isPausedRef.current = false;
     setGameState("playing");
   }, []);
 
@@ -523,7 +527,7 @@ export default function DonutSurvivorsPage() {
     const p = playerRef.current, mx = moveInputRef.current.x, my = moveInputRef.current.y, ml = Math.hypot(mx, my);
     
     // Pause game logic during level up (only update visuals)
-    if (gameState === "levelup") {
+    if (isPausedRef.current) {
       // Just redraw without updating
       drawBackground(ctx); drawTrail(ctx); drawXPOrbs(ctx); drawEnemies(ctx); drawProjectiles(ctx); drawOrbitingWeapons(ctx); drawPlayer(ctx); drawParticles(ctx); drawDamageNumbers(ctx); drawHUD(ctx);
       gameLoopRef.current = requestAnimationFrame(gameLoop);
@@ -565,7 +569,7 @@ export default function DonutSurvivorsPage() {
     checkLevelUp();
     drawBackground(ctx); drawTrail(ctx); drawXPOrbs(ctx); drawEnemies(ctx); drawProjectiles(ctx); drawOrbitingWeapons(ctx); drawPlayer(ctx); drawParticles(ctx); drawDamageNumbers(ctx); drawHUD(ctx); drawJoystick(ctx);
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameState, spawnEnemy, fireWeapons, updateOrbitingWeapons, checkLevelUp, endGame, drawBackground, drawTrail, drawXPOrbs, drawEnemies, drawProjectiles, drawOrbitingWeapons, drawPlayer, drawParticles, drawDamageNumbers, drawHUD, drawJoystick, addDamageNumber, addParticles, playHitSound, playKillSound, playXPSound, playHurtSound, triggerScreenShake]);
+  }, [spawnEnemy, fireWeapons, updateOrbitingWeapons, checkLevelUp, endGame, drawBackground, drawTrail, drawXPOrbs, drawEnemies, drawProjectiles, drawOrbitingWeapons, drawPlayer, drawParticles, drawDamageNumbers, drawHUD, drawJoystick, addDamageNumber, addParticles, playHitSound, playKillSound, playXPSound, playHurtSound, triggerScreenShake]);
 
   const startGame = useCallback(() => {
     initAudioContext();
@@ -574,6 +578,7 @@ export default function DonutSurvivorsPage() {
     enemiesRef.current = []; projectilesRef.current = []; xpOrbsRef.current = []; particlesRef.current = []; damageNumbersRef.current = []; trailPointsRef.current = [];
     frameCountRef.current = 0; gameStartTimeRef.current = performance.now(); lastSpawnTimeRef.current = performance.now(); invincibleUntilRef.current = 0;
     screenShakeRef.current = { intensity: 0, duration: 0, startTime: 0 }; enemiesKilledRef.current = 0; moveInputRef.current = { x: 0, y: 0 }; joystickRef.current = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 };
+    isPausedRef.current = false;
     setScore(0); setPlayerLevel(1); setSurvivalTime(0); setKillCount(0); setGameState("playing");
     lastFrameTimeRef.current = performance.now(); gameActiveRef.current = true;
     if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
