@@ -23,7 +23,7 @@ const XP_SCALE = 1.3;
 
 type WeaponType = 'sprinkle_shot' | 'frosting_ring' | 'glaze_wave' | 'sugar_stars' | 'orbiting_donuts' | 'cinnamon_trail';
 type EnemyType = 'sprinkle' | 'gummy' | 'candy_corn' | 'chocolate_chunk';
-type UpgradeType = 'damage' | 'speed' | 'max_hp' | 'magnet' | 'xp_gain' | 'weapon';
+type UpgradeType = 'weapon' | 'gadget';
 
 interface Weapon { type: WeaponType; level: number; lastFired: number; angle?: number; }
 interface WeaponConfig { name: string; icon: string; color: string; baseDamage: number; baseCooldown: number; description: string; }
@@ -32,7 +32,7 @@ interface Projectile { x: number; y: number; vx: number; vy: number; damage: num
 interface XPOrb { x: number; y: number; value: number; size: number; }
 interface DamageNumber { x: number; y: number; value: number; life: number; vy: number; }
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: string; size: number; }
-interface UpgradeOption { type: UpgradeType; weaponType?: WeaponType; title: string; description: string; icon: string; }
+interface UpgradeOption { type: UpgradeType; weaponType?: WeaponType; gadgetType?: GadgetType; title: string; description: string; icon: string; }
 
 const WEAPON_CONFIG: Record<WeaponType, WeaponConfig> = {
   sprinkle_shot: { name: 'Sprinkle Shot', icon: '🍬', color: '#FF6B6B', baseDamage: 10, baseCooldown: 500, description: 'Fires sprinkles at nearest enemy' },
@@ -42,6 +42,47 @@ const WEAPON_CONFIG: Record<WeaponType, WeaponConfig> = {
   orbiting_donuts: { name: 'Orbiting Donuts', icon: '🍩', color: '#F472B6', baseDamage: 12, baseCooldown: 50, description: 'Donuts orbit around you' },
   cinnamon_trail: { name: 'Cinnamon Trail', icon: '🔥', color: '#F97316', baseDamage: 5, baseCooldown: 100, description: 'Leave a damaging trail behind' },
 };
+
+// Games required to unlock each starter weapon
+const WEAPON_UNLOCK_REQUIREMENTS: Record<WeaponType, number> = {
+  sprinkle_shot: 0,    // Always unlocked
+  frosting_ring: 10,   // 10 games
+  sugar_stars: 50,     // 50 games
+  glaze_wave: 100,     // 100 games
+  orbiting_donuts: 200,// 200 games
+  cinnamon_trail: 300, // 300 games
+};
+
+const STARTER_WEAPON_ORDER: WeaponType[] = ['sprinkle_shot', 'frosting_ring', 'sugar_stars', 'glaze_wave', 'orbiting_donuts', 'cinnamon_trail'];
+
+// Gadgets - passive upgrades that modify gameplay (max 4)
+type GadgetType = 'sugar_rush' | 'thicc_glaze' | 'sprinkle_magnet' | 'donut_armor' | 'hyper_icing' | 'golden_sprinkles' | 'choco_shield' | 'candy_rush';
+
+interface GadgetConfig {
+  name: string;
+  icon: string;
+  color: string;
+  description: string;
+  effect: string;
+}
+
+const GADGET_CONFIG: Record<GadgetType, GadgetConfig> = {
+  sugar_rush: { name: 'Sugar Rush', icon: '⚡', color: '#FBBF24', description: '+20% Move Speed', effect: 'speed' },
+  thicc_glaze: { name: 'Thicc Glaze', icon: '🛡️', color: '#60A5FA', description: '+30 Max HP', effect: 'max_hp' },
+  sprinkle_magnet: { name: 'Sprinkle Magnet', icon: '🧲', color: '#A78BFA', description: '+40% Pickup Range', effect: 'magnet' },
+  donut_armor: { name: 'Donut Armor', icon: '🍩', color: '#F472B6', description: '-15% Damage Taken', effect: 'defense' },
+  hyper_icing: { name: 'Hyper Icing', icon: '💪', color: '#FF6B6B', description: '+15% All Damage', effect: 'damage' },
+  golden_sprinkles: { name: 'Golden Sprinkles', icon: '✨', color: '#FFD700', description: '+25% XP Gain', effect: 'xp_gain' },
+  choco_shield: { name: 'Choco Shield', icon: '🍫', color: '#8B4513', description: '+0.5s Invincibility', effect: 'invincibility' },
+  candy_rush: { name: 'Candy Rush', icon: '🍭', color: '#FF69B4', description: '-10% Weapon Cooldowns', effect: 'cooldown' },
+};
+
+const MAX_GADGETS = 4;
+
+interface Gadget {
+  type: GadgetType;
+  stacks: number; // How many times this gadget has been picked
+}
 
 const ENEMY_CONFIG: Record<EnemyType, { hp: number; speed: number; size: number; xpValue: number; damage: number; color: string; spawnWeight: number }> = {
   sprinkle: { hp: 15, speed: 1.0, size: 16, xpValue: 1, damage: 5, color: '#FF6B6B', spawnWeight: 50 },
@@ -64,10 +105,15 @@ export default function DonutSurvivorsPage() {
   const [survivalTime, setSurvivalTime] = useState(0);
   const [killCount, setKillCount] = useState(0);
   const [userPfp, setUserPfp] = useState<string | null>(null);
+  const [userFid, setUserFid] = useState<number | null>(null);
+  const [gamesPlayed, setGamesPlayed] = useState(500); // Set to 500 for testing, 0 for prod
+  const [selectedStarterWeapon, setSelectedStarterWeapon] = useState<WeaponType>('sprinkle_shot');
+  const [isLoadingStats, setIsLoadingStats] = useState(false); // false for testing
   
-  const playerRef = useRef({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 50, xpMultiplier: 1, facingAngle: 0 });
+  const playerRef = useRef({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 50, xpMultiplier: 1, facingAngle: 0, defense: 0, invincibilityBonus: 0, cooldownReduction: 0 });
   const cameraRef = useRef({ x: 0, y: 0 });
   const weaponsRef = useRef<Weapon[]>([]);
+  const gadgetsRef = useRef<Gadget[]>([]);
   const enemiesRef = useRef<Enemy[]>([]);
   const projectilesRef = useRef<Projectile[]>([]);
   const xpOrbsRef = useRef<XPOrb[]>([]);
@@ -92,16 +138,23 @@ export default function DonutSurvivorsPage() {
   const pfpImageRef = useRef<HTMLImageElement | null>(null);
   const pfpLoadedRef = useRef(false);
 
-  // Fetch Farcaster context for PFP
+  // Fetch Farcaster context for PFP and FID
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const ctx = await (sdk as any).context;
-        if (!cancelled && ctx?.user?.pfpUrl) {
-          setUserPfp(ctx.user.pfpUrl);
+        if (!cancelled && ctx?.user) {
+          if (ctx.user.pfpUrl) setUserPfp(ctx.user.pfpUrl);
+          if (ctx.user.fid) {
+            setUserFid(ctx.user.fid);
+            // TODO: Fetch games played from API when ready
+            // For testing: set to 500 to unlock all weapons, or 0 to test progression
+            setGamesPlayed(500);
+          }
         }
       } catch {}
+      if (!cancelled) setIsLoadingStats(false);
     })();
     return () => { cancelled = true; };
   }, []);
@@ -206,10 +259,11 @@ export default function DonutSurvivorsPage() {
     const x = Math.max(50, Math.min(WORLD_WIDTH - 50, player.x + Math.cos(angle) * distance));
     const y = Math.max(50, Math.min(WORLD_HEIGHT - 50, player.y + Math.sin(angle) * distance));
     
+    // Slower enemy type unlocks
     let types: EnemyType[] = ['sprinkle'];
-    if (gameTime > 30) types.push('gummy');
-    if (gameTime > 60) types.push('candy_corn');
-    if (gameTime > 120) types.push('chocolate_chunk');
+    if (gameTime > 45) types.push('gummy');      // was 30
+    if (gameTime > 90) types.push('candy_corn'); // was 60
+    if (gameTime > 180) types.push('chocolate_chunk'); // was 120
     
     const weights = types.map(t => ENEMY_CONFIG[t].spawnWeight);
     const totalWeight = weights.reduce((a, b) => a + b, 0);
@@ -218,8 +272,11 @@ export default function DonutSurvivorsPage() {
     for (let i = 0; i < types.length; i++) { random -= weights[i]; if (random <= 0) { selectedType = types[i]; break; } }
     
     const config = ENEMY_CONFIG[selectedType];
-    const timeScale = 1 + gameTime / 120;
-    enemiesRef.current.push({ x, y, type: selectedType, hp: Math.floor(config.hp * timeScale), maxHp: Math.floor(config.hp * timeScale), speed: config.speed * (1 + gameTime / 300), size: config.size, xpValue: config.xpValue, damage: config.damage, color: config.color, hitFlash: 0 });
+    // Slower scaling: was gameTime/120 for HP, gameTime/300 for speed
+    const timeScale = 1 + gameTime / 180; // HP scales slower
+    const speedScale = 1 + gameTime / 450; // Speed scales slower
+    
+    enemiesRef.current.push({ x, y, type: selectedType, hp: Math.floor(config.hp * timeScale), maxHp: Math.floor(config.hp * timeScale), speed: config.speed * speedScale, size: config.size, xpValue: config.xpValue, damage: config.damage, color: config.color, hitFlash: 0 });
   }, []);
 
   const fireWeapons = useCallback(() => {
@@ -228,7 +285,8 @@ export default function DonutSurvivorsPage() {
     
     weaponsRef.current.forEach(weapon => {
       const config = WEAPON_CONFIG[weapon.type];
-      const cooldown = config.baseCooldown * Math.pow(0.9, weapon.level - 1);
+      const cooldownReduction = 1 - (playerRef.current.cooldownReduction || 0);
+      const cooldown = config.baseCooldown * Math.pow(0.9, weapon.level - 1) * cooldownReduction;
       if (now - weapon.lastFired < cooldown) return;
       weapon.lastFired = now;
       const damage = config.baseDamage * (1 + (weapon.level - 1) * 0.3) * player.damage;
@@ -296,20 +354,47 @@ export default function DonutSurvivorsPage() {
 
   const generateUpgradeOptions = useCallback(() => {
     const options: UpgradeOption[] = [];
-    const currentTypes = weaponsRef.current.map(w => w.type);
-    const available = (Object.keys(WEAPON_CONFIG) as WeaponType[]).filter(t => !currentTypes.includes(t));
+    const currentWeaponTypes = weaponsRef.current.map(w => w.type);
+    const availableWeapons = (Object.keys(WEAPON_CONFIG) as WeaponType[]).filter(t => !currentWeaponTypes.includes(t));
     
-    weaponsRef.current.forEach(w => { if (w.level < 8 && Math.random() < 0.5) { const c = WEAPON_CONFIG[w.type]; options.push({ type: 'weapon', weaponType: w.type, title: `${c.name} +`, description: `Level ${w.level} → ${w.level + 1}`, icon: c.icon }); } });
-    if (weaponsRef.current.length < 6 && available.length > 0) { const t = available[Math.floor(Math.random() * available.length)]; const c = WEAPON_CONFIG[t]; options.push({ type: 'weapon', weaponType: t, title: c.name, description: c.description, icon: c.icon }); }
+    // Weapon upgrades
+    weaponsRef.current.forEach(w => { 
+      if (w.level < 8 && Math.random() < 0.5) { 
+        const c = WEAPON_CONFIG[w.type]; 
+        options.push({ type: 'weapon', weaponType: w.type, title: `${c.name} +`, description: `Level ${w.level} → ${w.level + 1}`, icon: c.icon }); 
+      } 
+    });
     
-    const stats: UpgradeOption[] = [
-      { type: 'damage', title: '+10% Damage', description: 'Increase all damage', icon: '⚔️' },
-      { type: 'speed', title: '+15% Move Speed', description: 'Move faster', icon: '👟' },
-      { type: 'max_hp', title: '+20 Max HP', description: 'Increase maximum health', icon: '❤️' },
-      { type: 'magnet', title: '+25% Magnet', description: 'Larger pickup range', icon: '🧲' },
-      { type: 'xp_gain', title: '+10% XP Gain', description: 'Level up faster', icon: '✨' },
-    ];
-    options.push(...stats.sort(() => Math.random() - 0.5).slice(0, 2));
+    // New weapon option
+    if (weaponsRef.current.length < 6 && availableWeapons.length > 0) { 
+      const t = availableWeapons[Math.floor(Math.random() * availableWeapons.length)]; 
+      const c = WEAPON_CONFIG[t]; 
+      options.push({ type: 'weapon', weaponType: t, title: c.name, description: c.description, icon: c.icon }); 
+    }
+    
+    // Gadget options (only if under max gadgets OR upgrading existing)
+    const currentGadgetTypes = gadgetsRef.current.map(g => g.type);
+    const availableGadgets = (Object.keys(GADGET_CONFIG) as GadgetType[]).filter(t => !currentGadgetTypes.includes(t));
+    
+    // Upgrade existing gadgets
+    gadgetsRef.current.forEach(g => {
+      if (g.stacks < 5 && Math.random() < 0.4) {
+        const c = GADGET_CONFIG[g.type];
+        options.push({ type: 'gadget', gadgetType: g.type, title: `${c.name} +`, description: `Stack ${g.stacks} → ${g.stacks + 1}`, icon: c.icon });
+      }
+    });
+    
+    // New gadget option (only if under limit)
+    if (gadgetsRef.current.length < MAX_GADGETS && availableGadgets.length > 0) {
+      const shuffled = availableGadgets.sort(() => Math.random() - 0.5);
+      const numToAdd = Math.min(2, shuffled.length);
+      for (let i = 0; i < numToAdd; i++) {
+        const t = shuffled[i];
+        const c = GADGET_CONFIG[t];
+        options.push({ type: 'gadget', gadgetType: t, title: c.name, description: c.description, icon: c.icon });
+      }
+    }
+    
     setUpgradeOptions(options.sort(() => Math.random() - 0.5).slice(0, 3));
   }, []);
 
@@ -326,14 +411,33 @@ export default function DonutSurvivorsPage() {
 
   const applyUpgrade = useCallback((opt: UpgradeOption) => {
     const p = playerRef.current;
+    
     if (opt.type === 'weapon' && opt.weaponType) {
       const existing = weaponsRef.current.find(w => w.type === opt.weaponType);
-      if (existing) existing.level++; else weaponsRef.current.push({ type: opt.weaponType, level: 1, lastFired: 0, angle: 0 });
-    } else if (opt.type === 'damage') p.damage *= 1.1;
-    else if (opt.type === 'speed') p.speed *= 1.15;
-    else if (opt.type === 'max_hp') { p.maxHp += 20; p.hp = Math.min(p.hp + 20, p.maxHp); }
-    else if (opt.type === 'magnet') p.magnetRange *= 1.25;
-    else if (opt.type === 'xp_gain') p.xpMultiplier *= 1.1;
+      if (existing) existing.level++; 
+      else weaponsRef.current.push({ type: opt.weaponType, level: 1, lastFired: 0, angle: 0 });
+    } else if (opt.type === 'gadget' && opt.gadgetType) {
+      const existing = gadgetsRef.current.find(g => g.type === opt.gadgetType);
+      if (existing) {
+        existing.stacks++;
+      } else {
+        gadgetsRef.current.push({ type: opt.gadgetType, stacks: 1 });
+      }
+      
+      // Apply gadget effect
+      const config = GADGET_CONFIG[opt.gadgetType];
+      switch (config.effect) {
+        case 'speed': p.speed *= 1.20; break;
+        case 'max_hp': p.maxHp += 30; p.hp = Math.min(p.hp + 30, p.maxHp); break;
+        case 'magnet': p.magnetRange *= 1.40; break;
+        case 'defense': p.defense = (p.defense || 0) + 0.15; break;
+        case 'damage': p.damage *= 1.15; break;
+        case 'xp_gain': p.xpMultiplier *= 1.25; break;
+        case 'invincibility': p.invincibilityBonus = (p.invincibilityBonus || 0) + 500; break;
+        case 'cooldown': p.cooldownReduction = (p.cooldownReduction || 0) + 0.10; break;
+      }
+    }
+    
     isPausedRef.current = false;
     setGameState("playing");
   }, []);
@@ -498,7 +602,29 @@ export default function DonutSurvivorsPage() {
     const hp = p.hp / p.maxHp; ctx.fillStyle = '#333'; ctx.fillRect(15, CANVAS_HEIGHT - 35, 100, 10); ctx.fillStyle = hp > 0.5 ? '#4ADE80' : hp > 0.25 ? '#FBBF24' : '#FF6B6B'; ctx.fillRect(15, CANVAS_HEIGHT - 35, 100 * hp, 10);
     ctx.fillStyle = '#FFF'; ctx.font = '10px monospace'; ctx.fillText(`${Math.ceil(p.hp)}/${p.maxHp}`, 15, CANVAS_HEIGHT - 40);
     ctx.fillStyle = '#333'; ctx.fillRect(15, CANVAS_HEIGHT - 20, CANVAS_WIDTH - 30, 8); ctx.fillStyle = '#F472B6'; ctx.fillRect(15, CANVAS_HEIGHT - 20, (CANVAS_WIDTH - 30) * (p.xp / p.xpToLevel), 8);
-    ctx.textAlign = 'right'; weaponsRef.current.forEach((w, i) => { const c = WEAPON_CONFIG[w.type]; ctx.font = '16px serif'; ctx.fillText(c.icon, CANVAS_WIDTH - 15 - i * 24, 30); ctx.font = '8px monospace'; ctx.fillStyle = '#F472B6'; ctx.fillText(w.level.toString(), CANVAS_WIDTH - 10 - i * 24, 40); ctx.fillStyle = '#FFF'; });
+    
+    // Draw weapons (top right)
+    ctx.textAlign = 'right'; 
+    weaponsRef.current.forEach((w, i) => { 
+      const c = WEAPON_CONFIG[w.type]; 
+      ctx.font = '16px serif'; 
+      ctx.fillText(c.icon, CANVAS_WIDTH - 15 - i * 24, 30); 
+      ctx.font = '8px monospace'; 
+      ctx.fillStyle = '#F472B6'; 
+      ctx.fillText(w.level.toString(), CANVAS_WIDTH - 10 - i * 24, 40); 
+      ctx.fillStyle = '#FFF'; 
+    });
+    
+    // Draw gadgets (below weapons)
+    gadgetsRef.current.forEach((g, i) => { 
+      const c = GADGET_CONFIG[g.type]; 
+      ctx.font = '14px serif'; 
+      ctx.fillText(c.icon, CANVAS_WIDTH - 15 - i * 22, 58); 
+      ctx.font = '7px monospace'; 
+      ctx.fillStyle = '#60A5FA'; 
+      ctx.fillText(g.stacks.toString(), CANVAS_WIDTH - 10 - i * 22, 67); 
+      ctx.fillStyle = '#FFF'; 
+    });
   }, []);
 
   const drawJoystick = useCallback((ctx: CanvasRenderingContext2D) => {
@@ -508,10 +634,16 @@ export default function DonutSurvivorsPage() {
     ctx.fillStyle = 'rgba(244,114,182,0.6)'; ctx.beginPath(); ctx.arc(j.startX + Math.cos(a) * dist, j.startY + Math.sin(a) * dist, 20, 0, Math.PI * 2); ctx.fill();
   }, []);
 
-  const endGame = useCallback(() => {
+  const endGame = useCallback(async () => {
     gameActiveRef.current = false; if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     const st = Math.floor((performance.now() - gameStartTimeRef.current) / 1000), fs = st * 10 + enemiesKilledRef.current * 5;
     setScore(fs); setSurvivalTime(st); setGameState("gameover"); setHighScore(prev => Math.max(prev, fs));
+    
+    // TODO: Record game played when API is ready
+    // For now, just increment locally for testing
+    if (st >= 60) {
+      setGamesPlayed(prev => prev + 1);
+    }
   }, []);
 
   const gameLoop = useCallback(() => {
@@ -539,8 +671,14 @@ export default function DonutSurvivorsPage() {
     p.y = Math.max(PLAYER_SIZE / 2, Math.min(WORLD_HEIGHT - PLAYER_SIZE / 2, p.y));
     cameraRef.current = { x: p.x - CANVAS_WIDTH / 2, y: p.y - CANVAS_HEIGHT / 2 };
 
-    const gt = now - gameStartTimeRef.current, sr = Math.max(200, 1000 - gt / 100);
-    if (now - lastSpawnTimeRef.current > sr) { for (let i = 0; i < 1 + Math.floor(gt / 30000); i++) spawnEnemy(); lastSpawnTimeRef.current = now; }
+    // Slower spawn rate: starts at 1500ms, decreases to 300ms minimum (was 1000ms to 200ms)
+    const gt = now - gameStartTimeRef.current, sr = Math.max(300, 1500 - gt / 150);
+    if (now - lastSpawnTimeRef.current > sr) { 
+      // Slower spawn count increase: every 45 seconds instead of 30 (was gt/30000)
+      const spawnCount = 1 + Math.floor(gt / 45000);
+      for (let i = 0; i < spawnCount; i++) spawnEnemy(); 
+      lastSpawnTimeRef.current = now; 
+    }
 
     fireWeapons(); updateOrbitingWeapons(delta);
 
@@ -554,7 +692,17 @@ export default function DonutSurvivorsPage() {
       e.hitFlash = Math.max(0, e.hitFlash - 1);
       const dx = p.x - e.x, dy = p.y - e.y, dist = Math.hypot(dx, dy);
       if (dist > 0) { e.x += (dx / dist) * e.speed * delta; e.y += (dy / dist) * e.speed * delta; }
-      if (dist < e.size + PLAYER_SIZE / 2 && Date.now() > invincibleUntilRef.current) { p.hp -= e.damage; invincibleUntilRef.current = Date.now() + 500; playHurtSound(); triggerScreenShake(10, 200); addParticles(p.x, p.y, '#FF6B6B', 10, 4); if (p.hp <= 0) { endGame(); return false; } }
+      if (dist < e.size + PLAYER_SIZE / 2 && Date.now() > invincibleUntilRef.current) { 
+        // Apply defense reduction
+        const damageReduction = Math.min(p.defense || 0, 0.75); // Cap at 75% reduction
+        const actualDamage = Math.floor(e.damage * (1 - damageReduction));
+        p.hp -= actualDamage; 
+        // Apply invincibility bonus from gadgets
+        const invincibilityTime = 500 + (p.invincibilityBonus || 0);
+        invincibleUntilRef.current = Date.now() + invincibilityTime; 
+        playHurtSound(); triggerScreenShake(10, 200); addParticles(p.x, p.y, '#FF6B6B', 10, 4); 
+        if (p.hp <= 0) { endGame(); return false; } 
+      }
       if (e.hp <= 0) { for (let i = 0; i < (e.type === 'chocolate_chunk' ? 5 : 1); i++) xpOrbsRef.current.push({ x: e.x + (Math.random() - 0.5) * 20, y: e.y + (Math.random() - 0.5) * 20, value: e.xpValue, size: 6 + e.xpValue }); playKillSound(); addParticles(e.x, e.y, e.color, 12, 4); enemiesKilledRef.current++; setKillCount(enemiesKilledRef.current); return false; }
       return true;
     });
@@ -573,8 +721,11 @@ export default function DonutSurvivorsPage() {
 
   const startGame = useCallback(() => {
     initAudioContext();
-    playerRef.current = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 50, xpMultiplier: 1, facingAngle: 0 };
-    cameraRef.current = { x: 0, y: 0 }; weaponsRef.current = [{ type: 'sprinkle_shot', level: 1, lastFired: 0 }];
+    playerRef.current = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 50, xpMultiplier: 1, facingAngle: 0, defense: 0, invincibilityBonus: 0, cooldownReduction: 0 };
+    cameraRef.current = { x: 0, y: 0 }; 
+    // Use selected starter weapon
+    weaponsRef.current = [{ type: selectedStarterWeapon, level: 1, lastFired: 0, angle: 0 }];
+    gadgetsRef.current = []; // Reset gadgets
     enemiesRef.current = []; projectilesRef.current = []; xpOrbsRef.current = []; particlesRef.current = []; damageNumbersRef.current = []; trailPointsRef.current = [];
     frameCountRef.current = 0; gameStartTimeRef.current = performance.now(); lastSpawnTimeRef.current = performance.now(); invincibleUntilRef.current = 0;
     screenShakeRef.current = { intensity: 0, duration: 0, startTime: 0 }; enemiesKilledRef.current = 0; moveInputRef.current = { x: 0, y: 0 }; joystickRef.current = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 };
@@ -583,7 +734,7 @@ export default function DonutSurvivorsPage() {
     lastFrameTimeRef.current = performance.now(); gameActiveRef.current = true;
     if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [initAudioContext, gameLoop]);
+  }, [initAudioContext, gameLoop, selectedStarterWeapon]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (gameState !== "playing") return;
@@ -685,11 +836,11 @@ export default function DonutSurvivorsPage() {
       for (let i = 0; i < 3; i++) { const a = t * 2 + (i / 3) * Math.PI * 2, ox = CANVAS_WIDTH / 2 + Math.cos(a) * 60, oy = py + Math.sin(a) * 60; ctx.fillStyle = '#F472B6'; ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(ox, oy, 10, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#0d0d0d'; ctx.beginPath(); ctx.arc(ox, oy, 3, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
       
       if (gameState === "gameover") {
-        ctx.fillStyle = '#FF6B6B'; ctx.font = 'bold 24px monospace'; ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 270);
-        ctx.fillStyle = '#FFF'; ctx.font = 'bold 36px monospace'; ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 310);
-        ctx.fillStyle = '#888'; ctx.font = '12px monospace'; ctx.fillText(`Time: ${Math.floor(survivalTime / 60)}:${(survivalTime % 60).toString().padStart(2, '0')} | Kills: ${killCount}`, CANVAS_WIDTH / 2, 335);
-        ctx.fillStyle = '#F472B6'; ctx.font = '10px monospace'; ctx.fillText(`High Score: ${highScore}`, CANVAS_WIDTH / 2, 355);
-      } else { ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '12px monospace'; ctx.fillText('Drag to move • Auto-attack', CANVAS_WIDTH / 2, 280); ctx.fillText('Survive as long as you can!', CANVAS_WIDTH / 2, 300); }
+        ctx.fillStyle = '#FF6B6B'; ctx.font = 'bold 24px monospace'; ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 255);
+        ctx.fillStyle = '#FFF'; ctx.font = 'bold 36px monospace'; ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 290);
+        ctx.fillStyle = '#888'; ctx.font = '12px monospace'; ctx.fillText(`Time: ${Math.floor(survivalTime / 60)}:${(survivalTime % 60).toString().padStart(2, '0')} | Kills: ${killCount}`, CANVAS_WIDTH / 2, 315);
+        ctx.fillStyle = '#F472B6'; ctx.font = '10px monospace'; ctx.fillText(`High Score: ${highScore}`, CANVAS_WIDTH / 2, 335);
+      } else { ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '12px monospace'; ctx.fillText('Drag to move • Auto-attack', CANVAS_WIDTH / 2, 265); ctx.fillText('Survive as long as you can!', CANVAS_WIDTH / 2, 285); }
       id = requestAnimationFrame(draw);
     };
     id = requestAnimationFrame(draw);
@@ -716,16 +867,74 @@ export default function DonutSurvivorsPage() {
               <p className="text-sm text-zinc-400 mb-4">Level {playerLevel} - Choose an upgrade</p>
               <div className="flex flex-col gap-2 w-full max-w-[280px]">
                 {upgradeOptions.map((opt, i) => (
-                  <button key={i} onClick={() => applyUpgrade(opt)} className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-700 rounded-xl hover:border-pink-500 hover:bg-zinc-800 transition-all active:scale-95">
+                  <button 
+                    key={i} 
+                    onClick={() => applyUpgrade(opt)} 
+                    className={`flex items-center gap-3 p-3 bg-zinc-900 border rounded-xl hover:bg-zinc-800 transition-all active:scale-95 ${
+                      opt.type === 'weapon' ? 'border-pink-500/50 hover:border-pink-500' : 'border-blue-500/50 hover:border-blue-500'
+                    }`}
+                  >
                     <span className="text-2xl">{opt.icon}</span>
-                    <div className="flex-1 text-left"><div className="font-bold text-white text-sm">{opt.title}</div><div className="text-xs text-zinc-400">{opt.description}</div></div>
+                    <div className="flex-1 text-left">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white text-sm">{opt.title}</span>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                          opt.type === 'weapon' ? 'bg-pink-500/20 text-pink-400' : 'bg-blue-500/20 text-blue-400'
+                        }`}>
+                          {opt.type === 'weapon' ? 'WEAPON' : 'GADGET'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-zinc-400">{opt.description}</div>
+                    </div>
                   </button>
                 ))}
+              </div>
+              <div className="mt-3 text-[10px] text-zinc-500">
+                Weapons: {weaponsRef.current.length}/6 • Gadgets: {gadgetsRef.current.length}/{MAX_GADGETS}
               </div>
             </div>
           )}
           {(gameState === "menu" || gameState === "gameover") && (
-            <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-2 pointer-events-none z-20">
+            <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-3 pointer-events-none z-20">
+              {/* Starter Weapon Selector */}
+              <div className="pointer-events-auto bg-black/80 backdrop-blur-sm rounded-xl p-3 border border-zinc-800">
+                <div className="text-[10px] text-zinc-400 text-center mb-2">STARTER WEAPON</div>
+                <div className="flex gap-1.5 flex-wrap justify-center max-w-[280px]">
+                  {STARTER_WEAPON_ORDER.map((weaponType) => {
+                    const config = WEAPON_CONFIG[weaponType];
+                    const required = WEAPON_UNLOCK_REQUIREMENTS[weaponType];
+                    const isUnlocked = gamesPlayed >= required;
+                    const isSelected = selectedStarterWeapon === weaponType;
+                    
+                    return (
+                      <button
+                        key={weaponType}
+                        onClick={() => isUnlocked && setSelectedStarterWeapon(weaponType)}
+                        disabled={!isUnlocked}
+                        className={`relative flex flex-col items-center justify-center w-12 h-12 rounded-lg border-2 transition-all ${
+                          isSelected 
+                            ? 'border-pink-500 bg-pink-500/20' 
+                            : isUnlocked 
+                              ? 'border-zinc-700 bg-zinc-900 hover:border-zinc-500' 
+                              : 'border-zinc-800 bg-zinc-900/50 opacity-50'
+                        }`}
+                        title={isUnlocked ? config.name : `Unlock at ${required} games`}
+                      >
+                        <span className="text-lg">{config.icon}</span>
+                        {!isUnlocked && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg">
+                            <span className="text-[8px] text-zinc-400">🔒{required}</span>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="text-[9px] text-zinc-500 text-center mt-2">
+                  {WEAPON_CONFIG[selectedStarterWeapon].name} • {gamesPlayed} games played
+                </div>
+              </div>
+              
               <button onClick={startGame} className="pointer-events-auto flex items-center gap-2 px-6 py-2 bg-green-500 text-black font-bold rounded-full hover:bg-green-400 active:scale-95">
                 <Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span>
               </button>
@@ -744,8 +953,14 @@ export default function DonutSurvivorsPage() {
             <div className="relative mx-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
               <button onClick={() => setShowHelp(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white"><X className="h-4 w-4" /></button>
               <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2"><HelpCircle className="w-4 h-4" />How to Play</h2>
-              <div className="space-y-3">
-                {[['1', 'Movement', 'Drag anywhere to move. WASD/Arrow keys also work!'], ['2', 'Auto-Attack', 'Your weapons fire automatically at nearby enemies!'], ['3', 'Collect XP', 'Kill enemies to drop pink donuts. Walk over them to level up!'], ['4', 'Upgrades', 'Choose new weapons or boost stats on level up!']].map(([n, t, d]) => (
+              <div className="space-y-2.5">
+                {[
+                  ['1', 'Movement', 'Drag anywhere to move. WASD/Arrow keys also work!'], 
+                  ['2', 'Auto-Attack', 'Your weapons fire automatically at nearby enemies!'], 
+                  ['3', 'Collect XP', 'Kill enemies to drop pink donuts. Walk over them to level up!'], 
+                  ['4', 'Weapons', 'Collect up to 6 weapons. Each can be leveled up to 8!'],
+                  ['5', 'Gadgets', 'Passive boosts (max 4). Stack them up to 5 times each!']
+                ].map(([n, t, d]) => (
                   <div key={n} className="flex gap-2.5">
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold">{n}</div>
                     <div><div className="font-semibold text-white text-xs">{t}</div><div className="text-[11px] text-gray-400">{d}</div></div>
