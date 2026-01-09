@@ -110,6 +110,23 @@ export default function DonutSurvivorsPage() {
     sdk.actions.ready().catch(() => {});
   }, []);
 
+  // Prevent swipe-to-close gesture on the entire document
+  useEffect(() => {
+    const preventSwipe = (e: TouchEvent) => {
+      if (gameState === "playing") {
+        e.preventDefault();
+      }
+    };
+    
+    document.addEventListener('touchmove', preventSwipe, { passive: false });
+    document.addEventListener('touchstart', preventSwipe, { passive: false });
+    
+    return () => {
+      document.removeEventListener('touchmove', preventSwipe);
+      document.removeEventListener('touchstart', preventSwipe);
+    };
+  }, [gameState]);
+
   // Load PFP image when URL is available
   useEffect(() => {
     if (!userPfp) return;
@@ -555,14 +572,23 @@ export default function DonutSurvivorsPage() {
   }, [initAudioContext, gameLoop]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (gameState !== "playing") return; e.preventDefault();
+    if (gameState !== "playing") return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Capture pointer to prevent gesture interference
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    
     const rect = canvasRef.current?.getBoundingClientRect(); if (!rect) return;
     const x = (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width), y = (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
     joystickRef.current = { active: true, startX: x, startY: y, currentX: x, currentY: y };
   }, [gameState]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!joystickRef.current.active) return; e.preventDefault();
+    if (!joystickRef.current.active) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
     const rect = canvasRef.current?.getBoundingClientRect(); if (!rect) return;
     const x = (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width), y = (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
     joystickRef.current.currentX = x; joystickRef.current.currentY = y;
@@ -570,7 +596,11 @@ export default function DonutSurvivorsPage() {
     if (dist > 5) { const cd = Math.min(dist, 50); moveInputRef.current = { x: (dx / dist) * (cd / 50), y: (dy / dist) * (cd / 50) }; } else moveInputRef.current = { x: 0, y: 0 };
   }, []);
 
-  const handlePointerUp = useCallback(() => { joystickRef.current.active = false; moveInputRef.current = { x: 0, y: 0 }; }, []);
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    try { (e.target as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
+    joystickRef.current.active = false;
+    moveInputRef.current = { x: 0, y: 0 };
+  }, []);
 
   useEffect(() => {
     const keys = new Set<string>();
@@ -612,11 +642,19 @@ export default function DonutSurvivorsPage() {
   }, [gameState, score, survivalTime, killCount, highScore]);
 
   return (
-    <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white select-none">
-      <style>{`* { -webkit-tap-highlight-color: transparent !important; } main, main * { user-select: none !important; -webkit-user-select: none !important; }`}</style>
-      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col items-center justify-center bg-black p-4">
+    <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white select-none overscroll-none fixed inset-0">
+      <style>{`
+        * { -webkit-tap-highlight-color: transparent !important; }
+        main, main * { user-select: none !important; -webkit-user-select: none !important; touch-action: none !important; }
+        html, body { overscroll-behavior: none !important; overflow: hidden !important; position: fixed !important; width: 100% !important; height: 100% !important; }
+      `}</style>
+      <div 
+        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col items-center justify-center bg-black p-4"
+        onTouchStart={e => { if (gameState === "playing") e.preventDefault(); }}
+        onTouchMove={e => { if (gameState === "playing") e.preventDefault(); }}
+      >
         <div className="relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
-          <canvas ref={canvasRef} width={SCALED_WIDTH} height={SCALED_HEIGHT} className="rounded-2xl border border-zinc-800 w-full h-full" style={{ touchAction: "none" }} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={e => e.preventDefault()} />
+          <canvas ref={canvasRef} width={SCALED_WIDTH} height={SCALED_HEIGHT} className="rounded-2xl border border-zinc-800 w-full h-full" style={{ touchAction: "none", WebkitUserSelect: "none", userSelect: "none" }} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={e => e.preventDefault()} onTouchStart={e => { if (gameState === "playing") e.preventDefault(); }} onTouchMove={e => e.preventDefault()} onTouchEnd={e => e.preventDefault()} />
           {gameState === "levelup" && (
             <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center p-4 z-30 rounded-2xl">
               <h2 className="text-2xl font-bold text-yellow-400 mb-2">LEVEL UP!</h2>
