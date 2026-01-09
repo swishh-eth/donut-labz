@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { sdk } from "@farcaster/miniapp-sdk";
 import { Play, X, HelpCircle, Volume2, VolumeX } from "lucide-react";
 
 // Game constants
@@ -62,6 +63,7 @@ export default function DonutSurvivorsPage() {
   const [playerLevel, setPlayerLevel] = useState(1);
   const [survivalTime, setSurvivalTime] = useState(0);
   const [killCount, setKillCount] = useState(0);
+  const [userPfp, setUserPfp] = useState<string | null>(null);
   
   const playerRef = useRef({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 50, xpMultiplier: 1, facingAngle: 0 });
   const cameraRef = useRef({ x: 0, y: 0 });
@@ -86,6 +88,37 @@ export default function DonutSurvivorsPage() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const donutImageRef = useRef<HTMLImageElement | null>(null);
   const donutLoadedRef = useRef(false);
+  const pfpImageRef = useRef<HTMLImageElement | null>(null);
+  const pfpLoadedRef = useRef(false);
+
+  // Fetch Farcaster context for PFP
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const ctx = await (sdk as any).context;
+        if (!cancelled && ctx?.user?.pfpUrl) {
+          setUserPfp(ctx.user.pfpUrl);
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // SDK ready
+  useEffect(() => {
+    sdk.actions.ready().catch(() => {});
+  }, []);
+
+  // Load PFP image when URL is available
+  useEffect(() => {
+    if (!userPfp) return;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => { pfpImageRef.current = img; pfpLoadedRef.current = true; };
+    img.onerror = () => { pfpLoadedRef.current = false; };
+    img.src = userPfp;
+  }, [userPfp]);
 
   useEffect(() => {
     const img = new Image();
@@ -149,7 +182,7 @@ export default function DonutSurvivorsPage() {
 
   const spawnEnemy = useCallback(() => {
     const player = playerRef.current;
-    const gameTime = (Date.now() - gameStartTimeRef.current) / 1000;
+    const gameTime = (performance.now() - gameStartTimeRef.current) / 1000;
     const angle = Math.random() * Math.PI * 2;
     const distance = 300 + Math.random() * 100;
     const x = Math.max(50, Math.min(WORLD_WIDTH - 50, player.x + Math.cos(angle) * distance));
@@ -368,10 +401,59 @@ export default function DonutSurvivorsPage() {
     const inv = Date.now() < invincibleUntilRef.current;
     ctx.save(); ctx.translate(sx, sy);
     if (inv && Math.floor(frameCountRef.current / 4) % 2 === 0) ctx.globalAlpha = 0.5;
-    ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 20; ctx.fillStyle = '#F472B6'; ctx.beginPath(); ctx.arc(0, 0, PLAYER_SIZE / 2, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
-    ctx.fillStyle = '#0d0d0d'; ctx.beginPath(); ctx.arc(0, 0, PLAYER_SIZE / 6, 0, Math.PI * 2); ctx.fill();
-    const colors = ['#FF6B6B', '#4ADE80', '#60A5FA', '#FBBF24', '#A78BFA'];
-    for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2 + frameCountRef.current * 0.02; ctx.save(); ctx.translate(Math.cos(a) * PLAYER_SIZE * 0.3, Math.sin(a) * PLAYER_SIZE * 0.3); ctx.rotate(a + Math.PI / 2); ctx.fillStyle = colors[i % colors.length]; ctx.fillRect(-2, -5, 4, 10); ctx.restore(); }
+    
+    const radius = PLAYER_SIZE / 2;
+    
+    // Draw pink glow
+    ctx.shadowColor = '#F472B6';
+    ctx.shadowBlur = 20;
+    
+    if (pfpImageRef.current && pfpLoadedRef.current) {
+      // Draw PFP with circular clip
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(pfpImageRef.current, -radius, -radius, PLAYER_SIZE, PLAYER_SIZE);
+      ctx.restore();
+      
+      // Redraw border glow
+      ctx.save();
+      ctx.translate(sx, sy);
+      if (inv && Math.floor(frameCountRef.current / 4) % 2 === 0) ctx.globalAlpha = 0.5;
+      ctx.strokeStyle = '#F472B6';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#F472B6';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    } else {
+      // Fallback to donut
+      ctx.fillStyle = '#F472B6';
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      
+      ctx.fillStyle = '#0d0d0d';
+      ctx.beginPath();
+      ctx.arc(0, 0, radius / 3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Sprinkles
+      const colors = ['#FF6B6B', '#4ADE80', '#60A5FA', '#FBBF24', '#A78BFA'];
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 + frameCountRef.current * 0.02;
+        ctx.save();
+        ctx.translate(Math.cos(a) * radius * 0.6, Math.sin(a) * radius * 0.6);
+        ctx.rotate(a + Math.PI / 2);
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fillRect(-2, -5, 4, 10);
+        ctx.restore();
+      }
+    }
     ctx.restore();
   }, []);
 
@@ -388,7 +470,7 @@ export default function DonutSurvivorsPage() {
   }, []);
 
   const drawHUD = useCallback((ctx: CanvasRenderingContext2D) => {
-    const p = playerRef.current, gt = Math.floor((Date.now() - gameStartTimeRef.current) / 1000), m = Math.floor(gt / 60), s = gt % 60;
+    const p = playerRef.current, gt = Math.floor((performance.now() - gameStartTimeRef.current) / 1000), m = Math.floor(gt / 60), s = gt % 60;
     ctx.fillStyle = '#FFF'; ctx.font = 'bold 20px monospace'; ctx.textAlign = 'center'; ctx.fillText(`${m}:${s.toString().padStart(2, '0')}`, CANVAS_WIDTH / 2, 30);
     ctx.font = '12px monospace'; ctx.fillStyle = '#F472B6'; ctx.fillText(`LV ${p.level}`, CANVAS_WIDTH / 2, 48);
     ctx.textAlign = 'left'; ctx.fillStyle = '#FFF'; ctx.font = '14px monospace'; ctx.fillText(`☠ ${enemiesKilledRef.current}`, 15, 30);
@@ -407,7 +489,7 @@ export default function DonutSurvivorsPage() {
 
   const endGame = useCallback(() => {
     gameActiveRef.current = false; if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-    const st = Math.floor((Date.now() - gameStartTimeRef.current) / 1000), fs = st * 10 + enemiesKilledRef.current * 5;
+    const st = Math.floor((performance.now() - gameStartTimeRef.current) / 1000), fs = st * 10 + enemiesKilledRef.current * 5;
     setScore(fs); setSurvivalTime(st); setGameState("gameover"); setHighScore(prev => Math.max(prev, fs));
   }, []);
 
@@ -427,7 +509,7 @@ export default function DonutSurvivorsPage() {
     p.y = Math.max(PLAYER_SIZE / 2, Math.min(WORLD_HEIGHT - PLAYER_SIZE / 2, p.y));
     cameraRef.current = { x: p.x - CANVAS_WIDTH / 2, y: p.y - CANVAS_HEIGHT / 2 };
 
-    const gt = Date.now() - gameStartTimeRef.current, sr = Math.max(200, 1000 - gt / 100);
+    const gt = now - gameStartTimeRef.current, sr = Math.max(200, 1000 - gt / 100);
     if (now - lastSpawnTimeRef.current > sr) { for (let i = 0; i < 1 + Math.floor(gt / 30000); i++) spawnEnemy(); lastSpawnTimeRef.current = now; }
 
     fireWeapons(); updateOrbitingWeapons(delta);
@@ -464,7 +546,7 @@ export default function DonutSurvivorsPage() {
     playerRef.current = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 50, xpMultiplier: 1, facingAngle: 0 };
     cameraRef.current = { x: 0, y: 0 }; weaponsRef.current = [{ type: 'sprinkle_shot', level: 1, lastFired: 0 }];
     enemiesRef.current = []; projectilesRef.current = []; xpOrbsRef.current = []; particlesRef.current = []; damageNumbersRef.current = []; trailPointsRef.current = [];
-    frameCountRef.current = 0; gameStartTimeRef.current = Date.now(); lastSpawnTimeRef.current = Date.now(); invincibleUntilRef.current = 0;
+    frameCountRef.current = 0; gameStartTimeRef.current = performance.now(); lastSpawnTimeRef.current = performance.now(); invincibleUntilRef.current = 0;
     screenShakeRef.current = { intensity: 0, duration: 0, startTime: 0 }; enemiesKilledRef.current = 0; moveInputRef.current = { x: 0, y: 0 }; joystickRef.current = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 };
     setScore(0); setPlayerLevel(1); setSurvivalTime(0); setKillCount(0); setGameState("playing");
     lastFrameTimeRef.current = performance.now(); gameActiveRef.current = true;
