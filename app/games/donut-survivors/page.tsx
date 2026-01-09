@@ -18,8 +18,13 @@ const PLAYER_SIZE = 36;
 const PLAYER_SPEED = 2.8;
 const PLAYER_MAX_HP = 120;
 
-const BASE_XP_TO_LEVEL = 15;
+const BASE_XP_TO_LEVEL = 17;
 const XP_SCALE = 1.25;
+
+// Spatial grid for performance
+const GRID_CELL_SIZE = 100;
+const GRID_WIDTH = Math.ceil(WORLD_WIDTH / GRID_CELL_SIZE);
+const GRID_HEIGHT = Math.ceil(WORLD_HEIGHT / GRID_CELL_SIZE);
 
 type WeaponType = 'sprinkle_shot' | 'frosting_ring' | 'glaze_wave' | 'sugar_stars' | 'orbiting_donuts' | 'cinnamon_trail' | 'candy_cannon' | 'mint_missiles';
 type EnemyType = 'sprinkle' | 'gummy' | 'candy_corn' | 'chocolate_chunk' | 'boss' | 'final_boss';
@@ -27,11 +32,11 @@ type UpgradeType = 'weapon' | 'gadget';
 
 interface Weapon { type: WeaponType; level: number; lastFired: number; angle?: number; }
 interface WeaponConfig { name: string; icon: string; color: string; baseDamage: number; baseCooldown: number; description: string; }
-interface Enemy { x: number; y: number; type: EnemyType; hp: number; maxHp: number; speed: number; size: number; xpValue: number; damage: number; color: string; hitFlash: number; }
-interface Projectile { x: number; y: number; vx: number; vy: number; damage: number; size: number; color: string; piercing: number; lifetime: number; weaponType: WeaponType; }
-interface XPOrb { x: number; y: number; value: number; size: number; }
-interface DamageNumber { x: number; y: number; value: number; life: number; vy: number; }
-interface Particle { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: string; size: number; }
+interface Enemy { x: number; y: number; type: EnemyType; hp: number; maxHp: number; speed: number; size: number; xpValue: number; damage: number; color: string; hitFlash: number; spawnAnim: number; }
+interface Projectile { x: number; y: number; vx: number; vy: number; damage: number; size: number; color: string; piercing: number; lifetime: number; weaponType: WeaponType; trail: { x: number; y: number; life: number }[]; }
+interface XPOrb { x: number; y: number; value: number; size: number; collectAnim: number; }
+interface DamageNumber { x: number; y: number; value: number; life: number; vy: number; isCrit?: boolean; }
+interface Particle { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: string; size: number; type?: 'spark' | 'ring' | 'glow'; }
 interface UpgradeOption { type: UpgradeType; weaponType?: WeaponType; gadgetType?: GadgetType; title: string; description: string; icon: string; }
 
 const WEAPON_CONFIG: Record<WeaponType, WeaponConfig> = {
@@ -45,23 +50,33 @@ const WEAPON_CONFIG: Record<WeaponType, WeaponConfig> = {
   mint_missiles: { name: 'Mint Missiles', icon: '▲', color: '#4ADE80', baseDamage: 8, baseCooldown: 1000, description: 'Homing missiles with small explosions' },
 };
 
+const WEAPON_STATS: Record<WeaponType, { stat: string; perLevel: string }> = {
+  sprinkle_shot: { stat: 'Projectiles', perLevel: '+1 every 3 levels' },
+  frosting_ring: { stat: 'Ring Size', perLevel: '+8 radius/level' },
+  glaze_wave: { stat: 'Wave Range', perLevel: '+20 radius/level' },
+  sugar_stars: { stat: 'Star Count', perLevel: '+1 star/level' },
+  orbiting_donuts: { stat: 'Donut Count', perLevel: '+1 every 2 levels' },
+  cinnamon_trail: { stat: 'Trail Duration', perLevel: '+15 frames/level' },
+  candy_cannon: { stat: 'Explosion Size', perLevel: '+1 radius/level' },
+  mint_missiles: { stat: 'Missile Count', perLevel: '+1 every 3 levels' },
+};
+
 // Games required to unlock each starter weapon
 const WEAPON_UNLOCK_REQUIREMENTS: Record<WeaponType, number> = {
-  sprinkle_shot: 0,    // Always unlocked
-  frosting_ring: 10,   // 10 games
-  sugar_stars: 50,     // 50 games
-  glaze_wave: 100,     // 100 games
-  orbiting_donuts: 200,// 200 games
-  cinnamon_trail: 300, // 300 games
-  candy_cannon: 400,   // 400 games
-  mint_missiles: 500,  // 500 games
+  sprinkle_shot: 0,
+  frosting_ring: 10,
+  sugar_stars: 50,
+  glaze_wave: 100,
+  orbiting_donuts: 200,
+  cinnamon_trail: 300,
+  candy_cannon: 400,
+  mint_missiles: 500,
 };
 
 const STARTER_WEAPON_ORDER: WeaponType[] = ['sprinkle_shot', 'frosting_ring', 'sugar_stars', 'glaze_wave', 'orbiting_donuts', 'cinnamon_trail', 'candy_cannon', 'mint_missiles'];
 
 const MAX_WEAPONS = 4;
 
-// Gadgets - passive upgrades that modify gameplay (max 4)
 type GadgetType = 'sugar_rush' | 'thicc_glaze' | 'sprinkle_magnet' | 'donut_armor' | 'hyper_icing' | 'golden_sprinkles' | 'choco_shield' | 'candy_rush';
 
 interface GadgetConfig {
@@ -70,27 +85,28 @@ interface GadgetConfig {
   color: string;
   description: string;
   effect: string;
+  statName: string;
+  perStack: string;
 }
 
 const GADGET_CONFIG: Record<GadgetType, GadgetConfig> = {
-  sugar_rush: { name: 'Sugar Rush', icon: '↯', color: '#FBBF24', description: '+20% Move Speed', effect: 'speed' },
-  thicc_glaze: { name: 'Thicc Glaze', icon: '▣', color: '#60A5FA', description: '+30 Max HP', effect: 'max_hp' },
-  sprinkle_magnet: { name: 'Sprinkle Magnet', icon: '⊕', color: '#A78BFA', description: '+40% Pickup Range', effect: 'magnet' },
-  donut_armor: { name: 'Donut Armor', icon: '○', color: '#F472B6', description: '-15% Damage Taken', effect: 'defense' },
-  hyper_icing: { name: 'Hyper Icing', icon: '★', color: '#FF6B6B', description: '+15% All Damage', effect: 'damage' },
-  golden_sprinkles: { name: 'Golden Sprinkles', icon: '✧', color: '#FFD700', description: '+25% XP Gain', effect: 'xp_gain' },
-  choco_shield: { name: 'Choco Shield', icon: '■', color: '#8B4513', description: '+0.5s Invincibility', effect: 'invincibility' },
-  candy_rush: { name: 'Candy Rush', icon: '◇', color: '#FF69B4', description: '-10% Weapon Cooldowns', effect: 'cooldown' },
+  sugar_rush: { name: 'Sugar Rush', icon: '↯', color: '#FBBF24', description: '+20% Move Speed', effect: 'speed', statName: 'Move Speed', perStack: '+20%' },
+  thicc_glaze: { name: 'Thicc Glaze', icon: '▣', color: '#60A5FA', description: '+30 Max HP', effect: 'max_hp', statName: 'Max HP', perStack: '+30' },
+  sprinkle_magnet: { name: 'Sprinkle Magnet', icon: '⊕', color: '#A78BFA', description: '+40% Pickup Range', effect: 'magnet', statName: 'Pickup Range', perStack: '+40%' },
+  donut_armor: { name: 'Donut Armor', icon: '○', color: '#F472B6', description: '-15% Damage Taken', effect: 'defense', statName: 'Damage Reduction', perStack: '+15%' },
+  hyper_icing: { name: 'Hyper Icing', icon: '★', color: '#FF6B6B', description: '+15% All Damage', effect: 'damage', statName: 'Damage Bonus', perStack: '+15%' },
+  golden_sprinkles: { name: 'Golden Sprinkles', icon: '✧', color: '#FFD700', description: '+25% XP Gain', effect: 'xp_gain', statName: 'XP Multiplier', perStack: '+25%' },
+  choco_shield: { name: 'Choco Shield', icon: '■', color: '#8B4513', description: '+0.5s Invincibility', effect: 'invincibility', statName: 'I-Frames', perStack: '+0.5s' },
+  candy_rush: { name: 'Candy Rush', icon: '◇', color: '#FF69B4', description: '-10% Weapon Cooldowns', effect: 'cooldown', statName: 'Cooldown Reduction', perStack: '+10%' },
 };
 
-// Gadgets are all available in-game (no unlock requirements)
 const GADGET_ORDER: GadgetType[] = ['sugar_rush', 'thicc_glaze', 'sprinkle_magnet', 'donut_armor', 'hyper_icing', 'golden_sprinkles', 'choco_shield', 'candy_rush'];
 
 const MAX_GADGETS = 4;
 
 interface Gadget {
   type: GadgetType;
-  stacks: number; // How many times this gadget has been picked
+  stacks: number;
 }
 
 const ENEMY_CONFIG: Record<EnemyType, { hp: number; speed: number; size: number; xpValue: number; damage: number; color: string; spawnWeight: number }> = {
@@ -98,15 +114,37 @@ const ENEMY_CONFIG: Record<EnemyType, { hp: number; speed: number; size: number;
   gummy: { hp: 30, speed: 1.2, size: 20, xpValue: 4, damage: 6, color: '#4ADE80', spawnWeight: 30 },
   candy_corn: { hp: 10, speed: 2.0, size: 12, xpValue: 2, damage: 3, color: '#FBBF24', spawnWeight: 15 },
   chocolate_chunk: { hp: 100, speed: 0.5, size: 32, xpValue: 15, damage: 12, color: '#A78BFA', spawnWeight: 5 },
-  boss: { hp: 2000, speed: 0.6, size: 60, xpValue: 200, damage: 25, color: '#FF1744', spawnWeight: 0 },
+  boss: { hp: 8000, speed: 0.7, size: 60, xpValue: 200, damage: 30, color: '#FF1744', spawnWeight: 0 },
   final_boss: { hp: 999999, speed: 1.2, size: 100, xpValue: 0, damage: 9999, color: '#000000', spawnWeight: 0 },
 };
+
+// Spatial grid helper functions
+function getSpatialCell(x: number, y: number): number {
+  const cx = Math.floor(x / GRID_CELL_SIZE);
+  const cy = Math.floor(y / GRID_CELL_SIZE);
+  return cy * GRID_WIDTH + cx;
+}
+
+function getNearbyCells(x: number, y: number, radius: number): number[] {
+  const cells: number[] = [];
+  const minCx = Math.max(0, Math.floor((x - radius) / GRID_CELL_SIZE));
+  const maxCx = Math.min(GRID_WIDTH - 1, Math.floor((x + radius) / GRID_CELL_SIZE));
+  const minCy = Math.max(0, Math.floor((y - radius) / GRID_CELL_SIZE));
+  const maxCy = Math.min(GRID_HEIGHT - 1, Math.floor((y + radius) / GRID_CELL_SIZE));
+  
+  for (let cy = minCy; cy <= maxCy; cy++) {
+    for (let cx = minCx; cx <= maxCx; cx++) {
+      cells.push(cy * GRID_WIDTH + cx);
+    }
+  }
+  return cells;
+}
 
 export default function DonutSurvivorsPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number | null>(null);
   
-  const [gameState, setGameState] = useState<"menu" | "playing" | "levelup" | "gameover">("menu");
+  const [gameState, setGameState] = useState<"menu" | "playing" | "levelup" | "gameover" | "equipment">("menu");
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -117,17 +155,18 @@ export default function DonutSurvivorsPage() {
   const [killCount, setKillCount] = useState(0);
   const [userPfp, setUserPfp] = useState<string | null>(null);
   const [userFid, setUserFid] = useState<number | null>(null);
-  const [gamesPlayed, setGamesPlayed] = useState(500); // Set to 500 for testing, 0 for prod
+  const [gamesPlayed, setGamesPlayed] = useState(500);
   const [selectedStarterWeapon, setSelectedStarterWeapon] = useState<WeaponType>('sprinkle_shot');
-  const [isLoadingStats, setIsLoadingStats] = useState(false); // false for testing
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [showWeaponMenu, setShowWeaponMenu] = useState(false);
   const [showGadgetInfo, setShowGadgetInfo] = useState(false);
   const [rerollsLeft, setRerollsLeft] = useState(2);
   const [bansLeft, setBansLeft] = useState(1);
   const [bannedUpgrades, setBannedUpgrades] = useState<string[]>([]);
   const [banMode, setBanMode] = useState(false);
+  const [equipmentData, setEquipmentData] = useState<{ weapons: Weapon[], gadgets: Gadget[], player: any } | null>(null);
   
-  const playerRef = useRef({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 70, xpMultiplier: 1, facingAngle: 0, defense: 0, invincibilityBonus: 0, cooldownReduction: 0 });
+  const playerRef = useRef({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 70, xpMultiplier: 1, facingAngle: 0, defense: 0, invincibilityBonus: 0, cooldownReduction: 0, vx: 0, vy: 0 });
   const cameraRef = useRef({ x: 0, y: 0 });
   const weaponsRef = useRef<Weapon[]>([]);
   const gadgetsRef = useRef<Gadget[]>([]);
@@ -138,11 +177,15 @@ export default function DonutSurvivorsPage() {
   const damageNumbersRef = useRef<DamageNumber[]>([]);
   const trailPointsRef = useRef<{ x: number; y: number; life: number }[]>([]);
   
+  // Spatial grid for enemies
+  const enemyGridRef = useRef<Map<number, Enemy[]>>(new Map());
+  
   const gameActiveRef = useRef(false);
   const isPausedRef = useRef(false);
   const frameCountRef = useRef(0);
   const lastFrameTimeRef = useRef(performance.now());
   const gameStartTimeRef = useRef(0);
+  const pausedTimeRef = useRef(0);
   const lastSpawnTimeRef = useRef(0);
   const invincibleUntilRef = useRef(0);
   const screenShakeRef = useRef({ intensity: 0, duration: 0, startTime: 0 });
@@ -169,8 +212,6 @@ export default function DonutSurvivorsPage() {
           if (ctx.user.pfpUrl) setUserPfp(ctx.user.pfpUrl);
           if (ctx.user.fid) {
             setUserFid(ctx.user.fid);
-            // TODO: Fetch games played from API when ready
-            // For testing: set to 500 to unlock all weapons, or 0 to test progression
             setGamesPlayed(500);
           }
         }
@@ -185,10 +226,10 @@ export default function DonutSurvivorsPage() {
     sdk.actions.ready().catch(() => {});
   }, []);
 
-  // Prevent swipe-to-close gesture on the entire document
+  // Prevent swipe-to-close gesture
   useEffect(() => {
     const preventSwipe = (e: TouchEvent) => {
-      if (gameState === "playing") {
+      if (gameState === "playing" || gameState === "equipment") {
         e.preventDefault();
       }
     };
@@ -202,7 +243,7 @@ export default function DonutSurvivorsPage() {
     };
   }, [gameState]);
 
-  // Load PFP image when URL is available
+  // Load PFP image
   useEffect(() => {
     if (!userPfp) return;
     const img = new Image();
@@ -261,30 +302,71 @@ export default function DonutSurvivorsPage() {
     screenShakeRef.current = { intensity, duration, startTime: performance.now() };
   }, []);
 
-  const addParticles = useCallback((x: number, y: number, color: string, count: number, speed: number = 3) => {
+  const addParticles = useCallback((x: number, y: number, color: string, count: number, speed: number = 3, type?: 'spark' | 'ring' | 'glow') => {
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5;
-      particlesRef.current.push({ x, y, vx: Math.cos(angle) * speed * (0.5 + Math.random() * 0.5), vy: Math.sin(angle) * speed * (0.5 + Math.random() * 0.5), life: 1, maxLife: 1, color, size: 2 + Math.random() * 3 });
+      particlesRef.current.push({ 
+        x, y, 
+        vx: Math.cos(angle) * speed * (0.5 + Math.random() * 0.5), 
+        vy: Math.sin(angle) * speed * (0.5 + Math.random() * 0.5), 
+        life: 1, maxLife: 1, color, 
+        size: type === 'spark' ? 1 + Math.random() * 2 : 2 + Math.random() * 3,
+        type 
+      });
     }
   }, []);
 
-  const addDamageNumber = useCallback((x: number, y: number, value: number) => {
-    damageNumbersRef.current.push({ x, y, value, life: 1, vy: -2 });
+  const addDamageNumber = useCallback((x: number, y: number, value: number, isCrit?: boolean) => {
+    damageNumbersRef.current.push({ x, y, value, life: 1, vy: -2, isCrit });
+  }, []);
+
+  // Rebuild spatial grid
+  const rebuildEnemyGrid = useCallback(() => {
+    enemyGridRef.current.clear();
+    for (const enemy of enemiesRef.current) {
+      const cell = getSpatialCell(enemy.x, enemy.y);
+      if (!enemyGridRef.current.has(cell)) {
+        enemyGridRef.current.set(cell, []);
+      }
+      enemyGridRef.current.get(cell)!.push(enemy);
+    }
+  }, []);
+
+  // Get enemies near a point using spatial grid
+  const getEnemiesNear = useCallback((x: number, y: number, radius: number): Enemy[] => {
+    const cells = getNearbyCells(x, y, radius);
+    const result: Enemy[] = [];
+    const seen = new Set<Enemy>();
+    
+    for (const cell of cells) {
+      const enemies = enemyGridRef.current.get(cell);
+      if (enemies) {
+        for (const e of enemies) {
+          if (!seen.has(e)) {
+            seen.add(e);
+            const dist = Math.hypot(e.x - x, e.y - y);
+            if (dist <= radius + e.size) {
+              result.push(e);
+            }
+          }
+        }
+      }
+    }
+    return result;
   }, []);
 
   const spawnEnemy = useCallback(() => {
     const player = playerRef.current;
-    const gameTime = (performance.now() - gameStartTimeRef.current) / 1000;
+    const gameTime = (performance.now() - gameStartTimeRef.current - pausedTimeRef.current) / 1000;
     const angle = Math.random() * Math.PI * 2;
     const distance = 300 + Math.random() * 100;
     const x = Math.max(50, Math.min(WORLD_WIDTH - 50, player.x + Math.cos(angle) * distance));
     const y = Math.max(50, Math.min(WORLD_HEIGHT - 50, player.y + Math.sin(angle) * distance));
     
-    // Slower enemy type unlocks
     let types: EnemyType[] = ['sprinkle'];
-    if (gameTime > 60) types.push('gummy');       // 1 min
-    if (gameTime > 120) types.push('candy_corn'); // 2 min
-    if (gameTime > 240) types.push('chocolate_chunk'); // 4 min
+    if (gameTime > 60) types.push('gummy');
+    if (gameTime > 120) types.push('candy_corn');
+    if (gameTime > 240) types.push('chocolate_chunk');
     
     const weights = types.map(t => ENEMY_CONFIG[t].spawnWeight);
     const totalWeight = weights.reduce((a, b) => a + b, 0);
@@ -293,12 +375,22 @@ export default function DonutSurvivorsPage() {
     for (let i = 0; i < types.length; i++) { random -= weights[i]; if (random <= 0) { selectedType = types[i]; break; } }
     
     const config = ENEMY_CONFIG[selectedType];
-    // Slower scaling
-    const timeScale = 1 + gameTime / 240;  // HP scales very slowly
-    const speedScale = 1 + gameTime / 600; // Speed scales even slower
+    const timeScale = 1 + gameTime / 240;
+    const speedScale = 1 + gameTime / 600;
     
-    enemiesRef.current.push({ x, y, type: selectedType, hp: Math.floor(config.hp * timeScale), maxHp: Math.floor(config.hp * timeScale), speed: config.speed * speedScale, size: config.size, xpValue: config.xpValue, damage: config.damage, color: config.color, hitFlash: 0 });
-  }, []);
+    enemiesRef.current.push({ 
+      x, y, type: selectedType, 
+      hp: Math.floor(config.hp * timeScale), 
+      maxHp: Math.floor(config.hp * timeScale), 
+      speed: config.speed * speedScale, 
+      size: config.size, xpValue: config.xpValue, 
+      damage: config.damage, color: config.color, 
+      hitFlash: 0, spawnAnim: 1 
+    });
+    
+    // Spawn effect particles
+    addParticles(x, y, config.color, 6, 2, 'spark');
+  }, [addParticles]);
 
   const fireWeapons = useCallback(() => {
     const player = playerRef.current;
@@ -313,60 +405,65 @@ export default function DonutSurvivorsPage() {
       const damage = config.baseDamage * (1 + (weapon.level - 1) * 0.3) * player.damage;
 
       if (weapon.type === 'sprinkle_shot') {
+        const nearbyEnemies = getEnemiesNear(player.x, player.y, 300);
         let nearestEnemy: Enemy | null = null;
         let nearestDist = Infinity;
-        for (const e of enemiesRef.current) {
+        for (const e of nearbyEnemies) {
           const d = Math.hypot(e.x - player.x, e.y - player.y);
-          if (d < nearestDist && d < 300) {
-            nearestEnemy = e;
-            nearestDist = d;
-          }
+          if (d < nearestDist) { nearestEnemy = e; nearestDist = d; }
         }
         if (nearestEnemy) {
           const angle = Math.atan2(nearestEnemy.y - player.y, nearestEnemy.x - player.x);
           const count = Math.min(1 + Math.floor(weapon.level / 3), 3);
           for (let i = 0; i < count; i++) {
             const a = angle + (i - (count - 1) / 2) * 0.2;
-            projectilesRef.current.push({ x: player.x, y: player.y, vx: Math.cos(a) * 8, vy: Math.sin(a) * 8, damage, size: 6, color: config.color, piercing: Math.floor(weapon.level / 2), lifetime: 60, weaponType: weapon.type });
+            projectilesRef.current.push({ x: player.x, y: player.y, vx: Math.cos(a) * 8, vy: Math.sin(a) * 8, damage, size: 6, color: config.color, piercing: Math.floor(weapon.level / 2), lifetime: 60, weaponType: weapon.type, trail: [] });
           }
+          addParticles(player.x, player.y, config.color, 3, 2, 'spark');
         }
       } else if (weapon.type === 'sugar_stars') {
         const count = 4 + weapon.level;
         for (let i = 0; i < count; i++) {
           const a = (i / count) * Math.PI * 2;
-          projectilesRef.current.push({ x: player.x, y: player.y, vx: Math.cos(a) * 5, vy: Math.sin(a) * 5, damage, size: 8, color: config.color, piercing: 0, lifetime: 45, weaponType: weapon.type });
+          projectilesRef.current.push({ x: player.x, y: player.y, vx: Math.cos(a) * 5, vy: Math.sin(a) * 5, damage, size: 8, color: config.color, piercing: 0, lifetime: 45, weaponType: weapon.type, trail: [] });
         }
+        addParticles(player.x, player.y, config.color, 8, 3, 'ring');
       } else if (weapon.type === 'glaze_wave') {
         const range = 80 + weapon.level * 20;
-        enemiesRef.current.forEach(e => { const d = Math.hypot(e.x - player.x, e.y - player.y); if (d < range) { e.hp -= damage; e.hitFlash = 5; addDamageNumber(e.x, e.y - e.size, Math.floor(damage)); } });
-        addParticles(player.x, player.y, config.color, 20, 8);
+        const nearbyEnemies = getEnemiesNear(player.x, player.y, range);
+        nearbyEnemies.forEach(e => { 
+          e.hp -= damage; e.hitFlash = 5; 
+          addDamageNumber(e.x, e.y - e.size, Math.floor(damage)); 
+        });
+        addParticles(player.x, player.y, config.color, 20, 8, 'ring');
       } else if (weapon.type === 'candy_cannon') {
-        // Explosive candy ball - shoots at nearest enemy, explodes on hit
+        const nearbyEnemies = getEnemiesNear(player.x, player.y, 350);
         let nearestEnemy: Enemy | null = null;
         let nearestDist = Infinity;
-        for (const e of enemiesRef.current) {
+        for (const e of nearbyEnemies) {
           const d = Math.hypot(e.x - player.x, e.y - player.y);
-          if (d < nearestDist && d < 350) { nearestEnemy = e; nearestDist = d; }
+          if (d < nearestDist) { nearestEnemy = e; nearestDist = d; }
         }
         if (nearestEnemy) {
           const angle = Math.atan2(nearestEnemy.y - player.y, nearestEnemy.x - player.x);
-          projectilesRef.current.push({ x: player.x, y: player.y, vx: Math.cos(angle) * 6, vy: Math.sin(angle) * 6, damage, size: 12 + weapon.level, color: config.color, piercing: 99, lifetime: 80, weaponType: weapon.type });
+          projectilesRef.current.push({ x: player.x, y: player.y, vx: Math.cos(angle) * 6, vy: Math.sin(angle) * 6, damage, size: 12 + weapon.level, color: config.color, piercing: 99, lifetime: 80, weaponType: weapon.type, trail: [] });
+          addParticles(player.x, player.y, config.color, 5, 3, 'spark');
         }
       } else if (weapon.type === 'mint_missiles') {
-        // Homing missiles that track enemies with small explosions
+        const nearbyEnemies = getEnemiesNear(player.x, player.y, 400);
         const missileCount = 1 + Math.floor(weapon.level / 3);
-        const targets = enemiesRef.current.slice().sort((a, b) => 
+        const targets = nearbyEnemies.slice().sort((a, b) => 
           Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y)
         ).slice(0, missileCount);
         targets.forEach((target, i) => {
           const angle = Math.atan2(target.y - player.y, target.x - player.x);
-          // Spread missiles slightly
           const spreadAngle = angle + (i - (targets.length - 1) / 2) * 0.15;
-          projectilesRef.current.push({ x: player.x, y: player.y, vx: Math.cos(spreadAngle) * 5, vy: Math.sin(spreadAngle) * 5, damage, size: 8, color: config.color, piercing: 0, lifetime: 120, weaponType: weapon.type });
+          projectilesRef.current.push({ x: player.x, y: player.y, vx: Math.cos(spreadAngle) * 5, vy: Math.sin(spreadAngle) * 5, damage, size: 8, color: config.color, piercing: 0, lifetime: 120, weaponType: weapon.type, trail: [] });
         });
+        if (targets.length > 0) addParticles(player.x, player.y, config.color, 4, 2, 'spark');
       }
     });
-  }, [addDamageNumber, addParticles]);
+  }, [addDamageNumber, addParticles, getEnemiesNear]);
 
   const updateOrbitingWeapons = useCallback((delta: number) => {
     const player = playerRef.current;
@@ -378,13 +475,28 @@ export default function DonutSurvivorsPage() {
         for (let i = 0; i < count; i++) {
           const a = weapon.angle + (i / count) * Math.PI * 2;
           const ox = player.x + Math.cos(a) * radius, oy = player.y + Math.sin(a) * radius;
-          enemiesRef.current.forEach(e => { if (Math.hypot(e.x - ox, e.y - oy) < e.size + 15 && e.hitFlash === 0) { e.hp -= damage; e.hitFlash = 8; addDamageNumber(e.x, e.y - e.size, Math.floor(damage)); playHitSound(); } });
+          const nearbyEnemies = getEnemiesNear(ox, oy, 20);
+          nearbyEnemies.forEach(e => { 
+            if (e.hitFlash === 0) { 
+              e.hp -= damage; e.hitFlash = 8; 
+              addDamageNumber(e.x, e.y - e.size, Math.floor(damage)); 
+              playHitSound(); 
+              addParticles(ox, oy, '#F472B6', 3, 2, 'spark');
+            } 
+          });
         }
       } else if (weapon.type === 'frosting_ring') {
         weapon.angle = (weapon.angle || 0) + 0.08 * delta;
         const damage = WEAPON_CONFIG[weapon.type].baseDamage * (1 + (weapon.level - 1) * 0.3) * player.damage * 0.1;
         const radius = 40 + weapon.level * 8;
-        enemiesRef.current.forEach(e => { const d = Math.hypot(e.x - player.x, e.y - player.y); if (d < radius + 10 && d > radius - 10) { e.hp -= damage; if (Math.random() < 0.1) addDamageNumber(e.x, e.y - e.size, Math.floor(damage * 10)); } });
+        const nearbyEnemies = getEnemiesNear(player.x, player.y, radius + 15);
+        nearbyEnemies.forEach(e => { 
+          const d = Math.hypot(e.x - player.x, e.y - player.y); 
+          if (d < radius + 10 && d > radius - 10) { 
+            e.hp -= damage; 
+            if (Math.random() < 0.1) addDamageNumber(e.x, e.y - e.size, Math.floor(damage * 10)); 
+          } 
+        });
       } else if (weapon.type === 'cinnamon_trail') {
         if (frameCountRef.current % 3 === 0) trailPointsRef.current.push({ x: player.x, y: player.y, life: 60 + weapon.level * 15 });
       }
@@ -393,65 +505,67 @@ export default function DonutSurvivorsPage() {
     const trailWeapon = weaponsRef.current.find(w => w.type === 'cinnamon_trail');
     if (trailWeapon) {
       const damage = WEAPON_CONFIG['cinnamon_trail'].baseDamage * (1 + (trailWeapon.level - 1) * 0.3) * player.damage * 0.05;
-      trailPointsRef.current = trailPointsRef.current.filter(p => { p.life -= delta; enemiesRef.current.forEach(e => { if (Math.hypot(e.x - p.x, e.y - p.y) < 18 + trailWeapon.level * 3) e.hp -= damage; }); return p.life > 0; });
+      trailPointsRef.current = trailPointsRef.current.filter(p => { 
+        p.life -= delta; 
+        const nearbyEnemies = getEnemiesNear(p.x, p.y, 18 + trailWeapon.level * 3);
+        nearbyEnemies.forEach(e => { e.hp -= damage; }); 
+        return p.life > 0; 
+      });
     }
-  }, [addDamageNumber, playHitSound]);
+  }, [addDamageNumber, addParticles, playHitSound, getEnemiesNear]);
 
   const generateUpgradeOptions = useCallback(() => {
-    const options: UpgradeOption[] = [];
     const currentWeaponTypes = weaponsRef.current.map(w => w.type);
     const availableWeapons = (Object.keys(WEAPON_CONFIG) as WeaponType[]).filter(t => 
       !currentWeaponTypes.includes(t) && !bannedUpgrades.includes(`weapon:${t}`)
     );
     
-    // Weapon upgrades (existing weapons)
+    const allPossibleOptions: UpgradeOption[] = [];
+    
     weaponsRef.current.forEach(w => { 
-      if (w.level < 8 && Math.random() < 0.5 && !bannedUpgrades.includes(`weapon:${w.type}`)) { 
+      if (w.level < 8 && !bannedUpgrades.includes(`weapon:${w.type}`)) { 
         const c = WEAPON_CONFIG[w.type]; 
-        options.push({ type: 'weapon', weaponType: w.type, title: `${c.name} +`, description: `Level ${w.level} → ${w.level + 1}`, icon: c.icon }); 
+        allPossibleOptions.push({ type: 'weapon', weaponType: w.type, title: `${c.name} +`, description: `Level ${w.level} → ${w.level + 1}`, icon: c.icon }); 
       } 
     });
     
-    // New weapon option (only if under MAX_WEAPONS limit)
-    if (weaponsRef.current.length < MAX_WEAPONS && availableWeapons.length > 0) { 
-      const t = availableWeapons[Math.floor(Math.random() * availableWeapons.length)]; 
-      const c = WEAPON_CONFIG[t]; 
-      options.push({ type: 'weapon', weaponType: t, title: c.name, description: c.description, icon: c.icon }); 
+    if (weaponsRef.current.length < MAX_WEAPONS) { 
+      availableWeapons.forEach(t => {
+        const c = WEAPON_CONFIG[t]; 
+        allPossibleOptions.push({ type: 'weapon', weaponType: t, title: c.name, description: c.description, icon: c.icon }); 
+      });
     }
     
-    // Gadget options (only if under max gadgets OR upgrading existing)
     const currentGadgetTypes = gadgetsRef.current.map(g => g.type);
     const availableGadgets = (Object.keys(GADGET_CONFIG) as GadgetType[]).filter(t => 
       !currentGadgetTypes.includes(t) && !bannedUpgrades.includes(`gadget:${t}`)
     );
     
-    // Upgrade existing gadgets
     gadgetsRef.current.forEach(g => {
-      if (g.stacks < 5 && Math.random() < 0.4 && !bannedUpgrades.includes(`gadget:${g.type}`)) {
+      if (g.stacks < 5 && !bannedUpgrades.includes(`gadget:${g.type}`)) {
         const c = GADGET_CONFIG[g.type];
-        options.push({ type: 'gadget', gadgetType: g.type, title: `${c.name} +`, description: `Stack ${g.stacks} → ${g.stacks + 1}`, icon: c.icon });
+        allPossibleOptions.push({ type: 'gadget', gadgetType: g.type, title: `${c.name} +`, description: `Stack ${g.stacks} → ${g.stacks + 1}`, icon: c.icon });
       }
     });
     
-    // New gadget option (only if under limit)
-    if (gadgetsRef.current.length < MAX_GADGETS && availableGadgets.length > 0) {
-      const shuffled = availableGadgets.sort(() => Math.random() - 0.5);
-      const numToAdd = Math.min(2, shuffled.length);
-      for (let i = 0; i < numToAdd; i++) {
-        const t = shuffled[i];
+    if (gadgetsRef.current.length < MAX_GADGETS) {
+      availableGadgets.forEach(t => {
         const c = GADGET_CONFIG[t];
-        options.push({ type: 'gadget', gadgetType: t, title: c.name, description: c.description, icon: c.icon });
-      }
+        allPossibleOptions.push({ type: 'gadget', gadgetType: t, title: c.name, description: c.description, icon: c.icon });
+      });
     }
     
-    setUpgradeOptions(options.sort(() => Math.random() - 0.5).slice(0, 3));
+    const shuffled = allPossibleOptions.sort(() => Math.random() - 0.5);
+    setUpgradeOptions(shuffled.slice(0, 3));
   }, [bannedUpgrades]);
 
   const checkLevelUp = useCallback(() => {
     const p = playerRef.current;
     if (p.xp >= p.xpToLevel) {
       p.xp -= p.xpToLevel; p.level++; p.xpToLevel = Math.floor(BASE_XP_TO_LEVEL * Math.pow(XP_SCALE, p.level - 1));
-      setPlayerLevel(p.level); playLevelUpSound(); triggerScreenShake(8, 300); addParticles(p.x, p.y, '#FFD700', 30, 6);
+      setPlayerLevel(p.level); playLevelUpSound(); triggerScreenShake(8, 300); 
+      addParticles(p.x, p.y, '#FFD700', 30, 6, 'ring');
+      addParticles(p.x, p.y, '#FFF', 15, 4, 'spark');
       generateUpgradeOptions();
       isPausedRef.current = true;
       setGameState("levelup");
@@ -473,7 +587,6 @@ export default function DonutSurvivorsPage() {
         gadgetsRef.current.push({ type: opt.gadgetType, stacks: 1 });
       }
       
-      // Apply gadget effect
       const config = GADGET_CONFIG[opt.gadgetType];
       switch (config.effect) {
         case 'speed': p.speed *= 1.20; break;
@@ -490,6 +603,24 @@ export default function DonutSurvivorsPage() {
     isPausedRef.current = false;
     setBanMode(false);
     setGameState("playing");
+  }, []);
+
+  // Open equipment viewer
+  const openEquipmentViewer = useCallback(() => {
+    setEquipmentData({
+      weapons: [...weaponsRef.current],
+      gadgets: [...gadgetsRef.current],
+      player: { ...playerRef.current }
+    });
+    isPausedRef.current = true;
+    setGameState("equipment");
+  }, []);
+
+  // Close equipment viewer
+  const closeEquipmentViewer = useCallback(() => {
+    isPausedRef.current = false;
+    setGameState("playing");
+    setEquipmentData(null);
   }, []);
 
   const drawBackground = useCallback((ctx: CanvasRenderingContext2D) => {
@@ -509,7 +640,13 @@ export default function DonutSurvivorsPage() {
   const drawTrail = useCallback((ctx: CanvasRenderingContext2D) => {
     const cam = cameraRef.current, tw = weaponsRef.current.find(w => w.type === 'cinnamon_trail');
     if (!tw) return;
-    trailPointsRef.current.forEach(p => { const alpha = p.life / (60 + tw.level * 15); ctx.fillStyle = `rgba(249,115,22,${alpha * 0.6})`; ctx.beginPath(); ctx.arc(p.x - cam.x, p.y - cam.y, 10 + tw.level * 3, 0, Math.PI * 2); ctx.fill(); });
+    trailPointsRef.current.forEach(p => { 
+      const alpha = p.life / (60 + tw.level * 15); 
+      ctx.fillStyle = `rgba(249,115,22,${alpha * 0.6})`; 
+      ctx.beginPath(); 
+      ctx.arc(p.x - cam.x, p.y - cam.y, 10 + tw.level * 3, 0, Math.PI * 2); 
+      ctx.fill(); 
+    });
   }, []);
 
   const drawXPOrbs = useCallback((ctx: CanvasRenderingContext2D) => {
@@ -517,10 +654,24 @@ export default function DonutSurvivorsPage() {
     xpOrbsRef.current.forEach(o => {
       const sx = o.x - cam.x, sy = o.y - cam.y;
       if (sx < -20 || sx > CANVAS_WIDTH + 20 || sy < -20 || sy > CANVAS_HEIGHT + 20) return;
+      
+      // Collection animation
+      const scale = o.collectAnim > 0 ? 1 + (1 - o.collectAnim) * 0.5 : 1;
+      const alpha = o.collectAnim > 0 ? o.collectAnim : 1;
+      
+      ctx.save();
+      ctx.globalAlpha = alpha;
       ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 10;
-      if (donutImageRef.current && donutLoadedRef.current) ctx.drawImage(donutImageRef.current, sx - o.size, sy - o.size, o.size * 2, o.size * 2);
-      else { ctx.fillStyle = '#F472B6'; ctx.beginPath(); ctx.arc(sx, sy, o.size, 0, Math.PI * 2); ctx.fill(); }
+      if (donutImageRef.current && donutLoadedRef.current) {
+        ctx.drawImage(donutImageRef.current, sx - o.size * scale, sy - o.size * scale, o.size * 2 * scale, o.size * 2 * scale);
+      } else { 
+        ctx.fillStyle = '#F472B6'; 
+        ctx.beginPath(); 
+        ctx.arc(sx, sy, o.size * scale, 0, Math.PI * 2); 
+        ctx.fill(); 
+      }
       ctx.shadowBlur = 0;
+      ctx.restore();
     });
   }, []);
 
@@ -529,33 +680,66 @@ export default function DonutSurvivorsPage() {
     enemiesRef.current.forEach(e => {
       const sx = e.x - cam.x, sy = e.y - cam.y;
       if (sx < -80 || sx > CANVAS_WIDTH + 80 || sy < -80 || sy > CANVAS_HEIGHT + 80) return;
-      ctx.save(); ctx.translate(sx, sy);
+      
+      ctx.save(); 
+      ctx.translate(sx, sy);
+      
+      // Spawn animation
+      const spawnScale = e.spawnAnim > 0 ? 1.5 - e.spawnAnim * 0.5 : 1;
+      const spawnAlpha = e.spawnAnim > 0 ? 1 - e.spawnAnim * 0.3 : 1;
+      ctx.scale(spawnScale, spawnScale);
+      ctx.globalAlpha = spawnAlpha;
+      
       ctx.fillStyle = e.hitFlash > 0 ? '#FFF' : e.color;
-      if (e.type === 'sprinkle') { ctx.beginPath(); ctx.roundRect(-e.size / 2, -e.size / 4, e.size, e.size / 2, e.size / 4); ctx.fill(); }
-      else if (e.type === 'gummy') { ctx.beginPath(); ctx.arc(0, 0, e.size / 2, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(-e.size / 3, -e.size / 2, e.size / 4, 0, Math.PI * 2); ctx.arc(e.size / 3, -e.size / 2, e.size / 4, 0, Math.PI * 2); ctx.fill(); }
-      else if (e.type === 'candy_corn') { ctx.beginPath(); ctx.moveTo(0, -e.size / 2); ctx.lineTo(-e.size / 2, e.size / 2); ctx.lineTo(e.size / 2, e.size / 2); ctx.closePath(); ctx.fill(); }
-      else if (e.type === 'chocolate_chunk') { ctx.beginPath(); ctx.roundRect(-e.size / 2, -e.size / 2, e.size, e.size, 5); ctx.fill(); ctx.fillStyle = e.hitFlash > 0 ? '#FFF' : '#000'; ctx.beginPath(); ctx.arc(-e.size / 5, -e.size / 8, 3, 0, Math.PI * 2); ctx.arc(e.size / 5, -e.size / 8, 3, 0, Math.PI * 2); ctx.fill(); }
+      
+      if (e.type === 'sprinkle') { 
+        ctx.beginPath(); 
+        ctx.roundRect(-e.size / 2, -e.size / 4, e.size, e.size / 2, e.size / 4); 
+        ctx.fill(); 
+      }
+      else if (e.type === 'gummy') { 
+        ctx.beginPath(); 
+        ctx.arc(0, 0, e.size / 2, 0, Math.PI * 2); 
+        ctx.fill(); 
+        ctx.beginPath(); 
+        ctx.arc(-e.size / 3, -e.size / 2, e.size / 4, 0, Math.PI * 2); 
+        ctx.arc(e.size / 3, -e.size / 2, e.size / 4, 0, Math.PI * 2); 
+        ctx.fill(); 
+      }
+      else if (e.type === 'candy_corn') { 
+        ctx.beginPath(); 
+        ctx.moveTo(0, -e.size / 2); 
+        ctx.lineTo(-e.size / 2, e.size / 2); 
+        ctx.lineTo(e.size / 2, e.size / 2); 
+        ctx.closePath(); 
+        ctx.fill(); 
+      }
+      else if (e.type === 'chocolate_chunk') { 
+        ctx.beginPath(); 
+        ctx.roundRect(-e.size / 2, -e.size / 2, e.size, e.size, 5); 
+        ctx.fill(); 
+        ctx.fillStyle = e.hitFlash > 0 ? '#FFF' : '#000'; 
+        ctx.beginPath(); 
+        ctx.arc(-e.size / 5, -e.size / 8, 3, 0, Math.PI * 2); 
+        ctx.arc(e.size / 5, -e.size / 8, 3, 0, Math.PI * 2); 
+        ctx.fill(); 
+      }
       else if (e.type === 'boss') {
-        // Boss - large donut with menacing features
         ctx.shadowColor = '#FF1744';
         ctx.shadowBlur = 30;
-        // Outer ring
         ctx.beginPath();
         ctx.arc(0, 0, e.size / 2, 0, Math.PI * 2);
         ctx.fill();
-        // Inner hole
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#0a0a0a';
         ctx.beginPath();
         ctx.arc(0, 0, e.size / 5, 0, Math.PI * 2);
         ctx.fill();
-        // Eyes
         ctx.fillStyle = e.hitFlash > 0 ? '#FFF' : '#000';
         ctx.beginPath();
         ctx.arc(-e.size / 4, -e.size / 6, 6, 0, Math.PI * 2);
         ctx.arc(e.size / 4, -e.size / 6, 6, 0, Math.PI * 2);
         ctx.fill();
-        // Angry eyebrows
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 3;
         ctx.beginPath();
@@ -564,7 +748,6 @@ export default function DonutSurvivorsPage() {
         ctx.moveTo(e.size / 3 + 5, -e.size / 3);
         ctx.lineTo(e.size / 6, -e.size / 4);
         ctx.stroke();
-        // Crown spikes
         ctx.fillStyle = '#FFD700';
         for (let i = 0; i < 5; i++) {
           const a = -Math.PI / 2 + (i - 2) * 0.35;
@@ -580,11 +763,9 @@ export default function DonutSurvivorsPage() {
         }
       }
       else if (e.type === 'final_boss') {
-        // THE VOID - unkillable death entity
         const pulse = Math.sin(Date.now() / 150) * 0.3 + 0.7;
         const t = Date.now() / 1000;
         
-        // Dark aura rings
         for (let r = 3; r >= 1; r--) {
           ctx.fillStyle = `rgba(0, 0, 0, ${0.3 / r})`;
           ctx.beginPath();
@@ -592,7 +773,6 @@ export default function DonutSurvivorsPage() {
           ctx.fill();
         }
         
-        // Main body - dark void
         ctx.shadowColor = '#8B0000';
         ctx.shadowBlur = 50 * pulse;
         ctx.fillStyle = '#0a0a0a';
@@ -600,7 +780,6 @@ export default function DonutSurvivorsPage() {
         ctx.arc(0, 0, e.size / 2, 0, Math.PI * 2);
         ctx.fill();
         
-        // Glowing red cracks
         ctx.shadowBlur = 0;
         ctx.strokeStyle = `rgba(255, 0, 0, ${pulse})`;
         ctx.lineWidth = 2;
@@ -612,7 +791,6 @@ export default function DonutSurvivorsPage() {
           ctx.stroke();
         }
         
-        // Central eye
         ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`;
         ctx.shadowColor = '#FF0000';
         ctx.shadowBlur = 20;
@@ -620,14 +798,12 @@ export default function DonutSurvivorsPage() {
         ctx.arc(0, 0, 15, 0, Math.PI * 2);
         ctx.fill();
         
-        // Eye slit
         ctx.fillStyle = '#000';
         ctx.shadowBlur = 0;
         ctx.beginPath();
         ctx.ellipse(0, 0, 3, 12, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // Floating particles around it
         for (let i = 0; i < 6; i++) {
           const pa = t * 1.5 + (i / 6) * Math.PI * 2;
           const pr = e.size / 2 + 25 + Math.sin(t * 3 + i) * 10;
@@ -639,7 +815,8 @@ export default function DonutSurvivorsPage() {
           ctx.fill();
         }
       }
-      // Health bar for strong enemies (not for final boss)
+      
+      // Health bar for strong enemies
       if (e.maxHp > 20 && e.type !== 'final_boss') { 
         const bw = e.type === 'boss' ? e.size * 1.5 : e.size * 1.2;
         const hp = e.hp / e.maxHp; 
@@ -656,9 +833,42 @@ export default function DonutSurvivorsPage() {
     const cam = cameraRef.current;
     projectilesRef.current.forEach(p => {
       const sx = p.x - cam.x, sy = p.y - cam.y;
-      ctx.fillStyle = p.color; ctx.shadowColor = p.color; ctx.shadowBlur = 8;
-      if (p.weaponType === 'sugar_stars') { ctx.beginPath(); for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2 - Math.PI / 2, r = i % 2 === 0 ? p.size : p.size / 2; if (i === 0) ctx.moveTo(sx + Math.cos(a) * r, sy + Math.sin(a) * r); else ctx.lineTo(sx + Math.cos(a) * r, sy + Math.sin(a) * r); } ctx.closePath(); ctx.fill(); }
-      else { ctx.beginPath(); ctx.arc(sx, sy, p.size, 0, Math.PI * 2); ctx.fill(); }
+      
+      // Draw trail
+      if (p.trail.length > 1) {
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = p.size * 0.4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        for (let i = 0; i < p.trail.length; i++) {
+          const t = p.trail[i];
+          const tx = t.x - cam.x, ty = t.y - cam.y;
+          ctx.globalAlpha = t.life * 0.5;
+          if (i === 0) ctx.moveTo(tx, ty);
+          else ctx.lineTo(tx, ty);
+        }
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      
+      ctx.fillStyle = p.color; 
+      ctx.shadowColor = p.color; 
+      ctx.shadowBlur = 8;
+      if (p.weaponType === 'sugar_stars') { 
+        ctx.beginPath(); 
+        for (let i = 0; i < 5; i++) { 
+          const a = (i / 5) * Math.PI * 2 - Math.PI / 2, r = i % 2 === 0 ? p.size : p.size / 2; 
+          if (i === 0) ctx.moveTo(sx + Math.cos(a) * r, sy + Math.sin(a) * r); 
+          else ctx.lineTo(sx + Math.cos(a) * r, sy + Math.sin(a) * r); 
+        } 
+        ctx.closePath(); 
+        ctx.fill(); 
+      }
+      else { 
+        ctx.beginPath(); 
+        ctx.arc(sx, sy, p.size, 0, Math.PI * 2); 
+        ctx.fill(); 
+      }
       ctx.shadowBlur = 0;
     });
   }, []);
@@ -677,8 +887,14 @@ export default function DonutSurvivorsPage() {
         }
       } else if (w.type === 'frosting_ring') {
         const radius = 40 + w.level * 8;
-        ctx.strokeStyle = `rgba(96,165,250,${0.3 + Math.sin((w.angle || 0) * 2) * 0.2})`; ctx.lineWidth = 8 + w.level * 2; ctx.shadowColor = '#60A5FA'; ctx.shadowBlur = 15;
-        ctx.beginPath(); ctx.arc(sx, sy, radius, 0, Math.PI * 2); ctx.stroke(); ctx.shadowBlur = 0;
+        ctx.strokeStyle = `rgba(96,165,250,${0.3 + Math.sin((w.angle || 0) * 2) * 0.2})`; 
+        ctx.lineWidth = 8 + w.level * 2; 
+        ctx.shadowColor = '#60A5FA'; 
+        ctx.shadowBlur = 15;
+        ctx.beginPath(); 
+        ctx.arc(sx, sy, radius, 0, Math.PI * 2); 
+        ctx.stroke(); 
+        ctx.shadowBlur = 0;
       }
     });
   }, []);
@@ -691,12 +907,10 @@ export default function DonutSurvivorsPage() {
     
     const radius = PLAYER_SIZE / 2;
     
-    // Draw pink glow
     ctx.shadowColor = '#F472B6';
     ctx.shadowBlur = 20;
     
     if (pfpImageRef.current && pfpLoadedRef.current) {
-      // Draw PFP with circular clip
       ctx.beginPath();
       ctx.arc(0, 0, radius, 0, Math.PI * 2);
       ctx.closePath();
@@ -704,7 +918,6 @@ export default function DonutSurvivorsPage() {
       ctx.drawImage(pfpImageRef.current, -radius, -radius, PLAYER_SIZE, PLAYER_SIZE);
       ctx.restore();
       
-      // Redraw border glow
       ctx.save();
       ctx.translate(sx, sy);
       if (inv && Math.floor(frameCountRef.current / 4) % 2 === 0) ctx.globalAlpha = 0.5;
@@ -717,7 +930,6 @@ export default function DonutSurvivorsPage() {
       ctx.stroke();
       ctx.shadowBlur = 0;
     } else {
-      // Fallback to donut
       ctx.fillStyle = '#F472B6';
       ctx.beginPath();
       ctx.arc(0, 0, radius, 0, Math.PI * 2);
@@ -729,7 +941,6 @@ export default function DonutSurvivorsPage() {
       ctx.arc(0, 0, radius / 3, 0, Math.PI * 2);
       ctx.fill();
       
-      // Sprinkles
       const colors = ['#FF6B6B', '#4ADE80', '#60A5FA', '#FBBF24', '#A78BFA'];
       for (let i = 0; i < 6; i++) {
         const a = (i / 6) * Math.PI * 2 + frameCountRef.current * 0.02;
@@ -746,26 +957,74 @@ export default function DonutSurvivorsPage() {
 
   const drawParticles = useCallback((ctx: CanvasRenderingContext2D) => {
     const cam = cameraRef.current;
-    particlesRef.current = particlesRef.current.filter(p => { p.x += p.vx; p.y += p.vy; p.life -= 0.03; if (p.life <= 0) return false; ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x - cam.x, p.y - cam.y, p.size * p.life, 0, Math.PI * 2); ctx.fill(); return true; });
+    particlesRef.current = particlesRef.current.filter(p => { 
+      p.x += p.vx; 
+      p.y += p.vy; 
+      p.life -= 0.03; 
+      if (p.life <= 0) return false; 
+      
+      ctx.globalAlpha = p.life; 
+      ctx.fillStyle = p.color; 
+      
+      if (p.type === 'spark') {
+        // Spark particles - small fast-fading
+        ctx.beginPath(); 
+        ctx.arc(p.x - cam.x, p.y - cam.y, p.size * p.life, 0, Math.PI * 2); 
+        ctx.fill();
+      } else if (p.type === 'ring') {
+        // Ring particles - expand outward
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = 2 * p.life;
+        ctx.beginPath();
+        ctx.arc(p.x - cam.x, p.y - cam.y, p.size * (2 - p.life), 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (p.type === 'glow') {
+        // Glow particles - soft fade
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 10 * p.life;
+        ctx.beginPath(); 
+        ctx.arc(p.x - cam.x, p.y - cam.y, p.size * p.life, 0, Math.PI * 2); 
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else {
+        // Default particles
+        ctx.beginPath(); 
+        ctx.arc(p.x - cam.x, p.y - cam.y, p.size * p.life, 0, Math.PI * 2); 
+        ctx.fill();
+      }
+      return true; 
+    });
     ctx.globalAlpha = 1;
   }, []);
 
   const drawDamageNumbers = useCallback((ctx: CanvasRenderingContext2D) => {
     const cam = cameraRef.current;
-    damageNumbersRef.current = damageNumbersRef.current.filter(d => { d.y += d.vy; d.life -= 0.025; if (d.life <= 0) return false; ctx.globalAlpha = d.life; ctx.fillStyle = '#FFF'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'center'; ctx.fillText(d.value.toString(), d.x - cam.x, d.y - cam.y); return true; });
+    damageNumbersRef.current = damageNumbersRef.current.filter(d => { 
+      d.y += d.vy; 
+      d.life -= 0.025; 
+      if (d.life <= 0) return false; 
+      ctx.globalAlpha = d.life; 
+      ctx.fillStyle = d.isCrit ? '#FFD700' : '#FFF'; 
+      ctx.font = d.isCrit ? 'bold 18px monospace' : 'bold 14px monospace'; 
+      ctx.textAlign = 'center'; 
+      ctx.fillText(d.value.toString(), d.x - cam.x, d.y - cam.y); 
+      return true; 
+    });
     ctx.globalAlpha = 1;
   }, []);
 
   const drawHUD = useCallback((ctx: CanvasRenderingContext2D) => {
-    const p = playerRef.current, gt = Math.floor((performance.now() - gameStartTimeRef.current) / 1000), m = Math.floor(gt / 60), s = gt % 60;
+    const p = playerRef.current;
+    const gt = Math.floor((performance.now() - gameStartTimeRef.current - pausedTimeRef.current) / 1000);
+    const m = Math.floor(gt / 60), s = gt % 60;
     
-    // Timer (center top)
+    // Timer
     ctx.fillStyle = '#FFF'; ctx.font = 'bold 18px monospace'; ctx.textAlign = 'center'; 
     ctx.fillText(`${m}:${s.toString().padStart(2, '0')}`, CANVAS_WIDTH / 2, 28);
     ctx.font = '10px monospace'; ctx.fillStyle = '#F472B6'; 
     ctx.fillText(`LV ${p.level}`, CANVAS_WIDTH / 2, 44);
     
-    // Kill count (left)
+    // Kill count
     ctx.textAlign = 'left'; ctx.fillStyle = '#888'; ctx.font = '12px monospace'; 
     ctx.fillText(`${enemiesKilledRef.current} kills`, 15, 28);
     
@@ -784,7 +1043,7 @@ export default function DonutSurvivorsPage() {
     ctx.fillStyle = '#F472B6'; 
     ctx.fillRect(15, CANVAS_HEIGHT - 22, (CANVAS_WIDTH - 30) * (p.xp / p.xpToLevel), 6);
     
-    // Draw weapons (top right)
+    // Draw weapons (clickable area)
     ctx.textAlign = 'right'; 
     weaponsRef.current.forEach((w, i) => { 
       const c = WEAPON_CONFIG[w.type]; 
@@ -796,7 +1055,7 @@ export default function DonutSurvivorsPage() {
       ctx.fillText(w.level.toString(), CANVAS_WIDTH - 10 - i * 26, 38); 
     });
     
-    // Draw gadgets (below weapons)
+    // Draw gadgets
     gadgetsRef.current.forEach((g, i) => { 
       const c = GADGET_CONFIG[g.type]; 
       ctx.font = 'bold 14px monospace';
@@ -807,7 +1066,15 @@ export default function DonutSurvivorsPage() {
       ctx.fillText('×' + g.stacks.toString(), CANVAS_WIDTH - 10 - i * 24, 65); 
     });
     
-    // Final boss warning (takes priority)
+    // Tap to view hint (if has items)
+    if (weaponsRef.current.length > 0 || gadgetsRef.current.length > 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.font = '8px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('tap items ▶', CANVAS_WIDTH - 15, 78);
+    }
+    
+    // Boss warnings
     if (finalBossWarningRef.current && !finalBossSpawnedRef.current) {
       const pulse = Math.sin(Date.now() / 80) * 0.4 + 0.6;
       ctx.save();
@@ -816,13 +1083,12 @@ export default function DonutSurvivorsPage() {
       ctx.fillStyle = `rgba(139, 0, 0, ${pulse})`;
       ctx.shadowColor = '#8B0000';
       ctx.shadowBlur = 30;
-      ctx.fillText('◆ THE VOID APPROACHES ◆', CANVAS_WIDTH / 2, 80);
+      ctx.fillText('◆ THE VOID APPROACHES ◆', CANVAS_WIDTH / 2, 100);
       ctx.font = '10px monospace';
       ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`;
-      ctx.fillText('THERE IS NO ESCAPE', CANVAS_WIDTH / 2, 98);
+      ctx.fillText('THERE IS NO ESCAPE', CANVAS_WIDTH / 2, 118);
       ctx.restore();
     }
-    // Final boss active indicator
     else if (enemiesRef.current.find(e => e.type === 'final_boss')) {
       const pulse = Math.sin(Date.now() / 100) * 0.3 + 0.7;
       ctx.save();
@@ -831,14 +1097,13 @@ export default function DonutSurvivorsPage() {
       ctx.fillStyle = `rgba(139, 0, 0, ${pulse})`;
       ctx.shadowColor = '#8B0000';
       ctx.shadowBlur = 20;
-      ctx.fillText('◆ THE VOID ◆', CANVAS_WIDTH / 2, 80);
+      ctx.fillText('◆ THE VOID ◆', CANVAS_WIDTH / 2, 100);
       ctx.font = '9px monospace';
       ctx.fillStyle = '#666';
       ctx.shadowBlur = 0;
-      ctx.fillText('UNKILLABLE', CANVAS_WIDTH / 2, 95);
+      ctx.fillText('UNKILLABLE', CANVAS_WIDTH / 2, 115);
       ctx.restore();
     }
-    // Boss warning
     else if (bossWarningRef.current && !bossSpawnedRef.current) {
       const pulse = Math.sin(Date.now() / 100) * 0.3 + 0.7;
       ctx.save();
@@ -847,10 +1112,9 @@ export default function DonutSurvivorsPage() {
       ctx.fillStyle = `rgba(255, 23, 68, ${pulse})`;
       ctx.shadowColor = '#FF1744';
       ctx.shadowBlur = 20;
-      ctx.fillText('◆ BOSS INCOMING ◆', CANVAS_WIDTH / 2, 80);
+      ctx.fillText('◆ BOSS INCOMING ◆', CANVAS_WIDTH / 2, 100);
       ctx.restore();
     }
-    // Boss active indicator
     else {
       const bossEnemy = enemiesRef.current.find(e => e.type === 'boss');
       if (bossEnemy) {
@@ -860,13 +1124,12 @@ export default function DonutSurvivorsPage() {
         ctx.fillStyle = '#FF1744';
         ctx.shadowColor = '#FF1744';
         ctx.shadowBlur = 10;
-        ctx.fillText('◆ DONUT KING ◆', CANVAS_WIDTH / 2, 80);
-        // Boss HP text
+        ctx.fillText('◆ DONUT KING ◆', CANVAS_WIDTH / 2, 100);
         const bossHpPercent = Math.ceil((bossEnemy.hp / bossEnemy.maxHp) * 100);
         ctx.font = '10px monospace';
         ctx.fillStyle = '#FFF';
         ctx.shadowBlur = 0;
-        ctx.fillText(`${bossHpPercent}%`, CANVAS_WIDTH / 2, 95);
+        ctx.fillText(`${bossHpPercent}%`, CANVAS_WIDTH / 2, 115);
         ctx.restore();
       }
     }
@@ -880,12 +1143,12 @@ export default function DonutSurvivorsPage() {
   }, []);
 
   const endGame = useCallback(async () => {
-    gameActiveRef.current = false; if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-    const st = Math.floor((performance.now() - gameStartTimeRef.current) / 1000), fs = st * 10 + enemiesKilledRef.current * 5;
+    gameActiveRef.current = false; 
+    if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+    const st = Math.floor((performance.now() - gameStartTimeRef.current - pausedTimeRef.current) / 1000);
+    const fs = st * 10 + enemiesKilledRef.current * 5;
     setScore(fs); setSurvivalTime(st); setGameState("gameover"); setHighScore(prev => Math.max(prev, fs));
     
-    // TODO: Record game played when API is ready
-    // For now, just increment locally for testing
     if (st >= 60) {
       setGamesPlayed(prev => prev + 1);
     }
@@ -901,38 +1164,64 @@ export default function DonutSurvivorsPage() {
     if (shake.duration > 0) { const el = now - shake.startTime; if (el < shake.duration) { const int = shake.intensity * (1 - el / shake.duration); shakeX = (Math.random() - 0.5) * int * 2; shakeY = (Math.random() - 0.5) * int * 2; } else shake.duration = 0; }
     ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, shakeX * CANVAS_SCALE, shakeY * CANVAS_SCALE);
 
-    const p = playerRef.current, mx = moveInputRef.current.x, my = moveInputRef.current.y, ml = Math.hypot(mx, my);
+    const p = playerRef.current;
     
-    // Pause game logic during level up (only update visuals)
+    // Pause game logic during level up or equipment view
     if (isPausedRef.current) {
-      // Just redraw without updating
       drawBackground(ctx); drawTrail(ctx); drawXPOrbs(ctx); drawEnemies(ctx); drawProjectiles(ctx); drawOrbitingWeapons(ctx); drawPlayer(ctx); drawParticles(ctx); drawDamageNumbers(ctx); drawHUD(ctx);
       gameLoopRef.current = requestAnimationFrame(gameLoop);
       return;
     }
     
-    if (ml > 0) { p.x += (mx / ml) * p.speed * delta; p.y += (my / ml) * p.speed * delta; }
+    // Improved movement with acceleration
+    const mx = moveInputRef.current.x, my = moveInputRef.current.y;
+    const ml = Math.hypot(mx, my);
+    
+    // Target velocity based on input
+    const targetVx = ml > 0 ? (mx / ml) * p.speed : 0;
+    const targetVy = ml > 0 ? (my / ml) * p.speed : 0;
+    
+    // Smooth acceleration/deceleration
+    const accel = 0.2; // Higher = snappier
+    const decel = 0.15; // Slightly slower decel for smoother stop
+    
+    if (ml > 0) {
+      p.vx += (targetVx - p.vx) * accel * delta;
+      p.vy += (targetVy - p.vy) * accel * delta;
+    } else {
+      p.vx *= (1 - decel * delta);
+      p.vy *= (1 - decel * delta);
+      if (Math.abs(p.vx) < 0.01) p.vx = 0;
+      if (Math.abs(p.vy) < 0.01) p.vy = 0;
+    }
+    
+    p.x += p.vx * delta;
+    p.y += p.vy * delta;
+    
     p.x = Math.max(PLAYER_SIZE / 2, Math.min(WORLD_WIDTH - PLAYER_SIZE / 2, p.x));
     p.y = Math.max(PLAYER_SIZE / 2, Math.min(WORLD_HEIGHT - PLAYER_SIZE / 2, p.y));
     cameraRef.current = { x: p.x - CANVAS_WIDTH / 2, y: p.y - CANVAS_HEIGHT / 2 };
 
-    // Spawn rate: starts at 2000ms, decreases to 400ms minimum over time
-    const gt = now - gameStartTimeRef.current, sr = Math.max(400, 2000 - gt / 200);
+    // Spawn enemies
+    const gt = now - gameStartTimeRef.current - pausedTimeRef.current;
+    const sr = Math.max(400, 2000 - gt / 200);
     if (now - lastSpawnTimeRef.current > sr) { 
-      // Spawn count increases every 60 seconds
       const spawnCount = 1 + Math.floor(gt / 60000);
       for (let i = 0; i < spawnCount; i++) spawnEnemy(); 
       lastSpawnTimeRef.current = now; 
     }
     
-    // Boss spawn at 10 minutes
+    // Boss spawns
     const gameSeconds = gt / 1000;
     if (gameSeconds >= 590 && !bossWarningRef.current) {
       bossWarningRef.current = true;
     }
     if (gameSeconds >= 600 && !bossSpawnedRef.current) {
       bossSpawnedRef.current = true;
-      // Spawn boss from edge
+      enemiesRef.current.forEach(e => {
+        addParticles(e.x, e.y, e.color, 8, 3);
+      });
+      enemiesRef.current = [];
       const angle = Math.random() * Math.PI * 2;
       const spawnDist = Math.max(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.6;
       const bx = p.x + Math.cos(angle) * spawnDist;
@@ -943,17 +1232,22 @@ export default function DonutSurvivorsPage() {
         hp: config.hp, maxHp: config.hp,
         speed: config.speed, size: config.size,
         xpValue: config.xpValue, damage: config.damage,
-        color: config.color, hitFlash: 0
+        color: config.color, hitFlash: 0, spawnAnim: 1
       });
       triggerScreenShake(20, 500);
     }
     
-    // Final boss spawn at 20 minutes - THE VOID - unkillable, ends the game
     if (gameSeconds >= 1190 && !finalBossWarningRef.current) {
       finalBossWarningRef.current = true;
     }
     if (gameSeconds >= 1200 && !finalBossSpawnedRef.current) {
       finalBossSpawnedRef.current = true;
+      enemiesRef.current.forEach(e => {
+        if (e.type !== 'boss') {
+          addParticles(e.x, e.y, e.color, 8, 3);
+        }
+      });
+      enemiesRef.current = enemiesRef.current.filter(e => e.type === 'boss');
       const angle = Math.random() * Math.PI * 2;
       const spawnDist = Math.max(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.7;
       const bx = p.x + Math.cos(angle) * spawnDist;
@@ -964,19 +1258,32 @@ export default function DonutSurvivorsPage() {
         hp: config.hp, maxHp: config.hp,
         speed: config.speed, size: config.size,
         xpValue: config.xpValue, damage: config.damage,
-        color: config.color, hitFlash: 0
+        color: config.color, hitFlash: 0, spawnAnim: 1
       });
       triggerScreenShake(40, 1000);
     }
 
-    fireWeapons(); updateOrbitingWeapons(delta);
+    // Rebuild spatial grid for enemies
+    rebuildEnemyGrid();
 
+    fireWeapons(); 
+    updateOrbitingWeapons(delta);
+
+    // Update projectiles with trails
     projectilesRef.current = projectilesRef.current.filter(proj => {
-      // Mint missiles home toward nearest enemy
+      // Add to trail
+      if (frameCountRef.current % 2 === 0) {
+        proj.trail.push({ x: proj.x, y: proj.y, life: 1 });
+      }
+      // Update trail
+      proj.trail = proj.trail.filter(t => { t.life -= 0.1; return t.life > 0; });
+      
+      // Mint missiles homing
       if (proj.weaponType === 'mint_missiles') {
+        const nearbyEnemies = getEnemiesNear(proj.x, proj.y, 200);
         let nearestEnemy: Enemy | null = null;
         let nearestDist = Infinity;
-        for (const e of enemiesRef.current) {
+        for (const e of nearbyEnemies) {
           const d = Math.hypot(e.x - proj.x, e.y - proj.y);
           if (d < nearestDist) { nearestEnemy = e; nearestDist = d; }
         }
@@ -992,37 +1299,49 @@ export default function DonutSurvivorsPage() {
         }
       }
       
-      proj.x += proj.vx * delta; proj.y += proj.vy * delta; proj.lifetime -= delta; if (proj.lifetime <= 0) return false;
-      for (const e of enemiesRef.current) { 
+      proj.x += proj.vx * delta; 
+      proj.y += proj.vy * delta; 
+      proj.lifetime -= delta; 
+      if (proj.lifetime <= 0) return false;
+      
+      // Collision check using spatial grid
+      const nearbyEnemies = getEnemiesNear(proj.x, proj.y, proj.size + 50);
+      for (const e of nearbyEnemies) { 
         if (Math.hypot(e.x - proj.x, e.y - proj.y) < e.size + proj.size) { 
-          e.hp -= proj.damage; e.hitFlash = 5; addDamageNumber(e.x, e.y - e.size, Math.floor(proj.damage)); playHitSound(); addParticles(proj.x, proj.y, proj.color, 5, 2); 
+          e.hp -= proj.damage; 
+          e.hitFlash = 5; 
+          addDamageNumber(e.x, e.y - e.size, Math.floor(proj.damage)); 
+          playHitSound(); 
+          addParticles(proj.x, proj.y, proj.color, 5, 2, 'spark'); 
           
           // Candy cannon explosion
           if (proj.weaponType === 'candy_cannon') {
             const explosionRadius = 60 + proj.size;
-            enemiesRef.current.forEach(other => {
-              if (other !== e && Math.hypot(other.x - proj.x, other.y - proj.y) < explosionRadius) {
+            const blastEnemies = getEnemiesNear(proj.x, proj.y, explosionRadius);
+            blastEnemies.forEach(other => {
+              if (other !== e) {
                 other.hp -= proj.damage * 0.6;
                 other.hitFlash = 5;
                 addDamageNumber(other.x, other.y - other.size, Math.floor(proj.damage * 0.6));
               }
             });
-            addParticles(proj.x, proj.y, '#A78BFA', 20, 6);
+            addParticles(proj.x, proj.y, '#A78BFA', 20, 6, 'ring');
             triggerScreenShake(5, 100);
             return false;
           }
           
-          // Mint missile small explosion
+          // Mint missile explosion
           if (proj.weaponType === 'mint_missiles') {
             const explosionRadius = 35;
-            enemiesRef.current.forEach(other => {
-              if (other !== e && Math.hypot(other.x - proj.x, other.y - proj.y) < explosionRadius) {
+            const blastEnemies = getEnemiesNear(proj.x, proj.y, explosionRadius);
+            blastEnemies.forEach(other => {
+              if (other !== e) {
                 other.hp -= proj.damage * 0.5;
                 other.hitFlash = 5;
                 addDamageNumber(other.x, other.y - other.size, Math.floor(proj.damage * 0.5));
               }
             });
-            addParticles(proj.x, proj.y, '#4ADE80', 12, 4);
+            addParticles(proj.x, proj.y, '#4ADE80', 12, 4, 'ring');
             return false;
           }
           
@@ -1032,18 +1351,21 @@ export default function DonutSurvivorsPage() {
       return true;
     });
 
+    // Update enemies
     enemiesRef.current = enemiesRef.current.filter(e => {
       e.hitFlash = Math.max(0, e.hitFlash - 1);
+      e.spawnAnim = Math.max(0, e.spawnAnim - 0.05 * delta);
       
-      // Final boss is unkillable - regenerate HP
       if (e.type === 'final_boss') {
         e.hp = e.maxHp;
       }
       
       const dx = p.x - e.x, dy = p.y - e.y, dist = Math.hypot(dx, dy);
-      if (dist > 0) { e.x += (dx / dist) * e.speed * delta; e.y += (dy / dist) * e.speed * delta; }
+      if (dist > 0) { 
+        e.x += (dx / dist) * e.speed * delta; 
+        e.y += (dy / dist) * e.speed * delta; 
+      }
       
-      // Final boss contact = instant death
       if (e.type === 'final_boss' && dist < e.size + PLAYER_SIZE / 2) {
         p.hp = 0;
         triggerScreenShake(50, 1000);
@@ -1053,25 +1375,25 @@ export default function DonutSurvivorsPage() {
       }
       
       if (dist < e.size + PLAYER_SIZE / 2 && Date.now() > invincibleUntilRef.current) { 
-        // Apply defense reduction
-        const damageReduction = Math.min(p.defense || 0, 0.75); // Cap at 75% reduction
+        const damageReduction = Math.min(p.defense || 0, 0.75);
         const actualDamage = Math.floor(e.damage * (1 - damageReduction));
         p.hp -= actualDamage; 
-        // Apply invincibility bonus from gadgets
-        const invincibilityTime = 750 + (p.invincibilityBonus || 0);  // was 500
+        const invincibilityTime = 750 + (p.invincibilityBonus || 0);
         invincibleUntilRef.current = Date.now() + invincibilityTime; 
-        playHurtSound(); triggerScreenShake(10, 200); addParticles(p.x, p.y, '#FF6B6B', 10, 4); 
+        playHurtSound(); 
+        triggerScreenShake(10, 200); 
+        addParticles(p.x, p.y, '#FF6B6B', 10, 4); 
         if (p.hp <= 0) { endGame(); return false; } 
       }
       if (e.hp <= 0) { 
-        // XP orbs - more for boss
         const orbCount = e.type === 'boss' ? 20 : e.type === 'chocolate_chunk' ? 5 : 1;
         for (let i = 0; i < orbCount; i++) {
           xpOrbsRef.current.push({ 
             x: e.x + (Math.random() - 0.5) * (e.type === 'boss' ? 80 : 20), 
             y: e.y + (Math.random() - 0.5) * (e.type === 'boss' ? 80 : 20), 
             value: e.type === 'boss' ? 10 : e.xpValue, 
-            size: 6 + (e.type === 'boss' ? 10 : e.xpValue) 
+            size: 6 + (e.type === 'boss' ? 10 : e.xpValue),
+            collectAnim: 0
           });
         }
         playKillSound(); 
@@ -1086,17 +1408,35 @@ export default function DonutSurvivorsPage() {
       return true;
     });
 
+    // Update XP orbs
     xpOrbsRef.current = xpOrbsRef.current.filter(o => {
       const dx = p.x - o.x, dy = p.y - o.y, dist = Math.hypot(dx, dy);
-      if (dist < p.magnetRange) { const spd = 5 * (1 - dist / p.magnetRange) + 2; o.x += (dx / dist) * spd * delta; o.y += (dy / dist) * spd * delta; }
-      if (dist < PLAYER_SIZE / 2 + o.size) { p.xp += o.value * p.xpMultiplier; playXPSound(); return false; }
+      
+      // Collection animation
+      if (o.collectAnim > 0) {
+        o.collectAnim -= 0.1 * delta;
+        if (o.collectAnim <= 0) return false;
+        return true;
+      }
+      
+      if (dist < p.magnetRange) { 
+        const spd = 5 * (1 - dist / p.magnetRange) + 2; 
+        o.x += (dx / dist) * spd * delta; 
+        o.y += (dy / dist) * spd * delta; 
+      }
+      if (dist < PLAYER_SIZE / 2 + o.size) { 
+        p.xp += o.value * p.xpMultiplier; 
+        playXPSound(); 
+        o.collectAnim = 1; // Start collection animation
+        addParticles(o.x, o.y, '#F472B6', 4, 2, 'spark');
+      }
       return true;
     });
 
     checkLevelUp();
     drawBackground(ctx); drawTrail(ctx); drawXPOrbs(ctx); drawEnemies(ctx); drawProjectiles(ctx); drawOrbitingWeapons(ctx); drawPlayer(ctx); drawParticles(ctx); drawDamageNumbers(ctx);
     
-    // Vignette effect when final boss warning or present
+    // Vignette effect
     if (finalBossWarningRef.current || finalBossSpawnedRef.current) {
       const intensity = finalBossSpawnedRef.current ? 0.3 : 0.15;
       const pulse = Math.sin(Date.now() / 500) * 0.1 + intensity;
@@ -1112,25 +1452,23 @@ export default function DonutSurvivorsPage() {
     
     drawHUD(ctx); drawJoystick(ctx);
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [spawnEnemy, fireWeapons, updateOrbitingWeapons, checkLevelUp, endGame, drawBackground, drawTrail, drawXPOrbs, drawEnemies, drawProjectiles, drawOrbitingWeapons, drawPlayer, drawParticles, drawDamageNumbers, drawHUD, drawJoystick, addDamageNumber, addParticles, playHitSound, playKillSound, playXPSound, playHurtSound, triggerScreenShake]);
+  }, [spawnEnemy, fireWeapons, updateOrbitingWeapons, checkLevelUp, endGame, drawBackground, drawTrail, drawXPOrbs, drawEnemies, drawProjectiles, drawOrbitingWeapons, drawPlayer, drawParticles, drawDamageNumbers, drawHUD, drawJoystick, addDamageNumber, addParticles, playHitSound, playKillSound, playXPSound, playHurtSound, triggerScreenShake, rebuildEnemyGrid, getEnemiesNear]);
 
   const startGame = useCallback(() => {
     initAudioContext();
-    playerRef.current = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 70, xpMultiplier: 1, facingAngle: 0, defense: 0, invincibilityBonus: 0, cooldownReduction: 0 };
+    playerRef.current = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 70, xpMultiplier: 1, facingAngle: 0, defense: 0, invincibilityBonus: 0, cooldownReduction: 0, vx: 0, vy: 0 };
     cameraRef.current = { x: 0, y: 0 }; 
-    // Use selected starter weapon
     weaponsRef.current = [{ type: selectedStarterWeapon, level: 1, lastFired: 0, angle: 0 }];
-    // No starter gadget - must earn them through level ups
     gadgetsRef.current = [];
     enemiesRef.current = []; projectilesRef.current = []; xpOrbsRef.current = []; particlesRef.current = []; damageNumbersRef.current = []; trailPointsRef.current = [];
-    frameCountRef.current = 0; gameStartTimeRef.current = performance.now(); lastSpawnTimeRef.current = performance.now(); invincibleUntilRef.current = 0;
+    enemyGridRef.current.clear();
+    frameCountRef.current = 0; gameStartTimeRef.current = performance.now(); pausedTimeRef.current = 0; lastSpawnTimeRef.current = performance.now(); invincibleUntilRef.current = 0;
     screenShakeRef.current = { intensity: 0, duration: 0, startTime: 0 }; enemiesKilledRef.current = 0; moveInputRef.current = { x: 0, y: 0 }; joystickRef.current = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 };
     isPausedRef.current = false;
     bossSpawnedRef.current = false;
     bossWarningRef.current = false;
     finalBossSpawnedRef.current = false;
     finalBossWarningRef.current = false;
-    // Reset rerolls, bans, and banned upgrades
     setRerollsLeft(2);
     setBansLeft(1);
     setBannedUpgrades([]);
@@ -1142,18 +1480,37 @@ export default function DonutSurvivorsPage() {
     gameLoopRef.current = requestAnimationFrame(gameLoop);
   }, [initAudioContext, gameLoop, selectedStarterWeapon]);
 
+  // Check if click is on equipment area
+  const checkEquipmentClick = useCallback((x: number, y: number): boolean => {
+    // Equipment area is top-right corner
+    const equipmentAreaX = CANVAS_WIDTH - 120;
+    const equipmentAreaY = 0;
+    const equipmentAreaWidth = 120;
+    const equipmentAreaHeight = 85;
+    
+    return x >= equipmentAreaX && x <= equipmentAreaX + equipmentAreaWidth &&
+           y >= equipmentAreaY && y <= equipmentAreaY + equipmentAreaHeight;
+  }, []);
+
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (gameState !== "playing") return;
     e.preventDefault();
     e.stopPropagation();
     
-    // Capture pointer to prevent gesture interference
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     
     const rect = canvasRef.current?.getBoundingClientRect(); if (!rect) return;
-    const x = (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width), y = (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
+    const x = (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width);
+    const y = (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
+    
+    // Check if clicking on equipment
+    if (checkEquipmentClick(x, y) && (weaponsRef.current.length > 0 || gadgetsRef.current.length > 0)) {
+      openEquipmentViewer();
+      return;
+    }
+    
     joystickRef.current = { active: true, startX: x, startY: y, currentX: x, currentY: y };
-  }, [gameState]);
+  }, [gameState, checkEquipmentClick, openEquipmentViewer]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!joystickRef.current.active) return;
@@ -1161,10 +1518,30 @@ export default function DonutSurvivorsPage() {
     e.stopPropagation();
     
     const rect = canvasRef.current?.getBoundingClientRect(); if (!rect) return;
-    const x = (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width), y = (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
+    const x = (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width);
+    const y = (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
     joystickRef.current.currentX = x; joystickRef.current.currentY = y;
-    const dx = x - joystickRef.current.startX, dy = y - joystickRef.current.startY, dist = Math.hypot(dx, dy);
-    if (dist > 5) { const cd = Math.min(dist, 50); moveInputRef.current = { x: (dx / dist) * (cd / 50), y: (dy / dist) * (cd / 50) }; } else moveInputRef.current = { x: 0, y: 0 };
+    
+    const dx = x - joystickRef.current.startX;
+    const dy = y - joystickRef.current.startY;
+    const dist = Math.hypot(dx, dy);
+    
+    // Improved deadzone and response curve
+    const deadzone = 8; // Slightly larger deadzone
+    const maxDist = 50;
+    
+    if (dist > deadzone) {
+      // Apply response curve for more precise control
+      const normalizedDist = Math.min((dist - deadzone) / (maxDist - deadzone), 1);
+      const curvedDist = Math.pow(normalizedDist, 0.8); // Slight curve for precision
+      
+      moveInputRef.current = { 
+        x: (dx / dist) * curvedDist, 
+        y: (dy / dist) * curvedDist 
+      };
+    } else {
+      moveInputRef.current = { x: 0, y: 0 };
+    }
   }, []);
 
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
@@ -1173,15 +1550,36 @@ export default function DonutSurvivorsPage() {
     moveInputRef.current = { x: 0, y: 0 };
   }, []);
 
+  // Keyboard controls
   useEffect(() => {
     const keys = new Set<string>();
-    const update = () => { let x = 0, y = 0; if (keys.has('ArrowLeft') || keys.has('KeyA')) x--; if (keys.has('ArrowRight') || keys.has('KeyD')) x++; if (keys.has('ArrowUp') || keys.has('KeyW')) y--; if (keys.has('ArrowDown') || keys.has('KeyS')) y++; moveInputRef.current = { x, y }; };
-    const down = (e: KeyboardEvent) => { keys.add(e.code); update(); };
+    const update = () => { 
+      let x = 0, y = 0; 
+      if (keys.has('ArrowLeft') || keys.has('KeyA')) x--; 
+      if (keys.has('ArrowRight') || keys.has('KeyD')) x++; 
+      if (keys.has('ArrowUp') || keys.has('KeyW')) y--; 
+      if (keys.has('ArrowDown') || keys.has('KeyS')) y++; 
+      moveInputRef.current = { x, y }; 
+    };
+    const down = (e: KeyboardEvent) => { 
+      keys.add(e.code); 
+      update(); 
+      // Tab or E to open equipment
+      if ((e.code === 'Tab' || e.code === 'KeyE') && gameState === 'playing') {
+        e.preventDefault();
+        openEquipmentViewer();
+      }
+      // Escape to close equipment
+      if (e.code === 'Escape' && gameState === 'equipment') {
+        closeEquipmentViewer();
+      }
+    };
     const up = (e: KeyboardEvent) => { keys.delete(e.code); update(); };
     window.addEventListener('keydown', down); window.addEventListener('keyup', up);
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
-  }, []);
+  }, [gameState, openEquipmentViewer, closeEquipmentViewer]);
 
+  // Menu/gameover animation
   useEffect(() => {
     if (gameState !== "menu" && gameState !== "gameover") return;
     const canvas = canvasRef.current, ctx = canvas?.getContext("2d"); if (!canvas || !ctx) return;
@@ -1190,14 +1588,12 @@ export default function DonutSurvivorsPage() {
       const t = (performance.now() - start) / 1000;
       ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
       
-      // Dark gradient background
       const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
       gradient.addColorStop(0, '#0a0a0a');
       gradient.addColorStop(1, '#151515');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       
-      // Subtle grid
       ctx.strokeStyle = 'rgba(255,255,255,0.02)';
       ctx.lineWidth = 1;
       const gridSize = 40;
@@ -1209,7 +1605,6 @@ export default function DonutSurvivorsPage() {
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_WIDTH, y); ctx.stroke(); 
       }
       
-      // Floating particles
       for (let i = 0; i < 12; i++) { 
         const px = ((t * 15 + i * 50) % (CANVAS_WIDTH + 20)) - 10;
         const py = 50 + Math.sin(t * 0.5 + i * 1.5) * 20 + i * 35;
@@ -1221,7 +1616,6 @@ export default function DonutSurvivorsPage() {
         ctx.fill(); 
       }
       
-      // Title with glow
       ctx.save();
       ctx.textAlign = 'center';
       ctx.shadowColor = '#F472B6';
@@ -1234,7 +1628,6 @@ export default function DonutSurvivorsPage() {
       ctx.fillText('SURVIVORS', CANVAS_WIDTH / 2, 95);
       ctx.restore();
       
-      // Decorative line
       ctx.strokeStyle = 'rgba(244, 114, 182, 0.3)';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -1245,7 +1638,6 @@ export default function DonutSurvivorsPage() {
       const py = 175 + Math.sin(t * 1.5) * 8;
       const playerRadius = 28;
       
-      // Player glow ring
       ctx.save();
       ctx.strokeStyle = `rgba(244, 114, 182, ${0.2 + Math.sin(t * 3) * 0.1})`;
       ctx.lineWidth = 2;
@@ -1254,7 +1646,6 @@ export default function DonutSurvivorsPage() {
       ctx.stroke();
       ctx.restore();
       
-      // Draw player (PFP or donut fallback)
       ctx.save();
       ctx.shadowColor = '#F472B6';
       ctx.shadowBlur = 25;
@@ -1289,12 +1680,11 @@ export default function DonutSurvivorsPage() {
         ctx.restore();
       }
       
-      // Orbiting elements
       for (let i = 0; i < 4; i++) { 
         const a = t * 1.5 + (i / 4) * Math.PI * 2;
         const orbitRadius = 55;
         const ox = CANVAS_WIDTH / 2 + Math.cos(a) * orbitRadius;
-        const oy = py + Math.sin(a) * orbitRadius * 0.6; // Elliptical orbit
+        const oy = py + Math.sin(a) * orbitRadius * 0.6;
         const size = 6 + Math.sin(t * 3 + i) * 1;
         
         ctx.save();
@@ -1312,11 +1702,9 @@ export default function DonutSurvivorsPage() {
       }
       
       if (gameState === "gameover") {
-        // Game over screen
         ctx.save();
         ctx.textAlign = 'center';
         
-        // Red glow for game over
         ctx.shadowColor = '#FF6B6B';
         ctx.shadowBlur = 20;
         ctx.fillStyle = '#FF6B6B';
@@ -1324,19 +1712,16 @@ export default function DonutSurvivorsPage() {
         ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 255);
         ctx.shadowBlur = 0;
         
-        // Score
         ctx.fillStyle = '#FFF';
         ctx.font = 'bold 40px monospace';
         ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 295);
         
-        // Stats
         ctx.fillStyle = '#666';
         ctx.font = '11px monospace';
         const mins = Math.floor(survivalTime / 60);
         const secs = (survivalTime % 60).toString().padStart(2, '0');
         ctx.fillText(`${mins}:${secs}  ·  ${killCount} kills`, CANVAS_WIDTH / 2, 320);
         
-        // High score
         if (score >= highScore) {
           ctx.fillStyle = '#F472B6';
           ctx.font = 'bold 10px monospace';
@@ -1348,7 +1733,6 @@ export default function DonutSurvivorsPage() {
         }
         ctx.restore();
       } else { 
-        // Menu instructions
         ctx.save();
         ctx.textAlign = 'center';
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
@@ -1365,6 +1749,21 @@ export default function DonutSurvivorsPage() {
     return () => cancelAnimationFrame(id);
   }, [gameState, score, survivalTime, killCount, highScore]);
 
+  // Calculate gadget stats for display
+  const getGadgetTotalBonus = (gadgetType: GadgetType, stacks: number): string => {
+    switch (gadgetType) {
+      case 'sugar_rush': return `+${stacks * 20}% Speed`;
+      case 'thicc_glaze': return `+${stacks * 30} Max HP`;
+      case 'sprinkle_magnet': return `+${Math.round((Math.pow(1.4, stacks) - 1) * 100)}% Range`;
+      case 'donut_armor': return `-${Math.min(stacks * 15, 75)}% Damage`;
+      case 'hyper_icing': return `+${Math.round((Math.pow(1.15, stacks) - 1) * 100)}% Damage`;
+      case 'golden_sprinkles': return `+${Math.round((Math.pow(1.25, stacks) - 1) * 100)}% XP`;
+      case 'choco_shield': return `+${stacks * 0.5}s I-Frames`;
+      case 'candy_rush': return `-${stacks * 10}% Cooldown`;
+      default: return '';
+    }
+  };
+
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white select-none overscroll-none fixed inset-0">
       <style>{`
@@ -1374,11 +1773,130 @@ export default function DonutSurvivorsPage() {
       `}</style>
       <div 
         className="relative flex h-full w-full max-w-[520px] flex-1 flex-col items-center justify-center bg-black p-4"
-        onTouchStart={e => { if (gameState === "playing") e.preventDefault(); }}
-        onTouchMove={e => { if (gameState === "playing") e.preventDefault(); }}
+        onTouchStart={e => { if (gameState === "playing" || gameState === "equipment") e.preventDefault(); }}
+        onTouchMove={e => { if (gameState === "playing" || gameState === "equipment") e.preventDefault(); }}
       >
         <div className="relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
           <canvas ref={canvasRef} width={SCALED_WIDTH} height={SCALED_HEIGHT} className="rounded-2xl border border-zinc-800 w-full h-full" style={{ touchAction: "none", WebkitUserSelect: "none", userSelect: "none" }} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={e => e.preventDefault()} onTouchStart={e => { if (gameState === "playing") e.preventDefault(); }} onTouchMove={e => e.preventDefault()} onTouchEnd={e => e.preventDefault()} />
+          
+          {/* Equipment Viewer */}
+          {gameState === "equipment" && equipmentData && (
+            <div className="absolute inset-0 bg-black/95 backdrop-blur-sm flex flex-col items-center p-4 z-40 rounded-2xl overflow-y-auto">
+              <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1">Game Paused</div>
+              <h2 className="text-xl font-bold text-white mb-4">Equipment</h2>
+              
+              {/* Weapons Section */}
+              <div className="w-full max-w-[300px] mb-4">
+                <div className="text-xs text-pink-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                  <span>Weapons</span>
+                  <span className="text-zinc-600">{equipmentData.weapons.length}/{MAX_WEAPONS}</span>
+                </div>
+                <div className="space-y-2">
+                  {equipmentData.weapons.map((w, i) => {
+                    const config = WEAPON_CONFIG[w.type];
+                    const stats = WEAPON_STATS[w.type];
+                    const damage = config.baseDamage * (1 + (w.level - 1) * 0.3) * equipmentData.player.damage;
+                    const cooldownReduction = 1 - (equipmentData.player.cooldownReduction || 0);
+                    const cooldown = config.baseCooldown * Math.pow(0.9, w.level - 1) * cooldownReduction;
+                    
+                    return (
+                      <div key={i} className="bg-zinc-900/80 border border-zinc-800 rounded-lg p-3">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-2xl" style={{ color: config.color }}>{config.icon}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-white text-sm">{config.name}</span>
+                              <span className="text-[10px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded">LV {w.level}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+                          <div className="text-zinc-500">Damage</div>
+                          <div className="text-zinc-300">{Math.floor(damage)}</div>
+                          <div className="text-zinc-500">Cooldown</div>
+                          <div className="text-zinc-300">{Math.floor(cooldown)}ms</div>
+                          <div className="text-zinc-500">{stats.stat}</div>
+                          <div className="text-zinc-300">{stats.perLevel}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {equipmentData.weapons.length === 0 && (
+                    <div className="text-zinc-600 text-xs text-center py-4">No weapons equipped</div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Gadgets Section */}
+              <div className="w-full max-w-[300px] mb-4">
+                <div className="text-xs text-blue-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                  <span>Gadgets</span>
+                  <span className="text-zinc-600">{equipmentData.gadgets.length}/{MAX_GADGETS}</span>
+                </div>
+                <div className="space-y-2">
+                  {equipmentData.gadgets.map((g, i) => {
+                    const config = GADGET_CONFIG[g.type];
+                    const totalBonus = getGadgetTotalBonus(g.type, g.stacks);
+                    
+                    return (
+                      <div key={i} className="bg-zinc-900/80 border border-zinc-800 rounded-lg p-3">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl" style={{ color: config.color }}>{config.icon}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-white text-sm">{config.name}</span>
+                              <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">×{g.stacks}</span>
+                            </div>
+                            <div className="text-[10px] text-zinc-400 mt-0.5">{config.description}</div>
+                          </div>
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-zinc-800">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-zinc-500">Total Bonus</span>
+                            <span className="text-green-400 font-medium">{totalBonus}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {equipmentData.gadgets.length === 0 && (
+                    <div className="text-zinc-600 text-xs text-center py-4">No gadgets equipped</div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Player Stats Summary */}
+              <div className="w-full max-w-[300px] mb-4">
+                <div className="text-xs text-zinc-400 uppercase tracking-wider mb-2">Stats</div>
+                <div className="bg-zinc-900/80 border border-zinc-800 rounded-lg p-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10px]">
+                  <div className="text-zinc-500">Max HP</div>
+                  <div className="text-zinc-300">{equipmentData.player.maxHp}</div>
+                  <div className="text-zinc-500">Speed</div>
+                  <div className="text-zinc-300">{equipmentData.player.speed.toFixed(2)}</div>
+                  <div className="text-zinc-500">Damage Mult</div>
+                  <div className="text-zinc-300">×{equipmentData.player.damage.toFixed(2)}</div>
+                  <div className="text-zinc-500">XP Mult</div>
+                  <div className="text-zinc-300">×{equipmentData.player.xpMultiplier.toFixed(2)}</div>
+                  <div className="text-zinc-500">Pickup Range</div>
+                  <div className="text-zinc-300">{Math.floor(equipmentData.player.magnetRange)}px</div>
+                  <div className="text-zinc-500">Defense</div>
+                  <div className="text-zinc-300">{Math.floor((equipmentData.player.defense || 0) * 100)}%</div>
+                  <div className="text-zinc-500">CD Reduction</div>
+                  <div className="text-zinc-300">{Math.floor((equipmentData.player.cooldownReduction || 0) * 100)}%</div>
+                </div>
+              </div>
+              
+              <button 
+                onClick={closeEquipmentViewer}
+                className="px-8 py-2.5 bg-pink-500 text-white text-sm font-bold rounded-lg hover:bg-pink-400 transition-all"
+              >
+                Resume Game
+              </button>
+              <div className="mt-2 text-[9px] text-zinc-600">Press ESC or tap to close</div>
+            </div>
+          )}
+          
+          {/* Level Up Screen */}
           {gameState === "levelup" && (
             <div className="absolute inset-0 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-30 rounded-2xl">
               <div className="text-[10px] text-yellow-400/60 uppercase tracking-widest mb-1">Level {playerLevel}</div>
@@ -1478,9 +1996,10 @@ export default function DonutSurvivorsPage() {
               </div>
             </div>
           )}
+          
+          {/* Menu/Gameover Buttons */}
           {(gameState === "menu" || gameState === "gameover") && (
             <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-3 pointer-events-none z-20">
-              {/* Loadout Buttons */}
               <div className="pointer-events-auto flex gap-2">
                 <button 
                   onClick={() => { setShowWeaponMenu(true); setShowGadgetInfo(false); }}
@@ -1504,14 +2023,12 @@ export default function DonutSurvivorsPage() {
                 </button>
               </div>
               
-              {/* Play Buttons */}
               <div className="pointer-events-auto flex gap-2">
                 <button onClick={startGame} className="flex items-center gap-2 px-6 py-2.5 bg-green-500 text-black font-bold rounded-lg hover:bg-green-400 active:scale-95 transition-all shadow-lg shadow-green-500/20">
                   <Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span>
                 </button>
                 <button 
                   onClick={() => {
-                    // Random weapon from unlocked
                     const unlockedWeapons = STARTER_WEAPON_ORDER.filter(w => gamesPlayed >= WEAPON_UNLOCK_REQUIREMENTS[w]);
                     const randomWeapon = unlockedWeapons[Math.floor(Math.random() * unlockedWeapons.length)];
                     setSelectedStarterWeapon(randomWeapon);
@@ -1639,8 +2156,9 @@ export default function DonutSurvivorsPage() {
                   ['1', 'Movement', 'Drag anywhere to move. WASD/Arrow keys also work!'], 
                   ['2', 'Auto-Attack', 'Your weapons fire automatically at nearby enemies!'], 
                   ['3', 'Collect XP', 'Kill enemies to drop pink donuts. Walk over them to level up!'], 
-                  ['4', 'Weapons', 'Collect up to 6 weapons. Each can be leveled up to 8!'],
-                  ['5', 'Gadgets', 'Passive boosts (max 4). Stack them up to 5 times each!']
+                  ['4', 'Weapons', 'Collect up to 4 weapons. Each can be leveled up to 8!'],
+                  ['5', 'Gadgets', 'Passive boosts (max 4). Stack them up to 5 times each!'],
+                  ['6', 'Equipment', 'Tap items in top-right or press E to view your gear!']
                 ].map(([n, t, d]) => (
                   <div key={n} className="flex gap-2.5">
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold">{n}</div>
