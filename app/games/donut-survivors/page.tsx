@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { Play, X, HelpCircle, Volume2, VolumeX, Shuffle, Trophy, ChevronRight, Clock, Music } from "lucide-react";
 import { NavBar } from "@/components/nav-bar";
-import { Header } from "@/components/header";
 
 // Game constants
 const CANVAS_WIDTH = 360;
@@ -225,7 +224,7 @@ export default function DonutSurvivorsPage() {
   useEffect(() => { if (!userPfp) return; const img = new Image(); img.crossOrigin = 'anonymous'; img.onload = () => { pfpImageRef.current = img; pfpLoadedRef.current = true; }; img.src = userPfp; }, [userPfp]);
   useEffect(() => { const img = new Image(); img.crossOrigin = 'anonymous'; img.onload = () => { donutImageRef.current = img; donutLoadedRef.current = true; }; img.src = '/coins/donut_logo.png'; }, []);
   useEffect(() => {
-    const prevent = (e: TouchEvent) => { if (gameState === "playing" || gameState === "equipment") e.preventDefault(); };
+    const prevent = (e: TouchEvent) => { if (gameState === "playing") e.preventDefault(); };
     document.addEventListener('touchmove', prevent, { passive: false });
     document.addEventListener('touchstart', prevent, { passive: false });
     return () => { document.removeEventListener('touchmove', prevent); document.removeEventListener('touchstart', prevent); };
@@ -711,7 +710,18 @@ export default function DonutSurvivorsPage() {
       `}</style>
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
-        <Header title="DONUT SURVIVORS" user={context?.user} />
+        <div className="flex items-center justify-between w-full mb-3">
+          <div className="flex items-center gap-2">
+            <img src="/coins/donut_logo.png" alt="Donut" className="w-8 h-8" />
+            <span className="text-xl font-bold italic text-white">SURVIVORS</span>
+          </div>
+          {context?.user && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-white font-medium">{context.user.displayName || context.user.username}</span>
+              {context.user.pfpUrl && <img src={context.user.pfpUrl} alt="" className="w-8 h-8 rounded-full" />}
+            </div>
+          )}
+        </div>
         
         {/* Prize Pool / Leaderboard Button */}
         <button onClick={() => setShowLeaderboard(true)} className="relative w-full mb-3 px-4 py-3 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/50 rounded-xl transition-all active:scale-[0.98] hover:border-zinc-600 group" style={{ minHeight: '70px' }}>
@@ -842,9 +852,10 @@ export default function DonutSurvivorsPage() {
       
       {/* Equipment Viewer Modal */}
       {gameState === "equipment" && equipmentData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) closeEquip(); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) closeEquip(); }} onTouchEnd={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); closeEquip(); } }}>
           <div className="w-full max-w-[360px] bg-black/98 backdrop-blur-sm flex flex-col rounded-2xl overflow-hidden border border-zinc-700" style={{ maxHeight: '80vh' }} onClick={(e) => e.stopPropagation()}>
-            <div className="flex-shrink-0 p-3 border-b border-zinc-800">
+            <div className="flex-shrink-0 p-3 border-b border-zinc-800 relative">
+              <button onClick={() => closeEquip()} onTouchEnd={(e) => { e.preventDefault(); closeEquip(); }} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white"><X className="h-4 w-4" /></button>
               <div className="text-[10px] text-zinc-500 uppercase tracking-widest text-center">Game Paused</div>
               <h2 className="text-lg font-bold text-white text-center">Equipment</h2>
             </div>
@@ -911,7 +922,7 @@ export default function DonutSurvivorsPage() {
               </div>
             </div>
             <div className="flex-shrink-0 p-3 border-t border-zinc-800">
-              <button onClick={() => closeEquip()} className="w-full px-6 py-3 bg-pink-500 text-white text-sm font-bold rounded-lg hover:bg-pink-400 transition-all active:scale-[0.98]">Resume Game</button>
+              <button onClick={() => closeEquip()} onTouchEnd={(e) => { e.preventDefault(); closeEquip(); }} className="w-full px-6 py-3 bg-pink-500 text-white text-sm font-bold rounded-lg hover:bg-pink-400 transition-all active:scale-[0.98]">Resume Game</button>
             </div>
           </div>
         </div>
