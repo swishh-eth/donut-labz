@@ -50,6 +50,14 @@ const MAX_PLATFORM_GAP = 120;
 // Donut coin
 const COIN_SIZE = 24;
 
+// Height zones for visual progression
+const HEIGHT_ZONES = [
+  { threshold: 0, name: 'Ground', bg1: '#1a1a1a', bg2: '#0d0d0d', accent: '#4ade80' },
+  { threshold: 1000, name: 'Sky', bg1: '#1a1a2e', bg2: '#0d0d1a', accent: '#60a5fa' },
+  { threshold: 3000, name: 'Clouds', bg1: '#2a1a3a', bg2: '#1a0d2a', accent: '#a78bfa' },
+  { threshold: 6000, name: 'Space', bg1: '#0a0a1a', bg2: '#000008', accent: '#f472b6' },
+];
+
 // Types
 type PlatformType = 'normal' | 'moving' | 'breakable' | 'spring' | 'disappearing';
 type PowerUpType = 'jetpack' | 'spring_shoes' | 'shield' | 'magnet';
@@ -73,6 +81,7 @@ interface Coin {
   y: number;
   collected: boolean;
   sparklePhase: number;
+  trail?: { x: number; y: number; alpha: number }[];
 }
 
 interface PowerUp {
@@ -96,7 +105,7 @@ interface Particle {
   maxLife: number;
   color: string;
   size: number;
-  type?: string;
+  type?: 'dust' | 'sparkle' | 'burst';
 }
 
 interface LeaderboardEntry {
@@ -157,6 +166,13 @@ function getTimeUntilReset(): string {
   return `${hours}h ${minutes}m`;
 }
 
+function getCurrentZone(height: number) {
+  for (let i = HEIGHT_ZONES.length - 1; i >= 0; i--) {
+    if (height >= HEIGHT_ZONES[i].threshold) return HEIGHT_ZONES[i];
+  }
+  return HEIGHT_ZONES[0];
+}
+
 export default function DonutJumpPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number | null>(null);
@@ -174,7 +190,7 @@ export default function DonutJumpPage() {
   const [playState, setPlayState] = useState<PlayState>('idle');
   const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
   const currentEntryIdRef = useRef<string | null>(null);
-  const currentFidRef = useRef<number | null>(null);  // Store fid at game start
+  const currentFidRef = useRef<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [gamesPlayedThisWeek, setGamesPlayedThisWeek] = useState(0);
   
@@ -199,13 +215,19 @@ export default function DonutJumpPage() {
   const hasShieldRef = useRef(false);
   const invincibleUntilRef = useRef(0);
   
+  // Enhanced control refs
   const moveLeftRef = useRef(false);
   const moveRightRef = useRef(false);
+  const leftTouchActiveRef = useRef(false);
+  const rightTouchActiveRef = useRef(false);
+  const controlFeedbackRef = useRef({ left: 0, right: 0 }); // For visual feedback
   
   const screenShakeRef = useRef({ intensity: 0, duration: 0, startTime: 0 });
+  const currentZoneRef = useRef(HEIGHT_ZONES[0]);
   
   // Background elements
-  const bgParticlesRef = useRef<{ x: number; y: number; size: number; speed: number; alpha: number }[]>([]);
+  const bgParticlesRef = useRef<{ x: number; y: number; size: number; speed: number; alpha: number; baseY: number }[]>([]);
+  const starsRef = useRef<{ x: number; y: number; size: number; twinklePhase: number }[]>([]);
   
   // Audio
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -304,25 +326,19 @@ export default function DonutJumpPage() {
   const submitScore = useCallback(async (finalScore: number) => {
     const entryId = currentEntryIdRef.current;
     const fid = currentFidRef.current;
-    console.log("[Donut Jump Client] Submitting score:", { entryId, finalScore, fid });
-    if (!entryId || !fid) {
-      console.log("[Donut Jump Client] Missing entryId or fid, skipping submission");
-      return;
-    }
+    if (!entryId || !fid) return;
     try {
-      const res = await fetch("/api/games/donut-jump/submit-score", {
+      await fetch("/api/games/donut-jump/submit-score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entryId, score: finalScore, fid }),
       });
-      const data = await res.json();
-      console.log("[Donut Jump Client] Submit response:", data);
     } catch (error) {
-      console.error("[Donut Jump Client] Failed to submit score:", error);
+      console.error("Failed to submit score:", error);
     }
   }, []);
   
-  // Audio
+  // Audio functions
   const initAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
       try {
@@ -442,7 +458,8 @@ export default function DonutJumpPage() {
     screenShakeRef.current = { intensity, duration, startTime: performance.now() };
   }, []);
   
-  const addParticles = useCallback((x: number, y: number, color: string, count: number, speed: number = 3) => {
+  // Enhanced particle functions
+  const addParticles = useCallback((x: number, y: number, color: string, count: number, speed: number = 3, type: 'burst' | 'sparkle' = 'burst') => {
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2;
       particlesRef.current.push({
@@ -453,6 +470,7 @@ export default function DonutJumpPage() {
         maxLife: 1,
         color,
         size: 3 + Math.random() * 3,
+        type,
       });
     }
   }, []);
@@ -470,6 +488,37 @@ export default function DonutJumpPage() {
         color: '#FFFFFF',
         size: 2 + Math.random() * 2,
         type: 'dust',
+      });
+    }
+  }, []);
+  
+  const addCoinCollectParticles = useCallback((x: number, y: number) => {
+    // Burst of sparkles
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      particlesRef.current.push({
+        x, y,
+        vx: Math.cos(angle) * 4 + (Math.random() - 0.5) * 2,
+        vy: Math.sin(angle) * 4 + (Math.random() - 0.5) * 2,
+        life: 1,
+        maxLife: 1,
+        color: '#F472B6',
+        size: 3 + Math.random() * 3,
+        type: 'sparkle',
+      });
+    }
+    // White sparkles
+    for (let i = 0; i < 4; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      particlesRef.current.push({
+        x, y,
+        vx: Math.cos(angle) * 3,
+        vy: Math.sin(angle) * 3,
+        life: 1,
+        maxLife: 1,
+        color: '#FFFFFF',
+        size: 2,
+        type: 'sparkle',
       });
     }
   }, []);
@@ -492,6 +541,31 @@ export default function DonutJumpPage() {
     
     playPowerUpSound();
   }, [playPowerUpSound]);
+  
+  // Initialize background elements
+  const initBackgroundElements = useCallback(() => {
+    bgParticlesRef.current = [];
+    for (let i = 0; i < 50; i++) {
+      bgParticlesRef.current.push({
+        x: Math.random() * CANVAS_WIDTH,
+        y: Math.random() * CANVAS_HEIGHT * 3,
+        baseY: Math.random() * CANVAS_HEIGHT * 3,
+        size: 1 + Math.random() * 2,
+        speed: 0.3 + Math.random() * 0.5,
+        alpha: 0.05 + Math.random() * 0.2,
+      });
+    }
+    
+    starsRef.current = [];
+    for (let i = 0; i < 100; i++) {
+      starsRef.current.push({
+        x: Math.random() * CANVAS_WIDTH,
+        y: Math.random() * CANVAS_HEIGHT,
+        size: 0.5 + Math.random() * 1.5,
+        twinklePhase: Math.random() * Math.PI * 2,
+      });
+    }
+  }, []);
   
   // Platform generation
   const generatePlatform = useCallback((y: number, forceNormal: boolean = false): Platform => {
@@ -532,6 +606,7 @@ export default function DonutJumpPage() {
   
   const generateInitialPlatforms = useCallback(() => {
     platformsRef.current = [];
+    coinsRef.current = [];
     
     // Ground platform
     platformsRef.current.push({
@@ -541,41 +616,37 @@ export default function DonutJumpPage() {
       type: 'normal',
     });
     
-    // Generate platforms upward with coins
     let y = CANVAS_HEIGHT - 100;
-    let coinsSpawned = 0;
     while (y > -CANVAS_HEIGHT) {
       y -= MIN_PLATFORM_GAP + Math.random() * (MAX_PLATFORM_GAP - MIN_PLATFORM_GAP);
       const platform = generatePlatform(y, y > CANVAS_HEIGHT - 300);
       platformsRef.current.push(platform);
       
-      // Spawn coins on initial platforms (40% chance)
+      // Spawn coins (40% chance)
       if (Math.random() < 0.4) {
         coinsRef.current.push({
           x: platform.x + platform.width / 2,
           y: platform.y - 30,
           collected: false,
           sparklePhase: Math.random() * Math.PI * 2,
+          trail: [],
         });
-        coinsSpawned++;
       }
     }
-    console.log("[Donut Jump Client] Initial platforms generated:", platformsRef.current.length, "coins spawned:", coinsSpawned);
   }, [generatePlatform]);
   
-  // Coin generation
   const maybeSpawnCoin = useCallback((platform: Platform) => {
-    if (Math.random() < 0.4) {  // 40% chance for more coins
+    if (Math.random() < 0.4) {
       coinsRef.current.push({
         x: platform.x + platform.width / 2,
         y: platform.y - 30,
         collected: false,
         sparklePhase: Math.random() * Math.PI * 2,
+        trail: [],
       });
     }
   }, []);
   
-  // Power-up generation
   const maybeSpawnPowerUp = useCallback((platform: Platform) => {
     const height = maxHeightRef.current;
     if (height > 500 && Math.random() < 0.03) {
@@ -590,39 +661,40 @@ export default function DonutJumpPage() {
     }
   }, []);
   
-  // Drawing functions
+  // Enhanced drawing functions
   const drawBackground = useCallback((ctx: CanvasRenderingContext2D) => {
-    // Dark gradient background
+    const zone = currentZoneRef.current;
+    
+    // Zone-based gradient background
     const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-    bgGradient.addColorStop(0, "#1a1a1a");
-    bgGradient.addColorStop(1, "#0d0d0d");
+    bgGradient.addColorStop(0, zone.bg1);
+    bgGradient.addColorStop(1, zone.bg2);
     ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
-    // Initialize background particles if needed
-    if (bgParticlesRef.current.length === 0) {
-      for (let i = 0; i < 40; i++) {
-        bgParticlesRef.current.push({
-          x: Math.random() * CANVAS_WIDTH,
-          y: Math.random() * CANVAS_HEIGHT,
-          size: 1 + Math.random() * 2,
-          speed: 0.3 + Math.random() * 0.5,
-          alpha: 0.05 + Math.random() * 0.15,
-        });
-      }
+    // Draw stars in higher zones
+    if (maxHeightRef.current > 3000) {
+      const starAlpha = Math.min((maxHeightRef.current - 3000) / 3000, 1);
+      starsRef.current.forEach(star => {
+        star.twinklePhase += 0.02;
+        const twinkle = 0.3 + Math.sin(star.twinklePhase) * 0.7;
+        ctx.fillStyle = `rgba(255, 255, 255, ${twinkle * starAlpha})`;
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
     }
     
-    // Animated background particles - move DOWN as player goes UP
+    // Animated background particles - parallax effect
     bgParticlesRef.current.forEach(p => {
-      // Particles drift down relative to camera (creates falling effect as player climbs)
-      const screenY = ((p.y - cameraYRef.current * 0.15) % CANVAS_HEIGHT + CANVAS_HEIGHT) % CANVAS_HEIGHT;
+      const screenY = ((p.baseY - cameraYRef.current * 0.15) % (CANVAS_HEIGHT + 100) + CANVAS_HEIGHT + 100) % (CANVAS_HEIGHT + 100) - 50;
       ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
       ctx.beginPath();
       ctx.arc(p.x, screenY, p.size, 0, Math.PI * 2);
       ctx.fill();
     });
     
-    // Grid lines
+    // Subtle grid lines
     ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
     ctx.lineWidth = 1;
     for (let i = 0; i < CANVAS_WIDTH; i += 40) {
@@ -637,10 +709,33 @@ export default function DonutJumpPage() {
       ctx.lineTo(CANVAS_WIDTH, i);
       ctx.stroke();
     }
+    
+    // Speed lines effect based on height
+    const intensity = Math.min(maxHeightRef.current / 5000, 1);
+    if (intensity > 0.1) {
+      const lineCount = Math.floor(3 + intensity * 10);
+      for (let i = 0; i < lineCount; i++) {
+        const y = (frameCountRef.current * 3 + i * 47) % CANVAS_HEIGHT;
+        const lineLength = 20 + intensity * 50;
+        const alpha = 0.02 + intensity * 0.08;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(lineLength, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(CANVAS_WIDTH, y);
+        ctx.lineTo(CANVAS_WIDTH - lineLength, y);
+        ctx.stroke();
+      }
+    }
   }, []);
   
   const drawPlatform = useCallback((ctx: CanvasRenderingContext2D, platform: Platform, screenY: number) => {
     if (platform.broken) return;
+    
+    const zone = currentZoneRef.current;
     
     ctx.save();
     
@@ -648,20 +743,28 @@ export default function DonutJumpPage() {
       ctx.globalAlpha = platform.opacity;
     }
     
-    // Platform colors by type
+    // Platform colors by type with zone influence
     let color1 = '#4ade80';
     let color2 = '#22c55e';
+    let glowColor = zone.accent;
     
     if (platform.type === 'moving') {
       color1 = '#60a5fa';
       color2 = '#3b82f6';
+      glowColor = '#60a5fa';
     } else if (platform.type === 'breakable') {
       color1 = '#a78bfa';
       color2 = '#8b5cf6';
+      glowColor = '#a78bfa';
     } else if (platform.type === 'disappearing') {
       color1 = '#fbbf24';
       color2 = '#f59e0b';
+      glowColor = '#fbbf24';
     }
+    
+    // Platform glow
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 10;
     
     // Platform body with gradient
     const gradient = ctx.createLinearGradient(platform.x, screenY, platform.x, screenY + PLATFORM_HEIGHT);
@@ -669,11 +772,13 @@ export default function DonutJumpPage() {
     gradient.addColorStop(1, color2);
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.roundRect(platform.x, screenY, platform.width, PLATFORM_HEIGHT, 5);
+    ctx.roundRect(platform.x, screenY, platform.width, PLATFORM_HEIGHT, 6);
     ctx.fill();
     
+    ctx.shadowBlur = 0;
+    
     // Highlight
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.beginPath();
     ctx.roundRect(platform.x + 5, screenY + 2, platform.width - 10, 4, 2);
     ctx.fill();
@@ -685,16 +790,20 @@ export default function DonutJumpPage() {
       const compressed = platform.springCompressed;
       const springHeight = compressed ? 8 : 15;
       
-      // Spring coil
+      // Spring coil with glow
+      ctx.shadowColor = '#FF6600';
+      ctx.shadowBlur = 8;
       ctx.strokeStyle = '#FF6600';
       ctx.lineWidth = 3;
       ctx.beginPath();
+      ctx.moveTo(springX, springY);
       for (let i = 0; i < 4; i++) {
         const y = springY - (i + 1) * (springHeight / 4);
         const offset = (i % 2 === 0 ? -6 : 6);
         ctx.lineTo(springX + offset, y);
       }
       ctx.stroke();
+      ctx.shadowBlur = 0;
       
       // Spring top
       ctx.fillStyle = '#FF8800';
@@ -725,30 +834,37 @@ export default function DonutJumpPage() {
       ctx.globalAlpha = 0.4;
     }
     
-    // Jetpack effect
+    // Jetpack effect with improved visuals
     if (isJetpack) {
-      // Jetpack body
-      ctx.fillStyle = '#444';
+      // Jetpack body with metallic gradient
+      const tankGradient = ctx.createLinearGradient(-PLAYER_WIDTH / 2 - 12, -8, -PLAYER_WIDTH / 2 - 2, -8);
+      tankGradient.addColorStop(0, '#3a3a3a');
+      tankGradient.addColorStop(0.5, '#6a6a6a');
+      tankGradient.addColorStop(1, '#4a4a4a');
+      ctx.fillStyle = tankGradient;
       ctx.beginPath();
       ctx.roundRect(-PLAYER_WIDTH / 2 - 12, -8, 10, 25, 3);
       ctx.fill();
       
-      // Flames
+      // Flames with animation
       const flameSize = 15 + Math.sin(frameCountRef.current * 0.5) * 5;
       const flameGradient = ctx.createLinearGradient(0, 17, 0, 17 + flameSize);
-      flameGradient.addColorStop(0, '#FFFF00');
+      flameGradient.addColorStop(0, '#FFFFFF');
+      flameGradient.addColorStop(0.2, '#FFFF00');
       flameGradient.addColorStop(0.5, '#FF6600');
       flameGradient.addColorStop(1, 'transparent');
       ctx.fillStyle = flameGradient;
       ctx.beginPath();
       ctx.moveTo(-PLAYER_WIDTH / 2 - 10, 17);
-      ctx.lineTo(-PLAYER_WIDTH / 2 - 7, 17 + flameSize);
-      ctx.lineTo(-PLAYER_WIDTH / 2 - 4, 17);
+      ctx.quadraticCurveTo(-PLAYER_WIDTH / 2 - 7, 17 + flameSize * 0.6, -PLAYER_WIDTH / 2 - 7, 17 + flameSize);
+      ctx.quadraticCurveTo(-PLAYER_WIDTH / 2 - 4, 17 + flameSize * 0.6, -PLAYER_WIDTH / 2 - 4, 17);
       ctx.fill();
     }
     
     // Spring shoes effect
     if (hasSpringShoes) {
+      ctx.shadowColor = '#00FF00';
+      ctx.shadowBlur = 10;
       ctx.fillStyle = '#00FF00';
       ctx.beginPath();
       ctx.ellipse(-8, PLAYER_HEIGHT / 2 - 5, 8, 5, 0, 0, Math.PI * 2);
@@ -756,6 +872,7 @@ export default function DonutJumpPage() {
       ctx.beginPath();
       ctx.ellipse(8, PLAYER_HEIGHT / 2 - 5, 8, 5, 0, 0, Math.PI * 2);
       ctx.fill();
+      ctx.shadowBlur = 0;
     }
     
     // Player body (PFP or fallback)
@@ -770,20 +887,20 @@ export default function DonutJumpPage() {
       ctx.drawImage(pfpImageRef.current, -radius, -radius, PLAYER_WIDTH, PLAYER_HEIGHT);
       ctx.restore();
       
-      // Border
+      // Glowing border
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = 3;
       ctx.shadowColor = '#F472B6';
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 20;
       ctx.beginPath();
       ctx.arc(0, 0, radius, 0, Math.PI * 2);
       ctx.stroke();
       ctx.shadowBlur = 0;
     } else {
-      // Fallback donut character
-      ctx.fillStyle = '#F472B6';
+      // Fallback donut character with glow
       ctx.shadowColor = '#F472B6';
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = '#F472B6';
       ctx.beginPath();
       ctx.arc(0, 0, radius, 0, Math.PI * 2);
       ctx.fill();
@@ -795,23 +912,40 @@ export default function DonutJumpPage() {
       ctx.arc(0, 0, radius / 3, 0, Math.PI * 2);
       ctx.fill();
       
-      // Eyes
-      ctx.fillStyle = '#000';
-      ctx.beginPath();
-      ctx.arc(-6, -3, 3, 0, Math.PI * 2);
-      ctx.arc(6, -3, 3, 0, Math.PI * 2);
-      ctx.fill();
+      // Sprinkles
+      const sprinkleColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFEAA7'];
+      for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2 + frameCountRef.current * 0.01;
+        const sx = Math.cos(angle) * radius * 0.6;
+        const sy = Math.sin(angle) * radius * 0.6;
+        ctx.fillStyle = sprinkleColors[i % sprinkleColors.length];
+        ctx.beginPath();
+        ctx.roundRect(sx - 3, sy - 1.5, 6, 3, 1);
+        ctx.fill();
+      }
     }
     
-    // Shield effect
+    // Shield effect with animated particles
     if (hasShieldRef.current) {
       ctx.strokeStyle = '#00FFFF';
       ctx.lineWidth = 3;
       ctx.shadowColor = '#00FFFF';
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 25;
       ctx.beginPath();
       ctx.arc(0, 0, radius + 10, 0, Math.PI * 2);
       ctx.stroke();
+      
+      // Rotating particles
+      const shieldTime = frameCountRef.current * 0.1;
+      for (let i = 0; i < 6; i++) {
+        const angle = shieldTime + (i / 6) * Math.PI * 2;
+        const sx = Math.cos(angle) * (radius + 10);
+        const sy = Math.sin(angle) * (radius + 10);
+        ctx.fillStyle = '#00FFFF';
+        ctx.beginPath();
+        ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.shadowBlur = 0;
     }
     
@@ -825,6 +959,19 @@ export default function DonutJumpPage() {
     const float = Math.sin(coin.sparklePhase) * 3;
     const pulse = 1 + Math.sin(coin.sparklePhase * 2) * 0.1;
     
+    // Draw trail
+    if (coin.trail && coin.trail.length > 0) {
+      coin.trail.forEach((t) => {
+        const trailScreenY = t.y - cameraYRef.current;
+        ctx.globalAlpha = t.alpha;
+        ctx.fillStyle = '#F472B6';
+        ctx.beginPath();
+        ctx.arc(t.x, trailScreenY, 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+    
     ctx.save();
     ctx.translate(coin.x, screenY + float);
     ctx.scale(pulse, pulse);
@@ -836,7 +983,7 @@ export default function DonutJumpPage() {
     if (donutImageRef.current && donutLoadedRef.current) {
       ctx.drawImage(donutImageRef.current, -COIN_SIZE / 2, -COIN_SIZE / 2, COIN_SIZE, COIN_SIZE);
     } else {
-      // Fallback coin - pink
+      // Fallback coin - pink donut
       ctx.fillStyle = '#F472B6';
       ctx.beginPath();
       ctx.arc(0, 0, COIN_SIZE / 2, 0, Math.PI * 2);
@@ -846,6 +993,14 @@ export default function DonutJumpPage() {
       ctx.arc(0, 0, COIN_SIZE / 4, 0, Math.PI * 2);
       ctx.fill();
     }
+    
+    // Sparkle effect
+    const sparkleAlpha = 0.3 + Math.sin(coin.sparklePhase * 1.5) * 0.3;
+    ctx.fillStyle = `rgba(255, 255, 255, ${sparkleAlpha})`;
+    const sparkleSize = 2 + Math.sin(coin.sparklePhase) * 1;
+    ctx.beginPath();
+    ctx.arc(COIN_SIZE / 3, -COIN_SIZE / 3, sparkleSize, 0, Math.PI * 2);
+    ctx.fill();
     
     ctx.shadowBlur = 0;
     ctx.restore();
@@ -864,11 +1019,11 @@ export default function DonutJumpPage() {
     
     // Glow
     ctx.shadowColor = config.color;
-    ctx.shadowBlur = 20;
+    ctx.shadowBlur = 25;
     
-    // Background
+    // Background with gradient
     const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 20);
-    gradient.addColorStop(0, config.color + '80');
+    gradient.addColorStop(0, config.color + '60');
     gradient.addColorStop(1, config.color + '20');
     ctx.fillStyle = gradient;
     ctx.beginPath();
@@ -882,6 +1037,14 @@ export default function DonutJumpPage() {
     ctx.arc(0, 0, 18, 0, Math.PI * 2);
     ctx.stroke();
     
+    // Spinning highlight
+    const highlightAngle = frameCountRef.current * 0.05;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, 18, highlightAngle, highlightAngle + Math.PI * 0.5);
+    ctx.stroke();
+    
     // Icon
     ctx.shadowBlur = 0;
     ctx.font = '16px serif';
@@ -893,38 +1056,59 @@ export default function DonutJumpPage() {
   }, []);
   
   const drawParticles = useCallback((ctx: CanvasRenderingContext2D) => {
-    particlesRef.current.forEach((p, i) => {
+    // Use filter instead of splice in forEach
+    particlesRef.current = particlesRef.current.filter(p => {
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.1; // Gravity on particles
+      p.vy += 0.1; // Gravity
       p.life -= 0.03;
       
-      if (p.life <= 0) {
-        particlesRef.current.splice(i, 1);
-        return;
-      }
+      if (p.life <= 0) return false;
       
       const screenY = p.y - cameraYRef.current;
-      if (screenY < -50 || screenY > CANVAS_HEIGHT + 50) return;
+      if (screenY < -50 || screenY > CANVAS_HEIGHT + 50) return true; // Keep but don't draw
       
       ctx.globalAlpha = p.life;
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, screenY, p.size * p.life, 0, Math.PI * 2);
-      ctx.fill();
+      
+      if (p.type === 'sparkle') {
+        // Star-shaped sparkle
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 5;
+        const size = p.size * p.life;
+        ctx.beginPath();
+        for (let i = 0; i < 4; i++) {
+          const angle = (i / 4) * Math.PI * 2 + frameCountRef.current * 0.1;
+          const x = p.x + Math.cos(angle) * size;
+          const y = screenY + Math.sin(angle) * size;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, screenY, p.size * p.life, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      return true;
     });
     ctx.globalAlpha = 1;
   }, []);
   
   const drawHUD = useCallback((ctx: CanvasRenderingContext2D) => {
-    // Score with donut coin image
+    const zone = currentZoneRef.current;
+    
+    // Score with donut coin image and glow
+    ctx.shadowColor = '#F472B6';
+    ctx.shadowBlur = 10;
     ctx.fillStyle = '#FFFFFF';
     ctx.font = 'bold 24px monospace';
     ctx.textAlign = 'left';
-    ctx.shadowColor = '#000';
-    ctx.shadowBlur = 4;
     
-    // Draw donut coin image
     if (donutImageRef.current && donutLoadedRef.current) {
       ctx.drawImage(donutImageRef.current, 12, 22, 22, 22);
       ctx.fillText(`${coinsCollectedRef.current}`, 40, 40);
@@ -933,7 +1117,16 @@ export default function DonutJumpPage() {
     }
     ctx.shadowBlur = 0;
     
-    // Active power-ups
+    // Zone indicator
+    ctx.font = '10px monospace';
+    ctx.fillStyle = zone.accent;
+    ctx.fillText(zone.name.toUpperCase(), 15, 55);
+    
+    // Height indicator
+    ctx.fillStyle = '#666';
+    ctx.fillText(`${Math.floor(maxHeightRef.current)}m`, 15, 68);
+    
+    // Active power-ups with progress rings
     const now = Date.now();
     const activePowerUps = activePowerUpsRef.current.filter(p => p.endTime > now);
     
@@ -977,42 +1170,78 @@ export default function DonutJumpPage() {
       ctx.textBaseline = 'middle';
       ctx.fillText('🛡️', x, 40);
     }
+  }, []);
+  
+  // Enhanced control visual feedback
+  const drawControlFeedback = useCallback((ctx: CanvasRenderingContext2D) => {
+    const leftFeedback = controlFeedbackRef.current.left;
+    const rightFeedback = controlFeedbackRef.current.right;
     
-    // Tap zone indicators at bottom
-    const zoneY = CANVAS_HEIGHT - 60;
-    const zoneHeight = 50;
-    const zoneWidth = CANVAS_WIDTH / 2 - 10;
+    // Fade out feedback
+    controlFeedbackRef.current.left = Math.max(0, leftFeedback - 0.05);
+    controlFeedbackRef.current.right = Math.max(0, rightFeedback - 0.05);
     
-    // Left tap zone
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 5]);
-    ctx.strokeRect(5, zoneY, zoneWidth, zoneHeight);
-    ctx.setLineDash([]);
+    // Left side glow when pressed
+    if (leftFeedback > 0) {
+      const gradient = ctx.createLinearGradient(0, 0, 60, 0);
+      gradient.addColorStop(0, `rgba(244, 114, 182, ${leftFeedback * 0.3})`);
+      gradient.addColorStop(1, 'transparent');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 60, CANVAS_HEIGHT);
+      
+      // Direction arrow
+      ctx.globalAlpha = leftFeedback * 0.5;
+      ctx.fillStyle = '#F472B6';
+      ctx.beginPath();
+      ctx.moveTo(30, CANVAS_HEIGHT / 2 - 20);
+      ctx.lineTo(15, CANVAS_HEIGHT / 2);
+      ctx.lineTo(30, CANVAS_HEIGHT / 2 + 20);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
     
-    // Left arrow
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.beginPath();
-    ctx.moveTo(zoneWidth / 2 + 5, zoneY + zoneHeight / 2 - 12);
-    ctx.lineTo(zoneWidth / 2 - 15, zoneY + zoneHeight / 2);
-    ctx.lineTo(zoneWidth / 2 + 5, zoneY + zoneHeight / 2 + 12);
-    ctx.closePath();
-    ctx.fill();
+    // Right side glow when pressed
+    if (rightFeedback > 0) {
+      const gradient = ctx.createLinearGradient(CANVAS_WIDTH - 60, 0, CANVAS_WIDTH, 0);
+      gradient.addColorStop(0, 'transparent');
+      gradient.addColorStop(1, `rgba(244, 114, 182, ${rightFeedback * 0.3})`);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(CANVAS_WIDTH - 60, 0, 60, CANVAS_HEIGHT);
+      
+      // Direction arrow
+      ctx.globalAlpha = rightFeedback * 0.5;
+      ctx.fillStyle = '#F472B6';
+      ctx.beginPath();
+      ctx.moveTo(CANVAS_WIDTH - 30, CANVAS_HEIGHT / 2 - 20);
+      ctx.lineTo(CANVAS_WIDTH - 15, CANVAS_HEIGHT / 2);
+      ctx.lineTo(CANVAS_WIDTH - 30, CANVAS_HEIGHT / 2 + 20);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
     
-    // Right tap zone
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.setLineDash([5, 5]);
-    ctx.strokeRect(CANVAS_WIDTH / 2 + 5, zoneY, zoneWidth, zoneHeight);
-    ctx.setLineDash([]);
-    
-    // Right arrow
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.beginPath();
-    ctx.moveTo(CANVAS_WIDTH / 2 + zoneWidth / 2 - 5, zoneY + zoneHeight / 2 - 12);
-    ctx.lineTo(CANVAS_WIDTH / 2 + zoneWidth / 2 + 15, zoneY + zoneHeight / 2);
-    ctx.lineTo(CANVAS_WIDTH / 2 + zoneWidth / 2 - 5, zoneY + zoneHeight / 2 + 12);
-    ctx.closePath();
-    ctx.fill();
+    // Subtle idle indicators (only when not pressing)
+    if (leftFeedback === 0 && rightFeedback === 0) {
+      const pulse = 0.1 + Math.sin(frameCountRef.current * 0.05) * 0.05;
+      
+      // Left hint
+      ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
+      ctx.beginPath();
+      ctx.moveTo(20, CANVAS_HEIGHT - 80);
+      ctx.lineTo(10, CANVAS_HEIGHT - 70);
+      ctx.lineTo(20, CANVAS_HEIGHT - 60);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Right hint
+      ctx.beginPath();
+      ctx.moveTo(CANVAS_WIDTH - 20, CANVAS_HEIGHT - 80);
+      ctx.lineTo(CANVAS_WIDTH - 10, CANVAS_HEIGHT - 70);
+      ctx.lineTo(CANVAS_WIDTH - 20, CANVAS_HEIGHT - 60);
+      ctx.closePath();
+      ctx.fill();
+    }
   }, []);
   
   // Game loop
@@ -1093,36 +1322,30 @@ export default function DonutJumpPage() {
     if (player.x < -PLAYER_WIDTH / 2) player.x = CANVAS_WIDTH + PLAYER_WIDTH / 2;
     if (player.x > CANVAS_WIDTH + PLAYER_WIDTH / 2) player.x = -PLAYER_WIDTH / 2;
     
-    // Platform collisions (only when falling)
+    // Platform collisions
     if (player.vy > 0) {
       for (const platform of platformsRef.current) {
         if (platform.broken) continue;
         
-        const screenY = platform.y - cameraYRef.current;
-        
-        // Check collision
         if (
           player.x > platform.x - PLAYER_WIDTH / 2 &&
           player.x < platform.x + platform.width + PLAYER_WIDTH / 2 &&
           player.y + PLAYER_HEIGHT / 2 > platform.y &&
           player.y + PLAYER_HEIGHT / 2 < platform.y + PLATFORM_HEIGHT + player.vy * delta
         ) {
-          // Handle platform type
           if (platform.type === 'breakable') {
             platform.broken = true;
             playBreakSound();
-            addParticles(platform.x + platform.width / 2, platform.y, '#8b5cf6', 10);
+            addParticles(platform.x + platform.width / 2, platform.y, '#8b5cf6', 10, 4, 'burst');
+            triggerScreenShake(5, 150);
             continue;
           }
           
           if (platform.type === 'disappearing') {
             platform.opacity = 0.5;
-            setTimeout(() => {
-              platform.broken = true;
-            }, 300);
+            setTimeout(() => { platform.broken = true; }, 300);
           }
           
-          // Bounce
           let jumpForce = hasSpringShoes ? SUPER_JUMP_FORCE : JUMP_FORCE;
           
           if (platform.hasSpring) {
@@ -1130,7 +1353,8 @@ export default function DonutJumpPage() {
             platform.springCompressed = true;
             setTimeout(() => { platform.springCompressed = false; }, 100);
             playSuperJumpSound();
-            addParticles(player.x, player.y + PLAYER_HEIGHT / 2, '#FF6600', 12, 5);
+            addParticles(player.x, player.y + PLAYER_HEIGHT / 2, '#FF6600', 12, 5, 'burst');
+            triggerScreenShake(8, 200);
           } else {
             playJumpSound();
           }
@@ -1142,19 +1366,25 @@ export default function DonutJumpPage() {
       }
     }
     
-    // Update camera (follow player when going up)
+    // Update camera
     const targetCameraY = player.y - CANVAS_HEIGHT * 0.4;
     if (targetCameraY < cameraYRef.current) {
       cameraYRef.current = targetCameraY;
     }
     
-    // Update max height (score)
+    // Update max height and zone
     const currentHeight = -player.y + CANVAS_HEIGHT;
     if (currentHeight > maxHeightRef.current) {
       maxHeightRef.current = currentHeight;
+      const newZone = getCurrentZone(currentHeight);
+      if (newZone !== currentZoneRef.current) {
+        currentZoneRef.current = newZone;
+        triggerScreenShake(5, 300);
+        addParticles(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, newZone.accent, 20, 5, 'sparkle');
+      }
     }
     
-    // Generate new platforms as we go up
+    // Generate new platforms
     const highestPlatform = Math.min(...platformsRef.current.map(p => p.y));
     if (highestPlatform > cameraYRef.current - CANVAS_HEIGHT) {
       const newY = highestPlatform - (MIN_PLATFORM_GAP + Math.random() * (MAX_PLATFORM_GAP - MIN_PLATFORM_GAP));
@@ -1164,7 +1394,7 @@ export default function DonutJumpPage() {
       maybeSpawnPowerUp(newPlatform);
     }
     
-    // Remove platforms below screen
+    // Remove elements below screen
     platformsRef.current = platformsRef.current.filter(p => p.y < cameraYRef.current + CANVAS_HEIGHT + 100);
     coinsRef.current = coinsRef.current.filter(c => c.y < cameraYRef.current + CANVAS_HEIGHT + 100);
     powerUpsRef.current = powerUpsRef.current.filter(p => p.y < cameraYRef.current + CANVAS_HEIGHT + 100);
@@ -1179,10 +1409,16 @@ export default function DonutJumpPage() {
       }
     });
     
-    // Coin collection
+    // Coin collection with trails and magnet
     const nowMs = Date.now();
     coinsRef.current.forEach(coin => {
       if (coin.collected) return;
+      
+      // Update trail
+      if (!coin.trail) coin.trail = [];
+      coin.trail.unshift({ x: coin.x, y: coin.y, alpha: 0.5 });
+      if (coin.trail.length > 5) coin.trail.pop();
+      coin.trail.forEach(t => t.alpha *= 0.8);
       
       // Magnet pull
       if (isMagnet) {
@@ -1202,9 +1438,9 @@ export default function DonutJumpPage() {
       if (dist < PLAYER_WIDTH / 2 + COIN_SIZE / 2) {
         coin.collected = true;
         coinsCollectedRef.current++;
-        console.log("[Donut Jump Client] Coin collected! Total:", coinsCollectedRef.current);
         playCoinSound();
-        addParticles(coin.x, coin.y, '#F472B6', 8);
+        addCoinCollectParticles(coin.x, coin.y);
+        triggerScreenShake(3, 100);
       }
     });
     
@@ -1218,21 +1454,21 @@ export default function DonutJumpPage() {
       if (dist < PLAYER_WIDTH / 2 + 20) {
         powerUp.collected = true;
         activatePowerUp(powerUp.type);
-        addParticles(powerUp.x, powerUp.y, POWERUP_CONFIG[powerUp.type].color, 15);
+        addParticles(powerUp.x, powerUp.y, POWERUP_CONFIG[powerUp.type].color, 15, 4, 'sparkle');
+        triggerScreenShake(5, 200);
       }
     });
     
     // Clean up expired power-ups
     activePowerUpsRef.current = activePowerUpsRef.current.filter(p => p.endTime > nowMs);
     
-    // Check game over (fell below screen)
+    // Check game over
     if (player.y > cameraYRef.current + CANVAS_HEIGHT + 50) {
-      // Shield saves you by bouncing back up!
       if (hasShieldRef.current) {
         hasShieldRef.current = false;
-        player.vy = SUPER_JUMP_FORCE * 1.5; // Strong bounce back up
-        player.y = cameraYRef.current + CANVAS_HEIGHT - 50; // Reset position to bottom of screen
-        addParticles(player.x, player.y, '#00FFFF', 25);
+        player.vy = SUPER_JUMP_FORCE * 1.5;
+        player.y = cameraYRef.current + CANVAS_HEIGHT - 50;
+        addParticles(player.x, player.y, '#00FFFF', 25, 5, 'burst');
         triggerScreenShake(10, 300);
         playSuperJumpSound();
       } else {
@@ -1275,6 +1511,9 @@ export default function DonutJumpPage() {
     const playerScreenY = player.y - cameraYRef.current;
     drawPlayer(ctx, playerScreenY);
     
+    // Draw control feedback
+    drawControlFeedback(ctx);
+    
     // Draw HUD
     drawHUD(ctx);
     
@@ -1283,8 +1522,9 @@ export default function DonutJumpPage() {
     gameLoopRef.current = requestAnimationFrame(gameLoop);
   }, [
     isPowerUpActive, activatePowerUp, generatePlatform, maybeSpawnCoin, maybeSpawnPowerUp,
-    drawBackground, drawPlatform, drawPlayer, drawCoin, drawPowerUp, drawParticles, drawHUD,
-    playJumpSound, playSuperJumpSound, playCoinSound, playBreakSound, addParticles, addJumpParticles, triggerScreenShake
+    drawBackground, drawPlatform, drawPlayer, drawCoin, drawPowerUp, drawParticles, drawHUD, drawControlFeedback,
+    playJumpSound, playSuperJumpSound, playCoinSound, playBreakSound, 
+    addParticles, addJumpParticles, addCoinCollectParticles, triggerScreenShake
   ]);
   
   const endGame = useCallback(() => {
@@ -1294,9 +1534,6 @@ export default function DonutJumpPage() {
     triggerScreenShake(15, 500);
     
     const finalScore = coinsCollectedRef.current;
-    const totalCoins = coinsRef.current.length;
-    const collectedCoins = coinsRef.current.filter(c => c.collected).length;
-    console.log("[Donut Jump Client] Game over - finalScore:", finalScore, "totalCoins:", totalCoins, "collectedCoins:", collectedCoins, "height:", maxHeightRef.current);
     setGameState("gameover");
     setHighScore(prev => Math.max(prev, finalScore));
     submitScore(finalScore);
@@ -1320,6 +1557,7 @@ export default function DonutJumpPage() {
   
   const startGame = useCallback(() => {
     initAudioContext();
+    initBackgroundElements();
     
     playerRef.current = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 100, vx: 0, vy: JUMP_FORCE, facingRight: true };
     platformsRef.current = [];
@@ -1327,7 +1565,6 @@ export default function DonutJumpPage() {
     powerUpsRef.current = [];
     activePowerUpsRef.current = [];
     particlesRef.current = [];
-    bgParticlesRef.current = [];
     
     cameraYRef.current = 0;
     maxHeightRef.current = 0;
@@ -1336,6 +1573,8 @@ export default function DonutJumpPage() {
     hasShieldRef.current = false;
     invincibleUntilRef.current = 0;
     screenShakeRef.current = { intensity: 0, duration: 0, startTime: 0 };
+    currentZoneRef.current = HEIGHT_ZONES[0];
+    controlFeedbackRef.current = { left: 0, right: 0 };
     
     generateInitialPlatforms();
     
@@ -1346,7 +1585,7 @@ export default function DonutJumpPage() {
     
     if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [initAudioContext, generateInitialPlatforms, gameLoop]);
+  }, [initAudioContext, initBackgroundElements, generateInitialPlatforms, gameLoop]);
   
   // Handle blockchain play
   const recordEntryAndStartGame = useCallback(async (hash: string) => {
@@ -1369,8 +1608,7 @@ export default function DonutJumpPage() {
       if (data.success) {
         setCurrentEntryId(data.entryId);
         currentEntryIdRef.current = data.entryId;
-        currentFidRef.current = context.user.fid;  // Store fid for score submission
-        console.log("[Donut Jump Client] Entry recorded, fid stored:", context.user.fid);
+        currentFidRef.current = context.user.fid;
         setPlayState('idle');
         resetWrite();
         startGame();
@@ -1415,9 +1653,11 @@ export default function DonutJumpPage() {
     }
   }, [writeError]);
   
-  // Touch/Mouse controls
+  // Enhanced touch controls
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (gameState !== "playing") return;
+    e.preventDefault();
+    
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     
@@ -1426,21 +1666,50 @@ export default function DonutJumpPage() {
     
     if (x < mid) {
       moveLeftRef.current = true;
+      leftTouchActiveRef.current = true;
+      controlFeedbackRef.current.left = 1;
     } else {
       moveRightRef.current = true;
+      rightTouchActiveRef.current = true;
+      controlFeedbackRef.current.right = 1;
     }
   }, [gameState]);
   
-  const handlePointerUp = useCallback(() => {
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const x = e.clientX - rect.left;
+    const mid = rect.width / 2;
+    
+    if (x < mid) {
+      moveLeftRef.current = false;
+      leftTouchActiveRef.current = false;
+    } else {
+      moveRightRef.current = false;
+      rightTouchActiveRef.current = false;
+    }
+  }, []);
+  
+  const handlePointerLeave = useCallback(() => {
     moveLeftRef.current = false;
     moveRightRef.current = false;
+    leftTouchActiveRef.current = false;
+    rightTouchActiveRef.current = false;
   }, []);
   
   // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'ArrowLeft' || e.code === 'KeyA') moveLeftRef.current = true;
-      if (e.code === 'ArrowRight' || e.code === 'KeyD') moveRightRef.current = true;
+      if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+        moveLeftRef.current = true;
+        controlFeedbackRef.current.left = 1;
+      }
+      if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+        moveRightRef.current = true;
+        controlFeedbackRef.current.right = 1;
+      }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'ArrowLeft' || e.code === 'KeyA') moveLeftRef.current = false;
@@ -1456,7 +1725,7 @@ export default function DonutJumpPage() {
   
   const handleShare = useCallback(async () => {
     const miniappUrl = "https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles";
-    const castText = `🍩⬆️ I just scored ${score} points in $DONUT Jump in the Sprinkles App! Think you can beat it?`;
+    const castText = `🍩⬆️ I scored ${score} in $DONUT Jump! Can you beat it?`;
     try {
       await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(miniappUrl)}`);
     } catch {
@@ -1474,14 +1743,14 @@ export default function DonutJumpPage() {
     let animationId: number;
     const startTime = performance.now();
     
-    // Initialize menu bg particles
-    const menuParticles: { x: number; y: number; size: number; alpha: number }[] = [];
-    for (let i = 0; i < 30; i++) {
+    const menuParticles: { x: number; y: number; size: number; alpha: number; speed: number }[] = [];
+    for (let i = 0; i < 40; i++) {
       menuParticles.push({
         x: Math.random() * CANVAS_WIDTH,
         y: Math.random() * CANVAS_HEIGHT,
         size: 1 + Math.random() * 2,
         alpha: 0.05 + Math.random() * 0.15,
+        speed: 0.2 + Math.random() * 0.3,
       });
     }
     
@@ -1489,22 +1758,27 @@ export default function DonutJumpPage() {
       const time = (performance.now() - startTime) / 1000;
       ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
       
-      // Dark gradient background like Flappy Donut
+      // Dark gradient background
       const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
       gradient.addColorStop(0, '#1a1a1a');
       gradient.addColorStop(1, '#0d0d0d');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       
-      // Background particles
+      // Animated particles
       menuParticles.forEach(p => {
+        p.y -= p.speed;
+        if (p.y < 0) {
+          p.y = CANVAS_HEIGHT;
+          p.x = Math.random() * CANVAS_WIDTH;
+        }
         ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
       });
       
-      // Grid lines
+      // Grid
       ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
       ctx.lineWidth = 1;
       for (let i = 0; i < CANVAS_WIDTH; i += 40) {
@@ -1520,19 +1794,21 @@ export default function DonutJumpPage() {
         ctx.stroke();
       }
       
-      // Title
+      // Title with glow
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 28px monospace';
+      ctx.font = 'bold 32px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('DONUT JUMP', CANVAS_WIDTH / 2, 60);
+      ctx.shadowColor = '#F472B6';
+      ctx.shadowBlur = 20;
+      ctx.fillText('DONUT JUMP', CANVAS_WIDTH / 2, 70);
+      ctx.shadowBlur = 0;
       
       if (gameState === "gameover") {
-        // Game over - show score prominently
+        // Game over display
         ctx.fillStyle = '#FF6B6B';
         ctx.font = 'bold 28px monospace';
         ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 150);
         
-        // Big score
         ctx.shadowColor = '#F472B6';
         ctx.shadowBlur = 20;
         ctx.fillStyle = '#FFFFFF';
@@ -1540,7 +1816,6 @@ export default function DonutJumpPage() {
         ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 240);
         ctx.shadowBlur = 0;
         
-        // "donuts collected" label
         ctx.fillStyle = '#888888';
         ctx.font = '16px monospace';
         if (donutImageRef.current && donutLoadedRef.current) {
@@ -1549,18 +1824,27 @@ export default function DonutJumpPage() {
         } else {
           ctx.fillText('donuts collected', CANVAS_WIDTH / 2, 278);
         }
+        
+        // Height
+        ctx.fillStyle = '#666';
+        ctx.font = '12px monospace';
+        ctx.fillText(`Max height: ${Math.floor(maxHeightRef.current)}m`, CANVAS_WIDTH / 2, 300);
       } else {
-        // Menu state - show floating platforms and bouncing character
+        // Menu animation - floating platforms and bouncing character
         for (let i = 0; i < 5; i++) {
           const y = 120 + i * 70 + Math.sin(time + i) * 10;
           const x = 50 + i * 60;
+          
+          ctx.shadowColor = '#4ade80';
+          ctx.shadowBlur = 10;
           const platformGradient = ctx.createLinearGradient(x, y, x, y + 15);
           platformGradient.addColorStop(0, '#4ade80');
           platformGradient.addColorStop(1, '#22c55e');
           ctx.fillStyle = platformGradient;
           ctx.beginPath();
-          ctx.roundRect(x, y, 70, 15, 5);
+          ctx.roundRect(x, y, 70, 15, 6);
           ctx.fill();
+          ctx.shadowBlur = 0;
         }
         
         // Bouncing character
@@ -1589,15 +1873,20 @@ export default function DonutJumpPage() {
           ctx.stroke();
           ctx.shadowBlur = 0;
         } else {
-          ctx.fillStyle = '#F472B6';
           ctx.shadowColor = '#F472B6';
           ctx.shadowBlur = 20;
+          ctx.fillStyle = '#F472B6';
           ctx.beginPath();
           ctx.arc(0, 0, 25, 0, Math.PI * 2);
           ctx.fill();
           ctx.shadowBlur = 0;
         }
         ctx.restore();
+        
+        // Instructions
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.font = '12px monospace';
+        ctx.fillText('Tap left/right to move', CANVAS_WIDTH / 2, 320);
       }
       
       animationId = requestAnimationFrame(draw);
@@ -1614,7 +1903,14 @@ export default function DonutJumpPage() {
       <style>{`
         .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        * { -webkit-tap-highlight-color: transparent !important; }
+        * { 
+          -webkit-tap-highlight-color: transparent !important;
+          -webkit-touch-callout: none !important;
+        }
+        main, main * {
+          -webkit-user-select: none !important;
+          user-select: none !important;
+        }
       `}</style>
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
@@ -1659,8 +1955,8 @@ export default function DonutJumpPage() {
               style={{ touchAction: "none" }}
               onPointerDown={handlePointerDown}
               onPointerUp={handlePointerUp}
-              onPointerLeave={handlePointerUp}
-              onPointerCancel={handlePointerUp}
+              onPointerLeave={handlePointerLeave}
+              onPointerCancel={handlePointerLeave}
               onContextMenu={(e) => e.preventDefault()}
             />
             
@@ -1670,8 +1966,8 @@ export default function DonutJumpPage() {
                 style={{ touchAction: "none" }}
                 onPointerDown={handlePointerDown}
                 onPointerUp={handlePointerUp}
-                onPointerLeave={handlePointerUp}
-                onPointerCancel={handlePointerUp}
+                onPointerLeave={handlePointerLeave}
+                onPointerCancel={handlePointerLeave}
               />
             )}
             
@@ -1734,12 +2030,12 @@ export default function DonutJumpPage() {
                 <HelpCircle className="w-4 h-4 text-white" />
                 How to Play
               </h2>
-              <div className="space-y-3 overflow-y-auto flex-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <div className="space-y-3 overflow-y-auto flex-1 hide-scrollbar">
                 <div className="flex gap-2.5">
                   <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">1</div>
                   <div>
-                    <div className="font-semibold text-white text-xs">Gameplay</div>
-                    <div className="text-[11px] text-gray-400 mt-0.5">Tap left or right side of the screen to move. Your character bounces automatically on platforms. Climb as high as you can!</div>
+                    <div className="font-semibold text-white text-xs">Controls</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">Tap and hold the left or right side of the screen to move. Your character bounces automatically on platforms!</div>
                   </div>
                 </div>
                 <div className="flex gap-2.5">
@@ -1769,8 +2065,8 @@ export default function DonutJumpPage() {
                 <div className="flex gap-2.5">
                   <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">4</div>
                   <div>
-                    <div className="font-semibold text-white text-xs">Scoring</div>
-                    <div className="text-[11px] text-gray-400 mt-0.5">Collect donuts to score points! The higher you climb, the more donuts appear.</div>
+                    <div className="font-semibold text-white text-xs">Zones</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">Climb higher to unlock new zones: Ground → Sky → Clouds → Space! Each zone has unique visuals.</div>
                   </div>
                 </div>
                 <div className="flex gap-2.5">
@@ -1806,7 +2102,7 @@ export default function DonutJumpPage() {
                 <span className="text-xs text-gray-400">Prize Pool</span>
                 <span className="text-sm font-bold text-green-400">${prizeInfo.totalPrize} USDC</span>
               </div>
-              <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', maxHeight: '50vh' }}>
+              <div className="flex-1 overflow-y-auto hide-scrollbar" style={{ maxHeight: '50vh' }}>
                 {leaderboard.length === 0 ? (
                   <div className="py-8 text-center">
                     <p className="text-zinc-500">No scores yet!</p>
