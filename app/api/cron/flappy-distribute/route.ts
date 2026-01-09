@@ -54,18 +54,15 @@ const FLAPPY_POOL_ABI = [
 // Prize share percentages (must match contract - 100% of prize pool)
 const PRIZE_SHARES = [3000, 2000, 1500, 1000, 800, 600, 500, 300, 200, 100];
 
-// Get current week number (weeks start on Friday 11PM UTC / 6PM EST)
-// Matches the backend week calculation, not the contract
+// Calculate current week number based on Friday 11PM UTC reset
+// Week 1 starts Friday Jan 3, 2025 at 11PM UTC
+// MUST match submit-score/route.ts exactly
 function getCurrentWeek(): number {
   const now = new Date();
-  // Epoch: Friday Dec 5, 2025 23:00 UTC (6PM EST)
-  const epoch = new Date(Date.UTC(2025, 11, 5, 23, 0, 0));
-  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-
-  const weeksSinceEpoch = Math.floor(
-    (now.getTime() - epoch.getTime()) / msPerWeek
-  );
-  return weeksSinceEpoch + 1;
+  const epoch = new Date('2025-01-03T23:00:00Z');
+  const diffMs = now.getTime() - epoch.getTime();
+  const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+  return diffWeeks + 1;
 }
 
 // Get the week that just ended (for distribution)
