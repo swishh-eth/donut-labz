@@ -35,14 +35,14 @@ interface Particle { x: number; y: number; vx: number; vy: number; life: number;
 interface UpgradeOption { type: UpgradeType; weaponType?: WeaponType; gadgetType?: GadgetType; title: string; description: string; icon: string; }
 
 const WEAPON_CONFIG: Record<WeaponType, WeaponConfig> = {
-  sprinkle_shot: { name: 'Sprinkle Shot', icon: '🍬', color: '#FF6B6B', baseDamage: 10, baseCooldown: 500, description: 'Fires sprinkles at nearest enemy' },
-  frosting_ring: { name: 'Frosting Ring', icon: '🔵', color: '#60A5FA', baseDamage: 8, baseCooldown: 100, description: 'Rotating ring of frosting damage' },
-  glaze_wave: { name: 'Glaze Wave', icon: '🌊', color: '#F472B6', baseDamage: 15, baseCooldown: 2000, description: 'Periodic wave damages all nearby' },
-  sugar_stars: { name: 'Sugar Stars', icon: '⭐', color: '#FBBF24', baseDamage: 6, baseCooldown: 800, description: 'Shoots stars in all directions' },
-  orbiting_donuts: { name: 'Orbiting Donuts', icon: '🍩', color: '#F472B6', baseDamage: 12, baseCooldown: 50, description: 'Donuts orbit around you' },
-  cinnamon_trail: { name: 'Cinnamon Trail', icon: '🔥', color: '#F97316', baseDamage: 5, baseCooldown: 100, description: 'Leave a damaging trail behind' },
-  candy_cannon: { name: 'Candy Cannon', icon: '💣', color: '#A78BFA', baseDamage: 25, baseCooldown: 1500, description: 'Explosive candy balls' },
-  mint_missiles: { name: 'Mint Missiles', icon: '🚀', color: '#4ADE80', baseDamage: 8, baseCooldown: 600, description: 'Homing mint projectiles' },
+  sprinkle_shot: { name: 'Sprinkle Shot', icon: '◆', color: '#FF6B6B', baseDamage: 10, baseCooldown: 500, description: 'Fires sprinkles at nearest enemy' },
+  frosting_ring: { name: 'Frosting Ring', icon: '◎', color: '#60A5FA', baseDamage: 8, baseCooldown: 100, description: 'Rotating ring of frosting damage' },
+  glaze_wave: { name: 'Glaze Wave', icon: '◈', color: '#F472B6', baseDamage: 15, baseCooldown: 2000, description: 'Periodic wave damages all nearby' },
+  sugar_stars: { name: 'Sugar Stars', icon: '✦', color: '#FBBF24', baseDamage: 6, baseCooldown: 800, description: 'Shoots stars in all directions' },
+  orbiting_donuts: { name: 'Orbiting Donuts', icon: '◉', color: '#F472B6', baseDamage: 12, baseCooldown: 50, description: 'Donuts orbit around you' },
+  cinnamon_trail: { name: 'Cinnamon Trail', icon: '▬', color: '#F97316', baseDamage: 5, baseCooldown: 100, description: 'Leave a burning trail that damages enemies' },
+  candy_cannon: { name: 'Candy Cannon', icon: '●', color: '#A78BFA', baseDamage: 25, baseCooldown: 1500, description: 'Explosive candy balls' },
+  mint_missiles: { name: 'Mint Missiles', icon: '▲', color: '#4ADE80', baseDamage: 8, baseCooldown: 600, description: 'Homing missiles with small explosions' },
 };
 
 // Games required to unlock each starter weapon
@@ -73,14 +73,14 @@ interface GadgetConfig {
 }
 
 const GADGET_CONFIG: Record<GadgetType, GadgetConfig> = {
-  sugar_rush: { name: 'Sugar Rush', icon: '⚡', color: '#FBBF24', description: '+20% Move Speed', effect: 'speed' },
-  thicc_glaze: { name: 'Thicc Glaze', icon: '🛡️', color: '#60A5FA', description: '+30 Max HP', effect: 'max_hp' },
-  sprinkle_magnet: { name: 'Sprinkle Magnet', icon: '🧲', color: '#A78BFA', description: '+40% Pickup Range', effect: 'magnet' },
-  donut_armor: { name: 'Donut Armor', icon: '🍩', color: '#F472B6', description: '-15% Damage Taken', effect: 'defense' },
-  hyper_icing: { name: 'Hyper Icing', icon: '💪', color: '#FF6B6B', description: '+15% All Damage', effect: 'damage' },
-  golden_sprinkles: { name: 'Golden Sprinkles', icon: '✨', color: '#FFD700', description: '+25% XP Gain', effect: 'xp_gain' },
-  choco_shield: { name: 'Choco Shield', icon: '🍫', color: '#8B4513', description: '+0.5s Invincibility', effect: 'invincibility' },
-  candy_rush: { name: 'Candy Rush', icon: '🍭', color: '#FF69B4', description: '-10% Weapon Cooldowns', effect: 'cooldown' },
+  sugar_rush: { name: 'Sugar Rush', icon: '↯', color: '#FBBF24', description: '+20% Move Speed', effect: 'speed' },
+  thicc_glaze: { name: 'Thicc Glaze', icon: '▣', color: '#60A5FA', description: '+30 Max HP', effect: 'max_hp' },
+  sprinkle_magnet: { name: 'Sprinkle Magnet', icon: '⊕', color: '#A78BFA', description: '+40% Pickup Range', effect: 'magnet' },
+  donut_armor: { name: 'Donut Armor', icon: '○', color: '#F472B6', description: '-15% Damage Taken', effect: 'defense' },
+  hyper_icing: { name: 'Hyper Icing', icon: '★', color: '#FF6B6B', description: '+15% All Damage', effect: 'damage' },
+  golden_sprinkles: { name: 'Golden Sprinkles', icon: '✧', color: '#FFD700', description: '+25% XP Gain', effect: 'xp_gain' },
+  choco_shield: { name: 'Choco Shield', icon: '■', color: '#8B4513', description: '+0.5s Invincibility', effect: 'invincibility' },
+  candy_rush: { name: 'Candy Rush', icon: '◇', color: '#FF69B4', description: '-10% Weapon Cooldowns', effect: 'cooldown' },
 };
 
 // Gadgets are all available in-game (no unlock requirements)
@@ -347,14 +347,16 @@ export default function DonutSurvivorsPage() {
           projectilesRef.current.push({ x: player.x, y: player.y, vx: Math.cos(angle) * 6, vy: Math.sin(angle) * 6, damage, size: 12 + weapon.level, color: config.color, piercing: 99, lifetime: 80, weaponType: weapon.type });
         }
       } else if (weapon.type === 'mint_missiles') {
-        // Homing missiles that track enemies
-        const missileCount = 1 + Math.floor(weapon.level / 2);
+        // Homing missiles that track enemies with small explosions
+        const missileCount = 2 + Math.floor(weapon.level / 2);
         const targets = enemiesRef.current.slice().sort((a, b) => 
           Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y)
         ).slice(0, missileCount);
         targets.forEach((target, i) => {
           const angle = Math.atan2(target.y - player.y, target.x - player.x);
-          projectilesRef.current.push({ x: player.x, y: player.y, vx: Math.cos(angle) * 7, vy: Math.sin(angle) * 7, damage, size: 8, color: config.color, piercing: 0, lifetime: 90, weaponType: weapon.type });
+          // Spread missiles slightly
+          const spreadAngle = angle + (i - (targets.length - 1) / 2) * 0.15;
+          projectilesRef.current.push({ x: player.x, y: player.y, vx: Math.cos(spreadAngle) * 6, vy: Math.sin(spreadAngle) * 6, damage, size: 8, color: config.color, piercing: 0, lifetime: 100, weaponType: weapon.type });
         });
       }
     });
@@ -378,14 +380,14 @@ export default function DonutSurvivorsPage() {
         const radius = 40 + weapon.level * 8;
         enemiesRef.current.forEach(e => { const d = Math.hypot(e.x - player.x, e.y - player.y); if (d < radius + 10 && d > radius - 10) { e.hp -= damage; if (Math.random() < 0.1) addDamageNumber(e.x, e.y - e.size, Math.floor(damage * 10)); } });
       } else if (weapon.type === 'cinnamon_trail') {
-        if (frameCountRef.current % 3 === 0) trailPointsRef.current.push({ x: player.x, y: player.y, life: 30 + weapon.level * 10 });
+        if (frameCountRef.current % 3 === 0) trailPointsRef.current.push({ x: player.x, y: player.y, life: 60 + weapon.level * 15 });
       }
     });
     
     const trailWeapon = weaponsRef.current.find(w => w.type === 'cinnamon_trail');
     if (trailWeapon) {
       const damage = WEAPON_CONFIG['cinnamon_trail'].baseDamage * (1 + (trailWeapon.level - 1) * 0.3) * player.damage * 0.05;
-      trailPointsRef.current = trailPointsRef.current.filter(p => { p.life -= delta; enemiesRef.current.forEach(e => { if (Math.hypot(e.x - p.x, e.y - p.y) < 15 + trailWeapon.level * 2) e.hp -= damage; }); return p.life > 0; });
+      trailPointsRef.current = trailPointsRef.current.filter(p => { p.life -= delta; enemiesRef.current.forEach(e => { if (Math.hypot(e.x - p.x, e.y - p.y) < 18 + trailWeapon.level * 3) e.hp -= damage; }); return p.life > 0; });
     }
   }, [addDamageNumber, playHitSound]);
 
@@ -501,7 +503,7 @@ export default function DonutSurvivorsPage() {
   const drawTrail = useCallback((ctx: CanvasRenderingContext2D) => {
     const cam = cameraRef.current, tw = weaponsRef.current.find(w => w.type === 'cinnamon_trail');
     if (!tw) return;
-    trailPointsRef.current.forEach(p => { const alpha = p.life / (30 + tw.level * 10); ctx.fillStyle = `rgba(249,115,22,${alpha * 0.6})`; ctx.beginPath(); ctx.arc(p.x - cam.x, p.y - cam.y, 8 + tw.level * 2, 0, Math.PI * 2); ctx.fill(); });
+    trailPointsRef.current.forEach(p => { const alpha = p.life / (60 + tw.level * 15); ctx.fillStyle = `rgba(249,115,22,${alpha * 0.6})`; ctx.beginPath(); ctx.arc(p.x - cam.x, p.y - cam.y, 10 + tw.level * 3, 0, Math.PI * 2); ctx.fill(); });
   }, []);
 
   const drawXPOrbs = useCallback((ctx: CanvasRenderingContext2D) => {
@@ -638,34 +640,53 @@ export default function DonutSurvivorsPage() {
 
   const drawHUD = useCallback((ctx: CanvasRenderingContext2D) => {
     const p = playerRef.current, gt = Math.floor((performance.now() - gameStartTimeRef.current) / 1000), m = Math.floor(gt / 60), s = gt % 60;
-    ctx.fillStyle = '#FFF'; ctx.font = 'bold 20px monospace'; ctx.textAlign = 'center'; ctx.fillText(`${m}:${s.toString().padStart(2, '0')}`, CANVAS_WIDTH / 2, 30);
-    ctx.font = '12px monospace'; ctx.fillStyle = '#F472B6'; ctx.fillText(`LV ${p.level}`, CANVAS_WIDTH / 2, 48);
-    ctx.textAlign = 'left'; ctx.fillStyle = '#FFF'; ctx.font = '14px monospace'; ctx.fillText(`☠ ${enemiesKilledRef.current}`, 15, 30);
-    const hp = p.hp / p.maxHp; ctx.fillStyle = '#333'; ctx.fillRect(15, CANVAS_HEIGHT - 35, 100, 10); ctx.fillStyle = hp > 0.5 ? '#4ADE80' : hp > 0.25 ? '#FBBF24' : '#FF6B6B'; ctx.fillRect(15, CANVAS_HEIGHT - 35, 100 * hp, 10);
-    ctx.fillStyle = '#FFF'; ctx.font = '10px monospace'; ctx.fillText(`${Math.ceil(p.hp)}/${p.maxHp}`, 15, CANVAS_HEIGHT - 40);
-    ctx.fillStyle = '#333'; ctx.fillRect(15, CANVAS_HEIGHT - 20, CANVAS_WIDTH - 30, 8); ctx.fillStyle = '#F472B6'; ctx.fillRect(15, CANVAS_HEIGHT - 20, (CANVAS_WIDTH - 30) * (p.xp / p.xpToLevel), 8);
+    
+    // Timer (center top)
+    ctx.fillStyle = '#FFF'; ctx.font = 'bold 18px monospace'; ctx.textAlign = 'center'; 
+    ctx.fillText(`${m}:${s.toString().padStart(2, '0')}`, CANVAS_WIDTH / 2, 28);
+    ctx.font = '10px monospace'; ctx.fillStyle = '#F472B6'; 
+    ctx.fillText(`LV ${p.level}`, CANVAS_WIDTH / 2, 44);
+    
+    // Kill count (left)
+    ctx.textAlign = 'left'; ctx.fillStyle = '#888'; ctx.font = '12px monospace'; 
+    ctx.fillText(`${enemiesKilledRef.current} kills`, 15, 28);
+    
+    // HP bar
+    const hp = p.hp / p.maxHp; 
+    ctx.fillStyle = '#1a1a1a'; 
+    ctx.fillRect(15, CANVAS_HEIGHT - 35, 100, 8);
+    ctx.fillStyle = hp > 0.5 ? '#4ADE80' : hp > 0.25 ? '#FBBF24' : '#FF6B6B'; 
+    ctx.fillRect(15, CANVAS_HEIGHT - 35, 100 * hp, 8);
+    ctx.fillStyle = '#666'; ctx.font = '9px monospace'; 
+    ctx.fillText(`${Math.ceil(p.hp)}/${p.maxHp}`, 15, CANVAS_HEIGHT - 40);
+    
+    // XP bar
+    ctx.fillStyle = '#1a1a1a'; 
+    ctx.fillRect(15, CANVAS_HEIGHT - 22, CANVAS_WIDTH - 30, 6); 
+    ctx.fillStyle = '#F472B6'; 
+    ctx.fillRect(15, CANVAS_HEIGHT - 22, (CANVAS_WIDTH - 30) * (p.xp / p.xpToLevel), 6);
     
     // Draw weapons (top right)
     ctx.textAlign = 'right'; 
     weaponsRef.current.forEach((w, i) => { 
       const c = WEAPON_CONFIG[w.type]; 
-      ctx.font = '16px serif'; 
-      ctx.fillText(c.icon, CANVAS_WIDTH - 15 - i * 24, 30); 
+      ctx.font = 'bold 16px monospace';
+      ctx.fillStyle = c.color;
+      ctx.fillText(c.icon, CANVAS_WIDTH - 15 - i * 26, 28); 
       ctx.font = '8px monospace'; 
-      ctx.fillStyle = '#F472B6'; 
-      ctx.fillText(w.level.toString(), CANVAS_WIDTH - 10 - i * 24, 40); 
       ctx.fillStyle = '#FFF'; 
+      ctx.fillText(w.level.toString(), CANVAS_WIDTH - 10 - i * 26, 38); 
     });
     
     // Draw gadgets (below weapons)
     gadgetsRef.current.forEach((g, i) => { 
       const c = GADGET_CONFIG[g.type]; 
-      ctx.font = '14px serif'; 
-      ctx.fillText(c.icon, CANVAS_WIDTH - 15 - i * 22, 58); 
+      ctx.font = 'bold 14px monospace';
+      ctx.fillStyle = c.color;
+      ctx.fillText(c.icon, CANVAS_WIDTH - 15 - i * 24, 56); 
       ctx.font = '7px monospace'; 
-      ctx.fillStyle = '#60A5FA'; 
-      ctx.fillText(g.stacks.toString(), CANVAS_WIDTH - 10 - i * 22, 67); 
-      ctx.fillStyle = '#FFF'; 
+      ctx.fillStyle = '#888'; 
+      ctx.fillText('×' + g.stacks.toString(), CANVAS_WIDTH - 10 - i * 24, 65); 
     });
   }, []);
 
@@ -762,6 +783,20 @@ export default function DonutSurvivorsPage() {
             });
             addParticles(proj.x, proj.y, '#A78BFA', 20, 6);
             triggerScreenShake(5, 100);
+            return false;
+          }
+          
+          // Mint missile small explosion
+          if (proj.weaponType === 'mint_missiles') {
+            const explosionRadius = 35;
+            enemiesRef.current.forEach(other => {
+              if (other !== e && Math.hypot(other.x - proj.x, other.y - proj.y) < explosionRadius) {
+                other.hp -= proj.damage * 0.5;
+                other.hitFlash = 5;
+                addDamageNumber(other.x, other.y - other.size, Math.floor(proj.damage * 0.5));
+              }
+            });
+            addParticles(proj.x, proj.y, '#4ADE80', 12, 4);
             return false;
           }
           
@@ -873,24 +908,77 @@ export default function DonutSurvivorsPage() {
     const draw = () => {
       const t = (performance.now() - start) / 1000;
       ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
-      ctx.fillStyle = '#0d0d0d'; ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-      ctx.strokeStyle = 'rgba(255,255,255,0.03)'; const off = (t * 20) % 50;
-      for (let x = -off; x < CANVAS_WIDTH; x += 50) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CANVAS_HEIGHT); ctx.stroke(); }
-      for (let y = -off; y < CANVAS_HEIGHT; y += 50) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_WIDTH, y); ctx.stroke(); }
-      for (let i = 0; i < 8; i++) { const ex = ((t * 30 + i * 80) % (CANVAS_WIDTH + 40)) - 20, ey = 100 + Math.sin(t + i * 2) * 30 + i * 40, c = ENEMY_CONFIG[(['sprinkle', 'gummy', 'candy_corn'] as EnemyType[])[i % 3]]; ctx.fillStyle = c.color + '60'; ctx.beginPath(); ctx.arc(ex, ey, c.size, 0, Math.PI * 2); ctx.fill(); }
-      ctx.fillStyle = '#FFF'; ctx.font = 'bold 28px monospace'; ctx.textAlign = 'center'; ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 20;
-      ctx.fillText('DONUT', CANVAS_WIDTH / 2, 70); ctx.fillText('SURVIVORS', CANVAS_WIDTH / 2, 100); ctx.shadowBlur = 0;
       
-      const py = 180 + Math.sin(t * 2) * 10;
-      const playerRadius = 30;
+      // Dark gradient background
+      const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+      gradient.addColorStop(0, '#0a0a0a');
+      gradient.addColorStop(1, '#151515');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      
+      // Subtle grid
+      ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+      ctx.lineWidth = 1;
+      const gridSize = 40;
+      const off = (t * 10) % gridSize;
+      for (let x = -off; x < CANVAS_WIDTH + gridSize; x += gridSize) { 
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CANVAS_HEIGHT); ctx.stroke(); 
+      }
+      for (let y = -off; y < CANVAS_HEIGHT + gridSize; y += gridSize) { 
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_WIDTH, y); ctx.stroke(); 
+      }
+      
+      // Floating particles
+      for (let i = 0; i < 12; i++) { 
+        const px = ((t * 15 + i * 50) % (CANVAS_WIDTH + 20)) - 10;
+        const py = 50 + Math.sin(t * 0.5 + i * 1.5) * 20 + i * 35;
+        const alpha = 0.15 + Math.sin(t + i) * 0.1;
+        const size = 3 + Math.sin(t * 2 + i) * 1;
+        ctx.fillStyle = `rgba(244, 114, 182, ${alpha})`;
+        ctx.beginPath(); 
+        ctx.arc(px, py, size, 0, Math.PI * 2); 
+        ctx.fill(); 
+      }
+      
+      // Title with glow
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#F472B6';
+      ctx.shadowBlur = 30;
+      ctx.fillStyle = '#FFF';
+      ctx.font = 'bold 32px monospace';
+      ctx.fillText('DONUT', CANVAS_WIDTH / 2, 65);
+      ctx.font = 'bold 24px monospace';
+      ctx.fillStyle = '#F472B6';
+      ctx.fillText('SURVIVORS', CANVAS_WIDTH / 2, 95);
+      ctx.restore();
+      
+      // Decorative line
+      ctx.strokeStyle = 'rgba(244, 114, 182, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(CANVAS_WIDTH / 2 - 60, 110);
+      ctx.lineTo(CANVAS_WIDTH / 2 + 60, 110);
+      ctx.stroke();
+      
+      const py = 175 + Math.sin(t * 1.5) * 8;
+      const playerRadius = 28;
+      
+      // Player glow ring
+      ctx.save();
+      ctx.strokeStyle = `rgba(244, 114, 182, ${0.2 + Math.sin(t * 3) * 0.1})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(CANVAS_WIDTH / 2, py, playerRadius + 10 + Math.sin(t * 2) * 3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
       
       // Draw player (PFP or donut fallback)
       ctx.save();
       ctx.shadowColor = '#F472B6';
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 25;
       
       if (pfpImageRef.current && pfpLoadedRef.current) {
-        // Draw PFP with circular clip
         ctx.beginPath();
         ctx.arc(CANVAS_WIDTH / 2, py, playerRadius, 0, Math.PI * 2);
         ctx.closePath();
@@ -898,10 +986,9 @@ export default function DonutSurvivorsPage() {
         ctx.drawImage(pfpImageRef.current, CANVAS_WIDTH / 2 - playerRadius, py - playerRadius, playerRadius * 2, playerRadius * 2);
         ctx.restore();
         
-        // Draw border glow
         ctx.save();
         ctx.strokeStyle = '#F472B6';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2;
         ctx.shadowColor = '#F472B6';
         ctx.shadowBlur = 15;
         ctx.beginPath();
@@ -909,28 +996,88 @@ export default function DonutSurvivorsPage() {
         ctx.stroke();
         ctx.restore();
       } else {
-        // Fallback donut
         ctx.fillStyle = '#F472B6';
         ctx.beginPath();
         ctx.arc(CANVAS_WIDTH / 2, py, playerRadius, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
-        ctx.fillStyle = '#0d0d0d';
+        ctx.fillStyle = '#0a0a0a';
         ctx.beginPath();
-        ctx.arc(CANVAS_WIDTH / 2, py, 10, 0, Math.PI * 2);
+        ctx.arc(CANVAS_WIDTH / 2, py, 9, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
       
-      // Orbiting donuts
-      for (let i = 0; i < 3; i++) { const a = t * 2 + (i / 3) * Math.PI * 2, ox = CANVAS_WIDTH / 2 + Math.cos(a) * 60, oy = py + Math.sin(a) * 60; ctx.fillStyle = '#F472B6'; ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(ox, oy, 10, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#0d0d0d'; ctx.beginPath(); ctx.arc(ox, oy, 3, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
+      // Orbiting elements
+      for (let i = 0; i < 4; i++) { 
+        const a = t * 1.5 + (i / 4) * Math.PI * 2;
+        const orbitRadius = 55;
+        const ox = CANVAS_WIDTH / 2 + Math.cos(a) * orbitRadius;
+        const oy = py + Math.sin(a) * orbitRadius * 0.6; // Elliptical orbit
+        const size = 6 + Math.sin(t * 3 + i) * 1;
+        
+        ctx.save();
+        ctx.fillStyle = '#F472B6';
+        ctx.shadowColor = '#F472B6';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(ox, oy, size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#0a0a0a';
+        ctx.beginPath();
+        ctx.arc(ox, oy, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
       
       if (gameState === "gameover") {
-        ctx.fillStyle = '#FF6B6B'; ctx.font = 'bold 24px monospace'; ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 255);
-        ctx.fillStyle = '#FFF'; ctx.font = 'bold 36px monospace'; ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 290);
-        ctx.fillStyle = '#888'; ctx.font = '12px monospace'; ctx.fillText(`Time: ${Math.floor(survivalTime / 60)}:${(survivalTime % 60).toString().padStart(2, '0')} | Kills: ${killCount}`, CANVAS_WIDTH / 2, 315);
-        ctx.fillStyle = '#F472B6'; ctx.font = '10px monospace'; ctx.fillText(`High Score: ${highScore}`, CANVAS_WIDTH / 2, 335);
-      } else { ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '12px monospace'; ctx.fillText('Drag to move • Auto-attack', CANVAS_WIDTH / 2, 265); ctx.fillText('Survive as long as you can!', CANVAS_WIDTH / 2, 285); }
+        // Game over screen
+        ctx.save();
+        ctx.textAlign = 'center';
+        
+        // Red glow for game over
+        ctx.shadowColor = '#FF6B6B';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = '#FF6B6B';
+        ctx.font = 'bold 22px monospace';
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 255);
+        ctx.shadowBlur = 0;
+        
+        // Score
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 40px monospace';
+        ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 295);
+        
+        // Stats
+        ctx.fillStyle = '#666';
+        ctx.font = '11px monospace';
+        const mins = Math.floor(survivalTime / 60);
+        const secs = (survivalTime % 60).toString().padStart(2, '0');
+        ctx.fillText(`${mins}:${secs}  ·  ${killCount} kills`, CANVAS_WIDTH / 2, 320);
+        
+        // High score
+        if (score >= highScore) {
+          ctx.fillStyle = '#F472B6';
+          ctx.font = 'bold 10px monospace';
+          ctx.fillText('NEW HIGH SCORE', CANVAS_WIDTH / 2, 340);
+        } else {
+          ctx.fillStyle = '#444';
+          ctx.font = '10px monospace';
+          ctx.fillText(`Best: ${highScore}`, CANVAS_WIDTH / 2, 340);
+        }
+        ctx.restore();
+      } else { 
+        // Menu instructions
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.font = '11px monospace';
+        ctx.fillText('Drag to move · Auto-attack', CANVAS_WIDTH / 2, 260);
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.font = '10px monospace';
+        ctx.fillText('Survive the swarm', CANVAS_WIDTH / 2, 278);
+        ctx.restore();
+      }
       id = requestAnimationFrame(draw);
     };
     id = requestAnimationFrame(draw);
@@ -952,65 +1099,78 @@ export default function DonutSurvivorsPage() {
         <div className="relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
           <canvas ref={canvasRef} width={SCALED_WIDTH} height={SCALED_HEIGHT} className="rounded-2xl border border-zinc-800 w-full h-full" style={{ touchAction: "none", WebkitUserSelect: "none", userSelect: "none" }} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={e => e.preventDefault()} onTouchStart={e => { if (gameState === "playing") e.preventDefault(); }} onTouchMove={e => e.preventDefault()} onTouchEnd={e => e.preventDefault()} />
           {gameState === "levelup" && (
-            <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center p-4 z-30 rounded-2xl">
-              <h2 className="text-2xl font-bold text-yellow-400 mb-2">LEVEL UP!</h2>
-              <p className="text-sm text-zinc-400 mb-3">
-                {banMode ? 'Select an upgrade to BAN' : `Level ${playerLevel} - Choose an upgrade`}
-              </p>
-              <div className="flex flex-col gap-2 w-full max-w-[280px]">
-                {upgradeOptions.map((opt, i) => (
-                  <button 
-                    key={i} 
-                    onClick={() => {
-                      if (banMode) {
-                        // Ban this upgrade
-                        const banKey = opt.type === 'weapon' ? `weapon:${opt.weaponType}` : `gadget:${opt.gadgetType}`;
-                        setBansLeft(b => b - 1);
-                        setBannedUpgrades(prev => [...prev, banKey]);
-                        setBanMode(false);
-                        generateUpgradeOptions();
-                      } else {
-                        applyUpgrade(opt);
-                      }
-                    }} 
-                    className={`flex items-center gap-3 p-3 bg-zinc-900 border rounded-xl transition-all active:scale-95 ${
-                      banMode 
-                        ? 'border-red-500 hover:bg-red-500/20 hover:border-red-400' 
-                        : opt.type === 'weapon' 
-                          ? 'border-pink-500/50 hover:border-pink-500 hover:bg-zinc-800' 
-                          : 'border-blue-500/50 hover:border-blue-500 hover:bg-zinc-800'
-                    }`}
-                  >
-                    <span className="text-2xl">{opt.icon}</span>
-                    <div className="flex-1 text-left">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-white text-sm">{opt.title}</span>
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded ${
-                          banMode 
-                            ? 'bg-red-500/20 text-red-400'
-                            : opt.type === 'weapon' 
-                              ? 'bg-pink-500/20 text-pink-400' 
-                              : 'bg-blue-500/20 text-blue-400'
-                        }`}>
-                          {banMode ? 'CLICK TO BAN' : opt.type === 'weapon' ? 'WEAPON' : 'GADGET'}
-                        </span>
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-30 rounded-2xl">
+              <div className="text-[10px] text-yellow-400/60 uppercase tracking-widest mb-1">Level {playerLevel}</div>
+              <h2 className="text-xl font-bold text-white mb-3">
+                {banMode ? 'Select to Ban' : 'Choose Upgrade'}
+              </h2>
+              <div className="flex flex-col gap-2 w-full max-w-[290px]">
+                {upgradeOptions.map((opt, i) => {
+                  const config = opt.type === 'weapon' && opt.weaponType 
+                    ? WEAPON_CONFIG[opt.weaponType] 
+                    : opt.type === 'gadget' && opt.gadgetType 
+                      ? GADGET_CONFIG[opt.gadgetType] 
+                      : null;
+                  const iconColor = config?.color || '#FFF';
+                  
+                  return (
+                    <button 
+                      key={i} 
+                      onClick={() => {
+                        if (banMode) {
+                          const banKey = opt.type === 'weapon' ? `weapon:${opt.weaponType}` : `gadget:${opt.gadgetType}`;
+                          setBansLeft(b => b - 1);
+                          setBannedUpgrades(prev => [...prev, banKey]);
+                          setBanMode(false);
+                          generateUpgradeOptions();
+                        } else {
+                          applyUpgrade(opt);
+                        }
+                      }} 
+                      className={`flex items-center gap-3 p-3 bg-zinc-900/80 border rounded-lg transition-all active:scale-[0.98] ${
+                        banMode 
+                          ? 'border-red-500/70 hover:bg-red-500/15 hover:border-red-400' 
+                          : opt.type === 'weapon' 
+                            ? 'border-zinc-700/50 hover:border-pink-500/70 hover:bg-zinc-800/80' 
+                            : 'border-zinc-700/50 hover:border-blue-500/70 hover:bg-zinc-800/80'
+                      }`}
+                    >
+                      <span 
+                        className="text-2xl font-bold w-8 text-center"
+                        style={{ color: banMode ? '#FF6B6B' : iconColor }}
+                      >
+                        {opt.icon}
+                      </span>
+                      <div className="flex-1 text-left">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-white text-sm">{opt.title}</span>
+                          <span className={`text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                            banMode 
+                              ? 'bg-red-500/20 text-red-400'
+                              : opt.type === 'weapon' 
+                                ? 'bg-pink-500/15 text-pink-400' 
+                                : 'bg-blue-500/15 text-blue-400'
+                          }`}>
+                            {banMode ? 'Ban' : opt.type}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-zinc-500 mt-0.5">{opt.description}</div>
                       </div>
-                      <div className="text-xs text-zinc-400">{opt.description}</div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-4 flex gap-2">
                 <button 
                   onClick={() => { if (rerollsLeft > 0) { setRerollsLeft(r => r - 1); generateUpgradeOptions(); } }}
                   disabled={rerollsLeft <= 0 || banMode}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
                     rerollsLeft > 0 && !banMode
-                      ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 hover:bg-yellow-500/30' 
-                      : 'bg-zinc-800 text-zinc-600 border border-zinc-700 cursor-not-allowed'
+                      ? 'bg-zinc-800 text-yellow-400 border border-zinc-700 hover:border-yellow-500/50 hover:bg-zinc-700' 
+                      : 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed'
                   }`}
                 >
-                  🔄 Reroll ({rerollsLeft})
+                  ↻ Reroll ({rerollsLeft})
                 </button>
                 <button 
                   onClick={() => {
@@ -1021,19 +1181,19 @@ export default function DonutSurvivorsPage() {
                     }
                   }}
                   disabled={bansLeft <= 0 && !banMode}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
                     banMode
-                      ? 'bg-red-500 text-white border border-red-400 hover:bg-red-600'
+                      ? 'bg-red-500 text-white border border-red-400'
                       : bansLeft > 0 
-                        ? 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30' 
-                        : 'bg-zinc-800 text-zinc-600 border border-zinc-700 cursor-not-allowed'
+                        ? 'bg-zinc-800 text-red-400 border border-zinc-700 hover:border-red-500/50 hover:bg-zinc-700' 
+                        : 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed'
                   }`}
                 >
-                  {banMode ? '✕ Cancel' : `🚫 Ban (${bansLeft})`}
+                  {banMode ? '✕ Cancel' : `⊘ Ban (${bansLeft})`}
                 </button>
               </div>
-              <div className="mt-2 text-[10px] text-zinc-500">
-                Weapons: {weaponsRef.current.length}/{MAX_WEAPONS} • Gadgets: {gadgetsRef.current.length}/{MAX_GADGETS}
+              <div className="mt-3 text-[9px] text-zinc-600 font-medium">
+                {weaponsRef.current.length}/{MAX_WEAPONS} weapons · {gadgetsRef.current.length}/{MAX_GADGETS} gadgets
               </div>
             </div>
           )}
@@ -1043,21 +1203,21 @@ export default function DonutSurvivorsPage() {
               <div className="pointer-events-auto flex gap-2">
                 <button 
                   onClick={() => { setShowWeaponMenu(true); setShowGadgetInfo(false); }}
-                  className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-pink-500/50 rounded-lg hover:bg-pink-500/10"
+                  className="flex items-center gap-2 px-3 py-2 bg-zinc-900/90 backdrop-blur border border-pink-500/50 rounded-lg hover:bg-pink-500/10 transition-all"
                 >
-                  <span className="text-lg">{WEAPON_CONFIG[selectedStarterWeapon].icon}</span>
+                  <span className="text-xl font-bold" style={{ color: WEAPON_CONFIG[selectedStarterWeapon].color }}>{WEAPON_CONFIG[selectedStarterWeapon].icon}</span>
                   <div className="text-left">
-                    <div className="text-[9px] text-pink-400">WEAPON</div>
+                    <div className="text-[9px] text-pink-400 uppercase tracking-wider">Weapon</div>
                     <div className="text-xs font-medium">{WEAPON_CONFIG[selectedStarterWeapon].name}</div>
                   </div>
                 </button>
                 <button 
                   onClick={() => { setShowGadgetInfo(true); setShowWeaponMenu(false); }}
-                  className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-blue-500/50 rounded-lg hover:bg-blue-500/10"
+                  className="flex items-center gap-2 px-3 py-2 bg-zinc-900/90 backdrop-blur border border-blue-500/50 rounded-lg hover:bg-blue-500/10 transition-all"
                 >
-                  <span className="text-lg">📦</span>
+                  <span className="text-xl font-bold text-blue-400">◈</span>
                   <div className="text-left">
-                    <div className="text-[9px] text-blue-400">GADGETS</div>
+                    <div className="text-[9px] text-blue-400 uppercase tracking-wider">Gadgets</div>
                     <div className="text-xs font-medium">View All</div>
                   </div>
                 </button>
@@ -1065,7 +1225,7 @@ export default function DonutSurvivorsPage() {
               
               {/* Play Buttons */}
               <div className="pointer-events-auto flex gap-2">
-                <button onClick={startGame} className="flex items-center gap-2 px-6 py-2 bg-green-500 text-black font-bold rounded-full hover:bg-green-400 active:scale-95">
+                <button onClick={startGame} className="flex items-center gap-2 px-6 py-2.5 bg-green-500 text-black font-bold rounded-lg hover:bg-green-400 active:scale-95 transition-all shadow-lg shadow-green-500/20">
                   <Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span>
                 </button>
                 <button 
@@ -1075,22 +1235,22 @@ export default function DonutSurvivorsPage() {
                     const randomWeapon = unlockedWeapons[Math.floor(Math.random() * unlockedWeapons.length)];
                     setSelectedStarterWeapon(randomWeapon);
                   }}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white font-bold rounded-full hover:bg-purple-400 active:scale-95"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-zinc-800 text-white font-bold rounded-lg hover:bg-zinc-700 active:scale-95 transition-all border border-zinc-700"
                 >
                   <Shuffle className="w-4 h-4" /> <span className="text-sm">Random</span>
                 </button>
               </div>
               
-              <div className="text-[9px] text-zinc-500">{gamesPlayed} games played</div>
+              <div className="text-[10px] text-zinc-500 font-medium">{gamesPlayed} games played</div>
             </div>
           )}
           
           {/* Weapon Selection Menu */}
           {showWeaponMenu && (
-            <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-4 z-40 rounded-2xl">
-              <h2 className="text-xl font-bold text-pink-400 mb-1">Select Weapon</h2>
-              <p className="text-xs text-zinc-400 mb-4">{gamesPlayed} games played</p>
-              <div className="grid grid-cols-4 gap-2 max-w-[280px]">
+            <div className="absolute inset-0 bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-40 rounded-2xl">
+              <div className="text-[10px] text-pink-400/60 uppercase tracking-widest mb-1">Select</div>
+              <h2 className="text-xl font-bold text-white mb-4">Starting Weapon</h2>
+              <div className="grid grid-cols-4 gap-2.5 max-w-[290px]">
                 {STARTER_WEAPON_ORDER.map((weaponType) => {
                   const config = WEAPON_CONFIG[weaponType];
                   const required = WEAPON_UNLOCK_REQUIREMENTS[weaponType];
@@ -1102,66 +1262,79 @@ export default function DonutSurvivorsPage() {
                       key={weaponType}
                       onClick={() => isUnlocked && setSelectedStarterWeapon(weaponType)}
                       disabled={!isUnlocked}
-                      className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-lg border-2 transition-all ${
+                      className={`relative flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 transition-all ${
                         isSelected 
-                          ? 'border-pink-500 bg-pink-500/20' 
+                          ? 'border-pink-500 bg-pink-500/15 shadow-lg shadow-pink-500/20' 
                           : isUnlocked 
-                            ? 'border-zinc-700 bg-zinc-900 hover:border-zinc-500' 
-                            : 'border-zinc-800 bg-zinc-900/50 opacity-50'
+                            ? 'border-zinc-700/50 bg-zinc-900/80 hover:border-zinc-500 hover:bg-zinc-800/80' 
+                            : 'border-zinc-800/50 bg-zinc-900/30'
                       }`}
                     >
-                      <span className="text-xl">{config.icon}</span>
+                      <span 
+                        className="text-2xl font-bold transition-all"
+                        style={{ color: isUnlocked ? config.color : '#444' }}
+                      >
+                        {config.icon}
+                      </span>
                       {!isUnlocked && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/70 rounded-lg">
-                          <span className="text-[8px] text-zinc-400">🔒{required}</span>
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/80 rounded-lg">
+                          <span className="text-[9px] text-zinc-500 font-medium">{required}</span>
                         </div>
                       )}
                     </button>
                   );
                 })}
               </div>
-              <div className="mt-3 text-center">
-                <div className="text-sm font-bold text-white">{WEAPON_CONFIG[selectedStarterWeapon].name}</div>
-                <div className="text-xs text-zinc-400">{WEAPON_CONFIG[selectedStarterWeapon].description}</div>
+              <div className="mt-4 text-center">
+                <div className="text-sm font-bold" style={{ color: WEAPON_CONFIG[selectedStarterWeapon].color }}>
+                  {WEAPON_CONFIG[selectedStarterWeapon].name}
+                </div>
+                <div className="text-xs text-zinc-400 mt-0.5">{WEAPON_CONFIG[selectedStarterWeapon].description}</div>
               </div>
               <button 
                 onClick={() => setShowWeaponMenu(false)}
-                className="mt-4 px-6 py-2 bg-zinc-800 text-white rounded-full hover:bg-zinc-700"
+                className="mt-5 px-8 py-2 bg-zinc-800 text-white text-sm font-medium rounded-lg hover:bg-zinc-700 transition-all border border-zinc-700"
               >
-                Done
+                Confirm
               </button>
+              <div className="mt-3 text-[10px] text-zinc-600">{gamesPlayed} games played</div>
             </div>
           )}
           
           {/* Gadget Info Popup */}
           {showGadgetInfo && (
-            <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-4 z-40 rounded-2xl">
-              <h2 className="text-xl font-bold text-blue-400 mb-1">Gadgets</h2>
-              <p className="text-xs text-zinc-400 mb-4">Earn these through level ups!</p>
-              <div className="flex flex-col gap-2 w-full max-w-[280px] max-h-[300px] overflow-y-auto">
+            <div className="absolute inset-0 bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-40 rounded-2xl">
+              <div className="text-[10px] text-blue-400/60 uppercase tracking-widest mb-1">Available</div>
+              <h2 className="text-xl font-bold text-white mb-4">Gadgets</h2>
+              <div className="grid grid-cols-2 gap-2 w-full max-w-[300px]">
                 {GADGET_ORDER.map((gadgetType) => {
                   const config = GADGET_CONFIG[gadgetType];
                   
                   return (
                     <div
                       key={gadgetType}
-                      className="flex items-center gap-3 p-2 bg-zinc-900 border border-zinc-700 rounded-lg"
+                      className="flex items-center gap-2.5 p-2.5 bg-zinc-900/80 border border-zinc-800/50 rounded-lg"
                     >
-                      <span className="text-xl">{config.icon}</span>
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-white">{config.name}</div>
-                        <div className="text-xs text-zinc-400">{config.description}</div>
+                      <span 
+                        className="text-xl font-bold"
+                        style={{ color: config.color }}
+                      >
+                        {config.icon}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-white truncate">{config.name}</div>
+                        <div className="text-[10px] text-zinc-500">{config.description}</div>
                       </div>
                     </div>
                   );
                 })}
               </div>
-              <p className="mt-3 text-[10px] text-zinc-500 text-center">
-                Max 4 gadgets • Stack up to 5× each
+              <p className="mt-4 text-[10px] text-zinc-500 text-center">
+                Earn through level ups · Max 4 · Stack up to 5×
               </p>
               <button 
                 onClick={() => setShowGadgetInfo(false)}
-                className="mt-3 px-6 py-2 bg-zinc-800 text-white rounded-full hover:bg-zinc-700"
+                className="mt-4 px-8 py-2 bg-zinc-800 text-white text-sm font-medium rounded-lg hover:bg-zinc-700 transition-all border border-zinc-700"
               >
                 Got it
               </button>
@@ -1169,8 +1342,8 @@ export default function DonutSurvivorsPage() {
           )}
         </div>
         <div className="mt-4 flex items-center gap-2">
-          <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500"><HelpCircle className="w-3 h-3 text-zinc-400" /><span className="text-xs">How to Play</span></button>
-          <button onClick={() => setIsMuted(!isMuted)} className={`flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border rounded-full hover:border-zinc-500 ${isMuted ? 'border-red-500/50' : 'border-zinc-700'}`}>{isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-400" />}<span className="text-xs">{isMuted ? 'Muted' : 'Sound'}</span></button>
+          <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900/80 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-all"><HelpCircle className="w-3 h-3 text-zinc-500" /><span className="text-[11px] text-zinc-400">Help</span></button>
+          <button onClick={() => setIsMuted(!isMuted)} className={`flex items-center gap-2 px-4 py-1.5 bg-zinc-900/80 border rounded-lg transition-all ${isMuted ? 'border-red-500/30' : 'border-zinc-800 hover:border-zinc-700'}`}>{isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-500" />}<span className="text-[11px] text-zinc-400">{isMuted ? 'Muted' : 'Sound'}</span></button>
         </div>
       </div>
       {showHelp && (
