@@ -11,8 +11,8 @@ const CANVAS_SCALE = 2;
 const SCALED_WIDTH = CANVAS_WIDTH * CANVAS_SCALE;
 const SCALED_HEIGHT = CANVAS_HEIGHT * CANVAS_SCALE;
 
-const WORLD_WIDTH = 1200;
-const WORLD_HEIGHT = 1200;
+const WORLD_WIDTH = 2000;
+const WORLD_HEIGHT = 2000;
 
 const PLAYER_SIZE = 36;
 const PLAYER_SPEED = 2.5;
@@ -521,6 +521,15 @@ export default function DonutSurvivorsPage() {
     ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, shakeX * CANVAS_SCALE, shakeY * CANVAS_SCALE);
 
     const p = playerRef.current, mx = moveInputRef.current.x, my = moveInputRef.current.y, ml = Math.hypot(mx, my);
+    
+    // Pause game logic during level up (only update visuals)
+    if (gameState === "levelup") {
+      // Just redraw without updating
+      drawBackground(ctx); drawTrail(ctx); drawXPOrbs(ctx); drawEnemies(ctx); drawProjectiles(ctx); drawOrbitingWeapons(ctx); drawPlayer(ctx); drawParticles(ctx); drawDamageNumbers(ctx); drawHUD(ctx);
+      gameLoopRef.current = requestAnimationFrame(gameLoop);
+      return;
+    }
+    
     if (ml > 0) { p.x += (mx / ml) * p.speed * delta; p.y += (my / ml) * p.speed * delta; }
     p.x = Math.max(PLAYER_SIZE / 2, Math.min(WORLD_WIDTH - PLAYER_SIZE / 2, p.x));
     p.y = Math.max(PLAYER_SIZE / 2, Math.min(WORLD_HEIGHT - PLAYER_SIZE / 2, p.y));
@@ -556,7 +565,7 @@ export default function DonutSurvivorsPage() {
     checkLevelUp();
     drawBackground(ctx); drawTrail(ctx); drawXPOrbs(ctx); drawEnemies(ctx); drawProjectiles(ctx); drawOrbitingWeapons(ctx); drawPlayer(ctx); drawParticles(ctx); drawDamageNumbers(ctx); drawHUD(ctx); drawJoystick(ctx);
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [spawnEnemy, fireWeapons, updateOrbitingWeapons, checkLevelUp, endGame, drawBackground, drawTrail, drawXPOrbs, drawEnemies, drawProjectiles, drawOrbitingWeapons, drawPlayer, drawParticles, drawDamageNumbers, drawHUD, drawJoystick, addDamageNumber, addParticles, playHitSound, playKillSound, playXPSound, playHurtSound, triggerScreenShake]);
+  }, [gameState, spawnEnemy, fireWeapons, updateOrbitingWeapons, checkLevelUp, endGame, drawBackground, drawTrail, drawXPOrbs, drawEnemies, drawProjectiles, drawOrbitingWeapons, drawPlayer, drawParticles, drawDamageNumbers, drawHUD, drawJoystick, addDamageNumber, addParticles, playHitSound, playKillSound, playXPSound, playHurtSound, triggerScreenShake]);
 
   const startGame = useCallback(() => {
     initAudioContext();
@@ -625,10 +634,51 @@ export default function DonutSurvivorsPage() {
       for (let i = 0; i < 8; i++) { const ex = ((t * 30 + i * 80) % (CANVAS_WIDTH + 40)) - 20, ey = 100 + Math.sin(t + i * 2) * 30 + i * 40, c = ENEMY_CONFIG[(['sprinkle', 'gummy', 'candy_corn'] as EnemyType[])[i % 3]]; ctx.fillStyle = c.color + '60'; ctx.beginPath(); ctx.arc(ex, ey, c.size, 0, Math.PI * 2); ctx.fill(); }
       ctx.fillStyle = '#FFF'; ctx.font = 'bold 28px monospace'; ctx.textAlign = 'center'; ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 20;
       ctx.fillText('DONUT', CANVAS_WIDTH / 2, 70); ctx.fillText('SURVIVORS', CANVAS_WIDTH / 2, 100); ctx.shadowBlur = 0;
+      
       const py = 180 + Math.sin(t * 2) * 10;
-      ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 20; ctx.fillStyle = '#F472B6'; ctx.beginPath(); ctx.arc(CANVAS_WIDTH / 2, py, 30, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
-      ctx.fillStyle = '#0d0d0d'; ctx.beginPath(); ctx.arc(CANVAS_WIDTH / 2, py, 10, 0, Math.PI * 2); ctx.fill();
+      const playerRadius = 30;
+      
+      // Draw player (PFP or donut fallback)
+      ctx.save();
+      ctx.shadowColor = '#F472B6';
+      ctx.shadowBlur = 20;
+      
+      if (pfpImageRef.current && pfpLoadedRef.current) {
+        // Draw PFP with circular clip
+        ctx.beginPath();
+        ctx.arc(CANVAS_WIDTH / 2, py, playerRadius, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(pfpImageRef.current, CANVAS_WIDTH / 2 - playerRadius, py - playerRadius, playerRadius * 2, playerRadius * 2);
+        ctx.restore();
+        
+        // Draw border glow
+        ctx.save();
+        ctx.strokeStyle = '#F472B6';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#F472B6';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(CANVAS_WIDTH / 2, py, playerRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        // Fallback donut
+        ctx.fillStyle = '#F472B6';
+        ctx.beginPath();
+        ctx.arc(CANVAS_WIDTH / 2, py, playerRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#0d0d0d';
+        ctx.beginPath();
+        ctx.arc(CANVAS_WIDTH / 2, py, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      
+      // Orbiting donuts
       for (let i = 0; i < 3; i++) { const a = t * 2 + (i / 3) * Math.PI * 2, ox = CANVAS_WIDTH / 2 + Math.cos(a) * 60, oy = py + Math.sin(a) * 60; ctx.fillStyle = '#F472B6'; ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(ox, oy, 10, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#0d0d0d'; ctx.beginPath(); ctx.arc(ox, oy, 3, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
+      
       if (gameState === "gameover") {
         ctx.fillStyle = '#FF6B6B'; ctx.font = 'bold 24px monospace'; ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 270);
         ctx.fillStyle = '#FFF'; ctx.font = 'bold 36px monospace'; ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 310);
