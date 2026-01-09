@@ -212,6 +212,17 @@ export default function DonutJumpPage() {
   const frameCountRef = useRef(0);
   const lastFrameTimeRef = useRef(performance.now());
   
+  // Anti-cheat metrics
+  const gameStartTimeRef = useRef(0);
+  const jumpCountRef = useRef(0);
+  const platformsLandedRef = useRef(0);
+  const powerUpsCollectedRef = useRef(0);
+  const springBouncesRef = useRef(0);
+  const maxComboRef = useRef(0);
+  const coinsPerSecondPeakRef = useRef(0);
+  const lastCoinTimeRef = useRef(0);
+  const recentCoinsRef = useRef<number[]>([]); // timestamps of recent coin collections
+  
   const hasShieldRef = useRef(false);
   const invincibleUntilRef = useRef(0);
   
@@ -327,11 +338,50 @@ export default function DonutJumpPage() {
     const entryId = currentEntryIdRef.current;
     const fid = currentFidRef.current;
     if (!entryId || !fid) return;
+    
+    // Calculate game metrics for anti-cheat
+    const gameDurationMs = Date.now() - gameStartTimeRef.current;
+    const maxHeight = Math.floor(maxHeightRef.current);
+    const jumpCount = jumpCountRef.current;
+    const platformsLanded = platformsLandedRef.current;
+    const powerUpsCollected = powerUpsCollectedRef.current;
+    const springBounces = springBouncesRef.current;
+    const coinsPerSecondPeak = coinsPerSecondPeakRef.current;
+    
+    // Calculate some derived metrics for validation
+    const coinsPerMinute = gameDurationMs > 0 ? (finalScore / gameDurationMs) * 60000 : 0;
+    const heightPerJump = jumpCount > 0 ? maxHeight / jumpCount : 0;
+    const coinsPerPlatform = platformsLanded > 0 ? finalScore / platformsLanded : 0;
+    
+    // Simple checksum to make casual tampering harder
+    // Not cryptographically secure, but raises the bar
+    const metricsString = `${finalScore}-${gameDurationMs}-${maxHeight}-${jumpCount}-${platformsLanded}-${entryId}`;
+    const checksum = Array.from(metricsString).reduce((acc, char) => {
+      return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
+    }, 0).toString(16);
+    
+    const metrics = {
+      gameDurationMs,
+      maxHeight,
+      jumpCount,
+      platformsLanded,
+      powerUpsCollected,
+      springBounces,
+      coinsPerSecondPeak: Math.round(coinsPerSecondPeak * 100) / 100,
+      // Derived metrics for easier review
+      coinsPerMinute: Math.round(coinsPerMinute * 100) / 100,
+      heightPerJump: Math.round(heightPerJump * 100) / 100,
+      coinsPerPlatform: Math.round(coinsPerPlatform * 100) / 100,
+      checksum,
+    };
+    
+    console.log("[Donut Jump] Submitting score with metrics:", { finalScore, metrics });
+    
     try {
       await fetch("/api/games/donut-jump/submit-score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entryId, score: finalScore, fid }),
+        body: JSON.stringify({ entryId, score: finalScore, fid, metrics }),
       });
     } catch (error) {
       console.error("Failed to submit score:", error);
@@ -1346,6 +1396,10 @@ export default function DonutJumpPage() {
             setTimeout(() => { platform.broken = true; }, 300);
           }
           
+          // Track metrics
+          jumpCountRef.current++;
+          platformsLandedRef.current++;
+          
           let jumpForce = hasSpringShoes ? SUPER_JUMP_FORCE : JUMP_FORCE;
           
           if (platform.hasSpring) {
@@ -1355,6 +1409,7 @@ export default function DonutJumpPage() {
             playSuperJumpSound();
             addParticles(player.x, player.y + PLAYER_HEIGHT / 2, '#FF6600', 12, 5, 'burst');
             triggerScreenShake(8, 200);
+            springBouncesRef.current++; // Track spring bounces
           } else {
             playJumpSound();
           }
@@ -1441,6 +1496,16 @@ export default function DonutJumpPage() {
         playCoinSound();
         addCoinCollectParticles(coin.x, coin.y);
         triggerScreenShake(3, 100);
+        
+        // Track coin collection rate for anti-cheat
+        recentCoinsRef.current.push(nowMs);
+        // Keep only coins from last 3 seconds
+        recentCoinsRef.current = recentCoinsRef.current.filter(t => nowMs - t < 3000);
+        // Calculate coins per second (over 3 second window)
+        const coinsPerSecond = recentCoinsRef.current.length / 3;
+        if (coinsPerSecond > coinsPerSecondPeakRef.current) {
+          coinsPerSecondPeakRef.current = coinsPerSecond;
+        }
       }
     });
     
@@ -1456,6 +1521,7 @@ export default function DonutJumpPage() {
         activatePowerUp(powerUp.type);
         addParticles(powerUp.x, powerUp.y, POWERUP_CONFIG[powerUp.type].color, 15, 4, 'sparkle');
         triggerScreenShake(5, 200);
+        powerUpsCollectedRef.current++; // Track for anti-cheat
       }
     });
     
@@ -1575,6 +1641,17 @@ export default function DonutJumpPage() {
     screenShakeRef.current = { intensity: 0, duration: 0, startTime: 0 };
     currentZoneRef.current = HEIGHT_ZONES[0];
     controlFeedbackRef.current = { left: 0, right: 0 };
+    
+    // Reset anti-cheat metrics
+    gameStartTimeRef.current = Date.now();
+    jumpCountRef.current = 0;
+    platformsLandedRef.current = 0;
+    powerUpsCollectedRef.current = 0;
+    springBouncesRef.current = 0;
+    maxComboRef.current = 0;
+    coinsPerSecondPeakRef.current = 0;
+    lastCoinTimeRef.current = 0;
+    recentCoinsRef.current = [];
     
     generateInitialPlatforms();
     

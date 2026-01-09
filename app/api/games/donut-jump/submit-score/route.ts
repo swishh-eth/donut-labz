@@ -3,6 +3,70 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+// Anti-cheat metrics interface
+interface GameMetrics {
+  gameDurationMs: number;
+  maxHeight: number;
+  jumpCount: number;
+  platformsLanded: number;
+  powerUpsCollected: number;
+  springBounces: number;
+  coinsPerSecondPeak: number;
+  coinsPerMinute: number;
+  heightPerJump: number;
+  coinsPerPlatform: number;
+  checksum: string;
+}
+
+// Validate checksum matches the metrics
+function validateChecksum(score: number, metrics: GameMetrics, entryId: string): boolean {
+  const metricsString = `${score}-${metrics.gameDurationMs}-${metrics.maxHeight}-${metrics.jumpCount}-${metrics.platformsLanded}-${entryId}`;
+  const expectedChecksum = Array.from(metricsString).reduce((acc, char) => {
+    return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
+  }, 0).toString(16);
+  return metrics.checksum === expectedChecksum;
+}
+
+// Check for obvious cheating patterns
+function detectCheating(score: number, metrics: GameMetrics): { isSuspicious: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  
+  // Game too short for the score
+  if (metrics.gameDurationMs < 15000 && score > 5) {
+    reasons.push(`Game too short: ${metrics.gameDurationMs}ms with score ${score}`);
+  }
+  
+  // Impossibly fast coin collection (more than 5 per second sustained)
+  if (metrics.coinsPerSecondPeak > 6) {
+    reasons.push(`Impossible collection rate: ${metrics.coinsPerSecondPeak} coins/sec`);
+  }
+  
+  // No jumps but has score
+  if (metrics.jumpCount === 0 && score > 0) {
+    reasons.push(`No jumps recorded but score is ${score}`);
+  }
+  
+  // Score higher than platforms landed (impossible without cheating)
+  if (score > metrics.platformsLanded * 3 && metrics.platformsLanded > 0) {
+    reasons.push(`Score ${score} too high for ${metrics.platformsLanded} platforms`);
+  }
+  
+  // Coins per minute way too high (legit max is around 30-35)
+  if (metrics.coinsPerMinute > 50) {
+    reasons.push(`Coins per minute too high: ${metrics.coinsPerMinute}`);
+  }
+  
+  // Height per jump impossibly high (physics max is around 80)
+  if (metrics.heightPerJump > 120 && metrics.jumpCount > 5) {
+    reasons.push(`Height per jump impossible: ${metrics.heightPerJump}`);
+  }
+  
+  return {
+    isSuspicious: reasons.length > 0,
+    reasons
+  };
+}
+
 // Get current week number (weeks start on Friday 11PM UTC / 6PM EST)
 function getCurrentWeek(): number {
   const now = new Date();
@@ -23,9 +87,9 @@ export async function POST(req: NextRequest) {
     );
 
     const body = await req.json();
-    const { entryId, score, fid } = body;
+    const { entryId, score, fid, metrics } = body;
 
-    console.log("[Donut Jump] Submit score body:", { entryId, score, fid });
+    console.log("[Donut Jump] Submit score body:", { entryId, score, fid, hasMetrics: !!metrics });
 
     if (!entryId || score === undefined || !fid) {
       return NextResponse.json(
@@ -65,11 +129,52 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ALWAYS update this entry with the score
+    // Anti-cheat validation
+    let flagged = false;
+    let flagReasons: string[] = [];
+    let checksumValid = true;
+
+    if (metrics) {
+      // Validate checksum
+      checksumValid = validateChecksum(score, metrics, entryId);
+      if (!checksumValid) {
+        console.warn("[Donut Jump] Checksum mismatch for entry:", entryId);
+        flagReasons.push("Checksum mismatch - possible tampering");
+        flagged = true;
+      }
+
+      // Detect cheating patterns
+      const cheatingCheck = detectCheating(score, metrics);
+      if (cheatingCheck.isSuspicious) {
+        console.warn("[Donut Jump] Suspicious activity detected:", cheatingCheck.reasons);
+        flagReasons = [...flagReasons, ...cheatingCheck.reasons];
+        flagged = true;
+      }
+    } else if (score > 10) {
+      // No metrics submitted but score is significant - flag for review
+      flagged = true;
+      flagReasons.push("No metrics submitted with score > 10");
+    }
+
+    // Prepare metrics object for storage
+    const metricsToStore = metrics ? {
+      ...metrics,
+      checksumValid,
+      flagged,
+      flagReasons: flagReasons.length > 0 ? flagReasons : undefined,
+      submittedAt: new Date().toISOString(),
+    } : {
+      flagged: true,
+      flagReasons: ["No metrics provided"],
+      submittedAt: new Date().toISOString(),
+    };
+
+    // ALWAYS update this entry with the score (even if flagged - you review on Friday)
     const { error: updateError } = await supabase
       .from("donut_jump_scores")
       .update({ 
         score, 
+        metrics: metricsToStore,
         updated_at: new Date().toISOString() 
       })
       .eq("id", entryId);
@@ -79,7 +184,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Failed to submit score" }, { status: 500 });
     }
 
-    console.log("[Donut Jump] Score submitted:", score, "for entry:", entryId);
+    console.log("[Donut Jump] Score submitted:", score, "for entry:", entryId, "flagged:", flagged);
 
     // Get user's best score this week (across all their entries)
     const { data: userBestEntry } = await supabase
