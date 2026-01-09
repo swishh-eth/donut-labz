@@ -170,7 +170,7 @@ export default function DonutSurvivorsPage() {
   const [equipmentData, setEquipmentData] = useState<{ weapons: Weapon[], gadgets: Gadget[], player: any } | null>(null);
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
   const [leaderboard] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
-  const [isMusicOn, setIsMusicOn] = useState(false);
+  const [isMusicOn, setIsMusicOn] = useState(true);
   
   const playerRef = useRef({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 70, xpMultiplier: 1, defense: 0, invincibilityBonus: 0, cooldownReduction: 0, vx: 0, vy: 0 });
   const cameraRef = useRef({ x: 0, y: 0 });
@@ -712,13 +712,18 @@ export default function DonutSurvivorsPage() {
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
         <div className="flex items-center justify-between w-full mb-3">
           <div className="flex items-center gap-2">
-            <img src="/coins/donut_logo.png" alt="Donut" className="w-8 h-8" />
-            <span className="text-xl font-bold italic text-white">SURVIVORS</span>
+            <img src="/coins/donut_logo.png" alt="Donut" className="w-7 h-7" />
+            <span className="text-xl font-bold text-white">SURVIVORS</span>
           </div>
           {context?.user && (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-white font-medium">{context.user.displayName || context.user.username}</span>
-              {context.user.pfpUrl && <img src={context.user.pfpUrl} alt="" className="w-8 h-8 rounded-full" />}
+              <div className="text-right">
+                <div className="text-sm font-medium text-white">{context.user.displayName || context.user.username}</div>
+                {context.user.username && context.user.displayName && (
+                  <div className="text-xs text-zinc-400">@{context.user.username}</div>
+                )}
+              </div>
+              {context.user.pfpUrl && <img src={context.user.pfpUrl} alt="" className="w-9 h-9 rounded-full" />}
             </div>
           )}
         </div>
