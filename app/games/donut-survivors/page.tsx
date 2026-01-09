@@ -41,11 +41,20 @@ interface Weapon { type: WeaponType; level: number; lastFired: number; angle?: n
 interface Gadget { type: GadgetType; stacks: number; }
 interface Enemy { x: number; y: number; type: EnemyType; hp: number; maxHp: number; speed: number; size: number; xpValue: number; damage: number; color: string; hitFlash: number; spawnAnim: number; }
 interface Projectile { x: number; y: number; vx: number; vy: number; damage: number; size: number; color: string; piercing: number; lifetime: number; weaponType: WeaponType; trail: { x: number; y: number; life: number }[]; }
-interface XPOrb { x: number; y: number; value: number; size: number; collectAnim: number; }
+interface XPOrb { x: number; y: number; value: number; size: number; collectAnim: number; spawnTime: number; }
 interface DamageNumber { x: number; y: number; value: number; life: number; vy: number; isCrit?: boolean; }
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: string; size: number; type?: 'spark' | 'ring' | 'glow'; }
 interface UpgradeOption { type: UpgradeType; weaponType?: WeaponType; gadgetType?: GadgetType; title: string; description: string; icon: string; }
 interface LeaderboardEntry { rank: number; fid: number; username?: string; displayName?: string; pfpUrl?: string; score: number; }
+
+type PowerUpType = 'magnet_burst' | 'health' | 'freeze';
+interface PowerUp { x: number; y: number; type: PowerUpType; size: number; }
+
+const POWERUP_CONFIG: Record<PowerUpType, { icon: string; color: string; name: string }> = {
+  magnet_burst: { icon: '⊛', color: '#FF00FF', name: 'Magnet Burst' },
+  health: { icon: '♥', color: '#FF6B6B', name: 'Health' },
+  freeze: { icon: '❄', color: '#00FFFF', name: 'Freeze' },
+};
 
 const WEAPON_CONFIG: Record<WeaponType, { name: string; icon: string; color: string; baseDamage: number; baseCooldown: number; description: string }> = {
   sprinkle_shot: { name: 'Sprinkle Shot', icon: '◆', color: '#FF6B6B', baseDamage: 10, baseCooldown: 500, description: 'Fires sprinkles at nearest enemy' },
@@ -174,7 +183,9 @@ export default function DonutSurvivorsPage() {
   const particlesRef = useRef<Particle[]>([]);
   const damageNumbersRef = useRef<DamageNumber[]>([]);
   const trailPointsRef = useRef<{ x: number; y: number; life: number }[]>([]);
+  const powerUpsRef = useRef<PowerUp[]>([]);
   const enemyGridRef = useRef<Map<number, Enemy[]>>(new Map());
+  const freezeUntilRef = useRef(0);
   
   const gameActiveRef = useRef(false);
   const isPausedRef = useRef(false);
@@ -262,6 +273,7 @@ export default function DonutSurvivorsPage() {
   const playXP = useCallback(() => playSound(600 + Math.random() * 200, 0.04, 'sine', 0.04, 'xp'), [playSound]);
   const playHurt = useCallback(() => playSound(150, 0.15, 'sawtooth', 0.12, 'hurt'), [playSound]);
   const playLevelUp = useCallback(() => { if (isMuted || !audioContextRef.current) return; [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => playSound(f, 0.3, 'sine', 0.1), i * 80)); }, [isMuted, playSound]);
+  const playPowerUp = useCallback(() => { if (isMuted || !audioContextRef.current) return; [400, 600, 800, 1000].forEach((f, i) => setTimeout(() => playSound(f, 0.15, 'sine', 0.12), i * 50)); }, [isMuted, playSound]);
   
   // Music system - simple chiptune-style loop
   const startMusic = useCallback(() => {
@@ -488,24 +500,67 @@ export default function DonutSurvivorsPage() {
     enemiesRef.current = enemiesRef.current.filter(e => {
       e.hitFlash = Math.max(0, e.hitFlash - 1); e.spawnAnim = Math.max(0, e.spawnAnim - 0.05 * delta);
       if (e.type === 'final_boss') e.hp = e.maxHp;
-      const dx = p.x - e.x, dy = p.y - e.y, dist = Math.hypot(dx, dy); if (dist > 0) { e.x += (dx / dist) * e.speed * delta; e.y += (dy / dist) * e.speed * delta; }
+      const dx = p.x - e.x, dy = p.y - e.y, dist = Math.hypot(dx, dy); 
+      const isFrozen = now < freezeUntilRef.current;
+      if (dist > 0 && !isFrozen) { e.x += (dx / dist) * e.speed * delta; e.y += (dy / dist) * e.speed * delta; }
       if (e.type === 'final_boss' && dist < e.size + PLAYER_SIZE / 2) { p.hp = 0; shake(50, 1000); endGame(); return false; }
       if (dist < e.size + PLAYER_SIZE / 2 && Date.now() > invincibleUntilRef.current) { const dr = Math.min(p.defense || 0, 0.75), ad = Math.floor(e.damage * (1 - dr)); p.hp -= ad; invincibleUntilRef.current = Date.now() + 750 + (p.invincibilityBonus || 0); playHurt(); shake(10, 200); addParticles(p.x, p.y, '#FF6B6B', 10, 4); if (p.hp <= 0) { endGame(); return false; } }
-      if (e.hp <= 0) { const oc = e.type === 'boss' ? 20 : e.type === 'chocolate_chunk' ? 5 : 1; for (let i = 0; i < oc; i++) xpOrbsRef.current.push({ x: e.x + (Math.random() - 0.5) * (e.type === 'boss' ? 80 : 20), y: e.y + (Math.random() - 0.5) * (e.type === 'boss' ? 80 : 20), value: e.type === 'boss' ? 10 : e.xpValue, size: 6 + (e.type === 'boss' ? 10 : e.xpValue), collectAnim: 0 }); playKill(); addParticles(e.x, e.y, e.color, e.type === 'boss' ? 40 : 12, e.type === 'boss' ? 8 : 4); if (e.type === 'boss') shake(30, 800); enemiesKilledRef.current++; setKillCount(enemiesKilledRef.current); return false; }
+      if (e.hp <= 0) { 
+        const oc = e.type === 'boss' ? 20 : e.type === 'chocolate_chunk' ? 5 : 1; 
+        const now = performance.now();
+        for (let i = 0; i < oc; i++) xpOrbsRef.current.push({ x: e.x + (Math.random() - 0.5) * (e.type === 'boss' ? 80 : 20), y: e.y + (Math.random() - 0.5) * (e.type === 'boss' ? 80 : 20), value: e.type === 'boss' ? 10 : e.xpValue, size: 6 + (e.type === 'boss' ? 10 : e.xpValue), collectAnim: 0, spawnTime: now }); 
+        // Very rare powerup drops
+        const powerUpChance = e.type === 'boss' ? 1.0 : e.type === 'chocolate_chunk' ? 0.01 : 0.0025;
+        if (Math.random() < powerUpChance) {
+          const types: PowerUpType[] = ['magnet_burst', 'health', 'freeze'];
+          powerUpsRef.current.push({ x: e.x, y: e.y, type: types[Math.floor(Math.random() * types.length)], size: 14 });
+        }
+        playKill(); addParticles(e.x, e.y, e.color, e.type === 'boss' ? 40 : 12, e.type === 'boss' ? 8 : 4); if (e.type === 'boss') shake(30, 800); enemiesKilledRef.current++; setKillCount(enemiesKilledRef.current); return false; 
+      }
       return true;
     });
     
     xpOrbsRef.current = xpOrbsRef.current.filter(o => {
       const dx = p.x - o.x, dy = p.y - o.y, dist = Math.hypot(dx, dy);
+      const age = (now - o.spawnTime) / 1000; // age in seconds
+      
+      // Expire after 10 seconds
+      if (age > 10) return false;
+      
       if (o.collectAnim > 0) { o.collectAnim -= 0.1 * delta; return o.collectAnim > 0; }
       if (dist < p.magnetRange) { const sp = 5 * (1 - dist / p.magnetRange) + 2; o.x += (dx / dist) * sp * delta; o.y += (dy / dist) * sp * delta; }
       if (dist < PLAYER_SIZE / 2 + o.size) { p.xp += o.value * p.xpMultiplier; playXP(); o.collectAnim = 1; addParticles(o.x, o.y, '#F472B6', 4, 2, 'spark'); }
       return true;
     });
     
+    // Update and collect powerups
+    powerUpsRef.current = powerUpsRef.current.filter(pu => {
+      const dx = p.x - pu.x, dy = p.y - pu.y, dist = Math.hypot(dx, dy);
+      if (dist < PLAYER_SIZE / 2 + pu.size) {
+        playPowerUp();
+        addParticles(pu.x, pu.y, POWERUP_CONFIG[pu.type].color, 15, 5, 'ring');
+        
+        if (pu.type === 'magnet_burst') {
+          // Pull ALL xp orbs instantly to player
+          xpOrbsRef.current.forEach(o => { o.x = p.x; o.y = p.y; });
+          addParticles(p.x, p.y, '#FF00FF', 20, 8, 'ring');
+        } else if (pu.type === 'health') {
+          p.hp = Math.min(p.hp + 20, p.maxHp);
+          addParticles(p.x, p.y, '#FF6B6B', 15, 4, 'glow');
+        } else if (pu.type === 'freeze') {
+          freezeUntilRef.current = now + 10000; // Freeze for 10 seconds
+          addParticles(p.x, p.y, '#00FFFF', 25, 6, 'ring');
+          // Add freeze particles to all enemies
+          enemiesRef.current.forEach(e => addParticles(e.x, e.y, '#00FFFF', 5, 2, 'spark'));
+        }
+        return false;
+      }
+      return true;
+    });
+    
     checkLevelUp(); drawGame(ctx);
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [spawnEnemy, fireWeapons, updateOrbiting, checkLevelUp, endGame, addDmgNum, addParticles, playHit, playKill, playXP, playHurt, rebuildGrid, getEnemiesNear, shake]);
+  }, [spawnEnemy, fireWeapons, updateOrbiting, checkLevelUp, endGame, addDmgNum, addParticles, playHit, playKill, playXP, playHurt, playPowerUp, rebuildGrid, getEnemiesNear, shake]);
 
   const drawGame = useCallback((ctx: CanvasRenderingContext2D) => {
     const cam = cameraRef.current, p = playerRef.current;
@@ -523,9 +578,39 @@ export default function DonutSurvivorsPage() {
     const tw = weaponsRef.current.find(w => w.type === 'cinnamon_trail');
     if (tw) trailPointsRef.current.forEach(pt => { const a = pt.life / (60 + tw.level * 15); ctx.fillStyle = `rgba(249,115,22,${a * 0.6})`; ctx.beginPath(); ctx.arc(pt.x - cam.x, pt.y - cam.y, 10 + tw.level * 3, 0, Math.PI * 2); ctx.fill(); });
     
-    xpOrbsRef.current.forEach(o => { const sx = o.x - cam.x, sy = o.y - cam.y; if (sx < -20 || sx > CANVAS_WIDTH + 20 || sy < -20 || sy > CANVAS_HEIGHT + 20) return; const sc = o.collectAnim > 0 ? 1 + (1 - o.collectAnim) * 0.5 : 1, al = o.collectAnim > 0 ? o.collectAnim : 1; ctx.save(); ctx.globalAlpha = al; ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 10; if (donutImageRef.current && donutLoadedRef.current) ctx.drawImage(donutImageRef.current, sx - o.size * sc, sy - o.size * sc, o.size * 2 * sc, o.size * 2 * sc); else { ctx.fillStyle = '#F472B6'; ctx.beginPath(); ctx.arc(sx, sy, o.size * sc, 0, Math.PI * 2); ctx.fill(); } ctx.shadowBlur = 0; ctx.restore(); });
+    xpOrbsRef.current.forEach(o => { 
+      const sx = o.x - cam.x, sy = o.y - cam.y; 
+      if (sx < -20 || sx > CANVAS_WIDTH + 20 || sy < -20 || sy > CANVAS_HEIGHT + 20) return; 
+      const sc = o.collectAnim > 0 ? 1 + (1 - o.collectAnim) * 0.5 : 1;
+      const age = (performance.now() - o.spawnTime) / 1000;
+      const isBlinking = age > 7; // Start blinking at 7 seconds (3 seconds before despawn)
+      const blinkAlpha = isBlinking ? (Math.sin(age * 10) * 0.4 + 0.6) : 1; // Fast blink
+      const al = o.collectAnim > 0 ? o.collectAnim : blinkAlpha; 
+      ctx.save(); ctx.globalAlpha = al; ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 10; 
+      if (donutImageRef.current && donutLoadedRef.current) ctx.drawImage(donutImageRef.current, sx - o.size * sc, sy - o.size * sc, o.size * 2 * sc, o.size * 2 * sc); 
+      else { ctx.fillStyle = '#F472B6'; ctx.beginPath(); ctx.arc(sx, sy, o.size * sc, 0, Math.PI * 2); ctx.fill(); } 
+      ctx.shadowBlur = 0; ctx.restore(); 
+    });
     
-    enemiesRef.current.forEach(e => { const sx = e.x - cam.x, sy = e.y - cam.y; if (sx < -80 || sx > CANVAS_WIDTH + 80 || sy < -80 || sy > CANVAS_HEIGHT + 80) return; ctx.save(); ctx.translate(sx, sy); const spSc = e.spawnAnim > 0 ? 1.5 - e.spawnAnim * 0.5 : 1, spAl = e.spawnAnim > 0 ? 1 - e.spawnAnim * 0.3 : 1; ctx.scale(spSc, spSc); ctx.globalAlpha = spAl; ctx.fillStyle = e.hitFlash > 0 ? '#FFF' : e.color;
+    // Draw powerups
+    powerUpsRef.current.forEach(pu => {
+      const sx = pu.x - cam.x, sy = pu.y - cam.y;
+      if (sx < -20 || sx > CANVAS_WIDTH + 20 || sy < -20 || sy > CANVAS_HEIGHT + 20) return;
+      const cfg = POWERUP_CONFIG[pu.type];
+      const pulse = 1 + Math.sin(performance.now() / 150) * 0.15;
+      ctx.save();
+      ctx.shadowColor = cfg.color; ctx.shadowBlur = 15;
+      ctx.fillStyle = cfg.color + '40'; ctx.beginPath(); ctx.arc(sx, sy, pu.size * pulse, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = cfg.color; ctx.beginPath(); ctx.arc(sx, sy, pu.size * 0.7 * pulse, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#FFF'; ctx.font = `bold ${Math.floor(pu.size)}px monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(cfg.icon, sx, sy);
+      ctx.shadowBlur = 0; ctx.restore();
+    });
+    
+    enemiesRef.current.forEach(e => { const sx = e.x - cam.x, sy = e.y - cam.y; if (sx < -80 || sx > CANVAS_WIDTH + 80 || sy < -80 || sy > CANVAS_HEIGHT + 80) return; ctx.save(); ctx.translate(sx, sy); const spSc = e.spawnAnim > 0 ? 1.5 - e.spawnAnim * 0.5 : 1, spAl = e.spawnAnim > 0 ? 1 - e.spawnAnim * 0.3 : 1; ctx.scale(spSc, spSc); ctx.globalAlpha = spAl; 
+      const isFrozen = performance.now() < freezeUntilRef.current;
+      ctx.fillStyle = e.hitFlash > 0 ? '#FFF' : isFrozen ? '#88DDFF' : e.color;
+      if (isFrozen) { ctx.shadowColor = '#00FFFF'; ctx.shadowBlur = 8; }
       if (e.type === 'sprinkle') { ctx.beginPath(); ctx.roundRect(-e.size / 2, -e.size / 4, e.size, e.size / 2, e.size / 4); ctx.fill(); }
       else if (e.type === 'gummy') { ctx.beginPath(); ctx.arc(0, 0, e.size / 2, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(-e.size / 3, -e.size / 2, e.size / 4, 0, Math.PI * 2); ctx.arc(e.size / 3, -e.size / 2, e.size / 4, 0, Math.PI * 2); ctx.fill(); }
       else if (e.type === 'candy_corn') { ctx.beginPath(); ctx.moveTo(0, -e.size / 2); ctx.lineTo(-e.size / 2, e.size / 2); ctx.lineTo(e.size / 2, e.size / 2); ctx.closePath(); ctx.fill(); }
@@ -555,6 +640,13 @@ export default function DonutSurvivorsPage() {
     
     const gt = Math.floor((performance.now() - gameStartTimeRef.current - pausedTimeRef.current) / 1000), m = Math.floor(gt / 60), s = gt % 60;
     ctx.fillStyle = '#FFF'; ctx.font = 'bold 18px monospace'; ctx.textAlign = 'center'; ctx.fillText(`${m}:${s.toString().padStart(2, '0')}`, CANVAS_WIDTH / 2, 28); ctx.font = '10px monospace'; ctx.fillStyle = '#F472B6'; ctx.fillText(`LV ${p.level}`, CANVAS_WIDTH / 2, 44);
+    
+    // Freeze indicator
+    const freezeRemaining = Math.max(0, (freezeUntilRef.current - performance.now()) / 1000);
+    if (freezeRemaining > 0) {
+      ctx.fillStyle = '#00FFFF'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(`❄ FROZEN ${freezeRemaining.toFixed(1)}s`, CANVAS_WIDTH / 2, 58);
+    }
     ctx.textAlign = 'left'; ctx.fillStyle = '#888'; ctx.font = '12px monospace'; ctx.fillText(`${enemiesKilledRef.current} kills`, 15, 28);
     const hp = p.hp / p.maxHp; ctx.fillStyle = '#1a1a1a'; ctx.fillRect(15, CANVAS_HEIGHT - 35, 100, 8); ctx.fillStyle = hp > 0.5 ? '#4ADE80' : hp > 0.25 ? '#FBBF24' : '#FF6B6B'; ctx.fillRect(15, CANVAS_HEIGHT - 35, 100 * hp, 8); ctx.fillStyle = '#666'; ctx.font = '9px monospace'; ctx.fillText(`${Math.ceil(p.hp)}/${p.maxHp}`, 15, CANVAS_HEIGHT - 40);
     ctx.fillStyle = '#1a1a1a'; ctx.fillRect(15, CANVAS_HEIGHT - 22, CANVAS_WIDTH - 30, 6); ctx.fillStyle = '#F472B6'; ctx.fillRect(15, CANVAS_HEIGHT - 22, (CANVAS_WIDTH - 30) * (p.xp / p.xpToLevel), 6);
@@ -568,7 +660,7 @@ export default function DonutSurvivorsPage() {
   const startGame = useCallback(() => {
     initAudio();
     playerRef.current = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 70, xpMultiplier: 1, defense: 0, invincibilityBonus: 0, cooldownReduction: 0, vx: 0, vy: 0 };
-    cameraRef.current = { x: 0, y: 0 }; weaponsRef.current = [{ type: selectedStarterWeapon, level: 1, lastFired: 0, angle: 0 }]; gadgetsRef.current = []; enemiesRef.current = []; projectilesRef.current = []; xpOrbsRef.current = []; particlesRef.current = []; damageNumbersRef.current = []; trailPointsRef.current = []; enemyGridRef.current.clear();
+    cameraRef.current = { x: 0, y: 0 }; weaponsRef.current = [{ type: selectedStarterWeapon, level: 1, lastFired: 0, angle: 0 }]; gadgetsRef.current = []; enemiesRef.current = []; projectilesRef.current = []; xpOrbsRef.current = []; particlesRef.current = []; damageNumbersRef.current = []; trailPointsRef.current = []; powerUpsRef.current = []; enemyGridRef.current.clear(); freezeUntilRef.current = 0;
     frameCountRef.current = 0; gameStartTimeRef.current = performance.now(); pausedTimeRef.current = 0; lastSpawnTimeRef.current = performance.now(); invincibleUntilRef.current = 0; screenShakeRef.current = { intensity: 0, duration: 0, startTime: 0 }; enemiesKilledRef.current = 0; moveInputRef.current = { x: 0, y: 0 }; joystickRef.current = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 }; isPausedRef.current = false; bossSpawnedRef.current = false; bossWarningRef.current = false; finalBossSpawnedRef.current = false; finalBossWarningRef.current = false;
     setRerollsLeft(2); setBansLeft(1); setBannedUpgrades([]); setBanMode(false); setScore(0); setPlayerLevel(1); setSurvivalTime(0); setKillCount(0); setGameState("playing"); setShowWeaponMenu(false); setShowGadgetInfo(false);
     lastFrameTimeRef.current = performance.now(); gameActiveRef.current = true; if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current); gameLoopRef.current = requestAnimationFrame(gameLoop);
