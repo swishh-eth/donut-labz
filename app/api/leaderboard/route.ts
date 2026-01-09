@@ -6,8 +6,10 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Get current week number (resets Friday 6pm EST / 11pm UTC)
+// Epoch: Friday Dec 5, 2025 23:00 UTC (6PM EST)
+// This matches how glaze_transactions stores week_number
 function getCurrentWeek(): number {
-  const epochStart = new Date('2025-12-05T23:00:00Z'); // Week 1 started Dec 5 at 6pm EST
+  const epochStart = new Date('2025-12-05T23:00:00Z');
   const now = new Date();
   const secondsElapsed = Math.floor((now.getTime() - epochStart.getTime()) / 1000);
   
@@ -27,10 +29,11 @@ export async function GET(request: Request) {
 
     console.log('Fetching leaderboard for week:', weekNumber);
 
-    // Query glaze_transactions and aggregate points by address
+    // Query glaze_transactions filtered by week at database level
     const { data, error } = await supabase
       .from('glaze_transactions')
-      .select('address, points, recorded_at, week_number');
+      .select('address, points, recorded_at')
+      .eq('week_number', weekNumber);
 
     if (error) {
       console.error('Supabase error:', error);
@@ -40,10 +43,9 @@ export async function GET(request: Request) {
       );
     }
 
-    console.log('Total records found:', data?.length || 0);
-    console.log('Sample records:', data?.slice(0, 3));
+    console.log('Records found for week', weekNumber, ':', data?.length || 0);
 
-    // Aggregate points by address (for current week only)
+    // Aggregate points by address
     const aggregated: Record<string, { 
       address: string; 
       total_points: number; 
@@ -52,9 +54,6 @@ export async function GET(request: Request) {
     }> = {};
     
     for (const row of data || []) {
-      // Filter by week number (handle potential string/number mismatch)
-      if (Number(row.week_number) !== weekNumber) continue;
-      
       const addr = row.address.toLowerCase();
       if (!aggregated[addr]) {
         aggregated[addr] = { 
