@@ -6,7 +6,7 @@ import { useAccount } from "wagmi";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
 import { ShareRewardButton } from "@/components/share-reward-button";
-import { Settings, Gamepad2, Trophy, Layers, Rocket, ArrowRight, Clock, Coins, HelpCircle, X } from "lucide-react";
+import { Settings, Gamepad2, Trophy, Layers, Rocket, ArrowRight, Clock, Coins, HelpCircle, X, Crosshair } from "lucide-react";
 
 type MiniAppContext = {
   user?: {
@@ -201,6 +201,48 @@ function DonutJumpTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer:
   );
 }
 
+// Donut Survivors Tile
+function DonutSurvivorsTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer: RecentPlayer | null; prizePool: number; weeklyPlays: number }) {
+  return (
+    <button
+      onClick={() => window.location.href = "/games/donut-survivors"}
+      className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+    >
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Crosshair className="w-24 h-24 text-zinc-800" />
+      </div>
+      
+      <div className="relative z-10 p-4 pr-20">
+        <div className="text-left">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-bold text-base text-white">Donut Survivors</span>
+            <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
+            <span className="text-[8px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">NEW</span>
+          </div>
+          <div className="text-[10px] text-white/60 mb-2">Survive waves of candy enemies!</div>
+          
+          <div className="flex items-center gap-1.5 text-[9px]">
+            <UsdcCoin className="w-3 h-3" />
+            <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-500 whitespace-nowrap">{weeklyPlays.toLocaleString()} plays</span>
+            {recentPlayer && (
+              <>
+                <span className="text-zinc-600">•</span>
+                <span className="text-zinc-400 flex items-center gap-1 whitespace-nowrap">
+                  {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3 h-3 rounded-full flex-shrink-0" />}
+                  @{recentPlayer.username} {recentPlayer.score}pts
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 // Coming Soon Tile
 function ComingSoonTile() {
   return (
@@ -249,11 +291,15 @@ export default function GamesPage() {
   const [jumpRecentPlayer, setJumpRecentPlayer] = useState<RecentPlayer | null>(null);
   const [jumpPrizePool, setJumpPrizePool] = useState<number>(5);
   
+  const [survivorsRecentPlayer, setSurvivorsRecentPlayer] = useState<RecentPlayer | null>(null);
+  const [survivorsPrizePool, setSurvivorsPrizePool] = useState<number>(5);
+  
   const [totalGamesPlayed, setTotalGamesPlayed] = useState<number>(0);
   const [flappyWeeklyPlays, setFlappyWeeklyPlays] = useState<number>(0);
   const [stackWeeklyPlays, setStackWeeklyPlays] = useState<number>(0);
   const [dashWeeklyPlays, setDashWeeklyPlays] = useState<number>(0);
   const [jumpWeeklyPlays, setJumpWeeklyPlays] = useState<number>(0);
+  const [survivorsWeeklyPlays, setSurvivorsWeeklyPlays] = useState<number>(0);
   const [timeUntilReset, setTimeUntilReset] = useState<string>("");
   const [showUsdPrize, setShowUsdPrize] = useState(true);
   
@@ -434,6 +480,33 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch Donut Survivors data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const prizeRes = await fetch('/api/games/donut-survivors/prize-distribute');
+        if (prizeRes.ok) {
+          const prizeData = await prizeRes.json();
+          setSurvivorsPrizePool(prizeData.totalPrize || 5);
+        }
+        
+        const recentRes = await fetch('/api/games/donut-survivors/recent');
+        if (recentRes.ok) {
+          const recentData = await recentRes.json();
+          if (recentData.recentPlayer) setSurvivorsRecentPlayer(recentData.recentPlayer);
+          if (recentData.gamesThisWeek !== undefined) {
+            setSurvivorsWeeklyPlays(recentData.gamesThisWeek);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch Survivors data:", e);
+      }
+    };
+    fetchData();
+    const interval = setInterval(fetchData, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Fetch total games played this week (fallback for individual game stats)
   useEffect(() => {
     const fetchGamesCount = async () => {
@@ -455,6 +528,9 @@ export default function GamesPage() {
           if (data.jumpGamesThisWeek !== undefined && jumpWeeklyPlays === 0) {
             setJumpWeeklyPlays(data.jumpGamesThisWeek);
           }
+          if (data.survivorsGamesThisWeek !== undefined && survivorsWeeklyPlays === 0) {
+            setSurvivorsWeeklyPlays(data.survivorsGamesThisWeek);
+          }
           setIsStatsLoaded(true);
         }
       } catch (e) {
@@ -465,7 +541,7 @@ export default function GamesPage() {
     fetchGamesCount();
     const interval = setInterval(fetchGamesCount, 60000);
     return () => clearInterval(interval);
-  }, [flappyWeeklyPlays, stackWeeklyPlays, dashWeeklyPlays, jumpWeeklyPlays]);
+  }, [flappyWeeklyPlays, stackWeeklyPlays, dashWeeklyPlays, jumpWeeklyPlays, survivorsWeeklyPlays]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -483,7 +559,7 @@ export default function GamesPage() {
   }, []);
 
   // Calculate total USDC prizes for display
-  const totalUsdcPrizes = dashPrizePool + stackPrizePool + jumpPrizePool;
+  const totalUsdcPrizes = dashPrizePool + stackPrizePool + jumpPrizePool + survivorsPrizePool;
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -638,11 +714,18 @@ export default function GamesPage() {
                     <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} weeklyPlays={stackWeeklyPlays} />
                   </div>
                   
-                  {[...Array(2)].map((_, i) => (
+                  <div 
+                    className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
+                    style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}
+                  >
+                    <DonutSurvivorsTile recentPlayer={survivorsRecentPlayer} prizePool={survivorsPrizePool} weeklyPlays={survivorsWeeklyPlays} />
+                  </div>
+                  
+                  {[...Array(1)].map((_, i) => (
                     <div 
                       key={i}
                       className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                      style={!hasAnimatedIn ? { opacity: 0, animationDelay: `${200 + i * 50}ms`, animationFillMode: 'forwards' } : {}}
+                      style={!hasAnimatedIn ? { opacity: 0, animationDelay: `${250 + i * 50}ms`, animationFillMode: 'forwards' } : {}}
                     >
                       <ComingSoonTile />
                     </div>
@@ -706,6 +789,14 @@ export default function GamesPage() {
                   <p className="text-gray-400 text-xs">
                     Tap to drop blocks and stack them perfectly! Overhanging parts fall off. 
                     Top 10 weekly scores split the USDC prize pool. FREE to play!
+                  </p>
+                </div>
+
+                <div className="bg-zinc-800/50 rounded-xl p-3">
+                  <h3 className="font-bold text-white mb-2">Donut Survivors</h3>
+                  <p className="text-gray-400 text-xs">
+                    Drag to move your character! Auto-attack enemies, collect XP donuts, and choose upgrades.
+                    Survive as long as possible! Top 10 weekly scores split the USDC prize pool. FREE to play!
                   </p>
                 </div>
 
