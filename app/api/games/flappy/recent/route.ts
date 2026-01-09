@@ -1,10 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createPublicClient, http, formatUnits } from "viem";
+import { base } from "viem/chains";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
+const FLAPPY_POOL_ADDRESS = "0xA3419c6eFbb7a227fC3e24189d8099591327a14A" as const;
+
+const ERC20_ABI = [
+  { inputs: [{ name: "account", type: "address" }], name: "balanceOf", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+] as const;
+
+const publicClient = createPublicClient({
+  chain: base,
+  transport: http(),
+});
 
 // Get Friday 6PM EST as the start of the week
 function getWeekStart(): Date {
@@ -48,15 +62,18 @@ export async function GET(request: NextRequest) {
       .select("*", { count: "exact", head: true })
       .gte("created_at", weekStartISO);
 
-    // Get prize pool (sum of to_prize_pool this week)
-    const { data: prizeData, error: prizeError } = await supabase
-      .from("flappy_games")
-      .select("to_prize_pool")
-      .gte("created_at", weekStartISO);
-
-    let prizePool = 0;
-    if (prizeData) {
-      prizePool = prizeData.reduce((sum, row) => sum + (row.to_prize_pool || 0), 0);
+    // Get prize pool by reading DONUT balance of the pool contract
+    let prizePool = "0";
+    try {
+      const balance = await publicClient.readContract({
+        address: DONUT_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [FLAPPY_POOL_ADDRESS],
+      });
+      prizePool = Number(formatUnits(balance, 18)).toFixed(2);
+    } catch (e) {
+      console.error("[Flappy Recent] Failed to read contract balance:", e);
     }
 
     return NextResponse.json({
@@ -66,7 +83,7 @@ export async function GET(request: NextRequest) {
         pfpUrl: recentScore.pfp_url,
       } : null,
       gamesThisWeek: gamesThisWeek || 0,
-      prizePool: prizePool.toFixed(2),
+      prizePool,
     });
   } catch (error: any) {
     console.error("[Flappy Recent] Error:", error);
