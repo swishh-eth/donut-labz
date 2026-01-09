@@ -12,9 +12,7 @@ const supabase = createClient(
 );
 
 // Use Alchemy RPC for reliability (public RPC has strict rate limits)
-const ALCHEMY_RPC_URL = process.env.ALCHEMY_API_KEY 
-  ? `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-  : process.env.BASE_RPC_URL || "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g";
+const ALCHEMY_RPC_URL = "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g";
 
 // USDC on Base
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
@@ -58,15 +56,14 @@ const ERC20_TRANSFER_ABI = [
 ] as const;
 
 // Get current week number (weeks start on Friday 11PM UTC / 6PM EST)
+// Epoch: Friday Jan 3, 2025 23:00 UTC
+// MUST match how stack_tower_games stores week_number
 function getCurrentWeek(): number {
   const now = new Date();
-  const utcNow = new Date(now.toUTCString());
-  
-  // Epoch: Friday Jan 3, 2025 23:00 UTC
-  const epoch = new Date(Date.UTC(2025, 0, 3, 23, 0, 0));
+  const epoch = new Date('2025-01-03T23:00:00Z');
   const msPerWeek = 7 * 24 * 60 * 60 * 1000;
   
-  const weeksSinceEpoch = Math.floor((utcNow.getTime() - epoch.getTime()) / msPerWeek);
+  const weeksSinceEpoch = Math.floor((now.getTime() - epoch.getTime()) / msPerWeek);
   return weeksSinceEpoch + 1;
 }
 
@@ -107,7 +104,7 @@ export async function POST(request: NextRequest) {
     const dryRun = body.dryRun === true; // For testing without sending
 
     console.log(`[Glaze Stack Distribution] Starting for week ${week}, dryRun: ${dryRun}`);
-    console.log(`[Glaze Stack Distribution] Using RPC: ${ALCHEMY_RPC_URL.replace(/\/v2\/.*/, '/v2/***')}`);
+    console.log(`[Glaze Stack Distribution] Current week: ${getCurrentWeek()}, distributing week: ${week}`);
 
     // Check if already distributed for this week
     const { data: existingDistribution } = await supabase
@@ -213,6 +210,7 @@ export async function POST(request: NextRequest) {
         success: true,
         dryRun: true,
         week,
+        currentWeek: getCurrentWeek(),
         distributions,
         totalPrize: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0).toFixed(2),
       });
@@ -294,13 +292,16 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const week = searchParams.get("week");
 
+  const currentWeek = getCurrentWeek();
+  const previousWeek = getPreviousWeek();
+
   // If no week specified, just return current prize info
   if (!week) {
-    const currentWeek = getCurrentWeek();
     return NextResponse.json({
       totalPrize: TOTAL_PRIZE_USD,
       prizeStructure: getPrizeDistribution(),
       currentWeek,
+      weekToDistribute: previousWeek,
     });
   }
 
@@ -320,5 +321,7 @@ export async function GET(request: NextRequest) {
     distribution: data || null,
     totalPrize: TOTAL_PRIZE_USD,
     prizeStructure: getPrizeDistribution(),
+    currentWeek,
+    weekToDistribute: previousWeek,
   });
 }
