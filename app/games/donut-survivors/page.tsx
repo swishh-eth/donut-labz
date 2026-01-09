@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { Play, X, HelpCircle, Volume2, VolumeX, Shuffle, Trophy, ChevronRight, Clock } from "lucide-react";
+import { Play, X, HelpCircle, Volume2, VolumeX, Shuffle, Trophy, ChevronRight, Clock, Music } from "lucide-react";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
 
@@ -162,6 +162,7 @@ export default function DonutSurvivorsPage() {
   const [equipmentData, setEquipmentData] = useState<{ weapons: Weapon[], gadgets: Gadget[], player: any } | null>(null);
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
   const [leaderboard] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
+  const [isMusicOn, setIsMusicOn] = useState(false);
   
   const playerRef = useRef({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 70, xpMultiplier: 1, defense: 0, invincibilityBonus: 0, cooldownReduction: 0, vx: 0, vy: 0 });
   const cameraRef = useRef({ x: 0, y: 0 });
@@ -196,6 +197,16 @@ export default function DonutSurvivorsPage() {
   const donutLoadedRef = useRef(false);
   const pfpImageRef = useRef<HTMLImageElement | null>(null);
   const pfpLoadedRef = useRef(false);
+  
+  // Sound throttling
+  const lastSoundTimeRef = useRef<Record<string, number>>({});
+  const activeSoundsRef = useRef(0);
+  const maxConcurrentSounds = 4;
+  
+  // Music system
+  const musicNodesRef = useRef<{ osc: OscillatorNode; gain: GainNode }[]>([]);
+  const musicIntervalRef = useRef<number | null>(null);
+  const musicPlayingRef = useRef(false);
 
   useEffect(() => { const i = setInterval(() => setResetCountdown(getTimeUntilReset()), 60000); return () => clearInterval(i); }, []);
   useEffect(() => { (async () => { try { const ctx = await (sdk as any).context; if (ctx?.user) { setContext(ctx); if (ctx.user.pfpUrl) setUserPfp(ctx.user.pfpUrl); } } catch {} })(); }, []);
@@ -210,15 +221,154 @@ export default function DonutSurvivorsPage() {
   }, [gameState]);
 
   const initAudio = useCallback(() => { if (!audioContextRef.current) { try { audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)(); audioContextRef.current.state === 'suspended' && audioContextRef.current.resume(); } catch {} } }, []);
-  const playSound = useCallback((freq: number, dur: number, type: OscillatorType = 'sine', vol: number = 0.1) => {
+  
+  // Throttled sound player to prevent audio overload
+  const playSound = useCallback((freq: number, dur: number, type: OscillatorType = 'sine', vol: number = 0.1, soundKey?: string) => {
     if (isMuted || !audioContextRef.current) return;
-    try { const ctx = audioContextRef.current, osc = ctx.createOscillator(), gain = ctx.createGain(); osc.type = type; osc.connect(gain); gain.connect(ctx.destination); osc.frequency.setValueAtTime(freq, ctx.currentTime); gain.gain.setValueAtTime(vol, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + dur); osc.start(); osc.stop(ctx.currentTime + dur); } catch {}
+    
+    // Check concurrent sounds limit
+    if (activeSoundsRef.current >= maxConcurrentSounds) return;
+    
+    // Throttle by sound type
+    if (soundKey) {
+      const now = Date.now();
+      const lastTime = lastSoundTimeRef.current[soundKey] || 0;
+      const minInterval = soundKey === 'hit' ? 50 : soundKey === 'xp' ? 30 : 100;
+      if (now - lastTime < minInterval) return;
+      lastSoundTimeRef.current[soundKey] = now;
+    }
+    
+    try {
+      const ctx = audioContextRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      gain.gain.setValueAtTime(vol * 0.5, ctx.currentTime); // Reduce overall volume
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + dur);
+      
+      activeSoundsRef.current++;
+      osc.onended = () => { activeSoundsRef.current = Math.max(0, activeSoundsRef.current - 1); };
+      
+      osc.start();
+      osc.stop(ctx.currentTime + dur);
+    } catch {}
   }, [isMuted]);
-  const playHit = useCallback(() => playSound(200 + Math.random() * 100, 0.1), [playSound]);
-  const playKill = useCallback(() => playSound(400, 0.15), [playSound]);
-  const playXP = useCallback(() => playSound(600 + Math.random() * 200, 0.05, 'sine', 0.05), [playSound]);
-  const playHurt = useCallback(() => playSound(150, 0.2, 'sawtooth', 0.15), [playSound]);
-  const playLevelUp = useCallback(() => { if (isMuted || !audioContextRef.current) return; [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => playSound(f, 0.4, 'sine', 0.15), i * 80)); }, [isMuted, playSound]);
+  
+  const playHit = useCallback(() => playSound(200 + Math.random() * 100, 0.08, 'sine', 0.08, 'hit'), [playSound]);
+  const playKill = useCallback(() => playSound(400, 0.12, 'sine', 0.1, 'kill'), [playSound]);
+  const playXP = useCallback(() => playSound(600 + Math.random() * 200, 0.04, 'sine', 0.04, 'xp'), [playSound]);
+  const playHurt = useCallback(() => playSound(150, 0.15, 'sawtooth', 0.12, 'hurt'), [playSound]);
+  const playLevelUp = useCallback(() => { if (isMuted || !audioContextRef.current) return; [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => playSound(f, 0.3, 'sine', 0.1), i * 80)); }, [isMuted, playSound]);
+  
+  // Music system - simple chiptune-style loop
+  const startMusic = useCallback(() => {
+    if (!audioContextRef.current || musicPlayingRef.current) return;
+    initAudio();
+    const ctx = audioContextRef.current;
+    if (!ctx) return;
+    
+    musicPlayingRef.current = true;
+    
+    // Bass drone
+    const bassOsc = ctx.createOscillator();
+    const bassGain = ctx.createGain();
+    bassOsc.type = 'triangle';
+    bassOsc.frequency.setValueAtTime(55, ctx.currentTime); // A1
+    bassOsc.connect(bassGain);
+    bassGain.connect(ctx.destination);
+    bassGain.gain.setValueAtTime(0.06, ctx.currentTime);
+    bassOsc.start();
+    musicNodesRef.current.push({ osc: bassOsc, gain: bassGain });
+    
+    // Melody notes (pentatonic scale)
+    const melody = [220, 261.63, 293.66, 349.23, 392, 440, 523.25, 587.33]; // A minor pentatonic
+    let noteIndex = 0;
+    let beatCount = 0;
+    
+    const playBeat = () => {
+      if (!audioContextRef.current || !musicPlayingRef.current) return;
+      const ctx = audioContextRef.current;
+      
+      // Change bass note every 8 beats
+      if (beatCount % 8 === 0) {
+        const bassNotes = [55, 65.41, 73.42, 82.41]; // A1, C2, D2, E2
+        const bassNote = bassNotes[Math.floor(beatCount / 8) % bassNotes.length];
+        musicNodesRef.current[0]?.osc.frequency.setValueAtTime(bassNote, ctx.currentTime);
+      }
+      
+      // Play melody note
+      if (beatCount % 2 === 0) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(melody[noteIndex], ctx.currentTime);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        gain.gain.setValueAtTime(0.04, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.15);
+        
+        noteIndex = (noteIndex + 1) % melody.length;
+        if (Math.random() < 0.3) noteIndex = Math.floor(Math.random() * melody.length);
+      }
+      
+      // Percussion on beats 0 and 2
+      if (beatCount % 4 === 0 || beatCount % 4 === 2) {
+        const noiseLength = 0.05;
+        const noiseGain = ctx.createGain();
+        const noiseFilter = ctx.createBiquadFilter();
+        noiseFilter.type = 'highpass';
+        noiseFilter.frequency.setValueAtTime(beatCount % 4 === 0 ? 100 : 4000, ctx.currentTime);
+        
+        const bufferSize = ctx.sampleRate * noiseLength;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(ctx.destination);
+        noiseGain.gain.setValueAtTime(beatCount % 4 === 0 ? 0.08 : 0.03, ctx.currentTime);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + noiseLength);
+        noise.start();
+      }
+      
+      beatCount++;
+    };
+    
+    musicIntervalRef.current = window.setInterval(playBeat, 180); // ~83 BPM
+  }, [initAudio]);
+  
+  const stopMusic = useCallback(() => {
+    musicPlayingRef.current = false;
+    if (musicIntervalRef.current) {
+      clearInterval(musicIntervalRef.current);
+      musicIntervalRef.current = null;
+    }
+    musicNodesRef.current.forEach(({ osc, gain }) => {
+      try {
+        gain.gain.exponentialRampToValueAtTime(0.001, audioContextRef.current?.currentTime || 0 + 0.1);
+        setTimeout(() => { try { osc.stop(); } catch {} }, 100);
+      } catch {}
+    });
+    musicNodesRef.current = [];
+  }, []);
+  
+  // Toggle music
+  useEffect(() => {
+    if (isMusicOn && gameState === 'playing') {
+      startMusic();
+    } else {
+      stopMusic();
+    }
+    return () => stopMusic();
+  }, [isMusicOn, gameState, startMusic, stopMusic]);
   const shake = useCallback((intensity: number, duration: number) => { screenShakeRef.current = { intensity, duration, startTime: performance.now() }; }, []);
   const addParticles = useCallback((x: number, y: number, color: string, count: number, speed: number = 3, type?: 'spark' | 'ring' | 'glow') => { for (let i = 0; i < count; i++) { const a = (i / count) * Math.PI * 2 + Math.random() * 0.5; particlesRef.current.push({ x, y, vx: Math.cos(a) * speed * (0.5 + Math.random() * 0.5), vy: Math.sin(a) * speed * (0.5 + Math.random() * 0.5), life: 1, maxLife: 1, color, size: type === 'spark' ? 1 + Math.random() * 2 : 2 + Math.random() * 3, type }); } }, []);
   const addDmgNum = useCallback((x: number, y: number, value: number, isCrit?: boolean) => { damageNumbersRef.current.push({ x, y, value, life: 1, vy: -2, isCrit }); }, []);
@@ -452,7 +602,7 @@ export default function DonutSurvivorsPage() {
       else { ctx.fillStyle = '#F472B6'; ctx.beginPath(); ctx.arc(CANVAS_WIDTH / 2, py, pr, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = '#0a0a0a'; ctx.beginPath(); ctx.arc(CANVAS_WIDTH / 2, py, 9, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
       for (let i = 0; i < 4; i++) { const a = t * 1.5 + (i / 4) * Math.PI * 2, ox = CANVAS_WIDTH / 2 + Math.cos(a) * 55, oy = py + Math.sin(a) * 55 * 0.6; ctx.fillStyle = '#F472B6'; ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 8; ctx.beginPath(); ctx.arc(ox, oy, 6, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
       if (gameState === "gameover") { ctx.textAlign = 'center'; ctx.fillStyle = '#FF6B6B'; ctx.font = 'bold 22px monospace'; ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 255); ctx.fillStyle = '#FFF'; ctx.font = 'bold 40px monospace'; ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 295); ctx.fillStyle = '#666'; ctx.font = '11px monospace'; ctx.fillText(`${Math.floor(survivalTime / 60)}:${(survivalTime % 60).toString().padStart(2, '0')} · ${killCount} kills`, CANVAS_WIDTH / 2, 320); if (score >= highScore && score > 0) { ctx.fillStyle = '#F472B6'; ctx.font = 'bold 10px monospace'; ctx.fillText('NEW HIGH SCORE', CANVAS_WIDTH / 2, 340); } }
-      else { ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '11px monospace'; ctx.fillText('Drag to move · Auto-attack', CANVAS_WIDTH / 2, 260); }
+      else { ctx.textAlign = 'center'; ctx.fillStyle = '#FBBF24'; ctx.font = 'bold 10px monospace'; ctx.fillText('⚠️ TEST GAME - NO PRIZES YET ⚠️', CANVAS_WIDTH / 2, 240); ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '11px monospace'; ctx.fillText('Drag to move · Auto-attack', CANVAS_WIDTH / 2, 260); }
       id = requestAnimationFrame(draw);
     };
     id = requestAnimationFrame(draw); return () => cancelAnimationFrame(id);
@@ -470,11 +620,6 @@ export default function DonutSurvivorsPage() {
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
         <Header title="DONUT SURVIVORS" user={context?.user} />
-        
-        {/* Test Banner */}
-        <div className="w-full mb-2 px-3 py-2 bg-yellow-500/20 border border-yellow-500/50 rounded-xl">
-          <p className="text-yellow-400 text-xs font-bold text-center">⚠️ TEST GAME - NO PRIZES YET ⚠️</p>
-        </div>
         
         {/* Prize Pool / Leaderboard Button */}
         <button onClick={() => setShowLeaderboard(true)} className="relative w-full mb-3 px-4 py-3 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/50 rounded-xl transition-all active:scale-[0.98] hover:border-zinc-600 group" style={{ minHeight: '70px' }}>
@@ -629,8 +774,8 @@ export default function DonutSurvivorsPage() {
               </div>
             )}
             
-            {/* Weapon Selection Menu */}
-            {showWeaponMenu && (
+            {/* Weapon Selection Menu - only on menu/gameover */}
+            {showWeaponMenu && (gameState === "menu" || gameState === "gameover") && (
               <div className="absolute inset-0 bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-40 rounded-2xl">
                 <h2 className="text-xl font-bold text-white mb-4">Starting Weapon</h2>
                 <div className="grid grid-cols-4 gap-2.5 max-w-[290px]">
@@ -650,8 +795,8 @@ export default function DonutSurvivorsPage() {
               </div>
             )}
             
-            {/* Gadget Info */}
-            {showGadgetInfo && (
+            {/* Gadget Info - only on menu/gameover */}
+            {showGadgetInfo && (gameState === "menu" || gameState === "gameover") && (
               <div className="absolute inset-0 bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-40 rounded-2xl">
                 <h2 className="text-xl font-bold text-white mb-4">Gadgets</h2>
                 <div className="grid grid-cols-2 gap-2 w-full max-w-[300px]">
@@ -667,6 +812,7 @@ export default function DonutSurvivorsPage() {
         <div className="mt-4 flex items-center justify-center gap-2">
           <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900/80 border border-zinc-800 rounded-lg"><HelpCircle className="w-3 h-3 text-zinc-500" /><span className="text-[11px] text-zinc-400">Help</span></button>
           <button onClick={() => setIsMuted(!isMuted)} className={`flex items-center gap-2 px-4 py-1.5 bg-zinc-900/80 border rounded-lg ${isMuted ? 'border-red-500/30' : 'border-zinc-800'}`}>{isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-500" />}<span className="text-[11px] text-zinc-400">{isMuted ? 'Muted' : 'Sound'}</span></button>
+          <button onClick={() => setIsMusicOn(!isMusicOn)} className={`flex items-center gap-2 px-4 py-1.5 bg-zinc-900/80 border rounded-lg ${isMusicOn ? 'border-pink-500/50' : 'border-zinc-800'}`}><Music className={`w-3 h-3 ${isMusicOn ? 'text-pink-400' : 'text-zinc-500'}`} /><span className="text-[11px] text-zinc-400">{isMusicOn ? 'Music' : 'Music'}</span></button>
         </div>
       </div>
       
