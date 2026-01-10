@@ -52,14 +52,14 @@ function detectCheating(score: number, metrics: GameMetrics): { isSuspicious: bo
   }
   
   // Level too high for survival time
-  // Roughly 1 level per 30 seconds of good play at most early on
-  const maxReasonableLevel = Math.floor(metrics.survivalTimeSeconds / 20) + 5;
-  if (metrics.level > maxReasonableLevel && metrics.level > 20) {
+  // With 1.1 XP scale, leveling is faster - roughly 1 level per 15 seconds with good play
+  const maxReasonableLevel = Math.floor(metrics.survivalTimeSeconds / 12) + 5;
+  if (metrics.level > maxReasonableLevel && metrics.level > 25) {
     reasons.push(`Level ${metrics.level} too high for ${metrics.survivalTimeSeconds}s survival`);
   }
   
-  // XP per minute too high (with all multipliers, 200/min is extreme)
-  if (metrics.xpPerMinute > 200 && metrics.survivalTimeSeconds > 60) {
+  // XP per minute too high (with all multipliers, 300/min is extreme)
+  if (metrics.xpPerMinute > 300 && metrics.survivalTimeSeconds > 60) {
     reasons.push(`XP rate too high: ${metrics.xpPerMinute} XP/min`);
   }
   

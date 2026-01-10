@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { Play, X, HelpCircle, Volume2, VolumeX, Shuffle, Trophy, ChevronRight, Clock, Music, Share2 } from "lucide-react";
+import { X, HelpCircle, Volume2, VolumeX, Trophy, ChevronRight, Clock, Music, Share2 } from "lucide-react";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
 
@@ -38,7 +38,7 @@ const PLAYER_MAX_HP = 120;
 
 // XP progression (original values)
 const BASE_XP_TO_LEVEL = 17;
-const XP_SCALE = 1.25;
+const XP_SCALE = 1.1;
 
 // Spatial grid for performance
 const GRID_CELL_SIZE = 100;
@@ -120,15 +120,15 @@ const GADGET_ORDER: GadgetType[] = ['sugar_rush', 'thicc_glaze', 'sprinkle_magne
 
 // Rebalanced enemy config with new types
 const ENEMY_CONFIG: Record<EnemyType, { hp: number; speed: number; size: number; xpValue: number; damage: number; color: string; spawnWeight: number }> = {
-  sprinkle: { hp: 15, speed: 1.0, size: 16, xpValue: 2, damage: 4, color: '#FF6B6B', spawnWeight: 45 },
-  gummy: { hp: 30, speed: 1.1, size: 20, xpValue: 4, damage: 6, color: '#4ADE80', spawnWeight: 25 },
-  candy_corn: { hp: 10, speed: 1.8, size: 12, xpValue: 2, damage: 3, color: '#FBBF24', spawnWeight: 15 },
-  jellybean: { hp: 18, speed: 1.6, size: 14, xpValue: 3, damage: 5, color: '#FF69B4', spawnWeight: 10 }, // Zigzag movement
-  licorice: { hp: 45, speed: 0.6, size: 24, xpValue: 8, damage: 8, color: '#1a1a1a', spawnWeight: 5 }, // Splits on death
-  chocolate_chunk: { hp: 90, speed: 0.45, size: 32, xpValue: 12, damage: 10, color: '#A78BFA', spawnWeight: 3 },
+  sprinkle: { hp: 15, speed: 1.0, size: 16, xpValue: 2, damage: 8, color: '#FF6B6B', spawnWeight: 45 },
+  gummy: { hp: 30, speed: 1.1, size: 20, xpValue: 4, damage: 12, color: '#4ADE80', spawnWeight: 25 },
+  candy_corn: { hp: 10, speed: 1.8, size: 12, xpValue: 2, damage: 6, color: '#FBBF24', spawnWeight: 15 },
+  jellybean: { hp: 18, speed: 1.6, size: 14, xpValue: 3, damage: 10, color: '#FF69B4', spawnWeight: 10 }, // Zigzag movement
+  licorice: { hp: 45, speed: 0.6, size: 24, xpValue: 8, damage: 15, color: '#1a1a1a', spawnWeight: 5 }, // Splits on death
+  chocolate_chunk: { hp: 90, speed: 0.45, size: 32, xpValue: 12, damage: 20, color: '#A78BFA', spawnWeight: 3 },
   wind_spirit: { hp: 1, speed: 4.0, size: 18, xpValue: 0, damage: 0, color: '#87CEEB', spawnWeight: 0 }, // Push only, spawns in hordes
-  boss: { hp: 6000, speed: 0.6, size: 60, xpValue: 200, damage: 25, color: '#FF1744', spawnWeight: 0 },
-  final_boss: { hp: 4000, speed: 1.0, size: 100, xpValue: 500, damage: 9999, color: '#000000', spawnWeight: 0 },
+  boss: { hp: 25000, speed: 0.7, size: 70, xpValue: 200, damage: 40, color: '#FF1744', spawnWeight: 0 },
+  final_boss: { hp: 50000, speed: 1.2, size: 120, xpValue: 500, damage: 9999, color: '#000000', spawnWeight: 0 },
 };
 
 // Prize info
@@ -1224,7 +1224,7 @@ export default function DonutSurvivorsPage() {
                 speed: 1.2,
                 size: 14,
                 xpValue: 1,
-                damage: 3,
+                damage: 6,
                 color: '#333',
                 hitFlash: 0,
                 spawnAnim: 0.5
@@ -2028,13 +2028,10 @@ export default function DonutSurvivorsPage() {
       ctx.shadowColor = '#F472B6';
       ctx.shadowBlur = 30;
       ctx.fillStyle = '#FFF';
-      ctx.font = 'bold 32px monospace';
-      ctx.fillText('DONUT', CANVAS_WIDTH / 2, 65);
-      ctx.font = 'bold 24px monospace';
-      ctx.fillStyle = '#F472B6';
-      ctx.fillText('SURVIVORS', CANVAS_WIDTH / 2, 95);
+      ctx.font = 'bold 22px monospace';
+      ctx.fillText('DONUT SURVIVORS', CANVAS_WIDTH / 2, 80);
       ctx.shadowBlur = 0;
-      const py = 175 + Math.sin(t * 1.5) * 8, pr = 28;
+      const py = 155 + Math.sin(t * 1.5) * 8, pr = 28;
       ctx.save();
       ctx.shadowColor = '#F472B6';
       ctx.shadowBlur = 25;
@@ -2112,7 +2109,7 @@ export default function DonutSurvivorsPage() {
       `}</style>
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
-        <Header title="DONUT SURVIVORS" user={context?.user} />
+        <Header title="SURVIVORS" user={context?.user} />
         
         {/* Prize Pool / Leaderboard Button */}
         <button onClick={() => setShowLeaderboard(true)} className="relative w-full mb-3 px-4 py-3 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/50 rounded-xl transition-all active:scale-[0.98] hover:border-zinc-600 group" style={{ minHeight: '70px' }}>
@@ -2163,42 +2160,38 @@ export default function DonutSurvivorsPage() {
             
             {/* Menu/Gameover Buttons */}
             {(gameState === "menu" || gameState === "gameover") && (
-              <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-3 pointer-events-none z-20">
-                <div className="pointer-events-auto flex gap-2">
-                  <button onClick={() => { setShowWeaponMenu(true); setShowGadgetInfo(false); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-900/90 border border-pink-500/50 rounded-lg">
-                    <span className="text-xl font-bold" style={{ color: WEAPON_CONFIG[selectedStarterWeapon].color }}>{WEAPON_CONFIG[selectedStarterWeapon].icon}</span>
-                    <div className="text-left"><div className="text-[9px] text-pink-400 uppercase tracking-wider">Weapon</div><div className="text-xs font-medium">{WEAPON_CONFIG[selectedStarterWeapon].name}</div></div>
+              <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-2 pointer-events-none z-20">
+                <div className="pointer-events-auto grid grid-cols-2 gap-2 w-[240px]">
+                  <button onClick={() => { setShowWeaponMenu(true); setShowGadgetInfo(false); }} className="px-4 py-2.5 bg-white text-black font-bold rounded-lg hover:bg-gray-200 active:scale-95 text-sm">
+                    WEAPONS
                   </button>
-                  <button onClick={() => { setShowGadgetInfo(true); setShowWeaponMenu(false); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-900/90 border border-blue-500/50 rounded-lg">
-                    <span className="text-xl font-bold text-blue-400">◈</span>
-                    <div className="text-left"><div className="text-[9px] text-blue-400 uppercase tracking-wider">Gadgets</div><div className="text-xs font-medium">View All</div></div>
+                  <button onClick={() => { setShowGadgetInfo(true); setShowWeaponMenu(false); }} className="px-4 py-2.5 bg-white text-black font-bold rounded-lg hover:bg-gray-200 active:scale-95 text-sm">
+                    GADGETS
                   </button>
-                </div>
-                <div className="pointer-events-auto flex flex-col items-center gap-2">
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={handlePlay} 
-                      disabled={playState === 'confirming' || playState === 'recording' || isPending || isConfirming}
-                      className="flex items-center gap-2 px-6 py-2.5 bg-green-500 text-black font-bold rounded-lg hover:bg-green-400 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {(playState === 'confirming' || isPending || isConfirming) ? (
-                        <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Confirming...</span></>
-                      ) : playState === 'recording' ? (
-                        <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Starting...</span></>
-                      ) : (
-                        <><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span></>
-                      )}
-                    </button>
-                    {gameState === "gameover" && (
-                      <button onClick={handleShare} className="flex items-center gap-2 px-4 py-2.5 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-400 active:scale-95">
-                        <Share2 className="w-4 h-4" /><span className="text-sm">Share</span>
-                      </button>
+                  <button 
+                    onClick={handlePlay} 
+                    disabled={playState === 'confirming' || playState === 'recording' || isPending || isConfirming}
+                    className="px-4 py-2.5 bg-white text-black font-bold rounded-lg hover:bg-gray-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    {(playState === 'confirming' || isPending || isConfirming) ? (
+                      <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />...</span>
+                    ) : playState === 'recording' ? (
+                      <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />...</span>
+                    ) : (
+                      gameState === "gameover" ? "PLAY AGAIN" : "PLAY"
                     )}
-                  </div>
-                  <span className="text-[10px] text-zinc-500">Only gas cost ~$0.001</span>
-                  {errorMessage && <span className="text-[10px] text-red-400">{errorMessage}</span>}
-                  <button onClick={() => { const uw = STARTER_WEAPONS.filter(w => gamesPlayedThisWeek >= WEAPON_UNLOCK[w]); setSelectedStarterWeapon(uw[Math.floor(Math.random() * uw.length)]); }} className="flex items-center gap-2 px-4 py-2.5 bg-zinc-800 text-white font-bold rounded-lg border border-zinc-700"><Shuffle className="w-4 h-4" /><span className="text-sm">Random</span></button>
+                  </button>
+                  <button onClick={() => { const uw = STARTER_WEAPONS.filter(w => gamesPlayedThisWeek >= WEAPON_UNLOCK[w]); setSelectedStarterWeapon(uw[Math.floor(Math.random() * uw.length)]); }} className="px-4 py-2.5 bg-white text-black font-bold rounded-lg hover:bg-gray-200 active:scale-95 text-sm">
+                    RANDOM
+                  </button>
                 </div>
+                <span className="text-[10px] text-zinc-500 pointer-events-auto">Only gas cost ~$0.001</span>
+                {errorMessage && <span className="text-[10px] text-red-400 pointer-events-auto">{errorMessage}</span>}
+                {gameState === "gameover" && (
+                  <button onClick={handleShare} className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-400 active:scale-95 text-sm">
+                    <Share2 className="w-4 h-4" />Share Score
+                  </button>
+                )}
                 <div className="text-[10px] text-zinc-500">{gamesPlayedThisWeek} games this week</div>
               </div>
             )}
