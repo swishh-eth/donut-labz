@@ -2665,8 +2665,8 @@ export default function DonutDashPage() {
           user-select: none !important;
         }
         @keyframes tilePopIn {
-          0% { opacity: 0; transform: translateY(12px); }
-          100% { opacity: 1; transform: translateY(0); }
+          0% { opacity: 0; }
+          100% { opacity: 1; }
         }
         .animate-pop { animation: tilePopIn 0.35s ease-out forwards; opacity: 0; }
         .pop-delay-1 { animation-delay: 50ms; }
