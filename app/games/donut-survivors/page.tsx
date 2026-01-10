@@ -20,9 +20,9 @@ const PLAYER_SIZE = 36;
 const PLAYER_SPEED = 2.8;
 const PLAYER_MAX_HP = 120;
 
-// Slower XP progression
-const BASE_XP_TO_LEVEL = 22;
-const XP_SCALE = 1.28;
+// XP progression (original values)
+const BASE_XP_TO_LEVEL = 17;
+const XP_SCALE = 1.25;
 
 // Spatial grid for performance
 const GRID_CELL_SIZE = 100;
@@ -47,7 +47,7 @@ type MiniAppContext = { user?: { fid: number; username?: string; displayName?: s
 
 interface Weapon { type: WeaponType; level: number; lastFired: number; angle?: number; }
 interface Gadget { type: GadgetType; stacks: number; }
-interface Enemy { x: number; y: number; type: EnemyType; hp: number; maxHp: number; speed: number; size: number; xpValue: number; damage: number; color: string; hitFlash: number; spawnAnim: number; zigzagPhase?: number; splitCount?: number; }
+interface Enemy { x: number; y: number; type: EnemyType; hp: number; maxHp: number; speed: number; size: number; xpValue: number; damage: number; color: string; hitFlash: number; spawnAnim: number; zigzagPhase?: number; splitCount?: number; spawnTime?: number; }
 interface Projectile { x: number; y: number; vx: number; vy: number; damage: number; size: number; color: string; piercing: number; lifetime: number; weaponType: WeaponType; trailTimer: number; }
 interface XPOrb { x: number; y: number; value: number; size: number; collectAnim: number; spawnTime: number; magnetized?: boolean; }
 interface DamageNumber { x: number; y: number; value: number; life: number; vy: number; isCrit?: boolean; }
@@ -491,19 +491,20 @@ export default function DonutSurvivorsPage() {
     if (Math.random() < 0.5) addParticles(x, y, c.color, 3, 2, 'spark');
   }, [addParticles]);
   
-  // Wind spirit horde spawn
+  // Wind spirit horde spawn - circle formation
   const spawnWindHorde = useCallback(() => {
     const p = playerRef.current;
-    const angle = Math.random() * Math.PI * 2;
-    const perpAngle = angle + Math.PI / 2;
-    const startDist = 400;
+    const startDist = 350;
+    const now = performance.now();
     
-    // Spawn 8-12 wind spirits in a line
-    const count = 8 + Math.floor(Math.random() * 5);
+    // Spawn 10-14 wind spirits in a circle around player
+    const count = 10 + Math.floor(Math.random() * 5);
+    const startAngle = Math.random() * Math.PI * 2; // Random rotation offset
+    
     for (let i = 0; i < count; i++) {
-      const offset = (i - count / 2) * 30;
-      const x = p.x + Math.cos(angle) * startDist + Math.cos(perpAngle) * offset;
-      const y = p.y + Math.sin(angle) * startDist + Math.sin(perpAngle) * offset;
+      const angle = startAngle + (i / count) * Math.PI * 2;
+      const x = p.x + Math.cos(angle) * startDist;
+      const y = p.y + Math.sin(angle) * startDist;
       
       const c = ENEMY_CONFIG['wind_spirit'];
       enemiesRef.current.push({
@@ -515,12 +516,14 @@ export default function DonutSurvivorsPage() {
         damage: 0,
         color: c.color,
         hitFlash: 0,
-        spawnAnim: 0.5
+        spawnAnim: 0.5,
+        spawnTime: now // Track spawn time for 10s lifetime
       });
     }
     
     playWindHorde();
-    addParticles(p.x + Math.cos(angle) * 200, p.y + Math.sin(angle) * 200, '#87CEEB', 15, 4, 'ring');
+    // Ring particles around player
+    addParticles(p.x, p.y, '#87CEEB', 20, 6, 'ring');
   }, [addParticles, playWindHorde]);
 
   const fireWeapons = useCallback(() => {
@@ -884,16 +887,20 @@ export default function DonutSurvivorsPage() {
       
       // Wind spirits push player but don't damage
       if (e.type === 'wind_spirit') {
-        if (dist < e.size + PLAYER_SIZE / 2) {
-          const pushStrength = 8;
+        if (dist < e.size + PLAYER_SIZE / 2 + 20) {
+          const pushStrength = 6;
           const pushX = (p.x - e.x) / dist * pushStrength;
           const pushY = (p.y - e.y) / dist * pushStrength;
           p.vx += pushX * delta;
           p.vy += pushY * delta;
           addParticles(p.x, p.y, '#87CEEB', 2, 3, 'spark');
         }
-        // Wind spirits despawn after traveling far
-        if (dist > 600) return false;
+        // Wind spirits despawn after 10 seconds
+        const age = (now - (e.spawnTime || now)) / 1000;
+        if (age > 10) {
+          addParticles(e.x, e.y, '#87CEEB', 4, 2, 'spark');
+          return false;
+        }
         return true;
       }
       
@@ -1189,8 +1196,10 @@ export default function DonutSurvivorsPage() {
         ctx.roundRect(-e.size / 2, -e.size / 2, e.size, e.size, 5);
         ctx.fill();
       } else if (e.type === 'wind_spirit') {
-        // Wind spirit - ethereal swirl
-        ctx.globalAlpha = 0.6;
+        // Wind spirit - ethereal swirl with fade based on age
+        const age = (now - (e.spawnTime || now)) / 1000;
+        const fadeAlpha = age > 8 ? Math.max(0.2, 1 - (age - 8) / 2) : 1; // Fade out last 2 seconds
+        ctx.globalAlpha = 0.6 * fadeAlpha;
         ctx.strokeStyle = e.color;
         ctx.lineWidth = 2;
         for (let i = 0; i < 3; i++) {
@@ -1200,10 +1209,11 @@ export default function DonutSurvivorsPage() {
           ctx.stroke();
         }
         ctx.fillStyle = '#FFF';
-        ctx.globalAlpha = 0.8;
+        ctx.globalAlpha = 0.8 * fadeAlpha;
         ctx.beginPath();
         ctx.arc(0, 0, 4, 0, Math.PI * 2);
         ctx.fill();
+        ctx.globalAlpha = 1;
       } else if (e.type === 'boss') {
         ctx.shadowColor = '#FF1744';
         ctx.shadowBlur = 30;
