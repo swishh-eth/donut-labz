@@ -35,6 +35,9 @@ type ShareRewardButtonProps = {
   tile?: boolean;
 };
 
+// Miniapp URL constant
+const MINIAPP_URL = "https://farcaster.xyz/miniapps/BdklKYkhvUwo/sprinkles";
+
 // Pink gradient style for DONUT
 const pinkGradientActiveStyle = {
   background: 'linear-gradient(135deg, rgba(236,72,153,0.25) 0%, rgba(219,39,119,0.15) 100%)',
@@ -401,20 +404,20 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     try {
       await sdk.actions.composeCast({
         text: shareText,
-        embeds: ["https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles"],
+        embeds: [MINIAPP_URL],
       });
       setHasShared(true);
     } catch (e) {
       try {
         const encodedText = encodeURIComponent(shareText);
         await sdk.actions.openUrl({
-          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles`,
+          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${MINIAPP_URL}`,
         });
         setHasShared(true);
       } catch {
         const encodedText = encodeURIComponent(shareText);
         window.open(
-          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles`,
+          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${MINIAPP_URL}`,
           "_blank"
         );
         setHasShared(true);
@@ -429,18 +432,18 @@ ${estimatedAmount} $${tokenSymbol} just for playing! ✨`;
     try {
       await sdk.actions.composeCast({
         text: shareText,
-        embeds: ["https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles"],
+        embeds: [MINIAPP_URL],
       });
     } catch (e) {
       try {
         const encodedText = encodeURIComponent(shareText);
         await sdk.actions.openUrl({
-          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles`,
+          url: `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${MINIAPP_URL}`,
         });
       } catch {
         const encodedText = encodeURIComponent(shareText);
         window.open(
-          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles`,
+          `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${MINIAPP_URL}`,
           "_blank"
         );
       }
