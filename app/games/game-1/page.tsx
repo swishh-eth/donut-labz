@@ -2,10 +2,23 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { useAccount } from "wagmi";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
 import { Trophy, Play, Share2, X, HelpCircle, Volume2, VolumeX, ChevronRight, Clock } from "lucide-react";
+
+// Free Arcade Contract
+const FREE_ARCADE_CONTRACT = "0xa5d1c19187312e0f0741182ad63a378e65d8b43a" as const;
+
+const FREE_ARCADE_ABI = [
+  {
+    inputs: [{ name: "gameId", type: "string" }],
+    name: "play",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
 
 // USDC coin image component
 const UsdcCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
@@ -40,6 +53,7 @@ const PLAYER_X = 80;
 
 // Power-up types
 type PowerUpType = 'shield' | 'widegap' | 'tiny';
+type PlayState = 'idle' | 'confirming' | 'recording' | 'error';
 
 interface PowerUp {
   type: PowerUpType;
@@ -126,6 +140,13 @@ export default function FlappyDonutPage() {
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
   const [activePowerUpDisplay, setActivePowerUpDisplay] = useState<PowerUpType | null>(null);
   
+  // Contract interaction states
+  const [playState, setPlayState] = useState<PlayState>('idle');
+  const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
+  const currentEntryIdRef = useRef<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [gamesPlayedThisWeek, setGamesPlayedThisWeek] = useState(0);
+  
   const PRIZE_DISTRIBUTION = [40, 20, 15, 8, 5, 4, 3, 2, 2, 1];
   
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -153,6 +174,10 @@ export default function FlappyDonutPage() {
   const hasFlappedRef = useRef(false);
   const screenShakeRef = useRef(0);
   const lastPipePassedRef = useRef(0);
+  
+  // Contract hooks
+  const { writeContract, data: txHash, isPending, reset: resetWrite, error: writeError } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
   
   useEffect(() => {
     if (context?.user?.pfpUrl) {
@@ -298,12 +323,6 @@ export default function FlappyDonutPage() {
     }, 0);
   }, [isMuted]);
   
-  const triggerHaptic = useCallback((strong: boolean) => {
-    try {
-      if (navigator.vibrate) navigator.vibrate(strong ? [30, 50, 30] : 15);
-    } catch {}
-  }, []);
-  
   const spawnScoreParticles = useCallback((x: number, y: number) => {
     for (let i = 0; i < 12; i++) {
       const angle = (i / 12) * Math.PI * 2;
@@ -381,15 +400,23 @@ export default function FlappyDonutPage() {
     return () => { cancelled = true; };
   }, []);
   
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      const lbRes = await fetch('/api/games/flappy/leaderboard');
+      if (lbRes.ok) { 
+        const data = await lbRes.json(); 
+        setLeaderboard(data.leaderboard || []); 
+        if (data.gamesThisWeek !== undefined) {
+          setGamesPlayedThisWeek(data.gamesThisWeek);
+        }
+      }
+    } catch (e) { console.error("Failed to fetch data:", e); }
+  }, []);
+  
   useEffect(() => {
     if (!address) return;
-    (async () => {
-      try {
-        const lbRes = await fetch('/api/games/flappy/leaderboard');
-        if (lbRes.ok) { const data = await lbRes.json(); setLeaderboard(data.leaderboard || []); }
-      } catch (e) { console.error("Failed to fetch data:", e); }
-    })();
-  }, [address]);
+    fetchLeaderboard();
+  }, [address, fetchLeaderboard]);
   
   // Fetch prize pool from distribution API
   useEffect(() => {
@@ -918,9 +945,9 @@ export default function FlappyDonutPage() {
       setGameState("gameover");
       setHighScore(prev => Math.max(prev, scoreRef.current));
       if (address && scoreRef.current >= 0) {
-        fetch('/api/games/flappy/submit-score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerAddress: address, username: context?.user?.username || `${address.slice(0, 6)}...${address.slice(-4)}`, pfpUrl: context?.user?.pfpUrl, score: scoreRef.current }) })
+        fetch('/api/games/flappy/submit-score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerAddress: address, username: context?.user?.username || `${address.slice(0, 6)}...${address.slice(-4)}`, pfpUrl: context?.user?.pfpUrl, score: scoreRef.current, entryId: currentEntryIdRef.current }) })
           .then(r => r.json())
-          .then(() => { fetch('/api/games/flappy/leaderboard').then(r => r.json()).then(data => setLeaderboard(data.leaderboard || [])); })
+          .then(() => { fetchLeaderboard(); })
           .catch(console.error);
         if (scoreRef.current > 0) {
           fetch('/api/chat/game-announce', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerAddress: address, username: context?.user?.username || null, pfpUrl: context?.user?.pfpUrl || null, gameId: 'flappy-donut', gameName: 'Flappy Donut', score: scoreRef.current }) }).catch(console.error);
@@ -939,7 +966,7 @@ export default function FlappyDonutPage() {
     }
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [drawBackground, drawCityscape, drawPlayer, drawPipe, drawPowerUp, drawParticles, drawFloatingTexts, address, context, playPointSound, playPowerUpSound, playHitSound, spawnTrailParticle, spawnPowerUpParticles, spawnDeathParticles, addFloatingText]);
+  }, [drawBackground, drawCityscape, drawPlayer, drawPipe, drawPowerUp, drawParticles, drawFloatingTexts, address, context, playPointSound, playPowerUpSound, playHitSound, spawnTrailParticle, spawnPowerUpParticles, spawnDeathParticles, addFloatingText, fetchLeaderboard]);
   
   const handleFlap = useCallback(() => {
     if (gameState === "playing" && gameActiveRef.current) {
@@ -991,15 +1018,76 @@ export default function FlappyDonutPage() {
       }
     }, 1000);
   }, [gameLoop, initAudioContext, initBgParticles, playCountdownSound]);
-  
-  const handlePlay = () => {
-    if (!address) {
-      // Still allow play without wallet, but score won't be saved
-      startGame();
+
+  // Record entry and start game after tx confirmation
+  const recordEntryAndStartGame = useCallback(async (hash: string) => {
+    if (!context?.user) return;
+    setPlayState('recording');
+    try {
+      const res = await fetch("/api/games/flappy/free-entry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fid: context.user.fid,
+          walletAddress: address,
+          username: context.user.username,
+          displayName: context.user.displayName,
+          pfpUrl: context.user.pfpUrl,
+          txHash: hash,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCurrentEntryId(data.entryId);
+        currentEntryIdRef.current = data.entryId;
+        setGamesPlayedThisWeek(data.gamesThisWeek || gamesPlayedThisWeek + 1);
+        setPlayState('idle');
+        resetWrite();
+        startGame();
+      } else {
+        setErrorMessage(data.error || "Failed to record entry");
+        setPlayState('error');
+      }
+    } catch (error) {
+      console.error("Failed to record entry:", error);
+      setErrorMessage("Failed to record entry");
+      setPlayState('error');
+    }
+  }, [context?.user, address, resetWrite, startGame, gamesPlayedThisWeek]);
+
+  // Handle play button click
+  const handlePlay = useCallback(async () => {
+    if (!address || !context?.user?.fid) {
+      setErrorMessage("Please connect your wallet");
       return;
     }
-    startGame();
-  };
+    
+    setErrorMessage(null);
+    setPlayState('confirming');
+    
+    writeContract({
+      address: FREE_ARCADE_CONTRACT,
+      abi: FREE_ARCADE_ABI,
+      functionName: "play",
+      args: ["flappy-donut"],
+    });
+  }, [address, context?.user?.fid, writeContract]);
+
+  // Handle tx confirmation
+  useEffect(() => {
+    if (isConfirmed && txHash && playState === 'confirming') {
+      recordEntryAndStartGame(txHash);
+    }
+  }, [isConfirmed, txHash, playState, recordEntryAndStartGame]);
+
+  // Handle write errors
+  useEffect(() => {
+    if (writeError) {
+      console.error("Write error:", writeError);
+      setPlayState('error');
+      setErrorMessage(writeError.message?.includes("User rejected") ? "Transaction rejected" : "Transaction failed");
+    }
+  }, [writeError]);
   
   const handleShare = useCallback(async () => {
     const miniappUrl = "https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles";
@@ -1071,6 +1159,8 @@ export default function FlappyDonutPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleFlap]);
 
+  const isPlayPending = playState === 'confirming' || playState === 'recording' || isPending || isConfirming;
+
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white select-none">
       <style>{`
@@ -1136,12 +1226,22 @@ export default function FlappyDonutPage() {
                       <Share2 className="w-3 h-3" /><span>Share</span>
                     </button>
                   )}
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 rounded-full border border-green-500/30">
-                    <span className="text-xs text-green-400 font-medium">FREE TO PLAY</span>
+                  {errorMessage && <p className="text-red-400 text-xs">{errorMessage}</p>}
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 rounded-full border border-zinc-700">
+                    <span className="text-xs text-zinc-400">Gas only (~$0.001)</span>
                   </div>
-                  <button onClick={handlePlay} className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95">
-                    <Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span>
+                  <button 
+                    onClick={handlePlay} 
+                    disabled={isPlayPending}
+                    className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isPlayPending ? (
+                      <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Confirming...</span></>
+                    ) : (
+                      <><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span></>
+                    )}
                   </button>
+                  <p className="text-zinc-500 text-[10px]">Games this week: {gamesPlayedThisWeek}</p>
                 </div>
               </div>
             )}
@@ -1260,7 +1360,7 @@ export default function FlappyDonutPage() {
                   <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
                   <div>
                     <div className="font-semibold text-green-400 text-xs">Free to Play</div>
-                    <div className="text-[11px] text-gray-400 mt-0.5">Play unlimited games for free! Just connect your wallet to save your score to the leaderboard.</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">Play unlimited games for free! Just pay gas (~$0.001) to record your game on-chain.</div>
                   </div>
                 </div>
                 <div className="flex gap-2.5">
