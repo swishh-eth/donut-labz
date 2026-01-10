@@ -2106,13 +2106,22 @@ export default function DonutSurvivorsPage() {
         * { -webkit-tap-highlight-color: transparent !important; }
         main, main * { user-select: none !important; -webkit-user-select: none !important; touch-action: none !important; }
         html, body { overscroll-behavior: none !important; overflow: hidden !important; position: fixed !important; width: 100% !important; height: 100% !important; }
+        @keyframes tilePopIn {
+          0% { opacity: 0; transform: translateY(8px) scale(0.97); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-pop { animation: tilePopIn 0.3s ease-out forwards; opacity: 0; }
+        .pop-delay-1 { animation-delay: 0ms; }
+        .pop-delay-2 { animation-delay: 80ms; }
+        .pop-delay-3 { animation-delay: 160ms; }
+        .pop-delay-4 { animation-delay: 240ms; }
       `}</style>
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
         <Header title="SURVIVORS" user={context?.user} />
         
         {/* Prize Pool / Leaderboard Button */}
-        <button onClick={() => setShowLeaderboard(true)} className="relative w-full mb-3 px-4 py-3 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/50 rounded-xl transition-all active:scale-[0.98] hover:border-zinc-600 group" style={{ minHeight: '70px' }}>
+        <button onClick={() => setShowLeaderboard(true)} className="animate-pop pop-delay-1 relative w-full mb-3 px-4 py-3 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/50 rounded-xl transition-all active:scale-[0.98] hover:border-zinc-600 group" style={{ minHeight: '70px' }}>
           <div className="flex items-center justify-between">
             <div className="flex flex-col items-start">
               <div className="flex items-center gap-2"><img src="/coins/USDC_LOGO.png" alt="USDC" className="w-4 h-4 rounded-full" /><span className="text-[10px] text-zinc-400 font-medium">Weekly Prize Pool</span></div>
@@ -2126,7 +2135,7 @@ export default function DonutSurvivorsPage() {
         </button>
         
         <div className="flex flex-col items-center">
-          <div className="relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
+          <div className="animate-pop pop-delay-2 relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
             <canvas ref={canvasRef} width={SCALED_WIDTH} height={SCALED_HEIGHT} className="rounded-2xl border border-zinc-800 w-full h-full" style={{ touchAction: "none" }} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={e => e.preventDefault()} />
             
             {/* Level Up Screen */}
@@ -2168,24 +2177,21 @@ export default function DonutSurvivorsPage() {
                   <button onClick={() => { setShowGadgetInfo(true); setShowWeaponMenu(false); }} className="px-4 py-2.5 bg-white text-black font-bold rounded-lg hover:bg-gray-200 active:scale-95 text-sm">
                     GADGETS
                   </button>
-                  <button 
-                    onClick={handlePlay} 
-                    disabled={playState === 'confirming' || playState === 'recording' || isPending || isConfirming}
-                    className="px-4 py-2.5 bg-white text-black font-bold rounded-lg hover:bg-gray-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                  >
-                    {(playState === 'confirming' || isPending || isConfirming) ? (
-                      <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />...</span>
-                    ) : playState === 'recording' ? (
-                      <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />...</span>
-                    ) : (
-                      gameState === "gameover" ? "PLAY AGAIN" : "PLAY"
-                    )}
-                  </button>
-                  <button onClick={() => { const uw = STARTER_WEAPONS.filter(w => gamesPlayedThisWeek >= WEAPON_UNLOCK[w]); setSelectedStarterWeapon(uw[Math.floor(Math.random() * uw.length)]); }} className="px-4 py-2.5 bg-white text-black font-bold rounded-lg hover:bg-gray-200 active:scale-95 text-sm">
-                    RANDOM
-                  </button>
                 </div>
-                <span className="text-[10px] text-zinc-500 pointer-events-auto">Only gas cost ~$0.001</span>
+                <button 
+                  onClick={handlePlay} 
+                  disabled={playState === 'confirming' || playState === 'recording' || isPending || isConfirming}
+                  className="pointer-events-auto px-8 py-2.5 bg-white text-black font-bold rounded-lg hover:bg-gray-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  {(playState === 'confirming' || isPending || isConfirming) ? (
+                    <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />...</span>
+                  ) : playState === 'recording' ? (
+                    <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />...</span>
+                  ) : (
+                    gameState === "gameover" ? "PLAY AGAIN" : "PLAY"
+                  )}
+                </button>
+                <span className="text-[10px] text-zinc-500 pointer-events-auto">Gas Only (~$0.001)</span>
                 {errorMessage && <span className="text-[10px] text-red-400 pointer-events-auto">{errorMessage}</span>}
                 {gameState === "gameover" && (
                   <button onClick={handleShare} className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-400 active:scale-95 text-sm">
@@ -2231,7 +2237,7 @@ export default function DonutSurvivorsPage() {
           </div>
         </div>
         
-        <div className="mt-4 flex items-center justify-center gap-2">
+        <div className="animate-pop pop-delay-3 mt-4 flex items-center justify-center gap-2">
           <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900/80 border border-zinc-800 rounded-lg"><HelpCircle className="w-3 h-3 text-zinc-500" /><span className="text-[11px] text-zinc-400">Help</span></button>
           <button onClick={() => setIsMuted(!isMuted)} className={`flex items-center gap-2 px-4 py-1.5 bg-zinc-900/80 border rounded-lg ${isMuted ? 'border-red-500/30' : 'border-zinc-800'}`}>{isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-500" />}<span className="text-[11px] text-zinc-400">{isMuted ? 'Muted' : 'Sound'}</span></button>
           <button onClick={() => setIsMusicOn(!isMusicOn)} className={`flex items-center gap-2 px-4 py-1.5 bg-zinc-900/80 border rounded-lg ${isMusicOn ? 'border-pink-500/50' : 'border-zinc-800'}`}><Music className={`w-3 h-3 ${isMusicOn ? 'text-pink-400' : 'text-zinc-500'}`} /><span className="text-[11px] text-zinc-400">{isMusicOn ? 'Music' : 'Music'}</span></button>
