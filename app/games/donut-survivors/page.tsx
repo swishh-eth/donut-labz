@@ -719,7 +719,7 @@ export default function DonutSurvivorsPage() {
     cameraRef.current = { x: p.x - CANVAS_WIDTH / 2, y: p.y - CANVAS_HEIGHT / 2 };
     const gt = now - gameStartTimeRef.current - pausedTimeRef.current;
     const gs = gt / 1000;
-    const sr = Math.max(600, 2200 - gt / 300);
+    const sr = Math.max(500, 1800 - gt / 250);
     if (now - lastSpawnTimeRef.current > sr) { const sc = 1 + Math.floor(gt / 90000); for (let i = 0; i < sc; i++) spawnEnemy(); lastSpawnTimeRef.current = now; }
     if (gs >= 300 && now - lastWindHordeRef.current > 45000) { spawnWindHorde(); lastWindHordeRef.current = now; }
     if (gs >= 590 && !bossWarningRef.current) bossWarningRef.current = true;
