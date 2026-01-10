@@ -12,9 +12,7 @@ const supabase = createClient(
 );
 
 // Use Alchemy RPC for reliability (public RPC has strict rate limits)
-const ALCHEMY_RPC_URL = process.env.ALCHEMY_API_KEY 
-  ? `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-  : process.env.BASE_RPC_URL || "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g";
+const ALCHEMY_RPC_URL = "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g";
 
 // USDC on Base
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
@@ -58,15 +56,14 @@ const ERC20_TRANSFER_ABI = [
 ] as const;
 
 // Get current week number (weeks start on Friday 11PM UTC / 6PM EST)
+// Epoch: Friday Jan 3, 2025 23:00 UTC
+// MUST match how donut_dash_scores stores week number
 function getCurrentWeek(): number {
   const now = new Date();
-  const utcNow = new Date(now.toUTCString());
-  
-  // Epoch: Friday Jan 3, 2025 23:00 UTC
-  const epoch = new Date(Date.UTC(2025, 0, 3, 23, 0, 0));
+  const epoch = new Date('2025-01-03T23:00:00Z');
   const msPerWeek = 7 * 24 * 60 * 60 * 1000;
   
-  const weeksSinceEpoch = Math.floor((utcNow.getTime() - epoch.getTime()) / msPerWeek);
+  const weeksSinceEpoch = Math.floor((now.getTime() - epoch.getTime()) / msPerWeek);
   return weeksSinceEpoch + 1;
 }
 
@@ -94,6 +91,167 @@ async function withRetry<T>(
   throw new Error("Max retries exceeded");
 }
 
+// Main distribution logic
+async function runDistribution(week: number, dryRun: boolean) {
+  console.log(`[Donut Dash Distribution] Starting for week ${week}, dryRun: ${dryRun}`);
+  console.log(`[Donut Dash Distribution] Current week: ${getCurrentWeek()}, distributing week: ${week}`);
+
+  // Check if already distributed for this week
+  const { data: existingDistribution } = await supabase
+    .from("donut_dash_prize_distributions")
+    .select("id")
+    .eq("week", week)
+    .single();
+
+  if (existingDistribution) {
+    return {
+      success: false,
+      error: "Prizes already distributed for this week",
+      week,
+    };
+  }
+
+  // Get top 10 scores for the week
+  const { data: topScores, error: scoresError } = await supabase
+    .from("donut_dash_scores")
+    .select("fid, wallet_address, score, username, display_name")
+    .eq("week", week)
+    .gt("score", 0)
+    .order("score", { ascending: false })
+    .limit(10);
+
+  if (scoresError) {
+    console.error("Error fetching scores:", scoresError);
+    return { error: "Failed to fetch scores" };
+  }
+
+  if (!topScores || topScores.length === 0) {
+    return {
+      success: false,
+      error: "No scores found for this week",
+      week,
+    };
+  }
+
+  // Prepare distribution list
+  const distributions: {
+    rank: number;
+    address: string;
+    amount: string;
+    score: number;
+    username?: string;
+    txHash?: string;
+  }[] = [];
+
+  const prizeDistribution = getPrizeDistribution();
+
+  for (let i = 0; i < Math.min(topScores.length, prizeDistribution.length); i++) {
+    const winner = topScores[i];
+    const prize = prizeDistribution[i];
+
+    if (!winner.wallet_address) {
+      console.warn(`No wallet address for rank ${i + 1}, fid: ${winner.fid}`);
+      continue;
+    }
+
+    distributions.push({
+      rank: prize.rank,
+      address: winner.wallet_address,
+      amount: prize.amount,
+      score: winner.score,
+      username: winner.username || winner.display_name,
+    });
+  }
+
+  if (distributions.length === 0) {
+    return {
+      success: false,
+      error: "No valid wallet addresses found for winners",
+      week,
+    };
+  }
+
+  console.log(`[Donut Dash Distribution] Found ${distributions.length} winners`);
+
+  // If dry run, just return what would be distributed
+  if (dryRun) {
+    return {
+      success: true,
+      dryRun: true,
+      week,
+      currentWeek: getCurrentWeek(),
+      distributions,
+      totalPrize: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0).toFixed(2),
+    };
+  }
+
+  // Setup wallet client for sending
+  const botPrivateKey = process.env.BOT_PRIVATE_KEY;
+  if (!botPrivateKey) {
+    return { error: "Bot wallet not configured" };
+  }
+
+  const account = privateKeyToAccount(botPrivateKey as `0x${string}`);
+  
+  const publicClient = createPublicClient({
+    chain: base,
+    transport: http(ALCHEMY_RPC_URL),
+  });
+
+  const walletClient = createWalletClient({
+    account,
+    chain: base,
+    transport: http(ALCHEMY_RPC_URL),
+  });
+
+  // Send prizes - wait for each tx to confirm before sending next
+  const results: { rank: number; txHash: string; error?: string }[] = [];
+
+  for (const dist of distributions) {
+    try {
+      const amountInUnits = parseUnits(dist.amount, USDC_DECIMALS);
+
+      const hash = await withRetry(() => walletClient.writeContract({
+        address: USDC_ADDRESS,
+        abi: ERC20_TRANSFER_ABI,
+        functionName: "transfer",
+        args: [dist.address as `0x${string}`, amountInUnits],
+      }));
+
+      dist.txHash = hash;
+      results.push({ rank: dist.rank, txHash: hash });
+      console.log(`[Donut Dash Distribution] Sent $${dist.amount} USDC to rank ${dist.rank}: ${hash}`);
+
+      // Wait for confirmation before next tx
+      await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+    } catch (err: any) {
+      console.error(`Failed to send prize to rank ${dist.rank}:`, err);
+      results.push({ rank: dist.rank, txHash: "", error: err.message });
+    }
+  }
+
+  // Record distribution in database
+  const { error: insertError } = await supabase.from("donut_dash_prize_distributions").insert({
+    week,
+    total_prize_usd: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0),
+    distributions: distributions,
+    results: results,
+    distributed_at: new Date().toISOString(),
+  });
+
+  if (insertError) {
+    console.error("Failed to record distribution:", insertError);
+  }
+
+  return {
+    success: true,
+    week,
+    distributions,
+    results,
+    totalPrize: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0).toFixed(2),
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Verify cron secret
@@ -103,186 +261,60 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const week = body.week || getPreviousWeek(); // Default to previous week
-    const dryRun = body.dryRun === true; // For testing without sending
+    const week = body.week || getPreviousWeek();
+    const dryRun = body.dryRun === true;
 
-    console.log(`[Donut Dash Distribution] Starting for week ${week}, dryRun: ${dryRun}`);
-    console.log(`[Donut Dash Distribution] Using RPC: ${ALCHEMY_RPC_URL.replace(/\/v2\/.*/, '/v2/***')}`);
-
-    // Check if already distributed for this week
-    const { data: existingDistribution } = await supabase
-      .from("donut_dash_prize_distributions")
-      .select("id")
-      .eq("week", week)
-      .single();
-
-    if (existingDistribution) {
-      return NextResponse.json({
-        success: false,
-        error: "Prizes already distributed for this week",
-        week,
-      });
-    }
-
-    // Get top 10 scores for the week
-    const { data: topScores, error: scoresError } = await supabase
-      .from("donut_dash_scores")
-      .select("fid, wallet_address, score, username, display_name")
-      .eq("week", week)
-      .gt("score", 0)
-      .order("score", { ascending: false })
-      .limit(10);
-
-    if (scoresError) {
-      console.error("Error fetching scores:", scoresError);
-      return NextResponse.json({ error: "Failed to fetch scores" }, { status: 500 });
-    }
-
-    if (!topScores || topScores.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: "No scores found for this week",
-        week,
-      });
-    }
-
-    // Prepare distribution list
-    const distributions: {
-      rank: number;
-      address: string;
-      amount: string;
-      score: number;
-      username?: string;
-      txHash?: string;
-    }[] = [];
-
-    const prizeDistribution = getPrizeDistribution();
-
-    for (let i = 0; i < Math.min(topScores.length, prizeDistribution.length); i++) {
-      const winner = topScores[i];
-      const prize = prizeDistribution[i];
-
-      if (!winner.wallet_address) {
-        console.warn(`No wallet address for rank ${i + 1}, fid: ${winner.fid}`);
-        continue;
-      }
-
-      distributions.push({
-        rank: prize.rank,
-        address: winner.wallet_address,
-        amount: prize.amount,
-        score: winner.score,
-        username: winner.username || winner.display_name,
-      });
-    }
-
-    if (distributions.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: "No valid wallet addresses found for winners",
-        week,
-      });
-    }
-
-    console.log(`[Donut Dash Distribution] Found ${distributions.length} winners`);
-
-    // If dry run, just return what would be distributed
-    if (dryRun) {
-      return NextResponse.json({
-        success: true,
-        dryRun: true,
-        week,
-        distributions,
-        totalPrize: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0).toFixed(2),
-      });
-    }
-
-    // Setup wallet client for sending
-    const botPrivateKey = process.env.BOT_PRIVATE_KEY;
-    if (!botPrivateKey) {
-      return NextResponse.json({ error: "Bot wallet not configured" }, { status: 500 });
-    }
-
-    const account = privateKeyToAccount(botPrivateKey as `0x${string}`);
+    const result = await runDistribution(week, dryRun);
     
-    const publicClient = createPublicClient({
-      chain: base,
-      transport: http(ALCHEMY_RPC_URL),
-    });
-
-    const walletClient = createWalletClient({
-      account,
-      chain: base,
-      transport: http(ALCHEMY_RPC_URL),
-    });
-
-    // Send prizes - wait for each tx to confirm before sending next
-    const results: { rank: number; txHash: string; error?: string }[] = [];
-
-    for (const dist of distributions) {
-      try {
-        const amountInUnits = parseUnits(dist.amount, USDC_DECIMALS);
-
-        const hash = await withRetry(() => walletClient.writeContract({
-          address: USDC_ADDRESS,
-          abi: ERC20_TRANSFER_ABI,
-          functionName: "transfer",
-          args: [dist.address as `0x${string}`, amountInUnits],
-        }));
-
-        dist.txHash = hash;
-        results.push({ rank: dist.rank, txHash: hash });
-        console.log(`[Donut Dash Distribution] Sent $${dist.amount} USDC to rank ${dist.rank}: ${hash}`);
-
-        // Wait for confirmation before next tx
-        await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
-      } catch (err: any) {
-        console.error(`Failed to send prize to rank ${dist.rank}:`, err);
-        results.push({ rank: dist.rank, txHash: "", error: err.message });
-      }
+    if (result.error && !result.success) {
+      return NextResponse.json(result, { status: 500 });
     }
-
-    // Record distribution in database
-    const { error: insertError } = await supabase.from("donut_dash_prize_distributions").insert({
-      week,
-      total_prize_usd: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0),
-      distributions: distributions,
-      results: results,
-      distributed_at: new Date().toISOString(),
-    });
-
-    if (insertError) {
-      console.error("Failed to record distribution:", insertError);
-    }
-
-    return NextResponse.json({
-      success: true,
-      week,
-      distributions,
-      results,
-      totalPrize: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0).toFixed(2),
-    });
+    
+    return NextResponse.json(result);
   } catch (error: any) {
     console.error("Prize distribution error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// GET endpoint to check distribution status and prize info
+// GET endpoint - Vercel crons use GET requests
 export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get("authorization");
   const { searchParams } = new URL(request.url);
   const week = searchParams.get("week");
 
+  // If authorized (cron job), run distribution
+  if (authHeader === `Bearer ${process.env.CRON_SECRET}`) {
+    try {
+      const weekNumber = week ? parseInt(week) : getPreviousWeek();
+      const result = await runDistribution(weekNumber, false);
+      
+      if (result.error && !result.success) {
+        return NextResponse.json(result, { status: 500 });
+      }
+      
+      return NextResponse.json(result);
+    } catch (error: any) {
+      console.error("[Donut Dash Distribution] Cron error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+  }
+
+  // Otherwise return status info (no auth required for status check)
+  const currentWeek = getCurrentWeek();
+  const previousWeek = getPreviousWeek();
+
   // If no week specified, just return current prize info
   if (!week) {
-    const currentWeek = getCurrentWeek();
     return NextResponse.json({
       totalPrize: TOTAL_PRIZE_USD,
       prizeStructure: getPrizeDistribution(),
       currentWeek,
+      weekToDistribute: previousWeek,
     });
   }
 
+  // Check if specific week was distributed
   const { data, error } = await supabase
     .from("donut_dash_prize_distributions")
     .select("*")
@@ -299,5 +331,7 @@ export async function GET(request: NextRequest) {
     distribution: data || null,
     totalPrize: TOTAL_PRIZE_USD,
     prizeStructure: getPrizeDistribution(),
+    currentWeek,
+    weekToDistribute: previousWeek,
   });
 }
