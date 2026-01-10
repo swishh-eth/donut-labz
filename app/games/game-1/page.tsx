@@ -1167,6 +1167,14 @@ export default function FlappyDonutPage() {
         .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         * { -webkit-tap-highlight-color: transparent !important; }
+        @keyframes tilePopIn {
+          0% { opacity: 0; transform: translateY(12px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .animate-pop { animation: tilePopIn 0.35s ease-out forwards; opacity: 0; }
+        .pop-delay-1 { animation-delay: 50ms; }
+        .pop-delay-2 { animation-delay: 130ms; }
+        .pop-delay-3 { animation-delay: 210ms; }
       `}</style>
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
@@ -1174,35 +1182,32 @@ export default function FlappyDonutPage() {
         
         <button
           onClick={() => setShowLeaderboard(true)}
-          className="relative w-full mb-3 px-4 py-3 bg-gradient-to-r from-green-500/20 to-green-600/20 border border-green-500/30 rounded-xl transition-all active:scale-[0.98] hover:border-green-500/50 group"
+          className="animate-pop pop-delay-1 relative w-full mb-3 px-4 py-3 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/50 rounded-xl transition-all active:scale-[0.98] hover:border-zinc-600 group"
           style={{ minHeight: '70px' }}
         >
           <div className="flex items-center justify-between">
             <div className="flex flex-col items-start">
               <div className="flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-green-400" />
-                <span className="text-[10px] text-green-200/80 font-medium">Weekly Prize Pool</span>
+                <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-4 h-4 rounded-full" />
+                <span className="text-[10px] text-zinc-400 font-medium">Weekly Prize Pool</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-2xl font-bold text-green-400">${prizePool}</span>
-                <UsdcCoin className="w-6 h-6" />
-              </div>
+              <span className="text-2xl font-bold text-white">${prizePool} USDC</span>
             </div>
             <div className="flex flex-col items-end">
-              <div className="flex items-center gap-1 text-green-400/60 group-hover:text-green-400 transition-colors">
+              <div className="flex items-center gap-1 text-zinc-500 group-hover:text-zinc-300 transition-colors">
                 <span className="text-[10px]">View Leaderboard</span>
                 <ChevronRight className="w-3 h-3" />
               </div>
-              <div className="text-[10px] text-green-200/60 flex items-center gap-1">
+              <div className="text-[10px] text-zinc-500 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                <span>Resets in <span className="font-bold text-green-300">{resetCountdown}</span></span>
+                <span>Resets in <span className="font-bold text-zinc-300">{resetCountdown}</span></span>
               </div>
             </div>
           </div>
         </button>
         
         <div className="flex flex-col items-center">
-          <div className="relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
+          <div className="animate-pop pop-delay-2 relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
             {gameState === "playing" && (
               <div
                 className="absolute inset-0 z-10 cursor-pointer"
@@ -1228,7 +1233,7 @@ export default function FlappyDonutPage() {
                   )}
                   {errorMessage && <p className="text-red-400 text-xs">{errorMessage}</p>}
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 rounded-full border border-zinc-700">
-                    <span className="text-xs text-zinc-400">Gas only (~$0.001)</span>
+                    <span className="text-xs text-zinc-400">Gas Only (~$0.001)</span>
                   </div>
                   <button 
                     onClick={handlePlay} 
@@ -1251,7 +1256,7 @@ export default function FlappyDonutPage() {
         </div>
         
         {(gameState === "menu" || gameState === "gameover") && (
-          <div className="py-4 flex items-center justify-center gap-2">
+          <div className="animate-pop pop-delay-3 py-4 flex items-center justify-center gap-2">
             <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
               <HelpCircle className="w-3 h-3 text-zinc-400" /><span className="text-xs">How to Play</span>
             </button>
