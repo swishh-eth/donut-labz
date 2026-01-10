@@ -232,10 +232,11 @@ export default function DonutSurvivorsPage() {
   const activeSoundsRef = useRef(0);
   const maxConcurrentSounds = 4;
   
-  // Music system
+  // Music system with style changes every 5 minutes
   const musicNodesRef = useRef<{ osc: OscillatorNode; gain: GainNode }[]>([]);
   const musicIntervalRef = useRef<number | null>(null);
   const musicPlayingRef = useRef(false);
+  const musicStyleRef = useRef(0);
 
   useEffect(() => { const i = setInterval(() => setResetCountdown(getTimeUntilReset()), 60000); return () => clearInterval(i); }, []);
   useEffect(() => { (async () => { try { const ctx = await (sdk as any).context; if (ctx?.user) { setContext(ctx); if (ctx.user.pfpUrl) setUserPfp(ctx.user.pfpUrl); } } catch {} })(); }, []);
@@ -287,6 +288,60 @@ export default function DonutSurvivorsPage() {
   const playPowerUp = useCallback(() => { if (isMuted || !audioContextRef.current) return; [400, 600, 800, 1000].forEach((f, i) => setTimeout(() => playSound(f, 0.15, 'sine', 0.12), i * 50)); }, [isMuted, playSound]);
   const playWindHorde = useCallback(() => { if (isMuted || !audioContextRef.current) return; playSound(800, 0.3, 'sine', 0.15); setTimeout(() => playSound(600, 0.2, 'sine', 0.1), 100); }, [isMuted, playSound]);
   
+  // Music styles configuration
+  const MUSIC_STYLES = [
+    { // 0-5 min: Chill chiptune
+      name: 'Chiptune',
+      bpm: 180,
+      bassNotes: [55, 65.41, 73.42, 82.41],
+      melody: [220, 261.63, 293.66, 349.23, 392, 440, 523.25, 587.33],
+      bassType: 'triangle' as OscillatorType,
+      melodyType: 'square' as OscillatorType,
+      bassVol: 0.06,
+      melodyVol: 0.04,
+    },
+    { // 5-10 min: Sci-fi synth
+      name: 'Sci-Fi',
+      bpm: 200,
+      bassNotes: [41.2, 55, 61.74, 82.41],
+      melody: [329.63, 392, 440, 523.25, 587.33, 659.25, 783.99, 880],
+      bassType: 'sawtooth' as OscillatorType,
+      melodyType: 'sine' as OscillatorType,
+      bassVol: 0.05,
+      melodyVol: 0.05,
+    },
+    { // 10-15 min: Techno drive
+      name: 'Techno',
+      bpm: 240,
+      bassNotes: [55, 55, 73.42, 55],
+      melody: [440, 493.88, 523.25, 587.33, 659.25, 698.46, 783.99, 880],
+      bassType: 'square' as OscillatorType,
+      melodyType: 'sawtooth' as OscillatorType,
+      bassVol: 0.07,
+      melodyVol: 0.035,
+    },
+    { // 15-20 min: Dark industrial
+      name: 'Industrial',
+      bpm: 220,
+      bassNotes: [36.71, 41.2, 49, 55],
+      melody: [196, 220, 246.94, 293.66, 329.63, 369.99, 415.3, 440],
+      bassType: 'sawtooth' as OscillatorType,
+      melodyType: 'square' as OscillatorType,
+      bassVol: 0.08,
+      melodyVol: 0.04,
+    },
+    { // 20+ min: Chaos finale
+      name: 'Chaos',
+      bpm: 280,
+      bassNotes: [32.7, 36.71, 41.2, 49],
+      melody: [523.25, 554.37, 622.25, 659.25, 739.99, 783.99, 880, 932.33],
+      bassType: 'sawtooth' as OscillatorType,
+      melodyType: 'square' as OscillatorType,
+      bassVol: 0.09,
+      melodyVol: 0.045,
+    },
+  ];
+  
   // Music system
   const startMusic = useCallback(() => {
     if (!audioContextRef.current || musicPlayingRef.current) return;
@@ -294,42 +349,74 @@ export default function DonutSurvivorsPage() {
     const ctx = audioContextRef.current;
     if (!ctx) return;
     musicPlayingRef.current = true;
-    const bassOsc = ctx.createOscillator();
-    const bassGain = ctx.createGain();
-    bassOsc.type = 'triangle';
-    bassOsc.frequency.setValueAtTime(55, ctx.currentTime);
-    bassOsc.connect(bassGain);
-    bassGain.connect(ctx.destination);
-    bassGain.gain.setValueAtTime(0.06, ctx.currentTime);
-    bassOsc.start();
-    musicNodesRef.current.push({ osc: bassOsc, gain: bassGain });
-    const melody = [220, 261.63, 293.66, 349.23, 392, 440, 523.25, 587.33];
+    musicStyleRef.current = 0;
+    
     let noteIndex = 0;
     let beatCount = 0;
+    let lastStyleCheck = 0;
+    
     const playBeat = () => {
       if (!audioContextRef.current || !musicPlayingRef.current) return;
       const ctx = audioContextRef.current;
-      if (beatCount % 8 === 0) {
-        const bassNotes = [55, 65.41, 73.42, 82.41];
-        const bassNote = bassNotes[Math.floor(beatCount / 8) % bassNotes.length];
-        musicNodesRef.current[0]?.osc.frequency.setValueAtTime(bassNote, ctx.currentTime);
+      
+      // Check game time and update style every 5 minutes
+      const gt = (performance.now() - gameStartTimeRef.current - pausedTimeRef.current) / 1000;
+      const newStyle = Math.min(Math.floor(gt / 300), MUSIC_STYLES.length - 1);
+      
+      // Style transition
+      if (newStyle !== musicStyleRef.current && gt - lastStyleCheck > 1) {
+        musicStyleRef.current = newStyle;
+        lastStyleCheck = gt;
+        // Play transition sound
+        const transOsc = ctx.createOscillator();
+        const transGain = ctx.createGain();
+        transOsc.type = 'sine';
+        transOsc.frequency.setValueAtTime(880, ctx.currentTime);
+        transOsc.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 0.3);
+        transOsc.connect(transGain);
+        transGain.connect(ctx.destination);
+        transGain.gain.setValueAtTime(0.1, ctx.currentTime);
+        transGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        transOsc.start();
+        transOsc.stop(ctx.currentTime + 0.3);
       }
+      
+      const style = MUSIC_STYLES[musicStyleRef.current];
+      
+      // Bass line
+      if (beatCount % 8 === 0) {
+        const bassOsc = ctx.createOscillator();
+        const bassGain = ctx.createGain();
+        bassOsc.type = style.bassType;
+        const bassNote = style.bassNotes[Math.floor(beatCount / 8) % style.bassNotes.length];
+        bassOsc.frequency.setValueAtTime(bassNote, ctx.currentTime);
+        bassOsc.connect(bassGain);
+        bassGain.connect(ctx.destination);
+        bassGain.gain.setValueAtTime(style.bassVol, ctx.currentTime);
+        bassGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        bassOsc.start();
+        bassOsc.stop(ctx.currentTime + 0.4);
+      }
+      
+      // Melody
       if (beatCount % 2 === 0) {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(melody[noteIndex], ctx.currentTime);
+        osc.type = style.melodyType;
+        osc.frequency.setValueAtTime(style.melody[noteIndex], ctx.currentTime);
         osc.connect(gain);
         gain.connect(ctx.destination);
-        gain.gain.setValueAtTime(0.04, ctx.currentTime);
+        gain.gain.setValueAtTime(style.melodyVol, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
         osc.start();
         osc.stop(ctx.currentTime + 0.15);
-        noteIndex = (noteIndex + 1) % melody.length;
-        if (Math.random() < 0.3) noteIndex = Math.floor(Math.random() * melody.length);
+        noteIndex = (noteIndex + 1) % style.melody.length;
+        if (Math.random() < 0.3) noteIndex = Math.floor(Math.random() * style.melody.length);
       }
+      
+      // Percussion - varies by style
       if (beatCount % 4 === 0 || beatCount % 4 === 2) {
-        const noiseLength = 0.05;
+        const noiseLength = musicStyleRef.current >= 2 ? 0.08 : 0.05; // Longer hits for techno+
         const noiseGain = ctx.createGain();
         const noiseFilter = ctx.createBiquadFilter();
         noiseFilter.type = 'highpass';
@@ -343,13 +430,63 @@ export default function DonutSurvivorsPage() {
         noise.connect(noiseFilter);
         noiseFilter.connect(noiseGain);
         noiseGain.connect(ctx.destination);
-        noiseGain.gain.setValueAtTime(beatCount % 4 === 0 ? 0.08 : 0.03, ctx.currentTime);
+        const kickVol = musicStyleRef.current >= 2 ? 0.12 : 0.08;
+        const hatVol = musicStyleRef.current >= 2 ? 0.05 : 0.03;
+        noiseGain.gain.setValueAtTime(beatCount % 4 === 0 ? kickVol : hatVol, ctx.currentTime);
         noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + noiseLength);
         noise.start();
       }
+      
+      // Extra percussion for techno+ styles
+      if (musicStyleRef.current >= 2 && beatCount % 4 === 1) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(110, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(55, ctx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        gain.gain.setValueAtTime(0.06, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.1);
+      }
+      
+      // Arpeggio flourish for sci-fi style
+      if (musicStyleRef.current === 1 && beatCount % 16 === 0) {
+        [0, 50, 100, 150].forEach((delay, i) => {
+          setTimeout(() => {
+            if (!audioContextRef.current) return;
+            const arpOsc = ctx.createOscillator();
+            const arpGain = ctx.createGain();
+            arpOsc.type = 'sine';
+            arpOsc.frequency.setValueAtTime(style.melody[i % style.melody.length] * 2, ctx.currentTime);
+            arpOsc.connect(arpGain);
+            arpGain.connect(ctx.destination);
+            arpGain.gain.setValueAtTime(0.03, ctx.currentTime);
+            arpGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+            arpOsc.start();
+            arpOsc.stop(ctx.currentTime + 0.1);
+          }, delay);
+        });
+      }
+      
       beatCount++;
     };
-    musicIntervalRef.current = window.setInterval(playBeat, 180);
+    
+    // Start with initial style's BPM
+    const updateInterval = () => {
+      const style = MUSIC_STYLES[musicStyleRef.current];
+      const intervalMs = 60000 / style.bpm;
+      if (musicIntervalRef.current) clearInterval(musicIntervalRef.current);
+      musicIntervalRef.current = window.setInterval(() => {
+        playBeat();
+        // Check if BPM changed
+        const newStyle = MUSIC_STYLES[musicStyleRef.current];
+        if (newStyle.bpm !== style.bpm) updateInterval();
+      }, intervalMs);
+    };
+    updateInterval();
   }, [initAudio]);
   
   const stopMusic = useCallback(() => {
@@ -358,13 +495,7 @@ export default function DonutSurvivorsPage() {
       clearInterval(musicIntervalRef.current);
       musicIntervalRef.current = null;
     }
-    musicNodesRef.current.forEach(({ osc, gain }) => {
-      try {
-        gain.gain.exponentialRampToValueAtTime(0.001, audioContextRef.current?.currentTime || 0 + 0.1);
-        setTimeout(() => { try { osc.stop(); } catch {} }, 100);
-      } catch {}
-    });
-    musicNodesRef.current = [];
+    musicStyleRef.current = 0;
   }, []);
   
   useEffect(() => {
@@ -1430,6 +1561,18 @@ export default function DonutSurvivorsPage() {
       ctx.font = 'bold 10px monospace';
       const diffPercent = Math.round((endlessDifficultyRef.current - 1) * 100);
       ctx.fillText(`∞ ENDLESS MODE +${diffPercent}%`, CANVAS_WIDTH / 2, indicatorY);
+      indicatorY += 14;
+    }
+    
+    // Music style indicator
+    const musicStyles = ['♪ Chiptune', '♪ Sci-Fi', '♪ Techno', '♪ Industrial', '♪ Chaos'];
+    const currentStyle = Math.min(Math.floor(gt / 300), musicStyles.length - 1);
+    if (isMusicOn && gt > 0) {
+      ctx.fillStyle = currentStyle === 0 ? '#F472B6' : currentStyle === 1 ? '#60A5FA' : currentStyle === 2 ? '#4ADE80' : currentStyle === 3 ? '#A78BFA' : '#FF6B6B';
+      ctx.font = '9px monospace';
+      ctx.globalAlpha = 0.7;
+      ctx.fillText(musicStyles[currentStyle], CANVAS_WIDTH / 2, indicatorY);
+      ctx.globalAlpha = 1;
     }
     
     // Boss warnings
@@ -1445,8 +1588,7 @@ export default function DonutSurvivorsPage() {
     }
     
     // Wind horde warning
-    const gs = gt;
-    if (gs >= 300) {
+    if (gt >= 300) {
       const timeSinceHorde = (now - lastWindHordeRef.current) / 1000;
       if (timeSinceHorde > 40 && timeSinceHorde < 45) {
         ctx.fillStyle = '#87CEEB';
@@ -1522,7 +1664,7 @@ export default function DonutSurvivorsPage() {
       ctx.arc(j.startX + Math.cos(a) * dist, j.startY + Math.sin(a) * dist, 20, 0, Math.PI * 2);
       ctx.fill();
     }
-  }, []);
+  }, [isMusicOn]);
 
   const startGame = useCallback(() => {
     initAudio();
