@@ -2664,6 +2664,14 @@ export default function DonutDashPage() {
           -ms-user-select: none !important;
           user-select: none !important;
         }
+        @keyframes tilePopIn {
+          0% { opacity: 0; transform: translateY(12px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .animate-pop { animation: tilePopIn 0.35s ease-out forwards; opacity: 0; }
+        .pop-delay-1 { animation-delay: 50ms; }
+        .pop-delay-2 { animation-delay: 130ms; }
+        .pop-delay-3 { animation-delay: 210ms; }
       `}</style>
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
@@ -2672,7 +2680,7 @@ export default function DonutDashPage() {
         
         <button
           onClick={() => { fetchLeaderboard(); setShowLeaderboard(true); }}
-          className="relative w-full mb-3 px-4 py-3 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/50 rounded-xl transition-all active:scale-[0.98] hover:border-zinc-600 group"
+          className="animate-pop pop-delay-1 relative w-full mb-3 px-4 py-3 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/50 rounded-xl transition-all active:scale-[0.98] hover:border-zinc-600 group"
           style={{ minHeight: '70px' }}
         >
           <div className="flex items-center justify-between">
@@ -2681,7 +2689,7 @@ export default function DonutDashPage() {
                 <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-4 h-4 rounded-full" />
                 <span className="text-[10px] text-zinc-400 font-medium">Weekly Prize Pool</span>
               </div>
-              <span className="text-2xl font-bold text-green-400">${prizeInfo.totalPrize} USDC</span>
+              <span className="text-2xl font-bold text-white">${prizeInfo.totalPrize} USDC</span>
             </div>
             <div className="flex flex-col items-end">
               <div className="flex items-center gap-1 text-zinc-500 group-hover:text-zinc-300 transition-colors">
@@ -2697,7 +2705,7 @@ export default function DonutDashPage() {
         </button>
         
         <div className="flex flex-col items-center">
-          <div className="relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
+          <div className="animate-pop pop-delay-2 relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
             <canvas
               ref={canvasRef}
               width={SCALED_WIDTH}
@@ -2741,13 +2749,13 @@ export default function DonutDashPage() {
                   {errorMessage && <p className="text-red-400 text-xs">{errorMessage}</p>}
                   
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 rounded-full border border-zinc-700">
-                    <span className="text-xs text-zinc-400">Gas only (~$0.001)</span>
+                    <span className="text-xs text-zinc-400">Gas Only (~$0.001)</span>
                   </div>
                   
                   <button 
                     onClick={handlePlay} 
                     disabled={isPlayPending}
-                    className="flex items-center gap-2 px-6 py-2 bg-green-500 text-black font-bold rounded-full hover:bg-green-400 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isPlayPending ? (
                       <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Confirming...</span></>
@@ -2765,7 +2773,7 @@ export default function DonutDashPage() {
         </div>
         
         {(gameState === "menu" || gameState === "gameover") && (
-          <div className="py-4 flex items-center justify-center gap-2 flex-wrap">
+          <div className="animate-pop pop-delay-3 py-4 flex items-center justify-center gap-2 flex-wrap">
             <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
               <HelpCircle className="w-3 h-3 text-zinc-400" /><span className="text-xs whitespace-nowrap">How to Play</span>
             </button>
