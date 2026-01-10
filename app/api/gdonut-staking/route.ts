@@ -97,9 +97,9 @@ async function fetchStrategyAprs(): Promise<{
   
   // Fallback APRs based on observed GlazeCorp data
   return {
-    donutApr: 295,
+    donutApr: 244,
     donutEthLpApr: 332,
-    usdcApr: 199,
+    usdcApr: 204,
     qrApr: 273,
   };
 }
@@ -174,12 +174,12 @@ async function fetchWeeklyRevenue(): Promise<{
   // This is a reasonable estimate based on the govern page screenshot
   // Revenue varies week to week based on mining activity
   return {
-    totalWeeklyRevenueUsd: 53000, // ~$53k/week observed
+    totalWeeklyRevenueUsd: 41000, // ~$53k/week observed
     breakdown: {
-      donut: 36000,    // ~67%
-      donutEthLp: 2300, // ~4%
-      usdc: 11000,      // ~21%
-      qr: 1800,         // ~3%
+      donut: 27951,    // ~67%
+      donutEthLp: 1971, // ~4%
+      usdc: 9534,      // ~21%
+      qr: 1085,         // ~3%
     },
   };
 }
