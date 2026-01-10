@@ -1090,7 +1090,7 @@ export default function FlappyDonutPage() {
   }, [writeError]);
   
   const handleShare = useCallback(async () => {
-    const miniappUrl = "https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles";
+    const miniappUrl = "https://farcaster.xyz/miniapps/BdklKYkhvUwo/sprinkles";
     const castText = `I just scored ${score} in Flappy Donut on the Sprinkles App by @swishh.eth!\n\nThink you can beat me? Play now and compete for the $${prizePool} USDC weekly prize pool!`;
     try { await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(miniappUrl)}`); }
     catch { try { await navigator.clipboard.writeText(castText + "\n\n" + miniappUrl); alert("Copied!"); } catch {} }

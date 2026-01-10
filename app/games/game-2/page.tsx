@@ -1401,7 +1401,7 @@ export default function StackGamePage() {
   }, [gameState, placeBlock]);
   
   const handleShare = useCallback(async () => {
-    const miniappUrl = "https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles";
+    const miniappUrl = "https://farcaster.xyz/miniapps/BdklKYkhvUwo/sprinkles";
     const castText = `🏗️ I just stacked ${score} blocks in Glaze Stack!\n\nThink you can stack higher? Play FREE now! 🏆`;
     try {
       await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(miniappUrl)}`);

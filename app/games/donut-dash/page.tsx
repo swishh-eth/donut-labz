@@ -2371,7 +2371,7 @@ export default function DonutDashPage() {
   }, [gameLoop, initAudioContext, initBackground]);
 
   const handleShare = useCallback(async () => {
-    const miniappUrl = "https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles";
+    const miniappUrl = "https://farcaster.xyz/miniapps/BdklKYkhvUwo/sprinkles";
     const castText = `🍩🚀 I collected ${score} sprinkles in Donut Dash!`;
     try {
       await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(miniappUrl)}`);
