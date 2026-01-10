@@ -2,31 +2,15 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { formatUnits, parseUnits } from "viem";
+import { useAccount } from "wagmi";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Trophy, Play, Zap, Share2, X, HelpCircle, Volume2, VolumeX, ChevronRight, Clock } from "lucide-react";
+import { Trophy, Play, Share2, X, HelpCircle, Volume2, VolumeX, ChevronRight, Clock } from "lucide-react";
 
-// Contract addresses
-const DONUT_ADDRESS = "0xAE4a37d554C6D6F3E398546d8566B25052e0169C" as const;
-const FLAPPY_POOL_ADDRESS = "0xA3419c6eFbb7a227fC3e24189d8099591327a14A" as const;
-
-const ERC20_ABI = [
-  { inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], name: "approve", outputs: [{ type: "bool" }], stateMutability: "nonpayable", type: "function" },
-  { inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }], name: "allowance", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
-  { inputs: [{ name: "account", type: "address" }], name: "balanceOf", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
-] as const;
-
-const FLAPPY_POOL_ABI = [
-  { inputs: [{ name: "amount", type: "uint256" }], name: "payEntry", outputs: [], stateMutability: "nonpayable", type: "function" },
-  { inputs: [], name: "getPrizePool", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
-] as const;
-
-// Donut coin image component
-const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+// USDC coin image component
+const UsdcCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover" />
+    <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-full h-full object-cover" />
   </span>
 );
 
@@ -134,20 +118,15 @@ export default function FlappyDonutPage() {
   const [countdown, setCountdown] = useState(3);
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
-  const [entryCost] = useState(1);
-  const [paidCost, setPaidCost] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [prizePool, setPrizePool] = useState<string>("0");
+  const [prizePool, setPrizePool] = useState<number>(5);
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
-  const [pendingTxType, setPendingTxType] = useState<"approve" | "approved" | "pay" | null>(null);
   const [activePowerUpDisplay, setActivePowerUpDisplay] = useState<PowerUpType | null>(null);
   
-  const PRIZE_DISTRIBUTION = [30, 20, 15, 10, 8, 6, 5, 3, 2, 1];
+  const PRIZE_DISTRIBUTION = [40, 20, 15, 8, 5, 4, 3, 2, 2, 1];
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioInitializedRef = useRef(false);
@@ -171,9 +150,7 @@ export default function FlappyDonutPage() {
   const gameActiveRef = useRef(false);
   const frameCountRef = useRef(0);
   const countdownRef = useRef(3);
-  const paidCostRef = useRef(1);
   const hasFlappedRef = useRef(false);
-  const gameStartPendingRef = useRef(false);
   const screenShakeRef = useRef(0);
   const lastPipePassedRef = useRef(0);
   
@@ -395,13 +372,6 @@ export default function FlappyDonutPage() {
     floatingTextsRef.current.push({ x, y, text, color, life: 1, vy: -2 });
   }, []);
   
-  const { writeContract, data: txHash, isPending: isWritePending, reset: resetWrite, error: writeError } = useWriteContract();
-  const { isLoading: isTxLoading, isSuccess: isTxSuccess, isError: isTxError } = useWaitForTransactionReceipt({ hash: txHash });
-  
-  const { data: allowance, refetch: refetchAllowance } = useReadContract({ address: DONUT_ADDRESS, abi: ERC20_ABI, functionName: "allowance", args: address ? [address, FLAPPY_POOL_ADDRESS] : undefined });
-  const { data: balance, refetch: refetchBalance } = useReadContract({ address: DONUT_ADDRESS, abi: ERC20_ABI, functionName: "balanceOf", args: address ? [address] : undefined });
-  const { data: prizePoolData } = useReadContract({ address: FLAPPY_POOL_ADDRESS, abi: FLAPPY_POOL_ABI, functionName: "getPrizePool" });
-  
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -421,7 +391,21 @@ export default function FlappyDonutPage() {
     })();
   }, [address]);
   
-  useEffect(() => { if (prizePoolData) setPrizePool(Number(formatUnits(prizePoolData, 18)).toFixed(2)); }, [prizePoolData]);
+  // Fetch prize pool from distribution API
+  useEffect(() => {
+    const fetchPrizePool = async () => {
+      try {
+        const res = await fetch('/api/cron/flappy-distribute');
+        if (res.ok) {
+          const data = await res.json();
+          setPrizePool(data.totalPrize || 5);
+        }
+      } catch (e) {
+        console.error("Failed to fetch prize pool:", e);
+      }
+    };
+    fetchPrizePool();
+  }, []);
   
   useEffect(() => {
     const updateCountdown = () => { setResetCountdown(getTimeUntilReset()); };
@@ -934,7 +918,7 @@ export default function FlappyDonutPage() {
       setGameState("gameover");
       setHighScore(prev => Math.max(prev, scoreRef.current));
       if (address && scoreRef.current >= 0) {
-        fetch('/api/games/flappy/submit-score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerAddress: address, username: context?.user?.username || `${address.slice(0, 6)}...${address.slice(-4)}`, pfpUrl: context?.user?.pfpUrl, score: scoreRef.current, costPaid: paidCostRef.current }) })
+        fetch('/api/games/flappy/submit-score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerAddress: address, username: context?.user?.username || `${address.slice(0, 6)}...${address.slice(-4)}`, pfpUrl: context?.user?.pfpUrl, score: scoreRef.current }) })
           .then(r => r.json())
           .then(() => { fetch('/api/games/flappy/leaderboard').then(r => r.json()).then(data => setLeaderboard(data.leaderboard || [])); })
           .catch(console.error);
@@ -983,13 +967,11 @@ export default function FlappyDonutPage() {
     frameCountRef.current = 0;
     countdownRef.current = 3;
     hasFlappedRef.current = false;
-    gameStartPendingRef.current = false;
     screenShakeRef.current = 0;
     lastPipePassedRef.current = 0;
     setScore(0);
     setCountdown(3);
     setGameState("countdown");
-    setError(null);
     setActivePowerUpDisplay(null);
     playCountdownSound(false);
     let count = 3;
@@ -1009,59 +991,19 @@ export default function FlappyDonutPage() {
       }
     }, 1000);
   }, [gameLoop, initAudioContext, initBgParticles, playCountdownSound]);
-
-  useEffect(() => {
-    if (isTxSuccess && pendingTxType === "approve") { setPendingTxType("approved"); resetWrite(); refetchAllowance(); }
-  }, [isTxSuccess, pendingTxType, resetWrite, refetchAllowance]);
-
-  useEffect(() => {
-    if (pendingTxType === "approved" && allowance) {
-      const costWei = parseUnits(entryCost.toFixed(1), 18);
-      if (allowance >= costWei) { setPendingTxType("pay"); writeContract({ address: FLAPPY_POOL_ADDRESS, abi: FLAPPY_POOL_ABI, functionName: "payEntry", args: [costWei] }); }
-    }
-  }, [pendingTxType, allowance, entryCost, writeContract]);
-
-  useEffect(() => {
-    if (isTxSuccess && pendingTxType === "pay" && gameStartPendingRef.current) {
-      setPendingTxType(null);
-      setPaidCost(entryCost);
-      paidCostRef.current = entryCost;
-      setIsLoading(false);
-      refetchAllowance();
-      refetchBalance();
-      resetWrite();
-      startGame();
-    }
-  }, [isTxSuccess, pendingTxType, entryCost, refetchAllowance, refetchBalance, startGame, resetWrite]);
-
-  useEffect(() => {
-    if (writeError || isTxError) {
-      setIsLoading(false);
-      setPendingTxType(null);
-      gameStartPendingRef.current = false;
-      if (writeError) {
-        const msg = (writeError as Error).message || "Transaction failed";
-        setError(msg.includes("rejected") || msg.includes("denied") ? "Transaction rejected" : "Transaction failed");
-      } else { setError("Transaction failed"); }
-      resetWrite();
-    }
-  }, [writeError, isTxError, resetWrite]);
   
-  const handlePlay = async () => {
-    if (!address) { setError("Connect wallet to play"); return; }
-    setIsLoading(true);
-    setError(null);
-    gameStartPendingRef.current = true;
-    const costWei = parseUnits(entryCost.toFixed(1), 18);
-    if (balance && balance < costWei) { setError(`Insufficient DONUT. Need ${entryCost.toFixed(1)}`); setIsLoading(false); gameStartPendingRef.current = false; return; }
-    if (!allowance || allowance < costWei) { setPendingTxType("approve"); writeContract({ address: DONUT_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [FLAPPY_POOL_ADDRESS, parseUnits("100", 18)] }); return; }
-    setPendingTxType("pay");
-    writeContract({ address: FLAPPY_POOL_ADDRESS, abi: FLAPPY_POOL_ABI, functionName: "payEntry", args: [costWei] });
+  const handlePlay = () => {
+    if (!address) {
+      // Still allow play without wallet, but score won't be saved
+      startGame();
+      return;
+    }
+    startGame();
   };
   
   const handleShare = useCallback(async () => {
     const miniappUrl = "https://farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles";
-    const castText = `I just scored ${score} in Flappy Donut on the Sprinkles App by @swishh.eth!\n\nThink you can beat me? Play now and compete for the ${prizePool} DONUT weekly prize pool!`;
+    const castText = `I just scored ${score} in Flappy Donut on the Sprinkles App by @swishh.eth!\n\nThink you can beat me? Play now and compete for the $${prizePool} USDC weekly prize pool!`;
     try { await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(miniappUrl)}`); }
     catch { try { await navigator.clipboard.writeText(castText + "\n\n" + miniappUrl); alert("Copied!"); } catch {} }
   }, [score, prizePool]);
@@ -1128,8 +1070,6 @@ export default function FlappyDonutPage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleFlap]);
-  
-  const isPaying = isWritePending || isTxLoading;
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white select-none">
@@ -1144,28 +1084,28 @@ export default function FlappyDonutPage() {
         
         <button
           onClick={() => setShowLeaderboard(true)}
-          className="relative w-full mb-3 px-4 py-3 bg-gradient-to-r from-pink-500/20 to-pink-600/20 border border-pink-500/30 rounded-xl transition-all active:scale-[0.98] hover:border-pink-500/50 group"
+          className="relative w-full mb-3 px-4 py-3 bg-gradient-to-r from-green-500/20 to-green-600/20 border border-green-500/30 rounded-xl transition-all active:scale-[0.98] hover:border-green-500/50 group"
           style={{ minHeight: '70px' }}
         >
           <div className="flex items-center justify-between">
             <div className="flex flex-col items-start">
               <div className="flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-pink-400" />
-                <span className="text-[10px] text-pink-200/80 font-medium">Weekly Prize Pool</span>
+                <Trophy className="w-4 h-4 text-green-400" />
+                <span className="text-[10px] text-green-200/80 font-medium">Weekly Prize Pool</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-2xl font-bold text-pink-400">{prizePool}</span>
-                <DonutCoin className="w-6 h-6" />
+                <span className="text-2xl font-bold text-green-400">${prizePool}</span>
+                <UsdcCoin className="w-6 h-6" />
               </div>
             </div>
             <div className="flex flex-col items-end">
-              <div className="flex items-center gap-1 text-pink-400/60 group-hover:text-pink-400 transition-colors">
+              <div className="flex items-center gap-1 text-green-400/60 group-hover:text-green-400 transition-colors">
                 <span className="text-[10px]">View Leaderboard</span>
                 <ChevronRight className="w-3 h-3" />
               </div>
-              <div className="text-[10px] text-pink-200/60 flex items-center gap-1">
+              <div className="text-[10px] text-green-200/60 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                <span>Resets in <span className="font-bold text-pink-300">{resetCountdown}</span></span>
+                <span>Resets in <span className="font-bold text-green-300">{resetCountdown}</span></span>
               </div>
             </div>
           </div>
@@ -1196,15 +1136,12 @@ export default function FlappyDonutPage() {
                       <Share2 className="w-3 h-3" /><span>Share</span>
                     </button>
                   )}
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 rounded-full border border-zinc-700">
-                    <Zap className="w-3 h-3 text-pink-400" />
-                    <span className="text-xs">Entry: <span className="font-bold">{entryCost.toFixed(1)}</span></span>
-                    <DonutCoin className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 rounded-full border border-green-500/30">
+                    <span className="text-xs text-green-400 font-medium">FREE TO PLAY</span>
                   </div>
-                  <button onClick={handlePlay} disabled={isPaying || isLoading} className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95 disabled:opacity-50">
-                    {isPaying ? <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Processing...</span></> : <><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span></>}
+                  <button onClick={handlePlay} className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95">
+                    <Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span>
                   </button>
-                  {error && <p className="text-red-400 text-xs">{error}</p>}
                 </div>
               </div>
             )}
@@ -1244,8 +1181,8 @@ export default function FlappyDonutPage() {
               <div className="px-4 py-2 flex items-center justify-between border-b border-zinc-800 flex-shrink-0">
                 <span className="text-xs text-gray-400">Prize Pool</span>
                 <div className="flex items-center gap-1">
-                  <span className="text-sm font-bold text-pink-400">{prizePool}</span>
-                  <DonutCoin className="w-4 h-4" />
+                  <span className="text-sm font-bold text-green-400">${prizePool}</span>
+                  <UsdcCoin className="w-4 h-4" />
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', maxHeight: '50vh' }}>
@@ -1256,10 +1193,10 @@ export default function FlappyDonutPage() {
                   </div>
                 ) : leaderboard.map((entry, i) => {
                   const prizePercent = PRIZE_DISTRIBUTION[entry.rank - 1] || 0;
-                  const prizeAmount = ((parseFloat(prizePool) * prizePercent) / 100).toFixed(2);
+                  const prizeAmount = ((prizePool * prizePercent) / 100).toFixed(2);
                   return (
-                    <div key={i} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${entry.rank <= 3 ? "bg-pink-500/10" : ""}`}>
-                      <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-pink-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>
+                    <div key={i} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${entry.rank <= 3 ? "bg-green-500/10" : ""}`}>
+                      <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-green-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>
                         {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}
                       </span>
                       {entry.pfpUrl ? (
@@ -1270,8 +1207,8 @@ export default function FlappyDonutPage() {
                       <div className="flex-1 min-w-0">
                         <span className="block truncate text-sm text-white">{entry.username}</span>
                         <div className="flex items-center gap-1">
-                          <span className="text-xs text-pink-400">+{prizeAmount}</span>
-                          <DonutCoin className="w-3 h-3" />
+                          <span className="text-xs text-green-400">+${prizeAmount}</span>
+                          <UsdcCoin className="w-3 h-3" />
                         </div>
                       </div>
                       <span className="font-bold text-sm text-white">{entry.score}</span>
@@ -1280,7 +1217,7 @@ export default function FlappyDonutPage() {
                 })}
               </div>
               <div className="px-4 py-3 border-t border-zinc-800 flex-shrink-0">
-                <p className="text-[10px] text-zinc-500 text-center">Top 10 split pool: 30% • 20% • 15% • 10% • 8% • 6% • 5% • 3% • 2% • 1%</p>
+                <p className="text-[10px] text-zinc-500 text-center">Top 10 split pool: 40% • 20% • 15% • 8% • 5% • 4% • 3% • 2% • 2% • 1%</p>
               </div>
             </div>
           </div>
@@ -1320,17 +1257,17 @@ export default function FlappyDonutPage() {
                   </div>
                 </div>
                 <div className="flex gap-2.5">
-                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">3</div>
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
                   <div>
-                    <div className="font-semibold text-white text-xs">Entry Cost</div>
-                    <div className="text-[11px] text-gray-400 mt-0.5">Each game costs 1 DONUT to play. 90% goes to the prize pool, 5% to LP rewards, 5% to treasury.</div>
+                    <div className="font-semibold text-green-400 text-xs">Free to Play</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">Play unlimited games for free! Just connect your wallet to save your score to the leaderboard.</div>
                   </div>
                 </div>
                 <div className="flex gap-2.5">
                   <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">4</div>
                   <div>
                     <div className="font-semibold text-white text-xs">Weekly Prizes</div>
-                    <div className="text-[11px] text-gray-400 mt-0.5">Top 10 players split the weekly prize pool every Friday at 6PM EST.</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">Top 10 players split the ${prizePool} USDC prize pool every Friday at 6PM EST.</div>
                   </div>
                 </div>
               </div>

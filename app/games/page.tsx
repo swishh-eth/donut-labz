@@ -23,13 +23,6 @@ type RecentPlayer = {
   pfpUrl?: string;
 };
 
-// Donut coin image component
-const DonutCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/donut_logo.png" alt="DONUT" className="w-full h-full object-cover" />
-  </span>
-);
-
 // USDC coin image component with circular boundary
 const UsdcCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
@@ -37,8 +30,8 @@ const UsdcCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   </span>
 );
 
-// Flappy Donut Tile
-function FlappyDonutTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer: RecentPlayer | null; prizePool: string; weeklyPlays: number }) {
+// Flappy Donut Tile (Now FREE with USDC prizes)
+function FlappyDonutTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer: RecentPlayer | null; prizePool: number; weeklyPlays: number }) {
   return (
     <button
       onClick={() => window.location.href = "/games/game-1"}
@@ -53,13 +46,13 @@ function FlappyDonutTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlaye
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
             <span className="font-bold text-base text-white">Flappy Donut</span>
-            <span className="text-[8px] bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded-full">PAID GAME</span>
+            <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Tap to fly, dodge rolling pins!</div>
           
           <div className="flex items-center gap-1.5 text-[9px]">
-            <DonutCoin className="w-3 h-3" />
-            <span className="text-pink-400 font-medium whitespace-nowrap">{prizePool} DONUT</span>
+            <UsdcCoin className="w-3 h-3" />
+            <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC</span>
             <span className="text-zinc-600">•</span>
             <span className="text-zinc-500 whitespace-nowrap">{weeklyPlays.toLocaleString()} plays</span>
             {recentPlayer && (
@@ -280,7 +273,7 @@ export default function GamesPage() {
   const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
   
   const [flappyRecentPlayer, setFlappyRecentPlayer] = useState<RecentPlayer | null>(null);
-  const [flappyPrizePool, setFlappyPrizePool] = useState<number>(0);
+  const [flappyPrizePool, setFlappyPrizePool] = useState<number>(5);
   
   const [stackRecentPlayer, setStackRecentPlayer] = useState<RecentPlayer | null>(null);
   const [stackPrizePool, setStackPrizePool] = useState<number>(5);
@@ -301,7 +294,6 @@ export default function GamesPage() {
   const [jumpWeeklyPlays, setJumpWeeklyPlays] = useState<number>(0);
   const [survivorsWeeklyPlays, setSurvivorsWeeklyPlays] = useState<number>(0);
   const [timeUntilReset, setTimeUntilReset] = useState<string>("");
-  const [showUsdPrize, setShowUsdPrize] = useState(true);
   
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   
@@ -375,14 +367,22 @@ export default function GamesPage() {
     }
   }, [hasAnimatedIn, isStatsLoaded, isTimeLoaded]);
 
+  // Fetch Flappy Donut data
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Fetch prize info from distribution API
+        const prizeRes = await fetch('/api/cron/flappy-distribute');
+        if (prizeRes.ok) {
+          const prizeData = await prizeRes.json();
+          setFlappyPrizePool(prizeData.totalPrize || 5);
+        }
+        
+        // Fetch recent player and weekly plays
         const res = await fetch('/api/games/flappy/recent');
         if (res.ok) {
           const data = await res.json();
           if (data.recentPlayer) setFlappyRecentPlayer(data.recentPlayer);
-          setFlappyPrizePool(parseFloat(data.prizePool) || 0);
           if (data.gamesThisWeek !== undefined) {
             setFlappyWeeklyPlays(data.gamesThisWeek);
           }
@@ -558,8 +558,8 @@ export default function GamesPage() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Calculate total USDC prizes for display (excluding survivors since it's in testing)
-  const totalUsdcPrizes = dashPrizePool + stackPrizePool + jumpPrizePool;
+  // Calculate total USDC prizes for display (now includes Flappy, excludes survivors since it's in testing)
+  const totalUsdcPrizes = flappyPrizePool + dashPrizePool + stackPrizePool + jumpPrizePool;
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -628,36 +628,18 @@ export default function GamesPage() {
               </div>
 
               {/* Prize Tile */}
-              <button
-                onClick={() => setShowUsdPrize(!showUsdPrize)}
-                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center transition-all h-[80px] relative overflow-hidden hover:bg-zinc-800"
+              <div
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center h-[80px]"
               >
-                {showUsdPrize ? (
-                  <>
-                    <div className="flex items-center gap-1">
-                      <Coins className="w-3.5 h-3.5 text-white" />
-                      <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
-                    </div>
-                    <div className={`text-2xl font-bold text-white ${isStatsLoaded ? 'fade-in-up stagger-3 opacity-0' : 'opacity-0'}`}>
-                      ${totalUsdcPrizes}
-                    </div>
-                    {isStatsLoaded && (
-                      <span className="absolute bottom-1 text-[7px] text-gray-500 animate-pulse">tap for tokens</span>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex flex-col w-full h-full justify-center gap-1">
-                    <div className="flex items-center justify-between w-full px-1">
-                      <DonutCoin className="w-4 h-4" />
-                      <span className="text-sm font-bold text-pink-400">{Math.floor(flappyPrizePool)}</span>
-                    </div>
-                    <div className="flex items-center justify-between w-full px-1">
-                      <UsdcCoin className="w-4 h-4" />
-                      <span className="text-sm font-bold text-green-400">${totalUsdcPrizes}</span>
-                    </div>
-                  </div>
-                )}
-              </button>
+                <div className="flex items-center gap-1">
+                  <Coins className="w-3.5 h-3.5 text-white" />
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
+                </div>
+                <div className={`flex items-center gap-1 ${isStatsLoaded ? 'fade-in-up stagger-3 opacity-0' : 'opacity-0'}`}>
+                  <span className="text-2xl font-bold text-green-400">${totalUsdcPrizes}</span>
+                  <UsdcCoin className="w-5 h-5" />
+                </div>
+              </div>
             </div>
 
             {/* Split Buttons */}
@@ -690,7 +672,7 @@ export default function GamesPage() {
                     className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                     style={!hasAnimatedIn ? { opacity: 0, animationDelay: '0ms', animationFillMode: 'forwards' } : {}}
                   >
-                    <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool.toLocaleString()} weeklyPlays={flappyWeeklyPlays} />
+                    <FlappyDonutTile recentPlayer={flappyRecentPlayer} prizePool={flappyPrizePool} weeklyPlays={flappyWeeklyPlays} />
                   </div>
                   
                   <div 
@@ -764,7 +746,7 @@ export default function GamesPage() {
                   <h3 className="font-bold text-white mb-2">Flappy Donut</h3>
                   <p className="text-gray-400 text-xs">
                     Tap to fly your donut through the rolling pins! Each gap passed = 1 point. 
-                    Top 10 weekly scores split the <DonutCoin className="w-3 h-3 inline-block align-middle mx-0.5" /> DONUT prize pool.
+                    Top 10 weekly scores split the <UsdcCoin className="w-3 h-3 inline-block align-middle mx-0.5" /> USDC prize pool. FREE to play!
                   </p>
                 </div>
 
@@ -804,7 +786,7 @@ export default function GamesPage() {
                   <h3 className="font-bold text-green-400 mb-2">🏆 Weekly Prizes</h3>
                   <p className="text-gray-400 text-xs">
                     All games reset every Friday at 6PM EST. Top 10 players on each leaderboard 
-                    win prizes automatically sent to their wallet!
+                    win USDC prizes automatically sent to their wallet!
                   </p>
                 </div>
               </div>
