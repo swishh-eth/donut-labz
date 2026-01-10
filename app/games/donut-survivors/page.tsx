@@ -20,8 +20,9 @@ const PLAYER_SIZE = 36;
 const PLAYER_SPEED = 2.8;
 const PLAYER_MAX_HP = 120;
 
-const BASE_XP_TO_LEVEL = 17;
-const XP_SCALE = 1.25;
+// Slower XP progression
+const BASE_XP_TO_LEVEL = 22;
+const XP_SCALE = 1.28;
 
 // Spatial grid for performance
 const GRID_CELL_SIZE = 100;
@@ -31,21 +32,29 @@ const GRID_HEIGHT = Math.ceil(WORLD_HEIGHT / GRID_CELL_SIZE);
 const MAX_WEAPONS = 4;
 const MAX_GADGETS = 4;
 
+// Performance limits
+const MAX_PARTICLES = 150;
+const MAX_DAMAGE_NUMBERS = 30;
+const MAX_PROJECTILES = 100;
+const MAX_ENEMIES = 80;
+const MAX_XP_ORBS = 150;
+
 type WeaponType = 'sprinkle_shot' | 'frosting_ring' | 'glaze_wave' | 'sugar_stars' | 'orbiting_donuts' | 'cinnamon_trail' | 'candy_cannon' | 'mint_missiles';
-type EnemyType = 'sprinkle' | 'gummy' | 'candy_corn' | 'chocolate_chunk' | 'boss' | 'final_boss';
+type EnemyType = 'sprinkle' | 'gummy' | 'candy_corn' | 'chocolate_chunk' | 'jellybean' | 'licorice' | 'wind_spirit' | 'boss' | 'final_boss';
 type GadgetType = 'sugar_rush' | 'thicc_glaze' | 'sprinkle_magnet' | 'donut_armor' | 'hyper_icing' | 'golden_sprinkles' | 'choco_shield' | 'candy_rush';
 type UpgradeType = 'weapon' | 'gadget';
 type MiniAppContext = { user?: { fid: number; username?: string; displayName?: string; pfpUrl?: string } };
 
 interface Weapon { type: WeaponType; level: number; lastFired: number; angle?: number; }
 interface Gadget { type: GadgetType; stacks: number; }
-interface Enemy { x: number; y: number; type: EnemyType; hp: number; maxHp: number; speed: number; size: number; xpValue: number; damage: number; color: string; hitFlash: number; spawnAnim: number; }
-interface Projectile { x: number; y: number; vx: number; vy: number; damage: number; size: number; color: string; piercing: number; lifetime: number; weaponType: WeaponType; trail: { x: number; y: number; life: number }[]; }
+interface Enemy { x: number; y: number; type: EnemyType; hp: number; maxHp: number; speed: number; size: number; xpValue: number; damage: number; color: string; hitFlash: number; spawnAnim: number; zigzagPhase?: number; splitCount?: number; }
+interface Projectile { x: number; y: number; vx: number; vy: number; damage: number; size: number; color: string; piercing: number; lifetime: number; weaponType: WeaponType; trailTimer: number; }
 interface XPOrb { x: number; y: number; value: number; size: number; collectAnim: number; spawnTime: number; magnetized?: boolean; }
 interface DamageNumber { x: number; y: number; value: number; life: number; vy: number; isCrit?: boolean; }
-interface Particle { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: string; size: number; type?: 'spark' | 'ring' | 'glow'; }
+interface Particle { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: string; size: number; type?: 'spark' | 'ring' | 'glow' | 'burst'; }
 interface UpgradeOption { type: UpgradeType; weaponType?: WeaponType; gadgetType?: GadgetType; title: string; description: string; icon: string; }
 interface LeaderboardEntry { rank: number; fid: number; username?: string; displayName?: string; pfpUrl?: string; score: number; }
+interface Trail { x: number; y: number; life: number; color: string; }
 
 type PowerUpType = 'magnet_burst' | 'health' | 'freeze';
 interface PowerUp { x: number; y: number; type: PowerUpType; size: number; }
@@ -93,13 +102,17 @@ const GADGET_CONFIG: Record<GadgetType, { name: string; icon: string; color: str
 };
 const GADGET_ORDER: GadgetType[] = ['sugar_rush', 'thicc_glaze', 'sprinkle_magnet', 'donut_armor', 'hyper_icing', 'golden_sprinkles', 'choco_shield', 'candy_rush'];
 
+// Rebalanced enemy config with new types
 const ENEMY_CONFIG: Record<EnemyType, { hp: number; speed: number; size: number; xpValue: number; damage: number; color: string; spawnWeight: number }> = {
-  sprinkle: { hp: 15, speed: 1.0, size: 16, xpValue: 2, damage: 4, color: '#FF6B6B', spawnWeight: 50 },
-  gummy: { hp: 30, speed: 1.2, size: 20, xpValue: 4, damage: 6, color: '#4ADE80', spawnWeight: 30 },
-  candy_corn: { hp: 10, speed: 2.0, size: 12, xpValue: 2, damage: 3, color: '#FBBF24', spawnWeight: 15 },
-  chocolate_chunk: { hp: 100, speed: 0.5, size: 32, xpValue: 15, damage: 12, color: '#A78BFA', spawnWeight: 5 },
-  boss: { hp: 8000, speed: 0.7, size: 60, xpValue: 200, damage: 30, color: '#FF1744', spawnWeight: 0 },
-  final_boss: { hp: 5000, speed: 1.2, size: 100, xpValue: 500, damage: 9999, color: '#000000', spawnWeight: 0 },
+  sprinkle: { hp: 15, speed: 1.0, size: 16, xpValue: 2, damage: 4, color: '#FF6B6B', spawnWeight: 45 },
+  gummy: { hp: 30, speed: 1.1, size: 20, xpValue: 4, damage: 6, color: '#4ADE80', spawnWeight: 25 },
+  candy_corn: { hp: 10, speed: 1.8, size: 12, xpValue: 2, damage: 3, color: '#FBBF24', spawnWeight: 15 },
+  jellybean: { hp: 18, speed: 1.6, size: 14, xpValue: 3, damage: 5, color: '#FF69B4', spawnWeight: 10 }, // Zigzag movement
+  licorice: { hp: 45, speed: 0.6, size: 24, xpValue: 8, damage: 8, color: '#1a1a1a', spawnWeight: 5 }, // Splits on death
+  chocolate_chunk: { hp: 90, speed: 0.45, size: 32, xpValue: 12, damage: 10, color: '#A78BFA', spawnWeight: 3 },
+  wind_spirit: { hp: 1, speed: 4.0, size: 18, xpValue: 0, damage: 0, color: '#87CEEB', spawnWeight: 0 }, // Push only, spawns in hordes
+  boss: { hp: 6000, speed: 0.6, size: 60, xpValue: 200, damage: 25, color: '#FF1744', spawnWeight: 0 },
+  final_boss: { hp: 4000, speed: 1.0, size: 100, xpValue: 500, damage: 9999, color: '#000000', spawnWeight: 0 },
 };
 
 const MOCK_LEADERBOARD: LeaderboardEntry[] = [
@@ -183,9 +196,12 @@ export default function DonutSurvivorsPage() {
   const particlesRef = useRef<Particle[]>([]);
   const damageNumbersRef = useRef<DamageNumber[]>([]);
   const trailPointsRef = useRef<{ x: number; y: number; life: number }[]>([]);
+  const projectileTrailsRef = useRef<Trail[]>([]);
   const powerUpsRef = useRef<PowerUp[]>([]);
   const enemyGridRef = useRef<Map<number, Enemy[]>>(new Map());
   const freezeUntilRef = useRef(0);
+  const screenFlashRef = useRef({ intensity: 0, color: '#FFF' });
+  const lastWindHordeRef = useRef(0);
   
   const gameActiveRef = useRef(false);
   const isPausedRef = useRef(false);
@@ -238,11 +254,7 @@ export default function DonutSurvivorsPage() {
   // Throttled sound player to prevent audio overload
   const playSound = useCallback((freq: number, dur: number, type: OscillatorType = 'sine', vol: number = 0.1, soundKey?: string) => {
     if (isMuted || !audioContextRef.current) return;
-    
-    // Check concurrent sounds limit
     if (activeSoundsRef.current >= maxConcurrentSounds) return;
-    
-    // Throttle by sound type
     if (soundKey) {
       const now = Date.now();
       const lastTime = lastSoundTimeRef.current[soundKey] || 0;
@@ -250,7 +262,6 @@ export default function DonutSurvivorsPage() {
       if (now - lastTime < minInterval) return;
       lastSoundTimeRef.current[soundKey] = now;
     }
-    
     try {
       const ctx = audioContextRef.current;
       const osc = ctx.createOscillator();
@@ -259,12 +270,10 @@ export default function DonutSurvivorsPage() {
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.frequency.setValueAtTime(freq, ctx.currentTime);
-      gain.gain.setValueAtTime(vol * 0.5, ctx.currentTime); // Reduce overall volume
+      gain.gain.setValueAtTime(vol * 0.5, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + dur);
-      
       activeSoundsRef.current++;
       osc.onended = () => { activeSoundsRef.current = Math.max(0, activeSoundsRef.current - 1); };
-      
       osc.start();
       osc.stop(ctx.currentTime + dur);
     } catch {}
@@ -276,44 +285,35 @@ export default function DonutSurvivorsPage() {
   const playHurt = useCallback(() => playSound(150, 0.15, 'sawtooth', 0.12, 'hurt'), [playSound]);
   const playLevelUp = useCallback(() => { if (isMuted || !audioContextRef.current) return; [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => playSound(f, 0.3, 'sine', 0.1), i * 80)); }, [isMuted, playSound]);
   const playPowerUp = useCallback(() => { if (isMuted || !audioContextRef.current) return; [400, 600, 800, 1000].forEach((f, i) => setTimeout(() => playSound(f, 0.15, 'sine', 0.12), i * 50)); }, [isMuted, playSound]);
+  const playWindHorde = useCallback(() => { if (isMuted || !audioContextRef.current) return; playSound(800, 0.3, 'sine', 0.15); setTimeout(() => playSound(600, 0.2, 'sine', 0.1), 100); }, [isMuted, playSound]);
   
-  // Music system - simple chiptune-style loop
+  // Music system
   const startMusic = useCallback(() => {
     if (!audioContextRef.current || musicPlayingRef.current) return;
     initAudio();
     const ctx = audioContextRef.current;
     if (!ctx) return;
-    
     musicPlayingRef.current = true;
-    
-    // Bass drone
     const bassOsc = ctx.createOscillator();
     const bassGain = ctx.createGain();
     bassOsc.type = 'triangle';
-    bassOsc.frequency.setValueAtTime(55, ctx.currentTime); // A1
+    bassOsc.frequency.setValueAtTime(55, ctx.currentTime);
     bassOsc.connect(bassGain);
     bassGain.connect(ctx.destination);
     bassGain.gain.setValueAtTime(0.06, ctx.currentTime);
     bassOsc.start();
     musicNodesRef.current.push({ osc: bassOsc, gain: bassGain });
-    
-    // Melody notes (pentatonic scale)
-    const melody = [220, 261.63, 293.66, 349.23, 392, 440, 523.25, 587.33]; // A minor pentatonic
+    const melody = [220, 261.63, 293.66, 349.23, 392, 440, 523.25, 587.33];
     let noteIndex = 0;
     let beatCount = 0;
-    
     const playBeat = () => {
       if (!audioContextRef.current || !musicPlayingRef.current) return;
       const ctx = audioContextRef.current;
-      
-      // Change bass note every 8 beats
       if (beatCount % 8 === 0) {
-        const bassNotes = [55, 65.41, 73.42, 82.41]; // A1, C2, D2, E2
+        const bassNotes = [55, 65.41, 73.42, 82.41];
         const bassNote = bassNotes[Math.floor(beatCount / 8) % bassNotes.length];
         musicNodesRef.current[0]?.osc.frequency.setValueAtTime(bassNote, ctx.currentTime);
       }
-      
-      // Play melody note
       if (beatCount % 2 === 0) {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -325,24 +325,19 @@ export default function DonutSurvivorsPage() {
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
         osc.start();
         osc.stop(ctx.currentTime + 0.15);
-        
         noteIndex = (noteIndex + 1) % melody.length;
         if (Math.random() < 0.3) noteIndex = Math.floor(Math.random() * melody.length);
       }
-      
-      // Percussion on beats 0 and 2
       if (beatCount % 4 === 0 || beatCount % 4 === 2) {
         const noiseLength = 0.05;
         const noiseGain = ctx.createGain();
         const noiseFilter = ctx.createBiquadFilter();
         noiseFilter.type = 'highpass';
         noiseFilter.frequency.setValueAtTime(beatCount % 4 === 0 ? 100 : 4000, ctx.currentTime);
-        
         const bufferSize = ctx.sampleRate * noiseLength;
         const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
         const data = buffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-        
         const noise = ctx.createBufferSource();
         noise.buffer = buffer;
         noise.connect(noiseFilter);
@@ -352,11 +347,9 @@ export default function DonutSurvivorsPage() {
         noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + noiseLength);
         noise.start();
       }
-      
       beatCount++;
     };
-    
-    musicIntervalRef.current = window.setInterval(playBeat, 180); // ~83 BPM
+    musicIntervalRef.current = window.setInterval(playBeat, 180);
   }, [initAudio]);
   
   const stopMusic = useCallback(() => {
@@ -374,65 +367,269 @@ export default function DonutSurvivorsPage() {
     musicNodesRef.current = [];
   }, []);
   
-  // Toggle music
   useEffect(() => {
-    if (isMusicOn && gameState === 'playing') {
-      startMusic();
-    } else {
-      stopMusic();
-    }
+    if (isMusicOn && gameState === 'playing') startMusic();
+    else stopMusic();
     return () => stopMusic();
   }, [isMusicOn, gameState, startMusic, stopMusic]);
-  const shake = useCallback((intensity: number, duration: number) => { screenShakeRef.current = { intensity, duration, startTime: performance.now() }; }, []);
-  const addParticles = useCallback((x: number, y: number, color: string, count: number, speed: number = 3, type?: 'spark' | 'ring' | 'glow') => { for (let i = 0; i < count; i++) { const a = (i / count) * Math.PI * 2 + Math.random() * 0.5; particlesRef.current.push({ x, y, vx: Math.cos(a) * speed * (0.5 + Math.random() * 0.5), vy: Math.sin(a) * speed * (0.5 + Math.random() * 0.5), life: 1, maxLife: 1, color, size: type === 'spark' ? 1 + Math.random() * 2 : 2 + Math.random() * 3, type }); } }, []);
-  const addDmgNum = useCallback((x: number, y: number, value: number, isCrit?: boolean) => { damageNumbersRef.current.push({ x, y, value, life: 1, vy: -2, isCrit }); }, []);
-  const rebuildGrid = useCallback(() => { enemyGridRef.current.clear(); for (const e of enemiesRef.current) { const c = getSpatialCell(e.x, e.y); if (!enemyGridRef.current.has(c)) enemyGridRef.current.set(c, []); enemyGridRef.current.get(c)!.push(e); } }, []);
-  const getEnemiesNear = useCallback((x: number, y: number, radius: number): Enemy[] => { const cells = getNearbyCells(x, y, radius), result: Enemy[] = [], seen = new Set<Enemy>(); for (const c of cells) { const enemies = enemyGridRef.current.get(c); if (enemies) for (const e of enemies) if (!seen.has(e)) { seen.add(e); if (Math.hypot(e.x - x, e.y - y) <= radius + e.size) result.push(e); } } return result; }, []);
 
-  const spawnEnemy = useCallback(() => {
-    const p = playerRef.current, gt = (performance.now() - gameStartTimeRef.current - pausedTimeRef.current) / 1000;
-    const a = Math.random() * Math.PI * 2, d = 300 + Math.random() * 100;
-    const x = Math.max(50, Math.min(WORLD_WIDTH - 50, p.x + Math.cos(a) * d)), y = Math.max(50, Math.min(WORLD_HEIGHT - 50, p.y + Math.sin(a) * d));
-    let types: EnemyType[] = ['sprinkle']; if (gt > 60) types.push('gummy'); if (gt > 120) types.push('candy_corn'); if (gt > 240) types.push('chocolate_chunk');
-    const weights = types.map(t => ENEMY_CONFIG[t].spawnWeight), total = weights.reduce((a, b) => a + b, 0);
-    let r = Math.random() * total, sel: EnemyType = 'sprinkle'; for (let i = 0; i < types.length; i++) { r -= weights[i]; if (r <= 0) { sel = types[i]; break; } }
+  const shake = useCallback((intensity: number, duration: number) => { screenShakeRef.current = { intensity, duration, startTime: performance.now() }; }, []);
+  const flash = useCallback((color: string, intensity: number) => { screenFlashRef.current = { color, intensity }; }, []);
+  
+  // Optimized particle spawner with limits
+  const addParticles = useCallback((x: number, y: number, color: string, count: number, speed: number = 3, type?: 'spark' | 'ring' | 'glow' | 'burst') => {
+    // Late game throttle
+    const throttle = Math.max(0.3, 1 - (enemiesRef.current.length / MAX_ENEMIES) * 0.5);
+    const actualCount = Math.floor(count * throttle);
+    
+    // Enforce max particles
+    while (particlesRef.current.length + actualCount > MAX_PARTICLES) {
+      particlesRef.current.shift();
+    }
+    
+    for (let i = 0; i < actualCount; i++) {
+      const a = (i / actualCount) * Math.PI * 2 + Math.random() * 0.5;
+      particlesRef.current.push({
+        x, y,
+        vx: Math.cos(a) * speed * (0.5 + Math.random() * 0.5),
+        vy: Math.sin(a) * speed * (0.5 + Math.random() * 0.5),
+        life: 1, maxLife: 1, color,
+        size: type === 'spark' ? 1 + Math.random() * 2 : type === 'burst' ? 4 + Math.random() * 4 : 2 + Math.random() * 3,
+        type
+      });
+    }
+  }, []);
+  
+  // Optimized damage number with limits
+  const addDmgNum = useCallback((x: number, y: number, value: number, isCrit?: boolean) => {
+    if (damageNumbersRef.current.length >= MAX_DAMAGE_NUMBERS) {
+      damageNumbersRef.current.shift();
+    }
+    damageNumbersRef.current.push({ x, y, value, life: 1, vy: -2, isCrit });
+  }, []);
+  
+  const rebuildGrid = useCallback(() => {
+    enemyGridRef.current.clear();
+    for (const e of enemiesRef.current) {
+      const c = getSpatialCell(e.x, e.y);
+      if (!enemyGridRef.current.has(c)) enemyGridRef.current.set(c, []);
+      enemyGridRef.current.get(c)!.push(e);
+    }
+  }, []);
+  
+  const getEnemiesNear = useCallback((x: number, y: number, radius: number): Enemy[] => {
+    const cells = getNearbyCells(x, y, radius), result: Enemy[] = [], seen = new Set<Enemy>();
+    for (const c of cells) {
+      const enemies = enemyGridRef.current.get(c);
+      if (enemies) for (const e of enemies) if (!seen.has(e)) {
+        seen.add(e);
+        if (Math.hypot(e.x - x, e.y - y) <= radius + e.size) result.push(e);
+      }
+    }
+    return result;
+  }, []);
+
+  // Improved spawn with randomization
+  const spawnEnemy = useCallback((forceType?: EnemyType) => {
+    if (enemiesRef.current.length >= MAX_ENEMIES) return;
+    
+    const p = playerRef.current;
+    const gt = (performance.now() - gameStartTimeRef.current - pausedTimeRef.current) / 1000;
+    
+    // Randomized spawn distance and angle
+    const angleOffset = (Math.random() - 0.5) * Math.PI * 0.5; // Random arc segment
+    const baseAngle = Math.random() * Math.PI * 2;
+    const a = baseAngle + angleOffset;
+    const d = 250 + Math.random() * 200; // 250-450 distance (more variance)
+    
+    const x = Math.max(50, Math.min(WORLD_WIDTH - 50, p.x + Math.cos(a) * d));
+    const y = Math.max(50, Math.min(WORLD_HEIGHT - 50, p.y + Math.sin(a) * d));
+    
+    let sel: EnemyType = forceType || 'sprinkle';
+    
+    if (!forceType) {
+      // Progressive enemy types
+      let types: EnemyType[] = ['sprinkle'];
+      if (gt > 30) types.push('gummy');
+      if (gt > 60) types.push('jellybean');
+      if (gt > 90) types.push('candy_corn');
+      if (gt > 150) types.push('licorice');
+      if (gt > 240) types.push('chocolate_chunk');
+      
+      const weights = types.map(t => ENEMY_CONFIG[t].spawnWeight);
+      const total = weights.reduce((a, b) => a + b, 0);
+      let r = Math.random() * total;
+      for (let i = 0; i < types.length; i++) {
+        r -= weights[i];
+        if (r <= 0) { sel = types[i]; break; }
+      }
+    }
+    
     const c = ENEMY_CONFIG[sel];
-    // Base scaling + endless mode multiplier
     const endlessMult = endlessDifficultyRef.current;
-    const ts = (1 + gt / 240) * endlessMult, ss = (1 + gt / 600) * Math.sqrt(endlessMult);
-    enemiesRef.current.push({ x, y, type: sel, hp: Math.floor(c.hp * ts), maxHp: Math.floor(c.hp * ts), speed: c.speed * ss, size: c.size, xpValue: Math.floor(c.xpValue * endlessMult), damage: Math.floor(c.damage * endlessMult), color: c.color, hitFlash: 0, spawnAnim: 1 });
-    addParticles(x, y, c.color, 6, 2, 'spark');
+    
+    // Gentler scaling curves
+    const ts = (1 + gt / 360) * endlessMult; // HP scales slower (was /240)
+    const ss = (1 + gt / 900) * Math.sqrt(endlessMult); // Speed scales much slower (was /600)
+    
+    enemiesRef.current.push({
+      x, y, type: sel,
+      hp: Math.floor(c.hp * ts),
+      maxHp: Math.floor(c.hp * ts),
+      speed: c.speed * ss,
+      size: c.size,
+      xpValue: Math.floor(c.xpValue * endlessMult),
+      damage: Math.floor(c.damage * endlessMult),
+      color: c.color,
+      hitFlash: 0,
+      spawnAnim: 1,
+      zigzagPhase: sel === 'jellybean' ? Math.random() * Math.PI * 2 : undefined,
+      splitCount: sel === 'licorice' ? 2 : undefined
+    });
+    
+    // Reduced spawn particles
+    if (Math.random() < 0.5) addParticles(x, y, c.color, 3, 2, 'spark');
   }, [addParticles]);
+  
+  // Wind spirit horde spawn
+  const spawnWindHorde = useCallback(() => {
+    const p = playerRef.current;
+    const angle = Math.random() * Math.PI * 2;
+    const perpAngle = angle + Math.PI / 2;
+    const startDist = 400;
+    
+    // Spawn 8-12 wind spirits in a line
+    const count = 8 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < count; i++) {
+      const offset = (i - count / 2) * 30;
+      const x = p.x + Math.cos(angle) * startDist + Math.cos(perpAngle) * offset;
+      const y = p.y + Math.sin(angle) * startDist + Math.sin(perpAngle) * offset;
+      
+      const c = ENEMY_CONFIG['wind_spirit'];
+      enemiesRef.current.push({
+        x, y, type: 'wind_spirit',
+        hp: c.hp, maxHp: c.hp,
+        speed: c.speed,
+        size: c.size,
+        xpValue: 0,
+        damage: 0,
+        color: c.color,
+        hitFlash: 0,
+        spawnAnim: 0.5
+      });
+    }
+    
+    playWindHorde();
+    addParticles(p.x + Math.cos(angle) * 200, p.y + Math.sin(angle) * 200, '#87CEEB', 15, 4, 'ring');
+  }, [addParticles, playWindHorde]);
 
   const fireWeapons = useCallback(() => {
     const p = playerRef.current, now = Date.now();
+    
+    // Enforce projectile limit
+    if (projectilesRef.current.length >= MAX_PROJECTILES) return;
+    
     weaponsRef.current.forEach(w => {
       const cfg = WEAPON_CONFIG[w.type], cdRed = 1 - (p.cooldownReduction || 0), cd = cfg.baseCooldown * Math.pow(0.9, w.level - 1) * cdRed;
-      if (now - w.lastFired < cd) return; w.lastFired = now;
+      if (now - w.lastFired < cd) return;
+      w.lastFired = now;
       const dmg = cfg.baseDamage * (1 + (w.level - 1) * 0.3) * p.damage;
+      
       if (w.type === 'sprinkle_shot') {
-        const near = getEnemiesNear(p.x, p.y, 300); let nearest: Enemy | null = null, nd = Infinity;
+        const near = getEnemiesNear(p.x, p.y, 300).filter(e => e.type !== 'wind_spirit');
+        let nearest: Enemy | null = null, nd = Infinity;
         for (const e of near) { const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < nd) { nearest = e; nd = d; } }
-        if (nearest) { const a = Math.atan2(nearest.y - p.y, nearest.x - p.x), cnt = Math.min(1 + Math.floor(w.level / 3), 3);
-          for (let i = 0; i < cnt; i++) { const aa = a + (i - (cnt - 1) / 2) * 0.2; projectilesRef.current.push({ x: p.x, y: p.y, vx: Math.cos(aa) * 8, vy: Math.sin(aa) * 8, damage: dmg, size: 6, color: cfg.color, piercing: Math.floor(w.level / 2), lifetime: 60, weaponType: w.type, trail: [] }); }
-          addParticles(p.x, p.y, cfg.color, 3, 2, 'spark');
+        if (nearest) {
+          const a = Math.atan2(nearest.y - p.y, nearest.x - p.x), cnt = Math.min(1 + Math.floor(w.level / 3), 3);
+          for (let i = 0; i < cnt; i++) {
+            const aa = a + (i - (cnt - 1) / 2) * 0.2;
+            projectilesRef.current.push({ x: p.x, y: p.y, vx: Math.cos(aa) * 8, vy: Math.sin(aa) * 8, damage: dmg, size: 6, color: cfg.color, piercing: Math.floor(w.level / 2), lifetime: 60, weaponType: w.type, trailTimer: 0 });
+          }
+          addParticles(p.x, p.y, cfg.color, 2, 2, 'spark');
         }
-      } else if (w.type === 'sugar_stars') { const cnt = 4 + w.level; for (let i = 0; i < cnt; i++) { const a = (i / cnt) * Math.PI * 2; projectilesRef.current.push({ x: p.x, y: p.y, vx: Math.cos(a) * 5, vy: Math.sin(a) * 5, damage: dmg, size: 8, color: cfg.color, piercing: 0, lifetime: 45, weaponType: w.type, trail: [] }); } addParticles(p.x, p.y, cfg.color, 8, 3, 'ring');
-      } else if (w.type === 'glaze_wave') { const rng = 80 + w.level * 20; getEnemiesNear(p.x, p.y, rng).forEach(e => { e.hp -= dmg; e.hitFlash = 5; addDmgNum(e.x, e.y - e.size, Math.floor(dmg)); }); addParticles(p.x, p.y, cfg.color, 20, 8, 'ring');
-      } else if (w.type === 'candy_cannon') { const near = getEnemiesNear(p.x, p.y, 350); let nearest: Enemy | null = null, nd = Infinity; for (const e of near) { const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < nd) { nearest = e; nd = d; } } if (nearest) { const a = Math.atan2(nearest.y - p.y, nearest.x - p.x); projectilesRef.current.push({ x: p.x, y: p.y, vx: Math.cos(a) * 6, vy: Math.sin(a) * 6, damage: dmg, size: 12 + w.level, color: cfg.color, piercing: 99, lifetime: 80, weaponType: w.type, trail: [] }); addParticles(p.x, p.y, cfg.color, 5, 3, 'spark'); }
-      } else if (w.type === 'mint_missiles') { const near = getEnemiesNear(p.x, p.y, 400), mc = 1 + Math.floor(w.level / 3), targets = near.slice().sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y)).slice(0, mc); targets.forEach((t, i) => { const a = Math.atan2(t.y - p.y, t.x - p.x) + (i - (targets.length - 1) / 2) * 0.15; projectilesRef.current.push({ x: p.x, y: p.y, vx: Math.cos(a) * 5, vy: Math.sin(a) * 5, damage: dmg, size: 8, color: cfg.color, piercing: 0, lifetime: 120, weaponType: w.type, trail: [] }); }); if (targets.length > 0) addParticles(p.x, p.y, cfg.color, 4, 2, 'spark'); }
+      } else if (w.type === 'sugar_stars') {
+        const cnt = 4 + w.level;
+        for (let i = 0; i < cnt; i++) {
+          const a = (i / cnt) * Math.PI * 2;
+          projectilesRef.current.push({ x: p.x, y: p.y, vx: Math.cos(a) * 5, vy: Math.sin(a) * 5, damage: dmg, size: 8, color: cfg.color, piercing: 0, lifetime: 45, weaponType: w.type, trailTimer: 0 });
+        }
+        addParticles(p.x, p.y, cfg.color, 6, 3, 'ring');
+      } else if (w.type === 'glaze_wave') {
+        const rng = 80 + w.level * 20;
+        getEnemiesNear(p.x, p.y, rng).filter(e => e.type !== 'wind_spirit').forEach(e => {
+          e.hp -= dmg; e.hitFlash = 5;
+          addDmgNum(e.x, e.y - e.size, Math.floor(dmg));
+        });
+        addParticles(p.x, p.y, cfg.color, 15, 8, 'ring');
+        flash(cfg.color, 0.15);
+      } else if (w.type === 'candy_cannon') {
+        const near = getEnemiesNear(p.x, p.y, 350).filter(e => e.type !== 'wind_spirit');
+        let nearest: Enemy | null = null, nd = Infinity;
+        for (const e of near) { const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < nd) { nearest = e; nd = d; } }
+        if (nearest) {
+          const a = Math.atan2(nearest.y - p.y, nearest.x - p.x);
+          projectilesRef.current.push({ x: p.x, y: p.y, vx: Math.cos(a) * 6, vy: Math.sin(a) * 6, damage: dmg, size: 12 + w.level, color: cfg.color, piercing: 99, lifetime: 80, weaponType: w.type, trailTimer: 0 });
+          addParticles(p.x, p.y, cfg.color, 4, 3, 'spark');
+        }
+      } else if (w.type === 'mint_missiles') {
+        const near = getEnemiesNear(p.x, p.y, 400).filter(e => e.type !== 'wind_spirit');
+        const mc = 1 + Math.floor(w.level / 3);
+        const targets = near.slice().sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y)).slice(0, mc);
+        targets.forEach((t, i) => {
+          const a = Math.atan2(t.y - p.y, t.x - p.x) + (i - (targets.length - 1) / 2) * 0.15;
+          projectilesRef.current.push({ x: p.x, y: p.y, vx: Math.cos(a) * 5, vy: Math.sin(a) * 5, damage: dmg, size: 8, color: cfg.color, piercing: 0, lifetime: 120, weaponType: w.type, trailTimer: 0 });
+        });
+        if (targets.length > 0) addParticles(p.x, p.y, cfg.color, 3, 2, 'spark');
+      }
     });
-  }, [addDmgNum, addParticles, getEnemiesNear]);
+  }, [addDmgNum, addParticles, getEnemiesNear, flash]);
 
   const updateOrbiting = useCallback((delta: number) => {
     const p = playerRef.current;
     weaponsRef.current.forEach(w => {
-      if (w.type === 'orbiting_donuts') { w.angle = (w.angle || 0) + 0.05 * delta; const dmg = WEAPON_CONFIG[w.type].baseDamage * (1 + (w.level - 1) * 0.3) * p.damage, cnt = 2 + Math.floor(w.level / 2), rad = 50 + w.level * 5; for (let i = 0; i < cnt; i++) { const a = w.angle + (i / cnt) * Math.PI * 2, ox = p.x + Math.cos(a) * rad, oy = p.y + Math.sin(a) * rad; getEnemiesNear(ox, oy, 20).forEach(e => { if (e.hitFlash === 0) { e.hp -= dmg; e.hitFlash = 8; addDmgNum(e.x, e.y - e.size, Math.floor(dmg)); playHit(); addParticles(ox, oy, '#F472B6', 3, 2, 'spark'); } }); }
-      } else if (w.type === 'frosting_ring') { w.angle = (w.angle || 0) + 0.08 * delta; const dmg = WEAPON_CONFIG[w.type].baseDamage * (1 + (w.level - 1) * 0.3) * p.damage * 0.1, rad = 40 + w.level * 8; getEnemiesNear(p.x, p.y, rad + 15).forEach(e => { const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < rad + 10 && d > rad - 10) { e.hp -= dmg; if (Math.random() < 0.1) addDmgNum(e.x, e.y - e.size, Math.floor(dmg * 10)); } });
-      } else if (w.type === 'cinnamon_trail') { if (frameCountRef.current % 3 === 0) trailPointsRef.current.push({ x: p.x, y: p.y, life: 60 + w.level * 15 }); }
+      if (w.type === 'orbiting_donuts') {
+        w.angle = (w.angle || 0) + 0.05 * delta;
+        const dmg = WEAPON_CONFIG[w.type].baseDamage * (1 + (w.level - 1) * 0.3) * p.damage;
+        const cnt = 2 + Math.floor(w.level / 2), rad = 50 + w.level * 5;
+        for (let i = 0; i < cnt; i++) {
+          const a = w.angle + (i / cnt) * Math.PI * 2;
+          const ox = p.x + Math.cos(a) * rad, oy = p.y + Math.sin(a) * rad;
+          getEnemiesNear(ox, oy, 20).filter(e => e.type !== 'wind_spirit').forEach(e => {
+            if (e.hitFlash === 0) {
+              e.hp -= dmg; e.hitFlash = 8;
+              addDmgNum(e.x, e.y - e.size, Math.floor(dmg));
+              playHit();
+              if (Math.random() < 0.3) addParticles(ox, oy, '#F472B6', 2, 2, 'spark');
+            }
+          });
+        }
+      } else if (w.type === 'frosting_ring') {
+        w.angle = (w.angle || 0) + 0.08 * delta;
+        const dmg = WEAPON_CONFIG[w.type].baseDamage * (1 + (w.level - 1) * 0.3) * p.damage * 0.1;
+        const rad = 40 + w.level * 8;
+        getEnemiesNear(p.x, p.y, rad + 15).filter(e => e.type !== 'wind_spirit').forEach(e => {
+          const d = Math.hypot(e.x - p.x, e.y - p.y);
+          if (d < rad + 10 && d > rad - 10) {
+            e.hp -= dmg;
+            if (Math.random() < 0.05) addDmgNum(e.x, e.y - e.size, Math.floor(dmg * 10));
+          }
+        });
+      } else if (w.type === 'cinnamon_trail') {
+        if (frameCountRef.current % 4 === 0) { // Reduced frequency
+          trailPointsRef.current.push({ x: p.x, y: p.y, life: 60 + w.level * 15 });
+        }
+      }
     });
+    
     const tw = weaponsRef.current.find(w => w.type === 'cinnamon_trail');
-    if (tw) { const dmg = WEAPON_CONFIG['cinnamon_trail'].baseDamage * (1 + (tw.level - 1) * 0.3) * p.damage * 0.05; trailPointsRef.current = trailPointsRef.current.filter(pt => { pt.life -= delta; getEnemiesNear(pt.x, pt.y, 18 + tw.level * 3).forEach(e => { e.hp -= dmg; }); return pt.life > 0; }); }
+    if (tw) {
+      const dmg = WEAPON_CONFIG['cinnamon_trail'].baseDamage * (1 + (tw.level - 1) * 0.3) * p.damage * 0.05;
+      trailPointsRef.current = trailPointsRef.current.filter(pt => {
+        pt.life -= delta;
+        getEnemiesNear(pt.x, pt.y, 18 + tw.level * 3).filter(e => e.type !== 'wind_spirit').forEach(e => { e.hp -= dmg; });
+        return pt.life > 0;
+      });
+    }
   }, [addDmgNum, addParticles, playHit, getEnemiesNear]);
 
   const genUpgrades = useCallback(() => {
@@ -448,289 +645,1079 @@ export default function DonutSurvivorsPage() {
 
   const checkLevelUp = useCallback(() => {
     const p = playerRef.current;
-    if (p.xp >= p.xpToLevel) { p.xp -= p.xpToLevel; p.level++; p.xpToLevel = Math.floor(BASE_XP_TO_LEVEL * Math.pow(XP_SCALE, p.level - 1)); setPlayerLevel(p.level); playLevelUp(); shake(8, 300); addParticles(p.x, p.y, '#FFD700', 30, 6, 'ring'); genUpgrades(); isPausedRef.current = true; setGameState("levelup"); }
-  }, [playLevelUp, shake, addParticles, genUpgrades]);
+    if (p.xp >= p.xpToLevel) {
+      p.xp -= p.xpToLevel;
+      p.level++;
+      p.xpToLevel = Math.floor(BASE_XP_TO_LEVEL * Math.pow(XP_SCALE, p.level - 1));
+      setPlayerLevel(p.level);
+      playLevelUp();
+      shake(8, 300);
+      flash('#FFD700', 0.3);
+      addParticles(p.x, p.y, '#FFD700', 25, 6, 'ring');
+      genUpgrades();
+      isPausedRef.current = true;
+      setGameState("levelup");
+    }
+  }, [playLevelUp, shake, flash, addParticles, genUpgrades]);
 
   const applyUpgrade = useCallback((opt: UpgradeOption) => {
     const p = playerRef.current;
-    if (opt.type === 'weapon' && opt.weaponType) { const ex = weaponsRef.current.find(w => w.type === opt.weaponType); if (ex) ex.level++; else weaponsRef.current.push({ type: opt.weaponType, level: 1, lastFired: 0, angle: 0 }); }
-    else if (opt.type === 'gadget' && opt.gadgetType) { const ex = gadgetsRef.current.find(g => g.type === opt.gadgetType); if (ex) ex.stacks++; else gadgetsRef.current.push({ type: opt.gadgetType, stacks: 1 }); const cfg = GADGET_CONFIG[opt.gadgetType]; switch (cfg.effect) { case 'speed': p.speed *= 1.20; break; case 'max_hp': p.maxHp += 30; p.hp = Math.min(p.hp + 30, p.maxHp); break; case 'magnet': p.magnetRange *= 1.40; break; case 'defense': p.defense = (p.defense || 0) + 0.15; break; case 'damage': p.damage *= 1.15; break; case 'xp_gain': p.xpMultiplier *= 1.25; break; case 'invincibility': p.invincibilityBonus = (p.invincibilityBonus || 0) + 500; break; case 'cooldown': p.cooldownReduction = (p.cooldownReduction || 0) + 0.10; break; } }
-    isPausedRef.current = false; setBanMode(false); setGameState("playing");
+    if (opt.type === 'weapon' && opt.weaponType) {
+      const ex = weaponsRef.current.find(w => w.type === opt.weaponType);
+      if (ex) ex.level++;
+      else weaponsRef.current.push({ type: opt.weaponType, level: 1, lastFired: 0, angle: 0 });
+    } else if (opt.type === 'gadget' && opt.gadgetType) {
+      const ex = gadgetsRef.current.find(g => g.type === opt.gadgetType);
+      if (ex) ex.stacks++;
+      else gadgetsRef.current.push({ type: opt.gadgetType, stacks: 1 });
+      const cfg = GADGET_CONFIG[opt.gadgetType];
+      switch (cfg.effect) {
+        case 'speed': p.speed *= 1.20; break;
+        case 'max_hp': p.maxHp += 30; p.hp = Math.min(p.hp + 30, p.maxHp); break;
+        case 'magnet': p.magnetRange *= 1.40; break;
+        case 'defense': p.defense = (p.defense || 0) + 0.15; break;
+        case 'damage': p.damage *= 1.15; break;
+        case 'xp_gain': p.xpMultiplier *= 1.25; break;
+        case 'invincibility': p.invincibilityBonus = (p.invincibilityBonus || 0) + 500; break;
+        case 'cooldown': p.cooldownReduction = (p.cooldownReduction || 0) + 0.10; break;
+      }
+    }
+    isPausedRef.current = false;
+    setBanMode(false);
+    setGameState("playing");
   }, []);
 
   const openEquip = useCallback(() => { setEquipmentData({ weapons: [...weaponsRef.current], gadgets: [...gadgetsRef.current], player: { ...playerRef.current } }); isPausedRef.current = true; setGameState("equipment"); }, []);
   const closeEquip = useCallback(() => { isPausedRef.current = false; setGameState("playing"); setEquipmentData(null); }, []);
 
   const endGame = useCallback(() => {
-    gameActiveRef.current = false; if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-    const st = Math.floor((performance.now() - gameStartTimeRef.current - pausedTimeRef.current) / 1000), fs = st * 10 + enemiesKilledRef.current * 5;
-    setScore(fs); setSurvivalTime(st); setGameState("gameover"); setHighScore(prev => Math.max(prev, fs));
+    gameActiveRef.current = false;
+    if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+    const st = Math.floor((performance.now() - gameStartTimeRef.current - pausedTimeRef.current) / 1000);
+    const fs = st * 10 + enemiesKilledRef.current * 5;
+    setScore(fs);
+    setSurvivalTime(st);
+    setGameState("gameover");
+    setHighScore(prev => Math.max(prev, fs));
     if (st >= 60) setGamesPlayed(prev => prev + 1);
   }, []);
 
   const gameLoop = useCallback(() => {
-    const canvas = canvasRef.current, ctx = canvas?.getContext("2d"); if (!canvas || !ctx || !gameActiveRef.current) return;
-    const now = performance.now(), delta = Math.min((now - lastFrameTimeRef.current) / 16.667, 2); lastFrameTimeRef.current = now; frameCountRef.current++;
-    let shakeX = 0, shakeY = 0; const sk = screenShakeRef.current; if (sk.duration > 0) { const el = now - sk.startTime; if (el < sk.duration) { const int = sk.intensity * (1 - el / sk.duration); shakeX = (Math.random() - 0.5) * int * 2; shakeY = (Math.random() - 0.5) * int * 2; } else sk.duration = 0; }
+    const canvas = canvasRef.current, ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx || !gameActiveRef.current) return;
+    
+    const now = performance.now();
+    const delta = Math.min((now - lastFrameTimeRef.current) / 16.667, 2);
+    lastFrameTimeRef.current = now;
+    frameCountRef.current++;
+    
+    // Screen shake
+    let shakeX = 0, shakeY = 0;
+    const sk = screenShakeRef.current;
+    if (sk.duration > 0) {
+      const el = now - sk.startTime;
+      if (el < sk.duration) {
+        const int = sk.intensity * (1 - el / sk.duration);
+        shakeX = (Math.random() - 0.5) * int * 2;
+        shakeY = (Math.random() - 0.5) * int * 2;
+      } else sk.duration = 0;
+    }
     ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, shakeX * CANVAS_SCALE, shakeY * CANVAS_SCALE);
+    
     const p = playerRef.current;
+    
     if (isPausedRef.current) { drawGame(ctx); gameLoopRef.current = requestAnimationFrame(gameLoop); return; }
     
+    // Player movement
     const mx = moveInputRef.current.x, my = moveInputRef.current.y, ml = Math.hypot(mx, my);
     const tvx = ml > 0 ? (mx / ml) * p.speed : 0, tvy = ml > 0 ? (my / ml) * p.speed : 0;
-    if (ml > 0) { p.vx += (tvx - p.vx) * 0.2 * delta; p.vy += (tvy - p.vy) * 0.2 * delta; } else { p.vx *= (1 - 0.15 * delta); p.vy *= (1 - 0.15 * delta); if (Math.abs(p.vx) < 0.01) p.vx = 0; if (Math.abs(p.vy) < 0.01) p.vy = 0; }
+    if (ml > 0) { p.vx += (tvx - p.vx) * 0.2 * delta; p.vy += (tvy - p.vy) * 0.2 * delta; }
+    else { p.vx *= (1 - 0.15 * delta); p.vy *= (1 - 0.15 * delta); if (Math.abs(p.vx) < 0.01) p.vx = 0; if (Math.abs(p.vy) < 0.01) p.vy = 0; }
     p.x += p.vx * delta; p.y += p.vy * delta;
-    p.x = Math.max(PLAYER_SIZE / 2, Math.min(WORLD_WIDTH - PLAYER_SIZE / 2, p.x)); p.y = Math.max(PLAYER_SIZE / 2, Math.min(WORLD_HEIGHT - PLAYER_SIZE / 2, p.y));
+    p.x = Math.max(PLAYER_SIZE / 2, Math.min(WORLD_WIDTH - PLAYER_SIZE / 2, p.x));
+    p.y = Math.max(PLAYER_SIZE / 2, Math.min(WORLD_HEIGHT - PLAYER_SIZE / 2, p.y));
     cameraRef.current = { x: p.x - CANVAS_WIDTH / 2, y: p.y - CANVAS_HEIGHT / 2 };
     
-    const gt = now - gameStartTimeRef.current - pausedTimeRef.current, sr = Math.max(400, 2000 - gt / 200);
-    if (now - lastSpawnTimeRef.current > sr) { const sc = 1 + Math.floor(gt / 60000); for (let i = 0; i < sc; i++) spawnEnemy(); lastSpawnTimeRef.current = now; }
+    const gt = now - gameStartTimeRef.current - pausedTimeRef.current;
     const gs = gt / 1000;
-    if (gs >= 590 && !bossWarningRef.current) bossWarningRef.current = true;
-    if (gs >= 600 && !bossSpawnedRef.current) { bossSpawnedRef.current = true; enemiesRef.current.forEach(e => addParticles(e.x, e.y, e.color, 8, 3)); enemiesRef.current = []; const a = Math.random() * Math.PI * 2, d = Math.max(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.6, c = ENEMY_CONFIG['boss']; enemiesRef.current.push({ x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d, type: 'boss', hp: c.hp, maxHp: c.hp, speed: c.speed, size: c.size, xpValue: c.xpValue, damage: c.damage, color: c.color, hitFlash: 0, spawnAnim: 1 }); shake(20, 500); }
-    if (gs >= 1190 && !finalBossWarningRef.current) finalBossWarningRef.current = true;
-    if (gs >= 1200 && !finalBossSpawnedRef.current) { finalBossSpawnedRef.current = true; enemiesRef.current = enemiesRef.current.filter(e => e.type === 'boss'); const a = Math.random() * Math.PI * 2, d = Math.max(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.7, c = ENEMY_CONFIG['final_boss']; enemiesRef.current.push({ x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d, type: 'final_boss', hp: c.hp, maxHp: c.hp, speed: c.speed, size: c.size, xpValue: c.xpValue, damage: c.damage, color: c.color, hitFlash: 0, spawnAnim: 1 }); shake(40, 1000); }
     
-    // Endless mode: after 20 minutes, increase difficulty by 5% every minute
+    // Slower spawn rate scaling (min 600ms instead of 400ms, slower ramp)
+    const sr = Math.max(600, 2200 - gt / 300);
+    if (now - lastSpawnTimeRef.current > sr) {
+      // Spawn count scales slower
+      const sc = 1 + Math.floor(gt / 90000); // Was /60000
+      for (let i = 0; i < sc; i++) spawnEnemy();
+      lastSpawnTimeRef.current = now;
+    }
+    
+    // Wind spirit horde every 45 seconds after 5 minutes
+    if (gs >= 300 && now - lastWindHordeRef.current > 45000) {
+      spawnWindHorde();
+      lastWindHordeRef.current = now;
+    }
+    
+    // Boss warnings and spawns
+    if (gs >= 590 && !bossWarningRef.current) bossWarningRef.current = true;
+    if (gs >= 600 && !bossSpawnedRef.current) {
+      bossSpawnedRef.current = true;
+      enemiesRef.current.forEach(e => { if (e.type !== 'wind_spirit') addParticles(e.x, e.y, e.color, 6, 3); });
+      enemiesRef.current = enemiesRef.current.filter(e => e.type === 'wind_spirit');
+      const a = Math.random() * Math.PI * 2, d = Math.max(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.6, c = ENEMY_CONFIG['boss'];
+      enemiesRef.current.push({ x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d, type: 'boss', hp: c.hp, maxHp: c.hp, speed: c.speed, size: c.size, xpValue: c.xpValue, damage: c.damage, color: c.color, hitFlash: 0, spawnAnim: 1 });
+      shake(20, 500);
+      flash('#FF1744', 0.4);
+    }
+    
+    if (gs >= 1190 && !finalBossWarningRef.current) finalBossWarningRef.current = true;
+    if (gs >= 1200 && !finalBossSpawnedRef.current) {
+      finalBossSpawnedRef.current = true;
+      enemiesRef.current = enemiesRef.current.filter(e => e.type === 'boss' || e.type === 'wind_spirit');
+      const a = Math.random() * Math.PI * 2, d = Math.max(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.7, c = ENEMY_CONFIG['final_boss'];
+      enemiesRef.current.push({ x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d, type: 'final_boss', hp: c.hp, maxHp: c.hp, speed: c.speed, size: c.size, xpValue: c.xpValue, damage: c.damage, color: c.color, hitFlash: 0, spawnAnim: 1 });
+      shake(40, 1000);
+      flash('#000', 0.5);
+    }
+    
+    // Endless mode scaling
     if (endlessModeRef.current && gs >= 1200) {
       const minutesPast20 = Math.floor((gs - 1200) / 60);
       endlessDifficultyRef.current = Math.pow(1.05, minutesPast20);
     }
     
-    rebuildGrid(); fireWeapons(); updateOrbiting(delta);
+    rebuildGrid();
+    fireWeapons();
+    updateOrbiting(delta);
     
+    // Update projectiles with optimized trails
     projectilesRef.current = projectilesRef.current.filter(proj => {
-      if (frameCountRef.current % 2 === 0) proj.trail.push({ x: proj.x, y: proj.y, life: 1 });
-      proj.trail = proj.trail.filter(t => { t.life -= 0.1; return t.life > 0; });
-      if (proj.weaponType === 'mint_missiles') { const near = getEnemiesNear(proj.x, proj.y, 200); let nearest: Enemy | null = null, nd = Infinity; for (const e of near) { const d = Math.hypot(e.x - proj.x, e.y - proj.y); if (d < nd) { nearest = e; nd = d; } } if (nearest) { const ta = Math.atan2(nearest.y - proj.y, nearest.x - proj.x), ca = Math.atan2(proj.vy, proj.vx), na = ca + Math.sign(ta - ca) * Math.min(Math.abs(ta - ca), 0.15), sp = Math.hypot(proj.vx, proj.vy); proj.vx = Math.cos(na) * sp; proj.vy = Math.sin(na) * sp; } }
-      proj.x += proj.vx * delta; proj.y += proj.vy * delta; proj.lifetime -= delta; if (proj.lifetime <= 0) return false;
-      for (const e of getEnemiesNear(proj.x, proj.y, proj.size + 50)) { if (Math.hypot(e.x - proj.x, e.y - proj.y) < e.size + proj.size) { e.hp -= proj.damage; e.hitFlash = 5; addDmgNum(e.x, e.y - e.size, Math.floor(proj.damage)); playHit(); addParticles(proj.x, proj.y, proj.color, 5, 2, 'spark'); if (proj.weaponType === 'candy_cannon') { getEnemiesNear(proj.x, proj.y, 60 + proj.size).forEach(o => { if (o !== e) { o.hp -= proj.damage * 0.6; o.hitFlash = 5; } }); addParticles(proj.x, proj.y, '#A78BFA', 20, 6, 'ring'); shake(5, 100); return false; } if (proj.weaponType === 'mint_missiles') { getEnemiesNear(proj.x, proj.y, 35).forEach(o => { if (o !== e) { o.hp -= proj.damage * 0.5; o.hitFlash = 5; } }); addParticles(proj.x, proj.y, '#4ADE80', 12, 4, 'ring'); return false; } if (proj.piercing > 0) { proj.piercing--; proj.damage *= 0.8; } else return false; } }
+      // Reduced trail frequency
+      proj.trailTimer += delta;
+      if (proj.trailTimer >= 3) {
+        proj.trailTimer = 0;
+        if (projectileTrailsRef.current.length < 200) {
+          projectileTrailsRef.current.push({ x: proj.x, y: proj.y, life: 1, color: proj.color });
+        }
+      }
+      
+      // Homing for mint missiles
+      if (proj.weaponType === 'mint_missiles') {
+        const near = getEnemiesNear(proj.x, proj.y, 200).filter(e => e.type !== 'wind_spirit');
+        let nearest: Enemy | null = null, nd = Infinity;
+        for (const e of near) { const d = Math.hypot(e.x - proj.x, e.y - proj.y); if (d < nd) { nearest = e; nd = d; } }
+        if (nearest) {
+          const ta = Math.atan2(nearest.y - proj.y, nearest.x - proj.x);
+          const ca = Math.atan2(proj.vy, proj.vx);
+          const na = ca + Math.sign(ta - ca) * Math.min(Math.abs(ta - ca), 0.15);
+          const sp = Math.hypot(proj.vx, proj.vy);
+          proj.vx = Math.cos(na) * sp;
+          proj.vy = Math.sin(na) * sp;
+        }
+      }
+      
+      proj.x += proj.vx * delta;
+      proj.y += proj.vy * delta;
+      proj.lifetime -= delta;
+      if (proj.lifetime <= 0) return false;
+      
+      for (const e of getEnemiesNear(proj.x, proj.y, proj.size + 50)) {
+        if (e.type === 'wind_spirit') continue;
+        if (Math.hypot(e.x - proj.x, e.y - proj.y) < e.size + proj.size) {
+          e.hp -= proj.damage;
+          e.hitFlash = 5;
+          addDmgNum(e.x, e.y - e.size, Math.floor(proj.damage));
+          playHit();
+          addParticles(proj.x, proj.y, proj.color, 3, 2, 'spark');
+          
+          if (proj.weaponType === 'candy_cannon') {
+            getEnemiesNear(proj.x, proj.y, 60 + proj.size).filter(o => o.type !== 'wind_spirit').forEach(o => {
+              if (o !== e) { o.hp -= proj.damage * 0.6; o.hitFlash = 5; }
+            });
+            addParticles(proj.x, proj.y, '#A78BFA', 15, 6, 'burst');
+            shake(5, 100);
+            flash('#A78BFA', 0.2);
+            return false;
+          }
+          if (proj.weaponType === 'mint_missiles') {
+            getEnemiesNear(proj.x, proj.y, 35).filter(o => o.type !== 'wind_spirit').forEach(o => {
+              if (o !== e) { o.hp -= proj.damage * 0.5; o.hitFlash = 5; }
+            });
+            addParticles(proj.x, proj.y, '#4ADE80', 8, 4, 'ring');
+            return false;
+          }
+          if (proj.piercing > 0) { proj.piercing--; proj.damage *= 0.8; }
+          else return false;
+        }
+      }
       return true;
     });
     
+    // Update projectile trails
+    projectileTrailsRef.current = projectileTrailsRef.current.filter(t => {
+      t.life -= 0.1;
+      return t.life > 0;
+    });
+    
+    // Update enemies
+    const isFrozen = now < freezeUntilRef.current;
     enemiesRef.current = enemiesRef.current.filter(e => {
-      e.hitFlash = Math.max(0, e.hitFlash - 1); e.spawnAnim = Math.max(0, e.spawnAnim - 0.05 * delta);
-      const dx = p.x - e.x, dy = p.y - e.y, dist = Math.hypot(dx, dy); 
-      const isFrozen = now < freezeUntilRef.current;
-      if (dist > 0 && !isFrozen) { e.x += (dx / dist) * e.speed * delta; e.y += (dy / dist) * e.speed * delta; }
-      if (e.type === 'final_boss' && dist < e.size + PLAYER_SIZE / 2) { p.hp = 0; shake(50, 1000); endGame(); return false; }
-      if (dist < e.size + PLAYER_SIZE / 2 && Date.now() > invincibleUntilRef.current) { const dr = Math.min(p.defense || 0, 0.75), ad = Math.floor(e.damage * (1 - dr)); p.hp -= ad; invincibleUntilRef.current = Date.now() + 750 + (p.invincibilityBonus || 0); playHurt(); shake(10, 200); addParticles(p.x, p.y, '#FF6B6B', 10, 4); if (p.hp <= 0) { endGame(); return false; } }
-      if (e.hp <= 0) { 
-        const oc = e.type === 'boss' ? 20 : e.type === 'final_boss' ? 50 : e.type === 'chocolate_chunk' ? 5 : 1; 
-        const now = performance.now();
-        for (let i = 0; i < oc; i++) xpOrbsRef.current.push({ x: e.x + (Math.random() - 0.5) * (e.type === 'boss' || e.type === 'final_boss' ? 80 : 20), y: e.y + (Math.random() - 0.5) * (e.type === 'boss' || e.type === 'final_boss' ? 80 : 20), value: e.type === 'final_boss' ? 20 : e.type === 'boss' ? 10 : e.xpValue, size: 6 + (e.type === 'boss' || e.type === 'final_boss' ? 10 : e.xpValue), collectAnim: 0, spawnTime: now }); 
-        // Very rare powerup drops
+      e.hitFlash = Math.max(0, e.hitFlash - 1);
+      e.spawnAnim = Math.max(0, e.spawnAnim - 0.05 * delta);
+      
+      const dx = p.x - e.x, dy = p.y - e.y, dist = Math.hypot(dx, dy);
+      
+      if (!isFrozen && dist > 0) {
+        let moveX = (dx / dist) * e.speed * delta;
+        let moveY = (dy / dist) * e.speed * delta;
+        
+        // Jellybean zigzag movement
+        if (e.type === 'jellybean' && e.zigzagPhase !== undefined) {
+          e.zigzagPhase += 0.15 * delta;
+          const perpX = -dy / dist, perpY = dx / dist;
+          const zigzag = Math.sin(e.zigzagPhase) * 1.5;
+          moveX += perpX * zigzag * delta;
+          moveY += perpY * zigzag * delta;
+        }
+        
+        e.x += moveX;
+        e.y += moveY;
+      }
+      
+      // Wind spirits push player but don't damage
+      if (e.type === 'wind_spirit') {
+        if (dist < e.size + PLAYER_SIZE / 2) {
+          const pushStrength = 8;
+          const pushX = (p.x - e.x) / dist * pushStrength;
+          const pushY = (p.y - e.y) / dist * pushStrength;
+          p.vx += pushX * delta;
+          p.vy += pushY * delta;
+          addParticles(p.x, p.y, '#87CEEB', 2, 3, 'spark');
+        }
+        // Wind spirits despawn after traveling far
+        if (dist > 600) return false;
+        return true;
+      }
+      
+      // Final boss instant kill
+      if (e.type === 'final_boss' && dist < e.size + PLAYER_SIZE / 2) {
+        p.hp = 0;
+        shake(50, 1000);
+        flash('#FF0000', 0.8);
+        endGame();
+        return false;
+      }
+      
+      // Normal collision damage
+      if (dist < e.size + PLAYER_SIZE / 2 && Date.now() > invincibleUntilRef.current) {
+        const dr = Math.min(p.defense || 0, 0.75);
+        const ad = Math.floor(e.damage * (1 - dr));
+        p.hp -= ad;
+        invincibleUntilRef.current = Date.now() + 750 + (p.invincibilityBonus || 0);
+        playHurt();
+        shake(10, 200);
+        flash('#FF6B6B', 0.3);
+        addParticles(p.x, p.y, '#FF6B6B', 8, 4);
+        if (p.hp <= 0) { endGame(); return false; }
+      }
+      
+      // Enemy death
+      if (e.hp <= 0) {
+        // Licorice splits into smaller enemies
+        if (e.type === 'licorice' && e.splitCount && e.splitCount > 0) {
+          for (let i = 0; i < 2; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const splitDist = 20;
+            if (enemiesRef.current.length < MAX_ENEMIES) {
+              enemiesRef.current.push({
+                x: e.x + Math.cos(angle) * splitDist,
+                y: e.y + Math.sin(angle) * splitDist,
+                type: 'sprinkle',
+                hp: 15, maxHp: 15,
+                speed: 1.2,
+                size: 14,
+                xpValue: 1,
+                damage: 3,
+                color: '#333',
+                hitFlash: 0,
+                spawnAnim: 0.5
+              });
+            }
+          }
+        }
+        
+        const oc = e.type === 'boss' ? 20 : e.type === 'final_boss' ? 50 : e.type === 'chocolate_chunk' ? 5 : e.type === 'licorice' ? 3 : 1;
+        for (let i = 0; i < oc; i++) {
+          if (xpOrbsRef.current.length < MAX_XP_ORBS) {
+            xpOrbsRef.current.push({
+              x: e.x + (Math.random() - 0.5) * (e.type === 'boss' || e.type === 'final_boss' ? 80 : 20),
+              y: e.y + (Math.random() - 0.5) * (e.type === 'boss' || e.type === 'final_boss' ? 80 : 20),
+              value: e.type === 'final_boss' ? 20 : e.type === 'boss' ? 10 : e.xpValue,
+              size: 6 + (e.type === 'boss' || e.type === 'final_boss' ? 10 : e.xpValue),
+              collectAnim: 0,
+              spawnTime: now
+            });
+          }
+        }
+        
+        // Power-up drops
         const powerUpChance = e.type === 'boss' || e.type === 'final_boss' ? 1.0 : e.type === 'chocolate_chunk' ? 0.01 : 0.0025;
         if (Math.random() < powerUpChance) {
           const types: PowerUpType[] = ['magnet_burst', 'health', 'freeze'];
           powerUpsRef.current.push({ x: e.x, y: e.y, type: types[Math.floor(Math.random() * types.length)], size: 14 });
         }
-        // Trigger endless mode when final boss dies
+        
+        // Endless mode trigger
         if (e.type === 'final_boss') {
           endlessModeRef.current = true;
           shake(50, 1500);
-          addParticles(e.x, e.y, '#FFD700', 100, 15, 'ring');
+          flash('#FFD700', 0.5);
+          addParticles(e.x, e.y, '#FFD700', 60, 15, 'burst');
         }
-        playKill(); addParticles(e.x, e.y, e.color, e.type === 'boss' || e.type === 'final_boss' ? 40 : 12, e.type === 'boss' || e.type === 'final_boss' ? 8 : 4); if (e.type === 'boss' || e.type === 'final_boss') shake(30, 800); enemiesKilledRef.current++; setKillCount(enemiesKilledRef.current); return false; 
+        
+        playKill();
+        addParticles(e.x, e.y, e.color, e.type === 'boss' || e.type === 'final_boss' ? 30 : 8, e.type === 'boss' || e.type === 'final_boss' ? 8 : 4, 'burst');
+        if (e.type === 'boss' || e.type === 'final_boss') { shake(30, 800); flash(e.color, 0.4); }
+        enemiesKilledRef.current++;
+        setKillCount(enemiesKilledRef.current);
+        return false;
       }
       return true;
     });
     
+    // Update XP orbs
     xpOrbsRef.current = xpOrbsRef.current.filter(o => {
       const dx = p.x - o.x, dy = p.y - o.y, dist = Math.hypot(dx, dy);
-      const age = (now - o.spawnTime) / 1000; // age in seconds
-      
-      // Expire after 10 seconds (unless magnetized)
+      const age = (now - o.spawnTime) / 1000;
       if (age > 10 && !o.magnetized) return false;
-      
       if (o.collectAnim > 0) { o.collectAnim -= 0.1 * delta; return o.collectAnim > 0; }
       
-      // Magnetized orbs fly very fast toward player
       if (o.magnetized && dist > 5) {
-        const magnetSpeed = 15; // Much faster than normal magnet range
+        const magnetSpeed = 15;
         o.x += (dx / dist) * magnetSpeed * delta;
         o.y += (dy / dist) * magnetSpeed * delta;
-      } else if (dist < p.magnetRange) { 
-        const sp = 5 * (1 - dist / p.magnetRange) + 2; 
-        o.x += (dx / dist) * sp * delta; 
-        o.y += (dy / dist) * sp * delta; 
+      } else if (dist < p.magnetRange) {
+        const sp = 5 * (1 - dist / p.magnetRange) + 2;
+        o.x += (dx / dist) * sp * delta;
+        o.y += (dy / dist) * sp * delta;
       }
       
-      if (dist < PLAYER_SIZE / 2 + o.size) { p.xp += o.value * p.xpMultiplier; playXP(); o.collectAnim = 1; addParticles(o.x, o.y, '#F472B6', 4, 2, 'spark'); }
+      if (dist < PLAYER_SIZE / 2 + o.size) {
+        p.xp += o.value * p.xpMultiplier;
+        playXP();
+        o.collectAnim = 1;
+        if (Math.random() < 0.3) addParticles(o.x, o.y, '#F472B6', 2, 2, 'spark');
+      }
       return true;
     });
     
-    // Update and collect powerups
+    // Update powerups
     powerUpsRef.current = powerUpsRef.current.filter(pu => {
       const dx = p.x - pu.x, dy = p.y - pu.y, dist = Math.hypot(dx, dy);
       if (dist < PLAYER_SIZE / 2 + pu.size) {
         playPowerUp();
-        addParticles(pu.x, pu.y, POWERUP_CONFIG[pu.type].color, 15, 5, 'ring');
+        addParticles(pu.x, pu.y, POWERUP_CONFIG[pu.type].color, 12, 5, 'ring');
+        flash(POWERUP_CONFIG[pu.type].color, 0.25);
         
         if (pu.type === 'magnet_burst') {
-          // Flag all xp orbs as magnetized - they'll fly toward player
           xpOrbsRef.current.forEach(o => { o.magnetized = true; });
-          addParticles(p.x, p.y, '#FF00FF', 20, 8, 'ring');
+          addParticles(p.x, p.y, '#FF00FF', 15, 8, 'ring');
         } else if (pu.type === 'health') {
           p.hp = Math.min(p.hp + 20, p.maxHp);
-          addParticles(p.x, p.y, '#FF6B6B', 15, 4, 'glow');
+          addParticles(p.x, p.y, '#FF6B6B', 10, 4, 'glow');
         } else if (pu.type === 'freeze') {
-          freezeUntilRef.current = now + 10000; // Freeze for 10 seconds
-          addParticles(p.x, p.y, '#00FFFF', 25, 6, 'ring');
-          // Add freeze particles to all enemies
-          enemiesRef.current.forEach(e => addParticles(e.x, e.y, '#00FFFF', 5, 2, 'spark'));
+          freezeUntilRef.current = now + 10000;
+          addParticles(p.x, p.y, '#00FFFF', 20, 6, 'ring');
+          enemiesRef.current.forEach(e => { if (Math.random() < 0.3) addParticles(e.x, e.y, '#00FFFF', 3, 2, 'spark'); });
         }
         return false;
       }
       return true;
     });
     
-    checkLevelUp(); drawGame(ctx);
+    checkLevelUp();
+    drawGame(ctx);
+    
+    // Decay screen flash
+    screenFlashRef.current.intensity *= 0.85;
+    
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [spawnEnemy, fireWeapons, updateOrbiting, checkLevelUp, endGame, addDmgNum, addParticles, playHit, playKill, playXP, playHurt, playPowerUp, rebuildGrid, getEnemiesNear, shake]);
+  }, [spawnEnemy, spawnWindHorde, fireWeapons, updateOrbiting, checkLevelUp, endGame, addDmgNum, addParticles, playHit, playKill, playXP, playHurt, playPowerUp, rebuildGrid, getEnemiesNear, shake, flash]);
 
   const drawGame = useCallback((ctx: CanvasRenderingContext2D) => {
     const cam = cameraRef.current, p = playerRef.current;
-    ctx.fillStyle = '#0d0d0d'; ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
+    const now = performance.now();
+    
+    // Background
+    ctx.fillStyle = '#0d0d0d';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.lineWidth = 1;
     for (let x = -cam.x % 50; x < CANVAS_WIDTH; x += 50) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CANVAS_HEIGHT); ctx.stroke(); }
     for (let y = -cam.y % 50; y < CANVAS_HEIGHT; y += 50) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_WIDTH, y); ctx.stroke(); }
-    ctx.strokeStyle = 'rgba(244,114,182,0.3)'; ctx.lineWidth = 3;
+    
+    // World bounds
+    ctx.strokeStyle = 'rgba(244,114,182,0.3)';
+    ctx.lineWidth = 3;
     const wl = -cam.x, wt = -cam.y, wr = WORLD_WIDTH - cam.x, wb = WORLD_HEIGHT - cam.y;
     if (wl > 0) { ctx.beginPath(); ctx.moveTo(wl, 0); ctx.lineTo(wl, CANVAS_HEIGHT); ctx.stroke(); }
     if (wr < CANVAS_WIDTH) { ctx.beginPath(); ctx.moveTo(wr, 0); ctx.lineTo(wr, CANVAS_HEIGHT); ctx.stroke(); }
     if (wt > 0) { ctx.beginPath(); ctx.moveTo(0, wt); ctx.lineTo(CANVAS_WIDTH, wt); ctx.stroke(); }
     if (wb < CANVAS_HEIGHT) { ctx.beginPath(); ctx.moveTo(0, wb); ctx.lineTo(CANVAS_WIDTH, wb); ctx.stroke(); }
     
+    // Cinnamon trail
     const tw = weaponsRef.current.find(w => w.type === 'cinnamon_trail');
-    if (tw) trailPointsRef.current.forEach(pt => { const a = pt.life / (60 + tw.level * 15); ctx.fillStyle = `rgba(249,115,22,${a * 0.6})`; ctx.beginPath(); ctx.arc(pt.x - cam.x, pt.y - cam.y, 10 + tw.level * 3, 0, Math.PI * 2); ctx.fill(); });
+    if (tw) {
+      trailPointsRef.current.forEach(pt => {
+        const a = pt.life / (60 + tw.level * 15);
+        ctx.fillStyle = `rgba(249,115,22,${a * 0.6})`;
+        ctx.beginPath();
+        ctx.arc(pt.x - cam.x, pt.y - cam.y, 10 + tw.level * 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
     
-    xpOrbsRef.current.forEach(o => { 
-      const sx = o.x - cam.x, sy = o.y - cam.y; 
-      if (sx < -20 || sx > CANVAS_WIDTH + 20 || sy < -20 || sy > CANVAS_HEIGHT + 20) return; 
+    // XP orbs
+    xpOrbsRef.current.forEach(o => {
+      const sx = o.x - cam.x, sy = o.y - cam.y;
+      if (sx < -20 || sx > CANVAS_WIDTH + 20 || sy < -20 || sy > CANVAS_HEIGHT + 20) return;
       const sc = o.collectAnim > 0 ? 1 + (1 - o.collectAnim) * 0.5 : 1;
-      const age = (performance.now() - o.spawnTime) / 1000;
-      const isBlinking = age > 7; // Start blinking at 7 seconds (3 seconds before despawn)
-      const blinkAlpha = isBlinking ? (Math.sin(age * 10) * 0.4 + 0.6) : 1; // Fast blink
-      const al = o.collectAnim > 0 ? o.collectAnim : blinkAlpha; 
-      ctx.save(); ctx.globalAlpha = al; ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 10; 
-      if (donutImageRef.current && donutLoadedRef.current) ctx.drawImage(donutImageRef.current, sx - o.size * sc, sy - o.size * sc, o.size * 2 * sc, o.size * 2 * sc); 
-      else { ctx.fillStyle = '#F472B6'; ctx.beginPath(); ctx.arc(sx, sy, o.size * sc, 0, Math.PI * 2); ctx.fill(); } 
-      ctx.shadowBlur = 0; ctx.restore(); 
+      const age = (now - o.spawnTime) / 1000;
+      const isBlinking = age > 7;
+      const blinkAlpha = isBlinking ? (Math.sin(age * 10) * 0.4 + 0.6) : 1;
+      const al = o.collectAnim > 0 ? o.collectAnim : blinkAlpha;
+      ctx.save();
+      ctx.globalAlpha = al;
+      ctx.shadowColor = '#F472B6';
+      ctx.shadowBlur = 10;
+      if (donutImageRef.current && donutLoadedRef.current) {
+        ctx.drawImage(donutImageRef.current, sx - o.size * sc, sy - o.size * sc, o.size * 2 * sc, o.size * 2 * sc);
+      } else {
+        ctx.fillStyle = '#F472B6';
+        ctx.beginPath();
+        ctx.arc(sx, sy, o.size * sc, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+      ctx.restore();
     });
     
-    // Draw powerups
+    // Power-ups
     powerUpsRef.current.forEach(pu => {
       const sx = pu.x - cam.x, sy = pu.y - cam.y;
       if (sx < -20 || sx > CANVAS_WIDTH + 20 || sy < -20 || sy > CANVAS_HEIGHT + 20) return;
       const cfg = POWERUP_CONFIG[pu.type];
-      const pulse = 1 + Math.sin(performance.now() / 150) * 0.15;
+      const pulse = 1 + Math.sin(now / 150) * 0.15;
       ctx.save();
-      ctx.shadowColor = cfg.color; ctx.shadowBlur = 15;
-      ctx.fillStyle = cfg.color + '40'; ctx.beginPath(); ctx.arc(sx, sy, pu.size * pulse, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = cfg.color; ctx.beginPath(); ctx.arc(sx, sy, pu.size * 0.7 * pulse, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#FFF'; ctx.font = `bold ${Math.floor(pu.size)}px monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = cfg.color;
+      ctx.shadowBlur = 15;
+      ctx.fillStyle = cfg.color + '40';
+      ctx.beginPath();
+      ctx.arc(sx, sy, pu.size * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = cfg.color;
+      ctx.beginPath();
+      ctx.arc(sx, sy, pu.size * 0.7 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#FFF';
+      ctx.font = `bold ${Math.floor(pu.size)}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       ctx.fillText(cfg.icon, sx, sy);
-      ctx.shadowBlur = 0; ctx.restore();
-    });
-    
-    enemiesRef.current.forEach(e => { const sx = e.x - cam.x, sy = e.y - cam.y; if (sx < -80 || sx > CANVAS_WIDTH + 80 || sy < -80 || sy > CANVAS_HEIGHT + 80) return; ctx.save(); ctx.translate(sx, sy); const spSc = e.spawnAnim > 0 ? 1.5 - e.spawnAnim * 0.5 : 1, spAl = e.spawnAnim > 0 ? 1 - e.spawnAnim * 0.3 : 1; ctx.scale(spSc, spSc); ctx.globalAlpha = spAl; 
-      const isFrozen = performance.now() < freezeUntilRef.current;
-      ctx.fillStyle = e.hitFlash > 0 ? '#FFF' : isFrozen ? '#88DDFF' : e.color;
-      if (isFrozen) { ctx.shadowColor = '#00FFFF'; ctx.shadowBlur = 8; }
-      if (e.type === 'sprinkle') { ctx.beginPath(); ctx.roundRect(-e.size / 2, -e.size / 4, e.size, e.size / 2, e.size / 4); ctx.fill(); }
-      else if (e.type === 'gummy') { ctx.beginPath(); ctx.arc(0, 0, e.size / 2, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(-e.size / 3, -e.size / 2, e.size / 4, 0, Math.PI * 2); ctx.arc(e.size / 3, -e.size / 2, e.size / 4, 0, Math.PI * 2); ctx.fill(); }
-      else if (e.type === 'candy_corn') { ctx.beginPath(); ctx.moveTo(0, -e.size / 2); ctx.lineTo(-e.size / 2, e.size / 2); ctx.lineTo(e.size / 2, e.size / 2); ctx.closePath(); ctx.fill(); }
-      else if (e.type === 'chocolate_chunk') { ctx.beginPath(); ctx.roundRect(-e.size / 2, -e.size / 2, e.size, e.size, 5); ctx.fill(); }
-      else if (e.type === 'boss') { ctx.shadowColor = '#FF1744'; ctx.shadowBlur = 30; ctx.beginPath(); ctx.arc(0, 0, e.size / 2, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
-      else if (e.type === 'final_boss') { const pulse = Math.sin(Date.now() / 150) * 0.3 + 0.7; ctx.shadowColor = '#8B0000'; ctx.shadowBlur = 50 * pulse; ctx.fillStyle = '#0a0a0a'; ctx.beginPath(); ctx.arc(0, 0, e.size / 2, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`; ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill(); }
-      if (e.maxHp > 20) { const bw = e.type === 'boss' || e.type === 'final_boss' ? e.size * 1.5 : e.size * 1.2, hp = e.hp / e.maxHp; ctx.fillStyle = '#333'; ctx.fillRect(-bw / 2, -e.size / 2 - 12, bw, e.type === 'boss' || e.type === 'final_boss' ? 6 : 4); ctx.fillStyle = hp > 0.5 ? '#4ADE80' : hp > 0.25 ? '#FBBF24' : '#FF6B6B'; ctx.fillRect(-bw / 2, -e.size / 2 - 12, bw * hp, e.type === 'boss' || e.type === 'final_boss' ? 6 : 4); }
+      ctx.shadowBlur = 0;
       ctx.restore();
     });
     
-    projectilesRef.current.forEach(pr => { const sx = pr.x - cam.x, sy = pr.y - cam.y; if (pr.trail.length > 1) { ctx.strokeStyle = pr.color; ctx.lineWidth = pr.size * 0.4; ctx.lineCap = 'round'; ctx.beginPath(); pr.trail.forEach((t, i) => { ctx.globalAlpha = t.life * 0.5; if (i === 0) ctx.moveTo(t.x - cam.x, t.y - cam.y); else ctx.lineTo(t.x - cam.x, t.y - cam.y); }); ctx.stroke(); ctx.globalAlpha = 1; } ctx.fillStyle = pr.color; ctx.shadowColor = pr.color; ctx.shadowBlur = 8; ctx.beginPath(); ctx.arc(sx, sy, pr.size, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; });
-    
-    const psx = p.x - cam.x, psy = p.y - cam.y;
-    weaponsRef.current.forEach(w => {
-      if (w.type === 'orbiting_donuts') { const cnt = 2 + Math.floor(w.level / 2), rad = 50 + w.level * 5; for (let i = 0; i < cnt; i++) { const a = (w.angle || 0) + (i / cnt) * Math.PI * 2, ox = psx + Math.cos(a) * rad, oy = psy + Math.sin(a) * rad; ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 10; if (donutImageRef.current && donutLoadedRef.current) ctx.drawImage(donutImageRef.current, ox - 12, oy - 12, 24, 24); else { ctx.fillStyle = '#F472B6'; ctx.beginPath(); ctx.arc(ox, oy, 12, 0, Math.PI * 2); ctx.fill(); } ctx.shadowBlur = 0; } }
-      else if (w.type === 'frosting_ring') { const rad = 40 + w.level * 8; ctx.strokeStyle = `rgba(96,165,250,${0.3 + Math.sin((w.angle || 0) * 2) * 0.2})`; ctx.lineWidth = 8 + w.level * 2; ctx.shadowColor = '#60A5FA'; ctx.shadowBlur = 15; ctx.beginPath(); ctx.arc(psx, psy, rad, 0, Math.PI * 2); ctx.stroke(); ctx.shadowBlur = 0; }
+    // Enemies
+    const isFrozen = now < freezeUntilRef.current;
+    enemiesRef.current.forEach(e => {
+      const sx = e.x - cam.x, sy = e.y - cam.y;
+      if (sx < -100 || sx > CANVAS_WIDTH + 100 || sy < -100 || sy > CANVAS_HEIGHT + 100) return;
+      
+      ctx.save();
+      ctx.translate(sx, sy);
+      const spSc = e.spawnAnim > 0 ? 1.5 - e.spawnAnim * 0.5 : 1;
+      const spAl = e.spawnAnim > 0 ? 1 - e.spawnAnim * 0.3 : 1;
+      ctx.scale(spSc, spSc);
+      ctx.globalAlpha = spAl;
+      
+      const drawFrozen = isFrozen && e.type !== 'wind_spirit';
+      ctx.fillStyle = e.hitFlash > 0 ? '#FFF' : drawFrozen ? '#88DDFF' : e.color;
+      if (drawFrozen) { ctx.shadowColor = '#00FFFF'; ctx.shadowBlur = 8; }
+      
+      if (e.type === 'sprinkle') {
+        ctx.beginPath();
+        ctx.roundRect(-e.size / 2, -e.size / 4, e.size, e.size / 2, e.size / 4);
+        ctx.fill();
+      } else if (e.type === 'gummy') {
+        ctx.beginPath();
+        ctx.arc(0, 0, e.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(-e.size / 3, -e.size / 2, e.size / 4, 0, Math.PI * 2);
+        ctx.arc(e.size / 3, -e.size / 2, e.size / 4, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (e.type === 'candy_corn') {
+        ctx.beginPath();
+        ctx.moveTo(0, -e.size / 2);
+        ctx.lineTo(-e.size / 2, e.size / 2);
+        ctx.lineTo(e.size / 2, e.size / 2);
+        ctx.closePath();
+        ctx.fill();
+      } else if (e.type === 'jellybean') {
+        // Jellybean - elongated pill shape
+        ctx.beginPath();
+        ctx.ellipse(0, 0, e.size / 2, e.size / 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Shine
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.beginPath();
+        ctx.ellipse(-e.size / 6, -e.size / 8, e.size / 6, e.size / 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (e.type === 'licorice') {
+        // Licorice - twisted rectangle
+        ctx.fillStyle = e.hitFlash > 0 ? '#FFF' : drawFrozen ? '#88DDFF' : '#1a1a1a';
+        ctx.beginPath();
+        ctx.roundRect(-e.size / 2, -e.size / 3, e.size, e.size * 0.66, 4);
+        ctx.fill();
+        // Red stripes
+        ctx.fillStyle = e.hitFlash > 0 ? '#FFF' : '#FF4444';
+        ctx.fillRect(-e.size / 2 + 4, -e.size / 3 + 4, 3, e.size * 0.66 - 8);
+        ctx.fillRect(e.size / 2 - 7, -e.size / 3 + 4, 3, e.size * 0.66 - 8);
+      } else if (e.type === 'chocolate_chunk') {
+        ctx.beginPath();
+        ctx.roundRect(-e.size / 2, -e.size / 2, e.size, e.size, 5);
+        ctx.fill();
+      } else if (e.type === 'wind_spirit') {
+        // Wind spirit - ethereal swirl
+        ctx.globalAlpha = 0.6;
+        ctx.strokeStyle = e.color;
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+          const phase = now / 200 + i * 2;
+          ctx.beginPath();
+          ctx.arc(Math.cos(phase) * 4, Math.sin(phase) * 4, e.size / 2 - i * 2, 0, Math.PI * 1.5);
+          ctx.stroke();
+        }
+        ctx.fillStyle = '#FFF';
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (e.type === 'boss') {
+        ctx.shadowColor = '#FF1744';
+        ctx.shadowBlur = 30;
+        ctx.beginPath();
+        ctx.arc(0, 0, e.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else if (e.type === 'final_boss') {
+        const pulse = Math.sin(now / 150) * 0.3 + 0.7;
+        ctx.shadowColor = '#8B0000';
+        ctx.shadowBlur = 50 * pulse;
+        ctx.fillStyle = '#0a0a0a';
+        ctx.beginPath();
+        ctx.arc(0, 0, e.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`;
+        ctx.beginPath();
+        ctx.arc(0, 0, 15, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // Health bar for tanky enemies
+      if (e.maxHp > 20 && e.type !== 'wind_spirit') {
+        const bw = e.type === 'boss' || e.type === 'final_boss' ? e.size * 1.5 : e.size * 1.2;
+        const hp = e.hp / e.maxHp;
+        ctx.fillStyle = '#333';
+        ctx.fillRect(-bw / 2, -e.size / 2 - 12, bw, e.type === 'boss' || e.type === 'final_boss' ? 6 : 4);
+        ctx.fillStyle = hp > 0.5 ? '#4ADE80' : hp > 0.25 ? '#FBBF24' : '#FF6B6B';
+        ctx.fillRect(-bw / 2, -e.size / 2 - 12, bw * hp, e.type === 'boss' || e.type === 'final_boss' ? 6 : 4);
+      }
+      ctx.restore();
     });
     
+    // Projectile trails
+    projectileTrailsRef.current.forEach(t => {
+      const sx = t.x - cam.x, sy = t.y - cam.y;
+      if (sx < -10 || sx > CANVAS_WIDTH + 10 || sy < -10 || sy > CANVAS_HEIGHT + 10) return;
+      ctx.globalAlpha = t.life * 0.5;
+      ctx.fillStyle = t.color;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 2 * t.life, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    
+    // Projectiles
+    projectilesRef.current.forEach(pr => {
+      const sx = pr.x - cam.x, sy = pr.y - cam.y;
+      if (sx < -20 || sx > CANVAS_WIDTH + 20 || sy < -20 || sy > CANVAS_HEIGHT + 20) return;
+      ctx.fillStyle = pr.color;
+      ctx.shadowColor = pr.color;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(sx, sy, pr.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+    
+    // Player weapon effects
+    const psx = p.x - cam.x, psy = p.y - cam.y;
+    weaponsRef.current.forEach(w => {
+      if (w.type === 'orbiting_donuts') {
+        const cnt = 2 + Math.floor(w.level / 2), rad = 50 + w.level * 5;
+        for (let i = 0; i < cnt; i++) {
+          const a = (w.angle || 0) + (i / cnt) * Math.PI * 2;
+          const ox = psx + Math.cos(a) * rad, oy = psy + Math.sin(a) * rad;
+          ctx.shadowColor = '#F472B6';
+          ctx.shadowBlur = 10;
+          if (donutImageRef.current && donutLoadedRef.current) {
+            ctx.drawImage(donutImageRef.current, ox - 12, oy - 12, 24, 24);
+          } else {
+            ctx.fillStyle = '#F472B6';
+            ctx.beginPath();
+            ctx.arc(ox, oy, 12, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.shadowBlur = 0;
+        }
+      } else if (w.type === 'frosting_ring') {
+        const rad = 40 + w.level * 8;
+        ctx.strokeStyle = `rgba(96,165,250,${0.3 + Math.sin((w.angle || 0) * 2) * 0.2})`;
+        ctx.lineWidth = 8 + w.level * 2;
+        ctx.shadowColor = '#60A5FA';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(psx, psy, rad, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+    });
+    
+    // Player
     const inv = Date.now() < invincibleUntilRef.current, rad = PLAYER_SIZE / 2;
-    ctx.save(); ctx.translate(psx, psy); if (inv && Math.floor(frameCountRef.current / 4) % 2 === 0) ctx.globalAlpha = 0.5; ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 20;
-    if (pfpImageRef.current && pfpLoadedRef.current) { ctx.beginPath(); ctx.arc(0, 0, rad, 0, Math.PI * 2); ctx.closePath(); ctx.clip(); ctx.drawImage(pfpImageRef.current, -rad, -rad, PLAYER_SIZE, PLAYER_SIZE); ctx.restore(); ctx.save(); ctx.translate(psx, psy); if (inv && Math.floor(frameCountRef.current / 4) % 2 === 0) ctx.globalAlpha = 0.5; ctx.strokeStyle = '#F472B6'; ctx.lineWidth = 3; ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 15; ctx.beginPath(); ctx.arc(0, 0, rad, 0, Math.PI * 2); ctx.stroke(); }
-    else { ctx.fillStyle = '#F472B6'; ctx.beginPath(); ctx.arc(0, 0, rad, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = '#0d0d0d'; ctx.beginPath(); ctx.arc(0, 0, rad / 3, 0, Math.PI * 2); ctx.fill(); }
+    ctx.save();
+    ctx.translate(psx, psy);
+    if (inv && Math.floor(frameCountRef.current / 4) % 2 === 0) ctx.globalAlpha = 0.5;
+    ctx.shadowColor = '#F472B6';
+    ctx.shadowBlur = 20;
+    if (pfpImageRef.current && pfpLoadedRef.current) {
+      ctx.beginPath();
+      ctx.arc(0, 0, rad, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(pfpImageRef.current, -rad, -rad, PLAYER_SIZE, PLAYER_SIZE);
+      ctx.restore();
+      ctx.save();
+      ctx.translate(psx, psy);
+      if (inv && Math.floor(frameCountRef.current / 4) % 2 === 0) ctx.globalAlpha = 0.5;
+      ctx.strokeStyle = '#F472B6';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#F472B6';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.arc(0, 0, rad, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = '#F472B6';
+      ctx.beginPath();
+      ctx.arc(0, 0, rad, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#0d0d0d';
+      ctx.beginPath();
+      ctx.arc(0, 0, rad / 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
     
-    particlesRef.current = particlesRef.current.filter(pt => { pt.x += pt.vx; pt.y += pt.vy; pt.life -= 0.03; if (pt.life <= 0) return false; ctx.globalAlpha = pt.life; ctx.fillStyle = pt.color; if (pt.type === 'ring') { ctx.strokeStyle = pt.color; ctx.lineWidth = 2 * pt.life; ctx.beginPath(); ctx.arc(pt.x - cam.x, pt.y - cam.y, pt.size * (2 - pt.life), 0, Math.PI * 2); ctx.stroke(); } else { ctx.beginPath(); ctx.arc(pt.x - cam.x, pt.y - cam.y, pt.size * pt.life, 0, Math.PI * 2); ctx.fill(); } return true; }); ctx.globalAlpha = 1;
-    damageNumbersRef.current = damageNumbersRef.current.filter(d => { d.y += d.vy; d.life -= 0.025; if (d.life <= 0) return false; ctx.globalAlpha = d.life; ctx.fillStyle = d.isCrit ? '#FFD700' : '#FFF'; ctx.font = d.isCrit ? 'bold 18px monospace' : 'bold 14px monospace'; ctx.textAlign = 'center'; ctx.fillText(d.value.toString(), d.x - cam.x, d.y - cam.y); return true; }); ctx.globalAlpha = 1;
+    // Particles
+    particlesRef.current = particlesRef.current.filter(pt => {
+      pt.x += pt.vx;
+      pt.y += pt.vy;
+      pt.vx *= 0.95;
+      pt.vy *= 0.95;
+      pt.life -= 0.03;
+      if (pt.life <= 0) return false;
+      
+      const sx = pt.x - cam.x, sy = pt.y - cam.y;
+      if (sx < -20 || sx > CANVAS_WIDTH + 20 || sy < -20 || sy > CANVAS_HEIGHT + 20) return false;
+      
+      ctx.globalAlpha = pt.life;
+      ctx.fillStyle = pt.color;
+      
+      if (pt.type === 'ring') {
+        ctx.strokeStyle = pt.color;
+        ctx.lineWidth = 2 * pt.life;
+        ctx.beginPath();
+        ctx.arc(sx, sy, pt.size * (2 - pt.life), 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (pt.type === 'burst') {
+        ctx.shadowColor = pt.color;
+        ctx.shadowBlur = 5;
+        ctx.beginPath();
+        ctx.arc(sx, sy, pt.size * pt.life, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.beginPath();
+        ctx.arc(sx, sy, pt.size * pt.life, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return true;
+    });
+    ctx.globalAlpha = 1;
     
-    const gt = Math.floor((performance.now() - gameStartTimeRef.current - pausedTimeRef.current) / 1000), m = Math.floor(gt / 60), s = gt % 60;
-    ctx.fillStyle = '#FFF'; ctx.font = 'bold 18px monospace'; ctx.textAlign = 'center'; ctx.fillText(`${m}:${s.toString().padStart(2, '0')}`, CANVAS_WIDTH / 2, 28); ctx.font = '10px monospace'; ctx.fillStyle = '#F472B6'; ctx.fillText(`LV ${p.level}`, CANVAS_WIDTH / 2, 44);
+    // Damage numbers
+    damageNumbersRef.current = damageNumbersRef.current.filter(d => {
+      d.y += d.vy;
+      d.vy *= 0.95;
+      d.life -= 0.025;
+      if (d.life <= 0) return false;
+      const sx = d.x - cam.x, sy = d.y - cam.y;
+      if (sx < -50 || sx > CANVAS_WIDTH + 50 || sy < -50 || sy > CANVAS_HEIGHT + 50) return false;
+      ctx.globalAlpha = d.life;
+      ctx.fillStyle = d.isCrit ? '#FFD700' : '#FFF';
+      ctx.font = d.isCrit ? 'bold 18px monospace' : 'bold 14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(d.value.toString(), sx, sy);
+      return true;
+    });
+    ctx.globalAlpha = 1;
     
-    // Freeze indicator
-    const freezeRemaining = Math.max(0, (freezeUntilRef.current - performance.now()) / 1000);
+    // Screen flash overlay
+    if (screenFlashRef.current.intensity > 0.01) {
+      ctx.fillStyle = screenFlashRef.current.color;
+      ctx.globalAlpha = screenFlashRef.current.intensity;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.globalAlpha = 1;
+    }
+    
+    // HUD
+    const gt = Math.floor((now - gameStartTimeRef.current - pausedTimeRef.current) / 1000);
+    const m = Math.floor(gt / 60), s = gt % 60;
+    ctx.fillStyle = '#FFF';
+    ctx.font = 'bold 18px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${m}:${s.toString().padStart(2, '0')}`, CANVAS_WIDTH / 2, 28);
+    ctx.font = '10px monospace';
+    ctx.fillStyle = '#F472B6';
+    ctx.fillText(`LV ${p.level}`, CANVAS_WIDTH / 2, 44);
+    
+    // Status indicators
+    let indicatorY = 58;
+    const freezeRemaining = Math.max(0, (freezeUntilRef.current - now) / 1000);
     if (freezeRemaining > 0) {
-      ctx.fillStyle = '#00FFFF'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-      ctx.fillText(`❄ FROZEN ${freezeRemaining.toFixed(1)}s`, CANVAS_WIDTH / 2, 58);
+      ctx.fillStyle = '#00FFFF';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(`❄ FROZEN ${freezeRemaining.toFixed(1)}s`, CANVAS_WIDTH / 2, indicatorY);
+      indicatorY += 14;
     }
-    // Endless mode indicator
     if (endlessModeRef.current) {
-      ctx.fillStyle = '#FFD700'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 10px monospace';
       const diffPercent = Math.round((endlessDifficultyRef.current - 1) * 100);
-      ctx.fillText(`∞ ENDLESS MODE +${diffPercent}%`, CANVAS_WIDTH / 2, freezeRemaining > 0 ? 72 : 58);
+      ctx.fillText(`∞ ENDLESS MODE +${diffPercent}%`, CANVAS_WIDTH / 2, indicatorY);
     }
-    ctx.textAlign = 'left'; ctx.fillStyle = '#888'; ctx.font = '12px monospace'; ctx.fillText(`${enemiesKilledRef.current} kills`, 15, 28);
-    const hp = p.hp / p.maxHp; ctx.fillStyle = '#1a1a1a'; ctx.fillRect(15, CANVAS_HEIGHT - 35, 100, 8); ctx.fillStyle = hp > 0.5 ? '#4ADE80' : hp > 0.25 ? '#FBBF24' : '#FF6B6B'; ctx.fillRect(15, CANVAS_HEIGHT - 35, 100 * hp, 8); ctx.fillStyle = '#666'; ctx.font = '9px monospace'; ctx.fillText(`${Math.ceil(p.hp)}/${p.maxHp}`, 15, CANVAS_HEIGHT - 40);
-    ctx.fillStyle = '#1a1a1a'; ctx.fillRect(15, CANVAS_HEIGHT - 22, CANVAS_WIDTH - 30, 6); ctx.fillStyle = '#F472B6'; ctx.fillRect(15, CANVAS_HEIGHT - 22, (CANVAS_WIDTH - 30) * (p.xp / p.xpToLevel), 6);
-    ctx.textAlign = 'right'; weaponsRef.current.forEach((w, i) => { const c = WEAPON_CONFIG[w.type]; ctx.font = 'bold 16px monospace'; ctx.fillStyle = c.color; ctx.fillText(c.icon, CANVAS_WIDTH - 15 - i * 26, 28); ctx.font = '8px monospace'; ctx.fillStyle = '#FFF'; ctx.fillText(w.level.toString(), CANVAS_WIDTH - 10 - i * 26, 38); });
-    gadgetsRef.current.forEach((g, i) => { const c = GADGET_CONFIG[g.type]; ctx.font = 'bold 14px monospace'; ctx.fillStyle = c.color; ctx.fillText(c.icon, CANVAS_WIDTH - 15 - i * 24, 56); ctx.font = '7px monospace'; ctx.fillStyle = '#888'; ctx.fillText('×' + g.stacks.toString(), CANVAS_WIDTH - 10 - i * 24, 65); });
-    if (weaponsRef.current.length > 0 || gadgetsRef.current.length > 0) { ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '8px monospace'; ctx.textAlign = 'right'; ctx.fillText('tap items ▶', CANVAS_WIDTH - 15, 78); }
     
-    const j = joystickRef.current; if (j.active) { ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(j.startX, j.startY, 50, 0, Math.PI * 2); ctx.stroke(); const dx = j.currentX - j.startX, dy = j.currentY - j.startY, dist = Math.min(Math.hypot(dx, dy), 50), a = Math.atan2(dy, dx); ctx.fillStyle = 'rgba(244,114,182,0.6)'; ctx.beginPath(); ctx.arc(j.startX + Math.cos(a) * dist, j.startY + Math.sin(a) * dist, 20, 0, Math.PI * 2); ctx.fill(); }
+    // Boss warnings
+    if (bossWarningRef.current && !bossSpawnedRef.current) {
+      ctx.fillStyle = '#FF1744';
+      ctx.font = 'bold 14px monospace';
+      ctx.fillText('⚠ BOSS INCOMING ⚠', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
+    }
+    if (finalBossWarningRef.current && !finalBossSpawnedRef.current) {
+      ctx.fillStyle = '#000';
+      ctx.font = 'bold 16px monospace';
+      ctx.fillText('☠ FINAL BOSS ☠', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
+    }
+    
+    // Wind horde warning
+    const gs = gt;
+    if (gs >= 300) {
+      const timeSinceHorde = (now - lastWindHordeRef.current) / 1000;
+      if (timeSinceHorde > 40 && timeSinceHorde < 45) {
+        ctx.fillStyle = '#87CEEB';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText('~ WIND SPIRITS APPROACHING ~', CANVAS_WIDTH / 2, 72);
+      }
+    }
+    
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#888';
+    ctx.font = '12px monospace';
+    ctx.fillText(`${enemiesKilledRef.current} kills`, 15, 28);
+    
+    // Health bar
+    const hp = p.hp / p.maxHp;
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(15, CANVAS_HEIGHT - 35, 100, 8);
+    ctx.fillStyle = hp > 0.5 ? '#4ADE80' : hp > 0.25 ? '#FBBF24' : '#FF6B6B';
+    ctx.fillRect(15, CANVAS_HEIGHT - 35, 100 * hp, 8);
+    ctx.fillStyle = '#666';
+    ctx.font = '9px monospace';
+    ctx.fillText(`${Math.ceil(p.hp)}/${p.maxHp}`, 15, CANVAS_HEIGHT - 40);
+    
+    // XP bar
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(15, CANVAS_HEIGHT - 22, CANVAS_WIDTH - 30, 6);
+    ctx.fillStyle = '#F472B6';
+    ctx.fillRect(15, CANVAS_HEIGHT - 22, (CANVAS_WIDTH - 30) * (p.xp / p.xpToLevel), 6);
+    
+    // Weapon icons
+    ctx.textAlign = 'right';
+    weaponsRef.current.forEach((w, i) => {
+      const c = WEAPON_CONFIG[w.type];
+      ctx.font = 'bold 16px monospace';
+      ctx.fillStyle = c.color;
+      ctx.fillText(c.icon, CANVAS_WIDTH - 15 - i * 26, 28);
+      ctx.font = '8px monospace';
+      ctx.fillStyle = '#FFF';
+      ctx.fillText(w.level.toString(), CANVAS_WIDTH - 10 - i * 26, 38);
+    });
+    
+    // Gadget icons
+    gadgetsRef.current.forEach((g, i) => {
+      const c = GADGET_CONFIG[g.type];
+      ctx.font = 'bold 14px monospace';
+      ctx.fillStyle = c.color;
+      ctx.fillText(c.icon, CANVAS_WIDTH - 15 - i * 24, 56);
+      ctx.font = '7px monospace';
+      ctx.fillStyle = '#888';
+      ctx.fillText('×' + g.stacks.toString(), CANVAS_WIDTH - 10 - i * 24, 65);
+    });
+    
+    if (weaponsRef.current.length > 0 || gadgetsRef.current.length > 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.font = '8px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('tap items ▶', CANVAS_WIDTH - 15, 78);
+    }
+    
+    // Joystick
+    const j = joystickRef.current;
+    if (j.active) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(j.startX, j.startY, 50, 0, Math.PI * 2);
+      ctx.stroke();
+      const dx = j.currentX - j.startX, dy = j.currentY - j.startY;
+      const dist = Math.min(Math.hypot(dx, dy), 50);
+      const a = Math.atan2(dy, dx);
+      ctx.fillStyle = 'rgba(244,114,182,0.6)';
+      ctx.beginPath();
+      ctx.arc(j.startX + Math.cos(a) * dist, j.startY + Math.sin(a) * dist, 20, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }, []);
 
   const startGame = useCallback(() => {
     initAudio();
     playerRef.current = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 70, xpMultiplier: 1, defense: 0, invincibilityBonus: 0, cooldownReduction: 0, vx: 0, vy: 0 };
-    cameraRef.current = { x: 0, y: 0 }; weaponsRef.current = [{ type: selectedStarterWeapon, level: 1, lastFired: 0, angle: 0 }]; gadgetsRef.current = []; enemiesRef.current = []; projectilesRef.current = []; xpOrbsRef.current = []; particlesRef.current = []; damageNumbersRef.current = []; trailPointsRef.current = []; powerUpsRef.current = []; enemyGridRef.current.clear(); freezeUntilRef.current = 0;
-    frameCountRef.current = 0; gameStartTimeRef.current = performance.now(); pausedTimeRef.current = 0; lastSpawnTimeRef.current = performance.now(); invincibleUntilRef.current = 0; screenShakeRef.current = { intensity: 0, duration: 0, startTime: 0 }; enemiesKilledRef.current = 0; moveInputRef.current = { x: 0, y: 0 }; joystickRef.current = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 }; isPausedRef.current = false; bossSpawnedRef.current = false; bossWarningRef.current = false; finalBossSpawnedRef.current = false; finalBossWarningRef.current = false; endlessModeRef.current = false; endlessDifficultyRef.current = 1.0;
-    setRerollsLeft(2); setBansLeft(1); setBannedUpgrades([]); setBanMode(false); setScore(0); setPlayerLevel(1); setSurvivalTime(0); setKillCount(0); setGameState("playing"); setShowWeaponMenu(false); setShowGadgetInfo(false);
-    lastFrameTimeRef.current = performance.now(); gameActiveRef.current = true; if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current); gameLoopRef.current = requestAnimationFrame(gameLoop);
+    cameraRef.current = { x: 0, y: 0 };
+    weaponsRef.current = [{ type: selectedStarterWeapon, level: 1, lastFired: 0, angle: 0 }];
+    gadgetsRef.current = [];
+    enemiesRef.current = [];
+    projectilesRef.current = [];
+    xpOrbsRef.current = [];
+    particlesRef.current = [];
+    damageNumbersRef.current = [];
+    trailPointsRef.current = [];
+    projectileTrailsRef.current = [];
+    powerUpsRef.current = [];
+    enemyGridRef.current.clear();
+    freezeUntilRef.current = 0;
+    screenFlashRef.current = { intensity: 0, color: '#FFF' };
+    lastWindHordeRef.current = 0;
+    
+    frameCountRef.current = 0;
+    gameStartTimeRef.current = performance.now();
+    pausedTimeRef.current = 0;
+    lastSpawnTimeRef.current = performance.now();
+    invincibleUntilRef.current = 0;
+    screenShakeRef.current = { intensity: 0, duration: 0, startTime: 0 };
+    enemiesKilledRef.current = 0;
+    moveInputRef.current = { x: 0, y: 0 };
+    joystickRef.current = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 };
+    isPausedRef.current = false;
+    bossSpawnedRef.current = false;
+    bossWarningRef.current = false;
+    finalBossSpawnedRef.current = false;
+    finalBossWarningRef.current = false;
+    endlessModeRef.current = false;
+    endlessDifficultyRef.current = 1.0;
+    
+    setRerollsLeft(2);
+    setBansLeft(1);
+    setBannedUpgrades([]);
+    setBanMode(false);
+    setScore(0);
+    setPlayerLevel(1);
+    setSurvivalTime(0);
+    setKillCount(0);
+    setGameState("playing");
+    setShowWeaponMenu(false);
+    setShowGadgetInfo(false);
+    
+    lastFrameTimeRef.current = performance.now();
+    gameActiveRef.current = true;
+    if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+    gameLoopRef.current = requestAnimationFrame(gameLoop);
   }, [initAudio, gameLoop, selectedStarterWeapon]);
 
   const checkEquipClick = useCallback((x: number, y: number): boolean => x >= CANVAS_WIDTH - 120 && x <= CANVAS_WIDTH && y >= 0 && y <= 85, []);
-  const handlePointerDown = useCallback((e: React.PointerEvent) => { if (gameState !== "playing") return; e.preventDefault(); (e.target as HTMLElement).setPointerCapture(e.pointerId); const rect = canvasRef.current?.getBoundingClientRect(); if (!rect) return; const x = (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width), y = (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height); if (checkEquipClick(x, y) && (weaponsRef.current.length > 0 || gadgetsRef.current.length > 0)) { openEquip(); return; } joystickRef.current = { active: true, startX: x, startY: y, currentX: x, currentY: y }; }, [gameState, checkEquipClick, openEquip]);
-  const handlePointerMove = useCallback((e: React.PointerEvent) => { if (!joystickRef.current.active) return; e.preventDefault(); const rect = canvasRef.current?.getBoundingClientRect(); if (!rect) return; const x = (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width), y = (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height); joystickRef.current.currentX = x; joystickRef.current.currentY = y; const dx = x - joystickRef.current.startX, dy = y - joystickRef.current.startY, dist = Math.hypot(dx, dy); if (dist > 8) { const nd = Math.min((dist - 8) / 42, 1), cd = Math.pow(nd, 0.8); moveInputRef.current = { x: (dx / dist) * cd, y: (dy / dist) * cd }; } else moveInputRef.current = { x: 0, y: 0 }; }, []);
-  const handlePointerUp = useCallback((e: React.PointerEvent) => { try { (e.target as HTMLElement).releasePointerCapture(e.pointerId); } catch {} joystickRef.current.active = false; moveInputRef.current = { x: 0, y: 0 }; }, []);
+  
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (gameState !== "playing") return;
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width);
+    const y = (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
+    if (checkEquipClick(x, y) && (weaponsRef.current.length > 0 || gadgetsRef.current.length > 0)) { openEquip(); return; }
+    joystickRef.current = { active: true, startX: x, startY: y, currentX: x, currentY: y };
+  }, [gameState, checkEquipClick, openEquip]);
+  
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!joystickRef.current.active) return;
+    e.preventDefault();
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width);
+    const y = (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
+    joystickRef.current.currentX = x;
+    joystickRef.current.currentY = y;
+    const dx = x - joystickRef.current.startX, dy = y - joystickRef.current.startY, dist = Math.hypot(dx, dy);
+    if (dist > 8) {
+      const nd = Math.min((dist - 8) / 42, 1), cd = Math.pow(nd, 0.8);
+      moveInputRef.current = { x: (dx / dist) * cd, y: (dy / dist) * cd };
+    } else moveInputRef.current = { x: 0, y: 0 };
+  }, []);
+  
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    try { (e.target as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
+    joystickRef.current.active = false;
+    moveInputRef.current = { x: 0, y: 0 };
+  }, []);
 
   useEffect(() => {
-    const keys = new Set<string>(), update = () => { let x = 0, y = 0; if (keys.has('ArrowLeft') || keys.has('KeyA')) x--; if (keys.has('ArrowRight') || keys.has('KeyD')) x++; if (keys.has('ArrowUp') || keys.has('KeyW')) y--; if (keys.has('ArrowDown') || keys.has('KeyS')) y++; moveInputRef.current = { x, y }; };
-    const down = (e: KeyboardEvent) => { keys.add(e.code); update(); if ((e.code === 'Tab' || e.code === 'KeyE') && gameState === 'playing') { e.preventDefault(); openEquip(); } if (e.code === 'Escape' && gameState === 'equipment') closeEquip(); };
+    const keys = new Set<string>();
+    const update = () => {
+      let x = 0, y = 0;
+      if (keys.has('ArrowLeft') || keys.has('KeyA')) x--;
+      if (keys.has('ArrowRight') || keys.has('KeyD')) x++;
+      if (keys.has('ArrowUp') || keys.has('KeyW')) y--;
+      if (keys.has('ArrowDown') || keys.has('KeyS')) y++;
+      moveInputRef.current = { x, y };
+    };
+    const down = (e: KeyboardEvent) => {
+      keys.add(e.code);
+      update();
+      if ((e.code === 'Tab' || e.code === 'KeyE') && gameState === 'playing') { e.preventDefault(); openEquip(); }
+      if (e.code === 'Escape' && gameState === 'equipment') closeEquip();
+    };
     const up = (e: KeyboardEvent) => { keys.delete(e.code); update(); };
-    window.addEventListener('keydown', down); window.addEventListener('keyup', up); return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
   }, [gameState, openEquip, closeEquip]);
 
   useEffect(() => {
     if (gameState !== "menu" && gameState !== "gameover") return;
-    const canvas = canvasRef.current, ctx = canvas?.getContext("2d"); if (!canvas || !ctx) return;
-    let id: number; const start = performance.now();
+    const canvas = canvasRef.current, ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    let id: number;
+    const start = performance.now();
     const draw = () => {
       const t = (performance.now() - start) / 1000;
       ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
-      ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-      ctx.strokeStyle = 'rgba(255,255,255,0.02)'; for (let x = -(t * 10) % 40; x < CANVAS_WIDTH + 40; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CANVAS_HEIGHT); ctx.stroke(); } for (let y = -(t * 10) % 40; y < CANVAS_HEIGHT + 40; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_WIDTH, y); ctx.stroke(); }
-      ctx.textAlign = 'center'; ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 30; ctx.fillStyle = '#FFF'; ctx.font = 'bold 32px monospace'; ctx.fillText('DONUT', CANVAS_WIDTH / 2, 65); ctx.font = 'bold 24px monospace'; ctx.fillStyle = '#F472B6'; ctx.fillText('SURVIVORS', CANVAS_WIDTH / 2, 95); ctx.shadowBlur = 0;
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+      for (let x = -(t * 10) % 40; x < CANVAS_WIDTH + 40; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CANVAS_HEIGHT); ctx.stroke(); }
+      for (let y = -(t * 10) % 40; y < CANVAS_HEIGHT + 40; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_WIDTH, y); ctx.stroke(); }
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#F472B6';
+      ctx.shadowBlur = 30;
+      ctx.fillStyle = '#FFF';
+      ctx.font = 'bold 32px monospace';
+      ctx.fillText('DONUT', CANVAS_WIDTH / 2, 65);
+      ctx.font = 'bold 24px monospace';
+      ctx.fillStyle = '#F472B6';
+      ctx.fillText('SURVIVORS', CANVAS_WIDTH / 2, 95);
+      ctx.shadowBlur = 0;
       const py = 175 + Math.sin(t * 1.5) * 8, pr = 28;
-      ctx.save(); ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 25;
-      if (pfpImageRef.current && pfpLoadedRef.current) { ctx.beginPath(); ctx.arc(CANVAS_WIDTH / 2, py, pr, 0, Math.PI * 2); ctx.closePath(); ctx.clip(); ctx.drawImage(pfpImageRef.current, CANVAS_WIDTH / 2 - pr, py - pr, pr * 2, pr * 2); ctx.restore(); ctx.strokeStyle = '#F472B6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(CANVAS_WIDTH / 2, py, pr, 0, Math.PI * 2); ctx.stroke(); }
-      else { ctx.fillStyle = '#F472B6'; ctx.beginPath(); ctx.arc(CANVAS_WIDTH / 2, py, pr, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = '#0a0a0a'; ctx.beginPath(); ctx.arc(CANVAS_WIDTH / 2, py, 9, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
-      for (let i = 0; i < 4; i++) { const a = t * 1.5 + (i / 4) * Math.PI * 2, ox = CANVAS_WIDTH / 2 + Math.cos(a) * 55, oy = py + Math.sin(a) * 55 * 0.6; ctx.fillStyle = '#F472B6'; ctx.shadowColor = '#F472B6'; ctx.shadowBlur = 8; ctx.beginPath(); ctx.arc(ox, oy, 6, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
-      if (gameState === "gameover") { ctx.textAlign = 'center'; ctx.fillStyle = '#FF6B6B'; ctx.font = 'bold 22px monospace'; ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 255); ctx.fillStyle = '#FFF'; ctx.font = 'bold 40px monospace'; ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 295); ctx.fillStyle = '#666'; ctx.font = '11px monospace'; ctx.fillText(`${Math.floor(survivalTime / 60)}:${(survivalTime % 60).toString().padStart(2, '0')} · ${killCount} kills`, CANVAS_WIDTH / 2, 320); if (score >= highScore && score > 0) { ctx.fillStyle = '#F472B6'; ctx.font = 'bold 10px monospace'; ctx.fillText('NEW HIGH SCORE', CANVAS_WIDTH / 2, 340); } }
-      else { ctx.textAlign = 'center'; ctx.fillStyle = '#FBBF24'; ctx.font = 'bold 10px monospace'; ctx.fillText('⚠️ TEST GAME - NO PRIZES YET ⚠️', CANVAS_WIDTH / 2, 240); ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '11px monospace'; ctx.fillText('Drag to move · Auto-attack', CANVAS_WIDTH / 2, 260); }
+      ctx.save();
+      ctx.shadowColor = '#F472B6';
+      ctx.shadowBlur = 25;
+      if (pfpImageRef.current && pfpLoadedRef.current) {
+        ctx.beginPath();
+        ctx.arc(CANVAS_WIDTH / 2, py, pr, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(pfpImageRef.current, CANVAS_WIDTH / 2 - pr, py - pr, pr * 2, pr * 2);
+        ctx.restore();
+        ctx.strokeStyle = '#F472B6';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(CANVAS_WIDTH / 2, py, pr, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = '#F472B6';
+        ctx.beginPath();
+        ctx.arc(CANVAS_WIDTH / 2, py, pr, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#0a0a0a';
+        ctx.beginPath();
+        ctx.arc(CANVAS_WIDTH / 2, py, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      for (let i = 0; i < 4; i++) {
+        const a = t * 1.5 + (i / 4) * Math.PI * 2;
+        const ox = CANVAS_WIDTH / 2 + Math.cos(a) * 55, oy = py + Math.sin(a) * 55 * 0.6;
+        ctx.fillStyle = '#F472B6';
+        ctx.shadowColor = '#F472B6';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(ox, oy, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      if (gameState === "gameover") {
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#FF6B6B';
+        ctx.font = 'bold 22px monospace';
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 255);
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 40px monospace';
+        ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 295);
+        ctx.fillStyle = '#666';
+        ctx.font = '11px monospace';
+        ctx.fillText(`${Math.floor(survivalTime / 60)}:${(survivalTime % 60).toString().padStart(2, '0')} · ${killCount} kills`, CANVAS_WIDTH / 2, 320);
+        if (score >= highScore && score > 0) {
+          ctx.fillStyle = '#F472B6';
+          ctx.font = 'bold 10px monospace';
+          ctx.fillText('NEW HIGH SCORE', CANVAS_WIDTH / 2, 340);
+        }
+      } else {
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#FBBF24';
+        ctx.font = 'bold 10px monospace';
+        ctx.fillText('⚠️ TEST GAME - NO PRIZES YET ⚠️', CANVAS_WIDTH / 2, 240);
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.font = '11px monospace';
+        ctx.fillText('Drag to move · Auto-attack', CANVAS_WIDTH / 2, 260);
+      }
       id = requestAnimationFrame(draw);
     };
-    id = requestAnimationFrame(draw); return () => cancelAnimationFrame(id);
+    id = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(id);
   }, [gameState, score, survivalTime, killCount, highScore]);
 
   return (
@@ -814,7 +1801,7 @@ export default function DonutSurvivorsPage() {
               </div>
             )}
             
-            {/* Weapon Selection Menu - only on menu/gameover */}
+            {/* Weapon Selection Menu */}
             {showWeaponMenu && (gameState === "menu" || gameState === "gameover") && (
               <div className="absolute inset-0 bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-40 rounded-2xl">
                 <h2 className="text-xl font-bold text-white mb-4">Starting Weapon</h2>
@@ -835,7 +1822,7 @@ export default function DonutSurvivorsPage() {
               </div>
             )}
             
-            {/* Gadget Info - only on menu/gameover */}
+            {/* Gadget Info */}
             {showGadgetInfo && (gameState === "menu" || gameState === "gameover") && (
               <div className="absolute inset-0 bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-40 rounded-2xl">
                 <h2 className="text-xl font-bold text-white mb-4">Gadgets</h2>
@@ -865,7 +1852,7 @@ export default function DonutSurvivorsPage() {
               <button onClick={() => setShowHelp(false)} className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-zinc-800 hover:text-white"><X className="h-4 w-4" /></button>
               <h2 className="text-base font-bold text-white mb-3 flex items-center gap-2"><HelpCircle className="w-4 h-4" />How to Play</h2>
               <div className="space-y-2.5">
-                {[['1', 'Movement', 'Drag anywhere to move. WASD/Arrow keys also work!'], ['2', 'Auto-Attack', 'Your weapons fire automatically at nearby enemies!'], ['3', 'Collect XP', 'Kill enemies to drop pink donuts. Walk over them to level up!'], ['4', 'Weapons', 'Collect up to 4 weapons. Each can be leveled up to 8!'], ['5', 'Gadgets', 'Passive boosts (max 4). Stack them up to 5 times each!'], ['6', 'Equipment', 'Tap items in top-right or press E to view your gear!']].map(([n, t, d]) => (<div key={n} className="flex gap-2.5"><div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold">{n}</div><div><div className="font-semibold text-white text-xs">{t}</div><div className="text-[11px] text-gray-400">{d}</div></div></div>))}
+                {[['1', 'Movement', 'Drag anywhere to move. WASD/Arrow keys also work!'], ['2', 'Auto-Attack', 'Your weapons fire automatically at nearby enemies!'], ['3', 'Collect XP', 'Kill enemies to drop pink donuts. Walk over them to level up!'], ['4', 'Weapons', 'Collect up to 4 weapons. Each can be leveled up to 8!'], ['5', 'Gadgets', 'Passive boosts (max 4). Stack them up to 5 times each!'], ['6', 'Equipment', 'Tap items in top-right or press E to view your gear!'], ['7', 'New Enemies', 'Jellybeans zigzag! Licorice splits when killed!'], ['8', 'Wind Spirits', 'After 5 min, wind hordes push you but don\'t hurt!']].map(([n, t, d]) => (<div key={n} className="flex gap-2.5"><div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold">{n}</div><div><div className="font-semibold text-white text-xs">{t}</div><div className="text-[11px] text-gray-400">{d}</div></div></div>))}
               </div>
               <button onClick={() => setShowHelp(false)} className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-black hover:bg-gray-200">Got it</button>
             </div>
