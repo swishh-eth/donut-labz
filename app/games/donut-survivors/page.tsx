@@ -2,9 +2,25 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { Play, X, HelpCircle, Volume2, VolumeX, Shuffle, Trophy, ChevronRight, Clock, Music } from "lucide-react";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { Play, X, HelpCircle, Volume2, VolumeX, Shuffle, Trophy, ChevronRight, Clock, Music, Share2 } from "lucide-react";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
+
+// Free Arcade Contract for Donut Survivors
+const FREE_ARCADE_CONTRACT = "0xb2aA178Cd178A7330a7dFA966Ff2f723aaDb8fAF" as const;
+
+const FREE_ARCADE_ABI = [
+  {
+    inputs: [{ name: "gameId", type: "string" }],
+    name: "play",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
+
+type PlayState = 'idle' | 'confirming' | 'recording' | 'error';
 
 // Game constants
 const CANVAS_WIDTH = 360;
@@ -115,13 +131,26 @@ const ENEMY_CONFIG: Record<EnemyType, { hp: number; speed: number; size: number;
   final_boss: { hp: 4000, speed: 1.0, size: 100, xpValue: 500, damage: 9999, color: '#000000', spawnWeight: 0 },
 };
 
-const MOCK_LEADERBOARD: LeaderboardEntry[] = [
-  { rank: 1, fid: 1, username: 'player1', displayName: 'Top Player', score: 2500 },
-  { rank: 2, fid: 2, username: 'player2', displayName: 'Runner Up', score: 2100 },
-  { rank: 3, fid: 3, username: 'player3', displayName: 'Third Place', score: 1800 },
-  { rank: 4, fid: 4, username: 'player4', displayName: 'Fourth', score: 1500 },
-  { rank: 5, fid: 5, username: 'player5', displayName: 'Fifth', score: 1200 },
-];
+// Prize info
+interface PrizeInfo {
+  totalPrize: number;
+  prizeStructure: { rank: number; percent: number; amount: string }[];
+}
+
+const PRIZE_PERCENTAGES = [40, 20, 15, 8, 5, 4, 3, 2, 2, 1];
+
+function calculatePrizeStructure(totalPrize: number) {
+  return PRIZE_PERCENTAGES.map((percent, i) => ({
+    rank: i + 1,
+    percent,
+    amount: ((totalPrize * percent) / 100).toFixed(2),
+  }));
+}
+
+const DEFAULT_PRIZE_INFO: PrizeInfo = {
+  totalPrize: 5,
+  prizeStructure: calculatePrizeStructure(5),
+};
 
 function getSpatialCell(x: number, y: number): number { return Math.floor(y / GRID_CELL_SIZE) * GRID_WIDTH + Math.floor(x / GRID_CELL_SIZE); }
 function getNearbyCells(x: number, y: number, radius: number): number[] {
@@ -160,6 +189,7 @@ function getGadgetBonus(type: GadgetType, stacks: number): string {
 export default function DonutSurvivorsPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number | null>(null);
+  const { address } = useAccount();
   
   const [context, setContext] = useState<MiniAppContext | null>(null);
   const [gameState, setGameState] = useState<"menu" | "playing" | "levelup" | "gameover" | "equipment">("menu");
@@ -173,7 +203,7 @@ export default function DonutSurvivorsPage() {
   const [survivalTime, setSurvivalTime] = useState(0);
   const [killCount, setKillCount] = useState(0);
   const [userPfp, setUserPfp] = useState<string | null>(null);
-  const [gamesPlayed, setGamesPlayed] = useState(500);
+  const [gamesPlayed, setGamesPlayed] = useState(0);
   const [selectedStarterWeapon, setSelectedStarterWeapon] = useState<WeaponType>('sprinkle_shot');
   const [showWeaponMenu, setShowWeaponMenu] = useState(false);
   const [showGadgetInfo, setShowGadgetInfo] = useState(false);
@@ -183,8 +213,21 @@ export default function DonutSurvivorsPage() {
   const [banMode, setBanMode] = useState(false);
   const [equipmentData, setEquipmentData] = useState<{ weapons: Weapon[], gadgets: Gadget[], player: any } | null>(null);
   const [resetCountdown, setResetCountdown] = useState<string>(getTimeUntilReset());
-  const [leaderboard] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isMusicOn, setIsMusicOn] = useState(true);
+  
+  // Play state management
+  const [playState, setPlayState] = useState<PlayState>('idle');
+  const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
+  const currentEntryIdRef = useRef<string | null>(null);
+  const currentFidRef = useRef<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [gamesPlayedThisWeek, setGamesPlayedThisWeek] = useState(0);
+  const [prizeInfo, setPrizeInfo] = useState<PrizeInfo>(DEFAULT_PRIZE_INFO);
+  
+  // Wagmi hooks
+  const { writeContract, data: txHash, isPending, reset: resetWrite, error: writeError } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
   
   const playerRef = useRef({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP, xp: 0, xpToLevel: BASE_XP_TO_LEVEL, level: 1, speed: PLAYER_SPEED, damage: 1, magnetRange: 70, xpMultiplier: 1, defense: 0, invincibilityBonus: 0, cooldownReduction: 0, vx: 0, vy: 0 });
   const cameraRef = useRef({ x: 0, y: 0 });
@@ -227,6 +270,13 @@ export default function DonutSurvivorsPage() {
   const pfpImageRef = useRef<HTMLImageElement | null>(null);
   const pfpLoadedRef = useRef(false);
   
+  // Anti-cheat metrics refs
+  const xpCollectedRef = useRef(0);
+  const damageDealtRef = useRef(0);
+  const damageTakenRef = useRef(0);
+  const powerUpsCollectedRef = useRef(0);
+  const bossesDefeatedRef = useRef(0);
+  
   // Sound throttling
   const lastSoundTimeRef = useRef<Record<string, number>>({});
   const activeSoundsRef = useRef(0);
@@ -249,6 +299,102 @@ export default function DonutSurvivorsPage() {
     document.addEventListener('touchstart', prevent, { passive: false });
     return () => { document.removeEventListener('touchmove', prevent); document.removeEventListener('touchstart', prevent); };
   }, [gameState]);
+  
+  // Fetch prize info
+  useEffect(() => {
+    const fetchPrizeInfo = async () => {
+      try {
+        const res = await fetch('/api/games/donut-survivors/prize-distribute');
+        if (res.ok) {
+          const data = await res.json();
+          setPrizeInfo({
+            totalPrize: data.totalPrize,
+            prizeStructure: data.prizeStructure || calculatePrizeStructure(data.totalPrize),
+          });
+        }
+      } catch (e) {
+        console.error("Failed to fetch prize info:", e);
+      }
+    };
+    fetchPrizeInfo();
+  }, []);
+  
+  // Fetch leaderboard
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      const fid = context?.user?.fid;
+      const url = fid ? `/api/games/donut-survivors/leaderboard?fid=${fid}&limit=10` : `/api/games/donut-survivors/leaderboard?limit=10`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) {
+        setLeaderboard(data.leaderboard);
+        if (data.userStats) {
+          setGamesPlayedThisWeek(data.userStats.gamesPlayed || 0);
+          setGamesPlayed(data.userStats.gamesPlayed || 0);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch leaderboard:", error);
+    }
+  }, [context?.user?.fid]);
+  
+  useEffect(() => {
+    if (context?.user?.fid) fetchLeaderboard();
+  }, [context?.user?.fid, fetchLeaderboard]);
+  
+  // Submit score with anti-cheat metrics
+  const submitScore = useCallback(async (finalScore: number, st: number, kills: number) => {
+    const entryId = currentEntryIdRef.current;
+    const fid = currentFidRef.current;
+    if (!entryId || !fid) return;
+    
+    const gameDurationMs = Date.now() - gameStartTimeRef.current;
+    const level = playerRef.current.level;
+    const weaponsAcquired = weaponsRef.current.length;
+    const gadgetsAcquired = gadgetsRef.current.length;
+    const xpCollected = xpCollectedRef.current;
+    const damageDealt = damageDealtRef.current;
+    const damageTaken = damageTakenRef.current;
+    const powerUpsCollected = powerUpsCollectedRef.current;
+    const bossesDefeated = bossesDefeatedRef.current;
+    
+    const killsPerMinute = st > 0 ? (kills / st) * 60 : 0;
+    const xpPerMinute = st > 0 ? (xpCollected / st) * 60 : 0;
+    
+    const metricsString = `${finalScore}-${gameDurationMs}-${st}-${kills}-${level}-${entryId}`;
+    const checksum = Array.from(metricsString).reduce((acc, char) => {
+      return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
+    }, 0).toString(16);
+    
+    const metrics = {
+      gameDurationMs,
+      survivalTimeSeconds: st,
+      kills,
+      xpCollected,
+      level,
+      weaponsAcquired,
+      gadgetsAcquired,
+      bossesDefeated,
+      powerUpsCollected,
+      damageDealt: Math.round(damageDealt),
+      damageTaken: Math.round(damageTaken),
+      killsPerMinute: Math.round(killsPerMinute * 100) / 100,
+      xpPerMinute: Math.round(xpPerMinute * 100) / 100,
+      checksum,
+    };
+    
+    console.log("[Donut Survivors] Submitting score with metrics:", { finalScore, st, kills, metrics });
+    
+    try {
+      await fetch("/api/games/donut-survivors/submit-score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entryId, score: finalScore, survivalTime: st, kills, fid, metrics }),
+      });
+    } catch (error) {
+      console.error("Failed to submit score:", error);
+    }
+  }, []);
 
   const initAudio = useCallback(() => { if (!audioContextRef.current) { try { audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)(); audioContextRef.current.state === 'suspended' && audioContextRef.current.resume(); } catch {} } }, []);
   
@@ -828,13 +974,18 @@ export default function DonutSurvivorsPage() {
     gameActiveRef.current = false;
     if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     const st = Math.floor((performance.now() - gameStartTimeRef.current - pausedTimeRef.current) / 1000);
-    const fs = st * 10 + enemiesKilledRef.current * 5;
+    const kills = enemiesKilledRef.current;
+    const fs = kills;
     setScore(fs);
     setSurvivalTime(st);
+    setKillCount(kills);
     setGameState("gameover");
     setHighScore(prev => Math.max(prev, fs));
-    if (st >= 60) setGamesPlayed(prev => prev + 1);
-  }, []);
+    
+    // Submit score to API
+    submitScore(fs, st, kills);
+    fetchLeaderboard();
+  }, [submitScore, fetchLeaderboard]);
 
   const gameLoop = useCallback(() => {
     const canvas = canvasRef.current, ctx = canvas?.getContext("2d");
@@ -1702,6 +1853,13 @@ export default function DonutSurvivorsPage() {
     endlessModeRef.current = false;
     endlessDifficultyRef.current = 1.0;
     
+    // Reset anti-cheat metrics
+    xpCollectedRef.current = 0;
+    damageDealtRef.current = 0;
+    damageTakenRef.current = 0;
+    powerUpsCollectedRef.current = 0;
+    bossesDefeatedRef.current = 0;
+    
     setRerollsLeft(2);
     setBansLeft(1);
     setBannedUpgrades([]);
@@ -1719,6 +1877,80 @@ export default function DonutSurvivorsPage() {
     if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     gameLoopRef.current = requestAnimationFrame(gameLoop);
   }, [initAudio, gameLoop, selectedStarterWeapon]);
+
+  // Handle blockchain play
+  const recordEntryAndStartGame = useCallback(async (hash: string) => {
+    if (!context?.user) return;
+    setPlayState('recording');
+    try {
+      const res = await fetch("/api/games/donut-survivors/free-entry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fid: context.user.fid,
+          walletAddress: address,
+          username: context.user.username,
+          displayName: context.user.displayName,
+          pfpUrl: context.user.pfpUrl,
+          txHash: hash,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCurrentEntryId(data.entryId);
+        currentEntryIdRef.current = data.entryId;
+        currentFidRef.current = context.user.fid;
+        setPlayState('idle');
+        resetWrite();
+        startGame();
+      } else {
+        setErrorMessage(data.error || "Failed to record entry");
+        setPlayState('error');
+      }
+    } catch (error) {
+      console.error("Failed to record entry:", error);
+      setErrorMessage("Failed to record entry");
+      setPlayState('error');
+    }
+  }, [context?.user, address, resetWrite, startGame]);
+
+  const handlePlay = useCallback(async () => {
+    if (!address || !context?.user?.fid) {
+      setErrorMessage("Please connect your wallet");
+      return;
+    }
+    setErrorMessage(null);
+    setPlayState('confirming');
+    writeContract({
+      address: FREE_ARCADE_CONTRACT,
+      abi: FREE_ARCADE_ABI,
+      functionName: "play",
+      args: ["donut-survivors"],
+    });
+  }, [address, context?.user?.fid, writeContract]);
+
+  useEffect(() => {
+    if (isConfirmed && txHash && playState === 'confirming') {
+      recordEntryAndStartGame(txHash);
+    }
+  }, [isConfirmed, txHash, playState, recordEntryAndStartGame]);
+
+  useEffect(() => {
+    if (writeError) {
+      setPlayState('error');
+      setErrorMessage(writeError.message?.includes("User rejected") ? "Transaction rejected" : "Transaction failed");
+    }
+  }, [writeError]);
+
+  const handleShare = useCallback(async () => {
+    const miniappUrl = "https://farcaster.xyz/miniapps/BdklKYkhvUwo/sprinkles";
+    const castText = `🍩 I survived ${Math.floor(survivalTime / 60)}:${(survivalTime % 60).toString().padStart(2, '0')} and scored ${score} in Donut Survivors! Can you beat it?`;
+    try {
+      await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(miniappUrl)}`);
+    } catch {
+      try { await navigator.clipboard.writeText(castText + "\n\n" + miniappUrl); alert("Copied!"); } catch {}
+    }
+  }, [score, survivalTime]);
 
   const checkEquipClick = useCallback((x: number, y: number): boolean => x >= CANVAS_WIDTH - 120 && x <= CANVAS_WIDTH && y >= 0 && y <= 85, []);
   
@@ -1859,9 +2091,6 @@ export default function DonutSurvivorsPage() {
         }
       } else {
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#FBBF24';
-        ctx.font = 'bold 10px monospace';
-        ctx.fillText('⚠️ TEST GAME - NO PRIZES YET ⚠️', CANVAS_WIDTH / 2, 240);
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
         ctx.font = '11px monospace';
         ctx.fillText('Drag to move · Auto-attack', CANVAS_WIDTH / 2, 260);
@@ -1890,7 +2119,7 @@ export default function DonutSurvivorsPage() {
           <div className="flex items-center justify-between">
             <div className="flex flex-col items-start">
               <div className="flex items-center gap-2"><img src="/coins/USDC_LOGO.png" alt="USDC" className="w-4 h-4 rounded-full" /><span className="text-[10px] text-zinc-400 font-medium">Weekly Prize Pool</span></div>
-              <span className="text-2xl font-bold text-zinc-500">$0 USDC</span>
+              <span className="text-2xl font-bold text-white">${prizeInfo.totalPrize} USDC</span>
             </div>
             <div className="flex flex-col items-end">
               <div className="flex items-center gap-1 text-zinc-500 group-hover:text-zinc-300 transition-colors"><span className="text-[10px]">View Leaderboard</span><ChevronRight className="w-3 h-3" /></div>
@@ -1945,11 +2174,32 @@ export default function DonutSurvivorsPage() {
                     <div className="text-left"><div className="text-[9px] text-blue-400 uppercase tracking-wider">Gadgets</div><div className="text-xs font-medium">View All</div></div>
                   </button>
                 </div>
-                <div className="pointer-events-auto flex gap-2">
-                  <button onClick={startGame} className="flex items-center gap-2 px-6 py-2.5 bg-green-500 text-black font-bold rounded-lg hover:bg-green-400 active:scale-95"><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span></button>
-                  <button onClick={() => { const uw = STARTER_WEAPONS.filter(w => gamesPlayed >= WEAPON_UNLOCK[w]); setSelectedStarterWeapon(uw[Math.floor(Math.random() * uw.length)]); }} className="flex items-center gap-2 px-4 py-2.5 bg-zinc-800 text-white font-bold rounded-lg border border-zinc-700"><Shuffle className="w-4 h-4" /><span className="text-sm">Random</span></button>
+                <div className="pointer-events-auto flex flex-col items-center gap-2">
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={handlePlay} 
+                      disabled={playState === 'confirming' || playState === 'recording' || isPending || isConfirming}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-green-500 text-black font-bold rounded-lg hover:bg-green-400 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {(playState === 'confirming' || isPending || isConfirming) ? (
+                        <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Confirming...</span></>
+                      ) : playState === 'recording' ? (
+                        <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Starting...</span></>
+                      ) : (
+                        <><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span></>
+                      )}
+                    </button>
+                    {gameState === "gameover" && (
+                      <button onClick={handleShare} className="flex items-center gap-2 px-4 py-2.5 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-400 active:scale-95">
+                        <Share2 className="w-4 h-4" /><span className="text-sm">Share</span>
+                      </button>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-zinc-500">Only gas cost ~$0.001</span>
+                  {errorMessage && <span className="text-[10px] text-red-400">{errorMessage}</span>}
+                  <button onClick={() => { const uw = STARTER_WEAPONS.filter(w => gamesPlayedThisWeek >= WEAPON_UNLOCK[w]); setSelectedStarterWeapon(uw[Math.floor(Math.random() * uw.length)]); }} className="flex items-center gap-2 px-4 py-2.5 bg-zinc-800 text-white font-bold rounded-lg border border-zinc-700"><Shuffle className="w-4 h-4" /><span className="text-sm">Random</span></button>
                 </div>
-                <div className="text-[10px] text-zinc-500">{gamesPlayed} games played</div>
+                <div className="text-[10px] text-zinc-500">{gamesPlayedThisWeek} games this week</div>
               </div>
             )}
             
@@ -2102,23 +2352,32 @@ export default function DonutSurvivorsPage() {
               </div>
               <div className="px-4 py-2 flex items-center justify-between border-b border-zinc-800 flex-shrink-0">
                 <span className="text-xs text-gray-400">Prize Pool</span>
-                <span className="text-sm font-bold text-zinc-500">$0 USDC (Coming Soon)</span>
-              </div>
-              <div className="px-4 py-2 border-b border-zinc-800 flex-shrink-0">
-                <div className="text-[10px] text-yellow-400 text-center">⚠️ Test data - Leaderboard not yet active</div>
+                <span className="text-sm font-bold text-white">${prizeInfo.totalPrize} USDC</span>
               </div>
               <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', maxHeight: '50vh' }}>
-                {leaderboard.map((entry) => (
-                  <div key={entry.fid} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${entry.rank <= 3 ? "bg-zinc-800/30" : ""}`}>
-                    <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-yellow-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>{entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}</span>
-                    <div className="w-8 h-8 rounded-full bg-zinc-700" />
-                    <div className="flex-1 min-w-0"><span className="block truncate text-sm text-white">{entry.displayName || entry.username || `fid:${entry.fid}`}</span></div>
-                    <span className="font-bold text-sm text-white">{entry.score}</span>
-                  </div>
-                ))}
+                {leaderboard.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-zinc-500 text-sm">No scores yet this week. Be the first!</div>
+                ) : leaderboard.map((entry, index) => {
+                  const prize = prizeInfo.prizeStructure[index];
+                  return (
+                    <div key={entry.fid} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${entry.rank <= 3 ? "bg-zinc-800/30" : ""}`}>
+                      <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-yellow-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>{entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}</span>
+                      {entry.pfpUrl ? (
+                        <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-zinc-700" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <span className="block truncate text-sm text-white">{entry.displayName || entry.username || `fid:${entry.fid}`}</span>
+                        {prize && <span className="text-[10px] text-green-400">${prize.amount}</span>}
+                      </div>
+                      <span className="font-bold text-sm text-white">{entry.score}</span>
+                    </div>
+                  );
+                })}
               </div>
               <div className="px-4 py-3 border-t border-zinc-800 flex-shrink-0">
-                <p className="text-[10px] text-zinc-500 text-center">Prizes coming soon!</p>
+                <p className="text-[10px] text-zinc-500 text-center">Best score per player counts · Resets {resetCountdown}</p>
               </div>
             </div>
           </div>

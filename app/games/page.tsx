@@ -71,6 +71,47 @@ function FlappyDonutTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlaye
   );
 }
 
+// Donut Survivors Tile
+function DonutSurvivorsTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer: RecentPlayer | null; prizePool: number; weeklyPlays: number }) {
+  return (
+    <button
+      onClick={() => window.location.href = "/games/donut-survivors"}
+      className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
+      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
+    >
+      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+        <Crosshair className="w-24 h-24 text-zinc-800" />
+      </div>
+      
+      <div className="relative z-10 p-4 pr-20">
+        <div className="text-left">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-bold text-base text-white">Donut Survivors</span>
+            <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
+          </div>
+          <div className="text-[10px] text-white/60 mb-2">Survive waves of candy enemies!</div>
+          
+          <div className="flex items-center gap-1.5 text-[9px]">
+            <UsdcCoin className="w-3 h-3" />
+            <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-500 whitespace-nowrap">{weeklyPlays.toLocaleString()} plays</span>
+            {recentPlayer && (
+              <>
+                <span className="text-zinc-600">•</span>
+                <span className="text-zinc-400 flex items-center gap-1 whitespace-nowrap">
+                  {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3 h-3 rounded-full flex-shrink-0" />}
+                  @{recentPlayer.username} {recentPlayer.score} kills
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 // Glaze Stack Tile (Free to Play with USDC prizes)
 function GlazeStackTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer: RecentPlayer | null; prizePool: number; weeklyPlays: number }) {
   return (
@@ -172,48 +213,6 @@ function DonutJumpTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer:
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Bounce up, collect donuts!</div>
-          
-          <div className="flex items-center gap-1.5 text-[9px]">
-            <UsdcCoin className="w-3 h-3" />
-            <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC</span>
-            <span className="text-zinc-600">•</span>
-            <span className="text-zinc-500 whitespace-nowrap">{weeklyPlays.toLocaleString()} plays</span>
-            {recentPlayer && (
-              <>
-                <span className="text-zinc-600">•</span>
-                <span className="text-zinc-400 flex items-center gap-1 whitespace-nowrap">
-                  {recentPlayer.pfpUrl && <img src={recentPlayer.pfpUrl} alt="" className="w-3 h-3 rounded-full flex-shrink-0" />}
-                  @{recentPlayer.username} {recentPlayer.score}pts
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </button>
-  );
-}
-
-// Donut Survivors Tile
-function DonutSurvivorsTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer: RecentPlayer | null; prizePool: number; weeklyPlays: number }) {
-  return (
-    <button
-      onClick={() => window.location.href = "/games/donut-survivors"}
-      className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden transition-all duration-300 active:scale-[0.98] hover:border-white/40"
-      style={{ minHeight: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
-    >
-      <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-        <Crosshair className="w-24 h-24 text-zinc-800" />
-      </div>
-      
-      <div className="relative z-10 p-4 pr-20">
-        <div className="text-left">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-bold text-base text-white">Donut Survivors</span>
-            <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
-            <span className="text-[8px] bg-white/20 text-white px-1.5 py-0.5 rounded-full">TESTING</span>
-          </div>
-          <div className="text-[10px] text-white/60 mb-2">Survive waves of candy enemies!</div>
           
           <div className="flex items-center gap-1.5 text-[9px]">
             <UsdcCoin className="w-3 h-3" />
@@ -558,8 +557,8 @@ export default function GamesPage() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Calculate total USDC prizes for display (now includes Flappy, excludes survivors since it's in testing)
-  const totalUsdcPrizes = flappyPrizePool + dashPrizePool + stackPrizePool + jumpPrizePool;
+  // Calculate total USDC prizes for display (now includes all games)
+  const totalUsdcPrizes = flappyPrizePool + dashPrizePool + stackPrizePool + jumpPrizePool + survivorsPrizePool;
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -679,28 +678,28 @@ export default function GamesPage() {
                     className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                     style={!hasAnimatedIn ? { opacity: 0, animationDelay: '50ms', animationFillMode: 'forwards' } : {}}
                   >
-                    <DonutJumpTile recentPlayer={jumpRecentPlayer} prizePool={jumpPrizePool} weeklyPlays={jumpWeeklyPlays} />
+                    <DonutSurvivorsTile recentPlayer={survivorsRecentPlayer} prizePool={survivorsPrizePool} weeklyPlays={survivorsWeeklyPlays} />
                   </div>
                   
                   <div 
                     className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                     style={!hasAnimatedIn ? { opacity: 0, animationDelay: '100ms', animationFillMode: 'forwards' } : {}}
                   >
-                    <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} weeklyPlays={dashWeeklyPlays} />
+                    <DonutJumpTile recentPlayer={jumpRecentPlayer} prizePool={jumpPrizePool} weeklyPlays={jumpWeeklyPlays} />
                   </div>
                   
                   <div 
                     className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                     style={!hasAnimatedIn ? { opacity: 0, animationDelay: '150ms', animationFillMode: 'forwards' } : {}}
                   >
-                    <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} weeklyPlays={stackWeeklyPlays} />
+                    <DonutDashTile recentPlayer={dashRecentPlayer} prizePool={dashPrizePool} weeklyPlays={dashWeeklyPlays} />
                   </div>
                   
                   <div 
                     className={!hasAnimatedIn ? 'animate-tilePopIn' : ''}
                     style={!hasAnimatedIn ? { opacity: 0, animationDelay: '200ms', animationFillMode: 'forwards' } : {}}
                   >
-                    <DonutSurvivorsTile recentPlayer={survivorsRecentPlayer} prizePool={survivorsPrizePool} weeklyPlays={survivorsWeeklyPlays} />
+                    <GlazeStackTile recentPlayer={stackRecentPlayer} prizePool={stackPrizePool} weeklyPlays={stackWeeklyPlays} />
                   </div>
                   
                   {[...Array(1)].map((_, i) => (
@@ -731,7 +730,7 @@ export default function GamesPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
                   <Gamepad2 className="w-5 h-5 text-white" />
-                  How to Play
+                  How It Works
                 </h2>
                 <button
                   onClick={() => setShowHelpDialog(false)}
@@ -741,52 +740,65 @@ export default function GamesPage() {
                 </button>
               </div>
 
-              <div className="space-y-4 text-sm">
-                <div className="bg-zinc-800/50 rounded-xl p-3">
-                  <h3 className="font-bold text-white mb-2">Flappy Donut</h3>
-                  <p className="text-gray-400 text-xs">
-                    Tap to fly your donut through the rolling pins! Each gap passed = 1 point. 
-                    Top 10 weekly scores split the <UsdcCoin className="w-3 h-3 inline-block align-middle mx-0.5" /> USDC prize pool. FREE to play!
-                  </p>
-                </div>
-
-                <div className="bg-zinc-800/50 rounded-xl p-3">
-                  <h3 className="font-bold text-white mb-2">Donut Dash</h3>
-                  <p className="text-gray-400 text-xs">
-                    Hold to jetpack up, release to fall! Collect sprinkles and avoid obstacles. 
-                    Top 10 weekly scores split the USDC prize pool. FREE to play!
-                  </p>
-                </div>
-
-                <div className="bg-zinc-800/50 rounded-xl p-3">
-                  <h3 className="font-bold text-white mb-2">Donut Jump</h3>
-                  <p className="text-gray-400 text-xs">
-                    Tap left/right to move, bounce on platforms to climb! Collect donut coins and power-ups.
-                    Top 10 weekly scores split the USDC prize pool. FREE to play!
-                  </p>
-                </div>
-
-                <div className="bg-zinc-800/50 rounded-xl p-3">
-                  <h3 className="font-bold text-white mb-2">Glaze Stack</h3>
-                  <p className="text-gray-400 text-xs">
-                    Tap to drop blocks and stack them perfectly! Overhanging parts fall off. 
-                    Top 10 weekly scores split the USDC prize pool. FREE to play!
-                  </p>
-                </div>
-
-                <div className="bg-zinc-800/50 rounded-xl p-3">
-                  <h3 className="font-bold text-white mb-2">Donut Survivors</h3>
-                  <p className="text-gray-400 text-xs">
-                    Drag to move your character! Auto-attack enemies, collect XP donuts, and choose upgrades.
-                    Survive as long as possible! Top 10 weekly scores split the USDC prize pool. FREE to play!
-                  </p>
-                </div>
-
+              <div className="space-y-3 text-sm">
                 <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3">
-                  <h3 className="font-bold text-green-400 mb-2">🏆 Weekly Prizes</h3>
+                  <h3 className="font-bold text-green-400 mb-2 flex items-center gap-2">
+                    <span>💰</span> Win Real USDC
+                  </h3>
+                  <p className="text-gray-300 text-xs">
+                    Every game has a weekly <span className="text-green-400 font-medium">$5 USDC</span> prize pool. 
+                    Top 10 players on each leaderboard split the prizes automatically!
+                  </p>
+                </div>
+
+                <div className="bg-zinc-800/50 rounded-xl p-3">
+                  <h3 className="font-bold text-white mb-2 flex items-center gap-2">
+                    <span>🆓</span> 100% Free to Play
+                  </h3>
                   <p className="text-gray-400 text-xs">
-                    All games reset every Friday at 6PM EST. Top 10 players on each leaderboard 
-                    win USDC prizes automatically sent to their wallet!
+                    All games are completely free. You only pay a tiny gas fee (under <span className="text-white font-medium">$0.01</span>) to record your entry on Base. 
+                    Play unlimited times for basically nothing!
+                  </p>
+                </div>
+
+                <div className="bg-zinc-800/50 rounded-xl p-3">
+                  <h3 className="font-bold text-white mb-2 flex items-center gap-2">
+                    <span>🏆</span> Prize Distribution
+                  </h3>
+                  <div className="text-gray-400 text-xs space-y-1">
+                    <p>Top 10 split each game's prize pool:</p>
+                    <div className="grid grid-cols-2 gap-x-2 mt-2 text-[10px]">
+                      <div className="flex justify-between"><span className="text-yellow-400">🥇 1st</span><span>40%</span></div>
+                      <div className="flex justify-between"><span className="text-gray-300">🥈 2nd</span><span>20%</span></div>
+                      <div className="flex justify-between"><span className="text-orange-400">🥉 3rd</span><span>15%</span></div>
+                      <div className="flex justify-between"><span>4th</span><span>8%</span></div>
+                      <div className="flex justify-between"><span>5th</span><span>5%</span></div>
+                      <div className="flex justify-between"><span>6th</span><span>4%</span></div>
+                      <div className="flex justify-between"><span>7th</span><span>3%</span></div>
+                      <div className="flex justify-between"><span>8th</span><span>2%</span></div>
+                      <div className="flex justify-between"><span>9th</span><span>2%</span></div>
+                      <div className="flex justify-between"><span>10th</span><span>1%</span></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-zinc-800/50 rounded-xl p-3">
+                  <h3 className="font-bold text-white mb-2 flex items-center gap-2">
+                    <span>📅</span> Weekly Reset
+                  </h3>
+                  <p className="text-gray-400 text-xs">
+                    Leaderboards reset every <span className="text-white font-medium">Friday at 6PM EST</span>. 
+                    Prizes are automatically sent to winners' wallets. Your best score each week counts!
+                  </p>
+                </div>
+
+                <div className="bg-zinc-800/50 rounded-xl p-3">
+                  <h3 className="font-bold text-white mb-2 flex items-center gap-2">
+                    <span>♾️</span> Unlimited Plays
+                  </h3>
+                  <p className="text-gray-400 text-xs">
+                    Play as many times as you want! Only your <span className="text-white font-medium">best score</span> counts for the leaderboard. 
+                    Keep practicing and improving your high score all week.
                   </p>
                 </div>
               </div>
@@ -795,7 +807,7 @@ export default function GamesPage() {
                 onClick={() => setShowHelpDialog(false)}
                 className="mt-4 w-full rounded-xl bg-white py-2 text-sm font-bold text-black hover:bg-gray-200 transition-colors"
               >
-                Got it!
+                Let's Play!
               </button>
             </div>
           </div>
