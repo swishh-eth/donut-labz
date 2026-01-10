@@ -112,7 +112,7 @@ const GADGET_CONFIG: Record<GadgetType, { name: string; icon: string; color: str
   sprinkle_magnet: { name: 'Sprinkle Magnet', icon: '⊕', color: '#A78BFA', description: '+40% Pickup Range', effect: 'magnet' },
   donut_armor: { name: 'Donut Armor', icon: '○', color: '#F472B6', description: '-15% Damage Taken', effect: 'defense' },
   hyper_icing: { name: 'Hyper Icing', icon: '★', color: '#FF6B6B', description: '+15% All Damage', effect: 'damage' },
-  golden_sprinkles: { name: 'Golden Sprinkles', icon: '✧', color: '#FFD700', description: '+25% XP Gain', effect: 'xp_gain' },
+  golden_sprinkles: { name: 'Golden Sprinkles', icon: '✧', color: '#FFD700', description: '+20% XP Gain', effect: 'xp_gain' },
   choco_shield: { name: 'Choco Shield', icon: '■', color: '#8B4513', description: '+0.5s Invincibility', effect: 'invincibility' },
   candy_rush: { name: 'Candy Rush', icon: '◇', color: '#FF69B4', description: '-10% Cooldowns', effect: 'cooldown' },
 };
@@ -162,7 +162,7 @@ function getGadgetBonus(type: GadgetType, stacks: number): string {
     case 'sprinkle_magnet': return `+${Math.round((Math.pow(1.4, stacks) - 1) * 100)}% Range`;
     case 'donut_armor': return `-${Math.min(stacks * 15, 75)}% Dmg`;
     case 'hyper_icing': return `+${Math.round((Math.pow(1.15, stacks) - 1) * 100)}% Dmg`;
-    case 'golden_sprinkles': return `+${Math.round((Math.pow(1.25, stacks) - 1) * 100)}% XP`;
+    case 'golden_sprinkles': return `+${Math.round((Math.pow(1.20, stacks) - 1) * 100)}% XP`;
     case 'choco_shield': return `+${stacks * 0.5}s I-Frames`;
     case 'candy_rush': return `-${stacks * 10}% CD`;
     default: return '';
@@ -667,7 +667,7 @@ export default function DonutSurvivorsPage() {
         case 'magnet': p.magnetRange *= 1.40; break;
         case 'defense': p.defense = (p.defense || 0) + 0.15; break;
         case 'damage': p.damage *= 1.15; break;
-        case 'xp_gain': p.xpMultiplier *= 1.25; break;
+        case 'xp_gain': p.xpMultiplier *= 1.20; break;
         case 'invincibility': p.invincibilityBonus = (p.invincibilityBonus || 0) + 500; break;
         case 'cooldown': p.cooldownReduction = (p.cooldownReduction || 0) + 0.10; break;
       }
