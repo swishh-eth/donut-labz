@@ -2107,14 +2107,14 @@ export default function DonutSurvivorsPage() {
         main, main * { user-select: none !important; -webkit-user-select: none !important; touch-action: none !important; }
         html, body { overscroll-behavior: none !important; overflow: hidden !important; position: fixed !important; width: 100% !important; height: 100% !important; }
         @keyframes tilePopIn {
-          0% { opacity: 0; transform: translateY(8px) scale(0.97); }
-          100% { opacity: 1; transform: translateY(0) scale(1); }
+          0% { opacity: 0; transform: translateY(12px); }
+          100% { opacity: 1; transform: translateY(0); }
         }
-        .animate-pop { animation: tilePopIn 0.3s ease-out forwards; opacity: 0; }
-        .pop-delay-1 { animation-delay: 0ms; }
-        .pop-delay-2 { animation-delay: 80ms; }
-        .pop-delay-3 { animation-delay: 160ms; }
-        .pop-delay-4 { animation-delay: 240ms; }
+        .animate-pop { animation: tilePopIn 0.35s ease-out forwards; opacity: 0; }
+        .pop-delay-1 { animation-delay: 50ms; }
+        .pop-delay-2 { animation-delay: 130ms; }
+        .pop-delay-3 { animation-delay: 210ms; }
+        .pop-delay-4 { animation-delay: 290ms; }
       `}</style>
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
