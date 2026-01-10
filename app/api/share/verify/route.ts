@@ -24,7 +24,7 @@ const SWISHH_FID = 209951;
 // The URLs/text that indicate a valid share
 const REQUIRED_EMBED_URLS = [
   "sprinkles.wtf",
-  "farcaster.xyz/miniapps/5argX24fr_Tq/sprinkles",
+  "https://farcaster.xyz/miniapps/BdklKYkhvUwo/sprinkles",
   "farcaster.xyz/miniapps/5argX24fr_Tq",
   "5argX24fr_Tq", // miniapp ID
   "warpcast.com/miniapps/sprinkles",
