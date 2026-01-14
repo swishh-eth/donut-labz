@@ -606,8 +606,23 @@ export default function FlappyDonutPage() {
       buildingsRef.current.push({ x, width, height, shade, windows });
     }
     
-    ctx.fillStyle = '#0a0a0a';
+    // Road/ground - grey asphalt color
+    ctx.fillStyle = '#3a3a3a';
     ctx.fillRect(0, CANVAS_HEIGHT - GROUND_HEIGHT, CANVAS_WIDTH, GROUND_HEIGHT);
+    
+    // Sidewalk/curb line
+    ctx.fillStyle = '#555555';
+    ctx.fillRect(0, CANVAS_HEIGHT - GROUND_HEIGHT, CANVAS_WIDTH, 4);
+    
+    // Road center line (dashed yellow)
+    ctx.fillStyle = '#8B8000';
+    const lineY = CANVAS_HEIGHT - GROUND_HEIGHT / 2;
+    const dashWidth = 30;
+    const gapWidth = 20;
+    const offset = bgOffsetRef.current % (dashWidth + gapWidth);
+    for (let x = -offset; x < CANVAS_WIDTH + dashWidth; x += dashWidth + gapWidth) {
+      ctx.fillRect(x, lineY - 2, dashWidth, 4);
+    }
     
     buildingsRef.current.forEach(building => {
       const baseY = CANVAS_HEIGHT - GROUND_HEIGHT;
@@ -628,7 +643,8 @@ export default function FlappyDonutPage() {
       }
     });
     
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    // Top edge highlight of curb
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, CANVAS_HEIGHT - GROUND_HEIGHT);
@@ -1129,24 +1145,25 @@ export default function FlappyDonutPage() {
       const floatOffset = Math.sin(menuFrameCount * 0.05) * 6;
       drawPlayer(ctx, menuPlayerY + floatOffset, 0, PLAYER_SIZE, false);
       
-      // No big title text on canvas anymore
-      
+      // Countdown state - centered on screen
       if (gameState === "countdown") {
         const scale = 1 + Math.sin(menuFrameCount * 0.15) * 0.08;
         ctx.save();
-        ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
+        ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
         ctx.scale(scale, scale);
         ctx.shadowColor = "#FFFFFF";
         ctx.shadowBlur = 40;
         ctx.fillStyle = "#FFFFFF";
-        ctx.font = "bold 120px monospace";
-        ctx.fillText(countdownRef.current.toString(), 0, 30);
+        ctx.font = "bold 100px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(countdownRef.current.toString(), 0, 0);
         ctx.shadowBlur = 0;
         ctx.restore();
         ctx.fillStyle = "#FFFFFF";
         ctx.font = "bold 16px monospace";
         ctx.textAlign = "center";
-        ctx.fillText("GET READY!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 120);
+        ctx.fillText("GET READY!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
       }
       
       if (gameState === "gameover") {
