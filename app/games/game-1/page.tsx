@@ -5,7 +5,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
-import { Trophy, Play, Share2, X, HelpCircle, Volume2, VolumeX, ChevronRight, Clock } from "lucide-react";
+import { Trophy, Play, Share2, X, HelpCircle, Volume2, VolumeX, Clock } from "lucide-react";
 
 // Free Arcade Contract
 const FREE_ARCADE_CONTRACT = "0xa5d1c19187312e0f0741182ad63a378e65d8b43a" as const;
@@ -1167,47 +1167,44 @@ export default function FlappyDonutPage() {
         .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         * { -webkit-tap-highlight-color: transparent !important; }
-        @keyframes tilePopIn {
-          0% { opacity: 0; }
-          100% { opacity: 1; }
-        }
-        .animate-pop { animation: tilePopIn 0.35s ease-out forwards; opacity: 0; }
-        .pop-delay-1 { animation-delay: 50ms; }
-        .pop-delay-2 { animation-delay: 130ms; }
-        .pop-delay-3 { animation-delay: 210ms; }
       `}</style>
       
-      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
+      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+        {/* Header */}
         <Header title="FLAPPY DONUT" user={context?.user} />
         
-        <button
-          onClick={() => setShowLeaderboard(true)}
-          className="animate-pop pop-delay-1 relative w-full mb-3 px-4 py-3 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/50 rounded-xl transition-all active:scale-[0.98] hover:border-zinc-600 group"
-          style={{ minHeight: '70px' }}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col items-start">
-              <div className="flex items-center gap-2">
-                <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-4 h-4 rounded-full" />
-                <span className="text-[10px] text-zinc-400 font-medium">Weekly Prize Pool</span>
-              </div>
-              <span className="text-2xl font-bold text-white">${prizePool} USDC</span>
-            </div>
-            <div className="flex flex-col items-end">
-              <div className="flex items-center gap-1 text-zinc-500 group-hover:text-zinc-300 transition-colors">
-                <span className="text-[10px]">View Leaderboard</span>
-                <ChevronRight className="w-3 h-3" />
-              </div>
-              <div className="text-[10px] text-zinc-500 flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                <span>Resets in <span className="font-bold text-zinc-300">{resetCountdown}</span></span>
-              </div>
-            </div>
-          </div>
-        </button>
+        {/* Icon Bar - FarLeague style */}
+        <div className="flex items-center justify-end gap-1 px-3 py-2 border-b border-zinc-800/50">
+          {/* Prize Pool Button */}
+          <button
+            onClick={() => setShowLeaderboard(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600/20 to-green-500/10 border border-green-500/30 rounded-lg hover:border-green-400/50 transition-all"
+          >
+            <Trophy className="w-4 h-4 text-green-400" />
+            <span className="text-sm font-bold text-green-400">${prizePool}</span>
+            <UsdcCoin className="w-4 h-4" />
+          </button>
+          
+          {/* How to Play Button */}
+          <button
+            onClick={() => setShowHelp(true)}
+            className="p-2 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-600 transition-all"
+          >
+            <HelpCircle className="w-5 h-5 text-zinc-400" />
+          </button>
+          
+          {/* Sound Toggle Button */}
+          <button
+            onClick={() => setIsMuted(!isMuted)}
+            className={`p-2 rounded-lg border bg-zinc-900 hover:bg-zinc-800 transition-all ${isMuted ? 'border-red-500/50 hover:border-red-400/50' : 'border-zinc-700 hover:border-zinc-600'}`}
+          >
+            {isMuted ? <VolumeX className="w-5 h-5 text-red-400" /> : <Volume2 className="w-5 h-5 text-zinc-400" />}
+          </button>
+        </div>
         
-        <div className="flex flex-col items-center">
-          <div className="animate-pop pop-delay-2 relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
+        {/* Game Canvas - Full Width */}
+        <div className="flex-1 flex flex-col relative overflow-hidden">
+          <div className="flex-1 relative">
             {gameState === "playing" && (
               <div
                 className="absolute inset-0 z-10 cursor-pointer"
@@ -1219,53 +1216,54 @@ export default function FlappyDonutPage() {
               ref={canvasRef}
               width={SCALED_WIDTH}
               height={SCALED_HEIGHT}
-              className="rounded-2xl border border-zinc-800 w-full h-full select-none"
+              className="w-full h-full object-cover select-none"
               style={{ touchAction: "none" }}
             />
             
+            {/* Overlaid Controls - FarLeague style */}
             {(gameState === "menu" || gameState === "gameover") && (
-              <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-2 pointer-events-none z-20">
-                <div className="pointer-events-auto flex flex-col items-center gap-2">
+              <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 pb-6 pointer-events-none z-20 bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-20">
+                <div className="pointer-events-auto flex flex-col items-center gap-3">
                   {gameState === "gameover" && score > 0 && (
-                    <button onClick={handleShare} className="flex items-center gap-2 px-5 py-1.5 bg-purple-600 text-white text-sm font-bold rounded-full hover:bg-purple-500">
-                      <Share2 className="w-3 h-3" /><span>Share</span>
+                    <button onClick={handleShare} className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white text-sm font-bold rounded-xl hover:bg-purple-500 border border-purple-400/30 shadow-lg shadow-purple-500/20">
+                      <Share2 className="w-4 h-4" /><span>Share Score</span>
                     </button>
                   )}
-                  {errorMessage && <p className="text-red-400 text-xs">{errorMessage}</p>}
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 rounded-full border border-zinc-700">
-                    <span className="text-xs text-zinc-400">Gas Only (~$0.001)</span>
-                  </div>
+                  
+                  {errorMessage && <p className="text-red-400 text-xs bg-red-500/10 px-3 py-1 rounded-full">{errorMessage}</p>}
+                  
+                  {/* Main Play Button - Styled like FarLeague */}
                   <button 
                     onClick={handlePlay} 
                     disabled={isPlayPending}
-                    className="flex items-center gap-2 px-6 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-3 px-8 py-3 bg-gradient-to-r from-yellow-500 to-yellow-400 text-black font-bold rounded-xl hover:from-yellow-400 hover:to-yellow-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed border-2 border-yellow-300/50 shadow-lg shadow-yellow-500/30 transition-all"
                   >
                     {isPlayPending ? (
-                      <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-sm">Confirming...</span></>
+                      <><div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-base">Confirming...</span></>
                     ) : (
-                      <><Play className="w-4 h-4" /><span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span></>
+                      <><Play className="w-5 h-5 fill-current" /><span className="text-base">{gameState === "gameover" ? "PLAY AGAIN" : "PLAY"}</span></>
                     )}
                   </button>
-                  <p className="text-zinc-500 text-[10px]">Games this week: {gamesPlayedThisWeek}</p>
+                  
+                  {/* Info row */}
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="text-zinc-500 bg-zinc-900/80 px-2 py-1 rounded-full">Gas Only (~$0.001)</span>
+                    <span className="text-zinc-500 bg-zinc-900/80 px-2 py-1 rounded-full flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {resetCountdown}
+                    </span>
+                  </div>
+                  
+                  <p className="text-zinc-600 text-[10px]">Games this week: {gamesPlayedThisWeek}</p>
                 </div>
               </div>
             )}
             
-            {gameState === "playing" && <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none z-20"><p className="text-zinc-600 text-[10px]">Tap to flap</p></div>}
+            {gameState === "playing" && <div className="absolute bottom-4 left-0 right-0 text-center pointer-events-none z-20"><p className="text-zinc-500 text-xs bg-black/50 inline-block px-3 py-1 rounded-full">Tap to flap</p></div>}
           </div>
         </div>
         
-        {(gameState === "menu" || gameState === "gameover") && (
-          <div className="animate-pop pop-delay-3 py-4 flex items-center justify-center gap-2">
-            <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
-              <HelpCircle className="w-3 h-3 text-zinc-400" /><span className="text-xs">How to Play</span>
-            </button>
-            <button onClick={() => setIsMuted(!isMuted)} className={`flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border rounded-full hover:border-zinc-500 ${isMuted ? 'border-red-500/50' : 'border-zinc-700'}`}>
-              {isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-400" />}
-              <span className="text-xs">{isMuted ? 'Muted' : 'Sound'}</span>
-            </button>
-          </div>
-        )}
+        <NavBar />
       </div>
       
       {/* Leaderboard Modal */}
@@ -1279,7 +1277,7 @@ export default function FlappyDonutPage() {
               </button>
               <div className="p-4 pb-2 flex-shrink-0">
                 <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-white" />
+                  <Trophy className="w-4 h-4 text-yellow-400" />
                   Weekly Leaderboard
                 </h2>
               </div>
@@ -1301,7 +1299,7 @@ export default function FlappyDonutPage() {
                   const prizeAmount = ((prizePool * prizePercent) / 100).toFixed(2);
                   return (
                     <div key={i} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800 last:border-0 ${entry.rank <= 3 ? "bg-green-500/10" : ""}`}>
-                      <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-green-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>
+                      <span className={`w-6 text-center font-bold ${entry.rank === 1 ? "text-yellow-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-orange-400" : "text-zinc-500"}`}>
                         {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}
                       </span>
                       {entry.pfpUrl ? (
@@ -1355,9 +1353,9 @@ export default function FlappyDonutPage() {
                   <div>
                     <div className="font-semibold text-white text-xs">Power-Ups</div>
                     <div className="text-[11px] text-gray-400 mt-0.5 space-y-1">
-                      <div className="flex items-center gap-2"><span className="text-cyan-400">🛡️</span> Shield - Blocks one hit (stacks with others)</div>
-                      <div className="flex items-center gap-2"><span className="text-pink-400">↕</span> Wide Gap - Wider pipes for 8 seconds</div>
-                      <div className="flex items-center gap-2"><span className="text-green-400">•</span> Tiny - Shrinks player for 6 seconds</div>
+                      <div className="flex items-center gap-2"><span className="text-cyan-400">🛡️</span> Shield - Blocks one hit</div>
+                      <div className="flex items-center gap-2"><span className="text-pink-400">↕</span> Wide Gap - Wider pipes for 8s</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400">•</span> Tiny - Shrinks player for 6s</div>
                     </div>
                   </div>
                 </div>
@@ -1365,14 +1363,14 @@ export default function FlappyDonutPage() {
                   <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-[10px] font-bold text-black">3</div>
                   <div>
                     <div className="font-semibold text-green-400 text-xs">Free to Play</div>
-                    <div className="text-[11px] text-gray-400 mt-0.5">Play unlimited games for free! Just pay gas (~$0.001) to record your game on-chain.</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">Unlimited games! Just pay gas (~$0.001) to record on-chain.</div>
                   </div>
                 </div>
                 <div className="flex gap-2.5">
                   <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">4</div>
                   <div>
                     <div className="font-semibold text-white text-xs">Weekly Prizes</div>
-                    <div className="text-[11px] text-gray-400 mt-0.5">Top 10 players split the ${prizePool} USDC prize pool every Friday at 6PM EST.</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">Top 10 split ${prizePool} USDC every Friday at 6PM EST.</div>
                   </div>
                 </div>
               </div>
@@ -1381,8 +1379,6 @@ export default function FlappyDonutPage() {
           </div>
         </div>
       )}
-      
-      <NavBar />
     </main>
   );
 }
