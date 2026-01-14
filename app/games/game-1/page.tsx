@@ -48,9 +48,9 @@ const PIPE_SPEED_START = 1.8;
 const PIPE_SPEED_MAX = 3.8;
 const PIPE_SPAWN_DISTANCE = 260;
 
-// Player
+// Player - moved slightly right to avoid edge clipping
 const PLAYER_SIZE = 36;
-const PLAYER_X = 80;
+const PLAYER_X = 90;
 
 // Power-up types
 type PowerUpType = 'shield' | 'widegap' | 'tiny';
@@ -277,23 +277,26 @@ export default function FlappyDonutPage() {
     }, 0);
   }, [isMuted]);
   
+  // Fixed: Added setTimeout wrapper to prevent synchronous blocking
   const playPowerUpSound = useCallback(() => {
     if (isMuted || !audioInitializedRef.current) return;
-    try {
-      const ctx = audioContextRef.current;
-      if (!ctx) return;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.setValueAtTime(600, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.15);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.2);
-    } catch {}
+    setTimeout(() => {
+      try {
+        const ctx = audioContextRef.current;
+        if (!ctx) return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(600, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.2);
+      } catch {}
+    }, 0);
   }, [isMuted]);
   
   const playCountdownSound = useCallback((isLast: boolean) => {
@@ -929,19 +932,18 @@ export default function FlappyDonutPage() {
     
     ctx.restore();
     
-    ctx.shadowColor = "#FFFFFF";
-    ctx.shadowBlur = 20;
+    // Score display - no glow
     ctx.fillStyle = "#FFFFFF";
     ctx.font = "bold 48px monospace";
     ctx.textAlign = "center";
     ctx.fillText(scoreRef.current.toString(), CANVAS_WIDTH / 2, 70);
-    ctx.shadowBlur = 0;
     
+    // Power-up indicators - moved right to avoid clipping
     if (hasShieldRef.current) {
       ctx.fillStyle = '#64C8FF';
       ctx.font = 'bold 12px monospace';
       ctx.textAlign = 'left';
-      ctx.fillText('🛡️ SHIELD', 15, 50);
+      ctx.fillText('🛡️ SHIELD', 20, 50);
     }
     
     if (activePowerUpRef.current) {
@@ -952,12 +954,12 @@ export default function FlappyDonutPage() {
       ctx.textAlign = 'left';
       const icon = pu.type === 'widegap' ? '↕ WIDE GAP' : '• TINY';
       const yPos = hasShieldRef.current ? 70 : 50;
-      ctx.fillText(icon, 15, yPos);
+      ctx.fillText(icon, 20, yPos);
       if (pu.endTime) {
         const remaining = Math.max(0, (pu.endTime - now) / 1000);
         ctx.fillStyle = '#888';
         ctx.font = '10px monospace';
-        ctx.fillText(`${remaining.toFixed(1)}s`, 15, yPos + 15);
+        ctx.fillText(`${remaining.toFixed(1)}s`, 20, yPos + 15);
       }
     }
     
@@ -1174,14 +1176,11 @@ export default function FlappyDonutPage() {
         ctx.save();
         ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
         ctx.scale(scale, scale);
-        ctx.shadowColor = "#FFFFFF";
-        ctx.shadowBlur = 40;
         ctx.fillStyle = "#FFFFFF";
         ctx.font = "bold 100px monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(countdownRef.current.toString(), 0, 0);
-        ctx.shadowBlur = 0;
         ctx.restore();
         ctx.fillStyle = "#FFFFFF";
         ctx.font = "bold 16px monospace";
@@ -1194,12 +1193,9 @@ export default function FlappyDonutPage() {
         ctx.font = "bold 24px monospace";
         ctx.textAlign = "center";
         ctx.fillText("GAME OVER", CANVAS_WIDTH / 2, 100);
-        ctx.shadowColor = "#FFFFFF";
-        ctx.shadowBlur = 20;
         ctx.fillStyle = "#FFFFFF";
         ctx.font = "bold 48px monospace";
         ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 150);
-        ctx.shadowBlur = 0;
         ctx.fillStyle = "#888888";
         ctx.font = "14px monospace";
         ctx.fillText(`Best: ${Math.max(score, highScore)}`, CANVAS_WIDTH / 2, 180);
@@ -1243,8 +1239,8 @@ export default function FlappyDonutPage() {
           user={context?.user}
         />
         
-        {/* Game Canvas - Full remaining space with gradient fade from header */}
-        <div className="flex-1 flex flex-col relative overflow-hidden -mx-2">
+        {/* Game Canvas - Full remaining space */}
+        <div className="flex-1 flex flex-col relative overflow-hidden rounded-lg">
           {/* Gradient fade from header into game */}
           <div 
             className="absolute top-0 left-0 right-0 h-8 z-10 pointer-events-none"
@@ -1263,7 +1259,7 @@ export default function FlappyDonutPage() {
               ref={canvasRef}
               width={SCALED_WIDTH}
               height={SCALED_HEIGHT}
-              className="w-full h-full object-cover select-none"
+              className="w-full h-full object-contain select-none"
               style={{ touchAction: "none" }}
             />
             
