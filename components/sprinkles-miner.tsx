@@ -362,6 +362,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const [interpolatedPrice, setInterpolatedPrice] = useState<bigint | null>(null);
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [recentMiners, setRecentMiners] = useState<RecentMiner[]>([]);
+  const approvalPollingRef = useRef<boolean>(false);
 
   const resetMineResult = useCallback(() => {
     if (mineResultTimeoutRef.current) {
@@ -623,6 +624,9 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     const txType = pendingTxTypeRef.current;
     
     if (receipt.status === "success" || receipt.status === "reverted") {
+      // Stop any approval polling since we got a receipt
+      approvalPollingRef.current = false;
+      
       showMineResult(receipt.status === "success" ? "success" : "failure");
       
       if (receipt.status === "success") {
@@ -788,6 +792,10 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     if (!address || parsedApprovalAmount === 0n) return;
     setPendingTxType("approve");
     pendingTxTypeRef.current = "approve";
+    
+    // Store the target approval amount for polling
+    const targetApproval = parsedApprovalAmount;
+    
     try {
       await writeContract({
         account: address as Address,
@@ -797,14 +805,76 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         args: [SPRINKLES_MINER_ADDRESS, parsedApprovalAmount],
         chainId: base.id,
       });
+      
+      // For smart wallets, receipt detection may not work properly
+      // Poll for allowance change as backup
+      approvalPollingRef.current = true;
+      
+      const pollAllowance = async (attempts = 0) => {
+        // Stop if we're no longer polling (receipt came through or component unmounted)
+        if (!approvalPollingRef.current) return;
+        
+        // Give up after ~45 seconds
+        if (attempts > 15) {
+          console.log('Approval polling timed out');
+          approvalPollingRef.current = false;
+          return;
+        }
+        
+        await new Promise(r => setTimeout(r, 3000));
+        
+        // Check if still polling
+        if (!approvalPollingRef.current) return;
+        
+        try {
+          const newAllowance = await readContractWithAlchemy<bigint>(
+            DONUT_ADDRESS,
+            DONUT_ABI,
+            "allowance",
+            [address, SPRINKLES_MINER_ADDRESS]
+          );
+          
+          console.log(`Polling allowance (attempt ${attempts + 1}):`, newAllowance.toString());
+          
+          if (newAllowance >= targetApproval) {
+            // Approval detected!
+            console.log('Approval detected via polling!');
+            approvalPollingRef.current = false;
+            setIsApprovalMode(false);
+            setApprovalAmount("");
+            showMineResult("success");
+            refetchAllowance();
+            resetWrite();
+            setPendingTxType(null);
+            pendingTxTypeRef.current = null;
+            
+            // Trigger haptic feedback
+            import("@farcaster/miniapp-sdk").then(({ sdk }) => {
+              sdk.haptics.notificationOccurred("success").catch(() => {});
+            }).catch(() => {});
+          } else {
+            // Keep polling
+            pollAllowance(attempts + 1);
+          }
+        } catch (e) {
+          console.error('Error polling allowance:', e);
+          // Keep trying
+          pollAllowance(attempts + 1);
+        }
+      };
+      
+      // Start polling after a short delay to give the tx time to confirm
+      setTimeout(() => pollAllowance(0), 2000);
+      
     } catch (error) {
       console.error("Failed to approve:", error);
+      approvalPollingRef.current = false;
       showMineResult("failure");
       resetWrite();
       setPendingTxType(null);
       pendingTxTypeRef.current = null;
     }
-  }, [address, parsedApprovalAmount, writeContract, showMineResult, resetWrite]);
+  }, [address, parsedApprovalAmount, writeContract, showMineResult, resetWrite, refetchAllowance]);
 
   const handleMine = useCallback(async () => {
     if (!slot0 || !price) return;
@@ -1035,6 +1105,13 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     const avg = validAmounts.reduce((sum, a) => sum + a, 0) / validAmounts.length;
     return Math.floor(avg).toLocaleString();
   }, [recentMiners]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      approvalPollingRef.current = false;
+    };
+  }, []);
 
   return (
     <div className="flex flex-col h-full -mx-2 overflow-hidden">
