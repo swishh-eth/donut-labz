@@ -1233,7 +1233,10 @@ export default function FlappyDonutPage() {
         * { -webkit-tap-highlight-color: transparent !important; }
       `}</style>
       
-      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black overflow-hidden" style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+      <div 
+        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black overflow-hidden px-2"
+        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
         {/* Use the shared Header component */}
         <Header 
           title="FLAPPY DONUT" 
@@ -1241,7 +1244,7 @@ export default function FlappyDonutPage() {
         />
         
         {/* Game Canvas - Full remaining space with gradient fade from header */}
-        <div className="flex-1 flex flex-col relative overflow-hidden">
+        <div className="flex-1 flex flex-col relative overflow-hidden -mx-2">
           {/* Gradient fade from header into game */}
           <div 
             className="absolute top-0 left-0 right-0 h-8 z-10 pointer-events-none"

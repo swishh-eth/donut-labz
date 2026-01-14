@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, memo, useCallback } from "react";
+import { useEffect, useState, useRef, memo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Trophy, HelpCircle, Volume2, VolumeX } from "lucide-react";
 
@@ -183,7 +183,7 @@ export function Header({ title, user }: HeaderProps) {
           animation: headerFadeOut 0.25s ease-in forwards;
         }
       `}</style>
-      <div className="flex items-center justify-between mb-4 h-12 px-2">
+      <div className="flex items-center justify-between mb-4 h-12">
         <h1 
           className={`text-2xl font-bold tracking-wide ${
             animationState === "fading-out" ? "header-fade-out" : "header-fade-in"
