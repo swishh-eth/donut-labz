@@ -174,11 +174,11 @@ async function fetchWeeklyRevenue(): Promise<{
   // This is a reasonable estimate based on the govern page screenshot
   // Revenue varies week to week based on mining activity
   return {
-    totalWeeklyRevenueUsd: 41000, // ~$53k/week observed
+    totalWeeklyRevenueUsd: 39500, // ~$53k/week observed
     breakdown: {
-      donut: 27951,    // ~67%
-      donutEthLp: 1971, // ~4%
-      usdc: 9534,      // ~21%
+      donut: 25675,    // ~65%
+      donutEthLp: 2015, // ~4%
+      usdc: 9638,      // ~21%
       qr: 1085,         // ~3%
     },
   };
