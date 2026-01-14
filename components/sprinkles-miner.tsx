@@ -185,7 +185,6 @@ const calculatePrice = (initPrice: bigint, startTime: number): bigint => {
 };
 
 const formatTimeAgo = (timestamp: number): string => {
-  // Handle both seconds and milliseconds timestamps
   const timestampInSeconds = timestamp > 10000000000 ? Math.floor(timestamp / 1000) : timestamp;
   const now = Math.floor(Date.now() / 1000);
   const diff = now - timestampInSeconds;
@@ -208,7 +207,6 @@ function MatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: numbe
   const [isAnimating, setIsAnimating] = useState(false);
   const hasAnimatedRef = useRef(false);
   
-  // Don't animate punctuation, letter suffixes, or spaces
   const isNonNumeric = char === '.' || char === ',' || char === '-' || char === '+' || char === '$' || char === '≈' || char === 'K' || char === 'M' || char === 'h' || char === 'm' || char === 's' || char === 'd' || char === ' ';
   
   useEffect(() => {
@@ -218,14 +216,12 @@ function MatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: numbe
       return;
     }
     
-    // If already animated, just show the char (live updates)
     if (hasAnimatedRef.current) {
       setDisplayChar(char);
       setIsAnimating(false);
       return;
     }
     
-    // Wait for ready signal
     if (!isReady) return;
     
     hasAnimatedRef.current = true;
@@ -252,9 +248,7 @@ function MatrixDigit({ char, delay = 0, isReady }: { char: string; delay?: numbe
   }, [char, delay, isReady, isNonNumeric]);
   
   return (
-    <span 
-      className={`transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}
-    >
+    <span className={`transition-colors duration-100 ${isAnimating ? 'text-green-400/70' : ''}`}>
       {displayChar}
     </span>
   );
@@ -399,7 +393,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       }
     };
     fetchPrices();
-    const interval = setInterval(fetchPrices, 30_000); // Refresh every 30 seconds
+    const interval = setInterval(fetchPrices, 30_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -428,7 +422,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       setEthUsdPrice(price);
     };
     fetchPrice();
-    const interval = setInterval(fetchPrice, 30_000); // Refresh every 30 seconds
+    const interval = setInterval(fetchPrice, 30_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -475,7 +469,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Fetch recent miners - refresh every 5 seconds for more real-time updates
   useEffect(() => {
     const fetchRecentMiners = async () => {
       try {
@@ -490,7 +483,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     };
 
     fetchRecentMiners();
-    const interval = setInterval(fetchRecentMiners, 5_000); // Refresh every 5 seconds
+    const interval = setInterval(fetchRecentMiners, 5_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -513,7 +506,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         "getSlot0"
       );
     },
-    refetchInterval: 5_000, // Refresh every 5 seconds
+    refetchInterval: 5_000,
     staleTime: 3_000,
   });
 
@@ -526,7 +519,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         "getPrice"
       );
     },
-    refetchInterval: 10_000, // Refresh every 10 seconds
+    refetchInterval: 10_000,
     staleTime: 5_000,
   });
 
@@ -539,7 +532,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         "getDps"
       );
     },
-    refetchInterval: 15_000, // Refresh every 15 seconds
+    refetchInterval: 15_000,
     staleTime: 10_000,
   });
 
@@ -554,7 +547,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         [address]
       );
     },
-    refetchInterval: 15_000, // Refresh every 15 seconds
+    refetchInterval: 15_000,
     staleTime: 10_000,
     enabled: !!address,
   });
@@ -570,7 +563,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         [address, SPRINKLES_MINER_ADDRESS]
       );
     },
-    refetchInterval: 15_000, // Refresh every 15 seconds
+    refetchInterval: 15_000,
     staleTime: 10_000,
     enabled: !!address,
   });
@@ -624,7 +617,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     const txType = pendingTxTypeRef.current;
     
     if (receipt.status === "success" || receipt.status === "reverted") {
-      // Stop any approval polling since we got a receipt
       approvalPollingRef.current = false;
       
       showMineResult(receipt.status === "success" ? "success" : "failure");
@@ -691,7 +683,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           }
         };
 
-        // Fixed: Send correct field names (removed imageUrl since feature is deprecated)
         (async () => {
           try {
             const result = await fetchWithRetry("/api/record-glaze", {
@@ -708,7 +699,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           }
         })();
         
-        // Refresh recent miners after 2 seconds
         setTimeout(async () => {
           try {
             const res = await fetch('/api/miners/recent?type=sprinkles&limit=10');
@@ -737,7 +727,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         sdk.haptics.impactOccurred("light").catch(() => {});
       }).catch(() => {});
       
-      // Refresh recent miners immediately when miner changes
       setTimeout(async () => {
         try {
           const res = await fetch('/api/miners/recent?type=sprinkles&limit=10');
@@ -793,8 +782,9 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     setPendingTxType("approve");
     pendingTxTypeRef.current = "approve";
     
-    // Store the target approval amount for polling
-    const targetApproval = parsedApprovalAmount;
+    // Store as string to avoid closure/reference issues with bigints
+    const targetApprovalStr = parsedApprovalAmount.toString();
+    const userAddress = address;
     
     try {
       await writeContract({
@@ -831,10 +821,15 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             DONUT_ADDRESS,
             DONUT_ABI,
             "allowance",
-            [address, SPRINKLES_MINER_ADDRESS]
+            [userAddress, SPRINKLES_MINER_ADDRESS]
           );
           
+          // Convert back to BigInt inside the function to avoid closure issues
+          const targetApproval = BigInt(targetApprovalStr);
+          
           console.log(`Polling allowance (attempt ${attempts + 1}):`, newAllowance.toString());
+          console.log('Target approval:', targetApproval.toString());
+          console.log('Comparison:', newAllowance, '>=', targetApproval, '=', newAllowance >= targetApproval);
           
           if (newAllowance >= targetApproval) {
             // Approval detected!
@@ -1096,7 +1091,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     const validAmounts = recentMiners
       .map(m => {
         if (!m.amount) return NaN;
-        // Remove commas if present
         const cleanAmount = m.amount.toString().replace(/,/g, '');
         return parseFloat(cleanAmount);
       })
@@ -1140,10 +1134,8 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         }}
       >
         <div className="relative h-[240px] overflow-hidden bg-black">
-          {/* Falling sprinkles coins background */}
           <FallingSprinklesCoins />
           
-          {/* Top fade */}
           <div 
             className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-10"
             style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
@@ -1179,7 +1171,6 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             </div>
           </div>
           
-          {/* Bottom fade */}
           <div 
             className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-10"
             style={{ background: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
