@@ -124,6 +124,7 @@ function getTimeUntilReset(): string {
 export default function FlappyDonutPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number | null>(null);
+  const menuAnimationRef = useRef<number | null>(null);
   const { address } = useAccount();
   
   const [context, setContext] = useState<MiniAppContext | null>(null);
@@ -1095,27 +1096,46 @@ export default function FlappyDonutPage() {
     catch { try { await navigator.clipboard.writeText(castText + "\n\n" + miniappUrl); alert("Copied!"); } catch {} }
   }, [score, prizePool]);
   
+  // Menu/gameover animation loop using requestAnimationFrame for smooth 60fps
   useEffect(() => {
     if (gameState === "playing") return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
+    
     if (bgParticlesRef.current.length === 0) {
-      for (let i = 0; i < 30; i++) { bgParticlesRef.current.push({ x: Math.random() * CANVAS_WIDTH, y: Math.random() * CANVAS_HEIGHT, size: 1 + Math.random() * 2, speed: 0.3 + Math.random() * 0.5, alpha: 0.05 + Math.random() * 0.15 }); }
+      for (let i = 0; i < 30; i++) { 
+        bgParticlesRef.current.push({ 
+          x: Math.random() * CANVAS_WIDTH, 
+          y: Math.random() * CANVAS_HEIGHT, 
+          size: 1 + Math.random() * 2, 
+          speed: 0.3 + Math.random() * 0.5, 
+          alpha: 0.05 + Math.random() * 0.15 
+        }); 
+      }
     }
+    
     const menuPlayerY = CANVAS_HEIGHT / 2 - 40;
-    const draw = () => {
+    let menuFrameCount = 0;
+    
+    const drawMenu = () => {
       ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
+      menuFrameCount++;
+      frameCountRef.current = menuFrameCount;
+      
       drawBackground(ctx, 0.5);
       drawCityscape(ctx, 0.5);
-      const floatOffset = Math.sin(Date.now() / 500) * 6;
+      
+      const floatOffset = Math.sin(menuFrameCount * 0.05) * 6;
       drawPlayer(ctx, menuPlayerY + floatOffset, 0, PLAYER_SIZE, false);
+      
       ctx.fillStyle = "#FFFFFF";
       ctx.font = "bold 28px monospace";
       ctx.textAlign = "center";
       ctx.fillText("FLAPPY DONUT", CANVAS_WIDTH / 2, 60);
+      
       if (gameState === "countdown") {
-        const scale = 1 + Math.sin(Date.now() / 100) * 0.08;
+        const scale = 1 + Math.sin(menuFrameCount * 0.15) * 0.08;
         ctx.save();
         ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
         ctx.scale(scale, scale);
@@ -1130,6 +1150,7 @@ export default function FlappyDonutPage() {
         ctx.font = "bold 16px monospace";
         ctx.fillText("GET READY!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 120);
       }
+      
       if (gameState === "gameover") {
         ctx.fillStyle = "#FF6B6B";
         ctx.font = "bold 24px monospace";
@@ -1144,12 +1165,17 @@ export default function FlappyDonutPage() {
         ctx.font = "14px monospace";
         ctx.fillText(`Best: ${Math.max(score, highScore)}`, CANVAS_WIDTH / 2, 180);
       }
+      
+      menuAnimationRef.current = requestAnimationFrame(drawMenu);
     };
-    draw();
-    if (gameState === "menu" || gameState === "gameover" || gameState === "countdown") {
-      const interval = setInterval(draw, 50);
-      return () => clearInterval(interval);
-    }
+    
+    menuAnimationRef.current = requestAnimationFrame(drawMenu);
+    
+    return () => {
+      if (menuAnimationRef.current) {
+        cancelAnimationFrame(menuAnimationRef.current);
+      }
+    };
   }, [gameState, score, highScore, drawBackground, drawCityscape, drawPlayer]);
   
   useEffect(() => {
@@ -1169,20 +1195,10 @@ export default function FlappyDonutPage() {
       `}</style>
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black overflow-hidden" style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-        {/* Game Header with integrated buttons */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800/50">
-          <h1 className="text-lg font-bold text-white tracking-wide">FLAPPY DONUT</h1>
+        {/* Game Header - matching Header component size (h-12, text-2xl, mb-4) */}
+        <div className="flex items-center justify-between px-2 mb-4 h-12">
+          <h1 className="text-2xl font-bold tracking-wide">FLAPPY DONUT</h1>
           <div className="flex items-center gap-1.5">
-            {/* Prize Pool Button */}
-            <button
-              onClick={() => setShowLeaderboard(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-green-600/20 to-green-500/10 border border-green-500/30 rounded-lg hover:border-green-400/50 transition-all"
-            >
-              <Trophy className="w-3.5 h-3.5 text-green-400" />
-              <span className="text-sm font-bold text-green-400">${prizePool}</span>
-              <UsdcCoin className="w-3.5 h-3.5" />
-            </button>
-            
             {/* How to Play Button */}
             <button
               onClick={() => setShowHelp(true)}
@@ -1201,8 +1217,14 @@ export default function FlappyDonutPage() {
           </div>
         </div>
         
-        {/* Game Canvas - Full remaining space */}
+        {/* Game Canvas - Full remaining space with gradient fade from header */}
         <div className="flex-1 flex flex-col relative overflow-hidden">
+          {/* Gradient fade from header into game */}
+          <div 
+            className="absolute top-0 left-0 right-0 h-8 z-10 pointer-events-none"
+            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
+          />
+          
           <div className="flex-1 relative">
             {gameState === "playing" && (
               <div
@@ -1219,10 +1241,20 @@ export default function FlappyDonutPage() {
               style={{ touchAction: "none" }}
             />
             
-            {/* Overlaid Controls */}
+            {/* Overlaid Controls - moved up to center */}
             {(gameState === "menu" || gameState === "gameover") && (
-              <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 pb-6 pointer-events-none z-20 bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-20">
-                <div className="pointer-events-auto flex flex-col items-center gap-3">
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20">
+                <div className="pointer-events-auto flex flex-col items-center gap-3 mt-16">
+                  {/* Prize Pool Button on canvas */}
+                  <button
+                    onClick={() => setShowLeaderboard(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600/30 to-green-500/20 border border-green-500/40 rounded-xl hover:border-green-400/60 transition-all shadow-lg shadow-green-500/10"
+                  >
+                    <Trophy className="w-4 h-4 text-green-400" />
+                    <span className="text-sm font-bold text-green-400">${prizePool} PRIZE POOL</span>
+                    <UsdcCoin className="w-4 h-4" />
+                  </button>
+                  
                   {gameState === "gameover" && score > 0 && (
                     <button onClick={handleShare} className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white text-sm font-bold rounded-xl hover:bg-purple-500 border border-purple-400/30 shadow-lg shadow-purple-500/20">
                       <Share2 className="w-4 h-4" /><span>Share Score</span>
@@ -1246,8 +1278,8 @@ export default function FlappyDonutPage() {
                   
                   {/* Info row */}
                   <div className="flex items-center gap-3 text-xs">
-                    <span className="text-zinc-500 bg-zinc-900/80 px-2 py-1 rounded-full">Gas Only (~$0.001)</span>
-                    <span className="text-zinc-500 bg-zinc-900/80 px-2 py-1 rounded-full flex items-center gap-1">
+                    <span className="text-zinc-400 bg-zinc-900/80 px-3 py-1.5 rounded-full border border-zinc-700/50">Gas Only (~$0.001)</span>
+                    <span className="text-zinc-400 bg-zinc-900/80 px-3 py-1.5 rounded-full border border-zinc-700/50 flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       {resetCountdown}
                     </span>
