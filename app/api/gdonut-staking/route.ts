@@ -97,9 +97,9 @@ async function fetchStrategyAprs(): Promise<{
   
   // Fallback APRs based on observed GlazeCorp data
   return {
-    donutApr: 244,
+    donutApr: 247,
     donutEthLpApr: 332,
-    usdcApr: 204,
+    usdcApr: 198,
     qrApr: 273,
   };
 }
