@@ -1195,24 +1195,31 @@ export default function FlappyDonutPage() {
       `}</style>
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black overflow-hidden" style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-        {/* Game Header - matching Header component size (h-12, text-2xl, mb-4) */}
-        <div className="flex items-center justify-between px-2 mb-4 h-12">
-          <h1 className="text-2xl font-bold tracking-wide">FLAPPY DONUT</h1>
+        {/* Game Header - no text, just buttons on the right, slightly taller */}
+        <div className="flex items-center justify-end px-2 h-14">
           <div className="flex items-center gap-1.5">
+            {/* Leaderboard Button */}
+            <button
+              onClick={() => setShowLeaderboard(true)}
+              className="p-2 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-600 transition-all"
+            >
+              <Trophy className="w-5 h-5 text-zinc-400" />
+            </button>
+            
             {/* How to Play Button */}
             <button
               onClick={() => setShowHelp(true)}
-              className="p-1.5 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-600 transition-all"
+              className="p-2 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-600 transition-all"
             >
-              <HelpCircle className="w-4 h-4 text-zinc-400" />
+              <HelpCircle className="w-5 h-5 text-zinc-400" />
             </button>
             
             {/* Sound Toggle Button */}
             <button
               onClick={() => setIsMuted(!isMuted)}
-              className={`p-1.5 rounded-lg border bg-zinc-900 hover:bg-zinc-800 transition-all ${isMuted ? 'border-red-500/50 hover:border-red-400/50' : 'border-zinc-700 hover:border-zinc-600'}`}
+              className={`p-2 rounded-lg border bg-zinc-900 hover:bg-zinc-800 transition-all ${isMuted ? 'border-red-500/50 hover:border-red-400/50' : 'border-zinc-700 hover:border-zinc-600'}`}
             >
-              {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-zinc-400" />}
+              {isMuted ? <VolumeX className="w-5 h-5 text-red-400" /> : <Volume2 className="w-5 h-5 text-zinc-400" />}
             </button>
           </div>
         </div>
@@ -1241,20 +1248,10 @@ export default function FlappyDonutPage() {
               style={{ touchAction: "none" }}
             />
             
-            {/* Overlaid Controls - moved up to center */}
+            {/* Overlaid Controls - centered */}
             {(gameState === "menu" || gameState === "gameover") && (
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20">
-                <div className="pointer-events-auto flex flex-col items-center gap-3 mt-16">
-                  {/* Prize Pool Button on canvas */}
-                  <button
-                    onClick={() => setShowLeaderboard(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600/30 to-green-500/20 border border-green-500/40 rounded-xl hover:border-green-400/60 transition-all shadow-lg shadow-green-500/10"
-                  >
-                    <Trophy className="w-4 h-4 text-green-400" />
-                    <span className="text-sm font-bold text-green-400">${prizePool} PRIZE POOL</span>
-                    <UsdcCoin className="w-4 h-4" />
-                  </button>
-                  
+                <div className="pointer-events-auto flex flex-col items-center gap-3 mt-8">
                   {gameState === "gameover" && score > 0 && (
                     <button onClick={handleShare} className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white text-sm font-bold rounded-xl hover:bg-purple-500 border border-purple-400/30 shadow-lg shadow-purple-500/20">
                       <Share2 className="w-4 h-4" /><span>Share Score</span>
@@ -1276,14 +1273,15 @@ export default function FlappyDonutPage() {
                     )}
                   </button>
                   
-                  {/* Info row */}
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className="text-zinc-400 bg-zinc-900/80 px-3 py-1.5 rounded-full border border-zinc-700/50">Gas Only (~$0.001)</span>
-                    <span className="text-zinc-400 bg-zinc-900/80 px-3 py-1.5 rounded-full border border-zinc-700/50 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {resetCountdown}
-                    </span>
-                  </div>
+                  {/* Prize Pool Button - below play button */}
+                  <button
+                    onClick={() => setShowLeaderboard(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600/30 to-green-500/20 border border-green-500/40 rounded-xl hover:border-green-400/60 transition-all shadow-lg shadow-green-500/10"
+                  >
+                    <Trophy className="w-4 h-4 text-green-400" />
+                    <span className="text-sm font-bold text-green-400">${prizePool} PRIZE POOL</span>
+                    <UsdcCoin className="w-4 h-4" />
+                  </button>
                   
                   <p className="text-zinc-600 text-[10px]">Games this week: {gamesPlayedThisWeek}</p>
                 </div>
@@ -1312,11 +1310,16 @@ export default function FlappyDonutPage() {
                   Weekly Leaderboard
                 </h2>
               </div>
+              {/* Prize Pool and Reset Time row */}
               <div className="px-4 py-2 flex items-center justify-between border-b border-zinc-800 flex-shrink-0">
-                <span className="text-xs text-gray-400">Prize Pool</span>
                 <div className="flex items-center gap-1">
+                  <span className="text-xs text-gray-400">Prize Pool:</span>
                   <span className="text-sm font-bold text-green-400">${prizePool}</span>
                   <UsdcCoin className="w-4 h-4" />
+                </div>
+                <div className="flex items-center gap-1 text-xs text-gray-400">
+                  <Clock className="w-3 h-3" />
+                  <span>Resets in <span className="text-white font-medium">{resetCountdown}</span></span>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', maxHeight: '50vh' }}>
