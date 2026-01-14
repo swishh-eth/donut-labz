@@ -357,6 +357,7 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
   const [scrollFade, setScrollFade] = useState({ top: 0, bottom: 1 });
   const [recentMiners, setRecentMiners] = useState<RecentMiner[]>([]);
   const approvalPollingRef = useRef<boolean>(false);
+  const [approvalJustSucceeded, setApprovalJustSucceeded] = useState(false);
 
   const resetMineResult = useCallback(() => {
     if (mineResultTimeoutRef.current) {
@@ -632,10 +633,12 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
       refetchAllowance();
       
       if (receipt.status === "success" && txType === "approve") {
+        setApprovalJustSucceeded(true);
         setIsApprovalMode(false);
         setApprovalAmount("");
         setTimeout(() => {
           refetchAllowance();
+          setTimeout(() => setApprovalJustSucceeded(false), 2000);
         }, 1000);
       }
       
@@ -764,9 +767,11 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     : { user: null };
 
   const needsApproval = useMemo(() => {
+    // If we just successfully approved, don't show approval mode
+    if (approvalJustSucceeded) return false;
     if (!price || !donutAllowance) return true;
     return (donutAllowance as bigint) < price;
-  }, [price, donutAllowance]);
+  }, [price, donutAllowance, approvalJustSucceeded]);
 
   const parsedApprovalAmount = useMemo(() => {
     if (!approvalAmount || approvalAmount === "") return 0n;
@@ -831,18 +836,22 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
           console.log('Approval detected via polling!');
           approvalPollingRef.current = false;
           
-          // IMPORTANT: Wait for allowance query to update BEFORE changing UI state
-          await refetchAllowance();
+          // Set flag FIRST to prevent flash back to approve mode
+          setApprovalJustSucceeded(true);
           
-          // Small delay to ensure React Query cache is updated
-          await new Promise(r => setTimeout(r, 100));
-          
+          // Then update other state
           setIsApprovalMode(false);
           setApprovalAmount("");
           showMineResult("success");
           resetWrite();
           setPendingTxType(null);
           pendingTxTypeRef.current = null;
+          
+          // Refetch allowance in background
+          refetchAllowance().then(() => {
+            // Clear the flag after allowance query has definitely updated
+            setTimeout(() => setApprovalJustSucceeded(false), 3000);
+          });
           
           // Trigger haptic feedback
           import("@farcaster/miniapp-sdk").then(({ sdk }) => {
