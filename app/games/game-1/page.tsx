@@ -1129,10 +1129,7 @@ export default function FlappyDonutPage() {
       const floatOffset = Math.sin(menuFrameCount * 0.05) * 6;
       drawPlayer(ctx, menuPlayerY + floatOffset, 0, PLAYER_SIZE, false);
       
-      ctx.fillStyle = "#FFFFFF";
-      ctx.font = "bold 28px monospace";
-      ctx.textAlign = "center";
-      ctx.fillText("FLAPPY DONUT", CANVAS_WIDTH / 2, 60);
+      // No big title text on canvas anymore
       
       if (gameState === "countdown") {
         const scale = 1 + Math.sin(menuFrameCount * 0.15) * 0.08;
@@ -1148,12 +1145,14 @@ export default function FlappyDonutPage() {
         ctx.restore();
         ctx.fillStyle = "#FFFFFF";
         ctx.font = "bold 16px monospace";
+        ctx.textAlign = "center";
         ctx.fillText("GET READY!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 120);
       }
       
       if (gameState === "gameover") {
         ctx.fillStyle = "#FF6B6B";
         ctx.font = "bold 24px monospace";
+        ctx.textAlign = "center";
         ctx.fillText("GAME OVER", CANVAS_WIDTH / 2, 100);
         ctx.shadowColor = "#FFFFFF";
         ctx.shadowBlur = 20;
@@ -1195,8 +1194,9 @@ export default function FlappyDonutPage() {
       `}</style>
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black overflow-hidden" style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-        {/* Game Header - no text, just buttons on the right, slightly taller */}
-        <div className="flex items-center justify-end px-2 h-14">
+        {/* Game Header - with title text and buttons */}
+        <div className="flex items-center justify-between px-2 h-14">
+          <h1 className="text-2xl font-bold tracking-wide">FLAPPY DONUT</h1>
           <div className="flex items-center gap-1.5">
             {/* Leaderboard Button */}
             <button
@@ -1283,7 +1283,7 @@ export default function FlappyDonutPage() {
                     <UsdcCoin className="w-4 h-4" />
                   </button>
                   
-                  <p className="text-zinc-600 text-[10px]">Games this week: {gamesPlayedThisWeek}</p>
+                  <p className="text-zinc-500 text-[10px]">Free to play, gas cost only!</p>
                 </div>
               </div>
             )}
