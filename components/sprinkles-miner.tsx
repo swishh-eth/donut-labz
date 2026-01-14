@@ -835,10 +835,16 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
             // Approval detected!
             console.log('Approval detected via polling!');
             approvalPollingRef.current = false;
+            
+            // IMPORTANT: Wait for allowance query to update BEFORE changing UI state
+            await refetchAllowance();
+            
+            // Small delay to ensure React Query cache is updated
+            await new Promise(r => setTimeout(r, 100));
+            
             setIsApprovalMode(false);
             setApprovalAmount("");
             showMineResult("success");
-            refetchAllowance();
             resetWrite();
             setPendingTxType(null);
             pendingTxTypeRef.current = null;
