@@ -48,7 +48,7 @@ const PIPE_SPEED_START = 1.8;
 const PIPE_SPEED_MAX = 3.8;
 const PIPE_SPAWN_DISTANCE = 260;
 
-// Player - moved slightly right to avoid edge clipping
+// Player
 const PLAYER_SIZE = 36;
 const PLAYER_X = 90;
 
@@ -277,7 +277,6 @@ export default function FlappyDonutPage() {
     }, 0);
   }, [isMuted]);
   
-  // Fixed: Added setTimeout wrapper to prevent synchronous blocking
   const playPowerUpSound = useCallback(() => {
     if (isMuted || !audioInitializedRef.current) return;
     setTimeout(() => {
@@ -938,7 +937,7 @@ export default function FlappyDonutPage() {
     ctx.textAlign = "center";
     ctx.fillText(scoreRef.current.toString(), CANVAS_WIDTH / 2, 70);
     
-    // Power-up indicators - moved right to avoid clipping
+    // Power-up indicators
     if (hasShieldRef.current) {
       ctx.fillStyle = '#64C8FF';
       ctx.font = 'bold 12px monospace';
@@ -1230,81 +1229,81 @@ export default function FlappyDonutPage() {
       `}</style>
       
       <div 
-        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black overflow-hidden px-2"
-        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black overflow-hidden"
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
-        {/* Use the shared Header component */}
-        <Header 
-          title="FLAPPY DONUT" 
-          user={context?.user}
-        />
+        {/* Header with padding */}
+        <div className="flex-shrink-0 px-2 pt-2">
+          <Header 
+            title="FLAPPY DONUT" 
+            user={context?.user}
+          />
+        </div>
         
-        {/* Game Canvas - Full remaining space */}
-        <div className="flex-1 flex flex-col relative overflow-hidden rounded-lg">
+        {/* Game Canvas - Full width edge to edge, fills remaining space */}
+        <div className="flex-1 relative overflow-hidden">
           {/* Gradient fade from header into game */}
           <div 
             className="absolute top-0 left-0 right-0 h-8 z-10 pointer-events-none"
             style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
           />
           
-          <div className="flex-1 relative">
-            {gameState === "playing" && (
-              <div
-                className="absolute inset-0 z-10 cursor-pointer"
-                onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); handleFlap(); }}
-                style={{ touchAction: "none", WebkitTapHighlightColor: "transparent" }}
-              />
-            )}
-            <canvas
-              ref={canvasRef}
-              width={SCALED_WIDTH}
-              height={SCALED_HEIGHT}
-              className="w-full h-full object-contain select-none"
-              style={{ touchAction: "none" }}
+          {gameState === "playing" && (
+            <div
+              className="absolute inset-0 z-10 cursor-pointer"
+              onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); handleFlap(); }}
+              style={{ touchAction: "none", WebkitTapHighlightColor: "transparent" }}
             />
-            
-            {/* Overlaid Controls - centered */}
-            {(gameState === "menu" || gameState === "gameover") && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20">
-                <div className="pointer-events-auto flex flex-col items-center gap-3 mt-8">
-                  {gameState === "gameover" && score > 0 && (
-                    <button onClick={handleShare} className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white text-sm font-bold rounded-xl hover:bg-purple-500 border border-purple-400/30 shadow-lg shadow-purple-500/20">
-                      <Share2 className="w-4 h-4" /><span>Share Score</span>
-                    </button>
+          )}
+          <canvas
+            ref={canvasRef}
+            width={SCALED_WIDTH}
+            height={SCALED_HEIGHT}
+            className="absolute inset-0 w-full h-full object-cover select-none"
+            style={{ touchAction: "none" }}
+          />
+          
+          {/* Overlaid Controls - centered */}
+          {(gameState === "menu" || gameState === "gameover") && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20">
+              <div className="pointer-events-auto flex flex-col items-center gap-3 mt-8">
+                {gameState === "gameover" && score > 0 && (
+                  <button onClick={handleShare} className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white text-sm font-bold rounded-xl hover:bg-purple-500 border border-purple-400/30 shadow-lg shadow-purple-500/20">
+                    <Share2 className="w-4 h-4" /><span>Share Score</span>
+                  </button>
+                )}
+                
+                {errorMessage && <p className="text-red-400 text-xs bg-red-500/10 px-3 py-1 rounded-full">{errorMessage}</p>}
+                
+                {/* Main Play Button - White */}
+                <button 
+                  onClick={handlePlay} 
+                  disabled={isPlayPending}
+                  className="flex items-center gap-3 px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-white/20 transition-all"
+                >
+                  {isPlayPending ? (
+                    <><div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-base">Confirming...</span></>
+                  ) : (
+                    <><Play className="w-5 h-5 fill-current" /><span className="text-base">{gameState === "gameover" ? "PLAY AGAIN" : "PLAY"}</span></>
                   )}
-                  
-                  {errorMessage && <p className="text-red-400 text-xs bg-red-500/10 px-3 py-1 rounded-full">{errorMessage}</p>}
-                  
-                  {/* Main Play Button - White */}
-                  <button 
-                    onClick={handlePlay} 
-                    disabled={isPlayPending}
-                    className="flex items-center gap-3 px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-white/20 transition-all"
-                  >
-                    {isPlayPending ? (
-                      <><div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-base">Confirming...</span></>
-                    ) : (
-                      <><Play className="w-5 h-5 fill-current" /><span className="text-base">{gameState === "gameover" ? "PLAY AGAIN" : "PLAY"}</span></>
-                    )}
-                  </button>
-                  
-                  {/* Prize Pool Button - below play button */}
-                  <button
-                    onClick={handleOpenLeaderboard}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600/30 to-green-500/20 border border-green-500/40 rounded-xl hover:border-green-400/60 transition-all shadow-lg shadow-green-500/10"
-                  >
-                    <Trophy className="w-4 h-4 text-green-400" />
-                    <span className="text-sm font-bold text-green-400">${prizePool} PRIZE POOL</span>
-                    <UsdcCoin className="w-4 h-4" />
-                  </button>
-                  
-                  <p className="text-zinc-500 text-[10px]">Free to play, gas cost only!</p>
-                </div>
+                </button>
+                
+                {/* Prize Pool Button - below play button */}
+                <button
+                  onClick={handleOpenLeaderboard}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600/30 to-green-500/20 border border-green-500/40 rounded-xl hover:border-green-400/60 transition-all shadow-lg shadow-green-500/10"
+                >
+                  <Trophy className="w-4 h-4 text-green-400" />
+                  <span className="text-sm font-bold text-green-400">${prizePool} PRIZE POOL</span>
+                  <UsdcCoin className="w-4 h-4" />
+                </button>
+                
+                <p className="text-zinc-500 text-[10px]">Free to play, gas cost only!</p>
               </div>
-            )}
-            
-            {gameState === "playing" && <div className="absolute bottom-4 left-0 right-0 text-center pointer-events-none z-20"><p className="text-zinc-500 text-xs bg-black/50 inline-block px-3 py-1 rounded-full">Tap to flap</p></div>}
-          </div>
+            </div>
+          )}
+          
+          {gameState === "playing" && <div className="absolute bottom-4 left-0 right-0 text-center pointer-events-none z-20"><p className="text-zinc-500 text-xs bg-black/50 inline-block px-3 py-1 rounded-full">Tap to flap</p></div>}
         </div>
         
         <NavBar />
