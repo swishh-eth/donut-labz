@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { NavBar } from "@/components/nav-bar";
-import { Header } from "@/components/header";
 import { Trophy, Play, Share2, X, HelpCircle, Volume2, VolumeX, Clock } from "lucide-react";
 
 // Free Arcade Contract
@@ -1169,40 +1168,40 @@ export default function FlappyDonutPage() {
         * { -webkit-tap-highlight-color: transparent !important; }
       `}</style>
       
-      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-        {/* Header */}
-        <Header title="FLAPPY DONUT" user={context?.user} />
-        
-        {/* Icon Bar - FarLeague style */}
-        <div className="flex items-center justify-end gap-1 px-3 py-2 border-b border-zinc-800/50">
-          {/* Prize Pool Button */}
-          <button
-            onClick={() => setShowLeaderboard(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600/20 to-green-500/10 border border-green-500/30 rounded-lg hover:border-green-400/50 transition-all"
-          >
-            <Trophy className="w-4 h-4 text-green-400" />
-            <span className="text-sm font-bold text-green-400">${prizePool}</span>
-            <UsdcCoin className="w-4 h-4" />
-          </button>
-          
-          {/* How to Play Button */}
-          <button
-            onClick={() => setShowHelp(true)}
-            className="p-2 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-600 transition-all"
-          >
-            <HelpCircle className="w-5 h-5 text-zinc-400" />
-          </button>
-          
-          {/* Sound Toggle Button */}
-          <button
-            onClick={() => setIsMuted(!isMuted)}
-            className={`p-2 rounded-lg border bg-zinc-900 hover:bg-zinc-800 transition-all ${isMuted ? 'border-red-500/50 hover:border-red-400/50' : 'border-zinc-700 hover:border-zinc-600'}`}
-          >
-            {isMuted ? <VolumeX className="w-5 h-5 text-red-400" /> : <Volume2 className="w-5 h-5 text-zinc-400" />}
-          </button>
+      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black overflow-hidden" style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+        {/* Game Header with integrated buttons */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800/50">
+          <h1 className="text-lg font-bold text-white tracking-wide">FLAPPY DONUT</h1>
+          <div className="flex items-center gap-1.5">
+            {/* Prize Pool Button */}
+            <button
+              onClick={() => setShowLeaderboard(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-green-600/20 to-green-500/10 border border-green-500/30 rounded-lg hover:border-green-400/50 transition-all"
+            >
+              <Trophy className="w-3.5 h-3.5 text-green-400" />
+              <span className="text-sm font-bold text-green-400">${prizePool}</span>
+              <UsdcCoin className="w-3.5 h-3.5" />
+            </button>
+            
+            {/* How to Play Button */}
+            <button
+              onClick={() => setShowHelp(true)}
+              className="p-1.5 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-600 transition-all"
+            >
+              <HelpCircle className="w-4 h-4 text-zinc-400" />
+            </button>
+            
+            {/* Sound Toggle Button */}
+            <button
+              onClick={() => setIsMuted(!isMuted)}
+              className={`p-1.5 rounded-lg border bg-zinc-900 hover:bg-zinc-800 transition-all ${isMuted ? 'border-red-500/50 hover:border-red-400/50' : 'border-zinc-700 hover:border-zinc-600'}`}
+            >
+              {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-zinc-400" />}
+            </button>
+          </div>
         </div>
         
-        {/* Game Canvas - Full Width */}
+        {/* Game Canvas - Full remaining space */}
         <div className="flex-1 flex flex-col relative overflow-hidden">
           <div className="flex-1 relative">
             {gameState === "playing" && (
@@ -1220,7 +1219,7 @@ export default function FlappyDonutPage() {
               style={{ touchAction: "none" }}
             />
             
-            {/* Overlaid Controls - FarLeague style */}
+            {/* Overlaid Controls */}
             {(gameState === "menu" || gameState === "gameover") && (
               <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 pb-6 pointer-events-none z-20 bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-20">
                 <div className="pointer-events-auto flex flex-col items-center gap-3">
@@ -1232,11 +1231,11 @@ export default function FlappyDonutPage() {
                   
                   {errorMessage && <p className="text-red-400 text-xs bg-red-500/10 px-3 py-1 rounded-full">{errorMessage}</p>}
                   
-                  {/* Main Play Button - Styled like FarLeague */}
+                  {/* Main Play Button - White */}
                   <button 
                     onClick={handlePlay} 
                     disabled={isPlayPending}
-                    className="flex items-center gap-3 px-8 py-3 bg-gradient-to-r from-yellow-500 to-yellow-400 text-black font-bold rounded-xl hover:from-yellow-400 hover:to-yellow-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed border-2 border-yellow-300/50 shadow-lg shadow-yellow-500/30 transition-all"
+                    className="flex items-center gap-3 px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-white/20 transition-all"
                   >
                     {isPlayPending ? (
                       <><div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-base">Confirming...</span></>
