@@ -937,12 +937,15 @@ export default function FlappyDonutPage() {
     ctx.textAlign = "center";
     ctx.fillText(scoreRef.current.toString(), CANVAS_WIDTH / 2, 70);
     
-    // Power-up indicators
+    // Power-up indicators - centered under score
+    let powerUpY = 95;
+    ctx.textAlign = 'center';
+    
     if (hasShieldRef.current) {
       ctx.fillStyle = '#64C8FF';
       ctx.font = 'bold 12px monospace';
-      ctx.textAlign = 'left';
-      ctx.fillText('🛡️ SHIELD', 20, 50);
+      ctx.fillText('🛡️ SHIELD', CANVAS_WIDTH / 2, powerUpY);
+      powerUpY += 18;
     }
     
     if (activePowerUpRef.current) {
@@ -950,15 +953,13 @@ export default function FlappyDonutPage() {
       const color = pu.type === 'widegap' ? '#FF69B4' : '#22C55E';
       ctx.fillStyle = color;
       ctx.font = 'bold 12px monospace';
-      ctx.textAlign = 'left';
       const icon = pu.type === 'widegap' ? '↕ WIDE GAP' : '• TINY';
-      const yPos = hasShieldRef.current ? 70 : 50;
-      ctx.fillText(icon, 20, yPos);
+      ctx.fillText(icon, CANVAS_WIDTH / 2, powerUpY);
       if (pu.endTime) {
         const remaining = Math.max(0, (pu.endTime - now) / 1000);
         ctx.fillStyle = '#888';
         ctx.font = '10px monospace';
-        ctx.fillText(`${remaining.toFixed(1)}s`, 20, yPos + 15);
+        ctx.fillText(`${remaining.toFixed(1)}s`, CANVAS_WIDTH / 2, powerUpY + 14);
       }
     }
     
@@ -1195,9 +1196,7 @@ export default function FlappyDonutPage() {
         ctx.fillStyle = "#FFFFFF";
         ctx.font = "bold 48px monospace";
         ctx.fillText(`${score}`, CANVAS_WIDTH / 2, 150);
-        ctx.fillStyle = "#888888";
-        ctx.font = "14px monospace";
-        ctx.fillText(`Best: ${Math.max(score, highScore)}`, CANVAS_WIDTH / 2, 180);
+        // Removed "Best: X" text
       }
       
       menuAnimationRef.current = requestAnimationFrame(drawMenu);
@@ -1268,7 +1267,7 @@ export default function FlappyDonutPage() {
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20">
               <div className="pointer-events-auto flex flex-col items-center gap-3 mt-8">
                 {gameState === "gameover" && score > 0 && (
-                  <button onClick={handleShare} className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white text-sm font-bold rounded-xl hover:bg-purple-500 border border-purple-400/30 shadow-lg shadow-purple-500/20">
+                  <button onClick={handleShare} className="flex items-center gap-2 px-6 py-2 bg-white text-black text-sm font-bold rounded-xl hover:bg-zinc-200 active:scale-95 shadow-lg transition-all">
                     <Share2 className="w-4 h-4" /><span>Share Score</span>
                   </button>
                 )}
