@@ -786,7 +786,85 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
     const targetApprovalStr = parsedApprovalAmount.toString();
     const userAddress = address;
     
+    // Start polling BEFORE writeContract (for mobile compatibility)
+    approvalPollingRef.current = true;
+    
+    const pollAllowance = async (attempts = 0) => {
+      // Stop if we're no longer polling (receipt came through or component unmounted)
+      if (!approvalPollingRef.current) {
+        console.log('Polling stopped (flag is false)');
+        return;
+      }
+      
+      // Give up after ~60 seconds (20 attempts * 3 seconds)
+      if (attempts > 20) {
+        console.log('Approval polling timed out');
+        approvalPollingRef.current = false;
+        return;
+      }
+      
+      await new Promise(r => setTimeout(r, 3000));
+      
+      // Check if still polling
+      if (!approvalPollingRef.current) {
+        console.log('Polling stopped after wait');
+        return;
+      }
+      
+      try {
+        const newAllowance = await readContractWithAlchemy<bigint>(
+          DONUT_ADDRESS,
+          DONUT_ABI,
+          "allowance",
+          [userAddress, SPRINKLES_MINER_ADDRESS]
+        );
+        
+        // Convert back to BigInt inside the function to avoid closure issues
+        const targetApproval = BigInt(targetApprovalStr);
+        
+        console.log(`Polling allowance (attempt ${attempts + 1}):`, newAllowance.toString());
+        console.log('Target approval:', targetApproval.toString());
+        console.log('Comparison:', newAllowance >= targetApproval);
+        
+        if (newAllowance >= targetApproval) {
+          // Approval detected!
+          console.log('Approval detected via polling!');
+          approvalPollingRef.current = false;
+          
+          // IMPORTANT: Wait for allowance query to update BEFORE changing UI state
+          await refetchAllowance();
+          
+          // Small delay to ensure React Query cache is updated
+          await new Promise(r => setTimeout(r, 100));
+          
+          setIsApprovalMode(false);
+          setApprovalAmount("");
+          showMineResult("success");
+          resetWrite();
+          setPendingTxType(null);
+          pendingTxTypeRef.current = null;
+          
+          // Trigger haptic feedback
+          import("@farcaster/miniapp-sdk").then(({ sdk }) => {
+            sdk.haptics.notificationOccurred("success").catch(() => {});
+          }).catch(() => {});
+        } else {
+          // Keep polling
+          pollAllowance(attempts + 1);
+        }
+      } catch (e) {
+        console.error('Error polling allowance:', e);
+        // Keep trying
+        pollAllowance(attempts + 1);
+      }
+    };
+    
+    // Start polling immediately (don't wait for writeContract)
+    console.log('Starting approval polling...');
+    setTimeout(() => pollAllowance(0), 1000);
+    
     try {
+      console.log('Calling writeContract for approval...');
       await writeContract({
         account: address as Address,
         address: DONUT_ADDRESS,
@@ -795,85 +873,21 @@ export default function SprinklesMiner({ context }: SprinklesMinerProps) {
         args: [SPRINKLES_MINER_ADDRESS, parsedApprovalAmount],
         chainId: base.id,
       });
-      
-      // For smart wallets, receipt detection may not work properly
-      // Poll for allowance change as backup
-      approvalPollingRef.current = true;
-      
-      const pollAllowance = async (attempts = 0) => {
-        // Stop if we're no longer polling (receipt came through or component unmounted)
-        if (!approvalPollingRef.current) return;
-        
-        // Give up after ~45 seconds
-        if (attempts > 15) {
-          console.log('Approval polling timed out');
-          approvalPollingRef.current = false;
-          return;
-        }
-        
-        await new Promise(r => setTimeout(r, 3000));
-        
-        // Check if still polling
-        if (!approvalPollingRef.current) return;
-        
-        try {
-          const newAllowance = await readContractWithAlchemy<bigint>(
-            DONUT_ADDRESS,
-            DONUT_ABI,
-            "allowance",
-            [userAddress, SPRINKLES_MINER_ADDRESS]
-          );
-          
-          // Convert back to BigInt inside the function to avoid closure issues
-          const targetApproval = BigInt(targetApprovalStr);
-          
-          console.log(`Polling allowance (attempt ${attempts + 1}):`, newAllowance.toString());
-          console.log('Target approval:', targetApproval.toString());
-          console.log('Comparison:', newAllowance, '>=', targetApproval, '=', newAllowance >= targetApproval);
-          
-          if (newAllowance >= targetApproval) {
-            // Approval detected!
-            console.log('Approval detected via polling!');
-            approvalPollingRef.current = false;
-            
-            // IMPORTANT: Wait for allowance query to update BEFORE changing UI state
-            await refetchAllowance();
-            
-            // Small delay to ensure React Query cache is updated
-            await new Promise(r => setTimeout(r, 100));
-            
-            setIsApprovalMode(false);
-            setApprovalAmount("");
-            showMineResult("success");
-            resetWrite();
-            setPendingTxType(null);
-            pendingTxTypeRef.current = null;
-            
-            // Trigger haptic feedback
-            import("@farcaster/miniapp-sdk").then(({ sdk }) => {
-              sdk.haptics.notificationOccurred("success").catch(() => {});
-            }).catch(() => {});
-          } else {
-            // Keep polling
-            pollAllowance(attempts + 1);
-          }
-        } catch (e) {
-          console.error('Error polling allowance:', e);
-          // Keep trying
-          pollAllowance(attempts + 1);
-        }
-      };
-      
-      // Start polling after a short delay to give the tx time to confirm
-      setTimeout(() => pollAllowance(0), 2000);
-      
+      console.log('writeContract resolved');
     } catch (error) {
-      console.error("Failed to approve:", error);
-      approvalPollingRef.current = false;
-      showMineResult("failure");
-      resetWrite();
-      setPendingTxType(null);
-      pendingTxTypeRef.current = null;
+      console.error("writeContract error:", error);
+      // Don't stop polling on error - tx might have been submitted
+      // Only stop if it's a user rejection
+      const errorStr = String(error);
+      if (errorStr.includes('rejected') || errorStr.includes('denied') || errorStr.includes('cancelled')) {
+        console.log('User rejected - stopping polling');
+        approvalPollingRef.current = false;
+        showMineResult("failure");
+        resetWrite();
+        setPendingTxType(null);
+        pendingTxTypeRef.current = null;
+      }
+      // Otherwise let polling continue - tx might still go through
     }
   }, [address, parsedApprovalAmount, writeContract, showMineResult, resetWrite, refetchAllowance]);
 
