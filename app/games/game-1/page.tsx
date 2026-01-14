@@ -4,7 +4,9 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { NavBar } from "@/components/nav-bar";
-import { Trophy, Play, Share2, X, HelpCircle, Volume2, VolumeX, Clock } from "lucide-react";
+import { Header } from "@/components/header";
+import { useGameControls } from "@/hooks/use-game-controls";
+import { Trophy, Play, Share2, X, HelpCircle, Clock } from "lucide-react";
 
 // Free Arcade Contract
 const FREE_ARCADE_CONTRACT = "0xa5d1c19187312e0f0741182ad63a378e65d8b43a" as const;
@@ -178,6 +180,27 @@ export default function FlappyDonutPage() {
   // Contract hooks
   const { writeContract, data: txHash, isPending, reset: resetWrite, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
+
+  // Memoized callbacks for game controls
+  const handleOpenLeaderboard = useCallback(() => {
+    setShowLeaderboard(true);
+  }, []);
+
+  const handleOpenHelp = useCallback(() => {
+    setShowHelp(true);
+  }, []);
+
+  const handleToggleMute = useCallback(() => {
+    setIsMuted(prev => !prev);
+  }, []);
+
+  // Register game controls with header
+  useGameControls({
+    onOpenLeaderboard: handleOpenLeaderboard,
+    onOpenHelp: handleOpenHelp,
+    isMuted,
+    onToggleMute: handleToggleMute,
+  });
   
   useEffect(() => {
     if (context?.user?.pfpUrl) {
@@ -1211,35 +1234,11 @@ export default function FlappyDonutPage() {
       `}</style>
       
       <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black overflow-hidden" style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-        {/* Game Header - with title text and buttons */}
-        <div className="flex items-center justify-between px-2 h-14">
-          <h1 className="text-2xl font-bold tracking-wide">FLAPPY DONUT</h1>
-          <div className="flex items-center gap-1.5">
-            {/* Leaderboard Button */}
-            <button
-              onClick={() => setShowLeaderboard(true)}
-              className="p-2 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-600 transition-all"
-            >
-              <Trophy className="w-5 h-5 text-zinc-400" />
-            </button>
-            
-            {/* How to Play Button */}
-            <button
-              onClick={() => setShowHelp(true)}
-              className="p-2 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-600 transition-all"
-            >
-              <HelpCircle className="w-5 h-5 text-zinc-400" />
-            </button>
-            
-            {/* Sound Toggle Button */}
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              className={`p-2 rounded-lg border bg-zinc-900 hover:bg-zinc-800 transition-all ${isMuted ? 'border-red-500/50 hover:border-red-400/50' : 'border-zinc-700 hover:border-zinc-600'}`}
-            >
-              {isMuted ? <VolumeX className="w-5 h-5 text-red-400" /> : <Volume2 className="w-5 h-5 text-zinc-400" />}
-            </button>
-          </div>
-        </div>
+        {/* Use the shared Header component */}
+        <Header 
+          title="FLAPPY DONUT" 
+          user={context?.user}
+        />
         
         {/* Game Canvas - Full remaining space with gradient fade from header */}
         <div className="flex-1 flex flex-col relative overflow-hidden">
@@ -1292,7 +1291,7 @@ export default function FlappyDonutPage() {
                   
                   {/* Prize Pool Button - below play button */}
                   <button
-                    onClick={() => setShowLeaderboard(true)}
+                    onClick={handleOpenLeaderboard}
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600/30 to-green-500/20 border border-green-500/40 rounded-xl hover:border-green-400/60 transition-all shadow-lg shadow-green-500/10"
                   >
                     <Trophy className="w-4 h-4 text-green-400" />
