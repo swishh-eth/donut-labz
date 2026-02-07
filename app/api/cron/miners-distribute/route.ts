@@ -37,7 +37,7 @@ const SPRINKLES_DECIMALS = 18;
 // USDC and SPRINKLES are FIXED amounts
 // DONUT uses the bot wallet's ENTIRE balance (accumulates from 0.5% SPRINKLES miner fee)
 const WEEKLY_DISTRIBUTION = {
-  USDC: 20,           // Fixed USDC to distribute this week
+  USDC: 25,           // Fixed USDC to distribute this week
   SPRINKLES: 100000,  // Fixed SPRINKLES to distribute this week
   // DONUT: uses full wallet balance - not configured here
 };
