@@ -37,7 +37,7 @@ const SPRINKLES_DECIMALS = 18;
 // USDC and SPRINKLES are FIXED amounts
 // DONUT uses the bot wallet's ENTIRE balance (accumulates from 0.5% SPRINKLES miner fee)
 const WEEKLY_DISTRIBUTION = {
-  USDC: 25,           // Fixed USDC to distribute this week
+  USDC: 20,           // Fixed USDC to distribute this week
   SPRINKLES: 100000,  // Fixed SPRINKLES to distribute this week
   // DONUT: uses full wallet balance - not configured here
 };
@@ -306,8 +306,9 @@ async function runDistribution(weekNumber: number, dryRun: boolean) {
     transport: http(ALCHEMY_RPC_URL),
   });
 
-  // Send prizes
+  // Send prizes - WAIT FOR EACH TX TO CONFIRM BEFORE SENDING NEXT
   const errors: { rank: number; token: string; error: string }[] = [];
+  let totalSuccessfulTransfers = 0;
 
   for (const dist of distributions) {
     // Send USDC
@@ -322,9 +323,13 @@ async function runDistribution(weekNumber: number, dryRun: boolean) {
             parseUnits(dist.usdcAmount, USDC_DECIMALS),
           ],
         });
+        
+        // WAIT FOR CONFIRMATION before proceeding
+        await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+        
         dist.txHashes.push(hash);
+        totalSuccessfulTransfers++;
         console.log(`[Miners Distribution] Sent ${dist.usdcAmount} USDC to rank ${dist.rank}: ${hash}`);
-        await new Promise((r) => setTimeout(r, 500));
       } catch (err: any) {
         console.error(`Failed to send USDC to rank ${dist.rank}:`, err);
         errors.push({ rank: dist.rank, token: "USDC", error: err.message });
@@ -343,9 +348,13 @@ async function runDistribution(weekNumber: number, dryRun: boolean) {
             parseUnits(dist.donutAmount, DONUT_DECIMALS),
           ],
         });
+        
+        // WAIT FOR CONFIRMATION before proceeding
+        await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+        
         dist.txHashes.push(hash);
+        totalSuccessfulTransfers++;
         console.log(`[Miners Distribution] Sent ${dist.donutAmount} DONUT to rank ${dist.rank}: ${hash}`);
-        await new Promise((r) => setTimeout(r, 500));
       } catch (err: any) {
         console.error(`Failed to send DONUT to rank ${dist.rank}:`, err);
         errors.push({ rank: dist.rank, token: "DONUT", error: err.message });
@@ -364,14 +373,28 @@ async function runDistribution(weekNumber: number, dryRun: boolean) {
             parseUnits(dist.sprinklesAmount, SPRINKLES_DECIMALS),
           ],
         });
+        
+        // WAIT FOR CONFIRMATION before proceeding
+        await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+        
         dist.txHashes.push(hash);
+        totalSuccessfulTransfers++;
         console.log(`[Miners Distribution] Sent ${dist.sprinklesAmount} SPRINKLES to rank ${dist.rank}: ${hash}`);
-        await new Promise((r) => setTimeout(r, 500));
       } catch (err: any) {
         console.error(`Failed to send SPRINKLES to rank ${dist.rank}:`, err);
         errors.push({ rank: dist.rank, token: "SPRINKLES", error: err.message });
       }
     }
+  }
+
+  // Only record to database if we had successful transfers
+  if (totalSuccessfulTransfers === 0) {
+    return {
+      success: false,
+      error: "All transfers failed",
+      weekNumber,
+      errors,
+    };
   }
 
   // Get first place tx hash for record (or first successful tx)
@@ -417,6 +440,7 @@ async function runDistribution(weekNumber: number, dryRun: boolean) {
     },
     distributions,
     errors: errors.length > 0 ? errors : undefined,
+    totalSuccessfulTransfers,
     totals: {
       usdc: distributions.reduce((sum, d) => sum + parseFloat(d.usdcAmount), 0).toFixed(2),
       donut: distributions.reduce((sum, d) => sum + parseFloat(d.donutAmount), 0).toFixed(4),
