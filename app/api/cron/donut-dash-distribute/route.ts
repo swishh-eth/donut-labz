@@ -19,7 +19,7 @@ const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const USDC_DECIMALS = 6;
 
 // Prize distribution: percentages for top 10
-const TOTAL_PRIZE_USD = 5; // Change this to adjust total prize pool
+const TOTAL_PRIZE_USD = 1; // Change this to adjust total prize pool
 const PRIZE_PERCENTAGES = [
   { rank: 1, percent: 40 },   // 40%
   { rank: 2, percent: 20 },   // 20%
