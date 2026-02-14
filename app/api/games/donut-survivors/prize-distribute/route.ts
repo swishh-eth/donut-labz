@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     const weekStartISO = weekStart.toISOString();
 
     // Fixed prize pool for free arcade games
-    const totalPrize = 5;
+    const totalPrize = 1;
     
     // Prize distribution percentages
     const prizePercentages = [40, 20, 15, 8, 5, 4, 3, 2, 2, 1];
