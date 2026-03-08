@@ -593,32 +593,35 @@ function GDonutStakedTile({
     return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  // Calculate combined weekly USD from both sources
-  const totalWeeklyUsd = stakingData 
-    ? (stakingData.donutWeeklyUsd || 0) + (stakingData.usdcWeeklyUsd || 0)
-    : 0;
-  
+  // Fixed APR values
+  const DONUT_APR = 0.50; // 50% APR for DONUT
+  const USDC_APR = 0.40; // 40% APR for USDC
+  const donutAprStr = '50.0';
+  const usdcAprStr = '40.0';
+
+  // Calculate weekly/daily USD based on fixed APRs and treasury staked value
+  const treasuryUsd = stakingData?.treasuryStakedUsd || 0;
+  const donutWeeklyUsd = treasuryUsd * DONUT_APR / 52; // 50% APR / 52 weeks
+  const usdcWeeklyUsd = treasuryUsd * USDC_APR / 52; // 40% APR / 52 weeks
+  const totalWeeklyUsd = donutWeeklyUsd + usdcWeeklyUsd;
+
   // Daily values (weekly / 7)
   const totalDailyUsd = totalWeeklyUsd / 7;
-  const donutDailyUsd = (stakingData?.donutWeeklyUsd || 0) / 7;
-  const usdcDailyUsd = (stakingData?.usdcWeeklyUsd || 0) / 7;
-  const donutDailyAmount = stakingData?.donutWeeklyUsd && stakingData?.donutPriceUsd > 0
-    ? Math.floor((stakingData.donutWeeklyUsd / 7) / stakingData.donutPriceUsd)
+  const donutDailyUsd = donutWeeklyUsd / 7;
+  const usdcDailyUsd = usdcWeeklyUsd / 7;
+  const donutDailyAmount = stakingData?.donutPriceUsd && stakingData.donutPriceUsd > 0
+    ? Math.floor(donutDailyUsd / stakingData.donutPriceUsd)
     : 0;
 
-  // Pre-calculate formatted values for matrix animation
-  const donutAprStr = '50.0'; // Fixed 50% APR for DONUT
-  const usdcAprStr = '40.0'; // Fixed 40% APR for USDC
-  
   // Weekly values
-  const donutWeeklyDonutAmount = stakingData?.donutWeeklyUsd && stakingData?.donutPriceUsd > 0
-    ? Math.floor(stakingData.donutWeeklyUsd / stakingData.donutPriceUsd).toLocaleString()
+  const donutWeeklyDonutAmount = stakingData?.donutPriceUsd && stakingData.donutPriceUsd > 0
+    ? Math.floor(donutWeeklyUsd / stakingData.donutPriceUsd).toLocaleString()
     : '0';
-  const donutWeeklyUsdStr = stakingData?.donutWeeklyUsd ? formatUsd(stakingData.donutWeeklyUsd) : '$0';
-  const usdcWeeklyUsdStr = stakingData?.usdcWeeklyUsd ? formatUsd(stakingData.usdcWeeklyUsd) : '$0';
+  const donutWeeklyUsdStr = donutWeeklyUsd > 0 ? formatUsd(donutWeeklyUsd) : '$0';
+  const usdcWeeklyUsdStr = usdcWeeklyUsd > 0 ? formatUsd(usdcWeeklyUsd) : '$0';
   const totalWeeklyStr = formatUsdFull(totalWeeklyUsd);
-  
-  // Daily values
+
+  // Daily values formatted
   const donutDailyDonutAmount = donutDailyAmount.toLocaleString();
   const donutDailyUsdStr = formatUsd(donutDailyUsd);
   const usdcDailyUsdStr = formatUsd(usdcDailyUsd);
@@ -681,8 +684,8 @@ function GDonutStakedTile({
                 <span className="font-mono text-xs font-bold text-pink-400">
                   <MatrixStakingValue value={`APR: ${donutAprStr}%`} isReady={dataReady} />
                 </span>
-                <span className={`text-[9px] text-white/40 font-mono transition-opacity duration-300 ${dataReady && stakingData?.donutWeeklyUsd !== undefined && stakingData.donutWeeklyUsd > 0 ? 'opacity-100' : 'opacity-0'}`}>
-                  {dataReady && stakingData?.donutWeeklyUsd !== undefined && stakingData.donutWeeklyUsd > 0 ? (
+                <span className={`text-[9px] text-white/40 font-mono transition-opacity duration-300 ${dataReady && donutWeeklyUsd > 0 ? 'opacity-100' : 'opacity-0'}`}>
+                  {dataReady && donutWeeklyUsd > 0 ? (
                     <>(<MatrixStakingValue value={displayDonutUsd} isReady={dataReady} />)</>
                   ) : '\u00A0'}
                 </span>
@@ -698,8 +701,8 @@ function GDonutStakedTile({
                 <span className="font-mono text-xs font-bold text-pink-400">
                   <MatrixStakingValue value={`APR: ${usdcAprStr}%`} isReady={dataReady} />
                 </span>
-                <span className={`text-[9px] text-white/40 font-mono transition-opacity duration-300 ${dataReady && stakingData?.usdcWeeklyUsd !== undefined && stakingData.usdcWeeklyUsd > 0 ? 'opacity-100' : 'opacity-0'}`}>
-                  {dataReady && stakingData?.usdcWeeklyUsd !== undefined && stakingData.usdcWeeklyUsd > 0 ? (
+                <span className={`text-[9px] text-white/40 font-mono transition-opacity duration-300 ${dataReady && usdcWeeklyUsd > 0 ? 'opacity-100' : 'opacity-0'}`}>
+                  {dataReady && usdcWeeklyUsd > 0 ? (
                     <>(<MatrixStakingValue value={displayUsdcUsd} isReady={dataReady} />)</>
                   ) : '\u00A0'}
                 </span>
