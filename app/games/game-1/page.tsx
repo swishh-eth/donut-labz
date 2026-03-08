@@ -6,7 +6,7 @@ import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagm
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
 import { useGameControls } from "@/hooks/use-game-controls";
-import { Trophy, Play, Share2, X, HelpCircle, Clock } from "lucide-react";
+import { Trophy, Play, Share2, X, HelpCircle, Clock, Volume2, VolumeX } from "lucide-react";
 
 // Free Arcade Contract
 const FREE_ARCADE_CONTRACT = "0xa5d1c19187312e0f0741182ad63a378e65d8b43a" as const;
@@ -1242,11 +1242,33 @@ export default function FlappyDonutPage() {
         {/* Game Canvas - Full width edge to edge, fills remaining space */}
         <div className="flex-1 relative overflow-hidden">
           {/* Gradient fade from header into game */}
-          <div 
+          <div
             className="absolute top-0 left-0 right-0 h-8 z-10 pointer-events-none"
             style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
           />
-          
+
+          {/* Top Right Controls */}
+          <div className="absolute top-2 right-2 z-30 flex items-center gap-1.5">
+            <button
+              onClick={handleOpenLeaderboard}
+              className="flex items-center justify-center w-9 h-9 bg-zinc-900/80 border border-zinc-700 rounded-full hover:border-zinc-500 transition-all"
+            >
+              <Trophy className="w-4 h-4 text-pink-400" />
+            </button>
+            <button
+              onClick={() => setShowHelp(true)}
+              className="flex items-center justify-center w-9 h-9 bg-zinc-900/80 border border-zinc-700 rounded-full hover:border-zinc-500 transition-all"
+            >
+              <HelpCircle className="w-4 h-4 text-zinc-400" />
+            </button>
+            <button
+              onClick={() => setIsMuted(!isMuted)}
+              className={`flex items-center justify-center w-9 h-9 bg-zinc-900/80 border rounded-full hover:border-zinc-500 transition-all ${isMuted ? 'border-red-500/50' : 'border-zinc-700'}`}
+            >
+              {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-zinc-400" />}
+            </button>
+          </div>
+
           {gameState === "playing" && (
             <div
               className="absolute inset-0 z-10 cursor-pointer"

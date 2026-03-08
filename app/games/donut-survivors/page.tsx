@@ -1069,6 +1069,34 @@ export default function DonutSurvivorsPage() {
             style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
           />
 
+          {/* Top Right Controls */}
+          <div className="absolute top-2 right-2 z-30 flex items-center gap-1.5">
+            <button
+              onClick={() => setShowLeaderboard(true)}
+              className="flex items-center justify-center w-9 h-9 bg-zinc-900/80 border border-zinc-700 rounded-full hover:border-zinc-500 transition-all"
+            >
+              <Trophy className="w-4 h-4 text-pink-400" />
+            </button>
+            <button
+              onClick={() => setShowHelp(true)}
+              className="flex items-center justify-center w-9 h-9 bg-zinc-900/80 border border-zinc-700 rounded-full hover:border-zinc-500 transition-all"
+            >
+              <HelpCircle className="w-4 h-4 text-zinc-400" />
+            </button>
+            <button
+              onClick={() => setIsMuted(!isMuted)}
+              className={`flex items-center justify-center w-9 h-9 bg-zinc-900/80 border rounded-full hover:border-zinc-500 transition-all ${isMuted ? 'border-red-500/50' : 'border-zinc-700'}`}
+            >
+              {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-zinc-400" />}
+            </button>
+            <button
+              onClick={() => setIsMusicOn(!isMusicOn)}
+              className={`flex items-center justify-center w-9 h-9 bg-zinc-900/80 border rounded-full hover:border-zinc-500 transition-all ${isMusicOn ? 'border-pink-500/50' : 'border-zinc-700'}`}
+            >
+              <Music className={`w-4 h-4 ${isMusicOn ? 'text-pink-400' : 'text-zinc-400'}`} />
+            </button>
+          </div>
+
           <canvas ref={canvasRef} width={SCALED_WIDTH} height={SCALED_HEIGHT} className="game-canvas absolute inset-0 w-full h-full object-cover" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={e => e.preventDefault()} />
             
             {gameState === "levelup" && (
@@ -1126,19 +1154,6 @@ export default function DonutSurvivorsPage() {
                   <div className="grid grid-cols-2 gap-2 w-[200px]">
                     <button onClick={() => { setShowWeaponMenu(true); setShowGadgetInfo(false); }} className="px-3 py-2 bg-zinc-900/80 border border-zinc-700 text-white font-bold rounded-lg hover:border-zinc-500 active:scale-95 text-xs">WEAPONS</button>
                     <button onClick={() => { setShowGadgetInfo(true); setShowWeaponMenu(false); }} className="px-3 py-2 bg-zinc-900/80 border border-zinc-700 text-white font-bold rounded-lg hover:border-zinc-500 active:scale-95 text-xs">GADGETS</button>
-                  </div>
-
-                  {/* Settings buttons */}
-                  <div className="flex items-center gap-2 mt-1">
-                    <button onClick={() => setShowHelp(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/80 border border-zinc-700 rounded-full hover:border-zinc-500 transition-all">
-                      <HelpCircle className="w-3 h-3 text-zinc-400" />
-                    </button>
-                    <button onClick={() => setIsMuted(!isMuted)} className={`flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/80 border rounded-full hover:border-zinc-500 transition-all ${isMuted ? 'border-red-500/50' : 'border-zinc-700'}`}>
-                      {isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-400" />}
-                    </button>
-                    <button onClick={() => setIsMusicOn(!isMusicOn)} className={`flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/80 border rounded-full hover:border-zinc-500 transition-all ${isMusicOn ? 'border-pink-500/50' : 'border-zinc-700'}`}>
-                      <Music className={`w-3 h-3 ${isMusicOn ? 'text-pink-400' : 'text-zinc-400'}`} />
-                    </button>
                   </div>
                 </div>
               </div>

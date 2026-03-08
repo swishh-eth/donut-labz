@@ -2683,6 +2683,34 @@ export default function DonutDashPage() {
             style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
           />
 
+          {/* Top Right Controls */}
+          <div className="absolute top-2 right-2 z-30 flex items-center gap-1.5">
+            <button
+              onClick={() => { fetchLeaderboard(); setShowLeaderboard(true); }}
+              className="flex items-center justify-center w-9 h-9 bg-zinc-900/80 border border-zinc-700 rounded-full hover:border-zinc-500 transition-all"
+            >
+              <Trophy className="w-4 h-4 text-pink-400" />
+            </button>
+            <button
+              onClick={() => setShowHelp(true)}
+              className="flex items-center justify-center w-9 h-9 bg-zinc-900/80 border border-zinc-700 rounded-full hover:border-zinc-500 transition-all"
+            >
+              <HelpCircle className="w-4 h-4 text-zinc-400" />
+            </button>
+            <button
+              onClick={() => setIsMuted(!isMuted)}
+              className={`flex items-center justify-center w-9 h-9 bg-zinc-900/80 border rounded-full hover:border-zinc-500 transition-all ${isMuted ? 'border-red-500/50' : 'border-zinc-700'}`}
+            >
+              {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-zinc-400" />}
+            </button>
+            <button
+              onClick={() => setShowGhost(!showGhost)}
+              className={`flex items-center justify-center w-9 h-9 bg-zinc-900/80 border rounded-full hover:border-zinc-500 transition-all ${showGhost ? 'border-purple-500/50' : 'border-zinc-700'}`}
+            >
+              <Ghost className="w-4 h-4 text-purple-400" />
+            </button>
+          </div>
+
           {gameState === "playing" && (
             <div
               className="absolute inset-0 z-10 cursor-pointer game-touch-area"
@@ -2741,19 +2769,6 @@ export default function DonutDashPage() {
                 </button>
 
                 <p className="text-zinc-500 text-[10px]">Free to play, gas cost only!</p>
-
-                {/* Settings buttons */}
-                <div className="flex items-center gap-2 mt-2">
-                  <button onClick={() => setShowHelp(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/80 border border-zinc-700 rounded-full hover:border-zinc-500 transition-all">
-                    <HelpCircle className="w-3 h-3 text-zinc-400" />
-                  </button>
-                  <button onClick={() => setIsMuted(!isMuted)} className={`flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/80 border rounded-full hover:border-zinc-500 transition-all ${isMuted ? 'border-red-500/50' : 'border-zinc-700'}`}>
-                    {isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-400" />}
-                  </button>
-                  <button onClick={() => setShowGhost(!showGhost)} className={`flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/80 border rounded-full hover:border-zinc-500 transition-all ${showGhost ? 'border-purple-500/50' : 'border-zinc-700'}`}>
-                    <Ghost className="w-3 h-3 text-purple-400" />
-                  </button>
-                </div>
               </div>
             </div>
           )}
