@@ -1290,10 +1290,10 @@ export default function FlappyDonutPage() {
                 {/* Prize Pool Button - below play button */}
                 <button
                   onClick={handleOpenLeaderboard}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600/30 to-green-500/20 border border-green-500/40 rounded-xl hover:border-green-400/60 transition-all shadow-lg shadow-green-500/10"
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-600/30 to-pink-500/20 border border-pink-500/40 rounded-xl hover:border-pink-400/60 transition-all shadow-lg shadow-pink-500/10"
                 >
-                  <Trophy className="w-4 h-4 text-green-400" />
-                  <span className="text-sm font-bold text-green-400">${prizePool} PRIZE POOL</span>
+                  <Trophy className="w-4 h-4 text-pink-400" />
+                  <span className="text-sm font-bold text-pink-400">{prizePool.toLocaleString()} SPRINKLES</span>
                   <SprinklesCoin className="w-4 h-4" />
                 </button>
                 
@@ -1327,8 +1327,7 @@ export default function FlappyDonutPage() {
               <div className="px-4 py-2 flex items-center justify-between border-b border-zinc-800 flex-shrink-0">
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-gray-400">Prize Pool:</span>
-                  <span className="text-sm font-bold text-green-400">${prizePool}</span>
-                  <SprinklesCoin className="w-4 h-4" />
+                  <span className="text-sm font-bold text-pink-400">{prizePool.toLocaleString()} SPRINKLES</span>
                 </div>
                 <div className="flex items-center gap-1 text-xs text-gray-400">
                   <Clock className="w-3 h-3" />
@@ -1356,10 +1355,7 @@ export default function FlappyDonutPage() {
                       )}
                       <div className="flex-1 min-w-0">
                         <span className="block truncate text-sm text-white">{entry.username}</span>
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-green-400">+${prizeAmount}</span>
-                          <SprinklesCoin className="w-3 h-3" />
-                        </div>
+                        <span className="text-xs text-pink-400">+{prizeAmount} SPRINKLES</span>
                       </div>
                       <span className="font-bold text-sm text-white">{entry.score}</span>
                     </div>

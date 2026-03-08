@@ -2180,7 +2180,7 @@ export default function DonutJumpPage() {
                       {entry.pfpUrl ? <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-zinc-700" />}
                       <div className="flex-1 min-w-0">
                         <span className="block truncate text-sm text-white">{entry.displayName || entry.username || `fid:${entry.fid}`}</span>
-                        {prize && <span className="text-xs text-green-400">+${prize.amount}</span>}
+                        {prize && <span className="text-xs text-pink-400">+{prize.amount} SPRINKLES</span>}
                       </div>
                       <span className="font-bold text-sm text-white">{entry.score}</span>
                     </div>
