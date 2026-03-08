@@ -23,14 +23,14 @@ type RecentPlayer = {
   pfpUrl?: string;
 };
 
-// USDC coin image component with circular boundary
-const UsdcCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+// SPRINKLES coin image component with circular boundary
+const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-full h-full object-cover" />
+    <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-full h-full object-cover" />
   </span>
 );
 
-// Flappy Donut Tile (Now FREE with USDC prizes)
+// Flappy Donut Tile (Now FREE with SPRINKLES prizes)
 function FlappyDonutTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer: RecentPlayer | null; prizePool: number; weeklyPlays: number }) {
   return (
     <button
@@ -51,8 +51,8 @@ function FlappyDonutTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlaye
           <div className="text-[10px] text-white/60 mb-2">Tap to fly, dodge rolling pins!</div>
           
           <div className="flex items-center gap-1.5 text-[9px]">
-            <UsdcCoin className="w-3 h-3" />
-            <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC</span>
+            <SprinklesCoin className="w-3 h-3" />
+            <span className="text-pink-400 font-medium whitespace-nowrap">{prizePool.toLocaleString()} SPRINKLES</span>
             <span className="text-zinc-600">•</span>
             <span className="text-zinc-500 whitespace-nowrap">{weeklyPlays.toLocaleString()} plays</span>
             {recentPlayer && (
@@ -82,7 +82,7 @@ function DonutSurvivorsTile({ recentPlayer, prizePool, weeklyPlays }: { recentPl
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <Crosshair className="w-24 h-24 text-zinc-800" />
       </div>
-      
+
       <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
@@ -90,10 +90,10 @@ function DonutSurvivorsTile({ recentPlayer, prizePool, weeklyPlays }: { recentPl
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Survive waves of candy enemies!</div>
-          
+
           <div className="flex items-center gap-1.5 text-[9px]">
-            <UsdcCoin className="w-3 h-3" />
-            <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC</span>
+            <SprinklesCoin className="w-3 h-3" />
+            <span className="text-pink-400 font-medium whitespace-nowrap">{prizePool.toLocaleString()} SPRINKLES</span>
             <span className="text-zinc-600">•</span>
             <span className="text-zinc-500 whitespace-nowrap">{weeklyPlays.toLocaleString()} plays</span>
             {recentPlayer && (
@@ -112,7 +112,7 @@ function DonutSurvivorsTile({ recentPlayer, prizePool, weeklyPlays }: { recentPl
   );
 }
 
-// Glaze Stack Tile (Free to Play with USDC prizes)
+// Glaze Stack Tile (Free to Play with SPRINKLES prizes)
 function GlazeStackTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer: RecentPlayer | null; prizePool: number; weeklyPlays: number }) {
   return (
     <button
@@ -123,7 +123,7 @@ function GlazeStackTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <Layers className="w-24 h-24 text-zinc-800" />
       </div>
-      
+
       <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
@@ -131,10 +131,10 @@ function GlazeStackTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Stack boxes, don't let them fall!</div>
-          
+
           <div className="flex items-center gap-1.5 text-[9px]">
-            <UsdcCoin className="w-3 h-3" />
-            <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC</span>
+            <SprinklesCoin className="w-3 h-3" />
+            <span className="text-pink-400 font-medium whitespace-nowrap">{prizePool.toLocaleString()} SPRINKLES</span>
             <span className="text-zinc-600">•</span>
             <span className="text-zinc-500 whitespace-nowrap">{weeklyPlays.toLocaleString()} plays</span>
             {recentPlayer && (
@@ -164,7 +164,7 @@ function DonutDashTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer:
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <Rocket className="w-24 h-24 text-zinc-800" />
       </div>
-      
+
       <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
@@ -172,10 +172,10 @@ function DonutDashTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer:
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Jetpack through, collect sprinkles!</div>
-          
+
           <div className="flex items-center gap-1.5 text-[9px]">
-            <UsdcCoin className="w-3 h-3" />
-            <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC</span>
+            <SprinklesCoin className="w-3 h-3" />
+            <span className="text-pink-400 font-medium whitespace-nowrap">{prizePool.toLocaleString()} SPRINKLES</span>
             <span className="text-zinc-600">•</span>
             <span className="text-zinc-500 whitespace-nowrap">{weeklyPlays.toLocaleString()} plays</span>
             {recentPlayer && (
@@ -205,7 +205,7 @@ function DonutJumpTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer:
       <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
         <Trophy className="w-24 h-24 text-zinc-800" />
       </div>
-      
+
       <div className="relative z-10 p-4 pr-20">
         <div className="text-left">
           <div className="flex items-center gap-2 mb-1">
@@ -213,10 +213,10 @@ function DonutJumpTile({ recentPlayer, prizePool, weeklyPlays }: { recentPlayer:
             <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">FREE</span>
           </div>
           <div className="text-[10px] text-white/60 mb-2">Bounce up, collect donuts!</div>
-          
+
           <div className="flex items-center gap-1.5 text-[9px]">
-            <UsdcCoin className="w-3 h-3" />
-            <span className="text-green-400 font-medium whitespace-nowrap">${prizePool} USDC</span>
+            <SprinklesCoin className="w-3 h-3" />
+            <span className="text-pink-400 font-medium whitespace-nowrap">{prizePool.toLocaleString()} SPRINKLES</span>
             <span className="text-zinc-600">•</span>
             <span className="text-zinc-500 whitespace-nowrap">{weeklyPlays.toLocaleString()} plays</span>
             {recentPlayer && (
@@ -272,19 +272,19 @@ export default function GamesPage() {
   const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
   
   const [flappyRecentPlayer, setFlappyRecentPlayer] = useState<RecentPlayer | null>(null);
-  const [flappyPrizePool, setFlappyPrizePool] = useState<number>(5);
-  
+  const [flappyPrizePool, setFlappyPrizePool] = useState<number>(10000);
+
   const [stackRecentPlayer, setStackRecentPlayer] = useState<RecentPlayer | null>(null);
-  const [stackPrizePool, setStackPrizePool] = useState<number>(5);
-  
+  const [stackPrizePool, setStackPrizePool] = useState<number>(10000);
+
   const [dashRecentPlayer, setDashRecentPlayer] = useState<RecentPlayer | null>(null);
-  const [dashPrizePool, setDashPrizePool] = useState<number>(5);
-  
+  const [dashPrizePool, setDashPrizePool] = useState<number>(10000);
+
   const [jumpRecentPlayer, setJumpRecentPlayer] = useState<RecentPlayer | null>(null);
-  const [jumpPrizePool, setJumpPrizePool] = useState<number>(5);
-  
+  const [jumpPrizePool, setJumpPrizePool] = useState<number>(10000);
+
   const [survivorsRecentPlayer, setSurvivorsRecentPlayer] = useState<RecentPlayer | null>(null);
-  const [survivorsPrizePool, setSurvivorsPrizePool] = useState<number>(5);
+  const [survivorsPrizePool, setSurvivorsPrizePool] = useState<number>(10000);
   
   const [totalGamesPlayed, setTotalGamesPlayed] = useState<number>(0);
   const [flappyWeeklyPlays, setFlappyWeeklyPlays] = useState<number>(0);
@@ -374,7 +374,7 @@ export default function GamesPage() {
         const prizeRes = await fetch('/api/cron/flappy-distribute');
         if (prizeRes.ok) {
           const prizeData = await prizeRes.json();
-          setFlappyPrizePool(prizeData.totalPrize || 5);
+          setFlappyPrizePool(prizeData.totalPrize || 10000);
         }
         
         // Fetch recent player and weekly plays
@@ -403,7 +403,7 @@ export default function GamesPage() {
         const prizeRes = await fetch('/api/cron/stack-tower-distribute');
         if (prizeRes.ok) {
           const prizeData = await prizeRes.json();
-          setStackPrizePool(prizeData.totalPrize || 5);
+          setStackPrizePool(prizeData.totalPrize || 10000);
         }
         
         // Fetch recent player and weekly plays
@@ -432,7 +432,7 @@ export default function GamesPage() {
         const prizeRes = await fetch('/api/cron/donut-dash-distribute');
         if (prizeRes.ok) {
           const prizeData = await prizeRes.json();
-          setDashPrizePool(prizeData.totalPrize || 5);
+          setDashPrizePool(prizeData.totalPrize || 10000);
         }
         
         const recentRes = await fetch('/api/games/donut-dash/recent');
@@ -459,7 +459,7 @@ export default function GamesPage() {
         const prizeRes = await fetch('/api/cron/donut-jump-distribute');
         if (prizeRes.ok) {
           const prizeData = await prizeRes.json();
-          setJumpPrizePool(prizeData.totalPrize || 5);
+          setJumpPrizePool(prizeData.totalPrize || 10000);
         }
         
         const recentRes = await fetch('/api/games/donut-jump/recent');
@@ -483,10 +483,10 @@ export default function GamesPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const prizeRes = await fetch('/api/games/donut-survivors/prize-distribute');
+        const prizeRes = await fetch('/api/cron/donut-survivors-distribute');
         if (prizeRes.ok) {
           const prizeData = await prizeRes.json();
-          setSurvivorsPrizePool(prizeData.totalPrize || 5);
+          setSurvivorsPrizePool(prizeData.totalPrize || 10000);
         }
         
         const recentRes = await fetch('/api/games/donut-survivors/recent');
@@ -557,8 +557,8 @@ export default function GamesPage() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Calculate total USDC prizes for display (now includes all games)
-  const totalUsdcPrizes = flappyPrizePool + dashPrizePool + stackPrizePool + jumpPrizePool + survivorsPrizePool;
+  // Calculate total SPRINKLES prizes for display (now includes all games)
+  const totalSprinklesPrizes = flappyPrizePool + dashPrizePool + stackPrizePool + jumpPrizePool + survivorsPrizePool;
 
   return (
     <main className="flex h-screen w-screen justify-center overflow-hidden bg-black font-mono text-white">
@@ -635,8 +635,8 @@ export default function GamesPage() {
                   <span className="text-[10px] text-gray-400 uppercase tracking-wide">Prizes</span>
                 </div>
                 <div className={`flex items-center gap-1 ${isStatsLoaded ? 'fade-in-up stagger-3 opacity-0' : 'opacity-0'}`}>
-                  <span className="text-2xl font-bold text-green-400">${totalUsdcPrizes}</span>
-                  <UsdcCoin className="w-5 h-5" />
+                  <span className="text-xl font-bold text-pink-400">{totalSprinklesPrizes.toLocaleString()}</span>
+                  <SprinklesCoin className="w-5 h-5" />
                 </div>
               </div>
             </div>
@@ -741,12 +741,12 @@ export default function GamesPage() {
               </div>
 
               <div className="space-y-3 text-sm">
-                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3">
-                  <h3 className="font-bold text-green-400 mb-2 flex items-center gap-2">
-                    <span>💰</span> Win Real USDC
+                <div className="bg-pink-500/10 border border-pink-500/30 rounded-xl p-3">
+                  <h3 className="font-bold text-pink-400 mb-2 flex items-center gap-2">
+                    <span>💰</span> Win SPRINKLES
                   </h3>
                   <p className="text-gray-300 text-xs">
-                    Every game has a weekly <span className="text-green-400 font-medium">$5 USDC</span> prize pool. 
+                    Every game has a weekly <span className="text-pink-400 font-medium">10,000 SPRINKLES</span> prize pool.
                     Top 10 players on each leaderboard split the prizes automatically!
                   </p>
                 </div>

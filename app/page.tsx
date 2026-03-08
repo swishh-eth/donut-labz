@@ -1994,32 +1994,6 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Activate Miner Burn Tile */}
-              <div 
-                className={dataReady && !hasAnimatedIn ? 'animate-tilePopIn' : ''}
-                style={!dataReady ? { opacity: 0 } : (!hasAnimatedIn ? { opacity: 0, animationDelay: '175ms', animationFillMode: 'forwards' } : {})}
-              >
-                <div
-                  className="relative w-full rounded-2xl border-2 border-white/20 overflow-hidden cursor-not-allowed opacity-60"
-                  style={{ height: '100px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}
-                >
-                  <div className="absolute -right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <span className="w-20 h-20 rounded-full overflow-hidden inline-flex items-center justify-center ring-2 ring-zinc-600/50 opacity-10">
-                      <img src="/coins/sprinkles_logo.png" alt="" className="w-full h-full object-cover" />
-                    </span>
-                  </div>
-                  
-                  <div className="relative z-10 p-4 pr-20 h-full flex flex-col justify-center">
-                    <div className="text-left">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-bold text-base text-gray-500">Activate Miner Burn</span>
-                      </div>
-                      <div className="text-[10px] text-gray-600 whitespace-nowrap">5% togglable burn voted on by holders</div>
-                      <div className="text-[9px] text-gray-600 mt-1">Coming soon...</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>

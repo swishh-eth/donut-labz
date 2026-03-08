@@ -1063,8 +1063,8 @@ export default function DonutSurvivorsPage() {
         <button onClick={() => setShowLeaderboard(true)} className="animate-pop pop-delay-1 relative w-full mb-3 px-4 py-3 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/50 rounded-xl transition-all active:scale-[0.98] hover:border-zinc-600 group" style={{ minHeight: '70px' }}>
           <div className="flex items-center justify-between">
             <div className="flex flex-col items-start">
-              <div className="flex items-center gap-2"><img src="/coins/USDC_LOGO.png" alt="USDC" className="w-4 h-4 rounded-full" /><span className="text-[10px] text-zinc-400 font-medium">Weekly Prize Pool</span></div>
-              <span className="text-2xl font-bold text-white">${prizeInfo.totalPrize} USDC</span>
+              <div className="flex items-center gap-2"><img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-4 h-4 rounded-full" /><span className="text-[10px] text-zinc-400 font-medium">Weekly Prize Pool</span></div>
+              <span className="text-2xl font-bold text-pink-400">{prizeInfo.totalPrize.toLocaleString()} SPRINKLES</span>
             </div>
             <div className="flex flex-col items-end">
               <div className="flex items-center gap-1 text-zinc-500 group-hover:text-zinc-300 transition-colors"><span className="text-[10px]">View Leaderboard</span><ChevronRight className="w-3 h-3" /></div>
@@ -1226,7 +1226,7 @@ export default function DonutSurvivorsPage() {
               </div>
               <div className="px-4 py-2 flex items-center justify-between border-b border-zinc-800 flex-shrink-0">
                 <span className="text-xs text-gray-400">Prize Pool</span>
-                <span className="text-sm font-bold text-white">${prizeInfo.totalPrize} USDC</span>
+                <span className="text-sm font-bold text-pink-400">{prizeInfo.totalPrize.toLocaleString()} SPRINKLES</span>
               </div>
               <div className="flex-1 overflow-y-auto scrollable-area" style={{ WebkitOverflowScrolling: 'touch', maxHeight: '50vh' }}>
                 {leaderboard.length === 0 ? (

@@ -14,12 +14,12 @@ const supabase = createClient(
 // Use Alchemy RPC for reliability (public RPC has strict rate limits)
 const ALCHEMY_RPC_URL = "https://base-mainnet.g.alchemy.com/v2/5UJ97LqB44fVqtSiYSq-g";
 
-// USDC on Base
-const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
-const USDC_DECIMALS = 6;
+// SPRINKLES on Base
+const SPRINKLES_ADDRESS = "0xa890060BE1788a676dBC3894160f5dc5DeD2C98D" as const;
+const SPRINKLES_DECIMALS = 18;
 
 // Prize distribution: percentages for top 10
-const TOTAL_PRIZE_USD = 1; // $5 USDC weekly prize pool
+const TOTAL_PRIZE_SPRINKLES = 10000; // 10,000 SPRINKLES weekly prize pool
 const PRIZE_PERCENTAGES = [
   { rank: 1, percent: 40 },   // 40%
   { rank: 2, percent: 20 },   // 20%
@@ -38,7 +38,7 @@ function getPrizeDistribution() {
   return PRIZE_PERCENTAGES.map(p => ({
     rank: p.rank,
     percent: p.percent,
-    amount: ((TOTAL_PRIZE_USD * p.percent) / 100).toFixed(2),
+    amount: ((TOTAL_PRIZE_SPRINKLES * p.percent) / 100).toString(),
   }));
 }
 
@@ -230,10 +230,10 @@ async function runDistribution(week: number, dryRun: boolean) {
 
   for (const dist of distributions) {
     try {
-      const amountInUnits = parseUnits(dist.amount, USDC_DECIMALS);
+      const amountInUnits = parseUnits(dist.amount, SPRINKLES_DECIMALS);
 
       const hash = await withRetry(() => walletClient.writeContract({
-        address: USDC_ADDRESS,
+        address: SPRINKLES_ADDRESS,
         abi: ERC20_TRANSFER_ABI,
         functionName: "transfer",
         args: [dist.address as `0x${string}`, amountInUnits],
@@ -241,7 +241,7 @@ async function runDistribution(week: number, dryRun: boolean) {
 
       dist.txHash = hash;
       results.push({ rank: dist.rank, txHash: hash });
-      console.log(`[Glaze Stack Distribution] Sent $${dist.amount} USDC to rank ${dist.rank}: ${hash}`);
+      console.log(`[Glaze Stack Distribution] Sent ${dist.amount} SPRINKLES to rank ${dist.rank}: ${hash}`);
 
       // Wait for confirmation before next tx
       await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
@@ -328,7 +328,7 @@ export async function GET(request: NextRequest) {
   // If no week specified, just return current prize info
   if (!week) {
     return NextResponse.json({
-      totalPrize: TOTAL_PRIZE_USD,
+      totalPrize: TOTAL_PRIZE_SPRINKLES,
       prizeStructure: getPrizeDistribution(),
       currentWeek,
       weekToDistribute: previousWeek,
@@ -350,7 +350,7 @@ export async function GET(request: NextRequest) {
     week: parseInt(week),
     distributed: !!data,
     distribution: data || null,
-    totalPrize: TOTAL_PRIZE_USD,
+    totalPrize: TOTAL_PRIZE_SPRINKLES,
     prizeStructure: getPrizeDistribution(),
     currentWeek,
     weekToDistribute: previousWeek,

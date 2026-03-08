@@ -1,4 +1,4 @@
-// Place in: app/api/cron/donut-dash-distribute/route.ts
+// Place in: app/api/cron/donut-survivors-distribute/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -57,12 +57,12 @@ const ERC20_TRANSFER_ABI = [
 
 // Get current week number (weeks start on Friday 11PM UTC / 6PM EST)
 // Epoch: Friday Jan 3, 2025 23:00 UTC
-// MUST match how donut_dash_scores stores week number
+// MUST match how donut_survivors_scores stores week number
 function getCurrentWeek(): number {
   const now = new Date();
   const epoch = new Date('2025-01-03T23:00:00Z');
   const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-  
+
   const weeksSinceEpoch = Math.floor((now.getTime() - epoch.getTime()) / msPerWeek);
   return weeksSinceEpoch + 1;
 }
@@ -93,12 +93,12 @@ async function withRetry<T>(
 
 // Main distribution logic
 async function runDistribution(week: number, dryRun: boolean) {
-  console.log(`[Donut Dash Distribution] Starting for week ${week}, dryRun: ${dryRun}`);
-  console.log(`[Donut Dash Distribution] Current week: ${getCurrentWeek()}, distributing week: ${week}`);
+  console.log(`[Donut Survivors Distribution] Starting for week ${week}, dryRun: ${dryRun}`);
+  console.log(`[Donut Survivors Distribution] Current week: ${getCurrentWeek()}, distributing week: ${week}`);
 
   // Check if already distributed for this week
   const { data: existingDistribution } = await supabase
-    .from("donut_dash_prize_distributions")
+    .from("donut_survivors_prize_distributions")
     .select("id")
     .eq("week", week)
     .single();
@@ -111,26 +111,38 @@ async function runDistribution(week: number, dryRun: boolean) {
     };
   }
 
-  // Get top 10 scores for the week
-  const { data: topScores, error: scoresError } = await supabase
-    .from("donut_dash_scores")
-    .select("fid, wallet_address, score, username, display_name")
+  // Get all scores for the week (deduplicated by fid, best score only)
+  const { data: allScores, error: scoresError } = await supabase
+    .from("donut_survivors_scores")
+    .select("fid, wallet_address, score, username, display_name, survival_time, kills")
     .eq("week", week)
     .gt("score", 0)
     .order("score", { ascending: false })
-    .limit(10);
+    .limit(500); // Fetch more to deduplicate
 
   if (scoresError) {
     console.error("Error fetching scores:", scoresError);
     return { error: "Failed to fetch scores" };
   }
 
-  if (!topScores || topScores.length === 0) {
+  if (!allScores || allScores.length === 0) {
     return {
       success: false,
       error: "No scores found for this week",
       week,
     };
+  }
+
+  // Deduplicate by fid, keeping best score
+  const seenFids = new Set<number>();
+  const topScores: typeof allScores = [];
+
+  for (const score of allScores) {
+    if (!seenFids.has(score.fid)) {
+      seenFids.add(score.fid);
+      topScores.push(score);
+      if (topScores.length >= 10) break;
+    }
   }
 
   // Prepare distribution list
@@ -140,6 +152,8 @@ async function runDistribution(week: number, dryRun: boolean) {
     amount: string;
     score: number;
     username?: string;
+    survivalTime?: number;
+    kills?: number;
     txHash?: string;
   }[] = [];
 
@@ -160,6 +174,8 @@ async function runDistribution(week: number, dryRun: boolean) {
       amount: prize.amount,
       score: winner.score,
       username: winner.username || winner.display_name,
+      survivalTime: winner.survival_time,
+      kills: winner.kills,
     });
   }
 
@@ -171,7 +187,7 @@ async function runDistribution(week: number, dryRun: boolean) {
     };
   }
 
-  console.log(`[Donut Dash Distribution] Found ${distributions.length} winners`);
+  console.log(`[Donut Survivors Distribution] Found ${distributions.length} winners`);
 
   // If dry run, just return what would be distributed
   if (dryRun) {
@@ -181,7 +197,7 @@ async function runDistribution(week: number, dryRun: boolean) {
       week,
       currentWeek: getCurrentWeek(),
       distributions,
-      totalPrize: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0).toFixed(2),
+      totalPrize: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0).toString(),
     };
   }
 
@@ -192,7 +208,7 @@ async function runDistribution(week: number, dryRun: boolean) {
   }
 
   const account = privateKeyToAccount(botPrivateKey as `0x${string}`);
-  
+
   const publicClient = createPublicClient({
     chain: base,
     transport: http(ALCHEMY_RPC_URL),
@@ -220,7 +236,7 @@ async function runDistribution(week: number, dryRun: boolean) {
 
       dist.txHash = hash;
       results.push({ rank: dist.rank, txHash: hash });
-      console.log(`[Donut Dash Distribution] Sent ${dist.amount} SPRINKLES to rank ${dist.rank}: ${hash}`);
+      console.log(`[Donut Survivors Distribution] Sent ${dist.amount} SPRINKLES to rank ${dist.rank}: ${hash}`);
 
       // Wait for confirmation before next tx
       await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
@@ -231,9 +247,9 @@ async function runDistribution(week: number, dryRun: boolean) {
   }
 
   // Record distribution in database
-  const { error: insertError } = await supabase.from("donut_dash_prize_distributions").insert({
+  const { error: insertError } = await supabase.from("donut_survivors_prize_distributions").insert({
     week,
-    total_prize_usd: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0),
+    total_prize_sprinkles: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0),
     distributions: distributions,
     results: results,
     distributed_at: new Date().toISOString(),
@@ -248,7 +264,7 @@ async function runDistribution(week: number, dryRun: boolean) {
     week,
     distributions,
     results,
-    totalPrize: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0).toFixed(2),
+    totalPrize: distributions.reduce((sum, d) => sum + parseFloat(d.amount), 0).toString(),
   };
 }
 
@@ -265,11 +281,11 @@ export async function POST(request: NextRequest) {
     const dryRun = body.dryRun === true;
 
     const result = await runDistribution(week, dryRun);
-    
+
     if (result.error && !result.success) {
       return NextResponse.json(result, { status: 500 });
     }
-    
+
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("Prize distribution error:", error);
@@ -288,14 +304,14 @@ export async function GET(request: NextRequest) {
     try {
       const weekNumber = week ? parseInt(week) : getPreviousWeek();
       const result = await runDistribution(weekNumber, false);
-      
+
       if (result.error && !result.success) {
         return NextResponse.json(result, { status: 500 });
       }
-      
+
       return NextResponse.json(result);
     } catch (error: any) {
-      console.error("[Donut Dash Distribution] Cron error:", error);
+      console.error("[Donut Survivors Distribution] Cron error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
   }
@@ -316,7 +332,7 @@ export async function GET(request: NextRequest) {
 
   // Check if specific week was distributed
   const { data, error } = await supabase
-    .from("donut_dash_prize_distributions")
+    .from("donut_survivors_prize_distributions")
     .select("*")
     .eq("week", parseInt(week))
     .single();

@@ -54,7 +54,7 @@ const ZONES = [
 // Milestone thresholds - spread out more
 const MILESTONES = [250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2500, 3000];
 
-// Weekly USDC prize pool (fetched from API)
+// Weekly SPRINKLES prize pool (fetched from API)
 interface PrizeInfo {
   totalPrize: number;
   prizeStructure: { rank: number; percent: number; amount: string }[];
@@ -2686,10 +2686,10 @@ export default function DonutDashPage() {
           <div className="flex items-center justify-between">
             <div className="flex flex-col items-start">
               <div className="flex items-center gap-2">
-                <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-4 h-4 rounded-full" />
+                <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-4 h-4 rounded-full" />
                 <span className="text-[10px] text-zinc-400 font-medium">Weekly Prize Pool</span>
               </div>
-              <span className="text-2xl font-bold text-white">${prizeInfo.totalPrize} USDC</span>
+              <span className="text-2xl font-bold text-pink-400">{prizeInfo.totalPrize.toLocaleString()} SPRINKLES</span>
             </div>
             <div className="flex flex-col items-end">
               <div className="flex items-center gap-1 text-zinc-500 group-hover:text-zinc-300 transition-colors">
@@ -2846,7 +2846,7 @@ export default function DonutDashPage() {
                   <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">6</div>
                   <div>
                     <div className="font-semibold text-white text-xs">Weekly Prizes</div>
-                    <div className="text-[11px] text-gray-400 mt-0.5">FREE TO PLAY! Top 10 players each week win USDC prizes distributed every Friday at 6PM EST.</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">FREE TO PLAY! Top 10 players each week win SPRINKLES prizes distributed every Friday at 6PM EST.</div>
                   </div>
                 </div>
               </div>
@@ -2873,7 +2873,7 @@ export default function DonutDashPage() {
               </div>
               <div className="px-4 py-2 flex items-center justify-between border-b border-zinc-800 flex-shrink-0">
                 <span className="text-xs text-gray-400">Prize Pool</span>
-                <span className="text-sm font-bold text-green-400">${prizeInfo.totalPrize} USDC</span>
+                <span className="text-sm font-bold text-pink-400">{prizeInfo.totalPrize.toLocaleString()} SPRINKLES</span>
               </div>
               <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', maxHeight: '50vh' }}>
                 {leaderboard.length === 0 ? (
@@ -2899,7 +2899,7 @@ export default function DonutDashPage() {
                 })}
               </div>
               <div className="px-4 py-3 border-t border-zinc-800 flex-shrink-0">
-                <p className="text-[10px] text-zinc-500 text-center">Prizes distributed every Friday in USDC</p>
+                <p className="text-[10px] text-zinc-500 text-center">Prizes distributed every Friday in SPRINKLES</p>
               </div>
             </div>
           </div>

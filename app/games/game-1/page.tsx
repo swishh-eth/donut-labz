@@ -21,10 +21,10 @@ const FREE_ARCADE_ABI = [
   },
 ] as const;
 
-// USDC coin image component
-const UsdcCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
+// SPRINKLES coin image component
+const SprinklesCoin = ({ className = "w-4 h-4" }: { className?: string }) => (
   <span className={`${className} rounded-full overflow-hidden inline-flex items-center justify-center flex-shrink-0`}>
-    <img src="/coins/USDC_LOGO.png" alt="USDC" className="w-full h-full object-cover" />
+    <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-full h-full object-cover" />
   </span>
 );
 
@@ -1132,7 +1132,7 @@ export default function FlappyDonutPage() {
   
   const handleShare = useCallback(async () => {
     const miniappUrl = "https://farcaster.xyz/miniapps/BdklKYkhvUwo/sprinkles";
-    const castText = `I just scored ${score} in Flappy Donut on the Sprinkles App by @swishh.eth!\n\nThink you can beat me? Play now and compete for the $${prizePool} USDC weekly prize pool!`;
+    const castText = `I just scored ${score} in Flappy Donut on the Sprinkles App by @swishh.eth!\n\nThink you can beat me? Play now and compete for the ${prizePool.toLocaleString()} SPRINKLES weekly prize pool!`;
     try { await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(miniappUrl)}`); }
     catch { try { await navigator.clipboard.writeText(castText + "\n\n" + miniappUrl); alert("Copied!"); } catch {} }
   }, [score, prizePool]);
@@ -1417,7 +1417,7 @@ export default function FlappyDonutPage() {
                   <div className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white">4</div>
                   <div>
                     <div className="font-semibold text-white text-xs">Weekly Prizes</div>
-                    <div className="text-[11px] text-gray-400 mt-0.5">Top 10 split ${prizePool} USDC every Friday at 6PM EST.</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">Top 10 split {prizePool.toLocaleString()} SPRINKLES every Friday at 6PM EST.</div>
                   </div>
                 </div>
               </div>

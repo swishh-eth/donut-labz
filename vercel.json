@@ -15,6 +15,9 @@
     "app/api/cron/miners-distribute/route.ts": {
       "maxDuration": 120
     },
+    "app/api/cron/donut-survivors-distribute/route.ts": {
+      "maxDuration": 120
+    },
     "app/api/cron/fee-splitter/route.ts": {
       "maxDuration": 60
     }
@@ -39,6 +42,10 @@
     {
       "path": "/api/cron/donut-jump-distribute",
       "schedule": "3 23 * * 5"
+    },
+    {
+      "path": "/api/cron/donut-survivors-distribute",
+      "schedule": "4 23 * * 5"
     },
     {
       "path": "/api/cron/stack-tower-distribute",
