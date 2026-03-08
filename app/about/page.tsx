@@ -607,8 +607,8 @@ function GDonutStakedTile({
     : 0;
 
   // Pre-calculate formatted values for matrix animation
-  const donutAprStr = stakingData?.donutApr?.toFixed(1) || '0';
-  const usdcAprStr = stakingData?.usdcApr?.toFixed(1) || '0';
+  const donutAprStr = '50.0'; // Fixed 50% APR for DONUT
+  const usdcAprStr = '40.0'; // Fixed 40% APR for USDC
   
   // Weekly values
   const donutWeeklyDonutAmount = stakingData?.donutWeeklyUsd && stakingData?.donutPriceUsd > 0
@@ -764,7 +764,7 @@ function HalvingCountdownTile() {
   const [isComplete, setIsComplete] = useState(false);
   const [isReady, setIsReady] = useState(false);
   
-  const HALVING_DATE = new Date('2026-02-06T14:05:00Z').getTime();
+  const HALVING_DATE = new Date('2026-04-06T13:05:00Z').getTime(); // April 6th 9:05 AM EDT
   
   useEffect(() => {
     const calculateTimeLeft = () => {
@@ -868,7 +868,7 @@ function HalvingCountdownTile() {
         )}
         
         <div className="text-[8px] text-white/40 mt-0.5">
-          Mining rewards halve • Feb 6th 9:05 AM EST
+          Mining rewards halve • Apr 6th 9:05 AM EST
         </div>
       </div>
     </div>
