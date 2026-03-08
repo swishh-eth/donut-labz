@@ -1294,7 +1294,7 @@ export default function FlappyDonutPage() {
                 >
                   <Trophy className="w-4 h-4 text-green-400" />
                   <span className="text-sm font-bold text-green-400">${prizePool} PRIZE POOL</span>
-                  <UsdcCoin className="w-4 h-4" />
+                  <SprinklesCoin className="w-4 h-4" />
                 </button>
                 
                 <p className="text-zinc-500 text-[10px]">Free to play, gas cost only!</p>
@@ -1328,7 +1328,7 @@ export default function FlappyDonutPage() {
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-gray-400">Prize Pool:</span>
                   <span className="text-sm font-bold text-green-400">${prizePool}</span>
-                  <UsdcCoin className="w-4 h-4" />
+                  <SprinklesCoin className="w-4 h-4" />
                 </div>
                 <div className="flex items-center gap-1 text-xs text-gray-400">
                   <Clock className="w-3 h-3" />
@@ -1358,7 +1358,7 @@ export default function FlappyDonutPage() {
                         <span className="block truncate text-sm text-white">{entry.username}</span>
                         <div className="flex items-center gap-1">
                           <span className="text-xs text-green-400">+${prizeAmount}</span>
-                          <UsdcCoin className="w-3 h-3" />
+                          <SprinklesCoin className="w-3 h-3" />
                         </div>
                       </div>
                       <span className="font-bold text-sm text-white">{entry.score}</span>
