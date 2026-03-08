@@ -1587,118 +1587,104 @@ export default function StackGamePage() {
         .placement-indicator { animation: placement-pop 0.5s ease-out forwards; }
         * { -webkit-tap-highlight-color: transparent !important; }
       `}</style>
-      
-      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
-        <Header title="GLAZE STACK" user={context?.user} />
-        
-        <button
-          onClick={() => { fetchLeaderboard(); setShowLeaderboard(true); }}
-          className="relative w-full mb-3 px-4 py-3 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/50 rounded-xl transition-all active:scale-[0.98] hover:border-zinc-600 group"
-          style={{ minHeight: '70px' }}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col items-start">
-              <div className="flex items-center gap-2">
-                <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-4 h-4 rounded-full" />
-                <span className="text-[10px] text-zinc-400 font-medium">Weekly Prize Pool</span>
-              </div>
-              <span className="text-2xl font-bold text-pink-400">{prizeInfo.totalPrize.toLocaleString()} SPRINKLES</span>
-            </div>
-            <div className="flex flex-col items-end">
-              <div className="flex items-center gap-1 text-zinc-500 group-hover:text-zinc-300 transition-colors">
-                <span className="text-[10px]">View Leaderboard</span>
-                <ChevronRight className="w-3 h-3" />
-              </div>
-              <div className="text-[10px] text-zinc-500 flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                <span>Resets in <span className="font-bold text-zinc-300">{resetCountdown}</span></span>
-              </div>
-            </div>
-          </div>
-        </button>
-        
-        <div className="flex flex-col items-center">
-          <div className="relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
-            {gameState === "playing" && (
-              <div
-                className="absolute inset-0 z-10 cursor-pointer"
-                onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); handleTap(); }}
-                style={{ touchAction: "none", WebkitTapHighlightColor: "transparent" }}
-              />
-            )}
-            <canvas
-              ref={canvasRef}
-              width={SCALED_WIDTH}
-              height={SCALED_HEIGHT}
-              className="rounded-2xl border border-zinc-800 w-full h-full select-none"
-              style={{ touchAction: "none" }}
+
+      <div
+        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black overflow-hidden"
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
+        {/* Header with padding */}
+        <div className="flex-shrink-0 px-2 pt-2">
+          <Header title="GLAZE STACK" user={context?.user} />
+        </div>
+
+        {/* Game Canvas - Full width edge to edge, fills remaining space */}
+        <div className="flex-1 relative overflow-hidden">
+          {/* Gradient fade from header into game */}
+          <div
+            className="absolute top-0 left-0 right-0 h-8 z-10 pointer-events-none"
+            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
+          />
+
+          {gameState === "playing" && (
+            <div
+              className="absolute inset-0 z-10 cursor-pointer"
+              onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); handleTap(); }}
+              style={{ touchAction: "none", WebkitTapHighlightColor: "transparent" }}
             />
-            
-            {lastPlacement && gameState === "playing" && (
-              <div className="absolute top-24 left-0 right-0 flex justify-center pointer-events-none z-20">
-                <span className={`placement-indicator font-bold text-lg ${
-                  lastPlacement === "perfect" ? "text-yellow-400" : 
-                  lastPlacement === "good" ? "text-green-400" : "text-zinc-400"
-                }`}>
-                  {lastPlacement === "perfect" ? "PERFECT!" : lastPlacement === "good" ? "GOOD!" : "OK"}
-                </span>
-              </div>
-            )}
-            
-            {(gameState === "menu" || gameState === "gameover") && (
-              <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-2 pointer-events-none z-20">
-                <div className="pointer-events-auto flex flex-col items-center gap-2">
-                  {gameState === "gameover" && score > 0 && (
-                    <button onClick={handleShare} className="flex items-center gap-2 px-5 py-1.5 bg-purple-600 text-white text-sm font-bold rounded-full hover:bg-purple-500">
-                      <Share2 className="w-3 h-3" /><span>Share</span>
-                    </button>
-                  )}
-                  {errorMessage && <p className="text-red-400 text-xs">{errorMessage}</p>}
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 rounded-full border border-zinc-700">
-                    <span className="text-xs text-zinc-400">Gas only (~$0.001)</span>
-                  </div>
-                  <button
-                    onClick={handlePlay}
-                    disabled={isPlayPending}
-                    className="flex items-center gap-2 px-6 py-2 bg-green-500 text-black font-bold rounded-full hover:bg-green-400 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isPlayPending ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                        <span className="text-sm">Confirming...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4" />
-                        <span className="text-sm">{gameState === "gameover" ? "Play Again" : "Play"}</span>
-                      </>
-                    )}
+          )}
+          <canvas
+            ref={canvasRef}
+            width={SCALED_WIDTH}
+            height={SCALED_HEIGHT}
+            className="absolute inset-0 w-full h-full object-cover select-none"
+            style={{ touchAction: "none" }}
+          />
+
+          {lastPlacement && gameState === "playing" && (
+            <div className="absolute top-24 left-0 right-0 flex justify-center pointer-events-none z-20">
+              <span className={`placement-indicator font-bold text-lg ${
+                lastPlacement === "perfect" ? "text-yellow-400" :
+                lastPlacement === "good" ? "text-green-400" : "text-zinc-400"
+              }`}>
+                {lastPlacement === "perfect" ? "PERFECT!" : lastPlacement === "good" ? "GOOD!" : "OK"}
+              </span>
+            </div>
+          )}
+
+          {/* Overlaid Controls - centered */}
+          {(gameState === "menu" || gameState === "gameover") && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20">
+              <div className="pointer-events-auto flex flex-col items-center gap-3 mt-8">
+                {gameState === "gameover" && score > 0 && (
+                  <button onClick={handleShare} className="flex items-center gap-2 px-6 py-2 bg-white text-black text-sm font-bold rounded-xl hover:bg-zinc-200 active:scale-95 shadow-lg transition-all">
+                    <Share2 className="w-4 h-4" /><span>Share Score</span>
                   </button>
-                  <p className="text-zinc-500 text-[10px]">Games this week: {gamesPlayedThisWeek}</p>
+                )}
+
+                {errorMessage && <p className="text-red-400 text-xs bg-red-500/10 px-3 py-1 rounded-full">{errorMessage}</p>}
+
+                {/* Main Play Button - White */}
+                <button
+                  onClick={handlePlay}
+                  disabled={isPlayPending}
+                  className="flex items-center gap-3 px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-white/20 transition-all"
+                >
+                  {isPlayPending ? (
+                    <><div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-base">Confirming...</span></>
+                  ) : (
+                    <><Play className="w-5 h-5 fill-current" /><span className="text-base">{gameState === "gameover" ? "PLAY AGAIN" : "PLAY"}</span></>
+                  )}
+                </button>
+
+                {/* Prize Pool Button - below play button */}
+                <button
+                  onClick={() => { fetchLeaderboard(); setShowLeaderboard(true); }}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-600/30 to-pink-500/20 border border-pink-500/40 rounded-xl hover:border-pink-400/60 transition-all shadow-lg shadow-pink-500/10"
+                >
+                  <Trophy className="w-4 h-4 text-pink-400" />
+                  <span className="text-sm font-bold text-pink-400">{prizeInfo.totalPrize.toLocaleString()} SPRINKLES</span>
+                  <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-4 h-4 rounded-full" />
+                </button>
+
+                <p className="text-zinc-500 text-[10px]">Free to play, gas cost only!</p>
+
+                {/* Settings buttons */}
+                <div className="flex items-center gap-2 mt-2">
+                  <button onClick={() => setShowHelp(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/80 border border-zinc-700 rounded-full hover:border-zinc-500 transition-all">
+                    <HelpCircle className="w-3 h-3 text-zinc-400" />
+                  </button>
+                  <button onClick={() => setIsMuted(!isMuted)} className={`flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/80 border rounded-full hover:border-zinc-500 transition-all ${isMuted ? 'border-red-500/50' : 'border-zinc-700'}`}>
+                    {isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-400" />}
+                  </button>
                 </div>
               </div>
-            )}
-            
-            {gameState === "playing" && (
-              <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none z-20">
-                <p className="text-zinc-600 text-[10px]">Tap to place block</p>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {gameState === "playing" && <div className="absolute bottom-4 left-0 right-0 text-center pointer-events-none z-20"><p className="text-zinc-500 text-xs bg-black/50 inline-block px-3 py-1 rounded-full">Tap to place block</p></div>}
         </div>
-        
-        {(gameState === "menu" || gameState === "gameover") && (
-          <div className="py-3 flex items-center justify-center gap-2">
-            <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border border-zinc-700 rounded-full hover:border-zinc-500">
-              <HelpCircle className="w-3 h-3 text-zinc-400" />
-              <span className="text-xs">How to Play</span>
-            </button>
-            <button onClick={() => setIsMuted(!isMuted)} className={`flex items-center gap-2 px-4 py-1.5 bg-zinc-900 border rounded-full hover:border-zinc-500 ${isMuted ? 'border-red-500/50' : 'border-zinc-700'}`}>
-              {isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-400" />}
-              <span className="text-xs">{isMuted ? 'Muted' : 'Sound'}</span>
-            </button>
-          </div>
-        )}
+
+        <NavBar />
       </div>
       
       {/* Leaderboard Modal */}
@@ -1740,7 +1726,7 @@ export default function StackGamePage() {
                       )}
                       <div className="flex-1 min-w-0">
                         <span className="block truncate text-sm text-white">{entry.displayName || entry.username || `fid:${entry.fid}`}</span>
-                        {prize && <span className="text-xs text-green-400">+${prize.amount}</span>}
+                        {prize && <span className="text-xs text-pink-400">+{prize.amount} SPRINKLES</span>}
                       </div>
                       <span className="font-bold text-sm text-white">{entry.score}</span>
                     </div>
@@ -1807,8 +1793,6 @@ export default function StackGamePage() {
           </div>
         </div>
       )}
-      
-      <NavBar />
     </main>
   );
 }

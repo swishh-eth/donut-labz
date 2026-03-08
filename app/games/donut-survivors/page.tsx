@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { X, HelpCircle, Volume2, VolumeX, Trophy, ChevronRight, Clock, Music, Share2 } from "lucide-react";
+import { X, HelpCircle, Volume2, VolumeX, Trophy, ChevronRight, Clock, Music, Share2, Play } from "lucide-react";
 import { NavBar } from "@/components/nav-bar";
 import { Header } from "@/components/header";
 
@@ -1050,35 +1050,29 @@ export default function DonutSurvivorsPage() {
         .game-canvas { touch-action: none !important; }
         .scrollable-area { touch-action: pan-y !important; -webkit-overflow-scrolling: touch; }
         html, body { overscroll-behavior: none !important; overflow: hidden !important; position: fixed !important; width: 100% !important; height: 100% !important; }
-        @keyframes tilePopIn { 0% { opacity: 0; } 100% { opacity: 1; } }
-        .animate-pop { animation: tilePopIn 0.35s ease-out forwards; opacity: 0; }
-        .pop-delay-1 { animation-delay: 50ms; }
-        .pop-delay-2 { animation-delay: 130ms; }
-        .pop-delay-3 { animation-delay: 210ms; }
       `}</style>
-      
-      <div className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black px-2 overflow-y-auto hide-scrollbar" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}>
-        <Header title="SURVIVORS" user={context?.user} />
-        
-        <button onClick={() => setShowLeaderboard(true)} className="animate-pop pop-delay-1 relative w-full mb-3 px-4 py-3 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/50 rounded-xl transition-all active:scale-[0.98] hover:border-zinc-600 group" style={{ minHeight: '70px' }}>
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col items-start">
-              <div className="flex items-center gap-2"><img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-4 h-4 rounded-full" /><span className="text-[10px] text-zinc-400 font-medium">Weekly Prize Pool</span></div>
-              <span className="text-2xl font-bold text-pink-400">{prizeInfo.totalPrize.toLocaleString()} SPRINKLES</span>
-            </div>
-            <div className="flex flex-col items-end">
-              <div className="flex items-center gap-1 text-zinc-500 group-hover:text-zinc-300 transition-colors"><span className="text-[10px]">View Leaderboard</span><ChevronRight className="w-3 h-3" /></div>
-              <div className="text-[10px] text-zinc-500 flex items-center gap-1"><Clock className="w-3 h-3" /><span>Resets in <span className="font-bold text-zinc-300">{resetCountdown}</span></span></div>
-            </div>
-          </div>
-        </button>
-        
-        <div className="flex flex-col items-center">
-          <div className="animate-pop pop-delay-2 relative w-full" style={{ maxWidth: `${CANVAS_WIDTH}px`, aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}` }}>
-            <canvas ref={canvasRef} width={SCALED_WIDTH} height={SCALED_HEIGHT} className="game-canvas rounded-2xl border border-zinc-800 w-full h-full" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={e => e.preventDefault()} />
+
+      <div
+        className="relative flex h-full w-full max-w-[520px] flex-1 flex-col bg-black overflow-hidden"
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
+        {/* Header with padding */}
+        <div className="flex-shrink-0 px-2 pt-2">
+          <Header title="SURVIVORS" user={context?.user} />
+        </div>
+
+        {/* Game Canvas - Full width edge to edge, fills remaining space */}
+        <div className="flex-1 relative overflow-hidden">
+          {/* Gradient fade from header into game */}
+          <div
+            className="absolute top-0 left-0 right-0 h-8 z-10 pointer-events-none"
+            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)' }}
+          />
+
+          <canvas ref={canvasRef} width={SCALED_WIDTH} height={SCALED_HEIGHT} className="game-canvas absolute inset-0 w-full h-full object-cover" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={e => e.preventDefault()} />
             
             {gameState === "levelup" && (
-              <div className="absolute inset-0 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-30 rounded-2xl">
+              <div className="absolute inset-0 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-30">
                 <div className="text-[10px] text-yellow-400/60 uppercase tracking-widest mb-1">Level {playerLevel}</div>
                 <h2 className="text-xl font-bold text-white mb-3">{banMode ? 'Select to Ban' : 'Choose Upgrade'}</h2>
                 {isTranscendent && <div className="text-[10px] text-yellow-400 mb-2">★ Transcendent Mode Active ★</div>}
@@ -1106,24 +1100,52 @@ export default function DonutSurvivorsPage() {
               </div>
             )}
             
+            {/* Overlaid Controls - centered */}
             {(gameState === "menu" || gameState === "gameover") && (
-              <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-2 pointer-events-none z-20">
-                <div className="pointer-events-auto grid grid-cols-2 gap-2 w-[240px]">
-                  <button onClick={() => { setShowWeaponMenu(true); setShowGadgetInfo(false); }} className="px-4 py-2.5 bg-white text-black font-bold rounded-lg hover:bg-gray-200 active:scale-95 text-sm">WEAPONS</button>
-                  <button onClick={() => { setShowGadgetInfo(true); setShowWeaponMenu(false); }} className="px-4 py-2.5 bg-white text-black font-bold rounded-lg hover:bg-gray-200 active:scale-95 text-sm">GADGETS</button>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20">
+                <div className="pointer-events-auto flex flex-col items-center gap-3 mt-8">
+                  {gameState === "gameover" && <button onClick={handleShare} className="flex items-center gap-2 px-6 py-2 bg-white text-black text-sm font-bold rounded-xl hover:bg-zinc-200 active:scale-95 shadow-lg transition-all"><Share2 className="w-4 h-4" />Share Score</button>}
+
+                  {errorMessage && <p className="text-red-400 text-xs bg-red-500/10 px-3 py-1 rounded-full">{errorMessage}</p>}
+
+                  {/* Main Play Button - White */}
+                  <button onClick={handlePlay} disabled={playState === 'confirming' || playState === 'recording' || isPending || isConfirming} className="flex items-center gap-3 px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-white/20 transition-all">
+                    {(playState === 'confirming' || isPending || isConfirming || playState === 'recording') ? <><div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" /><span className="text-base">Confirming...</span></> : <><Play className="w-5 h-5 fill-current" /><span className="text-base">{gameState === "gameover" ? "PLAY AGAIN" : "PLAY"}</span></>}
+                  </button>
+
+                  {/* Prize Pool Button - below play button */}
+                  <button onClick={() => setShowLeaderboard(true)} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-600/30 to-pink-500/20 border border-pink-500/40 rounded-xl hover:border-pink-400/60 transition-all shadow-lg shadow-pink-500/10">
+                    <Trophy className="w-4 h-4 text-pink-400" />
+                    <span className="text-sm font-bold text-pink-400">{prizeInfo.totalPrize.toLocaleString()} SPRINKLES</span>
+                    <img src="/coins/sprinkles_logo.png" alt="SPRINKLES" className="w-4 h-4 rounded-full" />
+                  </button>
+
+                  <p className="text-zinc-500 text-[10px]">Free to play, gas cost only!</p>
+
+                  {/* Weapon/Gadget buttons */}
+                  <div className="grid grid-cols-2 gap-2 w-[200px]">
+                    <button onClick={() => { setShowWeaponMenu(true); setShowGadgetInfo(false); }} className="px-3 py-2 bg-zinc-900/80 border border-zinc-700 text-white font-bold rounded-lg hover:border-zinc-500 active:scale-95 text-xs">WEAPONS</button>
+                    <button onClick={() => { setShowGadgetInfo(true); setShowWeaponMenu(false); }} className="px-3 py-2 bg-zinc-900/80 border border-zinc-700 text-white font-bold rounded-lg hover:border-zinc-500 active:scale-95 text-xs">GADGETS</button>
+                  </div>
+
+                  {/* Settings buttons */}
+                  <div className="flex items-center gap-2 mt-1">
+                    <button onClick={() => setShowHelp(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/80 border border-zinc-700 rounded-full hover:border-zinc-500 transition-all">
+                      <HelpCircle className="w-3 h-3 text-zinc-400" />
+                    </button>
+                    <button onClick={() => setIsMuted(!isMuted)} className={`flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/80 border rounded-full hover:border-zinc-500 transition-all ${isMuted ? 'border-red-500/50' : 'border-zinc-700'}`}>
+                      {isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-400" />}
+                    </button>
+                    <button onClick={() => setIsMusicOn(!isMusicOn)} className={`flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/80 border rounded-full hover:border-zinc-500 transition-all ${isMusicOn ? 'border-pink-500/50' : 'border-zinc-700'}`}>
+                      <Music className={`w-3 h-3 ${isMusicOn ? 'text-pink-400' : 'text-zinc-400'}`} />
+                    </button>
+                  </div>
                 </div>
-                <button onClick={handlePlay} disabled={playState === 'confirming' || playState === 'recording' || isPending || isConfirming} className="pointer-events-auto px-8 py-2.5 bg-white text-black font-bold rounded-lg hover:bg-gray-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm">
-                  {(playState === 'confirming' || isPending || isConfirming) ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />...</span> : playState === 'recording' ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />...</span> : gameState === "gameover" ? "PLAY AGAIN" : "PLAY"}
-                </button>
-                <span className="text-[10px] text-zinc-500 pointer-events-auto">Gas Only (~$0.001)</span>
-                {errorMessage && <span className="text-[10px] text-red-400 pointer-events-auto">{errorMessage}</span>}
-                {gameState === "gameover" && <button onClick={handleShare} className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-400 active:scale-95 text-sm"><Share2 className="w-4 h-4" />Share Score</button>}
-                <div className="text-[10px] text-zinc-500">{gamesPlayedThisWeek} games this week</div>
               </div>
             )}
             
             {showWeaponMenu && (gameState === "menu" || gameState === "gameover") && (
-              <div className="absolute inset-0 bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-40 rounded-2xl">
+              <div className="absolute inset-0 bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-40">
                 <h2 className="text-xl font-bold text-white mb-4">Starting Weapon</h2>
                 <div className="grid grid-cols-4 gap-2.5 max-w-[290px]">
                   {STARTER_WEAPONS.map(t => { const c = WEAPON_CONFIG[t], req = WEAPON_UNLOCK[t], unlocked = gamesPlayed >= req, sel = selectedStarterWeapon === t; return (<button key={t} onClick={() => unlocked && setSelectedStarterWeapon(t)} disabled={!unlocked} className={`relative w-16 h-16 rounded-lg border-2 ${sel ? 'border-pink-500 bg-pink-500/15' : unlocked ? 'border-zinc-700/50 bg-zinc-900/80 hover:border-zinc-500' : 'border-zinc-800/50 bg-zinc-900/30'}`}><span className="text-2xl" style={{ color: unlocked ? c.color : '#444' }}>{c.icon}</span>{!unlocked && <div className="absolute inset-0 flex items-center justify-center bg-black/80 rounded-lg"><span className="text-[9px] text-zinc-500">{req}</span></div>}</button>); })}
@@ -1137,7 +1159,7 @@ export default function DonutSurvivorsPage() {
             )}
             
             {showGadgetInfo && (gameState === "menu" || gameState === "gameover") && (
-              <div className="absolute inset-0 bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-40 rounded-2xl">
+              <div className="absolute inset-0 bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-40">
                 <h2 className="text-xl font-bold text-white mb-4">Gadgets</h2>
                 <div className="grid grid-cols-2 gap-2 w-full max-w-[300px]">
                   {GADGET_ORDER.map(t => { const c = GADGET_CONFIG[t]; return (<div key={t} className="flex items-center gap-2.5 p-2.5 bg-zinc-900/80 border border-zinc-800/50 rounded-lg"><span className="text-xl" style={{ color: c.color }}>{c.icon}</span><div className="flex-1 min-w-0"><div className="text-xs font-medium text-white truncate">{c.name}</div><div className="text-[10px] text-zinc-500">{c.description}</div></div></div>); })}
@@ -1146,14 +1168,9 @@ export default function DonutSurvivorsPage() {
                 <button onClick={() => setShowGadgetInfo(false)} className="mt-4 px-8 py-2 bg-zinc-800 text-white text-sm rounded-lg border border-zinc-700">Got it</button>
               </div>
             )}
-          </div>
         </div>
-        
-        <div className="animate-pop pop-delay-3 mt-4 flex items-center justify-center gap-2">
-          <button onClick={() => setShowHelp(true)} className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900/80 border border-zinc-800 rounded-lg"><HelpCircle className="w-3 h-3 text-zinc-500" /><span className="text-[11px] text-zinc-400">Help</span></button>
-          <button onClick={() => setIsMuted(!isMuted)} className={`flex items-center gap-2 px-4 py-1.5 bg-zinc-900/80 border rounded-lg ${isMuted ? 'border-red-500/30' : 'border-zinc-800'}`}>{isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-zinc-500" />}<span className="text-[11px] text-zinc-400">{isMuted ? 'Muted' : 'Sound'}</span></button>
-          <button onClick={() => setIsMusicOn(!isMusicOn)} className={`flex items-center gap-2 px-4 py-1.5 bg-zinc-900/80 border rounded-lg ${isMusicOn ? 'border-pink-500/50' : 'border-zinc-800'}`}><Music className={`w-3 h-3 ${isMusicOn ? 'text-pink-400' : 'text-zinc-500'}`} /><span className="text-[11px] text-zinc-400">{isMusicOn ? 'Music' : 'Music'}</span></button>
-        </div>
+
+        <NavBar />
       </div>
 
       {showHelp && (
@@ -1239,7 +1256,7 @@ export default function DonutSurvivorsPage() {
                       {entry.pfpUrl ? <img src={entry.pfpUrl} alt="" className="w-8 h-8 rounded-full object-cover" /> : <div className="w-8 h-8 rounded-full bg-zinc-700" />}
                       <div className="flex-1 min-w-0">
                         <span className="block truncate text-sm text-white">{entry.displayName || entry.username || `fid:${entry.fid}`}</span>
-                        {prize && <span className="text-[10px] text-green-400">${prize.amount}</span>}
+                        {prize && <span className="text-[10px] text-pink-400">+{prize.amount} SPRINKLES</span>}
                       </div>
                       <span className="font-bold text-sm text-white">{entry.score}</span>
                     </div>
@@ -1253,8 +1270,6 @@ export default function DonutSurvivorsPage() {
           </div>
         </div>
       )}
-      
-      <NavBar />
     </main>
   );
 }
